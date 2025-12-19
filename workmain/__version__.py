@@ -1,7 +1,7 @@
 """
 WorkmAIn
-Version File v0.1.0
-20241220-0950
+CLI Interface v0.1.0
+20251219-1146
 """
 
 __version__ = "0.1.0"
