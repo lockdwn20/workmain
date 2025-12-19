@@ -38,3 +38,4 @@ mypy==1.7.1
 # Optional
 fastapi==0.108.0
 uvicorn==0.25.0
+cryptography==41.0.7
