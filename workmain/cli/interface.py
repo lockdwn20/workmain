@@ -1,9 +1,10 @@
 """
 WorkmAIn
-CLI Interface v0.1.0
-20251219-1146
+CLI Interface v0.2.0
+20251222
 
 Main CLI interface using Click framework
+Updated for Phase 2: Note and Meeting Management
 """
 
 import click
@@ -15,7 +16,11 @@ from datetime import date
 try:
     from workmain.__version__ import __version__
 except ImportError:
-    __version__ = "0.1.0"
+    __version__ = "0.2.0"
+
+# Import Phase 2 commands
+from workmain.cli.commands.note import note, notes
+from workmain.cli.commands.meetings import meetings, meeting
 
 console = Console()
 
@@ -40,12 +45,13 @@ def init():
     """Initialize WorkmAIn configuration and database."""
     console.print("[bold green]WorkmAIn Initialization[/bold green]")
     console.print("\nThis will set up your WorkmAIn environment.")
-    console.print("\n[yellow]Note: Full setup wizard coming in Phase 11[/yellow]")
+    console.print("\n[yellow]Note: Full setup wizard coming in Phase 12[/yellow]")
     console.print("\nDatabase is already initialized! ✓")
     console.print("\nNext steps:")
     console.print("  1. Add your API keys to .env file")
     console.print("  2. Try: workmain note add 'Test note' #ilo")
-    console.print("  3. Try: workmain status")
+    console.print("  3. Try: workmain notes today")
+    console.print("  4. Try: workmain status")
 
 
 @cli.command()
@@ -59,7 +65,8 @@ def status():
     
     table.add_row("Database", "✓ Connected")
     table.add_row("CLI", "✓ Active")
-    table.add_row("Notes", "⏳ Coming in Phase 2")
+    table.add_row("Notes", "✓ Phase 2 Complete")
+    table.add_row("Meetings", "✓ Phase 2 Complete")
     table.add_row("Time Tracking", "⏳ Coming in Phase 2")
     table.add_row("AI Integration", "⏳ Coming in Phase 4")
     
@@ -71,18 +78,21 @@ def status():
 def today():
     """Show today's summary."""
     console.print(f"\n[bold cyan]Today's Summary - {date.today().strftime('%A, %B %d, %Y')}[/bold cyan]")
-    console.print("\n[yellow]Notes:[/yellow] No notes yet")
-    console.print("[yellow]Time:[/yellow] No time entries yet")
-    console.print("\n[dim]Use 'workmain note add' to add your first note[/dim]")
+    console.print("\n[yellow]Quick Access:[/yellow]")
+    console.print("  • workmain notes today       - View today's notes")
+    console.print("  • workmain note add 'text'   - Add a new note")
+    console.print("  • workmain meetings list --today - Today's meetings")
+    console.print("\n[dim]Use 'workmain note add \"Your note\" #ilo' to add your first note[/dim]")
+
+
+# Phase 2: Note and Meeting Commands (Active)
+cli.add_command(note)
+cli.add_command(notes)
+cli.add_command(meetings)
+cli.add_command(meeting)
 
 
 # Placeholder command groups for future phases
-@cli.group()
-def note():
-    """Manage notes and meeting captures."""
-    pass
-
-
 @cli.group()
 def track():
     """Track time entries."""
@@ -126,17 +136,6 @@ def notifications():
 
 
 # Add placeholder subcommands to show structure
-@note.command("add")
-@click.argument("text")
-@click.option("--tags", "-t", help="Tags: #ilo #cr #ifo #both #cf #blk")
-def note_add(text, tags):
-    """Add a new note."""
-    console.print("[yellow]⏳ Note management coming in Phase 2[/yellow]")
-    console.print(f"\nYou tried to add: {text}")
-    if tags:
-        console.print(f"With tags: {tags}")
-
-
 @track.command("add")
 @click.argument("description")
 @click.argument("duration")
