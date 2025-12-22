@@ -1,0 +1,73 @@
+{
+    "version": "1.0",
+    "description": "WorkmAIn Tag System Configuration",
+    "last_updated": "2025-12-22",
+    "default_tag": "ilo",
+    "tag_mappings": {
+        "ilo": {
+            "full_name": "internal-only",
+            "display": "[internal-only]",
+            "description": "Internal reports only, excluded from client reports",
+            "report_inclusion": {
+                "daily_internal": true,
+                "weekly_client": false
+            }
+        },
+        "cr": {
+            "full_name": "client-report",
+            "display": "[client-report]",
+            "description": "Client reports only, excluded from internal reports",
+            "report_inclusion": {
+                "daily_internal": false,
+                "weekly_client": true
+            }
+        },
+        "ifo": {
+            "full_name": "info-only",
+            "display": "[info-only]",
+            "description": "Reference only, excluded from all reports",
+            "report_inclusion": {
+                "daily_internal": false,
+                "weekly_client": false
+            }
+        },
+        "both": {
+            "full_name": "both",
+            "display": "[both]",
+            "description": "Include in both internal and client reports",
+            "report_inclusion": {
+                "daily_internal": true,
+                "weekly_client": true
+            }
+        },
+        "cf": {
+            "full_name": "carry-forward",
+            "display": "[carry-forward]",
+            "description": "Tasks in progress, carry to next period",
+            "report_inclusion": {
+                "daily_internal": true,
+                "weekly_client": true
+            }
+        },
+        "blk": {
+            "full_name": "blocker",
+            "display": "[blocker]",
+            "description": "Blockers and issues requiring attention",
+            "report_inclusion": {
+                "daily_internal": true,
+                "weekly_client": false
+            }
+        }
+    },
+    "validation": {
+        "case_sensitive": false,
+        "allow_unknown_tags": false,
+        "normalize_order": true,
+        "remove_duplicates": true
+    },
+    "display_options": {
+        "show_brackets": true,
+        "separator": " ",
+        "sort_alphabetically": true
+    }
+}
