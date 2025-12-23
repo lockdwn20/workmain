@@ -1,15 +1,16 @@
 """
 WorkmAIn
-CLI Interface v0.3.0
+CLI Interface v0.4.0
 20251223
 
 Main CLI interface using Click framework
-Updated for Phase 2: Complete with Time Tracking
+Updated for Phase 2: Complete with All Commands
 
 Version History:
 - v0.1.0: Initial CLI structure
 - v0.2.0: Added note and meeting commands
 - v0.3.0: Added time tracking commands, completed Phase 2
+- v0.4.0: Added tasks carryover command, Phase 2 100% complete
 """
 
 import click
@@ -21,12 +22,13 @@ from datetime import date
 try:
     from workmain.__version__ import __version__
 except ImportError:
-    __version__ = "0.3.0"
+    __version__ = "0.4.0"
 
 # Import Phase 2 commands
 from workmain.cli.commands.note import note, notes
 from workmain.cli.commands.meetings import meetings, meeting
 from workmain.cli.commands.track import track, time
+from workmain.cli.commands.tasks import tasks
 
 console = Console()
 
@@ -74,11 +76,13 @@ def status():
     table.add_row("Notes", "✓ Phase 2 Complete")
     table.add_row("Meetings", "✓ Phase 2 Complete")
     table.add_row("Time Tracking", "✓ Phase 2 Complete")
+    table.add_row("Tasks", "✓ Phase 2 Complete")
     table.add_row("Templates", "⏳ Coming in Phase 3")
     table.add_row("AI Integration", "⏳ Coming in Phase 4")
     
     console.print(table)
-    console.print("\n[yellow]Tip:[/yellow] Use 'workmain --help' to see all available commands")
+    console.print("\n[bold green]✓ Phase 2 - 100% Complete![/bold green]")
+    console.print("[yellow]Tip:[/yellow] Use 'workmain --help' to see all available commands")
 
 
 @cli.command()
@@ -88,10 +92,11 @@ def today():
     console.print("\n[yellow]Quick Access:[/yellow]")
     console.print("  • workmain notes today       - View today's notes")
     console.print("  • workmain time today        - View today's time")
+    console.print("  • workmain tasks carryover   - View pending tasks")
     console.print("  • workmain note add 'text'   - Add a new note")
     console.print("  • workmain track add 'desc' 2h --time 14:30")
     console.print("  • workmain meetings list --today")
-    console.print("\n[dim]Phase 2 complete! All note and time tracking features available.[/dim]")
+    console.print("\n[dim]Phase 2 complete! All commands available.[/dim]")
 
 
 # Phase 2: Complete Command Groups (Active)
@@ -101,6 +106,7 @@ cli.add_command(meetings)
 cli.add_command(meeting)
 cli.add_command(track)
 cli.add_command(time)
+cli.add_command(tasks)
 
 
 # Placeholder command groups for future phases
