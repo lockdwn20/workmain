@@ -1,10 +1,15 @@
 """
 WorkmAIn
-CLI Interface v0.2.0
-20251222
+CLI Interface v0.3.0
+20251223
 
 Main CLI interface using Click framework
-Updated for Phase 2: Note and Meeting Management
+Updated for Phase 2: Complete with Time Tracking
+
+Version History:
+- v0.1.0: Initial CLI structure
+- v0.2.0: Added note and meeting commands
+- v0.3.0: Added time tracking commands, completed Phase 2
 """
 
 import click
@@ -16,11 +21,12 @@ from datetime import date
 try:
     from workmain.__version__ import __version__
 except ImportError:
-    __version__ = "0.2.0"
+    __version__ = "0.3.0"
 
 # Import Phase 2 commands
 from workmain.cli.commands.note import note, notes
 from workmain.cli.commands.meetings import meetings, meeting
+from workmain.cli.commands.track import track, time
 
 console = Console()
 
@@ -49,8 +55,8 @@ def init():
     console.print("\nDatabase is already initialized! ✓")
     console.print("\nNext steps:")
     console.print("  1. Add your API keys to .env file")
-    console.print("  2. Try: workmain note add 'Test note' #ilo")
-    console.print("  3. Try: workmain notes today")
+    console.print("  2. Try: workmain note add 'Test note' --tags ilo")
+    console.print("  3. Try: workmain track add 'Work' 2h --time 14:30")
     console.print("  4. Try: workmain status")
 
 
@@ -67,7 +73,8 @@ def status():
     table.add_row("CLI", "✓ Active")
     table.add_row("Notes", "✓ Phase 2 Complete")
     table.add_row("Meetings", "✓ Phase 2 Complete")
-    table.add_row("Time Tracking", "⏳ Coming in Phase 2")
+    table.add_row("Time Tracking", "✓ Phase 2 Complete")
+    table.add_row("Templates", "⏳ Coming in Phase 3")
     table.add_row("AI Integration", "⏳ Coming in Phase 4")
     
     console.print(table)
@@ -80,25 +87,23 @@ def today():
     console.print(f"\n[bold cyan]Today's Summary - {date.today().strftime('%A, %B %d, %Y')}[/bold cyan]")
     console.print("\n[yellow]Quick Access:[/yellow]")
     console.print("  • workmain notes today       - View today's notes")
+    console.print("  • workmain time today        - View today's time")
     console.print("  • workmain note add 'text'   - Add a new note")
-    console.print("  • workmain meetings list --today - Today's meetings")
-    console.print("\n[dim]Use 'workmain note add \"Your note\" #ilo' to add your first note[/dim]")
+    console.print("  • workmain track add 'desc' 2h --time 14:30")
+    console.print("  • workmain meetings list --today")
+    console.print("\n[dim]Phase 2 complete! All note and time tracking features available.[/dim]")
 
 
-# Phase 2: Note and Meeting Commands (Active)
+# Phase 2: Complete Command Groups (Active)
 cli.add_command(note)
 cli.add_command(notes)
 cli.add_command(meetings)
 cli.add_command(meeting)
+cli.add_command(track)
+cli.add_command(time)
 
 
 # Placeholder command groups for future phases
-@cli.group()
-def track():
-    """Track time entries."""
-    pass
-
-
 @cli.group()
 def report():
     """Generate and manage reports."""
@@ -136,20 +141,11 @@ def notifications():
 
 
 # Add placeholder subcommands to show structure
-@track.command("add")
-@click.argument("description")
-@click.argument("duration")
-@click.option("--time", "-t", help="Time in 24hr format (e.g., 14:30)")
-@click.option("--category", "-c", help="Category (e.g., development, meeting)")
-def track_add(description, duration, time, category):
-    """Track a time entry."""
-    console.print("[yellow]⏳ Time tracking coming in Phase 2[/yellow]")
-    console.print(f"\nYou tried to track: {description}")
-    console.print(f"Duration: {duration}")
-    if time:
-        console.print(f"Time: {time}")
-    if category:
-        console.print(f"Category: {category}")
+@report.command("daily")
+@click.option("--preview", is_flag=True, help="Preview without sending")
+def report_daily(preview):
+    """Generate daily report."""
+    console.print("[yellow]⏳ AI report generation coming in Phase 10[/yellow]")
 
 
 if __name__ == "__main__":
