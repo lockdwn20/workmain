@@ -1,10 +1,14 @@
 """
 WorkmAIn Template Loader
-Template Loader v1.0
+Template Loader v1.1
 20251224
 
 Loads and manages JSON template files for report generation.
 Provides caching and validation of template structure.
+
+Version History:
+- v1.0: Initial implementation
+- v1.1: Fixed timedelta import bug in build_variables() method
 """
 
 import json
@@ -289,8 +293,10 @@ class TemplateLoader:
         Returns:
             Dictionary of variable name → value mappings
         """
+        from datetime import timedelta
+        
         # Get week start (Monday)
-        week_start = report_date - datetime.timedelta(days=report_date.weekday())
+        week_start = report_date - timedelta(days=report_date.weekday())
         
         variables = {
             'user_full_name': user_full_name,

@@ -1,0 +1,144 @@
+{
+  "name": "Weekly Client Report",
+  "version": "1.1",
+  "template_type": "weekly_client",
+  "description": "Weekly status report for client delivery",
+  "recipient_type": "client",
+  "subject_line": "Weekly Status Report – {week_of}",
+  "greeting": "{recipients},",
+  "sections": [
+    {
+      "name": "what_working_on",
+      "title": "1. What are you working on?",
+      "required": true,
+      "data_sources": [
+        "notes",
+        "time_entries"
+      ],
+      "tag_filter": {
+        "include": [
+          "client-report",
+          "both"
+        ],
+        "exclude": [
+          "internal-only",
+          "info-only"
+        ]
+      },
+      "format": "numbered_list",
+      "ai_provider": "gemini",
+      "ai_instruction": "Summarize work completed and in progress this week in client-friendly language. Focus on business value and outcomes, not technical implementation details. Use sub-items (a., b., c.) for each major area of work. Avoid jargon. Be specific but concise. If minimal work this week, still provide meaningful summary."
+    },
+    {
+      "name": "completion_timeline",
+      "title": "2. When do you plan to complete these tasks?",
+      "required": true,
+      "data_sources": [
+        "notes"
+      ],
+      "tag_filter": {
+        "include": [
+          "carry-forward",
+          "client-report",
+          "both"
+        ],
+        "exclude": [
+          "internal-only",
+          "info-only"
+        ]
+      },
+      "format": "numbered_list",
+      "ai_provider": "gemini",
+      "ai_instruction": "Provide estimated completion timelines for ongoing work. Use sub-items (a., b., c.) for each task with its timeline. Be realistic and specific with dates when possible. If tasks are already complete, note that. Use business-friendly language. If no pending tasks, output: 'a. All current tasks completed.'"
+    },
+    {
+      "name": "risks_blockers",
+      "title": "3. Do you have any Risks or Blockers?",
+      "required": true,
+      "data_sources": [
+        "notes"
+      ],
+      "tag_filter": {
+        "include": [
+          "blocker",
+          "client-report",
+          "both"
+        ],
+        "exclude": [
+          "internal-only",
+          "info-only"
+        ]
+      },
+      "format": "numbered_list",
+      "ai_provider": "gemini",
+      "ai_instruction": "Identify any risks or blockers that are CLIENT-APPROPRIATE to share. Focus on items that may impact delivery or require client action. Present professionally with proposed solutions when possible. Use sub-items (a., b., c.). Avoid sharing internal-only issues. If no client-facing risks or blockers, output: 'a. None at this time.'"
+    },
+    {
+      "name": "unclear_requests",
+      "title": "4. Did you receive any requests you are unsure of?",
+      "required": true,
+      "data_sources": [
+        "notes"
+      ],
+      "tag_filter": {
+        "include": [
+          "client-report",
+          "both"
+        ],
+        "exclude": [
+          "internal-only",
+          "info-only"
+        ]
+      },
+      "format": "numbered_list",
+      "ai_provider": "gemini",
+      "ai_instruction": "Analyze notes for any requests, requirements, or expectations that need clarification from the client. This could include ambiguous requirements, conflicting guidance, or areas needing more detail. Use sub-items (a., b., c.) for each item needing clarification. Be diplomatic and professional. If everything is clear, output: 'a. All requests and requirements are clear.'"
+    },
+    {
+      "name": "artifacts_location",
+      "title": "5. Location of Artifacts",
+      "required": true,
+      "data_sources": [
+        "notes"
+      ],
+      "tag_filter": {
+        "include": [
+          "client-report",
+          "both"
+        ],
+        "exclude": [
+          "internal-only",
+          "info-only"
+        ]
+      },
+      "format": "numbered_list",
+      "ai_provider": "gemini",
+      "ai_instruction": "Identify locations of deliverables, documentation, or artifacts created this week. This could include repository links, shared documents, reports, or other outputs. Use sub-items (a., b., c.) for each artifact location. Be specific with paths or URLs when mentioned in notes. If no new artifacts this week, output: 'a. No new artifacts this week. Existing materials remain in previously shared locations.'"
+    }
+  ],
+  "output_format": "markdown",
+  "delivery": {
+    "method": "outlook_draft",
+    "to_from_config": "weekly",
+    "cc_from_config": "weekly",
+    "body_format": "html",
+    "signature": true,
+    "draft_mode": {
+      "thursday": {
+        "post_to_slack": true,
+        "require_approval": true,
+        "message_prefix": "📊 Weekly Update - Draft for Review"
+      },
+      "friday": {
+        "post_to_slack": false,
+        "email_only": true
+      }
+    }
+  },
+  "metadata": {
+    "ai_provider_default": "gemini",
+    "max_tokens": 3000,
+    "temperature": 0.6,
+    "based_on_user_examples": true
+  }
+}

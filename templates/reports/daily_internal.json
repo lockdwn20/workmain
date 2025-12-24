@@ -1,0 +1,115 @@
+{
+  "name": "Daily Internal Report",
+  "version": "1.0",
+  "template_type": "daily_internal",
+  "description": "Daily internal status report for management",
+  "recipient_type": "internal_management",
+  
+  "subject_line": "{day_name}, {date_long} – {user_full_name}",
+  
+  "sections": [
+    {
+      "name": "deliverables",
+      "title": "Deliverables",
+      "required": true,
+      "data_sources": ["notes", "time_entries"],
+      "tag_filter": {
+        "include": ["internal-only", "both"],
+        "exclude": ["client-report", "info-only"]
+      },
+      "format": "bullets",
+      "ai_provider": "claude",
+      "ai_instruction": "Generate concise bullet points summarizing deliverables and activities completed today. Focus on what was delivered, not just what was worked on. Each bullet should be outcome-focused. If no deliverables, output a single bullet: '- None at this time.'"
+    },
+    {
+      "name": "accomplishments",
+      "title": "Accomplishments",
+      "required": true,
+      "data_sources": ["notes"],
+      "tag_filter": {
+        "include": ["internal-only", "both"],
+        "exclude": ["client-report", "info-only", "carry-forward"]
+      },
+      "format": "bullets",
+      "ai_provider": "claude",
+      "ai_instruction": "Summarize completed work as concise bullet points. Focus on accomplishments and outcomes, not ongoing tasks. Emphasize what was finished today. If nothing completed, output a single bullet: '- None at this time.'"
+    },
+    {
+      "name": "in_progress",
+      "title": "In-Progress Items",
+      "required": false,
+      "data_sources": ["notes"],
+      "tag_filter": {
+        "include": ["carry-forward"]
+      },
+      "format": "bullets",
+      "ai_provider": "claude",
+      "ai_instruction": "List tasks currently in progress that will continue tomorrow or beyond. Be specific about status and what remains. If no in-progress items, output a single bullet: '- None at this time.'"
+    },
+    {
+      "name": "blockers",
+      "title": "Blockers",
+      "required": true,
+      "data_sources": ["notes"],
+      "tag_filter": {
+        "include": ["blocker"]
+      },
+      "format": "bullets",
+      "ai_provider": "claude",
+      "ai_instruction": "Identify current blockers that are preventing progress RIGHT NOW. Blockers are issues that must be resolved before work can continue. Be specific about what's blocked and what's needed to unblock. If no current blockers, output a single bullet: '- None at this time.'"
+    },
+    {
+      "name": "risks",
+      "title": "Risks",
+      "required": true,
+      "data_sources": ["notes"],
+      "tag_filter": {
+        "include": ["blocker"]
+      },
+      "format": "bullets",
+      "ai_provider": "claude",
+      "ai_instruction": "Analyze blocker notes to identify potential FUTURE risks. Risks are issues that could become problems if not addressed. Differentiate from current blockers - these are things that might cause issues later. Be concise and specific. If no risks identified, output a single bullet: '- None at this time.'"
+    },
+    {
+      "name": "need_help",
+      "title": "Need Help?",
+      "required": true,
+      "data_sources": ["notes"],
+      "tag_filter": {
+        "include": ["blocker"]
+      },
+      "format": "bullets",
+      "ai_provider": "claude",
+      "ai_instruction": "Identify items where assistance or guidance is needed from management or team members. This could include decisions needed, expertise required, or resources needed. Be specific about what help is needed. If no help needed, output a single bullet: '- None at this time.'"
+    },
+    {
+      "name": "tomorrows_plan",
+      "title": "Tomorrow's Plan",
+      "required": true,
+      "data_sources": ["notes"],
+      "tag_filter": {
+        "include": ["carry-forward"]
+      },
+      "format": "bullets",
+      "ai_provider": "claude",
+      "ai_instruction": "Generate a plan for tomorrow based on in-progress items and upcoming tasks. Be specific about what will be worked on. Prioritize the most important items. If no specific plan, output a single bullet: '- Continue current tasks.'"
+    }
+  ],
+  
+  "output_format": "markdown",
+  
+  "delivery": {
+    "method": "outlook_draft",
+    "to_from_config": "daily",
+    "cc": [],
+    "body_format": "html",
+    "signature": true
+  },
+  
+  "metadata": {
+    "ai_provider_default": "claude",
+    "max_tokens": 2000,
+    "temperature": 0.7,
+    "based_on_user_examples": true
+  }
+}
