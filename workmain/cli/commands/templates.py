@@ -1,6 +1,6 @@
 """
 WorkmAIn Template CLI Commands
-Template Commands v1.3
+Template Commands v1.4
 20251224
 
 CLI commands for template management.
@@ -10,6 +10,7 @@ Version History:
 - v1.1: Fixed date module shadowing bug in preview command
 - v1.2: Fixed preview command to pass template_name instead of template dict to renderer
 - v1.3: Fixed preview to handle single string return from renderer (not tuple)
+- v1.4: Fixed preview to extract and display clean output from renderer result
 """
 
 import click
@@ -282,8 +283,24 @@ def preview(template_name: str, date: str = None):
             # Initialize renderer
             renderer = TemplateRenderer(session)
             
-            # Render template (returns just string, not tuple)
-            output = renderer.render(template_name, report_date)
+            # Render template (returns dictionary as string)
+            result = renderer.render(template_name, report_date)
+            
+            # Parse result if it's a string representation of dict
+            if isinstance(result, str) and result.startswith('{'):
+                # Convert string repr to dict
+                import ast
+                result_dict = ast.literal_eval(result)
+                output = result_dict.get('output', result)
+                subject = result_dict.get('subject_line', '')
+            elif isinstance(result, dict):
+                # Already a dict
+                output = result.get('output', str(result))
+                subject = result.get('subject_line', '')
+            else:
+                # Just a string
+                output = result
+                subject = ''
             
             # Display preview
             console.print(f"\n{'='*70}")
@@ -293,15 +310,16 @@ def preview(template_name: str, date: str = None):
             # Show report details
             console.print(f"\n[bold]Report Date:[/bold] {report_date}")
             
-            # Show subject line if present
-            if 'subject_line' in template:
+            # Show subject line
+            if subject:
+                console.print(f"[bold]Subject:[/bold] {subject}")
+            elif 'subject_line' in template:
                 variables = loader.build_variables(report_date, template.get('template_type'))
                 subject = loader.substitute_variables(template['subject_line'], variables)
                 console.print(f"[bold]Subject:[/bold] {subject}")
             
             # Show output
             console.print(f"\n{'-'*70}\n")
-            console.print("[bold]OUTPUT:[/bold]\n")
             console.print(output)
             console.print(f"\n{'-'*70}\n")
             
