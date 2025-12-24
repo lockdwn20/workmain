@@ -1,0 +1,194 @@
+{
+  "name": "Ray Race Jr. Writing Style",
+  "version": "1.0",
+  "created_from": "Master Log examples analysis",
+  "last_updated": "2025-12-24",
+  
+  "general_style": {
+    "tone": "professional and direct",
+    "voice": "active",
+    "perspective": "first_person",
+    "tense": "past_tense_for_completed",
+    "formality": "business_professional",
+    "sentence_length": "concise",
+    "paragraph_preference": "bullets_over_prose"
+  },
+  
+  "core_principles": [
+    "Start with outcomes, not activities",
+    "Use active voice (I completed, I resolved, I implemented)",
+    "Be specific and quantify when possible",
+    "Focus on what was accomplished, not just worked on",
+    "Keep bullets concise (under 20 words when possible)",
+    "Show impact and value",
+    "Be honest about blockers and challenges",
+    "Use technical terms accurately but explain when needed"
+  ],
+  
+  "preferences": {
+    "sentence_structure": [
+      "Lead with the outcome or deliverable",
+      "Use action verbs (completed, implemented, resolved, identified)",
+      "Avoid passive voice",
+      "Keep sentences under 25 words",
+      "One idea per bullet point"
+    ],
+    "formatting": [
+      "Use bullet points for lists",
+      "Use numbered lists for sequential items or questions",
+      "Bold for emphasis on key deliverables",
+      "No excessive formatting or emojis"
+    ],
+    "language": [
+      "Direct and clear",
+      "Avoid corporate jargon and buzzwords",
+      "Technical accuracy over simplification",
+      "Client-friendly language for client reports",
+      "Internal reports can be more technical"
+    ]
+  },
+  
+  "avoid": [
+    "Passive voice (e.g., 'was completed by me')",
+    "Vague descriptions (e.g., 'worked on stuff')",
+    "Corporate buzzwords (e.g., 'synergize', 'leverage', 'circle back')",
+    "Starting with 'I worked on' (focus on outcome instead)",
+    "Apologetic language (e.g., 'just', 'only', 'tried to')",
+    "Unnecessary filler words",
+    "Long run-on sentences",
+    "Overly casual language or slang"
+  ],
+  
+  "section_specific_styles": {
+    "deliverables": {
+      "focus": "What was delivered, not what was worked on",
+      "format": "Bullets starting with completed items",
+      "example_pattern": "Completed [deliverable], enabling [outcome]",
+      "length": "1-2 lines per bullet"
+    },
+    "accomplishments": {
+      "focus": "Completed work with measurable outcomes",
+      "format": "Action verb + what + result/impact",
+      "example_pattern": "Implemented [feature], resulting in [benefit]",
+      "length": "1-2 lines per bullet"
+    },
+    "in_progress": {
+      "focus": "Current status and what remains",
+      "format": "Task description + current status + next steps",
+      "example_pattern": "Continuing [task] - [current status], next: [action]",
+      "length": "1-2 lines per bullet"
+    },
+    "blockers": {
+      "focus": "What is blocked and what's needed to unblock",
+      "format": "Issue + impact + resolution needed",
+      "example_pattern": "Blocked on [issue] - need [resolution]",
+      "tone": "Direct and factual, not apologetic"
+    },
+    "risks": {
+      "focus": "Potential future problems",
+      "format": "Risk description + potential impact",
+      "tone": "Proactive and solution-oriented"
+    },
+    "client_communication": {
+      "focus": "Business value and outcomes",
+      "language": "Professional, non-technical",
+      "format": "Benefit-focused, clear timelines",
+      "avoid": "Technical jargon, internal issues"
+    }
+  },
+  
+  "good_examples": [
+    {
+      "context": "Deliverable",
+      "text": "Completed SSO integration with Azure AD, enabling secure authentication for 500+ users",
+      "why_good": "Starts with completion, shows scope (500+ users), clear outcome"
+    },
+    {
+      "context": "Accomplishment",
+      "text": "Resolved critical authentication bug affecting login flow, restoring service for all users",
+      "why_good": "Action verb, specific issue, clear impact"
+    },
+    {
+      "context": "In Progress",
+      "text": "Continuing security audit - completed network layer, next: application layer review",
+      "why_good": "Shows progress, current status, next steps"
+    },
+    {
+      "context": "Blocker",
+      "text": "Blocked on client API credentials - deployment scheduled for Monday depends on receiving keys",
+      "why_good": "Clear blocker, impact stated, urgency implied"
+    },
+    {
+      "context": "Client Communication",
+      "text": "Implemented multi-factor authentication, reducing unauthorized access risk by 95%",
+      "why_good": "Business value, quantified benefit, non-technical language"
+    }
+  ],
+  
+  "bad_examples": [
+    {
+      "context": "Vague",
+      "text": "Worked on the authentication system today",
+      "why_bad": "No outcome, no specifics, no value shown"
+    },
+    {
+      "context": "Passive voice",
+      "text": "A fix was implemented for the payment bug",
+      "why_bad": "Passive voice, no ownership, no context"
+    },
+    {
+      "context": "Activity not outcome",
+      "text": "Had three meetings about security",
+      "why_bad": "Just activity, no outcome or decisions"
+    },
+    {
+      "context": "Too technical for client",
+      "text": "Refactored OAuth2 PKCE flow to support refresh token rotation",
+      "why_bad": "Technical jargon without business context for client"
+    },
+    {
+      "context": "Apologetic",
+      "text": "Just managed to get the login working, tried my best",
+      "why_bad": "Apologetic, diminishes accomplishment"
+    }
+  ],
+  
+  "ai_prompt_guidance": {
+    "always_include": [
+      "Use active voice and action verbs",
+      "Start with outcomes, not activities",
+      "Be specific and concise",
+      "Quantify when possible",
+      "Focus on completed work and deliverables"
+    ],
+    "daily_internal_specific": [
+      "Can use technical terms - internal audience",
+      "Be direct about challenges and blockers",
+      "Show progress on ongoing work",
+      "Honest assessment of status"
+    ],
+    "weekly_client_specific": [
+      "Use business-friendly language",
+      "Focus on value and outcomes",
+      "Avoid internal jargon",
+      "Professional and polished",
+      "Solution-oriented for issues"
+    ],
+    "formatting_instructions": [
+      "Each bullet should be one concise line (under 20 words preferred)",
+      "Use sub-items (a., b., c.) for weekly client reports",
+      "No bold, italics, or excessive formatting",
+      "Simple, clear markdown"
+    ]
+  },
+  
+  "output_when_no_data": {
+    "default": "None at this time.",
+    "alternatives": [
+      "All current tasks completed.",
+      "No outstanding items.",
+      "Everything clear at this time."
+    ],
+    "guidance": "Use simple, direct statements. Don't apologize for having no items."
+  }
+}
