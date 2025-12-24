@@ -1,16 +1,17 @@
 """
 WorkmAIn
-CLI Interface v0.4.0
-20251223
+CLI Interface v0.5.0
+20251224
 
 Main CLI interface using Click framework
-Updated for Phase 2: Complete with All Commands
+Updated for Phase 3: Template Management
 
 Version History:
-- v0.1.0: Initial CLI structure
-- v0.2.0: Added note and meeting commands
-- v0.3.0: Added time tracking commands, completed Phase 2
-- v0.4.0: Added tasks carryover command, Phase 2 100% complete
+- v0.1.0: Initial CLI with basic structure
+- v0.2.0: Added Phase 2 note and meeting commands
+- v0.3.0: Added time tracking commands
+- v0.4.0: Added task management commands
+- v0.5.0: Added template management commands (Phase 3)
 """
 
 import click
@@ -22,13 +23,16 @@ from datetime import date
 try:
     from workmain.__version__ import __version__
 except ImportError:
-    __version__ = "0.4.0"
+    __version__ = "0.5.0"
 
 # Import Phase 2 commands
 from workmain.cli.commands.note import note, notes
 from workmain.cli.commands.meetings import meetings, meeting
 from workmain.cli.commands.track import track, time
 from workmain.cli.commands.tasks import tasks
+
+# Import Phase 3 commands
+from workmain.cli.commands.templates import templates
 
 console = Console()
 
@@ -58,7 +62,7 @@ def init():
     console.print("\nNext steps:")
     console.print("  1. Add your API keys to .env file")
     console.print("  2. Try: workmain note add 'Test note' --tags ilo")
-    console.print("  3. Try: workmain track add 'Work' 2h --time 14:30")
+    console.print("  3. Try: workmain notes today")
     console.print("  4. Try: workmain status")
 
 
@@ -77,12 +81,11 @@ def status():
     table.add_row("Meetings", "✓ Phase 2 Complete")
     table.add_row("Time Tracking", "✓ Phase 2 Complete")
     table.add_row("Tasks", "✓ Phase 2 Complete")
-    table.add_row("Templates", "⏳ Coming in Phase 3")
+    table.add_row("Templates", "✓ Phase 3 (75% Complete)")
     table.add_row("AI Integration", "⏳ Coming in Phase 4")
     
     console.print(table)
-    console.print("\n[bold green]✓ Phase 2 - 100% Complete![/bold green]")
-    console.print("[yellow]Tip:[/yellow] Use 'workmain --help' to see all available commands")
+    console.print("\n[yellow]Tip:[/yellow] Use 'workmain --help' to see all available commands")
 
 
 @cli.command()
@@ -90,23 +93,29 @@ def today():
     """Show today's summary."""
     console.print(f"\n[bold cyan]Today's Summary - {date.today().strftime('%A, %B %d, %Y')}[/bold cyan]")
     console.print("\n[yellow]Quick Access:[/yellow]")
-    console.print("  • workmain notes today       - View today's notes")
-    console.print("  • workmain time today        - View today's time")
-    console.print("  • workmain tasks carryover   - View pending tasks")
-    console.print("  • workmain note add 'text'   - Add a new note")
-    console.print("  • workmain track add 'desc' 2h --time 14:30")
-    console.print("  • workmain meetings list --today")
-    console.print("\n[dim]Phase 2 complete! All commands available.[/dim]")
+    console.print("  • workmain notes today           - View today's notes")
+    console.print("  • workmain note add 'text'       - Add a new note")
+    console.print("  • workmain track add 'desc' 2h   - Track time")
+    console.print("  • workmain tasks carryover       - See carry-forward tasks")
+    console.print("  • workmain templates list        - View report templates")
+    console.print("\n[dim]Use 'workmain --help' for all commands[/dim]")
 
 
-# Phase 2: Complete Command Groups (Active)
+# Phase 2: Note and Meeting Commands
 cli.add_command(note)
 cli.add_command(notes)
 cli.add_command(meetings)
 cli.add_command(meeting)
+
+# Phase 2: Time Tracking Commands
 cli.add_command(track)
 cli.add_command(time)
+
+# Phase 2: Task Management Commands
 cli.add_command(tasks)
+
+# Phase 3: Template Management Commands
+cli.add_command(templates)
 
 
 # Placeholder command groups for future phases
@@ -149,9 +158,20 @@ def notifications():
 # Add placeholder subcommands to show structure
 @report.command("daily")
 @click.option("--preview", is_flag=True, help="Preview without sending")
-def report_daily(preview):
-    """Generate daily report."""
-    console.print("[yellow]⏳ AI report generation coming in Phase 10[/yellow]")
+@click.option("--send", is_flag=True, help="Generate and send")
+def report_daily(preview, send):
+    """Generate daily internal report."""
+    console.print("[yellow]⏳ AI report generation coming in Phase 4[/yellow]")
+    console.print(f"\nFor now, use: [cyan]workmain templates preview daily_internal[/cyan]")
+
+
+@report.command("weekly")
+@click.option("--preview", is_flag=True, help="Preview without sending")
+@click.option("--send", is_flag=True, help="Generate and send")
+def report_weekly(preview, send):
+    """Generate weekly client report."""
+    console.print("[yellow]⏳ AI report generation coming in Phase 4[/yellow]")
+    console.print(f"\nFor now, use: [cyan]workmain templates preview weekly_client[/cyan]")
 
 
 if __name__ == "__main__":
