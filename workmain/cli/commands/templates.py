@@ -1,6 +1,6 @@
 """
 WorkmAIn Template CLI Commands
-Template Commands v1.2
+Template Commands v1.3
 20251224
 
 CLI commands for template management.
@@ -9,6 +9,7 @@ Version History:
 - v1.0: Initial implementation with 4 commands
 - v1.1: Fixed date module shadowing bug in preview command
 - v1.2: Fixed preview command to pass template_name instead of template dict to renderer
+- v1.3: Fixed preview to handle single string return from renderer (not tuple)
 """
 
 import click
@@ -281,49 +282,30 @@ def preview(template_name: str, date: str = None):
             # Initialize renderer
             renderer = TemplateRenderer(session)
             
-            # Render template (pass template_name, not template dict)
-            output, metadata = renderer.render(template_name, report_date)
+            # Render template (returns just string, not tuple)
+            output = renderer.render(template_name, report_date)
             
-            # Display
+            # Display preview
             console.print(f"\n{'='*70}")
             console.print(f"[bold cyan]TEMPLATE PREVIEW: {template.get('name', template_name)}[/bold cyan]")
             console.print('='*70)
             
-            # Show metadata
+            # Show report details
             console.print(f"\n[bold]Report Date:[/bold] {report_date}")
             
-            if template.get('template_type') == 'weekly_client':
-                console.print(f"[bold]Date Range:[/bold] {metadata.get('start_date')} to {metadata.get('end_date')}")
-            
+            # Show subject line if present
             if 'subject_line' in template:
-                # Build variables
                 variables = loader.build_variables(report_date, template.get('template_type'))
                 subject = loader.substitute_variables(template['subject_line'], variables)
                 console.print(f"[bold]Subject:[/bold] {subject}")
             
-            console.print("\n" + "-"*70 + "\n")
-            
             # Show output
+            console.print(f"\n{'-'*70}\n")
             console.print("[bold]OUTPUT:[/bold]\n")
             console.print(output)
+            console.print(f"\n{'-'*70}\n")
             
-            console.print("\n" + "-"*70 + "\n")
-            
-            # Show data summary
-            console.print("[bold]DATA SUMMARY:[/bold]\n")
-            
-            for section_name, section_data in metadata.get('section_data', {}).items():
-                console.print(f"  [cyan]{section_name}:[/cyan]")
-                
-                summary = section_data.get('summary', {})
-                console.print(f"    Notes: {summary.get('note_count', 0)}")
-                console.print(f"    Time entries: {summary.get('time_entry_count', 0)}")
-                console.print(f"    Total hours: {summary.get('total_hours', 0.0):.2f}h")
-                console.print()
-            
-            console.print('='*70)
-            console.print("\n[dim]Note: This preview shows raw data formatting.[/dim]")
-            console.print("[dim]      AI generation will be added in Phase 4.[/dim]\n")
+            console.print("\n[dim]Note: This is a preview with placeholder data. AI generation coming in Phase 4.[/dim]")
             
         finally:
             session.close()
