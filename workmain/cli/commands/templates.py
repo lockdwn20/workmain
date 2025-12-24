@@ -1,9 +1,14 @@
 """
 WorkmAIn Template CLI Commands
-Template Commands v1.0
+Template Commands v1.2
 20251224
 
 CLI commands for template management.
+
+Version History:
+- v1.0: Initial implementation with 4 commands
+- v1.1: Fixed date module shadowing bug in preview command
+- v1.2: Fixed preview command to pass template_name instead of template dict to renderer
 """
 
 import click
@@ -250,7 +255,7 @@ def preview(template_name: str, date: str = None):
     """
     try:
         # Parse date
-        from datetime import datetime
+        from datetime import datetime, date as date_module
         if date:
             try:
                 report_date = datetime.strptime(date, '%Y-%m-%d').date()
@@ -258,9 +263,9 @@ def preview(template_name: str, date: str = None):
                 console.print(f"[red]✗ Invalid date format. Use YYYY-MM-DD[/red]")
                 return
         else:
-            report_date = date.today()
+            report_date = date_module.today()
         
-        # Load template
+        # Load template to check it exists
         loader = get_template_loader()
         template = loader.load(template_name)
         
@@ -276,8 +281,8 @@ def preview(template_name: str, date: str = None):
             # Initialize renderer
             renderer = TemplateRenderer(session)
             
-            # Render template
-            output, metadata = renderer.render(template, report_date)
+            # Render template (pass template_name, not template dict)
+            output, metadata = renderer.render(template_name, report_date)
             
             # Display
             console.print(f"\n{'='*70}")
