@@ -6,22 +6,22 @@ Template Commands v2.0
 CLI commands for template management with interactive creation.
 
 Version History:
-- v1.0: Initial implementation (list, show, validate)
+- v1.0: Initial implementation with list, show, validate, preview
 - v1.1: Fixed date module shadowing
 - v1.2: Fixed renderer argument type
 - v1.3: Fixed return value unpacking
 - v1.4: Fixed output formatting
-- v2.0: Added create and add-section commands for template extensibility
+- v2.0: Added create and add-section commands for interactive template creation
 """
 
 import click
 import json
 from pathlib import Path
 from datetime import datetime as dt
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
 
-from workmain.templates_engine.loader import TemplateLoader, get_loader
-from workmain.templates_engine.validator import TemplateValidator, get_validator
+from workmain.templates_engine.loader import get_template_loader
+from workmain.templates_engine.validator import get_template_validator
 from workmain.templates_engine.renderer import TemplateRenderer
 from workmain.templates_engine.field_manager import FieldManager
 
@@ -40,7 +40,7 @@ def list():
     Example:
         workmain templates list
     """
-    loader = get_loader()
+    loader = get_template_loader()
     
     try:
         template_list = loader.list_templates()
@@ -49,23 +49,15 @@ def list():
             click.echo("No templates found.")
             return
         
-        click.echo(f"\nAvailable Templates ({len(template_list)}):\n")
+        click.echo(f"\nAvailable templates ({len(template_list)}):\n")
         click.echo("=" * 60)
         
-        for template_name in sorted(template_list):
-            template = loader.load_template(template_name)
-            
-            # Template info
-            description = template.get("description", "No description")
-            version = template.get("version", "unknown")
-            section_count = len(template.get("sections", []))
-            
-            click.echo(f"\n{template_name}")
-            click.echo(f"  Description: {description}")
-            click.echo(f"  Version: {version}")
-            click.echo(f"  Sections: {section_count}")
-        
-        click.echo("\n" + "=" * 60)
+        for template_info in template_list:
+            click.echo(f"\nName: {template_info['name']}")
+            click.echo(f"  File: {template_info['filename']}")
+            click.echo(f"  Type: {template_info.get('recipient_type', 'N/A')}")
+            click.echo(f"  Sections: {template_info.get('section_count', 0)}")
+            click.echo("-" * 60)
         
     except Exception as e:
         click.echo(f"Error listing templates: {e}", err=True)
@@ -75,166 +67,177 @@ def list():
 @click.argument('template_name')
 def show(template_name: str):
     """
-    Show details of a specific template.
+    Show detailed template information.
     
     Example:
         workmain templates show daily_internal
     """
-    loader = get_loader()
+    loader = get_template_loader()
     
     try:
         template = loader.load_template(template_name)
         
-        # Template metadata
-        click.echo(f"\nTemplate: {template_name}")
+        if not template:
+            click.echo(f"Template '{template_name}' not found.", err=True)
+            return
+        
+        click.echo(f"\nTemplate: {template['name']}")
         click.echo("=" * 60)
-        click.echo(f"Name: {template.get('name', 'Unknown')}")
-        click.echo(f"Description: {template.get('description', 'No description')}")
-        click.echo(f"Version: {template.get('version', 'unknown')}")
+        click.echo(f"Description: {template.get('description', 'N/A')}")
+        click.echo(f"Version: {template.get('version', 'N/A')}")
+        click.echo(f"Recipient: {template.get('recipient_type', 'N/A')}")
+        click.echo(f"Output Format: {template.get('output_format', 'N/A')}")
         
-        if "recipient_type" in template:
-            click.echo(f"Recipient Type: {template['recipient_type']}")
-        
-        if "output_format" in template:
-            click.echo(f"Output Format: {template['output_format']}")
-        
-        # Sections
-        sections = template.get("sections", [])
-        click.echo(f"\nSections ({len(sections)}):")
-        click.echo("-" * 60)
-        
-        for i, section in enumerate(sections, 1):
-            click.echo(f"\n{i}. {section.get('title', 'Unnamed Section')}")
-            click.echo(f"   Name: {section.get('name', 'unnamed')}")
-            click.echo(f"   Required: {'Yes' if section.get('required', False) else 'No'}")
+        if 'sections' in template:
+            click.echo(f"\nSections ({len(template['sections'])}):")
+            click.echo("-" * 60)
             
-            if "format" in section:
-                click.echo(f"   Format: {section['format']}")
-            
-            if "data_sources" in section:
-                click.echo(f"   Data Sources: {', '.join(section['data_sources'])}")
-            elif "data_source" in section:
-                click.echo(f"   Data Source: {section['data_source']}")
-            
-            if "ai_provider" in section:
-                click.echo(f"   AI Provider: {section['ai_provider']}")
+            for i, section in enumerate(template['sections'], 1):
+                click.echo(f"\n{i}. {section.get('title', 'Untitled')}")
+                click.echo(f"   Name: {section.get('name', 'N/A')}")
+                click.echo(f"   Required: {section.get('required', False)}")
+                
+                if 'data_sources' in section:
+                    click.echo(f"   Data Sources: {', '.join(section['data_sources'])}")
+                elif 'data_source' in section:
+                    click.echo(f"   Data Source: {section['data_source']}")
+                
+                if 'include_tags' in section:
+                    click.echo(f"   Include Tags: {', '.join(section['include_tags'])}")
+                
+                if 'exclude_tags' in section:
+                    click.echo(f"   Exclude Tags: {', '.join(section['exclude_tags'])}")
+                
+                if 'format' in section:
+                    click.echo(f"   Format: {section['format']}")
+                
+                if 'ai_provider' in section:
+                    click.echo(f"   AI Provider: {section['ai_provider']}")
         
-        click.echo()
+        click.echo("\n" + "=" * 60)
         
-    except FileNotFoundError:
-        click.echo(f"Template '{template_name}' not found.", err=True)
     except Exception as e:
-        click.echo(f"Error loading template: {e}", err=True)
+        click.echo(f"Error showing template: {e}", err=True)
 
 
 @templates.command()
 @click.argument('template_name', required=False)
 def validate(template_name: Optional[str]):
     """
-    Validate template(s) against schema and field definitions.
+    Validate template(s) against schema.
     
     Examples:
         workmain templates validate              # Validate all
-        workmain templates validate daily_internal  # Validate one
+        workmain templates validate daily_internal
     """
-    loader = get_loader()
-    validator = get_validator()
+    loader = get_template_loader()
+    validator = get_template_validator()
     
     try:
         if template_name:
-            # Validate single template
+            # Validate specific template
             template = loader.load_template(template_name)
+            if not template:
+                click.echo(f"Template '{template_name}' not found.", err=True)
+                return
+            
             errors = validator.validate_template(template)
             
             if errors:
-                click.echo(f"\nValidation errors for '{template_name}':")
+                click.echo(f"\nValidation errors in '{template_name}':")
                 for error in errors:
-                    click.echo(f"  ✗ {error}")
-                click.echo()
+                    click.echo(f"  - {error}")
+                click.echo(f"\nTotal errors: {len(errors)}")
             else:
-                click.echo(f"✓ Template '{template_name}' is valid")
-        
+                click.echo(f"Template '{template_name}' is valid.")
         else:
             # Validate all templates
             template_list = loader.list_templates()
             
             if not template_list:
-                click.echo("No templates found to validate.")
+                click.echo("No templates found.")
                 return
             
-            all_valid = True
-            results = []
+            click.echo(f"\nValidating {len(template_list)} template(s)...\n")
             
-            for name in sorted(template_list):
-                template = loader.load_template(name)
+            all_valid = True
+            for template_info in template_list:
+                template = loader.load_template(template_info['filename'])
                 errors = validator.validate_template(template)
                 
                 if errors:
                     all_valid = False
-                    results.append((name, errors))
-                else:
-                    results.append((name, None))
-            
-            # Display results
-            click.echo(f"\nValidation Results ({len(template_list)} templates):\n")
-            click.echo("=" * 60)
-            
-            for name, errors in results:
-                if errors:
-                    click.echo(f"\n✗ {name}: {len(errors)} error(s)")
+                    click.echo(f"INVALID: {template_info['name']}")
                     for error in errors:
-                        click.echo(f"    • {error}")
+                        click.echo(f"  - {error}")
+                    click.echo()
                 else:
-                    click.echo(f"✓ {name}: Valid")
-            
-            click.echo("\n" + "=" * 60)
+                    click.echo(f"VALID: {template_info['name']}")
             
             if all_valid:
-                click.echo("✓ All templates are valid")
+                click.echo(f"\nAll templates are valid.")
             else:
-                click.echo(f"✗ {sum(1 for _, e in results if e)} template(s) have errors")
+                click.echo(f"\nSome templates have errors.")
     
     except Exception as e:
-        click.echo(f"Error during validation: {e}", err=True)
+        click.echo(f"Error validating template: {e}", err=True)
 
 
 @templates.command()
 @click.argument('template_name')
-def preview(template_name: str):
+@click.option('--date', '-d', help='Date for report (YYYY-MM-DD)')
+def preview(template_name: str, date: Optional[str]):
     """
-    Preview template output (without data).
+    Preview rendered template output.
     
-    Example:
+    Examples:
         workmain templates preview daily_internal
+        workmain templates preview weekly_client --date 2025-12-20
     """
-    loader = get_loader()
-    renderer = TemplateRenderer()
+    loader = get_template_loader()
     
     try:
         template = loader.load_template(template_name)
+        if not template:
+            click.echo(f"Template '{template_name}' not found.", err=True)
+            return
         
-        # Render with empty data
-        output = renderer.render_template(template, {})
+        # Use provided date or today
+        if date:
+            try:
+                report_date = dt.strptime(date, '%Y-%m-%d').date()
+            except ValueError:
+                click.echo(f"Invalid date format. Use YYYY-MM-DD", err=True)
+                return
+        else:
+            report_date = dt.now().date()
         
-        # Display
-        click.echo(f"\nPreview: {template.get('name', template_name)}")
+        # Create field manager for data retrieval
+        field_manager = FieldManager()
+        
+        # Create renderer
+        renderer = TemplateRenderer(field_manager)
+        
+        # Render template
+        output = renderer.render(template, report_date)
+        
+        # Display preview
+        click.echo(f"\nTemplate Preview: {template['name']}")
+        click.echo(f"Date: {report_date}")
         click.echo("=" * 60)
         click.echo(output)
         click.echo("=" * 60)
-    
-    except FileNotFoundError:
-        click.echo(f"Template '{template_name}' not found.", err=True)
+        
     except Exception as e:
-        click.echo(f"Error rendering template: {e}", err=True)
+        click.echo(f"Error previewing template: {e}", err=True)
 
 
 @templates.command()
-@click.argument('template_name')
-@click.option('--type', '-t', 'template_type',
+@click.argument('name')
+@click.option('--type', '-t', 'template_type', 
               type=click.Choice(['daily_internal', 'weekly_client', 'custom'], case_sensitive=False),
-              default='custom',
-              help='Template type (determines default settings)')
-def create(template_name: str, template_type: str):
+              help='Template type')
+def create(name: str, template_type: Optional[str]):
     """
     Create a new template interactively.
     
@@ -242,108 +245,94 @@ def create(template_name: str, template_type: str):
         workmain templates create "Monthly Summary"
         workmain templates create "Sprint Report" --type custom
     """
-    loader = get_loader()
-    validator = get_validator()
+    validator = get_template_validator()
     
-    click.echo(f"\nCreating template: {template_name}")
-    click.echo("=" * 60)
-    
-    # Check if template already exists
-    existing_templates = loader.list_templates()
-    template_filename = template_name.lower().replace(" ", "_")
-    
-    if template_filename in existing_templates:
-        click.echo(f"✗ Template '{template_filename}' already exists.")
-        if not click.confirm("Overwrite?", default=False):
-            click.echo("Cancelled.")
-            return
-    
-    # Interactive prompts
-    click.echo("\nTemplate Configuration:")
-    
-    # Description
-    description = click.prompt("Description", default=f"{template_name} report")
-    
-    # Recipient type
-    recipient_types = validator.get_recipient_types()
-    click.echo(f"\nAvailable recipient types: {', '.join(recipient_types)}")
-    recipient_type = click.prompt(
-        "Recipient type",
-        type=click.Choice(recipient_types, case_sensitive=False),
-        default='custom'
-    )
-    
-    # Output format
-    output_formats = validator.get_output_formats()
-    click.echo(f"\nAvailable output formats: {', '.join(output_formats)}")
-    output_format = click.prompt(
-        "Output format",
-        type=click.Choice(output_formats, case_sensitive=False),
-        default='markdown'
-    )
-    
-    # AI provider preference
-    ai_providers = validator.get_valid_ai_providers()
-    click.echo(f"\nAvailable AI providers: {', '.join(ai_providers)}")
-    ai_provider_pref = click.prompt(
-        "AI provider preference",
-        type=click.Choice(ai_providers, case_sensitive=False),
-        default='claude'
-    )
-    
-    # Build template structure
-    template = {
-        "name": template_name,
-        "description": description,
-        "version": "1.0",
-        "recipient_type": recipient_type,
-        "sections": [],
-        "output_format": output_format,
-        "metadata": {
-            "ai_provider_preference": ai_provider_pref,
-            "created_at": dt.now().strftime("%Y-%m-%d"),
-            "template_type": template_type
-        }
-    }
-    
-    # Add delivery section if not custom
-    if template_type == 'daily_internal':
-        template["delivery"] = {
-            "method": "outlook_draft",
-            "to_from_config": "daily",
-            "subject_template": f"{template_name} - {{date:%B %d, %Y}}"
-        }
-    elif template_type == 'weekly_client':
-        template["delivery"] = {
-            "method": "outlook_draft",
-            "to_from_config": "weekly",
-            "cc_from_config": "weekly",
-            "subject_template": f"{template_name} - Week Ending {{date:%B %d, %Y}}"
-        }
-    
-    # Validate template
-    errors = validator.validate_template(template)
-    if errors:
-        click.echo("\n⚠️  Validation errors:")
-        for error in errors:
-            click.echo(f"  • {error}")
-        
-        if not click.confirm("\nSave anyway?", default=False):
-            click.echo("Cancelled.")
-            return
-    
-    # Save template
     try:
-        loader.save_template(template_filename, template)
-        click.echo(f"\n✓ Template '{template_filename}' created successfully")
-        click.echo(f"  Location: templates/reports/{template_filename}.json")
+        click.echo(f"\nCreating template: {name}")
+        click.echo("=" * 60)
+        
+        # Get template type
+        if not template_type:
+            click.echo("\nTemplate types:")
+            click.echo("  1. daily_internal - Daily internal status report")
+            click.echo("  2. weekly_client - Weekly client report")
+            click.echo("  3. custom - Custom template")
+            
+            type_choice = click.prompt("\nSelect type (1-3)", type=int, default=3)
+            type_map = {1: 'daily_internal', 2: 'weekly_client', 3: 'custom'}
+            template_type = type_map.get(type_choice, 'custom')
+        
+        # Get description
+        description = click.prompt("Description", default=f"{name} report template")
+        
+        # Get recipient type
+        recipient_types = validator.get_recipient_types()
+        click.echo(f"\nRecipient types: {', '.join(recipient_types)}")
+        recipient_type = click.prompt("Recipient type", 
+                                     type=click.Choice(recipient_types, case_sensitive=False),
+                                     default='internal_management')
+        
+        # Get output format
+        output_formats = validator.get_output_formats()
+        click.echo(f"\nOutput formats: {', '.join(output_formats)}")
+        output_format = click.prompt("Output format",
+                                    type=click.Choice(output_formats, case_sensitive=False),
+                                    default='markdown')
+        
+        # Get AI provider preference
+        ai_providers = validator.get_valid_ai_providers()
+        click.echo(f"\nAI providers: {', '.join(ai_providers)}")
+        ai_provider = click.prompt("AI provider preference",
+                                  type=click.Choice(ai_providers, case_sensitive=False),
+                                  default='claude')
+        
+        # Create template structure
+        template = {
+            "name": name,
+            "description": description,
+            "version": "1.0",
+            "recipient_type": recipient_type,
+            "sections": [],
+            "output_format": output_format,
+            "delivery": {
+                "method": "outlook_draft",
+                "subject_template": f"{name} - {{date:%B %d, %Y}}"
+            },
+            "metadata": {
+                "ai_provider_preference": ai_provider,
+                "created_at": dt.now().isoformat()
+            }
+        }
+        
+        # Validate template
+        errors = validator.validate_template(template)
+        if errors:
+            click.echo("\nValidation errors:")
+            for error in errors:
+                click.echo(f"  - {error}")
+            click.echo("\nTemplate not created.")
+            return
+        
+        # Save template
+        project_root = Path(__file__).parent.parent.parent
+        templates_dir = project_root / "templates" / "reports"
+        templates_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Create filename from name
+        filename = name.lower().replace(' ', '_').replace('-', '_') + '.json'
+        template_path = templates_dir / filename
+        
+        with open(template_path, 'w') as f:
+            json.dump(template, f, indent=2)
+        
+        click.echo(f"\nTemplate created: {template_path}")
         click.echo(f"\nNext steps:")
-        click.echo(f"  1. Add sections: workmain templates add-section {template_filename} \"Section Title\"")
-        click.echo(f"  2. Validate: workmain templates validate {template_filename}")
-        click.echo(f"  3. Preview: workmain templates preview {template_filename}")
-    
+        click.echo(f"  1. Add sections: workmain templates add-section {filename.replace('.json', '')} \"Section Title\"")
+        click.echo(f"  2. Validate: workmain templates validate {filename.replace('.json', '')}")
+        click.echo(f"  3. Preview: workmain templates preview {filename.replace('.json', '')}")
+        
     except Exception as e:
-        click.echo(f"\n✗ Error saving template: {e}", err=True)
+        click.echo(f"Error creating template: {e}", err=True)
 
 
 @templates.command(name='add-section')
@@ -354,170 +343,172 @@ def add_section(template_name: str, section_title: str):
     Add a section to an existing template interactively.
     
     Examples:
-        workmain templates add-section monthly_summary "Key Metrics"
-        workmain templates add-section sprint_report "Accomplishments"
+        workmain templates add-section monthly_summary "Executive Summary"
+        workmain templates add-section sprint_report "Key Metrics"
     """
-    loader = get_loader()
-    validator = get_validator()
+    loader = get_template_loader()
+    validator = get_template_validator()
     
     try:
         # Load existing template
         template = loader.load_template(template_name)
+        if not template:
+            click.echo(f"Template '{template_name}' not found.", err=True)
+            return
         
-        click.echo(f"\nAdding section to template: {template_name}")
+        click.echo(f"\nAdding section to: {template['name']}")
         click.echo("=" * 60)
         click.echo(f"Section title: {section_title}")
         
-        # Interactive section configuration
-        click.echo("\nSection Configuration:")
+        # Generate section name from title
+        section_name = section_title.lower().replace(' ', '_').replace('-', '_')
+        click.echo(f"Section name: {section_name}")
         
-        # Section name (auto-generate from title)
-        default_name = section_title.lower().replace(" ", "_").replace("&", "and")
-        section_name = click.prompt("Section name", default=default_name)
+        # Get required flag
+        required = click.confirm("\nIs this section required?", default=True)
         
-        # Required
-        required = click.confirm("Is this section required?", default=True)
-        
-        # Format
-        valid_formats = validator.get_valid_formats()
+        # Get format
+        formats = validator.get_valid_formats()
         click.echo(f"\nAvailable formats:")
-        for i, fmt in enumerate(valid_formats, 1):
+        for i, fmt in enumerate(formats, 1):
             fmt_info = validator.get_format_info(fmt)
-            if fmt_info:
-                desc = fmt_info.get('description', '')
-                click.echo(f"  {i}. {fmt} - {desc}")
+            desc = fmt_info.get('description', 'No description') if fmt_info else 'No description'
+            click.echo(f"  {i}. {fmt} - {desc}")
+        
+        format_choice = click.prompt("\nSelect format (name or number)", default='bullets')
+        
+        # Convert number to format name if needed
+        try:
+            format_idx = int(format_choice) - 1
+            if 0 <= format_idx < len(formats):
+                format_name = formats[format_idx]
             else:
-                click.echo(f"  {i}. {fmt}")
+                format_name = format_choice
+        except ValueError:
+            format_name = format_choice
         
-        format_choice = click.prompt(
-            "Format",
-            type=click.Choice(valid_formats, case_sensitive=False),
-            default='bullets'
-        )
+        # Validate format
+        format_errors = validator.validate_format(format_name)
+        if format_errors:
+            click.echo(f"\nInvalid format: {format_errors[0]}")
+            return
         
-        # AI Provider
-        valid_providers = validator.get_valid_ai_providers()
-        click.echo(f"\nAvailable AI providers: {', '.join(valid_providers)}")
-        ai_provider = click.prompt(
-            "AI provider",
-            type=click.Choice(valid_providers, case_sensitive=False),
-            default=template.get('metadata', {}).get('ai_provider_preference', 'claude')
-        )
+        # Get AI provider
+        ai_providers = validator.get_valid_ai_providers()
+        click.echo(f"\nAI providers: {', '.join(ai_providers)}")
+        ai_provider = click.prompt("AI provider",
+                                  type=click.Choice(ai_providers, case_sensitive=False),
+                                  default=template.get('metadata', {}).get('ai_provider_preference', 'claude'))
         
-        # Data sources
-        valid_sources = validator.get_valid_data_sources()
-        click.echo(f"\nAvailable data sources: {', '.join(valid_sources)}")
-        
-        data_sources_input = click.prompt(
-            "Data sources (comma-separated)",
-            default="notes"
-        )
-        data_sources = [s.strip() for s in data_sources_input.split(',')]
+        # Get data sources
+        data_sources = validator.get_valid_data_sources()
+        click.echo(f"\nAvailable data sources: {', '.join(data_sources)}")
+        data_sources_input = click.prompt("Data sources (comma-separated)", default='notes')
+        selected_sources = [s.strip() for s in data_sources_input.split(',')]
         
         # Validate data sources
-        source_errors = []
-        for source in data_sources:
-            if source not in valid_sources:
-                source_errors.append(f"Invalid data source: {source}")
+        ds_errors = validator.validate_data_sources(selected_sources)
+        if ds_errors:
+            click.echo(f"\nData source errors:")
+            for error in ds_errors:
+                click.echo(f"  - {error}")
+            return
         
-        if source_errors:
-            click.echo("\n⚠️  Data source errors:")
-            for error in source_errors:
-                click.echo(f"  • {error}")
-            
-            if not click.confirm("Continue anyway?", default=False):
-                click.echo("Cancelled.")
-                return
+        # Get tags
+        available_tags = validator.get_valid_tags()
+        click.echo(f"\nAvailable tags: {', '.join(available_tags)}")
         
-        # Tags
-        valid_tags = validator.get_valid_tags()
-        click.echo(f"\nAvailable tags: {', '.join(valid_tags)}")
-        
-        # Include tags
-        include_tags_input = click.prompt(
-            "Include tags (comma-separated, or leave empty)",
-            default="both,internal-only",
-            show_default=True
-        )
-        
-        include_tags = []
-        if include_tags_input.strip():
+        include_tags_input = click.prompt("Include tags (comma-separated, or 'none')", default='none')
+        if include_tags_input.lower() == 'none':
+            include_tags = []
+        else:
             include_tags = [t.strip() for t in include_tags_input.split(',')]
         
-        # Exclude tags
-        exclude_tags_input = click.prompt(
-            "Exclude tags (comma-separated, or leave empty)",
-            default="",
-            show_default=False
-        )
-        
-        exclude_tags = []
-        if exclude_tags_input.strip():
+        exclude_tags_input = click.prompt("Exclude tags (comma-separated, or 'none')", default='none')
+        if exclude_tags_input.lower() == 'none':
+            exclude_tags = []
+        else:
             exclude_tags = [t.strip() for t in exclude_tags_input.split(',')]
         
-        # AI instruction
-        click.echo("\nAI Instruction (how the AI should process this section):")
-        ai_instruction = click.prompt(
-            "Instruction",
-            default=f"Summarize {section_title.lower()} in {format_choice} format"
-        )
+        # Validate tags
+        if include_tags:
+            tag_errors = validator.validate_tags(include_tags)
+            if tag_errors:
+                click.echo(f"\nInclude tag errors:")
+                for error in tag_errors:
+                    click.echo(f"  - {error}")
+                return
         
-        # Build section
+        if exclude_tags:
+            tag_errors = validator.validate_tags(exclude_tags)
+            if tag_errors:
+                click.echo(f"\nExclude tag errors:")
+                for error in tag_errors:
+                    click.echo(f"  - {error}")
+                return
+        
+        # Get AI instruction
+        default_instruction = f"Generate {section_title.lower()} section with clear, concise content."
+        ai_instruction = click.prompt("\nAI instruction (or press Enter for default)", 
+                                     default=default_instruction)
+        
+        # Create section
         section = {
             "name": section_name,
             "title": section_title,
             "required": required,
-            "ai_instruction": ai_instruction,
-            "data_sources": data_sources,
-            "format": format_choice,
-            "ai_provider": ai_provider
+            "data_sources": selected_sources,
+            "format": format_name,
+            "ai_provider": ai_provider,
+            "ai_instruction": ai_instruction
         }
         
-        # Add tags if specified
         if include_tags:
             section["include_tags"] = include_tags
+        
         if exclude_tags:
             section["exclude_tags"] = exclude_tags
         
-        # Validate section
-        section_errors = validator.validate_section(section)
-        if section_errors:
-            click.echo("\n⚠️  Section validation errors:")
-            for error in section_errors:
-                click.echo(f"  • {error}")
-            
-            if not click.confirm("\nAdd section anyway?", default=False):
-                click.echo("Cancelled.")
-                return
-        
         # Add section to template
-        if "sections" not in template:
-            template["sections"] = []
+        template['sections'].append(section)
         
-        template["sections"].append(section)
-        
-        # Validate complete template
-        template_errors = validator.validate_template(template)
-        if template_errors:
-            click.echo("\n⚠️  Template validation warnings:")
-            for error in template_errors:
-                click.echo(f"  • {error}")
+        # Validate updated template
+        errors = validator.validate_template(template)
+        if errors:
+            click.echo("\nValidation errors:")
+            for error in errors:
+                click.echo(f"  - {error}")
+            click.echo("\nSection not added.")
+            return
         
         # Save updated template
-        loader.save_template(template_name, template)
+        project_root = Path(__file__).parent.parent.parent
+        templates_dir = project_root / "templates" / "reports"
         
-        click.echo(f"\n✓ Section '{section_title}' added successfully")
-        click.echo(f"  Template now has {len(template['sections'])} section(s)")
+        # Find template file
+        template_files = list(templates_dir.glob(f"{template_name}.json"))
+        if not template_files:
+            # Try with underscores
+            template_files = list(templates_dir.glob(f"{template_name.replace('-', '_')}.json"))
+        
+        if not template_files:
+            click.echo(f"\nCould not find template file for '{template_name}'", err=True)
+            return
+        
+        template_path = template_files[0]
+        
+        with open(template_path, 'w') as f:
+            json.dump(template, f, indent=2)
+        
+        click.echo(f"\nSection added to {template['name']}")
+        click.echo(f"Total sections: {len(template['sections'])}")
         click.echo(f"\nNext steps:")
-        click.echo(f"  1. Add more sections: workmain templates add-section {template_name} \"Another Section\"")
-        click.echo(f"  2. Validate: workmain templates validate {template_name}")
-        click.echo(f"  3. Preview: workmain templates preview {template_name}")
-    
-    except FileNotFoundError:
-        click.echo(f"✗ Template '{template_name}' not found.", err=True)
-        click.echo(f"  Create it first: workmain templates create \"{template_name}\"")
+        click.echo(f"  - Add more sections: workmain templates add-section {template_name} \"Title\"")
+        click.echo(f"  - Validate: workmain templates validate {template_name}")
+        click.echo(f"  - Preview: workmain templates preview {template_name}")
+        
     except Exception as e:
-        click.echo(f"✗ Error adding section: {e}", err=True)
+        click.echo(f"Error adding section: {e}", err=True)
 
 
 # Export command group

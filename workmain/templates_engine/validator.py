@@ -12,7 +12,7 @@ Version History:
 
 import json
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Set
+from typing import Dict, Any, List, Optional
 
 
 class TemplateValidator:
@@ -401,9 +401,9 @@ class TemplateValidator:
 _validator_instance = None
 
 
-def get_validator() -> TemplateValidator:
+def get_template_validator() -> TemplateValidator:
     """
-    Get singleton validator instance.
+    Get singleton template validator instance.
     
     Returns:
         TemplateValidator instance

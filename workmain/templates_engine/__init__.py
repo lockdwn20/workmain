@@ -1,13 +1,14 @@
 """
 WorkmAIn Templates Engine
-Templates Engine Package v1.1
-20251224
+Templates Engine Package v1.2
+20251226
 
 Template system for report generation.
 
 Version History:
 - v1.0: Initial package with loader, validator, field_manager, renderer
 - v1.1: Added style_adapter for writing style integration
+- v1.2: Fixed validator singleton name (get_template_validator) and restored full package structure
 """
 
 from .loader import TemplateLoader, get_template_loader
@@ -27,4 +28,4 @@ __all__ = [
     'get_style_adapter',
 ]
 
-__version__ = '1.1'
+__version__ = '1.2'
