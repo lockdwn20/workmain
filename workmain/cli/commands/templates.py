@@ -1,6 +1,6 @@
 """
 WorkmAIn Template CLI Commands
-Template Commands v2.0
+Template Commands v2.1
 20251226
 
 CLI commands for template management with interactive creation.
@@ -12,6 +12,7 @@ Version History:
 - v1.3: Fixed return value unpacking
 - v1.4: Fixed output formatting
 - v2.0: Added create and add-section commands for interactive template creation
+- v2.1: Fixed loader method calls (load_template → load)
 """
 
 import click
@@ -75,7 +76,7 @@ def show(template_name: str):
     loader = get_template_loader()
     
     try:
-        template = loader.load_template(template_name)
+        template = loader.load(template_name)
         
         if not template:
             click.echo(f"Template '{template_name}' not found.", err=True)
@@ -136,7 +137,7 @@ def validate(template_name: Optional[str]):
     try:
         if template_name:
             # Validate specific template
-            template = loader.load_template(template_name)
+            template = loader.load(template_name)
             if not template:
                 click.echo(f"Template '{template_name}' not found.", err=True)
                 return
@@ -162,7 +163,7 @@ def validate(template_name: Optional[str]):
             
             all_valid = True
             for template_info in template_list:
-                template = loader.load_template(template_info['filename'])
+                template = loader.load(template_info['filename'])
                 errors = validator.validate_template(template)
                 
                 if errors:
@@ -197,7 +198,7 @@ def preview(template_name: str, date: Optional[str]):
     loader = get_template_loader()
     
     try:
-        template = loader.load_template(template_name)
+        template = loader.load(template_name)
         if not template:
             click.echo(f"Template '{template_name}' not found.", err=True)
             return
@@ -351,7 +352,7 @@ def add_section(template_name: str, section_title: str):
     
     try:
         # Load existing template
-        template = loader.load_template(template_name)
+        template = loader.load(template_name)
         if not template:
             click.echo(f"Template '{template_name}' not found.", err=True)
             return
