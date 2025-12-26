@@ -1,353 +1,414 @@
 """
 WorkmAIn Template Validator
-Template Validator v1.0
-20251224
+Template Validator v1.1
+20251226
 
-Validates JSON template structure against schema requirements.
-Ensures templates have all required fields and proper data types.
+Validates templates against JSON schema and field definitions.
+
+Version History:
+- v1.0: Initial implementation with schema validation
+- v1.1: Added field definitions validation for data sources, tags, and formats
 """
 
+import json
+from pathlib import Path
 from typing import Dict, Any, List, Optional, Set
-
-
-class TemplateValidationError(Exception):
-    """Raised when template validation fails."""
-    pass
 
 
 class TemplateValidator:
     """
-    Validate report template structure.
+    Validates templates against schema and field definitions.
     
-    Ensures templates contain:
-    - All required fields
-    - Correct data types
-    - Valid section configurations
-    - Valid AI provider references
-    - Valid tag filters
-    - Valid output formats
+    Ensures templates have required fields, valid data sources,
+    valid tags, and supported formats.
     """
     
-    # Valid output formats
-    VALID_OUTPUT_FORMATS = {'markdown', 'html', 'text'}
-    
-    # Valid AI providers
-    VALID_AI_PROVIDERS = {'claude', 'gemini'}
-    
-    # Valid section formats
-    VALID_SECTION_FORMATS = {'bullets', 'prose', 'time_summary', 'numbered_list'}
-    
-    # Valid data sources
-    VALID_DATA_SOURCES = {'notes', 'time_entries', 'meetings', 'projects', 'clockify'}
-    
-    # Valid tags (from our tag system)
-    VALID_TAGS = {
-        'internal-only', 'client-report', 'info-only', 
-        'both', 'carry-forward', 'blocker'
-    }
-    
-    def __init__(self):
-        """Initialize template validator."""
-        pass
-    
-    def validate(self, template: Dict[str, Any]) -> List[str]:
+    def __init__(self, field_definitions_path: Optional[Path] = None):
         """
-        Validate a template against schema requirements.
+        Initialize validator.
+        
+        Args:
+            field_definitions_path: Path to field_definitions.json
+                                   If None, loads from templates/fields/field_definitions.json
+        """
+        if field_definitions_path is None:
+            # Default to templates/fields/field_definitions.json
+            project_root = Path(__file__).parent.parent.parent
+            field_definitions_path = project_root / "templates" / "fields" / "field_definitions.json"
+        
+        self.field_definitions_path = Path(field_definitions_path)
+        self.field_definitions = None
+        
+        # Load field definitions if file exists
+        if self.field_definitions_path.exists():
+            self.load_field_definitions()
+    
+    def load_field_definitions(self) -> Dict[str, Any]:
+        """
+        Load field definitions from JSON file.
+        
+        Returns:
+            Field definitions dictionary
+            
+        Raises:
+            FileNotFoundError: If field_definitions.json not found
+            json.JSONDecodeError: If invalid JSON
+        """
+        try:
+            with open(self.field_definitions_path, 'r') as f:
+                self.field_definitions = json.load(f)
+            return self.field_definitions
+        except FileNotFoundError:
+            raise FileNotFoundError(
+                f"Field definitions not found at {self.field_definitions_path}. "
+                "This file is required for template validation."
+            )
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in field definitions: {e}")
+    
+    def validate_template(self, template: Dict[str, Any]) -> List[str]:
+        """
+        Validate a complete template.
         
         Args:
             template: Template dictionary to validate
             
         Returns:
-            List of validation error messages (empty if valid)
+            List of error messages (empty if valid)
         """
         errors = []
         
-        # Validate top-level structure
-        errors.extend(self._validate_top_level(template))
-        
-        # Validate sections
-        if 'sections' in template:
-            errors.extend(self._validate_sections(template['sections']))
-        
-        # Validate output format
-        if 'output_format' in template:
-            errors.extend(self._validate_output_format(template['output_format']))
-        
-        # Validate AI provider
-        if 'ai_provider_default' in template:
-            errors.extend(self._validate_ai_provider(template['ai_provider_default']))
-        
-        # Validate subject line variables
-        if 'subject_line' in template:
-            errors.extend(self._validate_subject_line(template['subject_line']))
-        
-        return errors
-    
-    def _validate_top_level(self, template: Dict[str, Any]) -> List[str]:
-        """Validate top-level template fields."""
-        errors = []
-        
-        # Required fields
-        required = ['name', 'sections', 'output_format']
-        
-        for field in required:
+        # Validate required fields
+        required_fields = ["name", "description", "version", "sections"]
+        for field in required_fields:
             if field not in template:
-                errors.append(f"Missing required field: '{field}'")
+                errors.append(f"Missing required field: {field}")
         
-        # Type checks
-        if 'name' in template and not isinstance(template['name'], str):
-            errors.append("Field 'name' must be a string")
-        
-        if 'sections' in template and not isinstance(template['sections'], list):
-            errors.append("Field 'sections' must be a list")
-        
-        if 'output_format' in template and not isinstance(template['output_format'], str):
-            errors.append("Field 'output_format' must be a string")
-        
-        # Optional fields type checks
-        if 'description' in template and not isinstance(template['description'], str):
-            errors.append("Field 'description' must be a string")
-        
-        if 'version' in template and not isinstance(template['version'], str):
-            errors.append("Field 'version' must be a string")
-        
-        if 'template_type' in template and not isinstance(template['template_type'], str):
-            errors.append("Field 'template_type' must be a string")
-        
-        return errors
-    
-    def _validate_sections(self, sections: List[Dict[str, Any]]) -> List[str]:
-        """Validate sections array."""
-        errors = []
-        
-        if not sections:
-            errors.append("Template must have at least one section")
-            return errors
-        
-        section_names = set()
-        
-        for idx, section in enumerate(sections):
-            # Check if section is a dict
-            if not isinstance(section, dict):
-                errors.append(f"Section {idx} must be a dictionary")
-                continue
-            
-            # Validate individual section
-            section_errors = self._validate_section(section, idx)
-            errors.extend(section_errors)
-            
-            # Check for duplicate section names
-            name = section.get('name')
-            if name:
-                if name in section_names:
-                    errors.append(f"Duplicate section name: '{name}'")
-                section_names.add(name)
-        
-        return errors
-    
-    def _validate_section(self, section: Dict[str, Any], idx: int) -> List[str]:
-        """Validate individual section."""
-        errors = []
-        prefix = f"Section {idx}"
-        
-        # Required fields
-        required = ['name', 'title']
-        
-        for field in required:
-            if field not in section:
-                errors.append(f"{prefix}: Missing required field '{field}'")
-        
-        # Type checks
-        if 'name' in section and not isinstance(section['name'], str):
-            errors.append(f"{prefix}: Field 'name' must be a string")
-        
-        if 'title' in section and not isinstance(section['title'], str):
-            errors.append(f"{prefix}: Field 'title' must be a string")
-        
-        # Validate data sources
-        if 'data_sources' in section:
-            if not isinstance(section['data_sources'], list):
-                errors.append(f"{prefix}: Field 'data_sources' must be a list")
+        if "sections" in template:
+            if not isinstance(template["sections"], list):
+                errors.append("Field 'sections' must be a list")
             else:
-                for source in section['data_sources']:
-                    if source not in self.VALID_DATA_SOURCES:
-                        errors.append(
-                            f"{prefix}: Invalid data source '{source}'. "
-                            f"Must be one of: {self.VALID_DATA_SOURCES}"
-                        )
+                # Validate each section
+                for i, section in enumerate(template["sections"]):
+                    section_errors = self.validate_section(section)
+                    for error in section_errors:
+                        errors.append(f"Section {i} ({section.get('name', 'unnamed')}): {error}")
         
-        # Validate tag filter
-        if 'tag_filter' in section:
-            tag_errors = self._validate_tag_filter(section['tag_filter'], prefix)
-            errors.extend(tag_errors)
-        
-        # Validate format
-        if 'format' in section:
-            fmt = section['format']
-            if fmt not in self.VALID_SECTION_FORMATS:
-                errors.append(
-                    f"{prefix}: Invalid format '{fmt}'. "
-                    f"Must be one of: {self.VALID_SECTION_FORMATS}"
-                )
-        
-        # Validate AI provider
-        if 'ai_provider' in section:
-            provider = section['ai_provider']
-            if provider not in self.VALID_AI_PROVIDERS:
-                errors.append(
-                    f"{prefix}: Invalid AI provider '{provider}'. "
-                    f"Must be one of: {self.VALID_AI_PROVIDERS}"
-                )
-        
-        # Validate required field
-        if 'required' in section and not isinstance(section['required'], bool):
-            errors.append(f"{prefix}: Field 'required' must be a boolean")
+        # Validate version format
+        if "version" in template:
+            version = template["version"]
+            if not isinstance(version, str):
+                errors.append("Field 'version' must be a string")
         
         return errors
     
-    def _validate_tag_filter(self, tag_filter: Any, prefix: str) -> List[str]:
-        """Validate tag filter structure."""
-        errors = []
-        
-        if not isinstance(tag_filter, dict):
-            errors.append(f"{prefix}: tag_filter must be a dictionary")
-            return errors
-        
-        # Validate include tags
-        if 'include' in tag_filter:
-            if not isinstance(tag_filter['include'], list):
-                errors.append(f"{prefix}: tag_filter.include must be a list")
-            else:
-                for tag in tag_filter['include']:
-                    if tag not in self.VALID_TAGS:
-                        errors.append(
-                            f"{prefix}: Invalid tag '{tag}' in include filter. "
-                            f"Must be one of: {self.VALID_TAGS}"
-                        )
-        
-        # Validate exclude tags
-        if 'exclude' in tag_filter:
-            if not isinstance(tag_filter['exclude'], list):
-                errors.append(f"{prefix}: tag_filter.exclude must be a list")
-            else:
-                for tag in tag_filter['exclude']:
-                    if tag not in self.VALID_TAGS:
-                        errors.append(
-                            f"{prefix}: Invalid tag '{tag}' in exclude filter. "
-                            f"Must be one of: {self.VALID_TAGS}"
-                        )
-        
-        return errors
-    
-    def _validate_output_format(self, output_format: str) -> List[str]:
-        """Validate output format."""
-        errors = []
-        
-        if output_format not in self.VALID_OUTPUT_FORMATS:
-            errors.append(
-                f"Invalid output_format '{output_format}'. "
-                f"Must be one of: {self.VALID_OUTPUT_FORMATS}"
-            )
-        
-        return errors
-    
-    def _validate_ai_provider(self, provider: str) -> List[str]:
-        """Validate AI provider."""
-        errors = []
-        
-        if provider not in self.VALID_AI_PROVIDERS:
-            errors.append(
-                f"Invalid AI provider '{provider}'. "
-                f"Must be one of: {self.VALID_AI_PROVIDERS}"
-            )
-        
-        return errors
-    
-    def _validate_subject_line(self, subject_line: str) -> List[str]:
-        """Validate subject line for proper variable syntax."""
-        errors = []
-        
-        # Check for unmatched braces
-        open_count = subject_line.count('{')
-        close_count = subject_line.count('}')
-        
-        if open_count != close_count:
-            errors.append("Subject line has unmatched curly braces")
-        
-        # Extract variable names and check if they're valid
-        import re
-        variables = re.findall(r'\{(\w+)\}', subject_line)
-        
-        valid_variables = {
-            'user_full_name', 'day_name', 'date_long', 'date_short',
-            'date_iso', 'week_of', 'recipients'
-        }
-        
-        for var in variables:
-            if var not in valid_variables:
-                errors.append(
-                    f"Unknown variable '{{{var}}}' in subject line. "
-                    f"Valid variables: {valid_variables}"
-                )
-        
-        return errors
-    
-    def validate_and_raise(self, template: Dict[str, Any]) -> None:
+    def validate_section(self, section: Dict[str, Any]) -> List[str]:
         """
-        Validate template and raise exception if invalid.
+        Validate a template section.
         
         Args:
-            template: Template to validate
-            
-        Raises:
-            TemplateValidationError: If template is invalid
-        """
-        errors = self.validate(template)
-        
-        if errors:
-            error_msg = "Template validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
-            raise TemplateValidationError(error_msg)
-    
-    def is_valid(self, template: Dict[str, Any]) -> bool:
-        """
-        Check if template is valid.
-        
-        Args:
-            template: Template to check
+            section: Section dictionary to validate
             
         Returns:
-            True if valid, False otherwise
+            List of error messages (empty if valid)
         """
-        errors = self.validate(template)
-        return len(errors) == 0
+        errors = []
+        
+        # Validate required section fields
+        required_fields = ["name", "title", "required"]
+        for field in required_fields:
+            if field not in section:
+                errors.append(f"Missing required field: {field}")
+        
+        # Validate data sources if field definitions are loaded
+        if self.field_definitions:
+            # Check data_sources or data_source field
+            if "data_sources" in section:
+                data_source_errors = self.validate_data_sources(section["data_sources"])
+                errors.extend(data_source_errors)
+            elif "data_source" in section:
+                data_source_errors = self.validate_data_sources([section["data_source"]])
+                errors.extend(data_source_errors)
+            
+            # Validate tags
+            if "include_tags" in section:
+                tag_errors = self.validate_tags(section["include_tags"])
+                for error in tag_errors:
+                    errors.append(f"include_tags: {error}")
+            
+            if "exclude_tags" in section:
+                tag_errors = self.validate_tags(section["exclude_tags"])
+                for error in tag_errors:
+                    errors.append(f"exclude_tags: {error}")
+            
+            # Validate format
+            if "format" in section:
+                format_errors = self.validate_format(section["format"])
+                errors.extend(format_errors)
+            
+            # Validate AI provider
+            if "ai_provider" in section:
+                provider_errors = self.validate_ai_provider(section["ai_provider"])
+                errors.extend(provider_errors)
+        
+        return errors
+    
+    def validate_data_sources(self, data_sources: List[str]) -> List[str]:
+        """
+        Validate data sources against field definitions.
+        
+        Args:
+            data_sources: List of data source names
+            
+        Returns:
+            List of error messages
+        """
+        if not self.field_definitions:
+            return []
+        
+        errors = []
+        valid_sources = self.field_definitions.get("data_sources", {}).keys()
+        
+        for source in data_sources:
+            if source not in valid_sources:
+                errors.append(
+                    f"Invalid data source '{source}'. "
+                    f"Valid sources: {', '.join(valid_sources)}"
+                )
+        
+        return errors
+    
+    def validate_tags(self, tags: List[str]) -> List[str]:
+        """
+        Validate tags against available tags in field definitions.
+        
+        Args:
+            tags: List of tag full names
+            
+        Returns:
+            List of error messages
+        """
+        if not self.field_definitions:
+            return []
+        
+        errors = []
+        available_tags_data = self.field_definitions.get("available_tags", {})
+        valid_tags = set(available_tags_data.get("tag_list_full", []))
+        
+        for tag in tags:
+            if tag not in valid_tags:
+                errors.append(
+                    f"Invalid tag '{tag}'. "
+                    f"Valid tags: {', '.join(sorted(valid_tags))}"
+                )
+        
+        return errors
+    
+    def validate_format(self, format_name: str) -> List[str]:
+        """
+        Validate format against supported formats in field definitions.
+        
+        Args:
+            format_name: Format name to validate
+            
+        Returns:
+            List of error messages
+        """
+        if not self.field_definitions:
+            return []
+        
+        errors = []
+        formats_data = self.field_definitions.get("formats", {})
+        valid_formats = set(formats_data.get("format_list", []))
+        
+        if format_name not in valid_formats:
+            errors.append(
+                f"Invalid format '{format_name}'. "
+                f"Valid formats: {', '.join(sorted(valid_formats))}"
+            )
+        
+        return errors
+    
+    def validate_ai_provider(self, provider: str) -> List[str]:
+        """
+        Validate AI provider against configured providers.
+        
+        Args:
+            provider: Provider name to validate
+            
+        Returns:
+            List of error messages
+        """
+        if not self.field_definitions:
+            return []
+        
+        errors = []
+        providers_data = self.field_definitions.get("ai_providers", {})
+        valid_providers = set(providers_data.get("provider_list", []))
+        
+        if provider not in valid_providers:
+            errors.append(
+                f"Invalid AI provider '{provider}'. "
+                f"Valid providers: {', '.join(sorted(valid_providers))}"
+            )
+        
+        return errors
+    
+    def get_valid_data_sources(self) -> List[str]:
+        """
+        Get list of valid data sources.
+        
+        Returns:
+            List of data source names
+        """
+        if not self.field_definitions:
+            self.load_field_definitions()
+        
+        return list(self.field_definitions.get("data_sources", {}).keys())
+    
+    def get_valid_tags(self) -> List[str]:
+        """
+        Get list of valid tag full names.
+        
+        Returns:
+            List of tag full names
+        """
+        if not self.field_definitions:
+            self.load_field_definitions()
+        
+        available_tags = self.field_definitions.get("available_tags", {})
+        return available_tags.get("tag_list_full", [])
+    
+    def get_valid_formats(self) -> List[str]:
+        """
+        Get list of valid formats.
+        
+        Returns:
+            List of format names
+        """
+        if not self.field_definitions:
+            self.load_field_definitions()
+        
+        formats = self.field_definitions.get("formats", {})
+        return formats.get("format_list", [])
+    
+    def get_valid_ai_providers(self) -> List[str]:
+        """
+        Get list of valid AI providers.
+        
+        Returns:
+            List of provider names
+        """
+        if not self.field_definitions:
+            self.load_field_definitions()
+        
+        providers = self.field_definitions.get("ai_providers", {})
+        return providers.get("provider_list", [])
+    
+    def get_data_source_info(self, source_name: str) -> Optional[Dict[str, Any]]:
+        """
+        Get detailed information about a data source.
+        
+        Args:
+            source_name: Name of data source
+            
+        Returns:
+            Data source info dictionary or None
+        """
+        if not self.field_definitions:
+            self.load_field_definitions()
+        
+        sources = self.field_definitions.get("data_sources", {})
+        return sources.get(source_name)
+    
+    def get_tag_info(self, tag_name: str) -> Optional[Dict[str, Any]]:
+        """
+        Get detailed information about a tag.
+        
+        Args:
+            tag_name: Tag full name or short name
+            
+        Returns:
+            Tag info dictionary or None
+        """
+        if not self.field_definitions:
+            self.load_field_definitions()
+        
+        available_tags = self.field_definitions.get("available_tags", {})
+        tags = available_tags.get("tags", [])
+        
+        for tag in tags:
+            if tag.get("full_name") == tag_name or tag.get("short_name") == tag_name:
+                return tag
+        
+        return None
+    
+    def get_format_info(self, format_name: str) -> Optional[Dict[str, Any]]:
+        """
+        Get detailed information about a format.
+        
+        Args:
+            format_name: Format name
+            
+        Returns:
+            Format info dictionary or None
+        """
+        if not self.field_definitions:
+            self.load_field_definitions()
+        
+        formats = self.field_definitions.get("formats", {})
+        
+        # Check text formats
+        text_formats = formats.get("text_formats", {})
+        if format_name in text_formats:
+            return text_formats[format_name]
+        
+        # Check data formats
+        data_formats = formats.get("data_formats", {})
+        if format_name in data_formats:
+            return data_formats[format_name]
+        
+        return None
+    
+    def get_recipient_types(self) -> List[str]:
+        """
+        Get list of valid recipient types.
+        
+        Returns:
+            List of recipient type names
+        """
+        if not self.field_definitions:
+            self.load_field_definitions()
+        
+        recipient_types = self.field_definitions.get("recipient_types", {})
+        return recipient_types.get("type_list", [])
+    
+    def get_output_formats(self) -> List[str]:
+        """
+        Get list of valid output formats.
+        
+        Returns:
+            List of output format names
+        """
+        if not self.field_definitions:
+            self.load_field_definitions()
+        
+        output_formats = self.field_definitions.get("output_formats", {})
+        return output_formats.get("format_list", [])
 
 
-# Global validator instance
-_template_validator: Optional[TemplateValidator] = None
+# Singleton instance
+_validator_instance = None
 
 
-def get_template_validator() -> TemplateValidator:
+def get_validator() -> TemplateValidator:
     """
-    Get global template validator instance.
+    Get singleton validator instance.
     
     Returns:
         TemplateValidator instance
     """
-    global _template_validator
-    if _template_validator is None:
-        _template_validator = TemplateValidator()
-    return _template_validator
-
-
-def validate_template(template: Dict[str, Any]) -> List[str]:
-    """
-    Convenience function to validate a template.
-    
-    Args:
-        template: Template to validate
-        
-    Returns:
-        List of validation errors (empty if valid)
-    """
-    validator = get_template_validator()
-    return validator.validate(template)
+    global _validator_instance
+    if _validator_instance is None:
+        _validator_instance = TemplateValidator()
+    return _validator_instance

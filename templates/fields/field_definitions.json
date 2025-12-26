@@ -1,0 +1,326 @@
+{
+  "version": "1.0",
+  "description": "WorkmAIn Template Field Definitions - Defines valid options for template sections",
+  "last_updated": "2025-12-26",
+  
+  "data_sources": {
+    "notes": {
+      "description": "User notes from the notes table",
+      "table": "notes",
+      "required_params": ["include_tags", "exclude_tags"],
+      "optional_params": ["date_range", "meeting_id", "project_id"],
+      "queryable_fields": ["content", "tags", "created_date", "source"],
+      "supports_full_text_search": true,
+      "example": {
+        "data_sources": ["notes"],
+        "include_tags": ["internal-only", "both"],
+        "exclude_tags": ["client-report", "info-only"]
+      }
+    },
+    "time_entries": {
+      "description": "Time tracking entries from the time_entries table",
+      "table": "time_entries",
+      "required_params": [],
+      "optional_params": ["date_range", "category", "project_id"],
+      "queryable_fields": ["description", "duration_hours", "category", "entry_date", "entry_time"],
+      "supports_aggregation": true,
+      "aggregation_functions": ["sum", "avg", "count", "group_by"],
+      "example": {
+        "data_sources": ["time_entries"],
+        "group_by": "category",
+        "show_total": true
+      }
+    },
+    "meetings": {
+      "description": "Calendar meetings from the meetings table",
+      "table": "meetings",
+      "required_params": [],
+      "optional_params": ["date_range", "recurring_only", "with_notes"],
+      "queryable_fields": ["title", "start_time", "end_time", "attendees", "is_recurring"],
+      "supports_recurring_detection": true,
+      "example": {
+        "data_sources": ["meetings"],
+        "with_notes": true
+      }
+    },
+    "clockify": {
+      "description": "Time entries synced from Clockify (future integration)",
+      "table": "time_entries",
+      "filter": "clockify_id IS NOT NULL",
+      "required_params": [],
+      "optional_params": ["date_range", "category"],
+      "note": "Uses time_entries table filtered by clockify_id",
+      "available_in_phase": 5
+    }
+  },
+  
+  "available_tags": {
+    "description": "All valid tag names for filtering notes",
+    "tags": [
+      {
+        "short_name": "ilo",
+        "full_name": "internal-only",
+        "description": "Internal reports only, excluded from client reports",
+        "report_inclusion": {
+          "daily_internal": true,
+          "weekly_client": false
+        }
+      },
+      {
+        "short_name": "cr",
+        "full_name": "client-report",
+        "description": "Client reports only, excluded from internal reports",
+        "report_inclusion": {
+          "daily_internal": false,
+          "weekly_client": true
+        }
+      },
+      {
+        "short_name": "ifo",
+        "full_name": "info-only",
+        "description": "Reference only, excluded from all reports",
+        "report_inclusion": {
+          "daily_internal": false,
+          "weekly_client": false
+        }
+      },
+      {
+        "short_name": "both",
+        "full_name": "both",
+        "description": "Include in both internal and client reports",
+        "report_inclusion": {
+          "daily_internal": true,
+          "weekly_client": true
+        }
+      },
+      {
+        "short_name": "cf",
+        "full_name": "carry-forward",
+        "description": "Tasks in progress, carry to next period",
+        "report_inclusion": {
+          "daily_internal": true,
+          "weekly_client": true
+        }
+      },
+      {
+        "short_name": "blk",
+        "full_name": "blocker",
+        "description": "Blockers and issues requiring attention",
+        "report_inclusion": {
+          "daily_internal": true,
+          "weekly_client": false
+        }
+      }
+    ],
+    "tag_list_full": ["internal-only", "client-report", "info-only", "both", "carry-forward", "blocker"],
+    "tag_list_short": ["ilo", "cr", "ifo", "both", "cf", "blk"]
+  },
+  
+  "formats": {
+    "description": "Valid output formats for report sections",
+    "text_formats": {
+      "bullets": {
+        "display_name": "Bullet Points",
+        "description": "Bulleted list using • character",
+        "markdown_syntax": "* Item",
+        "example": "• Completed authentication module\n• Fixed 3 security issues\n• Updated documentation"
+      },
+      "bulleted_list": {
+        "display_name": "Bulleted List",
+        "description": "Alias for 'bullets' format",
+        "aliases": ["bullets"],
+        "markdown_syntax": "* Item"
+      },
+      "numbered_list": {
+        "display_name": "Numbered List",
+        "description": "Numbered list (1., 2., 3., etc.)",
+        "markdown_syntax": "1. Item",
+        "example": "1. First task completed\n2. Second task in progress\n3. Third task blocked"
+      },
+      "paragraphs": {
+        "display_name": "Paragraphs",
+        "description": "Prose paragraphs with natural flow",
+        "markdown_syntax": "Normal text\n\nNew paragraph",
+        "example": "Completed the authentication module implementation. This enables secure user login with multi-factor authentication.\n\nIdentified and resolved three critical security issues in the payment processing pipeline."
+      }
+    },
+    "data_formats": {
+      "time_summary": {
+        "display_name": "Time Summary",
+        "description": "Time entries aggregated and formatted",
+        "requires_data_source": "time_entries",
+        "options": ["group_by", "show_total", "time_format"],
+        "example": "Development: 4.5h\nMeetings: 2.0h\nTotal: 6.5h"
+      },
+      "meeting_list": {
+        "display_name": "Meeting List",
+        "description": "List of meetings with details",
+        "requires_data_source": "meetings",
+        "options": ["show_attendees", "show_duration"],
+        "example": "• Team Standup (9:00-9:30, 5 attendees)\n• Sprint Planning (14:00-16:00, 8 attendees)"
+      }
+    },
+    "format_list": ["bullets", "bulleted_list", "numbered_list", "paragraphs", "time_summary", "meeting_list"]
+  },
+  
+  "ai_providers": {
+    "description": "Available AI providers for report generation",
+    "providers": {
+      "claude": {
+        "display_name": "Claude (Anthropic)",
+        "description": "Best for: Internal reports, note summarization, technical content",
+        "model": "claude-sonnet-4-20250514",
+        "api_key_env": "ANTHROPIC_API_KEY",
+        "recommended_for": ["daily_internal", "note_summarization"],
+        "strengths": ["Technical accuracy", "Professional tone", "Concise summaries"]
+      },
+      "gemini": {
+        "display_name": "Gemini (Google)",
+        "description": "Best for: Client reports, business-friendly language",
+        "model": "gemini-2.0-flash-exp",
+        "api_key_env": "GOOGLE_API_KEY",
+        "recommended_for": ["weekly_client", "client_communication"],
+        "strengths": ["Business language", "Client-friendly tone", "Accessible style"]
+      }
+    },
+    "provider_list": ["claude", "gemini"],
+    "default_provider": "claude"
+  },
+  
+  "recipient_types": {
+    "description": "Valid recipient types for reports",
+    "types": {
+      "internal_management": {
+        "description": "Internal reports for management team",
+        "typical_tone": "Professional, direct, technical when needed",
+        "example_reports": ["daily_internal"]
+      },
+      "client": {
+        "description": "Client-facing reports",
+        "typical_tone": "Professional, business-focused, accessible",
+        "example_reports": ["weekly_client"]
+      },
+      "custom": {
+        "description": "Custom recipient type for specialized reports",
+        "typical_tone": "Defined per template"
+      }
+    },
+    "type_list": ["internal_management", "client", "custom"]
+  },
+  
+  "output_formats": {
+    "description": "Valid output formats for entire reports",
+    "formats": {
+      "markdown": {
+        "description": "Markdown format (.md)",
+        "file_extension": ".md",
+        "supports_formatting": true,
+        "convertible_to": ["html", "pdf"]
+      },
+      "html": {
+        "description": "HTML format",
+        "file_extension": ".html",
+        "supports_formatting": true,
+        "email_compatible": true
+      },
+      "plain_text": {
+        "description": "Plain text format",
+        "file_extension": ".txt",
+        "supports_formatting": false,
+        "email_compatible": true
+      }
+    },
+    "format_list": ["markdown", "html", "plain_text"]
+  },
+  
+  "validation_rules": {
+    "description": "Validation rules for template sections",
+    "required_section_fields": ["name", "title", "required"],
+    "optional_section_fields": [
+      "ai_instruction",
+      "data_sources",
+      "data_source",
+      "include_tags",
+      "exclude_tags",
+      "format",
+      "max_items",
+      "ai_provider",
+      "group_by",
+      "show_total",
+      "time_format"
+    ],
+    "data_source_validation": {
+      "must_be_in": ["notes", "time_entries", "meetings", "clockify"],
+      "can_be_list": true,
+      "single_source_field": "data_source",
+      "multiple_sources_field": "data_sources"
+    },
+    "tag_validation": {
+      "must_be_full_names": true,
+      "must_be_in_available_tags": true,
+      "can_be_empty": true
+    },
+    "format_validation": {
+      "must_be_in_format_list": true,
+      "depends_on_data_source": {
+        "time_summary": "time_entries",
+        "meeting_list": "meetings"
+      }
+    },
+    "ai_provider_validation": {
+      "must_be_in_provider_list": true,
+      "can_be_null": true,
+      "defaults_to_template_preference": true
+    }
+  },
+  
+  "template_structure": {
+    "description": "Required and optional fields for complete templates",
+    "required_fields": ["name", "description", "version", "sections"],
+    "optional_fields": [
+      "recipient_type",
+      "draft_type",
+      "aggregation",
+      "output_format",
+      "delivery",
+      "metadata"
+    ],
+    "section_structure": {
+      "required": ["name", "title", "required"],
+      "recommended": ["ai_instruction", "data_sources", "format", "ai_provider"],
+      "optional": ["include_tags", "exclude_tags", "max_items", "group_by", "show_total"]
+    }
+  },
+  
+  "examples": {
+    "minimal_template": {
+      "name": "Minimal Report",
+      "description": "Minimal viable template",
+      "version": "1.0",
+      "sections": [
+        {
+          "name": "summary",
+          "title": "Summary",
+          "required": true,
+          "ai_instruction": "Summarize the day's work",
+          "data_sources": ["notes"],
+          "include_tags": ["both", "internal-only"],
+          "format": "paragraphs",
+          "ai_provider": "claude"
+        }
+      ]
+    },
+    "comprehensive_section": {
+      "name": "tasks_completed",
+      "title": "Tasks Completed",
+      "required": true,
+      "ai_instruction": "List completed tasks as bullet points, outcome-focused",
+      "data_sources": ["notes", "time_entries"],
+      "include_tags": ["both", "internal-only"],
+      "exclude_tags": ["client-report", "info-only"],
+      "format": "bulleted_list",
+      "max_items": 10,
+      "ai_provider": "claude"
+    }
+  }
+}
