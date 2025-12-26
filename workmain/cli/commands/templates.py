@@ -1,6 +1,6 @@
 """
 WorkmAIn Template CLI Commands
-Template Commands v2.1
+Template Commands v2.5
 20251226
 
 CLI commands for template management with interactive creation.
@@ -13,6 +13,10 @@ Version History:
 - v1.4: Fixed output formatting
 - v2.0: Added create and add-section commands for interactive template creation
 - v2.1: Fixed loader method calls (load_template → load)
+- v2.2: Fixed project root path (3 parents → 4 parents for correct templates/ location)
+- v2.3: Added detailed error traceback to add_section for debugging
+- v2.4: Fixed glob/Click conflict by replacing glob() with iterdir() for file search
+- v2.5: Fixed list command to handle string template names (load each template for details)
 """
 
 import click
@@ -44,24 +48,30 @@ def list():
     loader = get_template_loader()
     
     try:
-        template_list = loader.list_templates()
+        template_names = loader.list_templates()
         
-        if not template_list:
+        if not template_names:
             click.echo("No templates found.")
             return
         
-        click.echo(f"\nAvailable templates ({len(template_list)}):\n")
+        click.echo(f"\nAvailable templates ({len(template_names)}):\n")
         click.echo("=" * 60)
         
-        for template_info in template_list:
-            click.echo(f"\nName: {template_info['name']}")
-            click.echo(f"  File: {template_info['filename']}")
-            click.echo(f"  Type: {template_info.get('recipient_type', 'N/A')}")
-            click.echo(f"  Sections: {template_info.get('section_count', 0)}")
-            click.echo("-" * 60)
+        for name in template_names:
+            # Load each template to get details
+            template = loader.load(name)
+            if template:
+                click.echo(f"\nName: {template['name']}")
+                click.echo(f"  File: {name}.json")
+                click.echo(f"  Type: {template.get('recipient_type', 'N/A')}")
+                click.echo(f"  Sections: {len(template.get('sections', []))}")
+                click.echo("-" * 60)
         
     except Exception as e:
         click.echo(f"Error listing templates: {e}", err=True)
+        import traceback
+        click.echo("\nFull error traceback:", err=True)
+        traceback.print_exc()
 
 
 @templates.command()
@@ -315,7 +325,9 @@ def create(name: str, template_type: Optional[str]):
             return
         
         # Save template
-        project_root = Path(__file__).parent.parent.parent
+        # Path from templates.py: workmain/cli/commands/templates.py
+        # Need 4 levels up to get to project root
+        project_root = Path(__file__).parent.parent.parent.parent
         templates_dir = project_root / "templates" / "reports"
         templates_dir.mkdir(parents=True, exist_ok=True)
         
@@ -333,7 +345,10 @@ def create(name: str, template_type: Optional[str]):
         click.echo(f"  3. Preview: workmain templates preview {filename.replace('.json', '')}")
         
     except Exception as e:
-        click.echo(f"Error creating template: {e}", err=True)
+        click.echo(f"\nError creating template: {e}", err=True)
+        import traceback
+        click.echo("\nFull error traceback:", err=True)
+        traceback.print_exc()
 
 
 @templates.command(name='add-section')
@@ -483,14 +498,23 @@ def add_section(template_name: str, section_title: str):
             return
         
         # Save updated template
-        project_root = Path(__file__).parent.parent.parent
+        # Path from templates.py: workmain/cli/commands/templates.py
+        # Need 4 levels up to get to project root
+        project_root = Path(__file__).parent.parent.parent.parent
         templates_dir = project_root / "templates" / "reports"
         
-        # Find template file
-        template_files = list(templates_dir.glob(f"{template_name}.json"))
+        # Find template file using iterdir instead of glob (glob conflicts with Click)
+        template_files = [
+            f for f in templates_dir.iterdir() 
+            if f.name == f"{template_name}.json"
+        ]
+        
         if not template_files:
             # Try with underscores
-            template_files = list(templates_dir.glob(f"{template_name.replace('-', '_')}.json"))
+            template_files = [
+                f for f in templates_dir.iterdir()
+                if f.name == f"{template_name.replace('-', '_')}.json"
+            ]
         
         if not template_files:
             click.echo(f"\nCould not find template file for '{template_name}'", err=True)
@@ -509,7 +533,10 @@ def add_section(template_name: str, section_title: str):
         click.echo(f"  - Preview: workmain templates preview {template_name}")
         
     except Exception as e:
-        click.echo(f"Error adding section: {e}", err=True)
+        click.echo(f"\nError adding section: {e}", err=True)
+        import traceback
+        click.echo("\nFull error traceback:", err=True)
+        traceback.print_exc()
 
 
 # Export command group
