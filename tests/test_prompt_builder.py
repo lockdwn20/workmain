@@ -1,6 +1,6 @@
 """
 WorkmAIn Prompt Builder Test & Demo
-Prompt Builder Test v1.2
+Prompt Builder Test v1.3
 20251229
 
 Tests and demonstrates the prompt builder functionality.
@@ -10,6 +10,7 @@ Version History:
 - v1.0: Initial test suite
 - v1.1: Fixed database connection import to use get_db()
 - v1.2: Works with prompt_builder v1.1 (StyleAdapter fix)
+- v1.3: Works with prompt_builder v1.2 (repository method fixes)
 
 Run with: python3 test_prompt_builder.py
 """

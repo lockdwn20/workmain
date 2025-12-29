@@ -1,6 +1,6 @@
 """
 WorkmAIn AI Prompt Builder
-Prompt Builder v1.1
+Prompt Builder v1.2
 20251229
 
 Dynamic prompt construction for AI report generation.
@@ -16,6 +16,8 @@ Features:
 Version History:
 - v1.0: Initial implementation
 - v1.1: Fixed to use StyleAdapter.get_style_prompt() instead of non-existent get_style_for_ai()
+- v1.2: Fixed repository method names (get_date_range not get_by_date_range), 
+        meetings query directly since no get_date_range method exists
 
 Workflow:
 1. Load template structure
@@ -366,7 +368,12 @@ class PromptBuilder:
         Returns:
             List of note dictionaries
         """
-        notes = self.notes_repo.get_by_date_range(start_date, end_date)
+        notes = self.notes_repo.get_date_range(  # ← Fixed: get_date_range not get_by_date_range
+            start_date=start_date,
+            end_date=end_date,
+            include_tags=tags_include if tags_include else None,
+            exclude_tags=tags_exclude if tags_exclude else None
+        )
         
         # Filter by tags
         filtered = []
@@ -406,7 +413,10 @@ class PromptBuilder:
         Returns:
             List of time entry dictionaries
         """
-        entries = self.time_repo.get_by_date_range(start_date, end_date)
+        entries = self.time_repo.get_date_range(  # ← Fixed: get_date_range not get_by_date_range
+            start_date=start_date,
+            end_date=end_date
+        )
         
         return [{
             "project_name": entry.project.name if entry.project else None,
@@ -431,7 +441,20 @@ class PromptBuilder:
         Returns:
             List of meeting dictionaries
         """
-        meetings = self.meetings_repo.get_by_date_range(start_date, end_date)
+        from workmain.database.models import Meeting
+        from sqlalchemy import and_
+        
+        # Convert dates to datetimes for query
+        start_dt = datetime.combine(start_date, datetime.min.time())
+        end_dt = datetime.combine(end_date, datetime.max.time())
+        
+        # Query meetings directly (MeetingsRepository doesn't have get_date_range)
+        meetings = self.session.query(Meeting).filter(
+            and_(
+                Meeting.start_time >= start_dt,
+                Meeting.start_time <= end_dt
+            )
+        ).order_by(Meeting.start_time).all()
         
         return [{
             "title": meeting.title,
