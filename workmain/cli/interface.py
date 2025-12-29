@@ -1,7 +1,7 @@
 """
 WorkmAIn
-CLI Interface v0.5.0
-20251224
+CLI Interface v0.7.0
+20251229
 
 Main CLI interface using Click framework
 Updated for Phase 3: Template Management
@@ -12,6 +12,8 @@ Version History:
 - v0.3.0: Added time tracking commands
 - v0.4.0: Added task management commands
 - v0.5.0: Added template management commands (Phase 3)
+- v0.7.0: Added AI report generation (Phase 4)
+
 """
 
 import click
@@ -34,6 +36,10 @@ from workmain.cli.commands.tasks import tasks
 # Import Phase 3 commands
 from workmain.cli.commands.templates import templates
 
+# Import Phase 4 commands
+from workmain.cli.commands.report import report
+
+# Initialize console
 console = Console()
 
 
@@ -117,6 +123,8 @@ cli.add_command(tasks)
 # Phase 3: Template Management Commands
 cli.add_command(templates)
 
+# Phase 4: AI Report Generation
+cli.add_command(report)
 
 # Placeholder command groups for future phases
 @cli.group()
