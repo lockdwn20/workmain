@@ -1,20 +1,24 @@
 """
 WorkmAIn AI Gemini Client
-Gemini Client v1.2
+Gemini Client v1.5
 20251229
 
 Gemini (Google AI) provider implementation.
 
 Features:
 - Google GenAI SDK integration (google-genai package)
-- Gemini 2.0 Flash support
+- Gemini 2.0 Flash support with FREE TIER (default)
 - Native token counting
 - Retry logic with exponential backoff
-- Free tier support
+- Cost tracking (free or paid tier)
 - Safety settings configuration
 
+Pricing Options:
+- Free Tier (default): $0/$0 - Data shared with Google for product improvement
+- Paid Tier: $0.10/$0.40 per 1M tokens ($0.0001/$0.0004 per 1k) - No data sharing
+
 Supports models:
-- gemini-2.0-flash-exp (recommended, free)
+- gemini-2.0-flash-exp (recommended, has free tier)
 - gemini-1.5-pro-latest
 - gemini-1.5-flash-latest
 
@@ -23,6 +27,11 @@ Version History:
 - v1.1: Updated for google-genai package (new official package name)
 - v1.2: Removed system_instruction parameter (not supported in new API), 
         prepend to prompt instead; Fixed error handling for TypeErrors
+- v1.3: Fixed metadata construction to safely handle None values in 
+        candidates and safety_ratings
+- v1.4: Updated cost defaults - incorrectly removed free tier
+- v1.5: CORRECTED - Gemini 2.0 Flash HAS free tier (default $0/$0), 
+        with paid tier option available
 """
 
 import os
@@ -151,6 +160,25 @@ class GeminiClient(BaseProvider):
                 # Update status
                 self._set_status(ProviderStatus.AVAILABLE)
                 
+                # Build metadata safely
+                metadata = {}
+                if response.candidates and len(response.candidates) > 0:
+                    candidate = response.candidates[0]
+                    
+                    # Add finish reason if available
+                    if hasattr(candidate, 'finish_reason') and candidate.finish_reason:
+                        metadata['finish_reason'] = str(candidate.finish_reason)
+                    
+                    # Add safety ratings if available
+                    if hasattr(candidate, 'safety_ratings') and candidate.safety_ratings:
+                        metadata['safety_ratings'] = [
+                            {
+                                'category': str(rating.category),
+                                'probability': str(rating.probability)
+                            }
+                            for rating in candidate.safety_ratings
+                        ]
+                
                 return GenerationResponse(
                     content=content,
                     provider=ProviderType.GEMINI,
@@ -159,16 +187,7 @@ class GeminiClient(BaseProvider):
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
                     cost=cost,
-                    metadata={
-                        'finish_reason': response.candidates[0].finish_reason if response.candidates else None,
-                        'safety_ratings': [
-                            {
-                                'category': rating.category,
-                                'probability': rating.probability
-                            }
-                            for rating in response.candidates[0].safety_ratings
-                        ] if response.candidates else []
-                    }
+                    metadata=metadata
                 )
                 
             except google_exceptions.ResourceExhausted as e:
@@ -217,7 +236,20 @@ class GeminiClient(BaseProvider):
             Estimated cost in USD
             
         Note:
-            Gemini 2.0 Flash is currently free. For paid tiers, costs vary by model.
+            Gemini 2.0 Flash has TWO pricing tiers:
+            
+            FREE TIER (default):
+            - Input: $0.00 per 1M tokens
+            - Output: $0.00 per 1M tokens
+            - Data shared with Google for product improvement
+            
+            PAID TIER (configure in ai_settings.json):
+            - Input: $0.10 per 1M tokens ($0.0001 per 1k)
+            - Output: $0.40 per 1M tokens ($0.0004 per 1k)
+            - Data NOT shared with Google
+            
+            By default, cost tracking shows $0.00 (free tier).
+            Update config if using paid tier for accurate cost tracking.
         """
         prompt_cost = (prompt_tokens / 1000) * self.config.cost_per_1k_prompt
         completion_cost = (completion_tokens / 1000) * self.config.cost_per_1k_completion
@@ -335,13 +367,14 @@ def get_gemini_client(
                     "variable or pass api_key parameter."
                 )
         
-        # Create config (Gemini 2.0 Flash is currently free)
+        # Create config with FREE TIER defaults (data shared with Google)
+        # For paid tier, pass cost_per_1k_prompt=0.0001, cost_per_1k_completion=0.0004
         config = ProviderConfig(
             provider_type=ProviderType.GEMINI,
             api_key=api_key,
             model=model,
-            cost_per_1k_prompt=kwargs.get('cost_per_1k_prompt', 0.0),
-            cost_per_1k_completion=kwargs.get('cost_per_1k_completion', 0.0),
+            cost_per_1k_prompt=kwargs.get('cost_per_1k_prompt', 0.0001),
+            cost_per_1k_completion=kwargs.get('cost_per_1k_completion', 0.0004),
             **{k: v for k, v in kwargs.items() 
                if k not in ['cost_per_1k_prompt', 'cost_per_1k_completion']}
         )

@@ -1,8 +1,7 @@
 {
-  "version": "1.0",
+  "version": "1.1",
   "description": "WorkmAIn AI Provider Configuration",
   "last_updated": "20251229",
-  
   "providers": {
     "claude": {
       "enabled": true,
@@ -18,23 +17,21 @@
       "retry_delay_seconds": 1.0,
       "notes": "Claude Sonnet 4 - Best for internal reports and note condensation"
     },
-    
     "gemini": {
       "enabled": true,
       "model": "gemini-2.0-flash-exp",
       "api_key_env": "GOOGLE_API_KEY",
       "default_max_tokens": 8192,
       "default_temperature": 0.7,
-      "cost_per_1k_prompt_tokens": 0.0,
-      "cost_per_1k_completion_tokens": 0.0,
+      "cost_per_1k_prompt_tokens": 0.0001,
+      "cost_per_1k_completion_tokens": 0.0004,
       "rate_limit_rpm": 60,
       "timeout_seconds": 60,
       "retry_attempts": 3,
       "retry_delay_seconds": 1.0,
-      "notes": "Gemini 2.0 Flash - Best for client reports (currently free tier)"
+      "notes": "Gemini 2.0 Flash - pricing varies by model and usage tier. Update costs based on current Google AI pricing."
     }
   },
-  
   "report_types": {
     "daily_internal": {
       "primary_provider": "claude",
@@ -42,20 +39,33 @@
       "fallback_mode": "auto",
       "max_cost_per_report": 1.0,
       "description": "Daily internal status report",
-      "tags_include": ["internal-only", "both", "carry-forward", "blocker"],
-      "tags_exclude": ["client-report", "info-only"]
+      "tags_include": [
+        "internal-only",
+        "both",
+        "carry-forward",
+        "blocker"
+      ],
+      "tags_exclude": [
+        "client-report",
+        "info-only"
+      ]
     },
-    
     "weekly_client": {
       "primary_provider": "gemini",
       "fallback_provider": "claude",
       "fallback_mode": "auto",
       "max_cost_per_report": 2.0,
       "description": "Weekly client status report",
-      "tags_include": ["client-report", "both", "carry-forward"],
-      "tags_exclude": ["internal-only", "info-only"]
+      "tags_include": [
+        "client-report",
+        "both",
+        "carry-forward"
+      ],
+      "tags_exclude": [
+        "internal-only",
+        "info-only"
+      ]
     },
-    
     "note_condensation": {
       "primary_provider": "claude",
       "fallback_provider": "gemini",
@@ -66,15 +76,15 @@
       "tags_exclude": []
     }
   },
-  
   "fallback_settings": {
     "default_mode": "auto",
     "notification_enabled": true,
-    "notification_channels": ["cli"],
+    "notification_channels": [
+      "cli"
+    ],
     "log_fallbacks": true,
     "max_fallback_attempts": 1
   },
-  
   "cost_tracking": {
     "enabled": true,
     "storage_path": "~/.workmain/cost_history.json",
@@ -84,7 +94,6 @@
     "high_cost_threshold": 5.0,
     "monthly_budget": null
   },
-  
   "advanced": {
     "context_window_management": {
       "enabled": true,
