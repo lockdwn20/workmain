@@ -1,6 +1,6 @@
 """
 WorkmAIn AI Prompt Builder
-Prompt Builder v1.0
+Prompt Builder v1.1
 20251229
 
 Dynamic prompt construction for AI report generation.
@@ -12,6 +12,10 @@ Features:
 - Manages context window limits
 - Builds system and user prompts
 - Supports both Claude and Gemini formats
+
+Version History:
+- v1.0: Initial implementation
+- v1.1: Fixed to use StyleAdapter.get_style_prompt() instead of non-existent get_style_for_ai()
 
 Workflow:
 1. Load template structure
@@ -123,8 +127,10 @@ class PromptBuilder:
         Returns:
             System prompt string
         """
-        # Get writing style
-        style = self.style_adapter.get_style_for_ai(report_type)
+        # Get writing style as formatted prompt
+        style_prompt = self.style_adapter.get_style_prompt(
+            "internal" if "internal" in report_type else "client"
+        )
         
         # Get template metadata
         metadata = template.get("metadata", {})
@@ -140,9 +146,10 @@ class PromptBuilder:
         if description:
             parts.append(f"Purpose: {description}")
         
-        # Writing style
-        parts.append("\n# Writing Style")
-        parts.append(self._format_style_instructions(style))
+        # Writing style (already formatted by style_adapter)
+        if style_prompt:
+            parts.append("\n# Writing Style")
+            parts.append(style_prompt)
         
         # Output format
         parts.append("\n# Output Format")
@@ -160,55 +167,6 @@ class PromptBuilder:
         parts.append("- Keep sentences clear and concise")
         
         return "\n".join(parts)
-    
-    def _format_style_instructions(self, style: Dict[str, Any]) -> str:
-        """
-        Format writing style into readable instructions.
-        
-        Args:
-            style: Style dictionary from style_adapter
-            
-        Returns:
-            Formatted style instructions
-        """
-        parts = []
-        
-        # Tone
-        tone = style.get("tone", {})
-        if tone:
-            parts.append(f"Tone: {tone.get('formality', 'professional')}, {tone.get('voice', 'technical')}")
-        
-        # Structure preferences
-        structure = style.get("structure", {})
-        if structure:
-            paragraph_length = structure.get("paragraph_length", "medium")
-            parts.append(f"Paragraph length: {paragraph_length}")
-            
-            if structure.get("use_bullet_points"):
-                parts.append("Use bullet points for lists")
-            
-            if structure.get("use_headers"):
-                parts.append("Use clear section headers")
-        
-        # Technical preferences
-        technical = style.get("technical_preferences", {})
-        if technical:
-            parts.append(f"Technical detail: {technical.get('detail_level', 'moderate')}")
-            
-            if technical.get("include_context"):
-                parts.append("Include relevant context and background")
-            
-            if technical.get("explain_acronyms"):
-                parts.append("Explain acronyms on first use")
-        
-        # Vocabulary
-        vocabulary = style.get("vocabulary", {})
-        if vocabulary:
-            preferred = vocabulary.get("preferred_terms", [])
-            if preferred:
-                parts.append(f"Preferred terms: {', '.join(preferred[:5])}")
-        
-        return "\n".join(f"- {part}" for part in parts)
     
     def _build_user_prompt(
         self,
