@@ -1,0 +1,100 @@
+{
+  "version": "1.0",
+  "description": "WorkmAIn AI Provider Configuration",
+  "last_updated": "20251229",
+  
+  "providers": {
+    "claude": {
+      "enabled": true,
+      "model": "claude-sonnet-4-20250514",
+      "api_key_env": "ANTHROPIC_API_KEY",
+      "default_max_tokens": 4096,
+      "default_temperature": 0.7,
+      "cost_per_1k_prompt_tokens": 0.003,
+      "cost_per_1k_completion_tokens": 0.015,
+      "rate_limit_rpm": 50,
+      "timeout_seconds": 60,
+      "retry_attempts": 3,
+      "retry_delay_seconds": 1.0,
+      "notes": "Claude Sonnet 4 - Best for internal reports and note condensation"
+    },
+    
+    "gemini": {
+      "enabled": true,
+      "model": "gemini-2.0-flash-exp",
+      "api_key_env": "GOOGLE_API_KEY",
+      "default_max_tokens": 8192,
+      "default_temperature": 0.7,
+      "cost_per_1k_prompt_tokens": 0.0,
+      "cost_per_1k_completion_tokens": 0.0,
+      "rate_limit_rpm": 60,
+      "timeout_seconds": 60,
+      "retry_attempts": 3,
+      "retry_delay_seconds": 1.0,
+      "notes": "Gemini 2.0 Flash - Best for client reports (currently free tier)"
+    }
+  },
+  
+  "report_types": {
+    "daily_internal": {
+      "primary_provider": "claude",
+      "fallback_provider": "gemini",
+      "fallback_mode": "auto",
+      "max_cost_per_report": 1.0,
+      "description": "Daily internal status report",
+      "tags_include": ["internal-only", "both", "carry-forward", "blocker"],
+      "tags_exclude": ["client-report", "info-only"]
+    },
+    
+    "weekly_client": {
+      "primary_provider": "gemini",
+      "fallback_provider": "claude",
+      "fallback_mode": "auto",
+      "max_cost_per_report": 2.0,
+      "description": "Weekly client status report",
+      "tags_include": ["client-report", "both", "carry-forward"],
+      "tags_exclude": ["internal-only", "info-only"]
+    },
+    
+    "note_condensation": {
+      "primary_provider": "claude",
+      "fallback_provider": "gemini",
+      "fallback_mode": "auto",
+      "max_cost_per_report": 0.1,
+      "description": "Condense meeting notes for Clockify",
+      "tags_include": [],
+      "tags_exclude": []
+    }
+  },
+  
+  "fallback_settings": {
+    "default_mode": "auto",
+    "notification_enabled": true,
+    "notification_channels": ["cli"],
+    "log_fallbacks": true,
+    "max_fallback_attempts": 1
+  },
+  
+  "cost_tracking": {
+    "enabled": true,
+    "storage_path": "~/.workmain/cost_history.json",
+    "track_per_section": true,
+    "track_per_report": true,
+    "alert_on_high_cost": true,
+    "high_cost_threshold": 5.0,
+    "monthly_budget": null
+  },
+  
+  "advanced": {
+    "context_window_management": {
+      "enabled": true,
+      "max_context_tokens": 180000,
+      "truncation_strategy": "oldest_first"
+    },
+    "caching": {
+      "enabled": false,
+      "cache_prompts": false,
+      "cache_duration_hours": 24
+    }
+  }
+}
