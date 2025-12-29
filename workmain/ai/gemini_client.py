@@ -1,12 +1,12 @@
 """
 WorkmAIn AI Gemini Client
-Gemini Client v1.1
+Gemini Client v1.2
 20251229
 
 Gemini (Google AI) provider implementation.
 
 Features:
-- Google Gemini SDK integration (google-genai package)
+- Google GenAI SDK integration (google-genai package)
 - Gemini 2.0 Flash support
 - Native token counting
 - Retry logic with exponential backoff
@@ -21,6 +21,8 @@ Supports models:
 Version History:
 - v1.0: Initial implementation with google-generativeai package
 - v1.1: Updated for google-genai package (new official package name)
+- v1.2: Removed system_instruction parameter (not supported in new API), 
+        prepend to prompt instead; Fixed error handling for TypeErrors
 """
 
 import os
@@ -118,18 +120,20 @@ class GeminiClient(BaseProvider):
                     'temperature': request.temperature
                 }
                 
-                # Build contents list (new API format)
-                contents = [request.prompt]
+                # Build contents - include system prompt in the user message if provided
+                # The new google-genai API doesn't have system_instruction parameter
+                if request.system_prompt:
+                    full_prompt = f"{request.system_prompt}\n\n{request.prompt}"
+                else:
+                    full_prompt = request.prompt
                 
-                # Add system instruction if provided
-                system_instruction = request.system_prompt if request.system_prompt else None
+                contents = [full_prompt]
                 
                 # Call Gemini API with new client
                 response = self.client.models.generate_content(
                     model=self.model_name,
                     contents=contents,
-                    config=types.GenerateContentConfig(**config_dict),
-                    system_instruction=system_instruction
+                    config=types.GenerateContentConfig(**config_dict)
                 )
                 
                 # Extract content
@@ -170,6 +174,11 @@ class GeminiClient(BaseProvider):
             except google_exceptions.ResourceExhausted as e:
                 self._set_status(ProviderStatus.RATE_LIMITED, str(e))
                 raise RateLimitError(f"Gemini rate limit exceeded: {e}") from e
+            
+            except TypeError as e:
+                # TypeError indicates API usage error, not rate limit
+                self._set_status(ProviderStatus.ERROR, str(e))
+                raise GenerationError(f"Gemini API error: {e}") from e
                 
             except Exception as e:
                 last_error = e
