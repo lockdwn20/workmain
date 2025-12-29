@@ -1,10 +1,14 @@
 """
 WorkmAIn Prompt Builder Test & Demo
-Prompt Builder Test v1.0
+Prompt Builder Test v1.1
 20251229
 
 Tests and demonstrates the prompt builder functionality.
 Shows how prompts are constructed from templates and data.
+
+Version History:
+- v1.0: Initial test suite
+- v1.1: Fixed database connection import to use get_db()
 
 Run with: python3 test_prompt_builder.py
 """
@@ -17,8 +21,14 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from workmain.database.connection import get_session
+from workmain.database.connection import get_db
 from workmain.ai.prompt_builder import get_prompt_builder
+
+
+def get_session():
+    """Get database session."""
+    db = get_db()
+    return db.get_session()
 
 
 def test_prompt_building():
