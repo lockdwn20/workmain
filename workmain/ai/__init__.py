@@ -1,6 +1,6 @@
 """
 WorkmAIn AI Package
-AI Package v1.1
+AI Package v1.2
 20251229
 
 AI provider integration for report generation.
@@ -11,10 +11,12 @@ This package provides:
 - Cost tracking system
 - Claude client (Anthropic)
 - Gemini client (Google AI)
+- Prompt builder for report generation
 
 Version History:
 - v1.0: Initial package with base_provider, provider_manager, cost_tracker
 - v1.1: Added Claude and Gemini client implementations
+- v1.2: Added prompt_builder for AI report generation
 """
 
 from workmain.ai.base_provider import (
@@ -57,6 +59,11 @@ from workmain.ai.gemini_client import (
     reset_gemini_client
 )
 
+from workmain.ai.prompt_builder import (
+    PromptBuilder,
+    get_prompt_builder
+)
+
 __all__ = [
     # Base Provider
     'BaseProvider',
@@ -92,6 +99,10 @@ __all__ = [
     'GeminiClient',
     'get_gemini_client',
     'reset_gemini_client',
+    
+    # Prompt Builder
+    'PromptBuilder',
+    'get_prompt_builder',
 ]
 
-__version__ = '1.1'
+__version__ = '1.2'
