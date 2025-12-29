@@ -1,6 +1,6 @@
 """
 WorkmAIn AI Claude Client
-Claude Client v1.1
+Claude Client v1.2
 20251229
 
 Claude (Anthropic) provider implementation.
@@ -16,6 +16,7 @@ Features:
 Version History:
 - v1.0: Initial implementation
 - v1.1: Fixed system prompt format (must be list of message blocks)
+- v1.2: Only pass system parameter when provided (API rejects system=None)
 
 Supports models:
 - claude-sonnet-4-20250514 (recommended)
@@ -110,20 +111,21 @@ class ClaudeClient(BaseProvider):
                 # Build messages
                 messages = [{"role": "user", "content": request.prompt}]
                 
-                # Format system prompt as list if provided
-                # Claude API requires system to be a list of message blocks
-                system = None
+                # Build API call parameters
+                api_params = {
+                    "model": self.config.model,
+                    "max_tokens": request.max_tokens,
+                    "temperature": request.temperature,
+                    "messages": messages
+                }
+                
+                # Only add system parameter if provided
+                # Claude API doesn't like system=None
                 if request.system_prompt:
-                    system = [{"type": "text", "text": request.system_prompt}]
+                    api_params["system"] = [{"type": "text", "text": request.system_prompt}]
                 
                 # Call Claude API
-                response = self.client.messages.create(
-                    model=self.config.model,
-                    max_tokens=request.max_tokens,
-                    temperature=request.temperature,
-                    messages=messages,
-                    system=system
-                )
+                response = self.client.messages.create(**api_params)
                 
                 # Extract content
                 content = ""
