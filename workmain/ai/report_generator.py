@@ -1,6 +1,6 @@
 """
 WorkmAIn AI Report Generator
-Report Generator v1.0
+Report Generator v1.1
 20251229
 
 High-level orchestrator for AI report generation.
@@ -13,6 +13,11 @@ Features:
 - Provides generation status and logging
 - Manages errors and retries
 - Tracks costs per report
+
+Version History:
+- v1.0: Initial implementation
+- v1.1: Fixed ProviderManager method calls (generate not generate_with_fallback),
+        Added provider registration in __init__
 
 Workflow:
 1. Load template and validate
@@ -83,6 +88,13 @@ class ReportGenerator:
         self.cost_tracker = cost_tracker or get_cost_tracker()
         self.template_loader = template_loader or get_template_loader()
         
+        # Register AI providers with the manager
+        from workmain.ai import get_claude_client, get_gemini_client
+        claude = get_claude_client()
+        gemini = get_gemini_client()
+        self.provider_manager.register_provider(ProviderType.CLAUDE, claude)
+        self.provider_manager.register_provider(ProviderType.GEMINI, gemini)
+        
         # Set output directory
         if output_dir is None:
             project_root = Path(__file__).parent.parent.parent
@@ -146,10 +158,10 @@ class ReportGenerator:
         )
         
         # Generate with AI
-        response = self.provider_manager.generate_with_fallback(
+        response, fallback_used = self.provider_manager.generate(
             request=request,
-            preferred_provider=provider,
-            report_type=template_name
+            report_type=template_name,
+            provider_override=provider
         )
         
         # Track costs
@@ -240,10 +252,10 @@ class ReportGenerator:
         )
         
         # Generate
-        response = self.provider_manager.generate_with_fallback(
+        response, fallback_used = self.provider_manager.generate(
             request=request,
-            preferred_provider=provider,
-            report_type=template_name
+            report_type=template_name,
+            provider_override=provider
         )
         
         # Track costs
