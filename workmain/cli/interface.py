@@ -4,7 +4,7 @@ CLI Interface v0.7.0
 20251229
 
 Main CLI interface using Click framework
-Updated for Phase 3: Template Management
+Updated for Phase 4: AI Report Generation
 
 Version History:
 - v0.1.0: Initial CLI with basic structure
@@ -12,7 +12,8 @@ Version History:
 - v0.3.0: Added time tracking commands
 - v0.4.0: Added task management commands
 - v0.5.0: Added template management commands (Phase 3)
-- v0.7.0: Added AI report generation (Phase 4)
+- v0.6.0: Added template extensibility (Phase 3.5)
+- v0.7.0: Added AI report generation (Phase 4) - PLACEHOLDER COMMANDS REMOVED
 
 """
 
@@ -25,7 +26,7 @@ from datetime import date
 try:
     from workmain.__version__ import __version__
 except ImportError:
-    __version__ = "0.5.0"
+    __version__ = "0.7.0"
 
 # Import Phase 2 commands
 from workmain.cli.commands.note import note, notes
@@ -87,8 +88,8 @@ def status():
     table.add_row("Meetings", "✓ Phase 2 Complete")
     table.add_row("Time Tracking", "✓ Phase 2 Complete")
     table.add_row("Tasks", "✓ Phase 2 Complete")
-    table.add_row("Templates", "✓ Phase 3 (75% Complete)")
-    table.add_row("AI Integration", "⏳ Coming in Phase 4")
+    table.add_row("Templates", "✓ Phase 3 Complete")
+    table.add_row("AI Integration", "✓ Phase 4 Complete")
     
     console.print(table)
     console.print("\n[yellow]Tip:[/yellow] Use 'workmain --help' to see all available commands")
@@ -103,7 +104,7 @@ def today():
     console.print("  • workmain note add 'text'       - Add a new note")
     console.print("  • workmain track add 'desc' 2h   - Track time")
     console.print("  • workmain tasks carryover       - See carry-forward tasks")
-    console.print("  • workmain templates list        - View report templates")
+    console.print("  • workmain report daily --send   - Generate AI report")
     console.print("\n[dim]Use 'workmain --help' for all commands[/dim]")
 
 
@@ -123,16 +124,11 @@ cli.add_command(tasks)
 # Phase 3: Template Management Commands
 cli.add_command(templates)
 
-# Phase 4: AI Report Generation
+# Phase 4: AI Report Generation (REAL IMPLEMENTATION)
 cli.add_command(report)
 
+
 # Placeholder command groups for future phases
-@cli.group()
-def report():
-    """Generate and manage reports."""
-    pass
-
-
 @cli.group()
 def config():
     """Manage configuration."""
@@ -161,25 +157,6 @@ def recipients():
 def notifications():
     """Manage notification settings."""
     pass
-
-
-# Add placeholder subcommands to show structure
-@report.command("daily")
-@click.option("--preview", is_flag=True, help="Preview without sending")
-@click.option("--send", is_flag=True, help="Generate and send")
-def report_daily(preview, send):
-    """Generate daily internal report."""
-    console.print("[yellow]⏳ AI report generation coming in Phase 4[/yellow]")
-    console.print(f"\nFor now, use: [cyan]workmain templates preview daily_internal[/cyan]")
-
-
-@report.command("weekly")
-@click.option("--preview", is_flag=True, help="Preview without sending")
-@click.option("--send", is_flag=True, help="Generate and send")
-def report_weekly(preview, send):
-    """Generate weekly client report."""
-    console.print("[yellow]⏳ AI report generation coming in Phase 4[/yellow]")
-    console.print(f"\nFor now, use: [cyan]workmain templates preview weekly_client[/cyan]")
 
 
 if __name__ == "__main__":

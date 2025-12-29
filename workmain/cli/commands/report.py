@@ -1,20 +1,24 @@
 """
-WorkmAIn Report CLI Commands
-Report Commands v1.0
+WorkmAIn Report Commands - Phase 4 Implementation
+Report Commands v1.1
 20251229
 
-CLI commands for AI-powered report generation.
+Replaces Phase 3 placeholder commands with real AI generation.
 
-Commands:
-- report generate <template> - Generate a report
-- report preview <template> - Preview prompts without generating
-- report list - List generated reports
-- report show <file> - Display a generated report
-- report costs - Show cost summary
+Commands match existing structure:
+- report daily --preview / --send
+- report weekly --preview / --send
+- report list
+- report show <file>
+- report costs
+
+Version History:
+- v1.0: Generic structure (report generate <template>)
+- v1.1: Adapted to match existing CLI structure (report daily/weekly)
 """
 
 import click
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from pathlib import Path
 from typing import Optional
 
@@ -29,188 +33,191 @@ from workmain.ai import get_report_generator, ReportFormat, ProviderType
 console = Console()
 
 
+def generate_report_impl(
+    template_name: str,
+    preview_only: bool = False,
+    provider: Optional[str] = None,
+    max_tokens: int = 4000,
+    temperature: float = 0.7
+):
+    """
+    Implementation for report generation.
+    
+    Args:
+        template_name: Template name (daily_internal, weekly_client)
+        preview_only: If True, preview without generating
+        provider: AI provider override (claude/gemini)
+        max_tokens: Maximum tokens
+        temperature: Temperature for generation
+    """
+    # Get database session and generator
+    db = get_db()
+    session = db.get_session()
+    
+    try:
+        generator = get_report_generator(session)
+        report_date = datetime.today().date()
+        
+        if preview_only:
+            # Preview mode - show prompts and estimates
+            console.print(f"\n[cyan]Previewing {template_name} report for {report_date}...[/cyan]\n")
+            
+            preview = generator.preview_report(
+                template_name=template_name,
+                report_date=report_date
+            )
+            
+            # Display summary
+            console.print("[bold]Report Preview:[/bold]")
+            console.print(f"  Template: {preview['template_name']}")
+            console.print(f"  Date: {preview['report_date']}")
+            console.print(f"  Provider: {preview['provider']}")
+            console.print(f"  Estimated tokens: ~{preview['estimated_tokens']:,}")
+            console.print(f"  Estimated cost: ~${preview['estimated_cost']:.6f}")
+            console.print()
+            
+            # Show abbreviated prompts
+            console.print("[bold]System Prompt (first 500 chars):[/bold]")
+            console.print(f"[dim]{preview['system_prompt'][:500]}...[/dim]")
+            console.print()
+            
+            console.print("[bold]User Prompt (first 500 chars):[/bold]")
+            console.print(f"[dim]{preview['user_prompt'][:500]}...[/dim]")
+            console.print()
+            
+            console.print("[dim]This is what will be sent to AI. No charges incurred in preview mode.[/dim]")
+            console.print()
+            
+        else:
+            # Generate mode
+            console.print(f"\n[cyan]Generating {template_name} report for {report_date}...[/cyan]")
+            
+            # Parse provider
+            provider_type = None
+            if provider:
+                provider_type = ProviderType.CLAUDE if provider.lower() == 'claude' else ProviderType.GEMINI
+            
+            # Generate report
+            result = generator.generate_report(
+                template_name=template_name,
+                report_date=report_date,
+                provider=provider_type,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                save_to_file=True,
+                output_format=ReportFormat.MARKDOWN
+            )
+            
+            # Display result
+            console.print()
+            console.print(Panel(
+                result['content'],
+                title=f"[bold]{template_name.replace('_', ' ').title()}[/bold]",
+                border_style="green"
+            ))
+            
+            # Show metadata
+            console.print()
+            console.print("[bold]Generation Details:[/bold]")
+            console.print(f"  Provider: {result['provider']}")
+            console.print(f"  Model: {result['model']}")
+            console.print(f"  Tokens: {result['tokens_used']:,} (prompt: {result['prompt_tokens']:,}, completion: {result['completion_tokens']:,})")
+            console.print(f"  Cost: ${result['cost']:.6f}")
+            
+            if result['file_path']:
+                console.print(f"  [green]✓ Saved to: {result['file_path']}[/green]")
+            
+            console.print()
+    
+    except Exception as e:
+        console.print(f"[red]✗ Operation failed: {e}[/red]")
+        import traceback
+        if '--debug' in click.get_current_context().args:
+            traceback.print_exc()
+    
+    finally:
+        session.close()
+
+
+# These functions replace the placeholder commands in interface.py
+def report_daily_impl(preview: bool, send: bool, provider: Optional[str] = None):
+    """
+    Implementation for daily report command.
+    
+    Args:
+        preview: Preview without generating
+        send: Generate and save
+        provider: AI provider override
+    """
+    if preview:
+        generate_report_impl("daily_internal", preview_only=True, provider=provider)
+    elif send:
+        generate_report_impl("daily_internal", preview_only=False, provider=provider)
+    else:
+        # No flags - show help
+        console.print("\n[yellow]Please specify --preview or --send:[/yellow]")
+        console.print("  --preview : Preview prompts without generating (no cost)")
+        console.print("  --send    : Generate report with AI\n")
+        console.print("[dim]Example: workmain report daily --preview[/dim]")
+        console.print("[dim]Example: workmain report daily --send[/dim]\n")
+
+
+def report_weekly_impl(preview: bool, send: bool, provider: Optional[str] = None):
+    """
+    Implementation for weekly report command.
+    
+    Args:
+        preview: Preview without generating
+        send: Generate and save
+        provider: AI provider override
+    """
+    if preview:
+        generate_report_impl("weekly_client", preview_only=True, provider=provider)
+    elif send:
+        generate_report_impl("weekly_client", preview_only=False, provider=provider)
+    else:
+        # No flags - show help
+        console.print("\n[yellow]Please specify --preview or --send:[/yellow]")
+        console.print("  --preview : Preview prompts without generating (no cost)")
+        console.print("  --send    : Generate report with AI\n")
+        console.print("[dim]Example: workmain report weekly --preview[/dim]")
+        console.print("[dim]Example: workmain report weekly --send[/dim]\n")
+
+
 @click.group()
 def report():
-    """AI-powered report generation commands."""
+    """Generate and manage reports."""
     pass
 
 
-@report.command('generate')
-@click.argument('template', type=str)
-@click.option('--date', '-d', help='Report date (YYYY-MM-DD, default: today)')
-@click.option('--provider', '-p', type=click.Choice(['claude', 'gemini'], case_sensitive=False),
-              help='AI provider (default: template default)')
-@click.option('--format', '-f', type=click.Choice(['markdown', 'text', 'html']),
-              default='markdown', help='Output format')
-@click.option('--no-save', is_flag=True, help='Don\'t save to file')
-@click.option('--filename', help='Custom filename')
-@click.option('--max-tokens', type=int, default=4000, help='Maximum tokens')
-@click.option('--temperature', type=float, default=0.7, help='Temperature (0.0-1.0)')
-def report_generate(template: str, date: Optional[str], provider: Optional[str],
-                   format: str, no_save: bool, filename: Optional[str],
-                   max_tokens: int, temperature: float):
-    """
-    Generate an AI-powered report.
-    
-    Examples:
-        workmain report generate daily_internal
-        workmain report generate weekly_client --date 2025-12-27
-        workmain report generate daily_internal --provider gemini
-        workmain report generate daily_internal --format text --no-save
-    """
-    # Parse date
-    report_date = datetime.today().date()
-    if date:
-        try:
-            report_date = datetime.strptime(date, '%Y-%m-%d').date()
-        except ValueError:
-            console.print("[red]✗ Invalid date format. Use YYYY-MM-DD[/red]")
-            return
-    
-    # Parse provider
-    provider_type = None
-    if provider:
-        provider_type = ProviderType.CLAUDE if provider.lower() == 'claude' else ProviderType.GEMINI
-    
-    # Parse format
-    output_format = {
-        'markdown': ReportFormat.MARKDOWN,
-        'text': ReportFormat.TEXT,
-        'html': ReportFormat.HTML
-    }[format]
-    
-    # Get database session and generator
-    db = get_db()
-    session = db.get_session()
-    
-    try:
-        generator = get_report_generator(session)
-        
-        console.print(f"\n[cyan]Generating {template} report for {report_date}...[/cyan]")
-        
-        # Generate report
-        result = generator.generate_report(
-            template_name=template,
-            report_date=report_date,
-            provider=provider_type,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            save_to_file=not no_save,
-            output_format=output_format,
-            filename=filename
-        )
-        
-        # Display result
-        console.print()
-        console.print(Panel(
-            result['content'],
-            title=f"[bold]{template.replace('_', ' ').title()}[/bold]",
-            border_style="green"
-        ))
-        
-        # Show metadata
-        console.print()
-        console.print("[bold]Generation Details:[/bold]")
-        console.print(f"  Provider: {result['provider']}")
-        console.print(f"  Model: {result['model']}")
-        console.print(f"  Tokens: {result['tokens_used']:,} (prompt: {result['prompt_tokens']:,}, completion: {result['completion_tokens']:,})")
-        console.print(f"  Cost: ${result['cost']:.6f}")
-        
-        if result['file_path']:
-            console.print(f"  [green]✓ Saved to: {result['file_path']}[/green]")
-        
-        console.print()
-        
-    except Exception as e:
-        console.print(f"[red]✗ Generation failed: {e}[/red]")
-    
-    finally:
-        session.close()
+@report.command("daily")
+@click.option("--preview", is_flag=True, help="Preview without generating")
+@click.option("--send", is_flag=True, help="Generate and save report")
+@click.option("--provider", type=click.Choice(['claude', 'gemini'], case_sensitive=False),
+              help="Override AI provider")
+def report_daily(preview: bool, send: bool, provider: Optional[str]):
+    """Generate daily internal report."""
+    report_daily_impl(preview, send, provider)
 
 
-@report.command('preview')
-@click.argument('template', type=str)
-@click.option('--date', '-d', help='Report date (YYYY-MM-DD, default: today)')
-@click.option('--show-prompts', is_flag=True, help='Show full prompts')
-def report_preview(template: str, date: Optional[str], show_prompts: bool):
-    """
-    Preview a report without generating it.
-    
-    Shows the prompts that would be sent to AI and cost estimates.
-    
-    Examples:
-        workmain report preview daily_internal
-        workmain report preview weekly_client --show-prompts
-    """
-    # Parse date
-    report_date = datetime.today().date()
-    if date:
-        try:
-            report_date = datetime.strptime(date, '%Y-%m-%d').date()
-        except ValueError:
-            console.print("[red]✗ Invalid date format. Use YYYY-MM-DD[/red]")
-            return
-    
-    # Get database session and generator
-    db = get_db()
-    session = db.get_session()
-    
-    try:
-        generator = get_report_generator(session)
-        
-        console.print(f"\n[cyan]Previewing {template} report for {report_date}...[/cyan]")
-        
-        # Get preview
-        preview = generator.preview_report(
-            template_name=template,
-            report_date=report_date
-        )
-        
-        # Display summary
-        console.print()
-        console.print("[bold]Report Preview:[/bold]")
-        console.print(f"  Template: {preview['template_name']}")
-        console.print(f"  Date: {preview['report_date']}")
-        console.print(f"  Provider: {preview['provider']}")
-        console.print(f"  Estimated tokens: ~{preview['estimated_tokens']:,}")
-        console.print(f"  Estimated cost: ~${preview['estimated_cost']:.6f}")
-        console.print()
-        
-        # Show prompts if requested
-        if show_prompts:
-            console.print(Panel(
-                preview['system_prompt'],
-                title="[bold]System Prompt[/bold]",
-                border_style="blue"
-            ))
-            console.print()
-            console.print(Panel(
-                preview['user_prompt'],
-                title="[bold]User Prompt[/bold]",
-                border_style="blue"
-            ))
-            console.print()
-        else:
-            console.print("[dim]Use --show-prompts to see full prompts[/dim]")
-            console.print()
-    
-    except Exception as e:
-        console.print(f"[red]✗ Preview failed: {e}[/red]")
-    
-    finally:
-        session.close()
+@report.command("weekly")
+@click.option("--preview", is_flag=True, help="Preview without generating")
+@click.option("--send", is_flag=True, help="Generate and save report")
+@click.option("--provider", type=click.Choice(['claude', 'gemini'], case_sensitive=False),
+              help="Override AI provider")
+def report_weekly(preview: bool, send: bool, provider: Optional[str]):
+    """Generate weekly client report."""
+    report_weekly_impl(preview, send, provider)
 
 
 @report.command('list')
-@click.option('--template', '-t', help='Filter by template')
 @click.option('--limit', '-l', type=int, default=10, help='Number of reports to show')
-def report_list(template: Optional[str], limit: int):
+def report_list(limit: int):
     """
     List generated reports.
     
     Examples:
         workmain report list
-        workmain report list --template daily_internal
         workmain report list --limit 20
     """
     # Get database session and generator
@@ -221,13 +228,11 @@ def report_list(template: Optional[str], limit: int):
         generator = get_report_generator(session)
         
         # Get report history
-        reports = generator.get_report_history(
-            template_name=template,
-            limit=limit
-        )
+        reports = generator.get_report_history(limit=limit)
         
         if not reports:
             console.print("\n[yellow]No reports found.[/yellow]")
+            console.print("[dim]Generate your first report with: workmain report daily --send[/dim]\n")
             return
         
         # Create table
@@ -296,6 +301,7 @@ def report_show(filename: str):
         
         if not file_path.exists():
             console.print(f"[red]✗ Report not found: {filename}[/red]")
+            console.print("\n[dim]Use 'workmain report list' to see available reports[/dim]\n")
             return
         
         # Read and display
@@ -318,14 +324,12 @@ def report_show(filename: str):
 
 
 @report.command('costs')
-@click.option('--template', '-t', help='Filter by template')
-def report_costs(template: Optional[str]):
+def report_costs():
     """
     Show cost summary for generated reports.
     
     Examples:
         workmain report costs
-        workmain report costs --template daily_internal
     """
     # Get database session and generator
     db = get_db()
@@ -335,48 +339,37 @@ def report_costs(template: Optional[str]):
         generator = get_report_generator(session)
         
         # Get cost summary
-        summary = generator.get_cost_summary(report_type=template)
+        summary = generator.get_cost_summary()
         
         console.print()
         
-        if template:
-            # Single template
-            if summary.get('total_cost', 0) == 0:
-                console.print(f"[yellow]No costs tracked for {template}[/yellow]")
-                return
+        if summary.get('total_cost', 0) == 0:
+            console.print("[yellow]No costs tracked yet[/yellow]")
+            console.print("\n[dim]Generate a report with: workmain report daily --send[/dim]\n")
+            return
+        
+        console.print(f"[bold]Overall Cost Summary:[/bold]")
+        console.print(f"  Total reports: {summary['total_reports']}")
+        console.print(f"  Total cost: ${summary['total_cost']:.6f}")
+        console.print()
+        
+        # Show breakdown
+        if 'by_report' in summary and summary['by_report']:
+            console.print("[bold]By Report Type:[/bold]")
             
-            console.print(f"[bold]Cost Summary for {template}:[/bold]")
-            console.print(f"  Total cost: ${summary['total_cost']:.6f}")
-            console.print(f"  Sections: {summary.get('sections', 0)}")
-            console.print(f"  Total tokens: {summary.get('total_tokens', 0):,}")
-        else:
-            # All reports
-            if summary.get('total_cost', 0) == 0:
-                console.print("[yellow]No costs tracked yet[/yellow]")
-                return
+            table = Table(show_header=True, header_style="bold cyan", box=box.SIMPLE)
+            table.add_column("Template", style="cyan")
+            table.add_column("Cost", justify="right", style="green")
+            table.add_column("Tokens", justify="right", style="dim")
             
-            console.print(f"[bold]Overall Cost Summary:[/bold]")
-            console.print(f"  Total reports: {summary['total_reports']}")
-            console.print(f"  Total cost: ${summary['total_cost']:.6f}")
-            console.print()
+            for name, data in sorted(summary['by_report'].items()):
+                table.add_row(
+                    name,
+                    f"${data['cost']:.6f}",
+                    f"{data['tokens']:,}"
+                )
             
-            # Show breakdown
-            if 'by_report' in summary and summary['by_report']:
-                console.print("[bold]By Report Type:[/bold]")
-                
-                table = Table(show_header=True, header_style="bold cyan", box=box.SIMPLE)
-                table.add_column("Template", style="cyan")
-                table.add_column("Cost", justify="right", style="green")
-                table.add_column("Tokens", justify="right", style="dim")
-                
-                for name, data in sorted(summary['by_report'].items()):
-                    table.add_row(
-                        name,
-                        f"${data['cost']:.6f}",
-                        f"{data['tokens']:,}"
-                    )
-                
-                console.print(table)
+            console.print(table)
         
         console.print()
     
