@@ -1,7 +1,7 @@
 """
 WorkmAIn AI Report Generator
-Report Generator v1.1
-20251229
+Report Generator v1.2
+20251230
 
 High-level orchestrator for AI report generation.
 
@@ -18,6 +18,9 @@ Version History:
 - v1.0: Initial implementation
 - v1.1: Fixed ProviderManager method calls (generate not generate_with_fallback),
         Added provider registration in __init__
+- v1.2: Fixed CostTracker.track_section() calls to match signature:
+        Added model, prompt_tokens, completion_tokens parameters
+        Convert provider enum to string (.value)
 
 Workflow:
 1. Load template and validate
@@ -167,8 +170,10 @@ class ReportGenerator:
         # Track costs
         self.cost_tracker.track_section(
             section_name="full_report",
-            provider=response.provider,
-            tokens_used=response.tokens_used,
+            provider=response.provider.value,
+            model=response.model,
+            prompt_tokens=response.prompt_tokens,
+            completion_tokens=response.completion_tokens,
             cost=response.cost
         )
         
@@ -261,8 +266,10 @@ class ReportGenerator:
         # Track costs
         self.cost_tracker.track_section(
             section_name=section_name,
-            provider=response.provider,
-            tokens_used=response.tokens_used,
+            provider=response.provider.value,
+            model=response.model,
+            prompt_tokens=response.prompt_tokens,
+            completion_tokens=response.completion_tokens,
             cost=response.cost
         )
         
