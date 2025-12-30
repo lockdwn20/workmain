@@ -1,13 +1,12 @@
 """
 WorkmAIn Report Commands - Phase 4 Implementation
-Report Commands v1.1
-20251229
+Report Commands v1.5
+20251230
 
-Replaces Phase 3 placeholder commands with real AI generation.
+Dynamic alias resolution - any template or alias works as a command.
 
-Commands match existing structure:
-- report daily --preview / --send
-- report weekly --preview / --send
+Commands:
+- report <template-or-alias> --preview / --send (any template/alias)
 - report list
 - report show <file>
 - report costs
@@ -15,6 +14,12 @@ Commands match existing structure:
 Version History:
 - v1.0: Generic structure (report generate <template>)
 - v1.1: Adapted to match existing CLI structure (report daily/weekly)
+- v1.2: Added alias resolution support for daily/weekly shortcuts
+- v1.3: Added generic 'generate' command for custom templates/aliases
+- v1.4: Dynamic alias resolution - any template/alias works as command
+        Removed hardcoded daily/weekly, cleaner design
+- v1.5: Fixed report costs command to use correct CostTracker methods
+        (get_report_type_totals, get_provider_totals instead of get_all_costs)
 """
 
 import click
@@ -28,9 +33,114 @@ from rich.panel import Panel
 from rich import box
 
 from workmain.database.connection import get_db
-from workmain.ai import get_report_generator, ReportFormat, ProviderType
+from workmain.ai import get_report_generator, get_cost_tracker, ReportFormat, ProviderType
+from workmain.config_manager.alias_manager import get_alias_manager
 
 console = Console()
+
+
+class AliasedReportGroup(click.Group):
+    """
+    Custom Click Group that resolves template aliases as commands.
+    
+    Built-in commands (list, show, costs) are handled normally.
+    Any other command name is treated as a template name or alias.
+    """
+    
+    def get_command(self, ctx, cmd_name):
+        """
+        Resolve command name to either a built-in command or a dynamic report command.
+        
+        Args:
+            ctx: Click context
+            cmd_name: Command name to resolve
+            
+        Returns:
+            Click command or None
+        """
+        # First, try to find built-in command (list, show, costs)
+        rv = click.Group.get_command(self, ctx, cmd_name)
+        if rv is not None:
+            return rv
+        
+        # Not a built-in command - treat as template name or alias
+        # Create dynamic command for this template/alias
+        return self._create_dynamic_report_command(cmd_name)
+    
+    def _create_dynamic_report_command(self, template_or_alias: str):
+        """
+        Create a dynamic Click command for a template or alias.
+        
+        Args:
+            template_or_alias: Template name or registered alias
+            
+        Returns:
+            Click command
+        """
+        @click.command(name=template_or_alias)
+        @click.option("--preview", is_flag=True, help="Preview without generating")
+        @click.option("--send", is_flag=True, help="Generate and save report")
+        @click.option("--provider", type=click.Choice(['claude', 'gemini'], case_sensitive=False),
+                      help="Override AI provider")
+        @click.pass_context
+        def dynamic_report_command(ctx, preview: bool, send: bool, provider: Optional[str]):
+            f"""Generate report from template or alias: {template_or_alias}"""
+            # Resolve alias to template name
+            alias_manager = get_alias_manager()
+            template_name = alias_manager.resolve(template_or_alias)
+            
+            if preview:
+                generate_report_impl(template_name, preview_only=True, provider=provider)
+            elif send:
+                generate_report_impl(template_name, preview_only=False, provider=provider)
+            else:
+                # No flags - show help
+                console.print(f"\n[yellow]Please specify --preview or --send for '{template_or_alias}':[/yellow]")
+                console.print("  --preview : Preview prompts without generating (no cost)")
+                console.print("  --send    : Generate report with AI\n")
+                console.print(f"[dim]Example: workmain report {template_or_alias} --preview[/dim]")
+                console.print(f"[dim]Example: workmain report {template_or_alias} --send[/dim]\n")
+        
+        return dynamic_report_command
+    
+    def list_commands(self, ctx):
+        """
+        List available commands for help output.
+        
+        Shows built-in commands plus a generic entry for templates/aliases.
+        
+        Returns:
+            List of command names
+        """
+        # Get built-in commands
+        builtins = sorted(click.Group.list_commands(self, ctx))
+        
+        # Add placeholder for dynamic commands
+        return builtins + ['<template-or-alias>']
+    
+    def format_commands(self, ctx, formatter):
+        """
+        Format commands for help output.
+        
+        Shows built-in commands normally, plus a generic entry for templates/aliases.
+        """
+        commands = []
+        
+        # Get built-in commands
+        for subcommand in self.list_commands(ctx):
+            if subcommand == '<template-or-alias>':
+                # Add generic entry for templates/aliases
+                commands.append(('<template-or-alias>', 'Generate report from any template name or alias'))
+            else:
+                cmd = self.get_command(ctx, subcommand)
+                if cmd is None:
+                    continue
+                help_text = cmd.get_short_help_str(limit=formatter.width)
+                commands.append((subcommand, help_text))
+        
+        if commands:
+            with formatter.section('Commands'):
+                formatter.write_dl(commands)
 
 
 def generate_report_impl(
@@ -139,75 +249,10 @@ def generate_report_impl(
         session.close()
 
 
-# These functions replace the placeholder commands in interface.py
-def report_daily_impl(preview: bool, send: bool, provider: Optional[str] = None):
-    """
-    Implementation for daily report command.
-    
-    Args:
-        preview: Preview without generating
-        send: Generate and save
-        provider: AI provider override
-    """
-    if preview:
-        generate_report_impl("daily_internal", preview_only=True, provider=provider)
-    elif send:
-        generate_report_impl("daily_internal", preview_only=False, provider=provider)
-    else:
-        # No flags - show help
-        console.print("\n[yellow]Please specify --preview or --send:[/yellow]")
-        console.print("  --preview : Preview prompts without generating (no cost)")
-        console.print("  --send    : Generate report with AI\n")
-        console.print("[dim]Example: workmain report daily --preview[/dim]")
-        console.print("[dim]Example: workmain report daily --send[/dim]\n")
-
-
-def report_weekly_impl(preview: bool, send: bool, provider: Optional[str] = None):
-    """
-    Implementation for weekly report command.
-    
-    Args:
-        preview: Preview without generating
-        send: Generate and save
-        provider: AI provider override
-    """
-    if preview:
-        generate_report_impl("weekly_client", preview_only=True, provider=provider)
-    elif send:
-        generate_report_impl("weekly_client", preview_only=False, provider=provider)
-    else:
-        # No flags - show help
-        console.print("\n[yellow]Please specify --preview or --send:[/yellow]")
-        console.print("  --preview : Preview prompts without generating (no cost)")
-        console.print("  --send    : Generate report with AI\n")
-        console.print("[dim]Example: workmain report weekly --preview[/dim]")
-        console.print("[dim]Example: workmain report weekly --send[/dim]\n")
-
-
-@click.group()
+@click.command(cls=AliasedReportGroup)
 def report():
     """Generate and manage reports."""
     pass
-
-
-@report.command("daily")
-@click.option("--preview", is_flag=True, help="Preview without generating")
-@click.option("--send", is_flag=True, help="Generate and save report")
-@click.option("--provider", type=click.Choice(['claude', 'gemini'], case_sensitive=False),
-              help="Override AI provider")
-def report_daily(preview: bool, send: bool, provider: Optional[str]):
-    """Generate daily internal report."""
-    report_daily_impl(preview, send, provider)
-
-
-@report.command("weekly")
-@click.option("--preview", is_flag=True, help="Preview without generating")
-@click.option("--send", is_flag=True, help="Generate and save report")
-@click.option("--provider", type=click.Choice(['claude', 'gemini'], case_sensitive=False),
-              help="Override AI provider")
-def report_weekly(preview: bool, send: bool, provider: Optional[str]):
-    """Generate weekly client report."""
-    report_weekly_impl(preview, send, provider)
 
 
 @report.command('list')
@@ -328,43 +373,74 @@ def report_costs():
     """
     Show cost summary for generated reports.
     
+    Uses CostTracker directly to display costs by report type and provider.
+    
     Examples:
         workmain report costs
     """
-    # Get database session and generator
-    db = get_db()
-    session = db.get_session()
-    
     try:
-        generator = get_report_generator(session)
+        # Get cost tracker directly
+        cost_tracker = get_cost_tracker()
         
-        # Get cost summary
-        summary = generator.get_cost_summary()
+        # Get cost breakdowns
+        report_totals = cost_tracker.get_report_type_totals()
+        provider_totals = cost_tracker.get_provider_totals()
         
         console.print()
         
-        if summary.get('total_cost', 0) == 0:
+        # Check if any costs exist
+        if not report_totals and not provider_totals:
             console.print("[yellow]No costs tracked yet[/yellow]")
             console.print("\n[dim]Generate a report with: workmain report daily --send[/dim]\n")
             return
         
+        # Calculate overall total
+        total_cost = sum(data['cost'] for data in report_totals.values())
+        total_reports = sum(data['reports'] for data in report_totals.values())
+        total_tokens = sum(data['tokens'] for data in report_totals.values())
+        
+        # Show overall summary
         console.print(f"[bold]Overall Cost Summary:[/bold]")
-        console.print(f"  Total reports: {summary['total_reports']}")
-        console.print(f"  Total cost: ${summary['total_cost']:.6f}")
+        console.print(f"  Total reports: {total_reports}")
+        console.print(f"  Total cost: ${total_cost:.6f}")
+        console.print(f"  Total tokens: {total_tokens:,}")
         console.print()
         
-        # Show breakdown
-        if 'by_report' in summary and summary['by_report']:
+        # Show breakdown by report type
+        if report_totals:
             console.print("[bold]By Report Type:[/bold]")
             
             table = Table(show_header=True, header_style="bold cyan", box=box.SIMPLE)
             table.add_column("Template", style="cyan")
+            table.add_column("Reports", justify="right", style="dim")
             table.add_column("Cost", justify="right", style="green")
             table.add_column("Tokens", justify="right", style="dim")
             
-            for name, data in sorted(summary['by_report'].items()):
+            for name, data in sorted(report_totals.items()):
                 table.add_row(
                     name,
+                    f"{data['reports']}",
+                    f"${data['cost']:.6f}",
+                    f"{data['tokens']:,}"
+                )
+            
+            console.print(table)
+            console.print()
+        
+        # Show breakdown by provider
+        if provider_totals:
+            console.print("[bold]By AI Provider:[/bold]")
+            
+            table = Table(show_header=True, header_style="bold cyan", box=box.SIMPLE)
+            table.add_column("Provider", style="cyan")
+            table.add_column("Sections", justify="right", style="dim")
+            table.add_column("Cost", justify="right", style="green")
+            table.add_column("Tokens", justify="right", style="dim")
+            
+            for provider, data in sorted(provider_totals.items()):
+                table.add_row(
+                    provider,
+                    f"{data['sections']}",
                     f"${data['cost']:.6f}",
                     f"{data['tokens']:,}"
                 )
@@ -375,9 +451,8 @@ def report_costs():
     
     except Exception as e:
         console.print(f"[red]✗ Failed to get costs: {e}[/red]")
-    
-    finally:
-        session.close()
+        import traceback
+        traceback.print_exc()
 
 
 # Export command group
