@@ -1,6 +1,6 @@
 """
 WorkmAIn AI Report Generator
-Report Generator v1.2
+Report Generator v1.3
 20251230
 
 High-level orchestrator for AI report generation.
@@ -21,14 +21,24 @@ Version History:
 - v1.2: Fixed CostTracker.track_section() calls to match signature:
         Added model, prompt_tokens, completion_tokens parameters
         Convert provider enum to string (.value)
+- v1.3: COMPREHENSIVE FIX - Added CostTracker lifecycle management:
+        * Added start_report() at beginning of generation
+        * Added end_report() at end with generation time tracking
+        * Wrapped in try-except to ensure cleanup on errors
+        * Fixed both generate_report() and generate_section() methods
+        * Added timing for generation_time tracking
+        * Imported time module for timing
 
 Workflow:
-1. Load template and validate
-2. Build prompts with prompt_builder
-3. Generate content with AI client
-4. Format output
-5. Save to file
-6. Track costs
+1. Start cost tracking and timing
+2. Load template and validate
+3. Build prompts with prompt_builder
+4. Generate content with AI client
+5. Track section costs
+6. Format output
+7. Save to file
+8. End cost tracking with generation time
+9. Return results (with error cleanup)
 """
 
 from datetime import date, datetime
@@ -36,6 +46,7 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 from sqlalchemy.orm import Session
 from enum import Enum
+import time
 
 from workmain.ai import (
     get_prompt_builder,
@@ -136,80 +147,98 @@ class ReportGenerator:
             ValueError: If template not found or invalid
             GenerationError: If AI generation fails
         """
-        # Load template
-        template = self.template_loader.load(template_name)
-        
-        # Determine provider
-        if provider is None:
-            # Get from template metadata
-            metadata = template.get("metadata", {})
-            provider_name = metadata.get("ai_provider", "claude")
-            provider = ProviderType.CLAUDE if provider_name == "claude" else ProviderType.GEMINI
-        
-        # Build prompts
-        system_prompt, user_prompt = self.prompt_builder.build_prompt(
-            template_name=template_name,
-            report_date=report_date
-        )
-        
-        # Create generation request
-        request = GenerationRequest(
-            prompt=user_prompt,
-            system_prompt=system_prompt,
-            max_tokens=max_tokens,
-            temperature=temperature
-        )
-        
-        # Generate with AI
-        response, fallback_used = self.provider_manager.generate(
-            request=request,
+        # Start cost tracking and timing
+        start_time = time.time()
+        self.cost_tracker.start_report(
             report_type=template_name,
-            provider_override=provider
-        )
-        
-        # Track costs
-        self.cost_tracker.track_section(
-            section_name="full_report",
-            provider=response.provider.value,
-            model=response.model,
-            prompt_tokens=response.prompt_tokens,
-            completion_tokens=response.completion_tokens,
-            cost=response.cost
-        )
-        
-        # Format output
-        content = self._format_output(
-            response.content,
-            output_format=output_format,
-            template=template,
             report_date=report_date
         )
         
-        # Save to file if requested
-        file_path = None
-        if save_to_file:
-            file_path = self._save_report(
-                content=content,
+        try:
+            # Load template
+            template = self.template_loader.load(template_name)
+            
+            # Determine provider
+            if provider is None:
+                # Get from template metadata
+                metadata = template.get("metadata", {})
+                provider_name = metadata.get("ai_provider", "claude")
+                provider = ProviderType.CLAUDE if provider_name == "claude" else ProviderType.GEMINI
+            
+            # Build prompts
+            system_prompt, user_prompt = self.prompt_builder.build_prompt(
                 template_name=template_name,
-                report_date=report_date,
-                output_format=output_format,
-                filename=filename
+                report_date=report_date
             )
-        
-        # Return result
-        return {
-            "content": content,
-            "template_name": template_name,
-            "report_date": report_date.isoformat(),
-            "provider": response.provider.value,
-            "model": response.model,
-            "tokens_used": response.tokens_used,
-            "prompt_tokens": response.prompt_tokens,
-            "completion_tokens": response.completion_tokens,
-            "cost": response.cost,
-            "file_path": str(file_path) if file_path else None,
-            "generated_at": datetime.now().isoformat()
-        }
+            
+            # Create generation request
+            request = GenerationRequest(
+                prompt=user_prompt,
+                system_prompt=system_prompt,
+                max_tokens=max_tokens,
+                temperature=temperature
+            )
+            
+            # Generate with AI
+            response, fallback_used = self.provider_manager.generate(
+                request=request,
+                report_type=template_name,
+                provider_override=provider
+            )
+            
+            # Track costs
+            self.cost_tracker.track_section(
+                section_name="full_report",
+                provider=response.provider.value,
+                model=response.model,
+                prompt_tokens=response.prompt_tokens,
+                completion_tokens=response.completion_tokens,
+                cost=response.cost
+            )
+            
+            # Format output
+            content = self._format_output(
+                response.content,
+                output_format=output_format,
+                template=template,
+                report_date=report_date
+            )
+            
+            # Save to file if requested
+            file_path = None
+            if save_to_file:
+                file_path = self._save_report(
+                    content=content,
+                    template_name=template_name,
+                    report_date=report_date,
+                    output_format=output_format,
+                    filename=filename
+                )
+            
+            # End cost tracking
+            generation_time = time.time() - start_time
+            report_cost = self.cost_tracker.end_report(generation_time)
+            
+            # Return result
+            return {
+                "content": content,
+                "template_name": template_name,
+                "report_date": report_date.isoformat(),
+                "provider": response.provider.value,
+                "model": response.model,
+                "tokens_used": response.tokens_used,
+                "prompt_tokens": response.prompt_tokens,
+                "completion_tokens": response.completion_tokens,
+                "cost": response.cost,
+                "file_path": str(file_path) if file_path else None,
+                "generated_at": datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            # Clean up cost tracker on error
+            if self.cost_tracker._current_report:
+                self.cost_tracker.end_report(0.0)
+            raise
     
     def generate_section(
         self,
@@ -234,52 +263,70 @@ class ReportGenerator:
         Returns:
             Dictionary with section content and metadata
         """
-        # Build prompts for specific section
-        system_prompt, user_prompt = self.prompt_builder.build_prompt(
-            template_name=template_name,
-            report_date=report_date,
-            section_name=section_name
+        # Start cost tracking and timing
+        start_time = time.time()
+        self.cost_tracker.start_report(
+            report_type=f"{template_name}_section",
+            report_date=report_date
         )
         
-        # Determine provider
-        if provider is None:
-            template = self.template_loader.load(template_name)
-            metadata = template.get("metadata", {})
-            provider_name = metadata.get("ai_provider", "claude")
-            provider = ProviderType.CLAUDE if provider_name == "claude" else ProviderType.GEMINI
-        
-        # Create request
-        request = GenerationRequest(
-            prompt=user_prompt,
-            system_prompt=system_prompt,
-            max_tokens=max_tokens,
-            temperature=temperature
-        )
-        
-        # Generate
-        response, fallback_used = self.provider_manager.generate(
-            request=request,
-            report_type=template_name,
-            provider_override=provider
-        )
-        
-        # Track costs
-        self.cost_tracker.track_section(
-            section_name=section_name,
-            provider=response.provider.value,
-            model=response.model,
-            prompt_tokens=response.prompt_tokens,
-            completion_tokens=response.completion_tokens,
-            cost=response.cost
-        )
-        
-        return {
-            "section_name": section_name,
-            "content": response.content,
-            "provider": response.provider.value,
-            "tokens_used": response.tokens_used,
-            "cost": response.cost
-        }
+        try:
+            # Build prompts for specific section
+            system_prompt, user_prompt = self.prompt_builder.build_prompt(
+                template_name=template_name,
+                report_date=report_date,
+                section_name=section_name
+            )
+            
+            # Determine provider
+            if provider is None:
+                template = self.template_loader.load(template_name)
+                metadata = template.get("metadata", {})
+                provider_name = metadata.get("ai_provider", "claude")
+                provider = ProviderType.CLAUDE if provider_name == "claude" else ProviderType.GEMINI
+            
+            # Create request
+            request = GenerationRequest(
+                prompt=user_prompt,
+                system_prompt=system_prompt,
+                max_tokens=max_tokens,
+                temperature=temperature
+            )
+            
+            # Generate
+            response, fallback_used = self.provider_manager.generate(
+                request=request,
+                report_type=template_name,
+                provider_override=provider
+            )
+            
+            # Track costs
+            self.cost_tracker.track_section(
+                section_name=section_name,
+                provider=response.provider.value,
+                model=response.model,
+                prompt_tokens=response.prompt_tokens,
+                completion_tokens=response.completion_tokens,
+                cost=response.cost
+            )
+            
+            # End cost tracking
+            generation_time = time.time() - start_time
+            report_cost = self.cost_tracker.end_report(generation_time)
+            
+            return {
+                "section_name": section_name,
+                "content": response.content,
+                "provider": response.provider.value,
+                "tokens_used": response.tokens_used,
+                "cost": response.cost
+            }
+            
+        except Exception as e:
+            # Clean up cost tracker on error
+            if self.cost_tracker._current_report:
+                self.cost_tracker.end_report(0.0)
+            raise
     
     def preview_report(
         self,
