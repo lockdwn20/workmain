@@ -1,6 +1,6 @@
 """
 WorkmAIn Features 3 & 4 Test Script
-Test Script v1.0
+Test Script v1.1
 20251231
 
 Comprehensive testing for:
@@ -8,7 +8,11 @@ Comprehensive testing for:
 - Feature 4: Meeting Note Condensation
 - Migration 002: Database schema changes
 
-Run with: python3 test_phase_4_feature_3_4.py
+Version History:
+- v1.0: Initial test suite implementation
+- v1.1: Fixed condensation test session issue (re-query instead of refresh)
+
+Run with: python3 test_features_3_4.py
 """
 
 import sys
@@ -193,16 +197,19 @@ def test_note_condensation(meeting: Meeting):
         print(f"  \"{summary}\"")
         print()
         
-        # Verify storage
-        session.refresh(meeting)
-        stored_ok = meeting.condensed_summary == summary
+        # Verify storage - re-fetch meeting from database
+        from workmain.database.repositories.meetings_repo import MeetingsRepository
+        meetings_repo = MeetingsRepository(session)
+        updated_meeting = meetings_repo.get_by_id(meeting.id)
+        
+        stored_ok = updated_meeting.condensed_summary == summary
         print_test("Summary stored in database", stored_ok)
         
-        condensed_at_ok = meeting.condensed_at is not None
+        condensed_at_ok = updated_meeting.condensed_at is not None
         print_test("Condensation timestamp recorded", condensed_at_ok)
         
         # Verify is_condensed property
-        is_condensed_ok = meeting.is_condensed
+        is_condensed_ok = updated_meeting.is_condensed
         print_test("is_condensed property works", is_condensed_ok)
         
         # Check cost tracking

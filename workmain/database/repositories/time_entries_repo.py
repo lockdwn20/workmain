@@ -1,7 +1,7 @@
 """
 WorkmAIn Time Entries Repository
-Time Entries Repository v1.1
-20251223
+Time Entries Repository v1.2
+20251231
 
 Data access layer for time entries with 24-hour time format.
 Handles all CRUD operations for the time_entries table.
@@ -10,6 +10,7 @@ Version History:
 - v1.0: Initial implementation with CRUD operations, aggregations, and Clockify prep
 - v1.1: Enhanced parse_time() to support military time format without colons
         (1430, 0900, 930) and AM/PM without colons (230pm, 900am)
+- v1.2: Added meeting_id support for linking time entries to meetings (Phase 4 Feature 4)
 """
 
 from datetime import date, datetime, time, timedelta
@@ -28,7 +29,7 @@ class TimeEntriesRepository:
     
     Provides methods for:
     - Creating time entries with 24-hour format
-    - Retrieving time entries (by date, category, project)
+    - Retrieving time entries (by date, category, project, meeting)
     - Updating time entries
     - Deleting time entries
     - Duration calculations and aggregations
@@ -52,6 +53,7 @@ class TimeEntriesRepository:
         entry_time: Optional[time] = None,
         category: Optional[str] = None,
         project_id: Optional[int] = None,
+        meeting_id: Optional[int] = None,
         tags: Optional[List[str]] = None
     ) -> TimeEntry:
         """
@@ -64,6 +66,7 @@ class TimeEntriesRepository:
             entry_time: Time in 24-hour format (optional)
             category: Category (e.g., 'development', 'meeting', 'review')
             project_id: Optional project ID to link
+            meeting_id: Optional meeting ID to link (for Clockify sync from meetings)
             tags: Optional list of tags
             
         Returns:
@@ -76,6 +79,7 @@ class TimeEntriesRepository:
             entry_time=entry_time,
             category=category,
             project_id=project_id,
+            meeting_id=meeting_id,
             tags=tags or []
         )
         
@@ -95,21 +99,47 @@ class TimeEntriesRepository:
         Returns:
             TimeEntry object or None if not found
         """
-        return self.session.query(TimeEntry).filter(TimeEntry.id == entry_id).first()
+        return self.session.query(TimeEntry).filter(
+            TimeEntry.id == entry_id
+        ).first()
+    
+    def get_by_meeting(self, meeting_id: int) -> List[TimeEntry]:
+        """
+        Get all time entries linked to a specific meeting.
+        
+        Args:
+            meeting_id: Meeting ID
+            
+        Returns:
+            List of TimeEntry objects
+        """
+        return self.session.query(TimeEntry).filter(
+            TimeEntry.meeting_id == meeting_id
+        ).order_by(TimeEntry.entry_date, TimeEntry.entry_time).all()
+    
+    def get_today(self, category: Optional[str] = None) -> List[TimeEntry]:
+        """
+        Get today's time entries.
+        
+        Args:
+            category: Optional category filter
+            
+        Returns:
+            List of TimeEntry objects
+        """
+        return self.get_by_date(date.today(), category=category)
     
     def get_by_date(
         self,
         target_date: date,
-        category: Optional[str] = None,
-        project_id: Optional[int] = None
+        category: Optional[str] = None
     ) -> List[TimeEntry]:
         """
-        Get all time entries for a specific date.
+        Get time entries for a specific date.
         
         Args:
             target_date: Date to retrieve entries for
             category: Optional category filter
-            project_id: Optional project filter
             
         Returns:
             List of TimeEntry objects
@@ -121,34 +151,13 @@ class TimeEntriesRepository:
         if category:
             query = query.filter(TimeEntry.category == category)
         
-        if project_id:
-            query = query.filter(TimeEntry.project_id == project_id)
-        
         return query.order_by(TimeEntry.entry_time).all()
-    
-    def get_today(
-        self,
-        category: Optional[str] = None,
-        project_id: Optional[int] = None
-    ) -> List[TimeEntry]:
-        """
-        Get all time entries for today.
-        
-        Args:
-            category: Optional category filter
-            project_id: Optional project filter
-            
-        Returns:
-            List of TimeEntry objects
-        """
-        return self.get_by_date(date.today(), category, project_id)
     
     def get_date_range(
         self,
         start_date: date,
         end_date: date,
-        category: Optional[str] = None,
-        project_id: Optional[int] = None
+        category: Optional[str] = None
     ) -> List[TimeEntry]:
         """
         Get time entries within a date range.
@@ -157,7 +166,6 @@ class TimeEntriesRepository:
             start_date: Start date (inclusive)
             end_date: End date (inclusive)
             category: Optional category filter
-            project_id: Optional project filter
             
         Returns:
             List of TimeEntry objects
@@ -172,9 +180,6 @@ class TimeEntriesRepository:
         if category:
             query = query.filter(TimeEntry.category == category)
         
-        if project_id:
-            query = query.filter(TimeEntry.project_id == project_id)
-        
         return query.order_by(TimeEntry.entry_date, TimeEntry.entry_time).all()
     
     def get_week(
@@ -183,7 +188,7 @@ class TimeEntriesRepository:
         category: Optional[str] = None
     ) -> List[TimeEntry]:
         """
-        Get time entries for a week (Monday-Friday).
+        Get time entries for the work week (Monday-Friday).
         
         Args:
             start_of_week: Start date (Monday). If None, uses current week.
@@ -210,6 +215,7 @@ class TimeEntriesRepository:
         entry_time: Optional[time] = None,
         category: Optional[str] = None,
         project_id: Optional[int] = None,
+        meeting_id: Optional[int] = None,
         tags: Optional[List[str]] = None
     ) -> Optional[TimeEntry]:
         """
@@ -222,6 +228,7 @@ class TimeEntriesRepository:
             entry_time: New time (None to keep existing)
             category: New category (None to keep existing)
             project_id: New project ID (None to keep existing)
+            meeting_id: New meeting ID (None to keep existing)
             tags: New tags (None to keep existing)
             
         Returns:
@@ -243,6 +250,8 @@ class TimeEntriesRepository:
             entry.category = category
         if project_id is not None:
             entry.project_id = project_id
+        if meeting_id is not None:
+            entry.meeting_id = meeting_id
         if tags is not None:
             entry.tags = tags
         
@@ -296,31 +305,35 @@ class TimeEntriesRepository:
             query = query.filter(TimeEntry.category == category)
         
         result = query.scalar()
-        return result if result is not None else Decimal('0.00')
+        return result if result else Decimal('0')
     
-    def get_total_hours_by_range(
+    def get_total_hours_by_week(
         self,
-        start_date: date,
-        end_date: date,
+        start_of_week: Optional[date] = None,
         category: Optional[str] = None
     ) -> Decimal:
         """
-        Get total hours for a date range.
+        Get total hours for the work week.
         
         Args:
-            start_date: Start date (inclusive)
-            end_date: End date (inclusive)
+            start_of_week: Start date (Monday). If None, uses current week.
             category: Optional category filter
             
         Returns:
             Total hours as Decimal
         """
+        if start_of_week is None:
+            today = date.today()
+            start_of_week = today - timedelta(days=today.weekday())
+        
+        end_of_week = start_of_week + timedelta(days=4)
+        
         query = self.session.query(
             func.sum(TimeEntry.duration_hours)
         ).filter(
             and_(
-                TimeEntry.entry_date >= start_date,
-                TimeEntry.entry_date <= end_date
+                TimeEntry.entry_date >= start_of_week,
+                TimeEntry.entry_date <= end_of_week
             )
         )
         
@@ -328,81 +341,68 @@ class TimeEntriesRepository:
             query = query.filter(TimeEntry.category == category)
         
         result = query.scalar()
-        return result if result is not None else Decimal('0.00')
+        return result if result else Decimal('0')
     
-    def get_breakdown_by_category(
+    def get_category_breakdown_by_date(
         self,
-        start_date: date,
-        end_date: date
-    ) -> Dict[str, Decimal]:
+        target_date: date
+    ) -> List[Tuple[str, Decimal]]:
         """
-        Get time breakdown by category for a date range.
+        Get time breakdown by category for a specific date.
         
         Args:
-            start_date: Start date (inclusive)
-            end_date: End date (inclusive)
+            target_date: Date to analyze
             
         Returns:
-            Dict mapping category to total hours
+            List of (category, total_hours) tuples
         """
         results = self.session.query(
             TimeEntry.category,
-            func.sum(TimeEntry.duration_hours).label('total')
+            func.sum(TimeEntry.duration_hours)
         ).filter(
-            and_(
-                TimeEntry.entry_date >= start_date,
-                TimeEntry.entry_date <= end_date
-            )
-        ).group_by(TimeEntry.category).all()
+            TimeEntry.entry_date == target_date
+        ).group_by(
+            TimeEntry.category
+        ).all()
         
-        breakdown = {}
-        for category, total in results:
-            category_name = category or 'Uncategorized'
-            breakdown[category_name] = total if total is not None else Decimal('0.00')
-        
-        return breakdown
+        return results
     
-    def get_breakdown_by_date(
+    def get_category_breakdown_by_week(
         self,
-        start_date: date,
-        end_date: date,
-        category: Optional[str] = None
-    ) -> Dict[date, Decimal]:
+        start_of_week: Optional[date] = None
+    ) -> List[Tuple[str, Decimal]]:
         """
-        Get time breakdown by date for a date range.
+        Get time breakdown by category for the work week.
         
         Args:
-            start_date: Start date (inclusive)
-            end_date: End date (inclusive)
-            category: Optional category filter
+            start_of_week: Start date (Monday). If None, uses current week.
             
         Returns:
-            Dict mapping date to total hours
+            List of (category, total_hours) tuples
         """
-        query = self.session.query(
-            TimeEntry.entry_date,
-            func.sum(TimeEntry.duration_hours).label('total')
+        if start_of_week is None:
+            today = date.today()
+            start_of_week = today - timedelta(days=today.weekday())
+        
+        end_of_week = start_of_week + timedelta(days=4)
+        
+        results = self.session.query(
+            TimeEntry.category,
+            func.sum(TimeEntry.duration_hours)
         ).filter(
             and_(
-                TimeEntry.entry_date >= start_date,
-                TimeEntry.entry_date <= end_date
+                TimeEntry.entry_date >= start_of_week,
+                TimeEntry.entry_date <= end_of_week
             )
-        )
+        ).group_by(
+            TimeEntry.category
+        ).all()
         
-        if category:
-            query = query.filter(TimeEntry.category == category)
-        
-        results = query.group_by(TimeEntry.entry_date).all()
-        
-        breakdown = {}
-        for entry_date, total in results:
-            breakdown[entry_date] = total if total is not None else Decimal('0.00')
-        
-        return breakdown
+        return results
     
     def get_unsynced_entries(self) -> List[TimeEntry]:
         """
-        Get all time entries that haven't been synced to Clockify.
+        Get all time entries not yet synced to Clockify.
         
         Returns:
             List of TimeEntry objects without clockify_id
@@ -500,101 +500,84 @@ class TimeEntriesRepository:
             except ValueError:
                 raise ValueError(
                     f"Invalid duration format: {duration_str}. "
-                    "Use formats like: 1.5h, 2h, 30m, 1h30m"
+                    "Expected format: 1.5h, 2h, 30m, or 1h30m"
                 )
         
         # Convert to total hours
         total_hours = hours + (minutes / 60.0)
         
-        if total_hours <= 0:
-            raise ValueError("Duration must be greater than 0")
-        
-        return round(total_hours, 2)
+        return total_hours
     
     def parse_time(self, time_str: str) -> time:
         """
         Parse time string to time object (24-hour format).
         
+        Supports multiple formats:
+        - 24-hour with colon: "14:30", "09:00"
+        - 24-hour without colon: "1430", "0900", "930"
+        - 12-hour with colon: "2:30pm", "9:00am"
+        - 12-hour without colon: "230pm", "900am"
+        
         Args:
-            time_str: Time string (e.g., "14:30", "1430", "09:00", "0900", "2:30pm")
+            time_str: Time string
             
         Returns:
-            time object
+            time object in 24-hour format
             
         Raises:
             ValueError: If time string is invalid
         """
-        time_str = time_str.strip()
+        time_str = time_str.lower().strip()
         
-        # Try 24-hour format with colon first (HH:MM)
+        # Check for AM/PM
+        is_pm = 'pm' in time_str
+        is_am = 'am' in time_str
+        
+        # Remove am/pm markers
+        time_str = time_str.replace('am', '').replace('pm', '').strip()
+        
+        # Try parsing with colon first
+        if ':' in time_str:
+            try:
+                parsed = datetime.strptime(time_str, '%H:%M').time()
+                
+                # Convert 12-hour to 24-hour if needed
+                if is_pm and parsed.hour != 12:
+                    parsed = parsed.replace(hour=parsed.hour + 12)
+                elif is_am and parsed.hour == 12:
+                    parsed = parsed.replace(hour=0)
+                
+                return parsed
+            except ValueError:
+                pass
+        
+        # Try parsing without colon (military time or 12-hour without colon)
         try:
-            return datetime.strptime(time_str, '%H:%M').time()
-        except ValueError:
-            pass
-        
-        # Try military time format without colon (HHMM)
-        if time_str.isdigit():
-            if len(time_str) == 4:
-                # Format: 1430, 0900
-                try:
-                    hours = int(time_str[:2])
-                    minutes = int(time_str[2:])
-                    if 0 <= hours <= 23 and 0 <= minutes <= 59:
-                        return time(hours, minutes)
-                except ValueError:
-                    pass
-            elif len(time_str) == 3:
-                # Format: 930 (9:30am), 130 (1:30pm)
-                try:
-                    hours = int(time_str[0])
-                    minutes = int(time_str[1:])
-                    if 0 <= hours <= 23 and 0 <= minutes <= 59:
-                        return time(hours, minutes)
-                except ValueError:
-                    pass
-        
-        # Try AM/PM format with colon (2:30pm)
-        try:
-            return datetime.strptime(time_str, '%I:%M%p').time()
-        except ValueError:
-            pass
-        
-        try:
-            return datetime.strptime(time_str, '%I:%M %p').time()
-        except ValueError:
-            pass
-        
-        # Try AM/PM format without colon (230pm)
-        if 'am' in time_str.lower() or 'pm' in time_str.lower():
-            # Remove spaces and get am/pm marker
-            clean_str = time_str.lower().replace(' ', '')
-            is_pm = 'pm' in clean_str
-            # Remove am/pm to get number
-            num_str = clean_str.replace('am', '').replace('pm', '')
+            # Pad to 4 digits if needed
+            if len(time_str) == 3:
+                time_str = '0' + time_str
+            elif len(time_str) == 1 or len(time_str) == 2:
+                time_str = time_str.zfill(2) + '00'
             
-            if num_str.isdigit():
-                try:
-                    if len(num_str) == 3 or len(num_str) == 4:
-                        # Parse as HHMM or HMM
-                        if len(num_str) == 4:
-                            hours = int(num_str[:2])
-                            minutes = int(num_str[2:])
-                        else:
-                            hours = int(num_str[0])
-                            minutes = int(num_str[1:])
-                        
-                        # Convert to 24-hour
-                        if is_pm and hours != 12:
-                            hours += 12
-                        elif not is_pm and hours == 12:
-                            hours = 0
-                        
-                        if 0 <= hours <= 23 and 0 <= minutes <= 59:
-                            return time(hours, minutes)
-                except (ValueError, IndexError):
-                    pass
+            if len(time_str) == 4:
+                hours = int(time_str[:2])
+                minutes = int(time_str[2:])
+                
+                # Validate
+                if hours > 23 or minutes > 59:
+                    raise ValueError("Invalid hours or minutes")
+                
+                # Convert 12-hour to 24-hour if needed
+                if is_pm and hours != 12:
+                    hours += 12
+                elif is_am and hours == 12:
+                    hours = 0
+                
+                return time(hours, minutes)
+        except (ValueError, IndexError):
+            pass
         
         raise ValueError(
             f"Invalid time format: {time_str}. "
-            "Use 24-hour format (14:30 or 1430) or AM/PM (2:30pm or 230pm)"
+            "Expected format: HH:MM (24hr) or H:MMam/pm (12hr)"
         )
