@@ -1,6 +1,6 @@
 """
 WorkmAIn Note Condenser
-Note Condenser v1.0
+Note Condenser v1.1
 20251231
 
 AI-powered condensation of meeting notes into one-line summaries for Clockify.
@@ -10,6 +10,7 @@ suitable for time tracking entries.
 
 Version History:
 - v1.0: Initial implementation with Claude integration
+- v1.1: Fixed session attachment issue - now queries meeting from database
 """
 
 from typing import List, Optional
@@ -60,16 +61,24 @@ class NoteCondenser:
         Raises:
             ValueError: If meeting has no notes to condense
         """
+        # Get meeting from database to ensure it's attached to our session
+        db_meeting = self.session.query(Meeting).filter(
+            Meeting.id == meeting.id
+        ).first()
+        
+        if not db_meeting:
+            raise ValueError(f"Meeting with ID {meeting.id} not found in database")
+        
         # Get all notes for this meeting
         notes = self.session.query(Note).filter(
-            Note.meeting_id == meeting.id
+            Note.meeting_id == db_meeting.id
         ).order_by(Note.created_at).all()
         
         if not notes:
-            raise ValueError(f"Meeting '{meeting.title}' has no notes to condense")
+            raise ValueError(f"Meeting '{db_meeting.title}' has no notes to condense")
         
         # Build condensation prompt
-        prompt = self._build_condensation_prompt(meeting, notes)
+        prompt = self._build_condensation_prompt(db_meeting, notes)
         
         # Generate condensed summary
         request = GenerationRequest(
@@ -80,7 +89,7 @@ class NoteCondenser:
         )
         
         # Track cost
-        self.cost_tracker.start_report(f"condense_{meeting.title}", datetime.now().date())
+        self.cost_tracker.start_report(f"condense_{db_meeting.title}", datetime.now().date())
         
         try:
             # Generate with Claude (or specified provider)
@@ -97,11 +106,11 @@ class NoteCondenser:
             )
             
             # Update meeting with condensed summary
-            meeting.condensed_summary = response.content.strip()
-            meeting.condensed_at = datetime.now()
+            db_meeting.condensed_summary = response.content.strip()
+            db_meeting.condensed_at = datetime.now()
             self.session.commit()
             
-            return meeting.condensed_summary
+            return db_meeting.condensed_summary
             
         finally:
             self.cost_tracker.end_report(0.0)  # No generation time tracking needed
