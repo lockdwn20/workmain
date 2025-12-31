@@ -1,6 +1,6 @@
 """
 WorkmAIn Report Commands - Phase 4 Implementation
-Report Commands v1.5
+Report Commands v1.6
 20251230
 
 Dynamic alias resolution - any template or alias works as a command.
@@ -20,6 +20,9 @@ Version History:
         Removed hardcoded daily/weekly, cleaner design
 - v1.5: Fixed report costs command to use correct CostTracker methods
         (get_report_type_totals, get_provider_totals instead of get_all_costs)
+- v1.6: Switched to database for report history and costs
+        Uses reports repository instead of filesystem scanning
+        Costs queried from reports.metadata JSONB field
 """
 
 import click
@@ -33,7 +36,7 @@ from rich.panel import Panel
 from rich import box
 
 from workmain.database.connection import get_db
-from workmain.ai import get_report_generator, get_cost_tracker, ReportFormat, ProviderType
+from workmain.ai import get_report_generator, ReportFormat, ProviderType
 from workmain.config_manager.alias_manager import get_alias_manager
 
 console = Console()
@@ -371,43 +374,40 @@ def report_show(filename: str):
 @report.command('costs')
 def report_costs():
     """
-    Show cost summary for generated reports.
+    Show cost summary for generated reports from database.
     
-    Uses CostTracker directly to display costs by report type and provider.
+    Queries reports.metadata JSONB field for cost information.
     
     Examples:
         workmain report costs
     """
+    # Get database session and generator
+    db = get_db()
+    session = db.get_session()
+    
     try:
-        # Get cost tracker directly
-        cost_tracker = get_cost_tracker()
+        generator = get_report_generator(session)
         
-        # Get cost breakdowns
-        report_totals = cost_tracker.get_report_type_totals()
-        provider_totals = cost_tracker.get_provider_totals()
+        # Get cost summary from database
+        summary = generator.get_cost_summary()
         
         console.print()
         
         # Check if any costs exist
-        if not report_totals and not provider_totals:
+        if summary['total_cost'] == 0:
             console.print("[yellow]No costs tracked yet[/yellow]")
             console.print("\n[dim]Generate a report with: workmain report daily --send[/dim]\n")
             return
         
-        # Calculate overall total
-        total_cost = sum(data['cost'] for data in report_totals.values())
-        total_reports = sum(data['reports'] for data in report_totals.values())
-        total_tokens = sum(data['tokens'] for data in report_totals.values())
-        
         # Show overall summary
         console.print(f"[bold]Overall Cost Summary:[/bold]")
-        console.print(f"  Total reports: {total_reports}")
-        console.print(f"  Total cost: ${total_cost:.6f}")
-        console.print(f"  Total tokens: {total_tokens:,}")
+        console.print(f"  Total reports: {summary['total_reports']}")
+        console.print(f"  Total cost: ${summary['total_cost']:.6f}")
+        console.print(f"  Total tokens: {summary['total_tokens']:,}")
         console.print()
         
         # Show breakdown by report type
-        if report_totals:
+        if summary['by_type']:
             console.print("[bold]By Report Type:[/bold]")
             
             table = Table(show_header=True, header_style="bold cyan", box=box.SIMPLE)
@@ -416,7 +416,7 @@ def report_costs():
             table.add_column("Cost", justify="right", style="green")
             table.add_column("Tokens", justify="right", style="dim")
             
-            for name, data in sorted(report_totals.items()):
+            for name, data in sorted(summary['by_type'].items()):
                 table.add_row(
                     name,
                     f"{data['reports']}",
@@ -428,19 +428,19 @@ def report_costs():
             console.print()
         
         # Show breakdown by provider
-        if provider_totals:
+        if summary['by_provider']:
             console.print("[bold]By AI Provider:[/bold]")
             
             table = Table(show_header=True, header_style="bold cyan", box=box.SIMPLE)
             table.add_column("Provider", style="cyan")
-            table.add_column("Sections", justify="right", style="dim")
+            table.add_column("Reports", justify="right", style="dim")
             table.add_column("Cost", justify="right", style="green")
             table.add_column("Tokens", justify="right", style="dim")
             
-            for provider, data in sorted(provider_totals.items()):
+            for provider, data in sorted(summary['by_provider'].items()):
                 table.add_row(
                     provider,
-                    f"{data['sections']}",
+                    f"{data['reports']}",
                     f"${data['cost']:.6f}",
                     f"{data['tokens']:,}"
                 )
@@ -453,6 +453,9 @@ def report_costs():
         console.print(f"[red]✗ Failed to get costs: {e}[/red]")
         import traceback
         traceback.print_exc()
+    
+    finally:
+        session.close()
 
 
 # Export command group

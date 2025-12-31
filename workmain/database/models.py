@@ -1,16 +1,17 @@
 """
 WorkmAIn Database Models
-Database Models v1.1
-20251222
+Database Models v1.2
+20251231
 
-SQLAlchemy ORM models for Phase 2.
-Models: Note, TimeEntry, Meeting, Project
+SQLAlchemy ORM models for WorkmAIn.
+Models: Note, TimeEntry, Meeting, Project, Report
 
 These map to the PostgreSQL tables created by 001_initial_schema.sql
 
 Version History:
 - v1.0: Initial model creation
 - v1.1: Fixed created_date to use Computed() for generated column compatibility
+- v1.2: Added Report model for AI-generated reports with cost tracking
 """
 
 from datetime import datetime, date, time
@@ -18,11 +19,12 @@ from typing import List, Optional
 
 from sqlalchemy import (
     Column, Integer, String, Text, Boolean, DateTime, Date, Time,
-    DECIMAL, ForeignKey, ARRAY, Computed
+    DECIMAL, ForeignKey, ARRAY, Computed, JSON
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import TSVECTOR
+from sqlalchemy.sql import func
 
 Base = declarative_base()
 
@@ -233,13 +235,102 @@ class TimeEntry(Base):
         return self.clockify_id is not None and self.synced_at is not None
 
 
+class Report(Base):
+    """
+    Report model - represents AI-generated reports with cost tracking.
+    
+    Stores report content and metadata including:
+    - AI provider and model used
+    - Token counts and costs
+    - Generation time
+    - File path to saved report
+    - Integration details (Outlook, Slack)
+    
+    The metadata JSONB field stores all cost and generation details:
+    {
+        "ai_provider": "claude",
+        "ai_model": "claude-sonnet-4-20250514",
+        "prompt_tokens": 417,
+        "completion_tokens": 138,
+        "total_tokens": 555,
+        "cost": 0.003321,
+        "generation_time": 2.5,
+        "file_path": "/path/to/report.md"
+    }
+    """
+    __tablename__ = 'reports'
+    
+    # Primary key
+    id = Column(Integer, primary_key=True)
+    
+    # Fields
+    report_type = Column(String(50), nullable=False)  # daily_internal, weekly_client, etc.
+    report_date = Column(Date, nullable=False)
+    content = Column(Text, nullable=False)
+    metadata = Column(JSON, nullable=True)  # AI provider, costs, tokens, file_path, etc.
+    
+    # Validation and sending
+    validation_passed = Column(Boolean, nullable=True)
+    sent_at = Column(DateTime, nullable=True)
+    
+    # Integration fields (Phase 6+)
+    outlook_draft_id = Column(String(255), nullable=True)
+    slack_message_ts = Column(String(255), nullable=True)  # Slack message timestamp
+    
+    # Timestamps
+    created_at = Column(DateTime, server_default=func.now())
+    
+    def __repr__(self):
+        return f"<Report(id={self.id}, type='{self.report_type}', date={self.report_date})>"
+    
+    @property
+    def cost(self) -> float:
+        """
+        Get generation cost from metadata.
+        Returns: Cost in USD or 0.0 if not available
+        """
+        if self.metadata and 'cost' in self.metadata:
+            return float(self.metadata['cost'])
+        return 0.0
+    
+    @property
+    def total_tokens(self) -> int:
+        """
+        Get total tokens from metadata.
+        Returns: Total tokens or 0 if not available
+        """
+        if self.metadata and 'total_tokens' in self.metadata:
+            return int(self.metadata['total_tokens'])
+        return 0
+    
+    @property
+    def ai_provider(self) -> Optional[str]:
+        """
+        Get AI provider from metadata.
+        Returns: Provider name ('claude', 'gemini') or None
+        """
+        if self.metadata and 'ai_provider' in self.metadata:
+            return self.metadata['ai_provider']
+        return None
+    
+    @property
+    def file_path(self) -> Optional[str]:
+        """
+        Get file path from metadata.
+        Returns: Path to saved report file or None
+        """
+        if self.metadata and 'file_path' in self.metadata:
+            return self.metadata['file_path']
+        return None
+
+
 # Database session management helper
 def get_model_by_name(model_name: str):
     """
     Get model class by name.
     
     Args:
-        model_name: Name of model ('Note', 'TimeEntry', etc.)
+        model_name: Name of model ('Note', 'TimeEntry', 'Report', etc.)
         
     Returns:
         Model class or None if not found
@@ -249,6 +340,7 @@ def get_model_by_name(model_name: str):
         'TimeEntry': TimeEntry,
         'Meeting': Meeting,
         'Project': Project,
+        'Report': Report,
     }
     return models.get(model_name)
 
@@ -260,4 +352,4 @@ def get_all_models():
     Returns:
         List of model classes
     """
-    return [Note, TimeEntry, Meeting, Project]
+    return [Note, TimeEntry, Meeting, Project, Report]
