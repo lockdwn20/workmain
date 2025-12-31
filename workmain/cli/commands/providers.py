@@ -1,6 +1,6 @@
 """
 WorkmAIn Provider CLI Commands
-Provider Commands v1.0
+Provider Commands v1.1
 20251231
 
 CLI commands for managing AI providers (Claude and Gemini).
@@ -12,7 +12,8 @@ Commands:
 - providers set-default <provider> --for <type>: Set default provider (future)
 
 Version History:
-- v1.0: Initial implementation with list, test, and costs commands
+- v1.0: Initial implementation with list, test, costs, and set-default commands
+- v1.1: Fixed import to use get_db() instead of get_database()
 """
 
 from typing import Optional
@@ -22,7 +23,7 @@ from rich.console import Console
 from rich.table import Table
 from rich import box
 
-from workmain.database.connection import get_database
+from workmain.database.connection import get_db
 from workmain.database.repositories.reports_repo import get_reports_repository
 from workmain.ai.provider_manager import get_provider_manager
 from workmain.ai.base_provider import ProviderType, ProviderStatus, GenerationRequest
@@ -219,7 +220,7 @@ def show_costs(provider: Optional[str], month: Optional[str], limit: int):
         workmain providers costs -p gemini -l 10
     """
     # Get database session
-    db = get_database()
+    db = get_db()
     session = db.get_session()
     
     try:
