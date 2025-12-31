@@ -1,7 +1,7 @@
 """
 WorkmAIn
-CLI Interface v0.7.0
-20251229
+CLI Interface v0.8.0
+20251231
 
 Main CLI interface using Click framework
 Updated for Phase 4: AI Report Generation
@@ -14,6 +14,7 @@ Version History:
 - v0.5.0: Added template management commands (Phase 3)
 - v0.6.0: Added template extensibility (Phase 3.5)
 - v0.7.0: Added AI report generation (Phase 4) - PLACEHOLDER COMMANDS REMOVED
+- v0.8.0: Added providers command group (Phase 4 Feature 2)
 
 """
 
@@ -26,7 +27,7 @@ from datetime import date
 try:
     from workmain.__version__ import __version__
 except ImportError:
-    __version__ = "0.7.0"
+    __version__ = "0.8.0"
 
 # Import Phase 2 commands
 from workmain.cli.commands.note import note, notes
@@ -39,6 +40,7 @@ from workmain.cli.commands.templates import templates
 
 # Import Phase 4 commands
 from workmain.cli.commands.report import report
+from workmain.cli.commands.providers import providers
 
 # Initialize console
 console = Console()
@@ -90,6 +92,7 @@ def status():
     table.add_row("Tasks", "✓ Phase 2 Complete")
     table.add_row("Templates", "✓ Phase 3 Complete")
     table.add_row("AI Integration", "✓ Phase 4 Complete")
+    table.add_row("AI Providers", "✓ Phase 4 Feature 2")
     
     console.print(table)
     console.print("\n[yellow]Tip:[/yellow] Use 'workmain --help' to see all available commands")
@@ -105,6 +108,7 @@ def today():
     console.print("  • workmain track add 'desc' 2h   - Track time")
     console.print("  • workmain tasks carryover       - See carry-forward tasks")
     console.print("  • workmain report daily --send   - Generate AI report")
+    console.print("  • workmain providers list        - View AI providers")
     console.print("\n[dim]Use 'workmain --help' for all commands[/dim]")
 
 
@@ -126,6 +130,9 @@ cli.add_command(templates)
 
 # Phase 4: AI Report Generation (REAL IMPLEMENTATION)
 cli.add_command(report)
+
+# Phase 4: AI Provider Management (Feature 2)
+cli.add_command(providers)
 
 
 # Placeholder command groups for future phases
