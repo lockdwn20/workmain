@@ -1,39 +1,29 @@
 """
 WorkmAIn Meeting CLI Commands
-Meeting Commands v1.0
-20251222
+Meeting Commands v2.0
+20251231
 
 CLI commands for meeting management.
+
+Version History:
+- v1.0: Initial commands (list, show, rename, merge, delete)
+- v2.0: Added meetings create and meeting condense commands
 """
 
 import click
-from datetime import datetime
+from datetime import datetime, date, time
 from typing import Optional
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from rich.console import Console
+from rich.table import Table
+from rich import box
 
+from workmain.database.connection import get_db
 from workmain.database.repositories.meetings_repo import MeetingsRepository
+from workmain.ai.note_condenser import get_note_condenser
 
 
-def get_session():
-    """Get database session from environment."""
-    import os
-    from dotenv import load_dotenv
-    
-    load_dotenv()
-    
-    db_host = os.getenv('DB_HOST', 'localhost')
-    db_port = os.getenv('DB_PORT', '5432')
-    db_name = os.getenv('DB_NAME', 'workmain')
-    db_user = os.getenv('DB_USER', 'workmain_user')
-    db_password = os.getenv('DB_PASSWORD', '')
-    
-    conn_string = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
-    engine = create_engine(conn_string)
-    Session = sessionmaker(bind=engine)
-    
-    return Session()
+console = Console()
 
 
 def format_meeting_display(meeting, meetings_repo: MeetingsRepository, show_notes: bool = True) -> str:
@@ -83,6 +73,86 @@ def meetings():
 
 
 @meetings.command()
+@click.argument('title')
+@click.option('--start', required=True, help='Start time (HH:MM or YYYY-MM-DD HH:MM)')
+@click.option('--end', required=True, help='End time (HH:MM or YYYY-MM-DD HH:MM)')
+@click.option('--date', 'meeting_date', help='Meeting date (YYYY-MM-DD, defaults to today)')
+def create(title: str, start: str, end: str, meeting_date: Optional[str]):
+    """
+    Create a new meeting.
+    
+    Examples:
+        workmain meetings create "Team Standup" --start "14:00" --end "14:30"
+        workmain meetings create "Client Review" --start "2025-12-31 15:00" --end "2025-12-31 16:00"
+        workmain meetings create "Planning" --start "09:00" --end "10:30" --date "2025-12-31"
+    """
+    db = get_db()
+    session = db.get_session()
+    repo = MeetingsRepository(session)
+    
+    try:
+        # Parse date
+        if meeting_date:
+            try:
+                parsed_date = datetime.strptime(meeting_date, '%Y-%m-%d').date()
+            except ValueError:
+                console.print(f"[red]✗ Invalid date format: {meeting_date}. Use YYYY-MM-DD[/red]")
+                return
+        else:
+            parsed_date = date.today()
+        
+        # Parse times
+        try:
+            # Check if full datetime provided
+            if ' ' in start:
+                start_dt = datetime.strptime(start, '%Y-%m-%d %H:%M')
+            else:
+                # Just time, combine with date
+                start_time = datetime.strptime(start, '%H:%M').time()
+                start_dt = datetime.combine(parsed_date, start_time)
+            
+            if ' ' in end:
+                end_dt = datetime.strptime(end, '%Y-%m-%d %H:%M')
+            else:
+                end_time = datetime.strptime(end, '%H:%M').time()
+                end_dt = datetime.combine(parsed_date, end_time)
+                
+        except ValueError as e:
+            console.print(f"[red]✗ Invalid time format: {e}[/red]")
+            console.print("\n[dim]Use HH:MM (24-hour) or YYYY-MM-DD HH:MM[/dim]")
+            return
+        
+        # Validate times
+        if end_dt <= start_dt:
+            console.print("[red]✗ End time must be after start time[/red]")
+            return
+        
+        # Create meeting
+        meeting = repo.create(
+            title=title,
+            start_time=start_dt,
+            end_time=end_dt
+        )
+        
+        duration = (end_dt - start_dt).total_seconds() / 3600
+        
+        console.print()
+        console.print(f"[green]✓ Meeting created:[/green]")
+        console.print(f"  Title: {meeting.title}")
+        console.print(f"  ID: {meeting.id}")
+        console.print(f"  Date: {start_dt.strftime('%Y-%m-%d')}")
+        console.print(f"  Time: {start_dt.strftime('%H:%M')} - {end_dt.strftime('%H:%M')}")
+        console.print(f"  Duration: {duration:.1f} hours")
+        console.print()
+        
+    except Exception as e:
+        console.print(f"[red]✗ Failed to create meeting: {e}[/red]")
+    
+    finally:
+        session.close()
+
+
+@meetings.command()
 @click.option('--today', is_flag=True, help='Show only today\'s meetings')
 @click.option('--upcoming', is_flag=True, help='Show upcoming meetings (next 7 days)')
 @click.option('--search', '-s', help='Search meetings by title')
@@ -97,34 +167,35 @@ def list(today: bool, upcoming: bool, search: Optional[str], limit: int):
         workmain meetings list --upcoming
         workmain meetings list --search "standup"
     """
-    session = get_session()
+    db = get_db()
+    session = db.get_session()
     repo = MeetingsRepository(session)
     
     try:
         # Get meetings based on filters
         if today:
             meeting_list = repo.get_today()
-            title = "Today's Meetings"
+            title_text = "Today's Meetings"
         elif upcoming:
             meeting_list = repo.get_upcoming(days=7)
-            title = "Upcoming Meetings (Next 7 Days)"
+            title_text = "Upcoming Meetings (Next 7 Days)"
         elif search:
             meeting_list = repo.search_by_title(search, limit=limit)
-            title = f"Search Results for '{search}'"
+            title_text = f"Search Results for '{search}'"
         else:
             meeting_list = repo.get_all(limit=limit)
-            title = f"All Meetings (Last {limit})"
+            title_text = f"All Meetings (Last {limit})"
         
         if not meeting_list:
-            click.echo(f"No meetings found.")
+            console.print(f"No meetings found.")
             return
         
-        click.echo(f"\n{title} ({len(meeting_list)}):\n")
-        click.echo("=" * 60)
+        console.print(f"\n[bold]{title_text}[/bold] ({len(meeting_list)}):\n")
+        console.print("=" * 60)
         
         for meeting in meeting_list:
-            click.echo(format_meeting_display(meeting, repo))
-            click.echo("-" * 60)
+            console.print(format_meeting_display(meeting, repo))
+            console.print("-" * 60)
     
     finally:
         session.close()
@@ -139,7 +210,8 @@ def show(meeting_title: str):
     Example:
         workmain meetings show "Team Standup"
     """
-    session = get_session()
+    db = get_db()
+    session = db.get_session()
     repo = MeetingsRepository(session)
     
     try:
@@ -147,58 +219,65 @@ def show(meeting_title: str):
         meeting = repo.get_by_title(meeting_title, exact=False)
         
         if not meeting:
-            click.echo(f"✗ Meeting '{meeting_title}' not found")
+            console.print(f"[red]✗ Meeting '{meeting_title}' not found[/red]")
             
             # Try fuzzy match
             matches = repo.fuzzy_match(meeting_title, threshold=0.6)
             if matches:
-                click.echo("\nDid you mean:")
+                console.print("\n[yellow]Did you mean:[/yellow]")
                 for m, score in matches[:5]:
-                    click.echo(f"  - {m.title}")
+                    console.print(f"  - {m.title}")
             
             return
         
         # Display meeting details
-        click.echo(f"\nMeeting Details:\n")
-        click.echo("=" * 60)
+        console.print(f"\n[bold]Meeting Details:[/bold]\n")
+        console.print("=" * 60)
         
-        click.echo(f"Title: {meeting.title}")
-        click.echo(f"ID: {meeting.id}")
+        console.print(f"Title: {meeting.title}")
+        console.print(f"ID: {meeting.id}")
         
         # Type
         if meeting.outlook_recurring_id:
-            click.echo(f"Type: Recurring (Outlook)")
-            click.echo(f"  Recurring ID: {meeting.outlook_recurring_id}")
+            console.print(f"Type: Recurring (Outlook)")
+            console.print(f"  Recurring ID: {meeting.outlook_recurring_id}")
             
             # Show series info
             series = repo.get_recurring_series(meeting.outlook_recurring_id)
             if len(series) > 1:
-                click.echo(f"  Instances: {len(series)} total")
+                console.print(f"  Instances: {len(series)} total")
                 if series:
                     first = min(s.start_time for s in series)
                     last = max(s.start_time for s in series)
-                    click.echo(f"  First: {first.strftime('%Y-%m-%d')}")
-                    click.echo(f"  Last: {last.strftime('%Y-%m-%d')}")
+                    console.print(f"  First: {first.strftime('%Y-%m-%d')}")
+                    console.print(f"  Last: {last.strftime('%Y-%m-%d')}")
         elif meeting.outlook_id:
-            click.echo(f"Type: Outlook (one-time)")
-            click.echo(f"  Outlook ID: {meeting.outlook_id}")
+            console.print(f"Type: Outlook (one-time)")
+            console.print(f"  Outlook ID: {meeting.outlook_id}")
         else:
-            click.echo(f"Type: Ad-hoc")
+            console.print(f"Type: Ad-hoc")
         
         # Time
-        click.echo(f"\nSchedule:")
-        click.echo(f"  Start: {meeting.start_time.strftime('%Y-%m-%d %H:%M')}")
-        click.echo(f"  End: {meeting.end_time.strftime('%Y-%m-%d %H:%M')}")
+        console.print(f"\nSchedule:")
+        console.print(f"  Start: {meeting.start_time.strftime('%Y-%m-%d %H:%M')}")
+        console.print(f"  End: {meeting.end_time.strftime('%Y-%m-%d %H:%M')}")
+        console.print(f"  Duration: {meeting.duration_hours:.1f} hours")
+        
+        # Condensation status
+        if meeting.is_condensed:
+            console.print(f"\n[green]✓ Condensed Summary:[/green]")
+            console.print(f"  {meeting.condensed_summary}")
+            console.print(f"  [dim]Generated: {meeting.condensed_at.strftime('%Y-%m-%d %H:%M')}[/dim]")
         
         # Attendees
         if meeting.attendees:
-            click.echo(f"\nAttendees: {len(meeting.attendees)}")
+            console.print(f"\nAttendees: {len(meeting.attendees)}")
             for attendee in meeting.attendees:
-                click.echo(f"  - {attendee}")
+                console.print(f"  - {attendee}")
         
         # Notes
         note_count = repo.get_note_count(meeting.id)
-        click.echo(f"\nNotes: {note_count} captured")
+        console.print(f"\nNotes: {note_count} captured")
         
         # Status
         status = []
@@ -207,9 +286,9 @@ def show(meeting_title: str):
         if meeting.reminder_sent:
             status.append("reminder sent")
         if status:
-            click.echo(f"Status: {', '.join(status)}")
+            console.print(f"Status: {', '.join(status)}")
         
-        click.echo(f"\nCreated: {meeting.created_at.strftime('%Y-%m-%d %H:%M')}")
+        console.print(f"\nCreated: {meeting.created_at.strftime('%Y-%m-%d %H:%M')}")
     
     finally:
         session.close()
@@ -222,6 +301,101 @@ def meeting():
 
 
 @meeting.command()
+@click.argument('meeting_title')
+def condense(meeting_title: str):
+    """
+    Condense meeting notes into a one-line summary using AI.
+    
+    Creates a professional summary suitable for Clockify time entries.
+    
+    Example:
+        workmain meeting condense "Team Standup"
+    """
+    db = get_db()
+    session = db.get_session()
+    meetings_repo = MeetingsRepository(session)
+    
+    try:
+        # Find meeting with fuzzy matching
+        matches = meetings_repo.fuzzy_match(meeting_title, threshold=0.6)
+        
+        if not matches:
+            console.print(f"[red]✗ Meeting not found: '{meeting_title}'[/red]")
+            console.print()
+            return
+        
+        # Interactive confirmation for fuzzy match
+        meeting = None
+        if len(matches) == 1:
+            meeting, score = matches[0]
+            if score < 0.95:  # Not exact match
+                console.print(f"\n[yellow]Found similar meeting:[/yellow] {meeting.title}")
+                if not click.confirm("Use this meeting?", default=True):
+                    console.print("Cancelled.")
+                    return
+        else:
+            # Multiple matches
+            console.print(f"\n[yellow]Multiple meetings found:[/yellow]")
+            for i, (m, score) in enumerate(matches[:5], 1):
+                console.print(f"  {i}. {m.title} ({score*100:.0f}% match)")
+            
+            choice = click.prompt("\nSelect meeting [1-5, or 0 to cancel]", type=int, default=1)
+            if choice == 0 or choice > len(matches):
+                console.print("Cancelled.")
+                return
+            
+            meeting, _ = matches[choice - 1]
+        
+        # Check if meeting has notes
+        note_count = meetings_repo.get_note_count(meeting.id)
+        if note_count == 0:
+            console.print(f"\n[yellow]✗ Meeting '{meeting.title}' has no notes to condense[/yellow]")
+            console.print()
+            console.print("[dim]Add notes first with:[/dim]")
+            console.print(f"  workmain note meeting --meeting \"{meeting.title}\"")
+            console.print()
+            return
+        
+        console.print()
+        console.print(f"[bold]Condensing {note_count} note(s) for:[/bold] {meeting.title}")
+        console.print("[dim]Sending to Claude...[/dim]")
+        console.print()
+        
+        # Condense using AI
+        condenser = get_note_condenser(session)
+        
+        try:
+            summary = condenser.condense_meeting(meeting)
+            
+            # Get cost from last condensation
+            cost_tracker = condenser.cost_tracker
+            if cost_tracker._current_report:
+                total_cost = sum(s.cost for s in cost_tracker._current_report.sections)
+                total_tokens = sum(s.total_tokens for s in cost_tracker._current_report.sections)
+            else:
+                total_cost = 0.0
+                total_tokens = 0
+            
+            console.print("[green]✓ Condensed summary:[/green]")
+            console.print(f"  \"{summary}\"")
+            console.print()
+            console.print(f"[dim]Cost: ${total_cost:.6f} ({total_tokens} tokens)[/dim]")
+            console.print(f"[dim]Stored in meeting record[/dim]")
+            console.print()
+            
+        except ValueError as e:
+            console.print(f"[red]✗ Condensation failed: {e}[/red]")
+            console.print()
+    
+    except Exception as e:
+        console.print(f"[red]✗ Error: {e}[/red]")
+        console.print()
+    
+    finally:
+        session.close()
+
+
+@meeting.command()
 @click.argument('meeting_id', type=int)
 @click.argument('new_title')
 def rename(meeting_id: int, new_title: str):
@@ -231,35 +405,24 @@ def rename(meeting_id: int, new_title: str):
     Example:
         workmain meeting rename 5 "Daily Standup"
     """
-    session = get_session()
+    db = get_db()
+    session = db.get_session()
     repo = MeetingsRepository(session)
     
     try:
-        # Get current meeting
+        # Get meeting
         mtg = repo.get_by_id(meeting_id)
         if not mtg:
-            click.echo(f"✗ Meeting {meeting_id} not found")
+            console.print(f"[red]✗ Meeting {meeting_id} not found[/red]")
             return
         
         old_title = mtg.title
-        note_count = repo.get_note_count(meeting_id)
-        
-        # Confirm
-        click.echo(f"\nRename meeting:")
-        click.echo(f"  From: {old_title}")
-        click.echo(f"  To: {new_title}")
-        click.echo(f"  {note_count} note(s) will be preserved")
-        
-        if not click.confirm("\nContinue?", default=True):
-            click.echo("Cancelled.")
-            return
         
         # Rename
-        updated = repo.rename(meeting_id, new_title)
-        if updated:
-            click.echo(f"✓ Meeting renamed to '{new_title}'")
+        if repo.rename(meeting_id, new_title):
+            console.print(f"[green]✓ Renamed:[/green] '{old_title}' → '{new_title}'")
         else:
-            click.echo(f"✗ Rename failed")
+            console.print(f"[red]✗ Rename failed[/red]")
     
     finally:
         session.close()
@@ -273,9 +436,10 @@ def merge(from_title: str, to_title: str):
     Merge two meetings by moving notes from one to another.
     
     Example:
-        workmain meeting merge "team standup" "Team Standup"
+        workmain meeting merge "Old Standup" "Team Standup"
     """
-    session = get_session()
+    db = get_db()
+    session = db.get_session()
     repo = MeetingsRepository(session)
     
     try:
@@ -284,40 +448,34 @@ def merge(from_title: str, to_title: str):
         to_mtg = repo.get_by_title(to_title, exact=False)
         
         if not from_mtg:
-            click.echo(f"✗ Source meeting '{from_title}' not found")
+            console.print(f"[red]✗ Source meeting '{from_title}' not found[/red]")
             return
         
         if not to_mtg:
-            click.echo(f"✗ Destination meeting '{to_title}' not found")
+            console.print(f"[red]✗ Target meeting '{to_title}' not found[/red]")
             return
         
-        if from_mtg.id == to_mtg.id:
-            click.echo(f"✗ Cannot merge meeting with itself")
-            return
-        
-        # Show merge info
         from_notes = repo.get_note_count(from_mtg.id)
-        to_notes = repo.get_note_count(to_mtg.id)
         
-        click.echo(f"\nMerge meetings:")
-        click.echo(f"  From: {from_mtg.title} ({from_notes} notes)")
-        click.echo(f"  To: {to_mtg.title} ({to_notes} notes)")
-        click.echo(f"  Result: {to_mtg.title} will have {from_notes + to_notes} notes")
+        # Show merge plan
+        console.print(f"\n[bold]Merge Plan:[/bold]")
+        console.print(f"  From: {from_mtg.title} ({from_notes} notes)")
+        console.print(f"  To: {to_mtg.title}")
         
         if not click.confirm("\nContinue?", default=False):
-            click.echo("Cancelled.")
+            console.print("Cancelled.")
             return
         
         # Merge
         if repo.merge(from_mtg.id, to_mtg.id):
-            click.echo(f"✓ Moved {from_notes} note(s) to '{to_mtg.title}'")
+            console.print(f"[green]✓ Moved {from_notes} note(s) to '{to_mtg.title}'[/green]")
             
             # Ask to delete old meeting
             if click.confirm(f"Delete old meeting '{from_mtg.title}'?", default=True):
                 if repo.delete(from_mtg.id, delete_notes=False):
-                    click.echo(f"✓ Old meeting deleted")
+                    console.print(f"[green]✓ Old meeting deleted[/green]")
         else:
-            click.echo(f"✗ Merge failed")
+            console.print(f"[red]✗ Merge failed[/red]")
     
     finally:
         session.close()
@@ -334,39 +492,40 @@ def delete(meeting_id: int, delete_notes: bool):
         workmain meeting delete 5
         workmain meeting delete 5 --delete-notes
     """
-    session = get_session()
+    db = get_db()
+    session = db.get_session()
     repo = MeetingsRepository(session)
     
     try:
         # Get meeting
         mtg = repo.get_by_id(meeting_id)
         if not mtg:
-            click.echo(f"✗ Meeting {meeting_id} not found")
+            console.print(f"[red]✗ Meeting {meeting_id} not found[/red]")
             return
         
         note_count = repo.get_note_count(meeting_id)
         
         # Show warning
-        click.echo(f"\nDelete meeting:")
-        click.echo(f"  {mtg.title}")
-        click.echo(f"  {note_count} associated note(s)")
+        console.print(f"\n[bold]Delete meeting:[/bold]")
+        console.print(f"  {mtg.title}")
+        console.print(f"  {note_count} associated note(s)")
         
         if delete_notes:
-            click.echo(f"\n⚠️  WARNING: Notes will also be deleted!")
+            console.print(f"\n[red]⚠️  WARNING: Notes will also be deleted![/red]")
         else:
-            click.echo(f"\nNotes will be preserved (unlinked from meeting)")
+            console.print(f"\n[dim]Notes will be preserved (unlinked from meeting)[/dim]")
         
         if not click.confirm("\nContinue?", default=False):
-            click.echo("Cancelled.")
+            console.print("Cancelled.")
             return
         
         # Delete
         if repo.delete(meeting_id, delete_notes=delete_notes):
-            click.echo(f"✓ Meeting deleted")
+            console.print(f"[green]✓ Meeting deleted[/green]")
             if delete_notes:
-                click.echo(f"✓ {note_count} note(s) also deleted")
+                console.print(f"[green]✓ {note_count} note(s) also deleted[/green]")
         else:
-            click.echo(f"✗ Delete failed")
+            console.print(f"[red]✗ Delete failed[/red]")
     
     finally:
         session.close()

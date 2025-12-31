@@ -1,16 +1,20 @@
 """
 WorkmAIn Note CLI Commands
-Note Commands v1.1
-20251222
+Note Commands v2.0
+20251231
 
 CLI commands for note management with tag support and meeting integration.
 
 Version History:
 - v1.0: Initial implementation with inline tag parsing
 - v1.1: Added --tags flag support for shell-friendly comma-separated tags
+- v2.0: Added bulk meeting note entry command (note meeting)
 """
 
 import click
+import os
+import tempfile
+import subprocess
 from datetime import date, datetime
 from typing import Optional
 
@@ -403,6 +407,166 @@ def delete(note_id: int):
             click.echo(f"✓ Note {note_id} deleted")
         else:
             click.echo(f"✗ Delete failed")
+    
+    finally:
+        session.close()
+
+
+@note.command()
+@click.option('--meeting', '-m', required=True, help='Meeting title (fuzzy match)')
+def meeting(meeting: str):
+    """
+    Add multiple notes to a meeting interactively.
+    
+    Opens an editor or interactive prompt for bulk note entry.
+    Each line becomes a separate note with its own tags.
+    
+    Examples:
+        workmain note meeting --meeting "Team Standup"
+        workmain note meeting -m "Daily Standup"
+    """
+    session = get_session()
+    notes_repo = NotesRepository(session)
+    meetings_repo = MeetingsRepository(session)
+    
+    try:
+        # Find meeting with fuzzy matching
+        matches = meetings_repo.fuzzy_match(meeting, threshold=0.6)
+        
+        if not matches:
+            click.echo(f"\n✗ Meeting not found: '{meeting}'")
+            click.echo()
+            click.echo("To create this meeting first:")
+            click.echo(f"  workmain meetings create \"{meeting}\" --start \"HH:MM\" --end \"HH:MM\"")
+            click.echo()
+            return
+        
+        # Interactive confirmation for fuzzy match
+        meeting_obj = None
+        if len(matches) == 1:
+            meeting_obj, score = matches[0]
+            if score < 0.95:  # Not exact match
+                click.echo(f"\nFound similar meeting: {meeting_obj.title}")
+                if not click.confirm("Use this meeting?", default=True):
+                    click.echo("Cancelled.")
+                    return
+        else:
+            # Multiple matches
+            click.echo(f"\nMultiple meetings found:")
+            for i, (m, score) in enumerate(matches[:5], 1):
+                note_count = meetings_repo.get_note_count(m.id)
+                click.echo(f"  {i}. {m.title} ({note_count} notes, {score*100:.0f}% match)")
+            
+            choice = click.prompt("\nSelect meeting [1-5, or 0 to cancel]", type=int, default=1)
+            if choice == 0 or choice > len(matches):
+                click.echo("Cancelled.")
+                return
+            
+            meeting_obj, _ = matches[choice - 1]
+        
+        # Get bulk input
+        click.echo(f"\nAdding notes to meeting: {meeting_obj.title}")
+        click.echo()
+        
+        # Check for $EDITOR environment variable
+        editor = os.environ.get('EDITOR')
+        notes_text = None
+        
+        if editor:
+            # Use editor
+            click.echo(f"Opening editor: {editor}")
+            click.echo("Enter notes (one per line), save and close to continue")
+            click.echo()
+            
+            with tempfile.NamedTemporaryFile(mode='w+', suffix='.txt', delete=False) as tf:
+                temp_path = tf.name
+                # Write instructions
+                tf.write("# Enter notes below (one per line)\n")
+                tf.write("# Lines starting with # are ignored\n")
+                tf.write("# Add tags with #ilo #cf etc.\n")
+                tf.write("#\n")
+            
+            try:
+                # Open editor
+                subprocess.call([editor, temp_path])
+                
+                # Read back
+                with open(temp_path, 'r') as f:
+                    lines = f.readlines()
+                
+                # Filter out comments and empty lines
+                notes_text = '\n'.join([
+                    line.strip() 
+                    for line in lines 
+                    if line.strip() and not line.strip().startswith('#')
+                ])
+                
+            finally:
+                # Clean up temp file
+                os.unlink(temp_path)
+        
+        else:
+            # Interactive prompt
+            click.echo("Enter notes (one per line)")
+            click.echo("Add tags inline: Fixed bug #ilo #cf")
+            click.echo("Press Enter on blank line to finish")
+            click.echo()
+            
+            lines = []
+            while True:
+                line = click.prompt("", default="", show_default=False)
+                if not line.strip():
+                    break
+                lines.append(line)
+            
+            notes_text = '\n'.join(lines)
+        
+        if not notes_text or not notes_text.strip():
+            click.echo("\nNo notes entered. Cancelled.")
+            return
+        
+        # Parse and create notes
+        note_lines = [line.strip() for line in notes_text.split('\n') if line.strip()]
+        
+        if not note_lines:
+            click.echo("\nNo notes entered. Cancelled.")
+            return
+        
+        click.echo()
+        click.echo(f"Creating {len(note_lines)} note(s)...")
+        click.echo()
+        
+        created_count = 0
+        for line in note_lines:
+            # Parse tags from line
+            clean_text, tags, invalid = parse_tags(line, apply_default=True)
+            
+            # Handle invalid tags (silent default to internal-only)
+            if invalid:
+                click.echo(f"  ⚠️  Invalid tags in: {line[:50]}...")
+                click.echo(f"      Ignored: {', '.join(invalid)}")
+            
+            # Create note
+            try:
+                note = notes_repo.create(
+                    content=clean_text,
+                    tags=tags if tags else ['internal-only'],
+                    meeting_id=meeting_obj.id,
+                    source='meeting'
+                )
+                created_count += 1
+                click.echo(f"  ✓ {note.display_tags} {clean_text[:60]}")
+            
+            except Exception as e:
+                click.echo(f"  ✗ Failed: {line[:50]}... ({e})")
+        
+        click.echo()
+        click.echo(f"✓ Created {created_count} of {len(note_lines)} note(s)")
+        click.echo()
+        
+    except Exception as e:
+        click.echo(f"\n✗ Error: {e}")
+        click.echo()
     
     finally:
         session.close()
