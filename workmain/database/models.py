@@ -1,6 +1,6 @@
 """
 WorkmAIn Database Models
-Database Models v1.2
+Database Models v1.3
 20251231
 
 SQLAlchemy ORM models for WorkmAIn.
@@ -12,6 +12,7 @@ Version History:
 - v1.0: Initial model creation
 - v1.1: Fixed created_date to use Computed() for generated column compatibility
 - v1.2: Added Report model for AI-generated reports with cost tracking
+- v1.3: Fixed metadata column name (metadata → report_metadata) to avoid SQLAlchemy conflict
 """
 
 from datetime import datetime, date, time
@@ -267,7 +268,7 @@ class Report(Base):
     report_type = Column(String(50), nullable=False)  # daily_internal, weekly_client, etc.
     report_date = Column(Date, nullable=False)
     content = Column(Text, nullable=False)
-    metadata = Column(JSON, nullable=True)  # AI provider, costs, tokens, file_path, etc.
+    report_metadata = Column('metadata', JSON, nullable=True)  # AI provider, costs, tokens, file_path, etc.
     
     # Validation and sending
     validation_passed = Column(Boolean, nullable=True)
@@ -289,8 +290,8 @@ class Report(Base):
         Get generation cost from metadata.
         Returns: Cost in USD or 0.0 if not available
         """
-        if self.metadata and 'cost' in self.metadata:
-            return float(self.metadata['cost'])
+        if self.report_metadata and 'cost' in self.report_metadata:
+            return float(self.report_metadata['cost'])
         return 0.0
     
     @property
@@ -299,8 +300,8 @@ class Report(Base):
         Get total tokens from metadata.
         Returns: Total tokens or 0 if not available
         """
-        if self.metadata and 'total_tokens' in self.metadata:
-            return int(self.metadata['total_tokens'])
+        if self.report_metadata and 'total_tokens' in self.report_metadata:
+            return int(self.report_metadata['total_tokens'])
         return 0
     
     @property
@@ -309,8 +310,8 @@ class Report(Base):
         Get AI provider from metadata.
         Returns: Provider name ('claude', 'gemini') or None
         """
-        if self.metadata and 'ai_provider' in self.metadata:
-            return self.metadata['ai_provider']
+        if self.report_metadata and 'ai_provider' in self.report_metadata:
+            return self.report_metadata['ai_provider']
         return None
     
     @property
@@ -319,8 +320,8 @@ class Report(Base):
         Get file path from metadata.
         Returns: Path to saved report file or None
         """
-        if self.metadata and 'file_path' in self.metadata:
-            return self.metadata['file_path']
+        if self.report_metadata and 'file_path' in self.report_metadata:
+            return self.report_metadata['file_path']
         return None
 
 

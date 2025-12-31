@@ -1,7 +1,7 @@
 """
 WorkmAIn AI Report Generator
-Report Generator v1.3
-20251230
+Report Generator v1.4
+20251231
 
 High-level orchestrator for AI report generation with database integration.
 
@@ -24,8 +24,9 @@ Version History:
         Convert provider enum to string (.value)
 - v1.3: Integrated database storage for reports and costs
         Added reports repository for database access
-        Costs now stored in reports.metadata JSONB field
+        Costs now stored in reports.report_metadata JSONB field
         Removed JSON file persistence
+- v1.4: Fixed metadata column name (metadata → report_metadata) for SQLAlchemy compatibility
 
 Workflow:
 1. Load template and validate
@@ -33,7 +34,7 @@ Workflow:
 3. Generate content with AI client
 4. Format output
 5. Save to file
-6. Save to database with metadata (costs, tokens, provider)
+6. Save to database with report_metadata (costs, tokens, provider)
 7. Track costs (in-memory only, database is source of truth)
 """
 
@@ -478,9 +479,9 @@ class ReportGenerator:
             {
                 "template_name": report.report_type,
                 "report_date": report.report_date.isoformat(),
-                "file_path": report.metadata.get('file_path', '') if report.metadata else '',
-                "file_size": Path(report.metadata.get('file_path', '')).stat().st_size 
-                    if report.metadata and report.metadata.get('file_path') and Path(report.metadata.get('file_path')).exists() 
+                "file_path": report.report_metadata.get('file_path', '') if report.report_metadata else '',
+                "file_size": Path(report.report_metadata.get('file_path', '')).stat().st_size 
+                    if report.report_metadata and report.report_metadata.get('file_path') and Path(report.report_metadata.get('file_path')).exists() 
                     else 0,
                 "created_at": report.created_at.isoformat()
             }

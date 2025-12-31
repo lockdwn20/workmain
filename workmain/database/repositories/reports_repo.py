@@ -1,7 +1,7 @@
 """
 WorkmAIn Reports Repository
-Reports Repository v1.0
-20251230
+Reports Repository v1.1
+20251231
 
 Repository for managing generated reports in the database.
 
@@ -10,6 +10,10 @@ Provides methods to:
 - Query reports by type, date, or cost
 - Get cost summaries and analytics
 - Link reports to files on disk
+
+Version History:
+- v1.0: Initial implementation
+- v1.1: Fixed metadata column name (metadata → report_metadata) to avoid SQLAlchemy conflict
 """
 
 from datetime import date, datetime
@@ -89,7 +93,7 @@ class ReportsRepository:
             report_type=report_type,
             report_date=report_date,
             content=content,
-            metadata=metadata,
+            report_metadata=metadata,  # Use report_metadata attribute
             created_at=datetime.now()
         )
         
@@ -185,12 +189,12 @@ class ReportsRepository:
         by_provider = {}
         
         for report in reports:
-            if not report.metadata:
+            if not report.report_metadata:
                 continue
             
-            cost = float(report.metadata.get('cost', 0))
-            tokens = int(report.metadata.get('total_tokens', 0))
-            provider = report.metadata.get('ai_provider', 'unknown')
+            cost = float(report.report_metadata.get('cost', 0))
+            tokens = int(report.report_metadata.get('total_tokens', 0))
+            provider = report.report_metadata.get('ai_provider', 'unknown')
             
             total_cost += cost
             total_tokens += tokens
@@ -251,11 +255,11 @@ class ReportsRepository:
         
         costs_by_date = {}
         for report in reports:
-            if not report.metadata:
+            if not report.report_metadata:
                 continue
             
             date_str = report.report_date.isoformat()
-            cost = float(report.metadata.get('cost', 0))
+            cost = float(report.report_metadata.get('cost', 0))
             
             if date_str not in costs_by_date:
                 costs_by_date[date_str] = 0.0
