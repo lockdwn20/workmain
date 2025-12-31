@@ -1,18 +1,19 @@
 """
 WorkmAIn Database Models
-Database Models v1.3
+Database Models v1.4
 20251231
 
-SQLAlchemy ORM models for WorkmAIn.
-Models: Note, TimeEntry, Meeting, Project, Report
+SQLAlchemy ORM models for WorkmAIn database.
+Models: Note, TimeEntry, Meeting, Project
 
-These map to the PostgreSQL tables created by 001_initial_schema.sql
+These map to the PostgreSQL tables created by schema migrations.
 
 Version History:
 - v1.0: Initial model creation
 - v1.1: Fixed created_date to use Computed() for generated column compatibility
-- v1.2: Added Report model for AI-generated reports with cost tracking
-- v1.3: Fixed metadata column name (metadata → report_metadata) to avoid SQLAlchemy conflict
+- v1.2: Added Report model for AI-generated reports
+- v1.3: Fixed metadata → report_metadata for SQLAlchemy compatibility
+- v1.4: Added condensation fields (meetings.condensed_summary, time_entries.meeting_id)
 """
 
 from datetime import datetime, date, time
@@ -25,7 +26,6 @@ from sqlalchemy import (
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import TSVECTOR
-from sqlalchemy.sql import func
 
 Base = declarative_base()
 
@@ -70,6 +70,7 @@ class Meeting(Base):
     Meeting model - represents calendar meetings from Outlook.
     
     Notes can be linked to meetings for recurring meeting detection.
+    Condensed summaries are AI-generated for Clockify time entry descriptions.
     """
     __tablename__ = 'meetings'
     
@@ -89,14 +90,37 @@ class Meeting(Base):
     notes_captured = Column(Boolean, default=False)
     reminder_sent = Column(Boolean, default=False)
     
+    # AI Condensation (Phase 4 Feature 4)
+    condensed_summary = Column(Text, nullable=True)  # AI-generated one-line summary
+    condensed_at = Column(DateTime, nullable=True)   # When AI condensation was performed
+    
     # Timestamps
     created_at = Column(DateTime, default=datetime.now)
     
     # Relationships
     notes = relationship("Note", back_populates="meeting")
+    time_entries = relationship("TimeEntry", back_populates="meeting")
     
     def __repr__(self):
         return f"<Meeting(id={self.id}, title='{self.title}', start='{self.start_time}')>"
+    
+    @property
+    def duration_hours(self) -> float:
+        """
+        Calculate meeting duration in hours.
+        
+        Returns:
+            Duration in hours (e.g., 1.5 for 90 minutes)
+        """
+        if self.start_time and self.end_time:
+            delta = self.end_time - self.start_time
+            return delta.total_seconds() / 3600
+        return 0.0
+    
+    @property
+    def is_condensed(self) -> bool:
+        """Check if meeting notes have been condensed."""
+        return self.condensed_summary is not None and self.condensed_at is not None
 
 
 class Note(Base):
@@ -183,6 +207,7 @@ class TimeEntry(Base):
     Time entries can be:
     - Standalone time tracking
     - Linked to a project
+    - Linked to a meeting (for Clockify sync from meeting summaries)
     - Synced with Clockify (clockify_id)
     
     Times are stored in 24-hour format and converted to/from AM/PM for Clockify.
@@ -194,6 +219,7 @@ class TimeEntry(Base):
     
     # Foreign keys
     project_id = Column(Integer, ForeignKey('projects.id', ondelete='SET NULL'), nullable=True)
+    meeting_id = Column(Integer, ForeignKey('meetings.id', ondelete='SET NULL'), nullable=True)  # Phase 4 Feature 4
     
     # Fields
     description = Column(Text, nullable=False)
@@ -215,6 +241,7 @@ class TimeEntry(Base):
     
     # Relationships
     project = relationship("Project", back_populates="time_entries")
+    meeting = relationship("Meeting", back_populates="time_entries")
     
     def __repr__(self):
         time_str = self.entry_time.strftime('%H:%M') if self.entry_time else 'no time'
@@ -238,26 +265,10 @@ class TimeEntry(Base):
 
 class Report(Base):
     """
-    Report model - represents AI-generated reports with cost tracking.
+    Report model - represents AI-generated reports.
     
-    Stores report content and metadata including:
-    - AI provider and model used
-    - Token counts and costs
-    - Generation time
-    - File path to saved report
-    - Integration details (Outlook, Slack)
-    
-    The metadata JSONB field stores all cost and generation details:
-    {
-        "ai_provider": "claude",
-        "ai_model": "claude-sonnet-4-20250514",
-        "prompt_tokens": 417,
-        "completion_tokens": 138,
-        "total_tokens": 555,
-        "cost": 0.003321,
-        "generation_time": 2.5,
-        "file_path": "/path/to/report.md"
-    }
+    Stores generated report metadata including AI costs, tokens, and provider info.
+    Links to file system for actual report content.
     """
     __tablename__ = 'reports'
     
@@ -265,64 +276,49 @@ class Report(Base):
     id = Column(Integer, primary_key=True)
     
     # Fields
-    report_type = Column(String(50), nullable=False)  # daily_internal, weekly_client, etc.
+    report_type = Column(String(50), nullable=False)  # 'daily_internal', 'weekly_client', etc.
     report_date = Column(Date, nullable=False)
     content = Column(Text, nullable=False)
-    report_metadata = Column('metadata', JSON, nullable=True)  # AI provider, costs, tokens, file_path, etc.
     
-    # Validation and sending
+    # Metadata (JSONB for AI costs, tokens, provider info)
+    # Note: Using 'report_metadata' in Python, mapped to 'metadata' in database
+    # to avoid conflict with SQLAlchemy's reserved 'metadata' attribute
+    report_metadata = Column('metadata', JSON, nullable=True)
+    
+    # Validation & sending
     validation_passed = Column(Boolean, nullable=True)
     sent_at = Column(DateTime, nullable=True)
     
-    # Integration fields (Phase 6+)
+    # Integration fields
     outlook_draft_id = Column(String(255), nullable=True)
-    slack_message_ts = Column(String(255), nullable=True)  # Slack message timestamp
+    slack_message_ts = Column(String(255), nullable=True)
     
     # Timestamps
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.now)
     
     def __repr__(self):
         return f"<Report(id={self.id}, type='{self.report_type}', date={self.report_date})>"
     
     @property
-    def cost(self) -> float:
-        """
-        Get generation cost from metadata.
-        Returns: Cost in USD or 0.0 if not available
-        """
-        if self.report_metadata and 'cost' in self.report_metadata:
-            return float(self.report_metadata['cost'])
+    def ai_provider(self) -> Optional[str]:
+        """Get AI provider from metadata."""
+        if self.report_metadata:
+            return self.report_metadata.get('ai_provider')
+        return None
+    
+    @property
+    def total_cost(self) -> float:
+        """Get total cost from metadata."""
+        if self.report_metadata:
+            return float(self.report_metadata.get('cost', 0))
         return 0.0
     
     @property
     def total_tokens(self) -> int:
-        """
-        Get total tokens from metadata.
-        Returns: Total tokens or 0 if not available
-        """
-        if self.report_metadata and 'total_tokens' in self.report_metadata:
-            return int(self.report_metadata['total_tokens'])
+        """Get total tokens from metadata."""
+        if self.report_metadata:
+            return int(self.report_metadata.get('total_tokens', 0))
         return 0
-    
-    @property
-    def ai_provider(self) -> Optional[str]:
-        """
-        Get AI provider from metadata.
-        Returns: Provider name ('claude', 'gemini') or None
-        """
-        if self.report_metadata and 'ai_provider' in self.report_metadata:
-            return self.report_metadata['ai_provider']
-        return None
-    
-    @property
-    def file_path(self) -> Optional[str]:
-        """
-        Get file path from metadata.
-        Returns: Path to saved report file or None
-        """
-        if self.report_metadata and 'file_path' in self.report_metadata:
-            return self.report_metadata['file_path']
-        return None
 
 
 # Database session management helper
@@ -331,7 +327,7 @@ def get_model_by_name(model_name: str):
     Get model class by name.
     
     Args:
-        model_name: Name of model ('Note', 'TimeEntry', 'Report', etc.)
+        model_name: Name of model ('Note', 'TimeEntry', etc.)
         
     Returns:
         Model class or None if not found
