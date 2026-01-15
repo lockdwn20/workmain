@@ -1,10 +1,10 @@
 """
 WorkmAIn
-CLI Interface v0.8.0
-20251231
+CLI Interface v0.9.0
+20260115
 
 Main CLI interface using Click framework
-Updated for Phase 4: AI Report Generation
+Updated for Phase 4 Complete: Polish and Status Display
 
 Version History:
 - v0.1.0: Initial CLI with basic structure
@@ -15,6 +15,7 @@ Version History:
 - v0.6.0: Added template extensibility (Phase 3.5)
 - v0.7.0: Added AI report generation (Phase 4) - PLACEHOLDER COMMANDS REMOVED
 - v0.8.0: Added providers command group (Phase 4 Feature 2)
+- v0.9.0: Phase 4 complete - Enhanced status display with Features 3 & 4
 
 """
 
@@ -27,7 +28,7 @@ from datetime import date
 try:
     from workmain.__version__ import __version__
 except ImportError:
-    __version__ = "0.8.0"
+    __version__ = "0.9.0"
 
 # Import Phase 2 commands
 from workmain.cli.commands.note import note, notes
@@ -92,9 +93,12 @@ def status():
     table.add_row("Tasks", "✓ Phase 2 Complete")
     table.add_row("Templates", "✓ Phase 3 Complete")
     table.add_row("AI Integration", "✓ Phase 4 Complete")
-    table.add_row("AI Providers", "✓ Phase 4 Feature 2")
+    table.add_row("├─ Providers CLI", "✓ Feature 2 (providers commands)")
+    table.add_row("├─ Bulk Meeting Notes", "✓ Feature 3 (note meeting)")
+    table.add_row("└─ AI Condensation", "✓ Feature 4 (meeting condense)")
     
     console.print(table)
+    console.print("\n[bold green]Phase 4 Complete![/bold green] Ready for Phase 5 (Clockify Integration)")
     console.print("\n[yellow]Tip:[/yellow] Use 'workmain --help' to see all available commands")
 
 
@@ -105,8 +109,10 @@ def today():
     console.print("\n[yellow]Quick Access:[/yellow]")
     console.print("  • workmain notes today           - View today's notes")
     console.print("  • workmain note add 'text'       - Add a new note")
+    console.print("  • workmain note meeting -m 'X'   - Bulk meeting notes (Feature 3)")
     console.print("  • workmain track add 'desc' 2h   - Track time")
     console.print("  • workmain tasks carryover       - See carry-forward tasks")
+    console.print("  • workmain meeting condense 'X'  - AI summarize meeting (Feature 4)")
     console.print("  • workmain report daily --send   - Generate AI report")
     console.print("  • workmain providers list        - View AI providers")
     console.print("\n[dim]Use 'workmain --help' for all commands[/dim]")
