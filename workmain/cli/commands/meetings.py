@@ -1,18 +1,20 @@
 """
 WorkmAIn Meeting CLI Commands
-Meeting Commands v2.0
-20251231
+Meeting Commands v2.1
+20260116
 
 CLI commands for meeting management.
 
 Version History:
 - v1.0: Initial commands (list, show, rename, merge, delete)
 - v2.0: Added meetings create and meeting condense commands
+- v2.1: Phase 5 - Added recurring meeting support (--recurring, --until flags)
 """
 
 import click
-from datetime import datetime, date, time
+from datetime import datetime, date, time, timedelta
 from typing import Optional
+import uuid
 
 from rich.console import Console
 from rich.table import Table
@@ -77,20 +79,54 @@ def meetings():
 @click.option('--start', required=True, help='Start time (HH:MM or YYYY-MM-DD HH:MM)')
 @click.option('--end', required=True, help='End time (HH:MM or YYYY-MM-DD HH:MM)')
 @click.option('--date', 'meeting_date', help='Meeting date (YYYY-MM-DD, defaults to today)')
-def create(title: str, start: str, end: str, meeting_date: Optional[str]):
+@click.option('--recurring', '-r', type=click.Choice(['daily', 'weekly', 'monthly']),
+              help='Recurring frequency (daily, weekly, or monthly)')
+@click.option('--until', '-u', type=click.DateTime(formats=['%Y-%m-%d']),
+              help='End date for recurring series (required if --recurring used)')
+@click.option('--attendees', '-a', multiple=True,
+              help='Meeting attendees (can specify multiple times)')
+def create(title: str, start: str, end: str, meeting_date: Optional[str], 
+           recurring: Optional[str], until: Optional[datetime], attendees: tuple):
     """
     Create a new meeting.
     
     Examples:
+        # One-time meeting
         workmain meetings create "Team Standup" --start "14:00" --end "14:30"
-        workmain meetings create "Client Review" --start "2025-12-31 15:00" --end "2025-12-31 16:00"
-        workmain meetings create "Planning" --start "09:00" --end "10:30" --date "2025-12-31"
+        
+        # Meeting on specific date
+        workmain meetings create "Planning" --start "09:00" --end "10:30" --date "2026-01-20"
+        
+        # Daily recurring meeting
+        workmain meetings create "Daily Sync" --start "09:00" --end "09:15" \\
+            --recurring daily --until 2026-01-31
+        
+        # Weekly recurring meeting
+        workmain meetings create "Weekly Review" --start "10:00" --end "11:00" \\
+            --recurring weekly --until 2026-04-15
+        
+        # With attendees
+        workmain meetings create "Client Call" --start "14:00" --end "15:00" \\
+            --attendees "john@example.com" --attendees "jane@example.com"
     """
     db = get_db()
     session = db.get_session()
     repo = MeetingsRepository(session)
     
     try:
+        # Validate recurring parameters
+        if recurring and not until:
+            console.print("[red]✗ Error: --until is required when using --recurring[/red]")
+            console.print("\n[dim]Example:[/dim]")
+            console.print(f'  workmain meetings create "{title}" --start {start} --end {end} \\')
+            console.print(f'    --recurring {recurring} --until 2026-12-31')
+            console.print()
+            return
+        
+        if until and not recurring:
+            console.print("[yellow]⚠ Warning: --until specified but --recurring not set.[/yellow]")
+            console.print("[yellow]Creating one-time meeting only.[/yellow]\n")
+        
         # Parse date
         if meeting_date:
             try:
@@ -127,23 +163,96 @@ def create(title: str, start: str, end: str, meeting_date: Optional[str]):
             console.print("[red]✗ End time must be after start time[/red]")
             return
         
-        # Create meeting
-        meeting = repo.create(
-            title=title,
-            start_time=start_dt,
-            end_time=end_dt
-        )
+        # Handle recurring meetings
+        if recurring:
+            until_date = until.date()
+            recurring_id = str(uuid.uuid4())  # Generate series ID
+            
+            meetings_created = []
+            current_date = start_dt.date()
+            
+            # Create occurrences
+            while current_date <= until_date:
+                # Calculate times for this occurrence
+                occurrence_start = datetime.combine(current_date, start_dt.time())
+                occurrence_end = datetime.combine(current_date, end_dt.time())
+                
+                # Create meeting
+                meeting = repo.create(
+                    title=title,
+                    start_time=occurrence_start,
+                    end_time=occurrence_end,
+                    attendees=list(attendees) if attendees else [],
+                    is_recurring=True,
+                    outlook_recurring_id=recurring_id
+                )
+                meetings_created.append(meeting)
+                
+                # Calculate next occurrence
+                if recurring == 'daily':
+                    current_date += timedelta(days=1)
+                elif recurring == 'weekly':
+                    current_date += timedelta(weeks=1)
+                elif recurring == 'monthly':
+                    # Add one month (handle month boundaries)
+                    if current_date.month == 12:
+                        current_date = current_date.replace(year=current_date.year + 1, month=1)
+                    else:
+                        try:
+                            current_date = current_date.replace(month=current_date.month + 1)
+                        except ValueError:
+                            # Handle day overflow (e.g., Jan 31 -> Feb 31 doesn't exist)
+                            # Move to last day of next month
+                            next_month = current_date.month + 1
+                            next_year = current_date.year
+                            if next_month > 12:
+                                next_month = 1
+                                next_year += 1
+                            # Get last day of next month
+                            if next_month == 12:
+                                last_day = 31
+                            else:
+                                from calendar import monthrange
+                                last_day = monthrange(next_year, next_month)[1]
+                            current_date = date(next_year, next_month, min(current_date.day, last_day))
+            
+            duration = (end_dt - start_dt).total_seconds() / 3600
+            
+            console.print()
+            console.print(f"[green]✓ Created {len(meetings_created)} recurring meetings:[/green]")
+            console.print(f"  Series: {title}")
+            console.print(f"  Frequency: {recurring}")
+            console.print(f"  From: {start_dt.date()}")
+            console.print(f"  Until: {until_date}")
+            console.print(f"  Time: {start_dt.strftime('%H:%M')} - {end_dt.strftime('%H:%M')}")
+            console.print(f"  Duration: {duration:.1f} hours each")
+            console.print(f"  Series ID: {recurring_id[:8]}...")
+            if attendees:
+                console.print(f"  Attendees: {', '.join(attendees)}")
+            console.print()
         
-        duration = (end_dt - start_dt).total_seconds() / 3600
-        
-        console.print()
-        console.print(f"[green]✓ Meeting created:[/green]")
-        console.print(f"  Title: {meeting.title}")
-        console.print(f"  ID: {meeting.id}")
-        console.print(f"  Date: {start_dt.strftime('%Y-%m-%d')}")
-        console.print(f"  Time: {start_dt.strftime('%H:%M')} - {end_dt.strftime('%H:%M')}")
-        console.print(f"  Duration: {duration:.1f} hours")
-        console.print()
+        else:
+            # Create single meeting
+            meeting = repo.create(
+                title=title,
+                start_time=start_dt,
+                end_time=end_dt,
+                attendees=list(attendees) if attendees else [],
+                is_recurring=False
+            )
+            
+            duration = (end_dt - start_dt).total_seconds() / 3600
+            
+            console.print()
+            console.print(f"[green]✓ Meeting created:[/green]")
+            console.print(f"  Title: {meeting.title}")
+            console.print(f"  ID: {meeting.id}")
+            console.print(f"  Date: {start_dt.strftime('%Y-%m-%d')}")
+            console.print(f"  Time: {start_dt.strftime('%H:%M')} - {end_dt.strftime('%H:%M')}")
+            console.print(f"  Duration: {duration:.1f} hours")
+            if attendees:
+                console.print(f"  Attendees: {', '.join(attendees)}")
+            console.print()
         
     except Exception as e:
         console.print(f"[red]✗ Failed to create meeting: {e}[/red]")
@@ -245,48 +354,37 @@ def show(meeting_title: str):
             # Show series info
             series = repo.get_recurring_series(meeting.outlook_recurring_id)
             if len(series) > 1:
-                console.print(f"  Instances: {len(series)} total")
-                if series:
-                    first = min(s.start_time for s in series)
-                    last = max(s.start_time for s in series)
-                    console.print(f"  First: {first.strftime('%Y-%m-%d')}")
-                    console.print(f"  Last: {last.strftime('%Y-%m-%d')}")
+                console.print(f"  Series: {len(series)} occurrences")
+                first_date = min(m.start_time for m in series).strftime('%Y-%m-%d')
+                last_date = max(m.start_time for m in series).strftime('%Y-%m-%d')
+                console.print(f"  Range: {first_date} to {last_date}")
         elif meeting.outlook_id:
-            console.print(f"Type: Outlook (one-time)")
+            console.print(f"Type: Outlook")
             console.print(f"  Outlook ID: {meeting.outlook_id}")
         else:
             console.print(f"Type: Ad-hoc")
         
-        # Time
-        console.print(f"\nSchedule:")
-        console.print(f"  Start: {meeting.start_time.strftime('%Y-%m-%d %H:%M')}")
-        console.print(f"  End: {meeting.end_time.strftime('%Y-%m-%d %H:%M')}")
-        console.print(f"  Duration: {meeting.duration_hours:.1f} hours")
-        
-        # Condensation status
-        if meeting.is_condensed:
-            console.print(f"\n[green]✓ Condensed Summary:[/green]")
-            console.print(f"  {meeting.condensed_summary}")
-            console.print(f"  [dim]Generated: {meeting.condensed_at.strftime('%Y-%m-%d %H:%M')}[/dim]")
+        # Time details
+        console.print(f"\nDate: {meeting.start_time.strftime('%Y-%m-%d %A')}")
+        console.print(f"Time: {meeting.start_time.strftime('%H:%M')} - {meeting.end_time.strftime('%H:%M')}")
+        console.print(f"Duration: {meeting.duration_hours:.1f} hours")
         
         # Attendees
         if meeting.attendees:
-            console.print(f"\nAttendees: {len(meeting.attendees)}")
-            for attendee in meeting.attendees:
-                console.print(f"  - {attendee}")
+            console.print(f"\nAttendees: {', '.join(meeting.attendees)}")
         
         # Notes
         note_count = repo.get_note_count(meeting.id)
         console.print(f"\nNotes: {note_count} captured")
         
-        # Status
-        status = []
+        # Flags
+        flags = []
         if meeting.notes_captured:
-            status.append("notes captured")
+            flags.append("notes captured")
         if meeting.reminder_sent:
-            status.append("reminder sent")
-        if status:
-            console.print(f"Status: {', '.join(status)}")
+            flags.append("reminder sent")
+        if flags:
+            console.print(f"Status: {', '.join(flags)}")
         
         console.print(f"\nCreated: {meeting.created_at.strftime('%Y-%m-%d %H:%M')}")
     

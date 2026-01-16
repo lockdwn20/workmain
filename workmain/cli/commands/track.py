@@ -1,14 +1,16 @@
 """
 WorkmAIn Track CLI Commands
-Track Commands v1.1
-20251223
+Track Commands v1.2
+20260116
 
-CLI commands for time tracking with 24-hour format support.
+CLI commands for time tracking with 24-hour format support and Clockify sync.
 
 Version History:
 - v1.0: Initial implementation with track add/edit/delete and time view commands
 - v1.1: Updated help text and examples to reflect enhanced time format support
         (military time without colons, AM/PM without colons, backdating examples)
+- v1.2: Phase 5 - Replaced sync placeholder with full Clockify sync implementation
+        Added sync push/pull/both subcommands with interactive progress
 """
 
 import click
@@ -19,6 +21,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+from workmain.integrations.clockify.sync import ClockifySync
 
 
 def get_session():
@@ -198,6 +201,20 @@ def track_add(description: str, duration: str, time: Optional[str],
             click.echo(f"  Time: {entry.display_time}")
         if category:
             click.echo(f"  Category: {category}")
+        
+        # Prompt for Clockify sync
+        click.echo()
+        if click.confirm("Sync to Clockify now?", default=False):
+            # Sync this entry
+            sync_engine = ClockifySync(session)
+            results = sync_engine.push_entries(entries=[entry], interactive=True)
+            
+            if results['successful'] > 0:
+                click.echo("✓ Synced to Clockify")
+            else:
+                click.echo("✗ Sync failed")
+                if results['failures']:
+                    click.echo(f"  Error: {results['failures'][0]['error']}")
     
     finally:
         session.close()
@@ -312,15 +329,216 @@ def track_delete(entry_id: int):
         session.close()
 
 
-@track.command('sync')
-def track_sync():
+@track.group('sync')
+def sync():
     """
-    Sync time entries with Clockify (placeholder for Phase 5).
+    Synchronize time entries with Clockify.
     
-    Example:
-        workmain track sync
+    Push local entries to Clockify, pull Clockify entries to local database,
+    or perform bidirectional sync with interactive conflict resolution.
     """
-    click.echo("⏳ Clockify sync coming in Phase 5")
+    pass
+
+
+@sync.command('push')
+@click.option('--all', '-a', is_flag=True,
+              help='Push all entries (including already synced)')
+@click.option('--date', '-d', type=click.DateTime(formats=['%Y-%m-%d']),
+              help='Push entries for specific date only')
+@click.option('--silent', '-s', is_flag=True,
+              help='Silent mode (no progress output)')
+def push(all, date, silent):
+    """
+    Push local time entries to Clockify.
+    
+    By default, only pushes entries that haven't been synced yet
+    (clockify_id IS NULL). Use --all to re-push all entries.
+    
+    Examples:
+        workmain track sync push
+        workmain track sync push --date 2026-01-15
+        workmain track sync push --all
+    """
+    session = get_session()
+    
+    try:
+        sync_engine = ClockifySync(session)
+        repo = TimeEntriesRepository(session)
+        
+        # Get entries to push
+        if date:
+            entries = repo.get_by_date(date.date())
+            
+            # Filter to unsynced unless --all
+            if not all:
+                entries = [e for e in entries if not e.clockify_id]
+        elif all:
+            # Get ALL entries
+            entries = session.query(repo.model).all()
+        else:
+            # Default: unsynced entries only
+            entries = None  # sync_engine will fetch unsynced
+        
+        if not silent:
+            if entries is not None and len(entries) == 0:
+                click.echo("\nNo entries to sync\n")
+                return
+            
+            click.echo("\nPushing entries to Clockify...\n")
+        
+        # Perform sync
+        results = sync_engine.push_entries(
+            entries=entries,
+            interactive=not silent
+        )
+        
+        if not silent:
+            click.echo(f"\nSync Results:")
+            click.echo(f"  Total: {results['total']}")
+            click.echo(f"  ✓ Successful: {results['successful']}")
+            
+            if results['failed'] > 0:
+                click.echo(f"  ✗ Failed: {results['failed']}")
+                
+                # Show failures
+                if results['failures']:
+                    click.echo("\nFailed entries:")
+                    for failure in results['failures']:
+                        click.echo(f"  - ID {failure['entry_id']}: {failure['error']}")
+            
+            click.echo()
+    
+    except Exception as e:
+        click.echo(f"\n✗ Sync failed: {str(e)}\n")
+    
+    finally:
+        session.close()
+
+
+@sync.command('pull')
+@click.option('--start', '-s', type=click.DateTime(formats=['%Y-%m-%d']),
+              help='Start date (default: today)')
+@click.option('--end', '-e', type=click.DateTime(formats=['%Y-%m-%d']),
+              help='End date (default: same as start)')
+@click.option('--silent', '-q', is_flag=True,
+              help='Silent mode (auto-skip conflicts)')
+def pull(start, end, silent):
+    """
+    Pull time entries from Clockify to local database.
+    
+    Fetches entries from Clockify and imports them locally.
+    Prompts for conflict resolution when local entries overlap
+    with Clockify entries.
+    
+    Use this after creating entries directly in Clockify (e.g., mobile app
+    while traveling) to bring them into WorkmAIn.
+    
+    Examples:
+        workmain track sync pull
+        workmain track sync pull --start 2026-01-15
+        workmain track sync pull --start 2026-01-01 --end 2026-01-31
+    """
+    session = get_session()
+    
+    try:
+        sync_engine = ClockifySync(session)
+        
+        # Determine date range
+        if not start:
+            start_date = date.today()
+        else:
+            start_date = start.date()
+        
+        end_date = end.date() if end else None
+        
+        if not silent:
+            date_range = f"{start_date}"
+            if end_date and end_date != start_date:
+                date_range += f" to {end_date}"
+            
+            click.echo(f"\nPulling entries from Clockify ({date_range})...\n")
+        
+        # Perform pull
+        results = sync_engine.pull_entries(
+            start_date=start_date,
+            end_date=end_date,
+            interactive=not silent
+        )
+        
+        if not silent:
+            click.echo(f"\nPull Results:")
+            click.echo(f"  Total from Clockify: {results['total']}")
+            click.echo(f"  ✓ Imported: {results['imported']}")
+            click.echo(f"  - Skipped: {results['skipped']}")
+            
+            if results['conflicts'] > 0:
+                click.echo(f"  ⚠ Conflicts resolved: {results['conflicts']}")
+            
+            click.echo()
+    
+    except Exception as e:
+        click.echo(f"\n✗ Pull failed: {str(e)}\n")
+    
+    finally:
+        session.close()
+
+
+@sync.command('both')
+@click.option('--date', '-d', type=click.DateTime(formats=['%Y-%m-%d']),
+              help='Sync specific date only (default: today)')
+def both(date):
+    """
+    Bidirectional sync: push local entries then pull from Clockify.
+    
+    Performs complete synchronization:
+    1. Push unsynced local entries to Clockify
+    2. Pull new Clockify entries to local database
+    3. Resolve any conflicts interactively
+    
+    Examples:
+        workmain track sync both
+        workmain track sync both --date 2026-01-15
+    """
+    session = get_session()
+    
+    try:
+        sync_date = date.date() if date else datetime.today().date()
+        
+        click.echo(f"\nBidirectional Sync ({sync_date})\n")
+        
+        # Step 1: Push
+        click.echo("Step 1: Pushing local entries...")
+        
+        sync_engine = ClockifySync(session)
+        repo = TimeEntriesRepository(session)
+        
+        entries = repo.get_by_date(sync_date)
+        unsynced = [e for e in entries if not e.clockify_id]
+        
+        if unsynced:
+            push_results = sync_engine.push_entries(entries=unsynced, interactive=True)
+            click.echo(f"  ✓ Pushed {push_results['successful']} entries\n")
+        else:
+            click.echo("  No local entries to push\n")
+        
+        # Step 2: Pull
+        click.echo("Step 2: Pulling from Clockify...")
+        
+        pull_results = sync_engine.pull_entries(
+            start_date=sync_date,
+            interactive=True
+        )
+        
+        click.echo(f"  ✓ Imported {pull_results['imported']} new entries\n")
+        
+        # Summary
+        click.echo("✓ Bidirectional sync complete\n")
+    
+    except Exception as e:
+        click.echo(f"\n✗ Sync failed: {str(e)}\n")
+    
+    finally:
+        session.close()
 
 
 @click.group()

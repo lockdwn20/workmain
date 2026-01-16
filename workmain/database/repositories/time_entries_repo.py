@@ -1,7 +1,7 @@
 """
 WorkmAIn Time Entries Repository
-Time Entries Repository v1.2
-20251231
+Time Entries Repository v1.3
+20260116
 
 Data access layer for time entries with 24-hour time format.
 Handles all CRUD operations for the time_entries table.
@@ -11,6 +11,7 @@ Version History:
 - v1.1: Enhanced parse_time() to support military time format without colons
         (1430, 0900, 930) and AM/PM without colons (230pm, 900am)
 - v1.2: Added meeting_id support for linking time entries to meetings (Phase 4 Feature 4)
+- v1.3: Phase 5 - Added get_by_clockify_id() for pull sync duplicate detection
 """
 
 from datetime import date, datetime, time, timedelta
@@ -44,6 +45,7 @@ class TimeEntriesRepository:
             session: SQLAlchemy database session
         """
         self.session = session
+        self.model = TimeEntry  # For direct SQLAlchemy queries when needed
     
     def create(
         self,
@@ -101,6 +103,22 @@ class TimeEntriesRepository:
         """
         return self.session.query(TimeEntry).filter(
             TimeEntry.id == entry_id
+        ).first()
+    
+    def get_by_clockify_id(self, clockify_id: str) -> Optional[TimeEntry]:
+        """
+        Get time entry by Clockify ID.
+        
+        Used during pull sync to check if a Clockify entry already exists locally.
+        
+        Args:
+            clockify_id: Clockify entry ID
+            
+        Returns:
+            TimeEntry object or None if not found
+        """
+        return self.session.query(TimeEntry).filter(
+            TimeEntry.clockify_id == clockify_id
         ).first()
     
     def get_by_meeting(self, meeting_id: int) -> List[TimeEntry]:

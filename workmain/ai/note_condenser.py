@@ -1,7 +1,7 @@
 """
 WorkmAIn Note Condenser
-Note Condenser v1.1
-20251231
+Note Condenser v1.2
+20260115
 
 AI-powered condensation of meeting notes into one-line summaries for Clockify.
 
@@ -11,10 +11,13 @@ suitable for time tracking entries.
 Version History:
 - v1.0: Initial implementation with Claude integration
 - v1.1: Fixed session attachment issue - now queries meeting from database
+- v1.2: Added writing style context integration for consistent voice (Phase 5)
 """
 
+import json
 from typing import List, Optional
 from datetime import datetime
+from pathlib import Path
 
 from sqlalchemy.orm import Session
 
@@ -30,6 +33,9 @@ class NoteCondenser:
     
     Condenses multiple meeting notes into a single professional summary
     suitable for Clockify time entry descriptions.
+    
+    Now includes writing style context to ensure summaries match
+    the user's established voice and tone from reports.
     """
     
     def __init__(self, session: Session):
@@ -42,6 +48,27 @@ class NoteCondenser:
         self.session = session
         self.claude = get_claude_client()
         self.cost_tracker = get_cost_tracker()
+        self.writing_style = self._load_writing_style()
+    
+    def _load_writing_style(self) -> dict:
+        """
+        Load writing style configuration.
+        
+        Returns:
+            dict: Writing style settings, or empty dict if file not found
+        """
+        style_path = Path("templates/style/writing_style.json")
+        
+        if not style_path.exists():
+            # Return empty style if file doesn't exist
+            return {}
+        
+        try:
+            with open(style_path, 'r') as f:
+                return json.load(f)
+        except Exception:
+            # If load fails, return empty dict (don't break condensation)
+            return {}
     
     def condense_meeting(
         self,
@@ -77,7 +104,7 @@ class NoteCondenser:
         if not notes:
             raise ValueError(f"Meeting '{db_meeting.title}' has no notes to condense")
         
-        # Build condensation prompt
+        # Build condensation prompt (now includes writing style)
         prompt = self._build_condensation_prompt(db_meeting, notes)
         
         # Generate condensed summary
@@ -123,6 +150,8 @@ class NoteCondenser:
         """
         Build the prompt for AI condensation.
         
+        Now includes writing style context for consistent voice.
+        
         Args:
             meeting: Meeting object
             notes: List of Note objects from the meeting
@@ -136,6 +165,7 @@ class NoteCondenser:
             for note in notes
         ])
         
+        # Build base prompt
         prompt = f"""Condense the following meeting notes into a single professional one-line summary suitable for a time tracking entry.
 
 Meeting: {meeting.title}
@@ -143,7 +173,17 @@ Duration: {meeting.duration_hours:.1f} hours
 Date: {meeting.start_time.strftime('%Y-%m-%d')}
 
 Notes:
-{notes_text}
+{notes_text}"""
+        
+        # Add writing style context if available
+        if self.writing_style:
+            style_context = self._format_writing_style_context()
+            prompt = f"""{style_context}
+
+{prompt}"""
+        
+        # Add requirements
+        prompt += """
 
 Requirements:
 1. Create ONE concise sentence (max 200 characters)
@@ -151,7 +191,14 @@ Requirements:
 3. Include key topics, decisions, or blockers
 4. Format: "<Meeting type>: <key points>"
 5. Do NOT include tags, formatting, or metadata
-6. Be specific and concrete
+6. Be specific and concrete"""
+        
+        # Add style matching requirement if we have style
+        if self.writing_style:
+            prompt += "\n7. Match the established writing style and voice shown above"
+        
+        # Add examples
+        prompt += """
 
 Example formats:
 - "Team standup: Fixed authentication bug, discussed Q1 roadmap, blocked on API keys"
@@ -161,6 +208,37 @@ Example formats:
 Condensed summary:"""
         
         return prompt
+    
+    def _format_writing_style_context(self) -> str:
+        """
+        Format writing style information for inclusion in prompt.
+        
+        Returns:
+            Formatted writing style context string
+        """
+        if not self.writing_style:
+            return ""
+        
+        context_parts = ["WRITING STYLE CONTEXT:"]
+        
+        # Add voice characteristics
+        if "voice_characteristics" in self.writing_style:
+            voice = ", ".join(self.writing_style["voice_characteristics"])
+            context_parts.append(f"Voice: {voice}")
+        
+        # Add tone
+        if "tone" in self.writing_style:
+            context_parts.append(f"Tone: {self.writing_style['tone']}")
+        
+        # Add example phrases (limit to 3 for brevity)
+        if "example_phrases" in self.writing_style:
+            examples = self.writing_style["example_phrases"][:3]
+            if examples:
+                context_parts.append("\nExample phrases in this style:")
+                for phrase in examples:
+                    context_parts.append(f"- {phrase}")
+        
+        return "\n".join(context_parts)
     
     def _get_system_prompt(self) -> str:
         """
@@ -177,6 +255,7 @@ professional summaries for time tracking systems. Your summaries should be:
 - Professional and clear
 - Free of tags, formatting, or metadata
 - Focused on outcomes, decisions, and key topics
+- Consistent with the user's established writing style
 
 Do not include pleasantries or unnecessary words. Be direct and informative."""
     

@@ -1,3 +1,17 @@
+# WorkmAIn Requirements
+# Version: 1.1
+# Date: 20260115
+# Phases: 1-5 Complete
+# 
+# Version History:
+# - v1.1 (20260115): Phase 5 - Clockify Integration
+#   - No new dependencies added (requests already present)
+#   - Phase 5 uses: requests, anthropic (for condensation)
+#   - Clockify integration complete and tested
+# - v1.0 (20251226): Initial versioned requirements
+#   - Phases 1-4 complete (Foundation, CLI, Templates, AI Integration)
+#   - Includes future phase dependencies (O365, Slack, FastAPI)
+
 # Core
 python-dotenv==1.0.0
 click==8.1.7
@@ -9,22 +23,22 @@ psycopg2-binary==2.9.9
 SQLAlchemy==2.0.23
 alembic==1.13.1
 
-# AI Providers
-anthropic>=0.4.0
-google-genai>=0.1.0
+# AI Providers (Phase 4-5)
+anthropic>=0.4.0        # Phase 4: Reports, Phase 5: Meeting condensation
+google-genai>=0.1.0     # Phase 4: Reports
 
 # Integrations
-google-auth==2.25.2
-google-auth-oauthlib==1.2.0
-google-api-python-client==2.111.0
-O365==2.0.27
-requests==2.31.0
-slack-sdk==3.26.1
+google-auth==2.25.2                     # Phase 7: Google Docs
+google-auth-oauthlib==1.2.0             # Phase 7: Google Docs
+google-api-python-client==2.111.0       # Phase 7: Google Docs
+O365==2.0.27                            # Phase 6: Outlook Calendar
+requests==2.31.0                        # Phase 5: Clockify API ← USED IN PHASE 5
+slack-sdk==3.26.1                       # Phase 8: Slack Integration
 
 # Utilities
 python-dateutil==2.8.2
 pytz==2023.3
-APScheduler==3.10.4
+APScheduler==3.10.4     # Phase 9: Scheduling
 rich==13.7.0
 tabulate==0.9.0
 httpx>=0.24.0,<0.28.0
@@ -36,7 +50,7 @@ black==23.12.1
 flake8==6.1.0
 mypy==1.7.1
 
-# Optional
-fastapi==0.108.0
-uvicorn==0.25.0
-cryptography==41.0.7
+# Optional (Future Phases)
+fastapi==0.108.0        # Phase 13: Web UI (deferred)
+uvicorn==0.25.0         # Phase 13: Web UI (deferred)
+cryptography==41.0.7    # Security (encryption keys)

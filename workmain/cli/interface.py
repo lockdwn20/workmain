@@ -1,10 +1,10 @@
 """
 WorkmAIn
-CLI Interface v0.9.0
-20260115
+CLI Interface v1.0.0
+20260116
 
 Main CLI interface using Click framework
-Updated for Phase 4 Complete: Polish and Status Display
+Updated for Phase 5: Clockify Integration
 
 Version History:
 - v0.1.0: Initial CLI with basic structure
@@ -16,6 +16,7 @@ Version History:
 - v0.7.0: Added AI report generation (Phase 4) - PLACEHOLDER COMMANDS REMOVED
 - v0.8.0: Added providers command group (Phase 4 Feature 2)
 - v0.9.0: Phase 4 complete - Enhanced status display with Features 3 & 4
+- v1.0.0: Phase 5 complete - Clockify integration (sync, reports, status)
 
 """
 
@@ -28,7 +29,7 @@ from datetime import date
 try:
     from workmain.__version__ import __version__
 except ImportError:
-    __version__ = "0.9.0"
+    __version__ = "1.0.0"
 
 # Import Phase 2 commands
 from workmain.cli.commands.note import note, notes
@@ -42,6 +43,9 @@ from workmain.cli.commands.templates import templates
 # Import Phase 4 commands
 from workmain.cli.commands.report import report
 from workmain.cli.commands.providers import providers
+
+# Import Phase 5 commands
+from workmain.cli.commands.clockify import clockify
 
 # Initialize console
 console = Console()
@@ -96,9 +100,14 @@ def status():
     table.add_row("├─ Providers CLI", "✓ Feature 2 (providers commands)")
     table.add_row("├─ Bulk Meeting Notes", "✓ Feature 3 (note meeting)")
     table.add_row("└─ AI Condensation", "✓ Feature 4 (meeting condense)")
+    table.add_row("Clockify Sync", "✓ Phase 5 Complete")
+    table.add_row("├─ Bidirectional Sync", "✓ track sync push/pull/both")
+    table.add_row("├─ PDF Reports", "✓ clockify report get")
+    table.add_row("├─ Recurring Meetings", "✓ meetings create --recurring")
+    table.add_row("└─ Writing Style", "✓ meeting condense (enhanced)")
     
     console.print(table)
-    console.print("\n[bold green]Phase 4 Complete![/bold green] Ready for Phase 5 (Clockify Integration)")
+    console.print("\n[bold green]Phase 5 Complete![/bold green] Ready for Phase 6 (Outlook Integration)")
     console.print("\n[yellow]Tip:[/yellow] Use 'workmain --help' to see all available commands")
 
 
@@ -111,10 +120,11 @@ def today():
     console.print("  • workmain note add 'text'       - Add a new note")
     console.print("  • workmain note meeting -m 'X'   - Bulk meeting notes (Feature 3)")
     console.print("  • workmain track add 'desc' 2h   - Track time")
+    console.print("  • workmain track sync push       - Sync to Clockify")
     console.print("  • workmain tasks carryover       - See carry-forward tasks")
     console.print("  • workmain meeting condense 'X'  - AI summarize meeting (Feature 4)")
     console.print("  • workmain report daily --send   - Generate AI report")
-    console.print("  • workmain providers list        - View AI providers")
+    console.print("  • workmain clockify status       - Check Clockify connection")
     console.print("\n[dim]Use 'workmain --help' for all commands[/dim]")
 
 
@@ -139,6 +149,9 @@ cli.add_command(report)
 
 # Phase 4: AI Provider Management (Feature 2)
 cli.add_command(providers)
+
+# Phase 5: Clockify Integration
+cli.add_command(clockify)
 
 
 # Placeholder command groups for future phases
