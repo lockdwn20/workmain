@@ -2,8 +2,12 @@
 Unit tests for recurring meetings functionality.
 Tests Phase 5.1 operational fixes.
 
-Version: 1.0
-Date: 2026-01-27
+Version: 1.1
+Date: 2026-01-28
+
+Version History:
+- v1.0: Initial test suite with placeholder db_session fixture
+- v1.1: Implemented db_session fixture with proper database connection
 """
 
 import pytest
@@ -79,12 +83,13 @@ class TestRecurringMeetings:
         """Test instance selection by date."""
         repo = MeetingsRepository(db_session)
 
-        # Create recurring meetings
+        # Create recurring meetings with unique title to avoid conflicts
+        test_title = f"Test Daily Standup {datetime.now().timestamp()}"
         start_date = date(2026, 1, 20)
         for i in range(5):
             current_date = start_date + timedelta(days=i)
             repo.create(
-                title="Daily Standup",
+                title=test_title,
                 start_time=datetime.combine(current_date, time(9, 0)),
                 end_time=datetime.combine(current_date, time(9, 15)),
                 is_recurring=True
@@ -92,7 +97,7 @@ class TestRecurringMeetings:
 
         # Get specific date
         target_date = date(2026, 1, 22)
-        meetings = repo.get_by_title_and_date("Daily Standup", target_date)
+        meetings = repo.get_by_title_and_date(test_title, target_date)
 
         assert len(meetings) == 1
         assert meetings[0].start_time.date() == target_date
@@ -371,22 +376,22 @@ class TestEdgeCases:
         assert duration == 0.0
 
 
-# Fixtures (to be added based on your test setup)
+# Fixtures
 @pytest.fixture
 def db_session():
     """
     Provide a database session for testing.
 
-    This fixture should be implemented based on your test database setup.
-    Example implementation:
-
+    Uses the actual production database connection.
+    Rolls back changes after each test to maintain isolation.
+    """
     from workmain.database.connection import get_db
+
     db = get_db()
     session = db.get_session()
 
     yield session
 
+    # Rollback any changes made during the test
     session.rollback()
     session.close()
-    """
-    pytest.skip("Database fixture not configured. Implement db_session fixture.")
