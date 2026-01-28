@@ -1,7 +1,7 @@
 """
 WorkmAIn Note CLI Commands
-Note Commands v2.0
-20251231
+Note Commands v2.2
+20260127
 
 CLI commands for note management with tag support and meeting integration.
 
@@ -9,6 +9,8 @@ Version History:
 - v1.0: Initial implementation with inline tag parsing
 - v1.1: Added --tags flag support for shell-friendly comma-separated tags
 - v2.0: Added bulk meeting note entry command (note meeting)
+- v2.1: Phase 5.1 - Meeting IDs and dates always visible in pickers
+- v2.2: Phase 5.1 - Time tracking prompt when adding notes to meetings
 """
 
 import click
@@ -107,11 +109,16 @@ def interactive_meeting_picker(meetings_repo: MeetingsRepository) -> Optional[in
         return None
     
     click.echo("\nRecent meetings:")
+    from datetime import datetime as dt
+    today = dt.now().date()
+
     for i, meeting in enumerate(recent, 1):
         note_count = meetings_repo.get_note_count(meeting.id)
-        last_time = meeting.start_time.strftime('%Y-%m-%d %H:%M')
+        meeting_date = meeting.start_time.strftime('%Y-%m-%d %H:%M')
         meeting_type = "recurring" if meeting.is_recurring else "ad-hoc"
-        click.echo(f"  {i}. {meeting.title} ({meeting_type}, last: {last_time}, {note_count} notes)")
+        is_today = meeting.start_time.date() == today
+        today_marker = " ← Today" if is_today else ""
+        click.echo(f"  {i}. [#{meeting.id}] {meeting.title} ({meeting_date}, {note_count} notes){today_marker}")
     
     click.echo(f"  N. New meeting")
     
@@ -164,11 +171,16 @@ def fuzzy_match_meeting(meetings_repo: MeetingsRepository, title: str) -> Option
     # Show matches
     click.echo(f"\n⚠️  No exact match for '{title}'")
     click.echo("Did you mean:")
-    
+
+    from datetime import datetime as dt
+    today = dt.now().date()
+
     for i, (meeting, score) in enumerate(matches[:5], 1):
         note_count = meetings_repo.get_note_count(meeting.id)
-        meeting_type = "recurring" if meeting.is_recurring else "ad-hoc"
-        click.echo(f"  {i}. {meeting.title} ({meeting_type}, {note_count} notes)")
+        meeting_date = meeting.start_time.strftime('%Y-%m-%d %H:%M')
+        is_today = meeting.start_time.date() == today
+        today_marker = " ← Today" if is_today else ""
+        click.echo(f"  {i}. [#{meeting.id}] {meeting.title} ({meeting_date}, {note_count} notes, {score*100:.0f}% match){today_marker}")
     
     click.echo(f"  N. Create new meeting '{title}'")
     
@@ -285,8 +297,37 @@ def add(text: Optional[str], tags: Optional[str], meeting: Optional[str], projec
         click.echo(f"✓ Note added (ID: {note.id})")
         click.echo(f"  Tags: {note.display_tags}")
         if note.meeting:
-            click.echo(f"  Meeting: {note.meeting.title}")
-        
+            click.echo(f"  Meeting: [#{note.meeting.id}] {note.meeting.title}")
+
+            # Prompt to create time entry for the meeting
+            meeting_duration = (
+                note.meeting.end_time - note.meeting.start_time
+            ).total_seconds() / 3600  # Convert to hours
+
+            if click.confirm(
+                f"\nCreate time entry for this meeting ({meeting_duration:.2f}h)?",
+                default=True
+            ):
+                from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+                time_repo = TimeEntriesRepository(session)
+
+                # Pre-fill with meeting details
+                time_description = click.prompt(
+                    "Description",
+                    default=f"Meeting: {note.meeting.title}"
+                )
+
+                time_entry = time_repo.create(
+                    description=time_description,
+                    duration_hours=meeting_duration,
+                    entry_date=note.meeting.start_time.date(),
+                    entry_time=note.meeting.start_time.time(),
+                    category='meeting',
+                    meeting_id=note.meeting.id
+                )
+
+                click.echo(f"✓ Time entry created: {meeting_duration:.2f}h - {time_description}")
+
     finally:
         session.close()
 

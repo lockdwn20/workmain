@@ -1,39 +1,21 @@
 """
 WorkmAIn Tasks CLI Commands
-Tasks Commands v1.0
-20251223
+Tasks Commands v1.1
+20260127
 
 CLI commands for task management (carry-forward tasks).
+
+Version History:
+- v1.0: Initial implementation with carryover command
+- v1.1: Phase 5.1 - Migrated to get_db() session management pattern
 """
 
 import click
 from datetime import date, timedelta
 from typing import Optional
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
+from workmain.database.connection import get_db
 from workmain.database.repositories.notes_repo import NotesRepository
-
-
-def get_session():
-    """Get database session from environment."""
-    import os
-    from dotenv import load_dotenv
-    
-    load_dotenv()
-    
-    db_host = os.getenv('DB_HOST', 'localhost')
-    db_port = os.getenv('DB_PORT', '5432')
-    db_name = os.getenv('DB_NAME', 'workmain')
-    db_user = os.getenv('DB_USER', 'workmain_user')
-    db_password = os.getenv('DB_PASSWORD', '')
-    
-    conn_string = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
-    engine = create_engine(conn_string)
-    Session = sessionmaker(bind=engine)
-    
-    return Session()
 
 
 def calculate_age_in_days(note_date: date) -> int:
@@ -74,7 +56,8 @@ def carryover(show_ids: bool, show_all: bool, limit: Optional[int]):
         workmain tasks carryover --all
         workmain tasks carryover --limit 5
     """
-    session = get_session()
+    db = get_db()
+    session = db.get_session()
     repo = NotesRepository(session)
     
     try:

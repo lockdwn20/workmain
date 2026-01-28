@@ -29,7 +29,7 @@ from datetime import date
 try:
     from workmain.__version__ import __version__
 except ImportError:
-    __version__ = "1.0.0"
+    __version__ = "1.1.0"
 
 # Import Phase 2 commands
 from workmain.cli.commands.note import note, notes
@@ -154,35 +154,8 @@ cli.add_command(providers)
 cli.add_command(clockify)
 
 
-# Placeholder command groups for future phases
-@cli.group()
-def config():
-    """Manage configuration."""
-    pass
-
-
-@cli.group()
-def provider():
-    """Manage AI providers."""
-    pass
-
-
-@cli.group()
-def clients():
-    """Manage clients and projects."""
-    pass
-
-
-@cli.group()
-def recipients():
-    """Manage email recipients."""
-    pass
-
-
-@cli.group()
-def notifications():
-    """Manage notification settings."""
-    pass
+# Placeholder command groups moved to FEATURE_BACKLOG.md for Phase 6
+# (config, provider, clients, recipients, notifications)
 
 
 if __name__ == "__main__":

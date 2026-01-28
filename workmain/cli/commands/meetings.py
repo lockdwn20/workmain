@@ -1,7 +1,7 @@
 """
 WorkmAIn Meeting CLI Commands
-Meeting Commands v2.1
-20260116
+Meeting Commands v2.5
+20260127
 
 CLI commands for meeting management.
 
@@ -9,6 +9,10 @@ Version History:
 - v1.0: Initial commands (list, show, rename, merge, delete)
 - v2.0: Added meetings create and meeting condense commands
 - v2.1: Phase 5 - Added recurring meeting support (--recurring, --until flags)
+- v2.2: Phase 5.1 - Military time format support, meeting IDs always visible
+- v2.3: Phase 5.1 - Workdays-only default, optional --until with 90-day default
+- v2.4: Phase 5.1 - Added meetings delete alias for improved discoverability
+- v2.5: Phase 5.1 - Added meetings track command for creating time entries
 """
 
 import click
@@ -42,10 +46,11 @@ def format_meeting_display(meeting, meetings_repo: MeetingsRepository, show_note
     """
     lines = []
     
-    # Title and type
+    # Title with ID and type
     meeting_type = "Recurring (Outlook)" if meeting.outlook_recurring_id else \
                    "Outlook" if meeting.outlook_id else "Ad-hoc"
-    lines.append(f"{meeting.title} [{meeting_type}]")
+    # Use (ID: N) format to avoid Rich markup interpretation of [#N]
+    lines.append(f"(ID: {meeting.id}) {meeting.title} [{meeting_type}]")
     
     # Time
     time_str = meeting.start_time.strftime('%Y-%m-%d %H:%M')
@@ -76,17 +81,19 @@ def meetings():
 
 @meetings.command()
 @click.argument('title')
-@click.option('--start', required=True, help='Start time (HH:MM or YYYY-MM-DD HH:MM)')
-@click.option('--end', required=True, help='End time (HH:MM or YYYY-MM-DD HH:MM)')
+@click.option('--start', required=True, help='Start time (HH:MM, HHMM, or YYYY-MM-DD HH:MM)')
+@click.option('--end', required=True, help='End time (HH:MM, HHMM, or YYYY-MM-DD HH:MM)')
 @click.option('--date', 'meeting_date', help='Meeting date (YYYY-MM-DD, defaults to today)')
 @click.option('--recurring', '-r', type=click.Choice(['daily', 'weekly', 'monthly']),
-              help='Recurring frequency (daily, weekly, or monthly)')
+              help='Recurring frequency (daily = workdays only by default)')
 @click.option('--until', '-u', type=click.DateTime(formats=['%Y-%m-%d']),
-              help='End date for recurring series (required if --recurring used)')
+              help='End date for recurring series (optional, defaults to +90 days)')
+@click.option('--include-weekends', is_flag=True, default=False,
+              help='Include weekends for daily recurring meetings (Sat/Sun)')
 @click.option('--attendees', '-a', multiple=True,
               help='Meeting attendees (can specify multiple times)')
-def create(title: str, start: str, end: str, meeting_date: Optional[str], 
-           recurring: Optional[str], until: Optional[datetime], attendees: tuple):
+def create(title: str, start: str, end: str, meeting_date: Optional[str],
+           recurring: Optional[str], until: Optional[datetime], include_weekends: bool, attendees: tuple):
     """
     Create a new meeting.
     
@@ -114,14 +121,19 @@ def create(title: str, start: str, end: str, meeting_date: Optional[str],
     repo = MeetingsRepository(session)
     
     try:
-        # Validate recurring parameters
+        # Validate recurring parameters and set default --until
         if recurring and not until:
-            console.print("[red]✗ Error: --until is required when using --recurring[/red]")
-            console.print("\n[dim]Example:[/dim]")
-            console.print(f'  workmain meetings create "{title}" --start {start} --end {end} \\')
-            console.print(f'    --recurring {recurring} --until 2026-12-31')
+            # Default to 90 days from start date
+            if meeting_date:
+                start_date = datetime.strptime(meeting_date, '%Y-%m-%d').date()
+            else:
+                start_date = date.today()
+
+            until_date = start_date + timedelta(days=90)
+            until = datetime.combine(until_date, datetime.min.time())
+
+            console.print(f"[dim]No --until specified, defaulting to {until_date.strftime('%Y-%m-%d')} (+90 days)[/dim]")
             console.print()
-            return
         
         if until and not recurring:
             console.print("[yellow]⚠ Warning: --until specified but --recurring not set.[/yellow]")
@@ -137,25 +149,29 @@ def create(title: str, start: str, end: str, meeting_date: Optional[str],
         else:
             parsed_date = date.today()
         
-        # Parse times
+        # Parse times using TimeEntriesRepository for consistent parsing
+        # Supports: 14:30, 1430, 2:30pm, 230pm
+        from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+        time_repo = TimeEntriesRepository(session)
+
         try:
             # Check if full datetime provided
             if ' ' in start:
                 start_dt = datetime.strptime(start, '%Y-%m-%d %H:%M')
             else:
-                # Just time, combine with date
-                start_time = datetime.strptime(start, '%H:%M').time()
+                # Just time, combine with date - supports military format
+                start_time = time_repo.parse_time(start)
                 start_dt = datetime.combine(parsed_date, start_time)
-            
+
             if ' ' in end:
                 end_dt = datetime.strptime(end, '%Y-%m-%d %H:%M')
             else:
-                end_time = datetime.strptime(end, '%H:%M').time()
+                end_time = time_repo.parse_time(end)
                 end_dt = datetime.combine(parsed_date, end_time)
-                
+
         except ValueError as e:
             console.print(f"[red]✗ Invalid time format: {e}[/red]")
-            console.print("\n[dim]Use HH:MM (24-hour) or YYYY-MM-DD HH:MM[/dim]")
+            console.print("\n[dim]Use HH:MM, HHMM (military), or HH:MMam/pm[/dim]")
             return
         
         # Validate times
@@ -191,6 +207,11 @@ def create(title: str, start: str, end: str, meeting_date: Optional[str],
                 # Calculate next occurrence
                 if recurring == 'daily':
                     current_date += timedelta(days=1)
+
+                    # Skip weekends unless --include-weekends specified
+                    if not include_weekends:
+                        while current_date.weekday() >= 5 and current_date <= until_date:
+                            current_date += timedelta(days=1)
                 elif recurring == 'weekly':
                     current_date += timedelta(weeks=1)
                 elif recurring == 'monthly':
@@ -311,40 +332,78 @@ def list(today: bool, upcoming: bool, search: Optional[str], limit: int):
 
 
 @meetings.command()
-@click.argument('meeting_title')
-def show(meeting_title: str):
+@click.argument('title_or_id')
+@click.option('--date', type=click.DateTime(formats=['%Y-%m-%d']),
+              help='Show meeting on specific date (for recurring meetings)')
+def show(title_or_id: str, date: Optional[datetime]):
     """
     Show detailed meeting information.
-    
-    Example:
+
+    Supports both meeting ID and title. For recurring meetings,
+    defaults to today's instance or use --date to specify.
+
+    Examples:
+        workmain meetings show 42
         workmain meetings show "Team Standup"
+        workmain meetings show "Team Standup" --date 2026-01-25
     """
     db = get_db()
     session = db.get_session()
     repo = MeetingsRepository(session)
-    
+
     try:
-        # Find meeting
-        meeting = repo.get_by_title(meeting_title, exact=False)
-        
+        meeting = None
+
+        # Try parsing as ID first
+        if title_or_id.isdigit():
+            meeting = repo.get_by_id(int(title_or_id))
+
+        # If not found by ID or not a digit, search by title
         if not meeting:
-            console.print(f"[red]✗ Meeting '{meeting_title}' not found[/red]")
-            
+            if date:
+                # Get meeting by title on specific date
+                target_date = date.date()
+                # Will implement get_by_title_and_date in meetings_repo.py
+                meetings_on_date = repo.get_by_date(target_date)
+                for m in meetings_on_date:
+                    if title_or_id.lower() in m.title.lower():
+                        meeting = m
+                        break
+            else:
+                # Get today's instance if recurring, or first match otherwise
+                today = datetime.now().date()
+                meetings_today = repo.get_by_date(today)
+
+                # Check if there's a matching meeting today
+                for m in meetings_today:
+                    if title_or_id.lower() in m.title.lower():
+                        meeting = m
+                        break
+
+                # If not found today, fallback to most recent match
+                if not meeting:
+                    meeting = repo.get_by_title(title_or_id, exact=False)
+
+        if not meeting:
+            console.print(f"[red]✗ Meeting '{title_or_id}' not found[/red]")
+
             # Try fuzzy match
-            matches = repo.fuzzy_match(meeting_title, threshold=0.6)
+            matches = repo.fuzzy_match(title_or_id, threshold=0.6)
             if matches:
                 console.print("\n[yellow]Did you mean:[/yellow]")
                 for m, score in matches[:5]:
-                    console.print(f"  - {m.title}")
-            
+                    meeting_date = m.start_time.strftime('%Y-%m-%d')
+                    is_today = m.start_time.date() == datetime.now().date()
+                    today_marker = " ← Today" if is_today else ""
+                    console.print(f"  - [#{m.id}] {m.title} ({meeting_date}){today_marker}")
+
             return
         
         # Display meeting details
         console.print(f"\n[bold]Meeting Details:[/bold]\n")
         console.print("=" * 60)
-        
-        console.print(f"Title: {meeting.title}")
-        console.print(f"ID: {meeting.id}")
+
+        console.print(f"[#{meeting.id}] {meeting.title}")
         
         # Type
         if meeting.outlook_recurring_id:
@@ -387,7 +446,147 @@ def show(meeting_title: str):
             console.print(f"Status: {', '.join(flags)}")
         
         console.print(f"\nCreated: {meeting.created_at.strftime('%Y-%m-%d %H:%M')}")
-    
+
+    finally:
+        session.close()
+
+
+@meetings.command()
+@click.argument('meeting_id', type=int)
+@click.option('--delete-notes', is_flag=True, help='Also delete associated notes')
+def delete(meeting_id: int, delete_notes: bool):
+    """
+    Delete a meeting by ID.
+
+    Alias for 'workmain meeting delete' for improved discoverability.
+
+    Examples:
+        workmain meetings delete 42
+        workmain meeting delete 42  (both work)
+    """
+    db = get_db()
+    session = db.get_session()
+    repo = MeetingsRepository(session)
+
+    try:
+        # Get meeting
+        mtg = repo.get_by_id(meeting_id)
+        if not mtg:
+            console.print(f"[red]✗ Meeting {meeting_id} not found[/red]")
+            return
+
+        note_count = repo.get_note_count(meeting_id)
+
+        # Show warning
+        console.print(f"\n[bold]Delete meeting:[/bold]")
+        console.print(f"  [#{mtg.id}] {mtg.title}")
+        console.print(f"  {note_count} associated note(s)")
+
+        if delete_notes:
+            console.print(f"\n[red]⚠️  WARNING: Notes will also be deleted![/red]")
+        else:
+            console.print(f"\n[dim]Notes will be preserved (unlinked from meeting)[/dim]")
+
+        if not click.confirm("\nContinue?", default=False):
+            console.print("Cancelled.")
+            return
+
+        # Delete
+        if repo.delete(meeting_id, delete_notes=delete_notes):
+            console.print(f"[green]✓ Meeting deleted[/green]")
+            if delete_notes:
+                console.print(f"[green]✓ {note_count} note(s) also deleted[/green]")
+        else:
+            console.print(f"[red]✗ Delete failed[/red]")
+
+    finally:
+        session.close()
+
+
+@meetings.command()
+@click.argument('title_or_id')
+@click.option('--date', type=click.DateTime(formats=['%Y-%m-%d']),
+              help='Meeting date (for recurring meetings)')
+def track(title_or_id: str, date: Optional[datetime]):
+    """
+    Create a time entry from a meeting.
+
+    Automatically calculates duration from meeting start/end times.
+
+    Examples:
+        workmain meetings track "Daily Standup"
+        workmain meetings track 42
+        workmain meetings track "Weekly Review" --date 2026-01-20
+    """
+    db = get_db()
+    session = db.get_session()
+    repo = MeetingsRepository(session)
+
+    try:
+        meeting = None
+
+        # Try parsing as ID first
+        if title_or_id.isdigit():
+            meeting = repo.get_by_id(int(title_or_id))
+
+        # If not found by ID or not a digit, search by title
+        if not meeting:
+            if date:
+                # Get meeting by title on specific date
+                target_date = date.date()
+                meetings_on_date = repo.get_by_date(target_date)
+                for m in meetings_on_date:
+                    if title_or_id.lower() in m.title.lower():
+                        meeting = m
+                        break
+            else:
+                # Get today's instance if recurring, or first match otherwise
+                today = datetime.now().date()
+                meetings_today = repo.get_by_date(today)
+
+                # Check if there's a matching meeting today
+                for m in meetings_today:
+                    if title_or_id.lower() in m.title.lower():
+                        meeting = m
+                        break
+
+                # If not found today, fallback to most recent match
+                if not meeting:
+                    meeting = repo.get_by_title(title_or_id, exact=False)
+
+        if not meeting:
+            console.print(f"[red]✗ Meeting '{title_or_id}' not found[/red]")
+            return
+
+        # Calculate duration
+        duration_hours = (
+            meeting.end_time - meeting.start_time
+        ).total_seconds() / 3600
+
+        # Create time entry
+        from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+        time_repo = TimeEntriesRepository(session)
+
+        description = click.prompt(
+            "Description",
+            default=f"Meeting: {meeting.title}"
+        )
+
+        entry = time_repo.create(
+            description=description,
+            duration_hours=duration_hours,
+            entry_date=meeting.start_time.date(),
+            entry_time=meeting.start_time.time(),
+            category='meeting',
+            meeting_id=meeting.id
+        )
+
+        console.print(f"\n[green]✓ Time entry created:[/green]")
+        console.print(f"  Duration: {duration_hours:.2f}h")
+        console.print(f"  Meeting: [#{meeting.id}] {meeting.title}")
+        console.print(f"  Date: {meeting.start_time.strftime('%Y-%m-%d %H:%M')}")
+        console.print()
+
     finally:
         session.close()
 

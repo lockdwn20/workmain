@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v2.0
-20251226
+Feature Backlog v3.0
+20260127
 
 # WorkmAIn Feature Backlog
 
@@ -9,6 +9,131 @@ Items deferred from various phases for future implementation.
 **Version History:**
 - v1.0 (20251224): Initial backlog with Phase 2 & 3 deferrals
 - v2.0 (20251226): Added Phase 3.5/Pre-Phase 4 deferrals
+- v3.0 (20260127): Added Phase 5.1 deferrals
+
+---
+
+## Deferred Phase 5.1 Features
+
+### 1. Recurring Meeting Advanced Features
+
+**Status:** Deferred to Phase 6
+**Priority:** Medium (nice-to-have enhancements)
+**Effort:** ~12-16 hours
+**Added:** 20260127
+
+**Description:**
+Advanced recurring meeting management features beyond basic creation and instance selection.
+
+**Features:**
+1. **Edit Series:** Modify all future instances of a recurring meeting
+2. **Skip Occurrence:** Mark specific instance as skipped without deleting
+3. **Reschedule Instance:** Move single occurrence to different time
+4. **Recurring Templates:** Pre-defined patterns (daily standup, weekly review)
+
+**Why Deferred:**
+- Core recurring functionality (create, view, delete) is complete and working
+- These are convenience features that can be worked around
+- Phase 5.1 focused on critical bugs preventing basic usage
+- Users can delete and recreate series if edits needed
+
+**Proposed Implementation (Future):**
+```bash
+# Edit series
+workmain meetings edit-series "Daily Standup" --start 10:00 --end 10:15
+
+# Skip occurrence
+workmain meetings skip "Daily Standup" --date 2026-02-15
+
+# Reschedule instance
+workmain meetings reschedule 42 --date 2026-02-20 --start 14:00
+```
+
+**Acceptance Criteria:**
+- [ ] Can edit all future instances of recurring series
+- [ ] Can skip individual occurrences without deleting
+- [ ] Can reschedule single instance to different time/date
+- [ ] Changes properly tracked in database
+- [ ] UI clearly shows modified instances
+
+**Decision:** Defer to Phase 6 (Feature Enhancement)
+
+---
+
+### 2. Placeholder Command Groups
+
+**Status:** Deferred to Phase 6
+**Priority:** Low (planned features not yet implemented)
+**Effort:** Varies by command
+**Added:** 20260127
+
+**Description:**
+Command groups that were placeholders in interface.py, removed in v1.1.0 to clean up CLI namespace.
+
+**Commands Removed:**
+1. **config** - User preferences and defaults management
+2. **provider** - Advanced AI provider configuration UI (conflicts with existing `providers` command)
+3. **clients** - Client and project management system
+4. **recipients** - Email recipient management
+5. **notifications** - Notification settings and preferences
+
+**Why Deferred:**
+- These were empty placeholder groups with no implementation
+- Cluttered help output and caused confusion
+- Some conflicted with existing commands (provider vs providers)
+- Focus on completing existing features before adding new ones
+
+**Future Implementation Priority:**
+1. **config** (High) - Settings like default tags, time format preferences, etc.
+2. **clients** (Medium) - Client database with project tracking
+3. **notifications** (Medium) - Email/desktop notification settings
+4. **recipients** (Low) - Can be handled in report generation
+5. **provider** (Low) - Covered by existing `providers` command
+
+**Proposed Implementation (Future):**
+```bash
+# config
+workmain config set default-tags "internal-only,development"
+workmain config get time-format
+
+# clients
+workmain clients add "Acme Corp" --rate 150
+workmain clients list
+
+# notifications
+workmain notifications enable --email
+workmain notifications set-reminder "daily-standup" --minutes 5
+```
+
+**Acceptance Criteria:**
+- [ ] config: Settings persisted in ~/.workmain/config.json
+- [ ] clients: Client database with rate tracking
+- [ ] notifications: Email and desktop notification support
+- [ ] Clear documentation for each command group
+- [ ] No namespace conflicts with existing commands
+
+**Decision:** Defer to Phase 6 (Feature Enhancement)
+
+---
+
+### 3. Session Migration Technical Debt
+
+**Status:** Completed in Phase 5.1
+**Priority:** High (code consistency)
+**Effort:** ~2 hours
+**Added:** 20260127
+**Completed:** 20260127
+
+**Description:**
+Migrate all commands from old `get_session()` pattern to new `get_db()` pattern for consistency.
+
+**Files Migrated:**
+- ✅ note.py - Already using get_db()
+- ✅ meetings.py - Already using get_db()
+- ✅ track.py - Migrated in v1.4
+- ✅ tasks.py - Migrated in v1.1
+
+**Result:** All CLI commands now use consistent get_db() session management.
 
 ---
 

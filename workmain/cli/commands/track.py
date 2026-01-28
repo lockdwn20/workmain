@@ -1,7 +1,7 @@
 """
 WorkmAIn Track CLI Commands
-Track Commands v1.2
-20260116
+Track Commands v1.4
+20260127
 
 CLI commands for time tracking with 24-hour format support and Clockify sync.
 
@@ -11,37 +11,18 @@ Version History:
         (military time without colons, AM/PM without colons, backdating examples)
 - v1.2: Phase 5 - Replaced sync placeholder with full Clockify sync implementation
         Added sync push/pull/both subcommands with interactive progress
+- v1.3: Phase 5.1 - Added --meeting and --notes flags for bidirectional integration
+        Time entries can now link to meetings with optional note creation
+- v1.4: Phase 5.1 - Migrated to get_db() session management pattern
 """
 
 import click
 from datetime import date, datetime, timedelta
 from typing import Optional
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
+from workmain.database.connection import get_db
 from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
 from workmain.integrations.clockify.sync import ClockifySync
-
-
-def get_session():
-    """Get database session from environment."""
-    import os
-    from dotenv import load_dotenv
-    
-    load_dotenv()
-    
-    db_host = os.getenv('DB_HOST', 'localhost')
-    db_port = os.getenv('DB_PORT', '5432')
-    db_name = os.getenv('DB_NAME', 'workmain')
-    db_user = os.getenv('DB_USER', 'workmain_user')
-    db_password = os.getenv('DB_PASSWORD', '')
-    
-    conn_string = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
-    engine = create_engine(conn_string)
-    Session = sessionmaker(bind=engine)
-    
-    return Session()
 
 
 def format_time_entry_display(entry, show_id: bool = False, show_date: bool = True) -> str:
@@ -142,20 +123,27 @@ def track():
 @click.option('--date', '-d', help='Date (YYYY-MM-DD, default: today)')
 @click.option('--category', '-c', help='Category (e.g., development, meeting)')
 @click.option('--project', '-p', type=int, help='Project ID')
-def track_add(description: str, duration: str, time: Optional[str], 
-              date: Optional[str], category: Optional[str], project: Optional[int]):
+@click.option('--meeting', '-m', help='Link to meeting (title or ID)')
+@click.option('--notes', '-n', help='Create note for meeting (requires --meeting)')
+def track_add(description: str, duration: str, time: Optional[str],
+              date: Optional[str], category: Optional[str], project: Optional[int],
+              meeting: Optional[str], notes: Optional[str]):
     """
-    Log a time entry.
-    
+    Log a time entry with optional meeting and notes linkage.
+
     Examples:
         workmain track add "Fixed login bug" 2h --time 14:30
-        workmain track add "Fixed login bug" 2h --time 1430
-        workmain track add "Team meeting" 1.5h --time 230pm
-        workmain track add "Code review" 30m --time 15:00
-        workmain track add "Research" 1h30m
-        workmain track add "Yesterday's work" 2h --date 2025-12-22
+        workmain track add "Team meeting" 1.5h --time 1430 --meeting "Daily Standup"
+        workmain track add "Meeting time" 1h --meeting 42 --notes "Discussed new features"
+        workmain track add "Code review" 30m --time 15:00 --project 5
     """
-    session = get_session()
+    # Validate --notes requires --meeting
+    if notes and not meeting:
+        click.echo("✗ Error: --notes requires --meeting to be specified")
+        return
+
+    db = get_db()
+    session = db.get_session()
     repo = TimeEntriesRepository(session)
     
     try:
@@ -183,15 +171,55 @@ def track_add(description: str, duration: str, time: Optional[str],
             except ValueError:
                 click.echo(f"✗ Invalid date format. Use YYYY-MM-DD")
                 return
-        
-        # Create time entry
+
+        # Handle meeting linkage
+        meeting_obj = None
+        if meeting:
+            from workmain.database.repositories.meetings_repo import MeetingsRepository
+            meetings_repo = MeetingsRepository(session)
+
+            # Try parsing as ID first
+            if meeting.isdigit():
+                meeting_obj = meetings_repo.get_by_id(int(meeting))
+
+            # If not found, try fuzzy match by title
+            if not meeting_obj:
+                matches = meetings_repo.fuzzy_match(meeting, threshold=0.6)
+
+                if not matches:
+                    click.echo(f"✗ No meeting found matching: {meeting}")
+                    return
+
+                if len(matches) == 1:
+                    meeting_obj = matches[0][0]
+                else:
+                    # Show picker with dates
+                    today = datetime.today().date()
+                    click.echo("\n⚠️  Multiple meetings found:")
+
+                    for i, (m, score) in enumerate(matches[:5], 1):
+                        meeting_date = m.start_time.strftime('%Y-%m-%d %H:%M')
+                        is_today = m.start_time.date() == today
+                        today_marker = " ← Today" if is_today else ""
+                        click.echo(f"  {i}. [#{m.id}] {m.title} ({meeting_date}, {score*100:.0f}% match){today_marker}")
+
+                    choice = click.prompt("\nSelect meeting [1-5]", type=int, default=1)
+
+                    if 1 <= choice <= len(matches):
+                        meeting_obj = matches[choice - 1][0]
+                    else:
+                        click.echo("✗ Invalid selection")
+                        return
+
+        # Create time entry with meeting link
         entry = repo.create(
             description=description,
             duration_hours=duration_hours,
             entry_date=entry_date,
             entry_time=entry_time,
             category=category,
-            project_id=project
+            project_id=project,
+            meeting_id=meeting_obj.id if meeting_obj else None
         )
         
         # Success message
@@ -201,14 +229,45 @@ def track_add(description: str, duration: str, time: Optional[str],
             click.echo(f"  Time: {entry.display_time}")
         if category:
             click.echo(f"  Category: {category}")
-        
+        if meeting_obj:
+            click.echo(f"  Linked to meeting: [#{meeting_obj.id}] {meeting_obj.title}")
+
+        # Handle --notes if provided
+        if notes and meeting_obj:
+            from workmain.database.repositories.notes_repo import NotesRepository
+            notes_repo = NotesRepository(session)
+
+            note = notes_repo.create(
+                content=notes,
+                tags=['internal-only'],
+                meeting_id=meeting_obj.id
+            )
+
+            click.echo(f"✓ Note created (ID: {note.id}) and linked to meeting [#{meeting_obj.id}]")
+
+        # Suggest adding notes if --meeting but no --notes
+        elif meeting_obj and not notes:
+            if click.confirm(f"\nAdd notes to this meeting?", default=False):
+                note_content = click.prompt("Enter note content")
+
+                from workmain.database.repositories.notes_repo import NotesRepository
+                notes_repo = NotesRepository(session)
+
+                note = notes_repo.create(
+                    content=note_content,
+                    tags=['internal-only'],
+                    meeting_id=meeting_obj.id
+                )
+
+                click.echo(f"✓ Note created (ID: {note.id}) and linked to meeting [#{meeting_obj.id}]")
+
         # Prompt for Clockify sync
         click.echo()
         if click.confirm("Sync to Clockify now?", default=False):
             # Sync this entry
             sync_engine = ClockifySync(session)
             results = sync_engine.push_entries(entries=[entry], interactive=True)
-            
+
             if results['successful'] > 0:
                 click.echo("✓ Synced to Clockify")
             else:
@@ -238,7 +297,8 @@ def track_edit(entry_id: int, description: Optional[str], duration: Optional[str
         workmain track edit 5 --time 16:00
         workmain track edit 5 --time 1600
     """
-    session = get_session()
+    db = get_db()
+    session = db.get_session()
     repo = TimeEntriesRepository(session)
     
     try:
@@ -300,7 +360,8 @@ def track_delete(entry_id: int):
     Example:
         workmain track delete 5
     """
-    session = get_session()
+    db = get_db()
+    session = db.get_session()
     repo = TimeEntriesRepository(session)
     
     try:
@@ -559,7 +620,8 @@ def time_today(show_ids: bool, category: Optional[str]):
         workmain time today --show-ids
         workmain time today --category development
     """
-    session = get_session()
+    db = get_db()
+    session = db.get_session()
     repo = TimeEntriesRepository(session)
     
     try:
@@ -596,7 +658,8 @@ def time_week(show_ids: bool, category: Optional[str]):
         workmain time week
         workmain time week --category meeting
     """
-    session = get_session()
+    db = get_db()
+    session = db.get_session()
     repo = TimeEntriesRepository(session)
     
     try:
@@ -651,7 +714,8 @@ def time_date(target_date: Optional[str], show_ids: bool, category: Optional[str
         workmain time date yesterday
         workmain time date today
     """
-    session = get_session()
+    db = get_db()
+    session = db.get_session()
     repo = TimeEntriesRepository(session)
     
     try:

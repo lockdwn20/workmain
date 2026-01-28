@@ -1,10 +1,15 @@
 """
 WorkmAIn Meetings Repository
-Meetings Repository v1.0
-20251222
+Meetings Repository v1.2
+20260127
 
 Data access layer for meetings with fuzzy matching and recurring detection.
 Handles all CRUD operations for the meetings table.
+
+Version History:
+- v1.0: Initial implementation with fuzzy matching
+- v1.1: Added get_by_title_and_date for recurring meeting disambiguation
+- v1.2: Optimized fuzzy_match with PostgreSQL trigram similarity (O(log N))
 """
 
 from datetime import datetime, date
@@ -133,43 +138,97 @@ class MeetingsRepository:
     
     def fuzzy_match(self, title: str, threshold: float = 0.6) -> List[Tuple[Meeting, float]]:
         """
-        Find meetings with similar titles using fuzzy matching.
-        
+        Find meetings with similar titles using PostgreSQL trigram similarity.
+
+        Requires pg_trgm extension and GIN index on meetings.title.
+        Falls back to Python SequenceMatcher if extension not available.
+
         Args:
             title: Title to match against
             threshold: Similarity threshold (0.0-1.0)
-            
+
         Returns:
             List of (Meeting, similarity_score) tuples, sorted by score
         """
-        all_meetings = self.session.query(Meeting).all()
-        matches = []
-        
-        for meeting in all_meetings:
-            similarity = SequenceMatcher(None, title.lower(), meeting.title.lower()).ratio()
-            if similarity >= threshold:
-                matches.append((meeting, similarity))
-        
-        # Sort by similarity score (highest first)
-        matches.sort(key=lambda x: x[1], reverse=True)
-        
-        return matches
+        try:
+            # Use PostgreSQL trigram similarity - O(log N) with GIN index
+            matches = (
+                self.session.query(
+                    Meeting,
+                    func.similarity(Meeting.title, title).label('similarity')
+                )
+                .filter(func.similarity(Meeting.title, title) >= threshold)
+                .order_by(func.similarity(Meeting.title, title).desc())
+                .all()
+            )
+
+            # Convert to expected format: [(meeting, score), ...]
+            return [(meeting, float(score)) for meeting, score in matches]
+
+        except Exception as e:
+            # Fallback to Python SequenceMatcher if pg_trgm not available
+            import logging
+
+            logging.warning(
+                f"PostgreSQL trigram search failed, using fallback: {str(e)}"
+            )
+
+            all_meetings = self.session.query(Meeting).all()
+            matches = []
+
+            for meeting in all_meetings:
+                similarity = SequenceMatcher(None, title.lower(), meeting.title.lower()).ratio()
+                if similarity >= threshold:
+                    matches.append((meeting, similarity))
+
+            # Sort by similarity score (highest first)
+            matches.sort(key=lambda x: x[1], reverse=True)
+
+            return matches
     
     def get_by_date(self, target_date: date) -> List[Meeting]:
         """
         Get all meetings on a specific date.
-        
+
         Args:
             target_date: Date to retrieve meetings for
-            
+
         Returns:
             List of Meeting objects
         """
         start_of_day = datetime.combine(target_date, datetime.min.time())
         end_of_day = datetime.combine(target_date, datetime.max.time())
-        
+
         return self.session.query(Meeting).filter(
             and_(
+                Meeting.start_time >= start_of_day,
+                Meeting.start_time <= end_of_day
+            )
+        ).order_by(Meeting.start_time).all()
+
+    def get_by_title_and_date(
+        self,
+        title: str,
+        target_date: date
+    ) -> List[Meeting]:
+        """
+        Get meetings by title on a specific date.
+
+        Useful for recurring meetings where title alone is ambiguous.
+
+        Args:
+            title: Meeting title (case-insensitive match)
+            target_date: Date to filter by
+
+        Returns:
+            List of Meeting objects matching title and date
+        """
+        start_of_day = datetime.combine(target_date, datetime.min.time())
+        end_of_day = datetime.combine(target_date, datetime.max.time())
+
+        return self.session.query(Meeting).filter(
+            and_(
+                func.lower(Meeting.title) == func.lower(title),
                 Meeting.start_time >= start_of_day,
                 Meeting.start_time <= end_of_day
             )
