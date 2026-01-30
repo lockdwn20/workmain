@@ -96,25 +96,14 @@ def create(title: str, start: str, end: str, meeting_date: Optional[str],
            recurring: Optional[str], until: Optional[datetime], include_weekends: bool, attendees: tuple):
     """
     Create a new meeting.
-    
+
+    \b
     Examples:
-        # One-time meeting
-        workmain meetings create "Team Standup" --start "14:00" --end "14:30"
-        
-        # Meeting on specific date
-        workmain meetings create "Planning" --start "09:00" --end "10:30" --date "2026-01-20"
-        
-        # Daily recurring meeting
-        workmain meetings create "Daily Sync" --start "09:00" --end "09:15" \\
-            --recurring daily --until 2026-01-31
-        
-        # Weekly recurring meeting
-        workmain meetings create "Weekly Review" --start "10:00" --end "11:00" \\
-            --recurring weekly --until 2026-04-15
-        
-        # With attendees
-        workmain meetings create "Client Call" --start "14:00" --end "15:00" \\
-            --attendees "john@example.com" --attendees "jane@example.com"
+      workmain meetings create "Standup" --start 14:00 --end 14:30
+      workmain meetings create "Planning" --start 09:00 --end 10:30 --date 2026-01-20
+      workmain meetings create "Daily Sync" --start 09:00 --end 09:15 -r daily -u 2026-01-31
+      workmain meetings create "Weekly Review" --start 10:00 --end 11:00 -r weekly
+      workmain meetings create "Client Call" --start 14:00 --end 15:00 -a user@example.com
     """
     db = get_db()
     session = db.get_session()
