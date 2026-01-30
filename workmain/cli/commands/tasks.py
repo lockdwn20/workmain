@@ -1,6 +1,6 @@
 """
 WorkmAIn Tasks CLI Commands
-Tasks Commands v1.1
+Tasks Commands v1.2
 20260127
 
 CLI commands for task management (carry-forward tasks).
@@ -8,6 +8,7 @@ CLI commands for task management (carry-forward tasks).
 Version History:
 - v1.0: Initial implementation with carryover command
 - v1.1: Phase 5.1 - Migrated to get_db() session management pattern
+- v1.2: Phase 5.1 - Fixed help text formatting with \b escape sequence
 """
 
 import click
@@ -46,15 +47,16 @@ def tasks():
 def carryover(show_ids: bool, show_all: bool, limit: Optional[int]):
     """
     Show tasks marked for carry-forward.
-    
+
     Displays notes tagged with [carry-forward] that need attention.
     By default, shows recent items (last 7 days).
-    
+
+    \b
     Examples:
-        workmain tasks carryover
-        workmain tasks carryover --show-ids
-        workmain tasks carryover --all
-        workmain tasks carryover --limit 5
+      workmain tasks carryover
+      workmain tasks carryover --show-ids
+      workmain tasks carryover --all
+      workmain tasks carryover -n 5
     """
     db = get_db()
     session = db.get_session()

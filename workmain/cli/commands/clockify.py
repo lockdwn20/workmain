@@ -1,7 +1,7 @@
 """
 WorkmAIn CLI
 Clockify Command Group
-v1.1
+v1.2
 20260116
 
 CLI commands for Clockify report retrieval and connection status.
@@ -13,6 +13,7 @@ Commands:
 Version History:
 - v1.0: Initial implementation with report and status commands
 - v1.1: Fixed import - use get_db() pattern instead of get_session()
+- v1.2: Phase 5.1 - Fixed help text formatting with \b escape sequence
 """
 
 import click
@@ -44,15 +45,16 @@ def clockify():
 def status():
     """
     Show Clockify connection and sync status.
-    
+
     Displays:
     - API connection status
     - Workspace information
     - Number of unsynced entries
     - Last sync timestamp
-    
+
+    \b
     Example:
-        workmain clockify status
+      workmain clockify status
     """
     db = get_db()
     session = db.get_session()
@@ -148,19 +150,15 @@ def status():
 def report(action, start, end, output):
     """
     Download Clockify PDF report.
-    
+
     Retrieves detailed PDF report from Clockify for the specified date range.
     Defaults to current week (Monday-Friday).
-    
+
+    \b
     Examples:
-        # Download current week's report
-        workmain clockify report get
-        
-        # Download specific date range
-        workmain clockify report get --start 2026-01-01 --end 2026-01-31
-        
-        # Specify output location
-        workmain clockify report get --output ~/reports/january.pdf
+      workmain clockify report get
+      workmain clockify report get -s 2026-01-01 -e 2026-01-31
+      workmain clockify report get -o ~/reports/january.pdf
     """
     if action != 'get':
         console.print("[red]Unknown action. Use 'get' to download reports.[/red]")

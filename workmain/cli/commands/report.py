@@ -1,6 +1,6 @@
 """
 WorkmAIn Report Commands - Phase 4 Implementation
-Report Commands v1.6
+Report Commands v1.7
 20251230
 
 Dynamic alias resolution - any template or alias works as a command.
@@ -23,6 +23,7 @@ Version History:
 - v1.6: Switched to database for report history and costs
         Uses reports repository instead of filesystem scanning
         Costs queried from reports.metadata JSONB field
+- v1.7: Phase 5.1 - Fixed help text formatting with \b escape sequence
 """
 
 import click
@@ -263,10 +264,11 @@ def report():
 def report_list(limit: int):
     """
     List generated reports.
-    
+
+    \b
     Examples:
-        workmain report list
-        workmain report list --limit 20
+      workmain report list
+      workmain report list -l 20
     """
     # Get database session and generator
     db = get_db()
@@ -333,9 +335,10 @@ def report_list(limit: int):
 def report_show(filename: str):
     """
     Display a generated report.
-    
-    Examples:
-        workmain report show daily_internal_2025-12-29.md
+
+    \b
+    Example:
+      workmain report show daily_internal_2025-12-29.md
     """
     # Get database session and generator
     db = get_db()
@@ -375,11 +378,12 @@ def report_show(filename: str):
 def report_costs():
     """
     Show cost summary for generated reports from database.
-    
+
     Queries reports.metadata JSONB field for cost information.
-    
-    Examples:
-        workmain report costs
+
+    \b
+    Example:
+      workmain report costs
     """
     # Get database session and generator
     db = get_db()

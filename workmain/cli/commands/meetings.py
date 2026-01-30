@@ -1,6 +1,6 @@
 """
 WorkmAIn Meeting CLI Commands
-Meeting Commands v2.5
+Meeting Commands v2.6
 20260127
 
 CLI commands for meeting management.
@@ -13,6 +13,7 @@ Version History:
 - v2.3: Phase 5.1 - Workdays-only default, optional --until with 90-day default
 - v2.4: Phase 5.1 - Added meetings delete alias for improved discoverability
 - v2.5: Phase 5.1 - Added meetings track command for creating time entries
+- v2.6: Phase 5.1 - Fixed help text formatting with \b escape sequence
 """
 
 import click
@@ -279,12 +280,13 @@ def create(title: str, start: str, end: str, meeting_date: Optional[str],
 def list(today: bool, upcoming: bool, search: Optional[str], limit: int):
     """
     List meetings.
-    
+
+    \b
     Examples:
-        workmain meetings list
-        workmain meetings list --today
-        workmain meetings list --upcoming
-        workmain meetings list --search "standup"
+      workmain meetings list
+      workmain meetings list --today
+      workmain meetings list --upcoming
+      workmain meetings list --search "standup"
     """
     db = get_db()
     session = db.get_session()
@@ -331,10 +333,11 @@ def show(title_or_id: str, date: Optional[datetime]):
     Supports both meeting ID and title. For recurring meetings,
     defaults to today's instance or use --date to specify.
 
+    \b
     Examples:
-        workmain meetings show 42
-        workmain meetings show "Team Standup"
-        workmain meetings show "Team Standup" --date 2026-01-25
+      workmain meetings show 42
+      workmain meetings show "Team Standup"
+      workmain meetings show "Team Standup" --date 2026-01-25
     """
     db = get_db()
     session = db.get_session()
@@ -449,9 +452,10 @@ def delete(meeting_id: int, delete_notes: bool):
 
     Alias for 'workmain meeting delete' for improved discoverability.
 
+    \b
     Examples:
-        workmain meetings delete 42
-        workmain meeting delete 42  (both work)
+      workmain meetings delete 42
+      workmain meeting delete 42
     """
     db = get_db()
     session = db.get_session()
@@ -502,10 +506,11 @@ def track(title_or_id: str, date: Optional[datetime]):
 
     Automatically calculates duration from meeting start/end times.
 
+    \b
     Examples:
-        workmain meetings track "Daily Standup"
-        workmain meetings track 42
-        workmain meetings track "Weekly Review" --date 2026-01-20
+      workmain meetings track "Daily Standup"
+      workmain meetings track 42
+      workmain meetings track "Weekly Review" --date 2026-01-20
     """
     db = get_db()
     session = db.get_session()
@@ -591,11 +596,12 @@ def meeting():
 def condense(meeting_title: str):
     """
     Condense meeting notes into a one-line summary using AI.
-    
+
     Creates a professional summary suitable for Clockify time entries.
-    
+
+    \b
     Example:
-        workmain meeting condense "Team Standup"
+      workmain meeting condense "Team Standup"
     """
     db = get_db()
     session = db.get_session()
@@ -687,9 +693,10 @@ def condense(meeting_title: str):
 def rename(meeting_id: int, new_title: str):
     """
     Rename a meeting.
-    
+
+    \b
     Example:
-        workmain meeting rename 5 "Daily Standup"
+      workmain meeting rename 5 "Daily Standup"
     """
     db = get_db()
     session = db.get_session()
@@ -720,9 +727,10 @@ def rename(meeting_id: int, new_title: str):
 def merge(from_title: str, to_title: str):
     """
     Merge two meetings by moving notes from one to another.
-    
+
+    \b
     Example:
-        workmain meeting merge "Old Standup" "Team Standup"
+      workmain meeting merge "Old Standup" "Team Standup"
     """
     db = get_db()
     session = db.get_session()
@@ -773,10 +781,11 @@ def merge(from_title: str, to_title: str):
 def delete(meeting_id: int, delete_notes: bool):
     """
     Delete a meeting.
-    
-    Example:
-        workmain meeting delete 5
-        workmain meeting delete 5 --delete-notes
+
+    \b
+    Examples:
+      workmain meeting delete 5
+      workmain meeting delete 5 --delete-notes
     """
     db = get_db()
     session = db.get_session()

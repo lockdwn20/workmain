@@ -1,6 +1,6 @@
 """
 WorkmAIn Provider CLI Commands
-Provider Commands v1.1
+Provider Commands v1.2
 20251231
 
 CLI commands for managing AI providers (Claude and Gemini).
@@ -14,6 +14,7 @@ Commands:
 Version History:
 - v1.0: Initial implementation with list, test, costs, and set-default commands
 - v1.1: Fixed import to use get_db() instead of get_database()
+- v1.2: Phase 5.1 - Fixed help text formatting with \b escape sequence
 """
 
 from typing import Optional
@@ -44,9 +45,10 @@ def providers():
 def list_providers():
     """
     Show available AI providers and their status.
-    
-    Examples:
-        workmain providers list
+
+    \b
+    Example:
+      workmain providers list
     """
     console.print()
     console.print("[bold cyan]Available AI Providers:[/bold cyan]")
@@ -133,13 +135,14 @@ def list_providers():
 def test_provider(provider: str):
     """
     Test AI provider connection with a simple generation request.
-    
+
     Args:
         provider: Provider to test (claude or gemini)
-    
+
+    \b
     Examples:
-        workmain providers test claude
-        workmain providers test gemini
+      workmain providers test claude
+      workmain providers test gemini
     """
     provider_lower = provider.lower()
     
@@ -207,17 +210,18 @@ def test_provider(provider: str):
 def show_costs(provider: Optional[str], month: Optional[str], limit: int):
     """
     Show cost breakdown by provider from database.
-    
+
     Options:
         --provider, -p: Filter by specific provider (claude or gemini)
         --month, -m: Filter by month (YYYY-MM format)
         --limit, -l: Limit number of reports (default: 20)
-    
+
+    \b
     Examples:
-        workmain providers costs
-        workmain providers costs --provider claude
-        workmain providers costs --month 2025-12
-        workmain providers costs -p gemini -l 10
+      workmain providers costs
+      workmain providers costs -p claude
+      workmain providers costs -m 2025-12
+      workmain providers costs -p gemini -l 10
     """
     # Get database session
     db = get_db()
@@ -381,16 +385,17 @@ def show_costs(provider: Optional[str], month: Optional[str], limit: int):
 def set_default_provider(provider: str, report_type: str):
     """
     Set default AI provider for a report type.
-    
+
     Args:
         provider: Provider to use (claude or gemini)
         report_type: Report type (daily, weekly, or all)
-    
+
+    \b
     Examples:
-        workmain providers set-default claude --for daily
-        workmain providers set-default gemini --for weekly
-        workmain providers set-default claude --for all
-    
+      workmain providers set-default claude --for daily
+      workmain providers set-default gemini --for weekly
+      workmain providers set-default claude --for all
+
     Note:
         This feature requires configuration management system.
         Currently defaults are set in config/ai_settings.json manually.

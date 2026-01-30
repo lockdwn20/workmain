@@ -1,6 +1,6 @@
 """
 WorkmAIn Track CLI Commands
-Track Commands v1.4
+Track Commands v1.5
 20260127
 
 CLI commands for time tracking with 24-hour format support and Clockify sync.
@@ -14,6 +14,7 @@ Version History:
 - v1.3: Phase 5.1 - Added --meeting and --notes flags for bidirectional integration
         Time entries can now link to meetings with optional note creation
 - v1.4: Phase 5.1 - Migrated to get_db() session management pattern
+- v1.5: Phase 5.1 - Fixed help text formatting with \b escape sequence
 """
 
 import click
@@ -131,11 +132,12 @@ def track_add(description: str, duration: str, time: Optional[str],
     """
     Log a time entry with optional meeting and notes linkage.
 
+    \b
     Examples:
-        workmain track add "Fixed login bug" 2h --time 14:30
-        workmain track add "Team meeting" 1.5h --time 1430 --meeting "Daily Standup"
-        workmain track add "Meeting time" 1h --meeting 42 --notes "Discussed new features"
-        workmain track add "Code review" 30m --time 15:00 --project 5
+      workmain track add "Fixed login bug" 2h --time 14:30
+      workmain track add "Team meeting" 1.5h -t 1430 -m "Daily Standup"
+      workmain track add "Meeting time" 1h -m 42 -n "Discussed features"
+      workmain track add "Code review" 30m --time 15:00 -p 5
     """
     # Validate --notes requires --meeting
     if notes and not meeting:
@@ -290,12 +292,13 @@ def track_edit(entry_id: int, description: Optional[str], duration: Optional[str
                time: Optional[str], category: Optional[str], project: Optional[int]):
     """
     Edit a time entry.
-    
+
+    \b
     Examples:
-        workmain track edit 5 --description "Updated description"
-        workmain track edit 5 --duration 3h
-        workmain track edit 5 --time 16:00
-        workmain track edit 5 --time 1600
+      workmain track edit 5 -d "Updated description"
+      workmain track edit 5 --duration 3h
+      workmain track edit 5 -t 16:00
+      workmain track edit 5 -t 1600
     """
     db = get_db()
     session = db.get_session()
@@ -356,9 +359,10 @@ def track_edit(entry_id: int, description: Optional[str], duration: Optional[str
 def track_delete(entry_id: int):
     """
     Delete a time entry.
-    
+
+    \b
     Example:
-        workmain track delete 5
+      workmain track delete 5
     """
     db = get_db()
     session = db.get_session()
@@ -411,14 +415,15 @@ def sync():
 def push(all, date, silent):
     """
     Push local time entries to Clockify.
-    
+
     By default, only pushes entries that haven't been synced yet
     (clockify_id IS NULL). Use --all to re-push all entries.
-    
+
+    \b
     Examples:
-        workmain track sync push
-        workmain track sync push --date 2026-01-15
-        workmain track sync push --all
+      workmain track sync push
+      workmain track sync push -d 2026-01-15
+      workmain track sync push -a
     """
     session = get_session()
     
@@ -486,18 +491,19 @@ def push(all, date, silent):
 def pull(start, end, silent):
     """
     Pull time entries from Clockify to local database.
-    
+
     Fetches entries from Clockify and imports them locally.
     Prompts for conflict resolution when local entries overlap
     with Clockify entries.
-    
+
     Use this after creating entries directly in Clockify (e.g., mobile app
     while traveling) to bring them into WorkmAIn.
-    
+
+    \b
     Examples:
-        workmain track sync pull
-        workmain track sync pull --start 2026-01-15
-        workmain track sync pull --start 2026-01-01 --end 2026-01-31
+      workmain track sync pull
+      workmain track sync pull -s 2026-01-15
+      workmain track sync pull -s 2026-01-01 -e 2026-01-31
     """
     session = get_session()
     
@@ -550,15 +556,16 @@ def pull(start, end, silent):
 def both(date):
     """
     Bidirectional sync: push local entries then pull from Clockify.
-    
+
     Performs complete synchronization:
     1. Push unsynced local entries to Clockify
     2. Pull new Clockify entries to local database
     3. Resolve any conflicts interactively
-    
+
+    \b
     Examples:
-        workmain track sync both
-        workmain track sync both --date 2026-01-15
+      workmain track sync both
+      workmain track sync both -d 2026-01-15
     """
     session = get_session()
     
@@ -614,11 +621,12 @@ def time():
 def time_today(show_ids: bool, category: Optional[str]):
     """
     Show today's time entries.
-    
+
+    \b
     Examples:
-        workmain time today
-        workmain time today --show-ids
-        workmain time today --category development
+      workmain time today
+      workmain time today --show-ids
+      workmain time today -c development
     """
     db = get_db()
     session = db.get_session()
@@ -653,10 +661,11 @@ def time_today(show_ids: bool, category: Optional[str]):
 def time_week(show_ids: bool, category: Optional[str]):
     """
     Show this week's time entries (Monday-Friday).
-    
+
+    \b
     Examples:
-        workmain time week
-        workmain time week --category meeting
+      workmain time week
+      workmain time week -c meeting
     """
     db = get_db()
     session = db.get_session()
@@ -708,11 +717,12 @@ def time_week(show_ids: bool, category: Optional[str]):
 def time_date(target_date: Optional[str], show_ids: bool, category: Optional[str]):
     """
     Show time entries for a specific date.
-    
+
+    \b
     Examples:
-        workmain time date 2025-12-20
-        workmain time date yesterday
-        workmain time date today
+      workmain time date 2025-12-20
+      workmain time date yesterday
+      workmain time date today
     """
     db = get_db()
     session = db.get_session()

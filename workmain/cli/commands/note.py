@@ -1,6 +1,6 @@
 """
 WorkmAIn Note CLI Commands
-Note Commands v2.2
+Note Commands v2.3
 20260127
 
 CLI commands for note management with tag support and meeting integration.
@@ -11,6 +11,7 @@ Version History:
 - v2.0: Added bulk meeting note entry command (note meeting)
 - v2.1: Phase 5.1 - Meeting IDs and dates always visible in pickers
 - v2.2: Phase 5.1 - Time tracking prompt when adding notes to meetings
+- v2.3: Phase 5.1 - Fixed help text formatting with \b escape sequence
 """
 
 import click
@@ -217,12 +218,13 @@ def note():
 def add(text: Optional[str], tags: Optional[str], meeting: Optional[str], project: Optional[int], source: str):
     """
     Add a new note with tags.
-    
+
+    \b
     Examples:
-        workmain note add "Fixed login bug" --tags ilo,blk
-        workmain note add "Fixed login bug #ilo #blk"
-        workmain note add "Discussed goals" --meeting "Team Standup"
-        workmain note add --meeting  (interactive picker)
+      workmain note add "Fixed login bug" -t ilo,blk
+      workmain note add "Fixed login bug #ilo #blk"
+      workmain note add "Discussed goals" -m "Team Standup"
+      workmain note add -m  (interactive picker)
     """
     session = get_session()
     notes_repo = NotesRepository(session)
@@ -338,16 +340,17 @@ def add(text: Optional[str], tags: Optional[str], meeting: Optional[str], projec
 @click.option('--tags', '-t', help='New tags (comma-separated: ilo,cf or "#ilo #cf")')
 @click.option('--meeting', '-m', help='Meeting title')
 @click.option('--project', '-p', type=int, help='Project ID')
-def edit(note_id: int, content: Optional[str], tags: Optional[str], 
+def edit(note_id: int, content: Optional[str], tags: Optional[str],
          meeting: Optional[str], project: Optional[int]):
     """
     Edit an existing note.
-    
+
+    \b
     Examples:
-        workmain note edit 5 --content "Updated text"
-        workmain note edit 5 --tags both,cf
-        workmain note edit 5 --tags "#both #cf"
-        workmain note edit 5 --meeting "Team Standup"
+      workmain note edit 5 -c "Updated text"
+      workmain note edit 5 -t both,cf
+      workmain note edit 5 -t "#both #cf"
+      workmain note edit 5 -m "Team Standup"
     """
     session = get_session()
     notes_repo = NotesRepository(session)
@@ -420,9 +423,10 @@ def edit(note_id: int, content: Optional[str], tags: Optional[str],
 def delete(note_id: int):
     """
     Delete a note.
-    
+
+    \b
     Example:
-        workmain note delete 5
+      workmain note delete 5
     """
     session = get_session()
     notes_repo = NotesRepository(session)
@@ -458,13 +462,14 @@ def delete(note_id: int):
 def meeting(meeting: str):
     """
     Add multiple notes to a meeting interactively.
-    
+
     Opens an editor or interactive prompt for bulk note entry.
     Each line becomes a separate note with its own tags.
-    
+
+    \b
     Examples:
-        workmain note meeting --meeting "Team Standup"
-        workmain note meeting -m "Daily Standup"
+      workmain note meeting -m "Team Standup"
+      workmain note meeting -m "Daily Standup"
     """
     session = get_session()
     notes_repo = NotesRepository(session)
@@ -625,12 +630,13 @@ def notes():
 def today(show_ids: bool, tags: Optional[str]):
     """
     Show today's notes.
-    
+
+    \b
     Examples:
-        workmain notes today
-        workmain notes today --show-ids
-        workmain notes today --tags ilo
-        workmain notes today --tags ilo,cf
+      workmain notes today
+      workmain notes today --show-ids
+      workmain notes today -t ilo
+      workmain notes today -t ilo,cf
     """
     session = get_session()
     notes_repo = NotesRepository(session)
@@ -673,10 +679,11 @@ def today(show_ids: bool, tags: Optional[str]):
 def date(target_date: Optional[str], show_ids: bool):
     """
     Show notes for a specific date.
-    
+
+    \b
     Examples:
-        workmain notes date 2025-12-20
-        workmain notes date yesterday
+      workmain notes date 2025-12-20
+      workmain notes date yesterday
     """
     from datetime import timedelta
     
@@ -721,10 +728,11 @@ def date(target_date: Optional[str], show_ids: bool):
 def search(keyword: str, limit: int, show_ids: bool):
     """
     Search notes by keyword (full-text search).
-    
+
+    \b
     Examples:
-        workmain notes search "bug fix"
-        workmain notes search security --limit 5
+      workmain notes search "bug fix"
+      workmain notes search security -n 5
     """
     session = get_session()
     notes_repo = NotesRepository(session)
@@ -755,10 +763,11 @@ def search(keyword: str, limit: int, show_ids: bool):
 def meeting(meeting_title: str, history: bool, show_ids: bool):
     """
     Show notes for a specific meeting.
-    
+
+    \b
     Examples:
-        workmain notes meeting "Team Standup"
-        workmain notes meeting "Team Standup" --history
+      workmain notes meeting "Team Standup"
+      workmain notes meeting "Team Standup" --history
     """
     session = get_session()
     notes_repo = NotesRepository(session)

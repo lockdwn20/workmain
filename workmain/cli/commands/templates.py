@@ -1,6 +1,6 @@
 """
 WorkmAIn Template CLI Commands
-Template Commands v2.6
+Template Commands v2.7
 20251230
 
 CLI commands for template management with interactive creation and alias management.
@@ -18,6 +18,7 @@ Version History:
 - v2.4: Fixed glob/Click conflict by replacing glob() with iterdir() for file search
 - v2.5: Fixed list command to handle string template names (load each template for details)
 - v2.6: Added alias management (register, unregister, list-aliases) for simplified CLI usage
+- v2.7: Phase 5.1 - Fixed help text formatting with \b escape sequence
 """
 
 import click
@@ -43,9 +44,10 @@ def templates():
 def list():
     """
     List all available templates.
-    
+
+    \b
     Example:
-        workmain templates list
+      workmain templates list
     """
     loader = get_template_loader()
     
@@ -80,11 +82,12 @@ def list():
 def list_aliases():
     """
     List all registered template aliases.
-    
+
     Shows shortcut names that can be used instead of full template names.
-    
+
+    \b
     Example:
-        workmain templates list-aliases
+      workmain templates list-aliases
     """
     alias_manager = get_alias_manager()
     
@@ -118,15 +121,16 @@ def list_aliases():
 def register(template_name: str, alias: str):
     """
     Register a template alias for easier CLI usage.
-    
+
     Creates a shortcut name that can be used in place of the full template name.
-    
+
+    \b
     Examples:
-        workmain templates register monthly_executive --alias monthly
-        workmain templates register security_audit --alias security
-        
+      workmain templates register monthly_executive --alias monthly
+      workmain templates register security_audit --alias security
+
     After registration:
-        workmain report monthly --send  # Uses monthly_executive template
+      workmain report monthly --send
     """
     loader = get_template_loader()
     alias_manager = get_alias_manager()
@@ -167,12 +171,13 @@ def register(template_name: str, alias: str):
 def unregister(alias: str):
     """
     Unregister a template alias.
-    
+
     Removes the shortcut name. The template itself is not affected.
-    
+
+    \b
     Examples:
-        workmain templates unregister monthly
-        workmain templates unregister security
+      workmain templates unregister monthly
+      workmain templates unregister security
     """
     alias_manager = get_alias_manager()
     
@@ -204,9 +209,10 @@ def unregister(alias: str):
 def show(template_name: str):
     """
     Show detailed template information.
-    
+
+    \b
     Example:
-        workmain templates show daily_internal
+      workmain templates show daily_internal
     """
     loader = get_template_loader()
     
@@ -261,10 +267,11 @@ def show(template_name: str):
 def validate(template_name: Optional[str]):
     """
     Validate template(s) against schema.
-    
+
+    \b
     Examples:
-        workmain templates validate              # Validate all
-        workmain templates validate daily_internal
+      workmain templates validate
+      workmain templates validate daily_internal
     """
     loader = get_template_loader()
     validator = get_template_validator()
@@ -319,12 +326,13 @@ def validate(template_name: Optional[str]):
 def preview(template_name: str, date: Optional[str]):
     """
     Preview rendered template with current data.
-    
+
     Shows how the template will look when generated with AI.
-    
+
+    \b
     Examples:
-        workmain templates preview daily_internal
-        workmain templates preview weekly_client --date 2025-12-30
+      workmain templates preview daily_internal
+      workmain templates preview weekly_client --date 2025-12-30
     """
     from workmain.database.connection import get_session
     
@@ -371,12 +379,13 @@ def preview(template_name: str, date: Optional[str]):
 def create(name: str, type: str):
     """
     Create a new blank template interactively.
-    
+
     Prompts for template details and creates a new JSON file.
-    
+
+    \b
     Examples:
-        workmain templates create "Monthly Executive Report" --type custom
-        workmain templates create "Security Audit" --type client
+      workmain templates create "Monthly Executive" --type custom
+      workmain templates create "Security Audit" --type client
     """
     field_manager = FieldManager()
     
@@ -456,12 +465,13 @@ def create(name: str, type: str):
 def add_section(template_name: str, section_title: str):
     """
     Add a section to an existing template interactively.
-    
+
     Prompts for section configuration and appends to template.
-    
+
+    \b
     Examples:
-        workmain templates add-section monthly_executive "Executive Summary"
-        workmain templates add-section security_audit "Findings"
+      workmain templates add-section monthly_executive "Summary"
+      workmain templates add-section security_audit "Findings"
     """
     loader = get_template_loader()
     field_manager = FieldManager()
