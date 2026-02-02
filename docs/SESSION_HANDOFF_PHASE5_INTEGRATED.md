@@ -423,10 +423,10 @@ cp clockify/sync.py workmain/integrations/clockify/
 | File | Version | Status | Lines Changed |
 |------|---------|--------|---------------|
 | track.py | v1.6 | ✅ Installed | +200 (sync), +tags/notes (5.1) |
-| meetings.py | v2.6 | ✅ Installed | +100 (recurring) |
+| meetings.py | v2.7 | ✅ Installed | +100 (recurring), condense/track fixes (5.1) |
 | clockify.py | v1.2 | ✅ Installed | New file (220 lines) |
 | interface.py | v1.0.0 | ✅ Installed | +15 (registration) |
-| note.py | v2.4 | ✅ Installed | date shadowing fix (5.1) |
+| note.py | v2.5 | ✅ Installed | date shadowing fix, condense prompt (5.1) |
 
 ### **Phase 5 AI/Database:**
 | File | Version | Status | Lines Changed |
@@ -464,10 +464,11 @@ cp clockify/sync.py workmain/integrations/clockify/
 | File | Previous | New | Changes |
 |------|----------|-----|---------|
 | workmain/cli/commands/track.py | v1.5 | v1.6 | Fixed get_session() NameError in sync push/pull/both; added --show-ids group-level option to time command; added --tags flag and auto-note creation on track add |
-| workmain/cli/commands/note.py | v2.3 | v2.4 | Fixed date() function shadowing datetime.date in notes date command |
+| workmain/cli/commands/note.py | v2.3 | v2.5 | Fixed date() function shadowing; added condense + time entry prompt after note meeting |
 | workmain/ai/note_condenser.py | v1.2 | v1.3 | Filter out info-only (#ifo) notes from condensation and needs_condensation check |
 | workmain/integrations/clockify/client.py | v1.0 | v1.1 | Removed UTC 'Z' suffix from time entries; send naive local datetimes for workspace-local interpretation |
 | workmain/integrations/clockify/sync.py | v1.0 | v1.1 | Convert UTC times from Clockify to local timezone on pull operations |
+| workmain/cli/commands/meetings.py | v2.6 | v2.7 | meetings track duplicate check + condensed summary; meeting condense creates note and time entry |
 
 ### Bugs Fixed:
 1. **Bug 1:** `workmain time --show-ids` — added group-level option with Click context passing
@@ -476,6 +477,9 @@ cp clockify/sync.py workmain/integrations/clockify/
 4. **Bug 4:** Clockify sync wrong timezone — removed 'Z' suffix, local time interpretation
 5. **Bug 5:** `workmain notes date yesterday` AttributeError — fixed date class shadowing
 6. **Bug 6:** Track entries not visible in notes — auto-create note on track add with --tags support
+7. **Bug 7:** `meetings track` creates duplicate time entries — added duplicate check with warn/skip
+8. **Bug 8:** `meeting condense` summary not visible — now creates note and updates/creates time entry
+9. **Bug 9:** `note meeting` missing condense prompt — added condense + time entry prompt after notes
 
 ---
 

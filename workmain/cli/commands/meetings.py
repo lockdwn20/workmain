@@ -1,7 +1,7 @@
 """
 WorkmAIn Meeting CLI Commands
-Meeting Commands v2.6
-20260127
+Meeting Commands v2.7
+20260202
 
 CLI commands for meeting management.
 
@@ -14,6 +14,8 @@ Version History:
 - v2.4: Phase 5.1 - Added meetings delete alias for improved discoverability
 - v2.5: Phase 5.1 - Added meetings track command for creating time entries
 - v2.6: Phase 5.1 - Fixed help text formatting with \b escape sequence
+- v2.7: Phase 5.1 - meetings track checks for duplicates, uses condensed summary;
+        meeting condense creates note and updates/creates time entry
 """
 
 import click
@@ -561,9 +563,27 @@ def track(title_or_id: str, date: Optional[datetime]):
         from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
         time_repo = TimeEntriesRepository(session)
 
+        # Check for existing time entry for this meeting on this date
+        existing = time_repo.get_by_meeting(meeting.id)
+        meeting_date = meeting.start_time.date()
+        existing_today = [e for e in existing if e.entry_date == meeting_date]
+
+        if existing_today:
+            console.print(f"\n[yellow]⚠ Time entry already exists for this meeting on {meeting_date}:[/yellow]")
+            for e in existing_today:
+                console.print(f"  [ID: {e.id}] {e.description} ({e.duration_hours}h)")
+            if not click.confirm("\nCreate another entry?", default=False):
+                console.print("Skipped.")
+                return
+
+        # Use condensed summary as default description if available
+        default_desc = f"Meeting: {meeting.title}"
+        if meeting.condensed_summary:
+            default_desc = meeting.condensed_summary
+
         description = click.prompt(
             "Description",
-            default=f"Meeting: {meeting.title}"
+            default=default_desc
         )
 
         entry = time_repo.create(
@@ -672,7 +692,48 @@ def condense(meeting_title: str):
             console.print(f"  \"{summary}\"")
             console.print()
             console.print(f"[dim]Cost: ${total_cost:.6f} ({total_tokens} tokens)[/dim]")
-            console.print(f"[dim]Stored in meeting record[/dim]")
+
+            # Create a note from the condensed summary
+            from workmain.database.repositories.notes_repo import NotesRepository
+            notes_repo = NotesRepository(session)
+            condensed_note = notes_repo.create(
+                content=summary,
+                tags=['both'],
+                meeting_id=meeting.id,
+                source='meeting'
+            )
+            console.print(f"[green]✓ Note created (ID: {condensed_note.id})[/green]")
+
+            # Update or create time entry with condensed summary
+            from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+            time_repo = TimeEntriesRepository(session)
+
+            existing = time_repo.get_by_meeting(meeting.id)
+            meeting_date = meeting.start_time.date()
+            existing_today = [e for e in existing if e.entry_date == meeting_date]
+
+            if existing_today:
+                # Update existing time entry description with condensed summary
+                entry = existing_today[0]
+                entry.description = summary
+                session.commit()
+                console.print(f"[green]✓ Time entry (ID: {entry.id}) updated with condensed summary[/green]")
+            else:
+                # Create new time entry from meeting
+                duration_hours = (
+                    meeting.end_time - meeting.start_time
+                ).total_seconds() / 3600
+
+                entry = time_repo.create(
+                    description=summary,
+                    duration_hours=duration_hours,
+                    entry_date=meeting.start_time.date(),
+                    entry_time=meeting.start_time.time(),
+                    category='meeting',
+                    meeting_id=meeting.id
+                )
+                console.print(f"[green]✓ Time entry created (ID: {entry.id}, {duration_hours:.2f}h)[/green]")
+
             console.print()
             
         except ValueError as e:

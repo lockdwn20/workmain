@@ -1,6 +1,6 @@
 """
 WorkmAIn Note CLI Commands
-Note Commands v2.4
+Note Commands v2.5
 20260202
 
 CLI commands for note management with tag support and meeting integration.
@@ -13,6 +13,7 @@ Version History:
 - v2.2: Phase 5.1 - Time tracking prompt when adding notes to meetings
 - v2.3: Phase 5.1 - Fixed help text formatting with \b escape sequence
 - v2.4: Phase 5.1 - Fixed date() function shadowing datetime.date in notes date command
+- v2.5: Phase 5.1 - Added condense + time entry prompt at end of note meeting command
 """
 
 import click
@@ -610,11 +611,65 @@ def meeting(meeting: str):
         click.echo()
         click.echo(f"✓ Created {created_count} of {len(note_lines)} note(s)")
         click.echo()
-        
+
+        # Prompt to condense notes and create time entry
+        if created_count > 0 and click.confirm("Condense notes and create time entry?", default=True):
+            try:
+                from workmain.ai.note_condenser import get_note_condenser
+                from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+
+                click.echo("\nSending to Claude...")
+                condenser = get_note_condenser(session)
+                summary = condenser.condense_meeting(meeting_obj)
+                click.echo(f"✓ Condensed: \"{summary}\"")
+
+                # Create note from condensed summary
+                condensed_note = notes_repo.create(
+                    content=summary,
+                    tags=['both'],
+                    meeting_id=meeting_obj.id,
+                    source='meeting'
+                )
+                click.echo(f"✓ Note created (ID: {condensed_note.id})")
+
+                # Update or create time entry
+                time_repo = TimeEntriesRepository(session)
+                existing = time_repo.get_by_meeting(meeting_obj.id)
+                meeting_date = meeting_obj.start_time.date()
+                existing_today = [e for e in existing if e.entry_date == meeting_date]
+
+                if existing_today:
+                    entry = existing_today[0]
+                    entry.description = summary
+                    session.commit()
+                    click.echo(f"✓ Time entry (ID: {entry.id}) updated with condensed summary")
+                else:
+                    duration_hours = (
+                        meeting_obj.end_time - meeting_obj.start_time
+                    ).total_seconds() / 3600
+
+                    entry = time_repo.create(
+                        description=summary,
+                        duration_hours=duration_hours,
+                        entry_date=meeting_obj.start_time.date(),
+                        entry_time=meeting_obj.start_time.time(),
+                        category='meeting',
+                        meeting_id=meeting_obj.id
+                    )
+                    click.echo(f"✓ Time entry created (ID: {entry.id}, {duration_hours:.2f}h)")
+
+                click.echo()
+
+            except Exception as e:
+                click.echo(f"\n✗ Condensation failed: {e}")
+                click.echo("You can condense later with:")
+                click.echo(f"  workmain meeting condense \"{meeting_obj.title}\"")
+                click.echo()
+
     except Exception as e:
         click.echo(f"\n✗ Error: {e}")
         click.echo()
-    
+
     finally:
         session.close()
 

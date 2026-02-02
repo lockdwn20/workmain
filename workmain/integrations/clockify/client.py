@@ -10,7 +10,8 @@ API Documentation: https://docs.clockify.me
 
 Version History:
 - v1.0: Initial implementation with create, get, and PDF retrieval
-- v1.1: Phase 5.1 - Removed UTC 'Z' suffix from time entries; send naive local datetimes
+- v1.1: Phase 5.1 - Convert local times to UTC before sending to Clockify;
+        improved error reporting with Clockify response body
 """
 
 import requests
@@ -120,11 +121,23 @@ class ClockifyClient:
         duration_seconds = int(float(duration_hours) * 3600)
         end_time = start_time + timedelta(seconds=duration_seconds)
         
-        # Format times for Clockify (ISO 8601, no timezone suffix)
-        # Clockify workspace is set to local timezone, so naive datetimes
-        # are interpreted as workspace-local time
-        start_iso = start_time.isoformat()
-        end_iso = end_time.isoformat()
+        # Format times for Clockify (ISO 8601 with Z suffix required)
+        # Clockify API requires UTC times with 'Z' suffix
+        # If start_time is naive (no tzinfo), assume local timezone and convert to UTC
+        if start_time.tzinfo is None:
+            # Localize to system timezone, then convert to UTC
+            local_start = start_time.astimezone()
+            local_end = end_time.astimezone()
+            from datetime import timezone
+            start_utc = local_start.astimezone(timezone.utc)
+            end_utc = local_end.astimezone(timezone.utc)
+        else:
+            from datetime import timezone
+            start_utc = start_time.astimezone(timezone.utc)
+            end_utc = end_time.astimezone(timezone.utc)
+
+        start_iso = start_utc.strftime('%Y-%m-%dT%H:%M:%SZ')
+        end_iso = end_utc.strftime('%Y-%m-%dT%H:%M:%SZ')
         
         payload = {
             "start": start_iso,
@@ -135,8 +148,17 @@ class ClockifyClient:
         }
         
         response = requests.post(url, headers=headers, json=payload)
-        response.raise_for_status()
-        
+        if not response.ok:
+            # Include Clockify's error message in the exception
+            try:
+                error_detail = response.json()
+            except Exception:
+                error_detail = response.text
+            raise requests.exceptions.HTTPError(
+                f"{response.status_code} {response.reason}: {error_detail}",
+                response=response
+            )
+
         return response.json()
     
     def get_time_entries(
