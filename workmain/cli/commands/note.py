@@ -1,7 +1,7 @@
 """
 WorkmAIn Note CLI Commands
-Note Commands v2.3
-20260127
+Note Commands v2.4
+20260202
 
 CLI commands for note management with tag support and meeting integration.
 
@@ -12,6 +12,7 @@ Version History:
 - v2.1: Phase 5.1 - Meeting IDs and dates always visible in pickers
 - v2.2: Phase 5.1 - Time tracking prompt when adding notes to meetings
 - v2.3: Phase 5.1 - Fixed help text formatting with \b escape sequence
+- v2.4: Phase 5.1 - Fixed date() function shadowing datetime.date in notes date command
 """
 
 import click
@@ -693,9 +694,9 @@ def date(target_date: Optional[str], show_ids: bool):
     try:
         # Parse date
         if not target_date or target_date == 'today':
-            query_date = date.today()
+            query_date = datetime.now().date()
         elif target_date == 'yesterday':
-            query_date = date.today() - timedelta(days=1)
+            query_date = datetime.now().date() - timedelta(days=1)
         else:
             try:
                 query_date = datetime.strptime(target_date, '%Y-%m-%d').date()

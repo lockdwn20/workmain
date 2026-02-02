@@ -1,13 +1,14 @@
 """
 WorkmAIn Clockify Integration
 Sync Engine
-v1.0
-20260115
+v1.1
+20260202
 
 Bidirectional sync between WorkmAIn and Clockify with conflict resolution.
 
 Version History:
 - v1.0: Initial implementation with push, pull, and interactive conflict resolution
+- v1.1: Phase 5.1 - Convert UTC times from Clockify to local timezone on pull
 """
 
 from typing import List, Dict, Any, Optional, Tuple
@@ -213,11 +214,12 @@ class ClockifySync:
         Returns:
             SyncConflict if conflict found, None otherwise
         """
-        # Parse Clockify entry time
+        # Parse Clockify entry time (UTC) and convert to local timezone
         start_str = clockify_entry['timeInterval']['start']
         start_dt = datetime.fromisoformat(start_str.replace('Z', '+00:00'))
-        entry_date = start_dt.date()
-        entry_time = start_dt.time()
+        start_local = start_dt.astimezone()
+        entry_date = start_local.date()
+        entry_time = start_local.time().replace(tzinfo=None)
         
         # Check for overlapping local entries
         local_entries = self.repo.get_by_date(entry_date)
@@ -266,10 +268,10 @@ class ClockifySync:
         clockify = conflict.clockify_entry
         start_str = clockify['timeInterval']['start']
         end_str = clockify['timeInterval']['end']
-        start_dt = datetime.fromisoformat(start_str.replace('Z', '+00:00'))
-        end_dt = datetime.fromisoformat(end_str.replace('Z', '+00:00'))
+        start_dt = datetime.fromisoformat(start_str.replace('Z', '+00:00')).astimezone()
+        end_dt = datetime.fromisoformat(end_str.replace('Z', '+00:00')).astimezone()
         duration = (end_dt - start_dt).total_seconds() / 3600
-        
+
         print(f"\nClockify Entry (ID: {clockify['id'][:8]}...):")
         print(f"  Date: {start_dt.date()}")
         print(f"  Time: {start_dt.time()}")
@@ -304,22 +306,22 @@ class ClockifySync:
         Returns:
             TimeEntry: Created local entry
         """
-        # Parse time data
+        # Parse time data (UTC) and convert to local timezone
         start_str = clockify_entry['timeInterval']['start']
         end_str = clockify_entry['timeInterval']['end']
-        start_dt = datetime.fromisoformat(start_str.replace('Z', '+00:00'))
-        end_dt = datetime.fromisoformat(end_str.replace('Z', '+00:00'))
-        
+        start_dt = datetime.fromisoformat(start_str.replace('Z', '+00:00')).astimezone()
+        end_dt = datetime.fromisoformat(end_str.replace('Z', '+00:00')).astimezone()
+
         # Calculate duration
         duration_seconds = (end_dt - start_dt).total_seconds()
         duration_hours = Decimal(str(duration_seconds / 3600))
-        
-        # Create local entry
+
+        # Create local entry with local date/time
         entry = self.repo.create(
             description=clockify_entry.get('description', 'Imported from Clockify'),
             duration_hours=duration_hours,
             entry_date=start_dt.date(),
-            entry_time=start_dt.time(),
+            entry_time=start_dt.time().replace(tzinfo=None),
             clockify_id=clockify_entry['id'],
             tags=clockify_entry.get('tags', [])
         )

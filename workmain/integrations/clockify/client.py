@@ -1,8 +1,8 @@
 """
 WorkmAIn Clockify Integration
 API Client
-v1.0
-20260115
+v1.1
+20260202
 
 Clockify API client for time entry management and report retrieval.
 
@@ -10,6 +10,7 @@ API Documentation: https://docs.clockify.me
 
 Version History:
 - v1.0: Initial implementation with create, get, and PDF retrieval
+- v1.1: Phase 5.1 - Removed UTC 'Z' suffix from time entries; send naive local datetimes
 """
 
 import requests
@@ -119,9 +120,11 @@ class ClockifyClient:
         duration_seconds = int(float(duration_hours) * 3600)
         end_time = start_time + timedelta(seconds=duration_seconds)
         
-        # Format times for Clockify (ISO 8601)
-        start_iso = start_time.isoformat() + 'Z'
-        end_iso = end_time.isoformat() + 'Z'
+        # Format times for Clockify (ISO 8601, no timezone suffix)
+        # Clockify workspace is set to local timezone, so naive datetimes
+        # are interpreted as workspace-local time
+        start_iso = start_time.isoformat()
+        end_iso = end_time.isoformat()
         
         payload = {
             "start": start_iso,

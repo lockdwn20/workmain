@@ -1,7 +1,7 @@
 """
 WorkmAIn Track CLI Commands
-Track Commands v1.5
-20260127
+Track Commands v1.6
+20260202
 
 CLI commands for time tracking with 24-hour format support and Clockify sync.
 
@@ -15,6 +15,9 @@ Version History:
         Time entries can now link to meetings with optional note creation
 - v1.4: Phase 5.1 - Migrated to get_db() session management pattern
 - v1.5: Phase 5.1 - Fixed help text formatting with \b escape sequence
+- v1.6: Phase 5.1 - Fixed get_session() NameError in sync push/pull/both;
+        added --show-ids group-level option to time command; added --tags flag
+        and auto-note creation on track add
 """
 
 import click
@@ -126,18 +129,22 @@ def track():
 @click.option('--project', '-p', type=int, help='Project ID')
 @click.option('--meeting', '-m', help='Link to meeting (title or ID)')
 @click.option('--notes', '-n', help='Create note for meeting (requires --meeting)')
+@click.option('--tags', help='Tags for auto-created note (comma-separated, e.g., ilo,cf)')
 def track_add(description: str, duration: str, time: Optional[str],
               date: Optional[str], category: Optional[str], project: Optional[int],
-              meeting: Optional[str], notes: Optional[str]):
+              meeting: Optional[str], notes: Optional[str], tags: Optional[str]):
     """
     Log a time entry with optional meeting and notes linkage.
+
+    A note is automatically created for each time entry. Use --tags to
+    specify tags (default: internal-only).
 
     \b
     Examples:
       workmain track add "Fixed login bug" 2h --time 14:30
       workmain track add "Team meeting" 1.5h -t 1430 -m "Daily Standup"
       workmain track add "Meeting time" 1h -m 42 -n "Discussed features"
-      workmain track add "Code review" 30m --time 15:00 -p 5
+      workmain track add "Code review" 30m --time 15:00 --tags ilo,cf
     """
     # Validate --notes requires --meeting
     if notes and not meeting:
@@ -234,14 +241,26 @@ def track_add(description: str, duration: str, time: Optional[str],
         if meeting_obj:
             click.echo(f"  Linked to meeting: [#{meeting_obj.id}] {meeting_obj.title}")
 
-        # Handle --notes if provided
-        if notes and meeting_obj:
-            from workmain.database.repositories.notes_repo import NotesRepository
-            notes_repo = NotesRepository(session)
+        # Parse tags for note creation
+        from workmain.database.repositories.notes_repo import NotesRepository
+        from workmain.utils.tag_utils import parse_tags
+        notes_repo = NotesRepository(session)
 
+        note_tags = ['internal-only']  # Default tag
+        if tags:
+            tag_parts = [t.strip() for t in tags.split(',')]
+            tag_string = ' '.join(f'#{t}' for t in tag_parts)
+            _, parsed_tags, invalid = parse_tags(tag_string, apply_default=False)
+            if invalid:
+                click.echo(f"  ⚠ Unknown tags ignored: {', '.join(invalid)}")
+            if parsed_tags:
+                note_tags = parsed_tags
+
+        # Handle --notes if provided (meeting-linked note with custom content)
+        if notes and meeting_obj:
             note = notes_repo.create(
                 content=notes,
-                tags=['internal-only'],
+                tags=note_tags,
                 meeting_id=meeting_obj.id
             )
 
@@ -249,19 +268,34 @@ def track_add(description: str, duration: str, time: Optional[str],
 
         # Suggest adding notes if --meeting but no --notes
         elif meeting_obj and not notes:
-            if click.confirm(f"\nAdd notes to this meeting?", default=False):
+            # Auto-create note from description linked to meeting
+            note = notes_repo.create(
+                content=description,
+                tags=note_tags,
+                source='meeting',
+                meeting_id=meeting_obj.id
+            )
+            click.echo(f"✓ Note created (ID: {note.id}) linked to meeting [#{meeting_obj.id}]")
+
+            if click.confirm(f"\nAdd additional notes to this meeting?", default=False):
                 note_content = click.prompt("Enter note content")
 
-                from workmain.database.repositories.notes_repo import NotesRepository
-                notes_repo = NotesRepository(session)
-
-                note = notes_repo.create(
+                extra_note = notes_repo.create(
                     content=note_content,
-                    tags=['internal-only'],
+                    tags=note_tags,
                     meeting_id=meeting_obj.id
                 )
 
-                click.echo(f"✓ Note created (ID: {note.id}) and linked to meeting [#{meeting_obj.id}]")
+                click.echo(f"✓ Note created (ID: {extra_note.id}) and linked to meeting [#{meeting_obj.id}]")
+
+        # No meeting - create standalone note from description
+        else:
+            note = notes_repo.create(
+                content=description,
+                tags=note_tags,
+                source='task'
+            )
+            click.echo(f"✓ Note created (ID: {note.id})")
 
         # Prompt for Clockify sync
         click.echo()
@@ -425,12 +459,13 @@ def push(all, date, silent):
       workmain track sync push -d 2026-01-15
       workmain track sync push -a
     """
-    session = get_session()
-    
+    db = get_db()
+    session = db.get_session()
+
     try:
         sync_engine = ClockifySync(session)
         repo = TimeEntriesRepository(session)
-        
+
         # Get entries to push
         if date:
             entries = repo.get_by_date(date.date())
@@ -505,11 +540,12 @@ def pull(start, end, silent):
       workmain track sync pull -s 2026-01-15
       workmain track sync pull -s 2026-01-01 -e 2026-01-31
     """
-    session = get_session()
-    
+    db = get_db()
+    session = db.get_session()
+
     try:
         sync_engine = ClockifySync(session)
-        
+
         # Determine date range
         if not start:
             start_date = date.today()
@@ -567,8 +603,9 @@ def both(date):
       workmain track sync both
       workmain track sync both -d 2026-01-15
     """
-    session = get_session()
-    
+    db = get_db()
+    session = db.get_session()
+
     try:
         sync_date = date.date() if date else datetime.today().date()
         
@@ -610,24 +647,30 @@ def both(date):
 
 
 @click.group()
-def time():
+@click.option('--show-ids', is_flag=True, help='Show entry IDs')
+@click.pass_context
+def time(ctx, show_ids: bool):
     """View time entries and summaries."""
-    pass
+    ctx.ensure_object(dict)
+    ctx.obj['show_ids'] = show_ids
 
 
 @time.command('today')
 @click.option('--show-ids', is_flag=True, help='Show entry IDs')
 @click.option('--category', '-c', help='Filter by category')
-def time_today(show_ids: bool, category: Optional[str]):
+@click.pass_context
+def time_today(ctx, show_ids: bool, category: Optional[str]):
     """
     Show today's time entries.
 
     \b
     Examples:
       workmain time today
+      workmain time --show-ids today
       workmain time today --show-ids
       workmain time today -c development
     """
+    show_ids = show_ids or ctx.obj.get('show_ids', False)
     db = get_db()
     session = db.get_session()
     repo = TimeEntriesRepository(session)
@@ -658,15 +701,18 @@ def time_today(show_ids: bool, category: Optional[str]):
 @time.command('week')
 @click.option('--show-ids', is_flag=True, help='Show entry IDs')
 @click.option('--category', '-c', help='Filter by category')
-def time_week(show_ids: bool, category: Optional[str]):
+@click.pass_context
+def time_week(ctx, show_ids: bool, category: Optional[str]):
     """
     Show this week's time entries (Monday-Friday).
 
     \b
     Examples:
       workmain time week
+      workmain time --show-ids week
       workmain time week -c meeting
     """
+    show_ids = show_ids or ctx.obj.get('show_ids', False)
     db = get_db()
     session = db.get_session()
     repo = TimeEntriesRepository(session)
@@ -714,16 +760,18 @@ def time_week(show_ids: bool, category: Optional[str]):
 @click.argument('target_date', required=False)
 @click.option('--show-ids', is_flag=True, help='Show entry IDs')
 @click.option('--category', '-c', help='Filter by category')
-def time_date(target_date: Optional[str], show_ids: bool, category: Optional[str]):
+@click.pass_context
+def time_date(ctx, target_date: Optional[str], show_ids: bool, category: Optional[str]):
     """
     Show time entries for a specific date.
 
     \b
     Examples:
       workmain time date 2025-12-20
-      workmain time date yesterday
+      workmain time --show-ids date yesterday
       workmain time date today
     """
+    show_ids = show_ids or ctx.obj.get('show_ids', False)
     db = get_db()
     session = db.get_session()
     repo = TimeEntriesRepository(session)

@@ -422,24 +422,25 @@ cp clockify/sync.py workmain/integrations/clockify/
 ### **Phase 5 CLI Commands:**
 | File | Version | Status | Lines Changed |
 |------|---------|--------|---------------|
-| track.py | v1.2 | ✅ Installed | +200 (sync commands) |
-| meetings.py | v2.1 | ✅ Installed | +100 (recurring) |
-| clockify.py | v1.1 | ✅ Installed | New file (220 lines) |
+| track.py | v1.6 | ✅ Installed | +200 (sync), +tags/notes (5.1) |
+| meetings.py | v2.6 | ✅ Installed | +100 (recurring) |
+| clockify.py | v1.2 | ✅ Installed | New file (220 lines) |
 | interface.py | v1.0.0 | ✅ Installed | +15 (registration) |
+| note.py | v2.4 | ✅ Installed | date shadowing fix (5.1) |
 
 ### **Phase 5 AI/Database:**
 | File | Version | Status | Lines Changed |
 |------|---------|--------|---------------|
-| note_condenser.py | v1.2 | ✅ Installed | +30 (writing style) |
+| note_condenser.py | v1.3 | ✅ Installed | +30 (writing style), ifo filter (5.1) |
 | time_entries_repo.py | v1.3 | ✅ Installed | +25 (sync methods) |
 
-### **Phase 5 Integration (Not Yet Installed):**
+### **Phase 5 Integration:**
 | File | Version | Status | Lines |
 |------|---------|--------|-------|
-| clockify/__init__.py | v1.0 | 📦 Ready | 50 |
-| clockify/auth.py | v1.0 | 📦 Ready | 200 |
-| clockify/client.py | v1.0 | 📦 Ready | 400 |
-| clockify/sync.py | v1.0 | 📦 Ready | 650 |
+| clockify/__init__.py | v1.0 | ✅ Installed | 50 |
+| clockify/auth.py | v1.0 | ✅ Installed | 200 |
+| clockify/client.py | v1.1 | ✅ Installed | 400 (TZ fix 5.1) |
+| clockify/sync.py | v1.1 | ✅ Installed | 650 (TZ fix 5.1) |
 
 ### **Phase 5 Documentation:**
 | File | Version | Status |
@@ -450,6 +451,31 @@ cp clockify/sync.py workmain/integrations/clockify/
 | PHASE5_SUMMARY.md | v1.0 | 📄 Reference |
 | QUICK_REFERENCE.md | v1.0 | 📄 Reference |
 | PHASE5_DEPENDENCIES.md | v1.0 | 📄 Reference |
+
+---
+
+## 📋 PHASE 5.1 BUG FIXES (2026-02-02)
+
+**Session Focus:** Operational test bug fixes from test_notes-20260202.md
+**Date:** February 2, 2026
+
+### Files Updated This Session:
+
+| File | Previous | New | Changes |
+|------|----------|-----|---------|
+| workmain/cli/commands/track.py | v1.5 | v1.6 | Fixed get_session() NameError in sync push/pull/both; added --show-ids group-level option to time command; added --tags flag and auto-note creation on track add |
+| workmain/cli/commands/note.py | v2.3 | v2.4 | Fixed date() function shadowing datetime.date in notes date command |
+| workmain/ai/note_condenser.py | v1.2 | v1.3 | Filter out info-only (#ifo) notes from condensation and needs_condensation check |
+| workmain/integrations/clockify/client.py | v1.0 | v1.1 | Removed UTC 'Z' suffix from time entries; send naive local datetimes for workspace-local interpretation |
+| workmain/integrations/clockify/sync.py | v1.0 | v1.1 | Convert UTC times from Clockify to local timezone on pull operations |
+
+### Bugs Fixed:
+1. **Bug 1:** `workmain time --show-ids` — added group-level option with Click context passing
+2. **Bug 2:** Condensed summary included #ifo notes — added tag filter to queries
+3. **Bug 3:** `workmain track sync push` NameError — replaced get_session() with get_db() pattern
+4. **Bug 4:** Clockify sync wrong timezone — removed 'Z' suffix, local time interpretation
+5. **Bug 5:** `workmain notes date yesterday` AttributeError — fixed date class shadowing
+6. **Bug 6:** Track entries not visible in notes — auto-create note on track add with --tags support
 
 ---
 

@@ -1,7 +1,7 @@
 """
 WorkmAIn Note Condenser
-Note Condenser v1.2
-20260115
+Note Condenser v1.3
+20260202
 
 AI-powered condensation of meeting notes into one-line summaries for Clockify.
 
@@ -12,6 +12,7 @@ Version History:
 - v1.0: Initial implementation with Claude integration
 - v1.1: Fixed session attachment issue - now queries meeting from database
 - v1.2: Added writing style context integration for consistent voice (Phase 5)
+- v1.3: Phase 5.1 - Filter out info-only (#ifo) notes from condensation
 """
 
 import json
@@ -96,9 +97,10 @@ class NoteCondenser:
         if not db_meeting:
             raise ValueError(f"Meeting with ID {meeting.id} not found in database")
         
-        # Get all notes for this meeting
+        # Get all notes for this meeting, excluding info-only (#ifo) notes
         notes = self.session.query(Note).filter(
-            Note.meeting_id == db_meeting.id
+            Note.meeting_id == db_meeting.id,
+            ~Note.tags.op('@>')(['info-only'])
         ).order_by(Note.created_at).all()
         
         if not notes:
@@ -286,9 +288,10 @@ Do not include pleasantries or unnecessary words. Be direct and informative."""
         Returns:
             True if condensation needed
         """
-        # Get notes
+        # Get notes, excluding info-only (#ifo) notes
         notes = self.session.query(Note).filter(
-            Note.meeting_id == meeting.id
+            Note.meeting_id == meeting.id,
+            ~Note.tags.op('@>')(['info-only'])
         ).all()
         
         if not notes:
