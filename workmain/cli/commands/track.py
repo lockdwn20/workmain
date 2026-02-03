@@ -1,6 +1,6 @@
 """
 WorkmAIn Track CLI Commands
-Track Commands v1.7
+Track Commands v1.8
 20260203
 
 CLI commands for time tracking with 24-hour format support and Clockify sync.
@@ -20,6 +20,8 @@ Version History:
         and auto-note creation on track add
 - v1.7: Phase 5.1 - Added source='meeting' for --meeting --notes path;
         clarified --tags help text to indicate it replaces default tag
+- v1.8: Phase 5.1 - Made --time required to prevent NULL entry_time sync crashes;
+        updated help text to clarify command purpose vs note meeting workflow
 """
 
 import click
@@ -125,28 +127,28 @@ def track():
 @track.command('add')
 @click.argument('description')
 @click.argument('duration')
-@click.option('--time', '-t', help='Time in 24hr format (14:30 or 1430) or AM/PM (2:30pm or 230pm)')
+@click.option('--time', '-t', required=True, help='Start time in 24hr format (14:30 or 1430) or AM/PM (2:30pm or 230pm)')
 @click.option('--date', '-d', help='Date (YYYY-MM-DD, default: today)')
 @click.option('--category', '-c', help='Category (e.g., development, meeting)')
 @click.option('--project', '-p', type=int, help='Project ID')
 @click.option('--meeting', '-m', help='Link to meeting (title or ID)')
 @click.option('--notes', '-n', help='Create note for meeting (requires --meeting)')
 @click.option('--tags', help='Tags for note (comma-separated, e.g., ilo,cf). Replaces default tag (ilo).')
-def track_add(description: str, duration: str, time: Optional[str],
+def track_add(description: str, duration: str, time: str,
               date: Optional[str], category: Optional[str], project: Optional[int],
               meeting: Optional[str], notes: Optional[str], tags: Optional[str]):
     """
-    Log a time entry with optional meeting and notes linkage.
+    Log a time entry with optional meeting linkage.
 
-    A note is automatically created for each time entry. Use --tags to
-    specify tags (default: internal-only).
+    A note is automatically created for each time entry. When using
+    --meeting, the note is linked to that meeting. For detailed meeting
+    notes, use 'workmain note meeting' instead.
 
     \b
     Examples:
-      workmain track add "Fixed login bug" 2h --time 14:30
+      workmain track add "Fixed login bug" 2h -t 14:30
       workmain track add "Team meeting" 1.5h -t 1430 -m "Daily Standup"
-      workmain track add "Meeting time" 1h -m 42 -n "Discussed features"
-      workmain track add "Code review" 30m --time 15:00 --tags ilo,cf
+      workmain track add "Meeting time" 1h -t 09:00 -m 42 -n "Discussed features"
     """
     # Validate --notes requires --meeting
     if notes and not meeting:
@@ -164,16 +166,14 @@ def track_add(description: str, duration: str, time: Optional[str],
         except ValueError as e:
             click.echo(f"✗ {e}")
             return
-        
-        # Parse time if provided
-        entry_time = None
-        if time:
-            try:
-                entry_time = repo.parse_time(time)
-            except ValueError as e:
-                click.echo(f"✗ {e}")
-                return
-        
+
+        # Parse time (required)
+        try:
+            entry_time = repo.parse_time(time)
+        except ValueError as e:
+            click.echo(f"✗ {e}")
+            return
+
         # Parse date if provided
         entry_date = datetime.today().date()
         if date:
@@ -236,8 +236,7 @@ def track_add(description: str, duration: str, time: Optional[str],
         # Success message
         click.echo(f"✓ Time entry added (ID: {entry.id})")
         click.echo(f"  {duration_hours}h - {description}")
-        if entry_time:
-            click.echo(f"  Time: {entry.display_time}")
+        click.echo(f"  Time: {entry.display_time}")
         if category:
             click.echo(f"  Category: {category}")
         if meeting_obj:

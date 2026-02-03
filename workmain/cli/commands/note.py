@@ -1,6 +1,6 @@
 """
 WorkmAIn Note CLI Commands
-Note Commands v2.6
+Note Commands v2.7
 20260203
 
 CLI commands for note management with tag support and meeting integration.
@@ -15,6 +15,7 @@ Version History:
 - v2.4: Phase 5.1 - Fixed date() function shadowing datetime.date in notes date command
 - v2.5: Phase 5.1 - Added condense + time entry prompt at end of note meeting command
 - v2.6: Phase 5.1 - Show date/time in meeting picker to distinguish recurring meetings
+- v2.7: Phase 5.1 - Updated help text to clarify note meeting as primary workflow
 """
 
 import click
@@ -466,8 +467,10 @@ def meeting(meeting: str):
     """
     Add multiple notes to a meeting interactively.
 
-    Opens an editor or interactive prompt for bulk note entry.
-    Each line becomes a separate note with its own tags.
+    This is the PRIMARY workflow for meeting documentation:
+    1. Opens an editor for bulk note entry
+    2. Each line becomes a separate note with its own tags
+    3. After saving, prompts to create a time entry with condensed summary
 
     \b
     Examples:

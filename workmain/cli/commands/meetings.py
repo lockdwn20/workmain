@@ -1,6 +1,6 @@
 """
 WorkmAIn Meeting CLI Commands
-Meeting Commands v2.8
+Meeting Commands v2.9
 20260203
 
 CLI commands for meeting management.
@@ -17,6 +17,7 @@ Version History:
 - v2.7: Phase 5.1 - meetings track checks for duplicates, uses condensed summary;
         meeting condense creates note and updates/creates time entry
 - v2.8: Phase 5.1 - Show date/time in meeting picker to distinguish recurring meetings
+- v2.9: Phase 5.1 - Updated help text to clarify meetings track vs note meeting workflow
 """
 
 import click
@@ -505,15 +506,16 @@ def delete(meeting_id: int, delete_notes: bool):
               help='Meeting date (for recurring meetings)')
 def track(title_or_id: str, date: Optional[datetime]):
     """
-    Create a time entry from a meeting.
+    Create a time entry from an existing meeting.
 
-    Automatically calculates duration from meeting start/end times.
+    Uses the meeting's condensed summary (or generates one) as the
+    time entry description. For meetings that already have notes but
+    have not been tracked.
 
     \b
     Examples:
-      workmain meetings track "Daily Standup"
-      workmain meetings track 42
-      workmain meetings track "Weekly Review" --date 2026-01-20
+      workmain meetings track "Team Standup"
+      workmain meetings track "Daily Standup" --date 2026-01-20
     """
     db = get_db()
     session = db.get_session()
