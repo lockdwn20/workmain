@@ -469,6 +469,7 @@ cp clockify/sync.py workmain/integrations/clockify/
 | workmain/integrations/clockify/client.py | v1.0 | v1.1 | Removed UTC 'Z' suffix from time entries; send naive local datetimes for workspace-local interpretation |
 | workmain/integrations/clockify/sync.py | v1.0 | v1.1 | Convert UTC times from Clockify to local timezone on pull operations |
 | workmain/cli/commands/meetings.py | v2.6 | v2.7 | meetings track duplicate check + condensed summary; meeting condense creates note and time entry |
+| workmain/ai/prompt_builder.py | v1.2 | v1.3 | Fixed meeting.duration_minutes, entry.duration_hours, entry_time, attendees count |
 
 ### Bugs Fixed:
 1. **Bug 1:** `workmain time --show-ids` — added group-level option with Click context passing
@@ -480,6 +481,7 @@ cp clockify/sync.py workmain/integrations/clockify/
 7. **Bug 7:** `meetings track` creates duplicate time entries — added duplicate check with warn/skip
 8. **Bug 8:** `meeting condense` summary not visible — now creates note and updates/creates time entry
 9. **Bug 9:** `note meeting` missing condense prompt — added condense + time entry prompt after notes
+10. **Bug 10:** `workmain report daily --send` AttributeError — prompt_builder referenced non-existent model attributes (duration_minutes, start_time/end_time on TimeEntry)
 
 ---
 

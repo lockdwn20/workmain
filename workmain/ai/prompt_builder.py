@@ -1,7 +1,7 @@
 """
 WorkmAIn AI Prompt Builder
-Prompt Builder v1.2
-20251229
+Prompt Builder v1.3
+20260202
 
 Dynamic prompt construction for AI report generation.
 
@@ -16,8 +16,10 @@ Features:
 Version History:
 - v1.0: Initial implementation
 - v1.1: Fixed to use StyleAdapter.get_style_prompt() instead of non-existent get_style_for_ai()
-- v1.2: Fixed repository method names (get_date_range not get_by_date_range), 
+- v1.2: Fixed repository method names (get_date_range not get_by_date_range),
         meetings query directly since no get_date_range method exists
+- v1.3: Phase 5.1 - Fixed meeting.duration_minutes (computed from start/end),
+        entry.duration_hours (was duration_minutes), attendees count
 
 Workflow:
 1. Load template structure
@@ -285,14 +287,14 @@ class PromptBuilder:
             time_entries = self._get_time_entries(start_date, end_date)
             if time_entries:
                 parts.append("\n### Time Tracking:")
-                total_hours = sum(e.get("duration_minutes", 0) for e in time_entries) / 60
+                total_hours = sum(e.get("duration_hours", 0) for e in time_entries)
                 parts.append(f"Total time logged: {total_hours:.2f} hours")
                 
                 # Group by project if available
                 by_project = {}
                 for entry in time_entries:
                     project = entry.get("project_name", "General")
-                    duration = entry.get("duration_minutes", 0) / 60
+                    duration = entry.get("duration_hours", 0)
                     by_project[project] = by_project.get(project, 0) + duration
                 
                 parts.append("\nBy project:")
@@ -420,9 +422,8 @@ class PromptBuilder:
         
         return [{
             "project_name": entry.project.name if entry.project else None,
-            "start_time": entry.start_time.strftime("%H:%M"),
-            "end_time": entry.end_time.strftime("%H:%M") if entry.end_time else None,
-            "duration_minutes": entry.duration_minutes,
+            "start_time": entry.entry_time.strftime("%H:%M") if entry.entry_time else None,
+            "duration_hours": float(entry.duration_hours),
             "description": entry.description
         } for entry in entries]
     
@@ -459,8 +460,8 @@ class PromptBuilder:
         return [{
             "title": meeting.title,
             "start_time": meeting.start_time.strftime("%H:%M"),
-            "duration_minutes": meeting.duration_minutes,
-            "attendees": meeting.attendees
+            "duration_minutes": int((meeting.end_time - meeting.start_time).total_seconds() / 60),
+            "attendees": len(meeting.attendees) if meeting.attendees else 0
         } for meeting in meetings]
     
     def _get_master_log_examples(
