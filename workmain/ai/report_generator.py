@@ -1,7 +1,7 @@
 """
 WorkmAIn AI Report Generator
-Report Generator v1.5
-20251231
+Report Generator v1.6
+20260203
 
 High-level orchestrator for AI report generation with database integration.
 
@@ -29,6 +29,8 @@ Version History:
 - v1.4: Fixed metadata column name (metadata → report_metadata) for SQLAlchemy compatibility
 - v1.5: Added CostTracker lifecycle management (start_report/end_report)
         Fixed "No active report" error
+- v1.6: Phase 5.1 - Added subject line to report output; gets subject_line from template,
+        substitutes variables (day_name, date_long, user_full_name), includes in markdown header
 
 Workflow:
 1. Load template and validate
@@ -398,6 +400,38 @@ class ReportGenerator:
             "estimated_cost": estimated_cost
         }
     
+    def _get_user_full_name(self) -> str:
+        """
+        Get user's full name from configuration.
+
+        Returns:
+            User's full name or default
+        """
+        import os
+        from dotenv import load_dotenv
+
+        load_dotenv()
+
+        # Try environment variable first
+        name = os.getenv('USER_FULL_NAME')
+
+        if name:
+            return name
+
+        # Try config file
+        try:
+            from workmain.config_manager.loader import get_config
+            config = get_config()
+            name = config.get('user_preferences', 'user_full_name')
+
+            if name:
+                return name
+        except Exception:
+            pass
+
+        # Default
+        return "User Name"
+
     def _format_output(
         self,
         content: str,
@@ -407,23 +441,46 @@ class ReportGenerator:
     ) -> str:
         """
         Format report content based on output format.
-        
+
         Args:
             content: Generated content
             output_format: Desired output format
             template: Template dictionary
             report_date: Report date
-            
+
         Returns:
             Formatted content
         """
         if output_format == ReportFormat.MARKDOWN:
-            # Already in markdown, just ensure header
+            # Build subject line from template if present
+            subject_line = None
+            if template.get('subject_line'):
+                # Get user full name and build variables
+                user_full_name = self._get_user_full_name()
+                variables = self.template_loader.build_variables(
+                    report_date=report_date,
+                    user_full_name=user_full_name
+                )
+                # Substitute variables in subject line
+                subject_line = template['subject_line']
+                for var_name, var_value in variables.items():
+                    subject_line = subject_line.replace(f"{{{var_name}}}", str(var_value))
+
+            # Already in markdown, just ensure header with subject line
             if not content.startswith("#"):
-                metadata = template.get("metadata", {})
-                title = metadata.get("name", "Report")
-                header = f"# {title}\n**Date:** {report_date.strftime('%B %d, %Y')}\n\n"
+                title = template.get("name", "Report")
+                header = f"# {title}\n"
+                if subject_line:
+                    header += f"**Subject:** {subject_line}\n"
+                header += f"**Date:** {report_date.strftime('%B %d, %Y')}\n\n"
                 content = header + content
+            elif subject_line:
+                # Content starts with # - insert subject line after first line
+                lines = content.split('\n', 1)
+                if len(lines) == 2:
+                    content = f"{lines[0]}\n**Subject:** {subject_line}\n{lines[1]}"
+                else:
+                    content = f"{content}\n**Subject:** {subject_line}"
             return content
         
         elif output_format == ReportFormat.TEXT:
