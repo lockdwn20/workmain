@@ -1,7 +1,7 @@
 """
 WorkmAIn Note CLI Commands
-Note Commands v2.5
-20260202
+Note Commands v2.6
+20260203
 
 CLI commands for note management with tag support and meeting integration.
 
@@ -14,6 +14,7 @@ Version History:
 - v2.3: Phase 5.1 - Fixed help text formatting with \b escape sequence
 - v2.4: Phase 5.1 - Fixed date() function shadowing datetime.date in notes date command
 - v2.5: Phase 5.1 - Added condense + time entry prompt at end of note meeting command
+- v2.6: Phase 5.1 - Show date/time in meeting picker to distinguish recurring meetings
 """
 
 import click
@@ -499,11 +500,16 @@ def meeting(meeting: str):
                     click.echo("Cancelled.")
                     return
         else:
-            # Multiple matches
+            # Multiple matches - show date to distinguish recurring meetings
+            # Use datetime.date to avoid shadowing by the 'date' command function
+            today = datetime.now().date()
             click.echo(f"\nMultiple meetings found:")
             for i, (m, score) in enumerate(matches[:5], 1):
                 note_count = meetings_repo.get_note_count(m.id)
-                click.echo(f"  {i}. {m.title} ({note_count} notes, {score*100:.0f}% match)")
+                meeting_date = m.start_time.strftime('%Y-%m-%d %H:%M') if m.start_time else "No date"
+                is_today = m.start_time.date() == today if m.start_time else False
+                today_marker = " ← Today" if is_today else ""
+                click.echo(f"  {i}. {m.title} ({meeting_date}, {note_count} notes, {score*100:.0f}% match){today_marker}")
             
             choice = click.prompt("\nSelect meeting [1-5, or 0 to cancel]", type=int, default=1)
             if choice == 0 or choice > len(matches):

@@ -1,7 +1,7 @@
 """
 WorkmAIn Meeting CLI Commands
-Meeting Commands v2.7
-20260202
+Meeting Commands v2.8
+20260203
 
 CLI commands for meeting management.
 
@@ -16,6 +16,7 @@ Version History:
 - v2.6: Phase 5.1 - Fixed help text formatting with \b escape sequence
 - v2.7: Phase 5.1 - meetings track checks for duplicates, uses condensed summary;
         meeting condense creates note and updates/creates time entry
+- v2.8: Phase 5.1 - Show date/time in meeting picker to distinguish recurring meetings
 """
 
 import click
@@ -646,10 +647,15 @@ def condense(meeting_title: str):
                     console.print("Cancelled.")
                     return
         else:
-            # Multiple matches
+            # Multiple matches - show date to distinguish recurring meetings
+            today = date.today()
             console.print(f"\n[yellow]Multiple meetings found:[/yellow]")
             for i, (m, score) in enumerate(matches[:5], 1):
-                console.print(f"  {i}. {m.title} ({score*100:.0f}% match)")
+                note_count = meetings_repo.get_note_count(m.id)
+                meeting_date = m.start_time.strftime('%Y-%m-%d %H:%M') if m.start_time else "No date"
+                is_today = m.start_time.date() == today if m.start_time else False
+                today_marker = " [green]← Today[/green]" if is_today else ""
+                console.print(f"  {i}. {m.title} ({meeting_date}, {note_count} notes, {score*100:.0f}% match){today_marker}")
             
             choice = click.prompt("\nSelect meeting [1-5, or 0 to cancel]", type=int, default=1)
             if choice == 0 or choice > len(matches):
