@@ -1,7 +1,7 @@
 """
 WorkmAIn Track CLI Commands
-Track Commands v1.6
-20260202
+Track Commands v1.7
+20260203
 
 CLI commands for time tracking with 24-hour format support and Clockify sync.
 
@@ -18,6 +18,8 @@ Version History:
 - v1.6: Phase 5.1 - Fixed get_session() NameError in sync push/pull/both;
         added --show-ids group-level option to time command; added --tags flag
         and auto-note creation on track add
+- v1.7: Phase 5.1 - Added source='meeting' for --meeting --notes path;
+        clarified --tags help text to indicate it replaces default tag
 """
 
 import click
@@ -129,7 +131,7 @@ def track():
 @click.option('--project', '-p', type=int, help='Project ID')
 @click.option('--meeting', '-m', help='Link to meeting (title or ID)')
 @click.option('--notes', '-n', help='Create note for meeting (requires --meeting)')
-@click.option('--tags', help='Tags for auto-created note (comma-separated, e.g., ilo,cf)')
+@click.option('--tags', help='Tags for note (comma-separated, e.g., ilo,cf). Replaces default tag (ilo).')
 def track_add(description: str, duration: str, time: Optional[str],
               date: Optional[str], category: Optional[str], project: Optional[int],
               meeting: Optional[str], notes: Optional[str], tags: Optional[str]):
@@ -261,6 +263,7 @@ def track_add(description: str, duration: str, time: Optional[str],
             note = notes_repo.create(
                 content=notes,
                 tags=note_tags,
+                source='meeting',
                 meeting_id=meeting_obj.id
             )
 

@@ -1,7 +1,7 @@
 """
 WorkmAIn Meetings Repository
-Meetings Repository v1.2
-20260127
+Meetings Repository v1.3
+20260203
 
 Data access layer for meetings with fuzzy matching and recurring detection.
 Handles all CRUD operations for the meetings table.
@@ -10,6 +10,7 @@ Version History:
 - v1.0: Initial implementation with fuzzy matching
 - v1.1: Added get_by_title_and_date for recurring meeting disambiguation
 - v1.2: Optimized fuzzy_match with PostgreSQL trigram similarity (O(log N))
+- v1.3: Phase 5.1 - Added exclude_ifo parameter to get_note_count to filter #ifo notes
 """
 
 from datetime import datetime, date
@@ -295,19 +296,21 @@ class MeetingsRepository:
         
         return query.all()
     
-    def get_note_count(self, meeting_id: int) -> int:
+    def get_note_count(self, meeting_id: int, exclude_ifo: bool = True) -> int:
         """
         Get count of notes for a meeting.
-        
+
         Args:
             meeting_id: Meeting ID
-            
+            exclude_ifo: If True, exclude info-only (#ifo) notes from count
+
         Returns:
-            Number of notes
+            Number of notes (excluding #ifo if exclude_ifo=True)
         """
-        return self.session.query(Note).filter(
-            Note.meeting_id == meeting_id
-        ).count()
+        query = self.session.query(Note).filter(Note.meeting_id == meeting_id)
+        if exclude_ifo:
+            query = query.filter(~Note.tags.op('@>')(['info-only']))
+        return query.count()
     
     def get_recurring_series(self, outlook_recurring_id: str) -> List[Meeting]:
         """

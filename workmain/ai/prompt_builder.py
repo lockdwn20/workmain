@@ -1,7 +1,7 @@
 """
 WorkmAIn AI Prompt Builder
-Prompt Builder v1.3
-20260202
+Prompt Builder v1.4
+20260203
 
 Dynamic prompt construction for AI report generation.
 
@@ -20,6 +20,8 @@ Version History:
         meetings query directly since no get_date_range method exists
 - v1.3: Phase 5.1 - Fixed meeting.duration_minutes (computed from start/end),
         entry.duration_hours (was duration_minutes), attendees count
+- v1.4: Phase 5.1 - Removed redundant Python-level tag filtering in _get_filtered_notes;
+        database-level filtering via notes_repo.get_date_range is sufficient
 
 Workflow:
 1. Load template structure
@@ -360,45 +362,30 @@ class PromptBuilder:
     ) -> List[Dict[str, Any]]:
         """
         Get notes filtered by date and tags.
-        
+
         Args:
             start_date: Start date (inclusive)
             end_date: End date (inclusive)
             tags_include: Tags that must be present
             tags_exclude: Tags that must not be present
-            
+
         Returns:
             List of note dictionaries
         """
-        notes = self.notes_repo.get_date_range(  # ← Fixed: get_date_range not get_by_date_range
+        # Database-level filtering handles tag inclusion/exclusion
+        notes = self.notes_repo.get_date_range(
             start_date=start_date,
             end_date=end_date,
             include_tags=tags_include if tags_include else None,
             exclude_tags=tags_exclude if tags_exclude else None
         )
-        
-        # Filter by tags
-        filtered = []
-        for note in notes:
-            note_tags = set(note.tags or [])
-            
-            # Check inclusion
-            if tags_include:
-                if not any(tag in note_tags for tag in tags_include):
-                    continue
-            
-            # Check exclusion
-            if tags_exclude:
-                if any(tag in note_tags for tag in tags_exclude):
-                    continue
-            
-            filtered.append({
-                "content": note.content,
-                "tags": list(note_tags),
-                "created_at": note.created_at.strftime("%Y-%m-%d %H:%M") if note.created_at else ""
-            })
-        
-        return filtered
+
+        # Convert to dictionaries (filtering already done by repository)
+        return [{
+            "content": note.content,
+            "tags": list(note.tags or []),
+            "created_at": note.created_at.strftime("%Y-%m-%d %H:%M") if note.created_at else ""
+        } for note in notes]
     
     def _get_time_entries(
         self,

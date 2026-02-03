@@ -1,7 +1,7 @@
 """
 WorkmAIn Note Condenser
-Note Condenser v1.3
-20260202
+Note Condenser v1.4
+20260203
 
 AI-powered condensation of meeting notes into one-line summaries for Clockify.
 
@@ -13,6 +13,7 @@ Version History:
 - v1.1: Fixed session attachment issue - now queries meeting from database
 - v1.2: Added writing style context integration for consistent voice (Phase 5)
 - v1.3: Phase 5.1 - Filter out info-only (#ifo) notes from condensation
+- v1.4: Phase 5.1 - Return default "Attended <Meeting>" when all notes are #ifo
 """
 
 import json
@@ -104,7 +105,12 @@ class NoteCondenser:
         ).order_by(Note.created_at).all()
         
         if not notes:
-            raise ValueError(f"Meeting '{db_meeting.title}' has no notes to condense")
+            # All notes are info-only (#ifo), return default message
+            default_summary = f"Attended {db_meeting.title}"
+            db_meeting.condensed_summary = default_summary
+            db_meeting.condensed_at = datetime.now()
+            self.session.commit()
+            return default_summary
         
         # Build condensation prompt (now includes writing style)
         prompt = self._build_condensation_prompt(db_meeting, notes)
