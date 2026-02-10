@@ -1,6 +1,6 @@
 """
 WorkmAIn Provider CLI Commands
-Provider Commands v1.3
+Provider Commands v1.4
 20260210
 
 CLI commands for managing AI providers (Claude and Gemini).
@@ -16,6 +16,7 @@ Version History:
 - v1.1: Fixed import to use get_db() instead of get_database()
 - v1.2: Phase 5.1 - Fixed help text formatting with \b escape sequence
 - v1.3: Phase 5.1 - Updated Gemini model and cost display for gemini-2.5-flash
+- v1.4: Phase 5.1 - Updated Claude fallback model to claude-sonnet-4-5-20250929
 """
 
 from typing import Optional
@@ -86,7 +87,7 @@ def list_providers():
     except Exception as e:
         table.add_row(
             "Claude",
-            "claude-sonnet-4-20250514",
+            "claude-sonnet-4-5-20250929",
             "[red]error[/red]",
             f"[dim]{str(e)[:40]}...[/dim]"
         )

@@ -1,13 +1,13 @@
 """
 WorkmAIn AI Claude Client
-Claude Client v1.2
-20251229
+Claude Client v1.3
+20260210
 
 Claude (Anthropic) provider implementation.
 
 Features:
 - Anthropic SDK integration
-- Claude Sonnet 4 support
+- Claude Sonnet 4.5 support
 - Token counting with tiktoken
 - Retry logic with exponential backoff
 - Streaming support (future)
@@ -17,11 +17,12 @@ Version History:
 - v1.0: Initial implementation
 - v1.1: Fixed system prompt format (must be list of message blocks)
 - v1.2: Only pass system parameter when provided (API rejects system=None)
+- v1.3: Updated default model from claude-sonnet-4 to claude-sonnet-4-5
 
 Supports models:
-- claude-sonnet-4-20250514 (recommended)
+- claude-sonnet-4-5-20250929 (recommended)
 - claude-opus-4-20250514
-- claude-3-5-sonnet-20241022
+- claude-sonnet-4-20250514
 """
 
 import os
@@ -283,7 +284,7 @@ _claude_client_instance: Optional[ClaudeClient] = None
 
 def get_claude_client(
     api_key: Optional[str] = None,
-    model: str = "claude-sonnet-4-20250514",
+    model: str = "claude-sonnet-4-5-20250929",
     **kwargs
 ) -> ClaudeClient:
     """

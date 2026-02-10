@@ -5,7 +5,7 @@
   "providers": {
     "claude": {
       "enabled": true,
-      "model": "claude-sonnet-4-20250514",
+      "model": "claude-sonnet-4-5-20250929",
       "api_key_env": "ANTHROPIC_API_KEY",
       "default_max_tokens": 4096,
       "default_temperature": 0.7,
@@ -15,7 +15,7 @@
       "timeout_seconds": 60,
       "retry_attempts": 3,
       "retry_delay_seconds": 1.0,
-      "notes": "Claude Sonnet 4 - Best for internal reports and note condensation"
+      "notes": "Claude Sonnet 4.5 - Best for internal reports and note condensation"
     },
     "gemini": {
       "enabled": true,

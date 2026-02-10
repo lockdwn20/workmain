@@ -82,7 +82,7 @@ def test_claude_client_initialization():
     client = get_claude_client()
     
     assert client.provider_type == ProviderType.CLAUDE
-    assert client.model == "claude-sonnet-4-20250514"
+    assert client.model == "claude-sonnet-4-5-20250929"
     assert client.is_enabled
     
     print("✓ Claude client initialization working")

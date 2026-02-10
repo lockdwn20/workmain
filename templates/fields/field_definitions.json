@@ -169,7 +169,7 @@
       "claude": {
         "display_name": "Claude (Anthropic)",
         "description": "Best for: Internal reports, note summarization, technical content",
-        "model": "claude-sonnet-4-20250514",
+        "model": "claude-sonnet-4-5-20250929",
         "api_key_env": "ANTHROPIC_API_KEY",
         "recommended_for": ["daily_internal", "note_summarization"],
         "strengths": ["Technical accuracy", "Professional tone", "Concise summaries"]
