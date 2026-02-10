@@ -1,7 +1,7 @@
 """
 WorkmAIn Note CLI Commands
-Note Commands v2.7
-20260203
+Note Commands v2.8
+20260210
 
 CLI commands for note management with tag support and meeting integration.
 
@@ -16,6 +16,7 @@ Version History:
 - v2.5: Phase 5.1 - Added condense + time entry prompt at end of note meeting command
 - v2.6: Phase 5.1 - Show date/time in meeting picker to distinguish recurring meetings
 - v2.7: Phase 5.1 - Updated help text to clarify note meeting as primary workflow
+- v2.8: Phase 5.1 - Allow no-notes meeting to proceed to condensation instead of cancelling
 """
 
 import click
@@ -53,23 +54,23 @@ def get_session():
     return Session()
 
 
-def format_note_display(note, show_id: bool = False) -> str:
+def format_note_display(note, show_id: bool = True) -> str:
     """
     Format note for display.
-    
+
     Args:
         note: Note object
-        show_id: Whether to show note ID
-        
+        show_id: Whether to show note ID (default: True)
+
     Returns:
         Formatted string
     """
     lines = []
-    
+
     # ID and timestamp
     time_str = note.created_at.strftime('%H:%M')
     if show_id:
-        lines.append(f"[ID: {note.id}] {time_str}")
+        lines.append(f"[#{note.id}] {time_str}")
     else:
         lines.append(f"{time_str}")
     
@@ -578,51 +579,50 @@ def meeting(meeting: str):
             
             notes_text = '\n'.join(lines)
         
-        if not notes_text or not notes_text.strip():
-            click.echo("\nNo notes entered. Cancelled.")
-            return
-        
-        # Parse and create notes
-        note_lines = [line.strip() for line in notes_text.split('\n') if line.strip()]
-        
-        if not note_lines:
-            click.echo("\nNo notes entered. Cancelled.")
-            return
-        
-        click.echo()
-        click.echo(f"Creating {len(note_lines)} note(s)...")
-        click.echo()
-        
+        # Parse and create notes (if any were entered)
+        note_lines = []
+        if notes_text and notes_text.strip():
+            note_lines = [line.strip() for line in notes_text.split('\n') if line.strip()]
+
         created_count = 0
-        for line in note_lines:
-            # Parse tags from line
-            clean_text, tags, invalid = parse_tags(line, apply_default=True)
-            
-            # Handle invalid tags (silent default to internal-only)
-            if invalid:
-                click.echo(f"  ⚠️  Invalid tags in: {line[:50]}...")
-                click.echo(f"      Ignored: {', '.join(invalid)}")
-            
-            # Create note
-            try:
-                note = notes_repo.create(
-                    content=clean_text,
-                    tags=tags if tags else ['internal-only'],
-                    meeting_id=meeting_obj.id,
-                    source='meeting'
-                )
-                created_count += 1
-                click.echo(f"  ✓ {note.display_tags} {clean_text[:60]}")
-            
-            except Exception as e:
-                click.echo(f"  ✗ Failed: {line[:50]}... ({e})")
-        
-        click.echo()
-        click.echo(f"✓ Created {created_count} of {len(note_lines)} note(s)")
-        click.echo()
+        if note_lines:
+            click.echo()
+            click.echo(f"Creating {len(note_lines)} note(s)...")
+            click.echo()
+
+            for line in note_lines:
+                # Parse tags from line
+                clean_text, tags, invalid = parse_tags(line, apply_default=True)
+
+                # Handle invalid tags (silent default to internal-only)
+                if invalid:
+                    click.echo(f"  ⚠️  Invalid tags in: {line[:50]}...")
+                    click.echo(f"      Ignored: {', '.join(invalid)}")
+
+                # Create note
+                try:
+                    note = notes_repo.create(
+                        content=clean_text,
+                        tags=tags if tags else ['internal-only'],
+                        meeting_id=meeting_obj.id,
+                        source='meeting'
+                    )
+                    created_count += 1
+                    click.echo(f"  ✓ {note.display_tags} {clean_text[:60]}")
+
+                except Exception as e:
+                    click.echo(f"  ✗ Failed: {line[:50]}... ({e})")
+
+            click.echo()
+            click.echo(f"✓ Created {created_count} of {len(note_lines)} note(s)")
+            click.echo()
+        else:
+            click.echo("\nNo notes entered.")
+            click.echo()
 
         # Prompt to condense notes and create time entry
-        if created_count > 0 and click.confirm("Condense notes and create time entry?", default=True):
+        # When no notes or only #ifo notes, condensation produces "Attended <meeting>"
+        if click.confirm("Condense notes and create time entry?", default=True):
             try:
                 from workmain.ai.note_condenser import get_note_condenser
                 from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
@@ -690,16 +690,14 @@ def notes():
 
 
 @notes.command()
-@click.option('--show-ids', is_flag=True, help='Show note IDs')
 @click.option('--tags', '-t', help='Filter by tags (comma-separated: ilo,cf or "#ilo #cf")')
-def today(show_ids: bool, tags: Optional[str]):
+def today(tags: Optional[str]):
     """
     Show today's notes.
 
     \b
     Examples:
       workmain notes today
-      workmain notes today --show-ids
       workmain notes today -t ilo
       workmain notes today -t ilo,cf
     """
@@ -731,17 +729,16 @@ def today(show_ids: bool, tags: Optional[str]):
         click.echo("=" * 60)
         
         for note in note_list:
-            click.echo(format_note_display(note, show_id=show_ids))
+            click.echo(format_note_display(note))
             click.echo("-" * 60)
-    
+
     finally:
         session.close()
 
 
 @notes.command()
 @click.argument('target_date', required=False)
-@click.option('--show-ids', is_flag=True, help='Show note IDs')
-def date(target_date: Optional[str], show_ids: bool):
+def date(target_date: Optional[str]):
     """
     Show notes for a specific date.
 
@@ -779,9 +776,9 @@ def date(target_date: Optional[str], show_ids: bool):
         click.echo("=" * 60)
         
         for note in note_list:
-            click.echo(format_note_display(note, show_id=show_ids))
+            click.echo(format_note_display(note))
             click.echo("-" * 60)
-    
+
     finally:
         session.close()
 
@@ -789,8 +786,7 @@ def date(target_date: Optional[str], show_ids: bool):
 @notes.command()
 @click.argument('keyword')
 @click.option('--limit', '-n', type=int, default=10, help='Maximum results')
-@click.option('--show-ids', is_flag=True, help='Show note IDs')
-def search(keyword: str, limit: int, show_ids: bool):
+def search(keyword: str, limit: int):
     """
     Search notes by keyword (full-text search).
 
@@ -814,9 +810,9 @@ def search(keyword: str, limit: int, show_ids: bool):
         click.echo("=" * 60)
         
         for note in results:
-            click.echo(format_note_display(note, show_id=show_ids))
+            click.echo(format_note_display(note))
             click.echo("-" * 60)
-    
+
     finally:
         session.close()
 
@@ -824,8 +820,7 @@ def search(keyword: str, limit: int, show_ids: bool):
 @notes.command()
 @click.argument('meeting_title')
 @click.option('--history', is_flag=True, help='Show all instances of recurring meeting')
-@click.option('--show-ids', is_flag=True, help='Show note IDs')
-def meeting(meeting_title: str, history: bool, show_ids: bool):
+def meeting(meeting_title: str, history: bool):
     """
     Show notes for a specific meeting.
 
@@ -878,7 +873,7 @@ def meeting(meeting_title: str, history: bool, show_ids: bool):
                 click.echo("-" * 60)
                 current_date = note.created_date
             
-            click.echo(format_note_display(note, show_id=show_ids))
+            click.echo(format_note_display(note))
             if not history:
                 click.echo("-" * 60)
     
