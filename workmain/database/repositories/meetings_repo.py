@@ -1,7 +1,7 @@
 """
 WorkmAIn Meetings Repository
-Meetings Repository v1.3
-20260203
+Meetings Repository v1.4
+20260210
 
 Data access layer for meetings with fuzzy matching and recurring detection.
 Handles all CRUD operations for the meetings table.
@@ -11,6 +11,7 @@ Version History:
 - v1.1: Added get_by_title_and_date for recurring meeting disambiguation
 - v1.2: Optimized fuzzy_match with PostgreSQL trigram similarity (O(log N))
 - v1.3: Phase 5.1 - Added exclude_ifo parameter to get_note_count to filter #ifo notes
+- v1.4: Fixed fuzzy_match to sort by date descending as secondary sort for recurring meetings
 """
 
 from datetime import datetime, date
@@ -159,7 +160,10 @@ class MeetingsRepository:
                     func.similarity(Meeting.title, title).label('similarity')
                 )
                 .filter(func.similarity(Meeting.title, title) >= threshold)
-                .order_by(func.similarity(Meeting.title, title).desc())
+                .order_by(
+                    func.similarity(Meeting.title, title).desc(),
+                    Meeting.start_time.desc()
+                )
                 .all()
             )
 
@@ -182,8 +186,8 @@ class MeetingsRepository:
                 if similarity >= threshold:
                     matches.append((meeting, similarity))
 
-            # Sort by similarity score (highest first)
-            matches.sort(key=lambda x: x[1], reverse=True)
+            # Sort by similarity score (highest first), then by date (most recent first)
+            matches.sort(key=lambda x: (x[1], x[0].start_time), reverse=True)
 
             return matches
     
