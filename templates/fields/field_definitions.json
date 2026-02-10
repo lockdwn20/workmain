@@ -177,7 +177,7 @@
       "gemini": {
         "display_name": "Gemini (Google)",
         "description": "Best for: Client reports, business-friendly language",
-        "model": "gemini-2.0-flash-exp",
+        "model": "gemini-2.5-flash",
         "api_key_env": "GOOGLE_API_KEY",
         "recommended_for": ["weekly_client", "client_communication"],
         "strengths": ["Business language", "Client-friendly tone", "Accessible style"]

@@ -19,17 +19,17 @@
     },
     "gemini": {
       "enabled": true,
-      "model": "gemini-2.0-flash-exp",
+      "model": "gemini-2.5-flash",
       "api_key_env": "GOOGLE_API_KEY",
       "default_max_tokens": 8192,
       "default_temperature": 0.7,
-      "cost_per_1k_prompt_tokens": 0.0001,
-      "cost_per_1k_completion_tokens": 0.0004,
+      "cost_per_1k_prompt_tokens": 0.00015,
+      "cost_per_1k_completion_tokens": 0.0006,
       "rate_limit_rpm": 60,
       "timeout_seconds": 60,
       "retry_attempts": 3,
       "retry_delay_seconds": 1.0,
-      "notes": "Gemini 2.0 Flash - pricing varies by model and usage tier. Update costs based on current Google AI pricing."
+      "notes": "Gemini 2.5 Flash - $0.15/MTok input, $0.60/MTok output"
     }
   },
   "report_types": {

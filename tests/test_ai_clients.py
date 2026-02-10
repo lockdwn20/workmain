@@ -105,7 +105,7 @@ def test_gemini_client_initialization():
     client = get_gemini_client()
     
     assert client.provider_type == ProviderType.GEMINI
-    assert client.model == "gemini-2.0-flash-exp"
+    assert client.model == "gemini-2.5-flash"
     assert client.is_enabled
     
     print("✓ Gemini client initialization working")

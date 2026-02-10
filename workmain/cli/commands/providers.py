@@ -1,7 +1,7 @@
 """
 WorkmAIn Provider CLI Commands
-Provider Commands v1.2
-20251231
+Provider Commands v1.3
+20260210
 
 CLI commands for managing AI providers (Claude and Gemini).
 
@@ -15,6 +15,7 @@ Version History:
 - v1.0: Initial implementation with list, test, costs, and set-default commands
 - v1.1: Fixed import to use get_db() instead of get_database()
 - v1.2: Phase 5.1 - Fixed help text formatting with \b escape sequence
+- v1.3: Phase 5.1 - Updated Gemini model and cost display for gemini-2.5-flash
 """
 
 from typing import Optional
@@ -106,12 +107,12 @@ def list_providers():
             "Gemini",
             gemini.model,
             f"[{status_color}]{gemini_status.value}[/{status_color}]",
-            "Free tier (up to 1500 RPD)"
+            "$0.15/MTok prompt, $0.60/MTok completion"
         )
     except Exception as e:
         table.add_row(
             "Gemini",
-            "gemini-2.0-flash-exp",
+            "gemini-2.5-flash",
             "[red]error[/red]",
             f"[dim]{str(e)[:40]}...[/dim]"
         )

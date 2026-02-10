@@ -1,37 +1,39 @@
 """
 WorkmAIn AI Gemini Client
-Gemini Client v1.5
-20251229
+Gemini Client v1.6
+20260210
 
 Gemini (Google AI) provider implementation.
 
 Features:
 - Google GenAI SDK integration (google-genai package)
-- Gemini 2.0 Flash support with FREE TIER (default)
+- Gemini 2.5 Flash support (paid tier)
 - Native token counting
 - Retry logic with exponential backoff
-- Cost tracking (free or paid tier)
+- Cost tracking
 - Safety settings configuration
 
-Pricing Options:
-- Free Tier (default): $0/$0 - Data shared with Google for product improvement
-- Paid Tier: $0.10/$0.40 per 1M tokens ($0.0001/$0.0004 per 1k) - No data sharing
+Pricing (Gemini 2.5 Flash):
+- Input: $0.15 per 1M tokens ($0.00015 per 1k)
+- Output: $0.60 per 1M tokens ($0.0006 per 1k)
 
 Supports models:
-- gemini-2.0-flash-exp (recommended, has free tier)
-- gemini-1.5-pro-latest
-- gemini-1.5-flash-latest
+- gemini-2.5-flash (recommended, current stable)
+- gemini-2.0-flash
+- gemini-2.0-flash-lite
 
 Version History:
 - v1.0: Initial implementation with google-generativeai package
 - v1.1: Updated for google-genai package (new official package name)
-- v1.2: Removed system_instruction parameter (not supported in new API), 
+- v1.2: Removed system_instruction parameter (not supported in new API),
         prepend to prompt instead; Fixed error handling for TypeErrors
-- v1.3: Fixed metadata construction to safely handle None values in 
+- v1.3: Fixed metadata construction to safely handle None values in
         candidates and safety_ratings
 - v1.4: Updated cost defaults - incorrectly removed free tier
-- v1.5: CORRECTED - Gemini 2.0 Flash HAS free tier (default $0/$0), 
+- v1.5: CORRECTED - Gemini 2.0 Flash HAS free tier (default $0/$0),
         with paid tier option available
+- v1.6: Updated default model from gemini-2.0-flash-exp (retired) to
+        gemini-2.5-flash; updated pricing to current paid tier rates
 """
 
 import os
@@ -145,16 +147,16 @@ class GeminiClient(BaseProvider):
                     config=types.GenerateContentConfig(**config_dict)
                 )
                 
-                # Extract content
-                content = response.text
+                # Extract content (may be None if thinking tokens exhausted the budget)
+                content = response.text or ""
                 
-                # Get token usage
+                # Get token usage (some fields may be None depending on model)
                 usage = response.usage_metadata
-                prompt_tokens = usage.prompt_token_count
-                completion_tokens = usage.candidates_token_count
-                total_tokens = usage.total_token_count
+                prompt_tokens = usage.prompt_token_count or 0
+                completion_tokens = usage.candidates_token_count or 0
+                total_tokens = usage.total_token_count or (prompt_tokens + completion_tokens)
                 
-                # Calculate cost (currently free for flash models)
+                # Calculate cost
                 cost = self.estimate_cost(prompt_tokens, completion_tokens)
                 
                 # Update status
@@ -236,20 +238,9 @@ class GeminiClient(BaseProvider):
             Estimated cost in USD
             
         Note:
-            Gemini 2.0 Flash has TWO pricing tiers:
-            
-            FREE TIER (default):
-            - Input: $0.00 per 1M tokens
-            - Output: $0.00 per 1M tokens
-            - Data shared with Google for product improvement
-            
-            PAID TIER (configure in ai_settings.json):
-            - Input: $0.10 per 1M tokens ($0.0001 per 1k)
-            - Output: $0.40 per 1M tokens ($0.0004 per 1k)
-            - Data NOT shared with Google
-            
-            By default, cost tracking shows $0.00 (free tier).
-            Update config if using paid tier for accurate cost tracking.
+            Gemini 2.5 Flash pricing:
+            - Input: $0.15 per 1M tokens ($0.00015 per 1k)
+            - Output: $0.60 per 1M tokens ($0.0006 per 1k)
         """
         prompt_cost = (prompt_tokens / 1000) * self.config.cost_per_1k_prompt
         completion_cost = (completion_tokens / 1000) * self.config.cost_per_1k_completion
@@ -309,7 +300,8 @@ class GeminiClient(BaseProvider):
         """
         try:
             # Try a minimal API call to check availability
-            config_dict = {'max_output_tokens': 1}
+            # Use enough tokens for thinking models (2.5+ uses internal thinking tokens)
+            config_dict = {'max_output_tokens': 100}
             response = self.client.models.generate_content(
                 model=self.model_name,
                 contents=["test"],
@@ -338,7 +330,7 @@ _gemini_client_instance: Optional[GeminiClient] = None
 
 def get_gemini_client(
     api_key: Optional[str] = None,
-    model: str = "gemini-2.0-flash-exp",
+    model: str = "gemini-2.5-flash",
     **kwargs
 ) -> GeminiClient:
     """
@@ -367,14 +359,13 @@ def get_gemini_client(
                     "variable or pass api_key parameter."
                 )
         
-        # Create config with FREE TIER defaults (data shared with Google)
-        # For paid tier, pass cost_per_1k_prompt=0.0001, cost_per_1k_completion=0.0004
+        # Create config with Gemini 2.5 Flash pricing
         config = ProviderConfig(
             provider_type=ProviderType.GEMINI,
             api_key=api_key,
             model=model,
-            cost_per_1k_prompt=kwargs.get('cost_per_1k_prompt', 0.0001),
-            cost_per_1k_completion=kwargs.get('cost_per_1k_completion', 0.0004),
+            cost_per_1k_prompt=kwargs.get('cost_per_1k_prompt', 0.00015),
+            cost_per_1k_completion=kwargs.get('cost_per_1k_completion', 0.0006),
             **{k: v for k, v in kwargs.items() 
                if k not in ['cost_per_1k_prompt', 'cost_per_1k_completion']}
         )
