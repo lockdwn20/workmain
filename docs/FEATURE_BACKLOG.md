@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v3.0
-20260127
+Feature Backlog v3.1
+20260210
 
 # WorkmAIn Feature Backlog
 
@@ -10,6 +10,7 @@ Items deferred from various phases for future implementation.
 - v1.0 (20251224): Initial backlog with Phase 2 & 3 deferrals
 - v2.0 (20251226): Added Phase 3.5/Pre-Phase 4 deferrals
 - v3.0 (20260127): Added Phase 5.1 deferrals
+- v3.1 (20260210): Added AI provider management items (model update process, new provider support)
 
 ---
 
@@ -590,28 +591,144 @@ Sanitized template showing desired Master Log output format for documentation.
 
 ---
 
+## Deferred Phase 5.1 Features (AI Provider Management)
+
+### 10. Streamlined Model Update Process
+
+**Status:** Deferred to Phase 12
+**Priority:** Medium (operational efficiency)
+**Effort:** ~4-6 hours
+**Added:** 20260210
+
+**Description:**
+Centralize AI model configuration so that updating a model version requires changing a single source of truth instead of manually editing 5+ files.
+
+**Current Pain Point:**
+Updating from Claude Sonnet 4 to Sonnet 4.5 required manual changes across:
+1. `workmain/ai/claude_client.py` (default model parameter)
+2. `workmain/cli/commands/providers.py` (fallback model display)
+3. `config/ai_settings.json` (model name and notes)
+4. `templates/fields/field_definitions.json` (model reference)
+5. `tests/test_ai_clients.py` (assertion value)
+
+Same issue occurred when Gemini 2.0-flash-exp was retired and replaced with 2.5-flash.
+
+**Proposed Implementation:**
+- Client modules read model name from `config/ai_settings.json` at startup
+- `providers.py` fallback display reads from config rather than hardcoding
+- `field_definitions.json` references config dynamically or is removed as duplicate
+- Test assertions use config-driven values
+- Optional: `workmain providers update-model <provider> <model>` CLI command
+
+```bash
+# Single command to update model
+workmain providers update-model claude claude-sonnet-4-5-20250929
+
+# Or single config edit + validation
+workmain providers validate
+> ✓ All provider references consistent
+```
+
+**Why Deferred:**
+- Current manual process works (just tedious)
+- Model updates are infrequent (months apart)
+- Requires architectural decision on config-as-source-of-truth
+- Better to address when all provider features are complete
+
+**Acceptance Criteria:**
+- [ ] Single source of truth for model names (ai_settings.json)
+- [ ] Client modules read model from config at initialization
+- [ ] No hardcoded model names in fallback display paths
+- [ ] Validation command to check consistency across files
+- [ ] Test helpers use config-driven model names
+
+**Decision:** Defer to Phase 12 (Testing & Documentation) - address during code quality refactoring pass
+
+---
+
+### 11. Add New AI Provider Support
+
+**Status:** Deferred indefinitely
+**Priority:** Low (two providers sufficient for current needs)
+**Effort:** ~8-12 hours per provider
+**Added:** 20260210
+
+**Description:**
+Ability to add new AI providers beyond Claude and Gemini (e.g., OpenAI GPT, Mistral, Llama/Ollama for local inference).
+
+**Current State:**
+- `BaseProvider` abstraction layer exists and is well-designed
+- Adding a provider requires: new client module, ProviderType enum entry, provider_manager registration, CLI updates, config additions
+- Two providers (Claude + Gemini) cover all current report types
+
+**Proposed Implementation (per new provider):**
+1. Create `workmain/ai/<provider>_client.py` implementing `BaseProvider`
+2. Add entry to `ProviderType` enum in `base_provider.py`
+3. Register in `provider_manager.py`
+4. Add to `providers.py` CLI (list, test, costs)
+5. Add config section in `ai_settings.json`
+6. Update `field_definitions.json`
+
+```bash
+# Future usage
+workmain providers list
+# Shows Claude, Gemini, OpenAI, etc.
+
+workmain providers test openai
+workmain report daily --provider openai
+```
+
+**Potential Providers:**
+- **OpenAI (GPT-4o/o1):** Wide ecosystem, strong reasoning
+- **Mistral:** Cost-effective, EU-based
+- **Ollama/Local:** Privacy-first, no API costs, offline capable
+
+**Why Deferred:**
+- Claude + Gemini cover all current use cases
+- BaseProvider abstraction already supports future providers
+- No immediate need for a third provider
+- Each provider adds maintenance burden (API changes, model retirements)
+
+**When to Reconsider:**
+- If a provider offers significantly better cost/quality for a report type
+- If offline/local inference becomes a requirement
+- If a provider's API becomes unreliable long-term
+
+**Acceptance Criteria:**
+- [ ] New provider implements full BaseProvider interface
+- [ ] Integrated into provider_manager with fallback support
+- [ ] CLI commands (list, test, costs) work with new provider
+- [ ] Config-driven (ai_settings.json)
+- [ ] Cost tracking functional
+- [ ] Documentation updated
+
+**Decision:** Defer indefinitely - revisit if a compelling use case emerges
+
+---
+
 ## Summary Statistics
 
-**Total Deferred Items:** 9 ⬆️ (was 6)  
-**Phase 2 Deferrals:** 2  
-**Phase 3 Deferrals:** 4  
-**Phase 3.5/Pre-Phase 4 Deferrals:** 3 ⭐ NEW
+**Total Deferred Items:** 11 ⬆️ (was 9)
+**Phase 2 Deferrals:** 2
+**Phase 3 Deferrals:** 4
+**Phase 3.5/Pre-Phase 4 Deferrals:** 3
+**Phase 5.1 Deferrals (AI Provider):** 2 ⭐ NEW
 
 **Priority Breakdown:**
 - High: 0
-- Medium: 3 (Shell autocomplete, Template editor, formatters.py)
-- Low: 5 (Command aliases, Field-database sync, Template versioning, Template sharing, master_log_template.md)
+- Medium: 4 (Shell autocomplete, Template editor, formatters.py, Streamlined model update)
+- Low: 6 (Command aliases, Field-database sync, Template versioning, Template sharing, master_log_template.md, Add new AI provider)
 - Conditional: 1 (examples.json - create only if needed)
 
 **Effort Estimates:**
 - Under 1 hour: 2 items (Command aliases, master_log_template.md)
 - 1-3 hours: 3 items (Shell autocomplete, examples.json, Template sharing)
 - 3-5 hours: 3 items (Template editor, Template versioning, formatters.py)
-- 5+ hours: 1 item (Field-database sync)
+- 5+ hours: 3 items (Field-database sync, Streamlined model update, Add new AI provider)
 
-**Total Deferred Effort:** ~26 hours ⬆️ (was ~19 hours)
+**Total Deferred Effort:** ~42 hours ⬆️ (was ~26 hours)
 
-**Phase 12 Workload:** 5 items (Command aliases, Shell autocomplete, Template editor, formatters.py, master_log_template.md)
+**Phase 12 Workload:** 6 items (Command aliases, Shell autocomplete, Template editor, formatters.py, master_log_template.md, Streamlined model update)
 
 ---
 
@@ -630,6 +747,8 @@ Sanitized template showing desired Master Log output format for documentation.
 - **Field-database sync:** If custom database columns become necessary
 - **formatters.py:** After all commands built in Phase 12
 - **examples.json:** During Phase 4 if AI output quality is poor
+- **Streamlined model update:** If model updates become more frequent or error-prone
+- **New AI provider:** If a compelling cost/quality/privacy use case emerges
 - **Others:** If specific use cases emerge
 
 **Decision-Making Principle:**
@@ -643,23 +762,34 @@ Build first, refactor later. See the complete picture before abstracting.
 1. Command aliases (~20 min)
 2. Shell autocomplete (~2 hours)
 3. Template interactive editor (~4 hours)
-4. formatters.py (~4 hours) ⭐ NEW
-5. master_log_template.md (~1 hour) ⭐ NEW
+4. formatters.py (~4 hours)
+5. master_log_template.md (~1 hour)
+6. Streamlined model update process (~4-6 hours) ⭐ NEW
 
 **Phase 11+ - Advanced Features:**
-6. Field-database sync (~8 hours)
+7. Field-database sync (~8 hours)
 
 **Deferred Indefinitely:**
-7. Template versioning (~3 hours)
-8. Template sharing/export (~2 hours)
+8. Template versioning (~3 hours)
+9. Template sharing/export (~2 hours)
+10. Add new AI provider support (~8-12 hours) ⭐ NEW
 
 **Conditional (Phase 4):**
-9. examples.json (~2 hours) - Create only if AI needs it ⭐ NEW
+11. examples.json (~2 hours) - Create only if AI needs it
 
 ---
 
-**Last Updated:** 20251226 v2.0  
-**Next Review:** After Phase 4 completion
+**Last Updated:** 20260210 v3.1
+**Next Review:** Before Phase 6 kickoff
+
+**Changes in v3.1:**
+- Added Item 10: Streamlined model update process (from Sonnet 4→4.5 experience)
+- Added Item 11: Add new AI provider support
+- Updated summary statistics (11 items, ~42 hours total)
+- Updated Phase 12 workload and items-by-phase lists
+
+**Changes in v3.0:**
+- Added Phase 5.1 deferrals (recurring meeting advanced features, placeholder commands, session migration)
 
 **Changes in v2.0:**
 - Added 3 items from Pre-Phase 4 session
