@@ -1,6 +1,6 @@
 {
   "name": "Daily Internal Report",
-  "version": "1.0",
+  "version": "1.1",
   "template_type": "daily_internal",
   "description": "Daily internal status report for management",
   "recipient_type": "internal_management",
@@ -107,6 +107,7 @@
   },
   
   "metadata": {
+    "frequency": "daily",
     "ai_provider_default": "claude",
     "max_tokens": 2000,
     "temperature": 0.7,

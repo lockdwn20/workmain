@@ -1,7 +1,7 @@
 """
 WorkmAIn AI Prompt Builder
-Prompt Builder v1.4
-20260203
+Prompt Builder v1.5
+20260206
 
 Dynamic prompt construction for AI report generation.
 
@@ -22,6 +22,7 @@ Version History:
         entry.duration_hours (was duration_minutes), attendees count
 - v1.4: Phase 5.1 - Removed redundant Python-level tag filtering in _get_filtered_notes;
         database-level filtering via notes_repo.get_date_range is sufficient
+- v1.5: Fixed tag_filter key mismatch (was tags_filter); now matches template format
 
 Workflow:
 1. Load template structure
@@ -258,9 +259,9 @@ class PromptBuilder:
             Formatted data string
         """
         section_type = section.get("type", "custom")
-        tags_filter = section.get("tags_filter", {})
-        tags_include = tags_filter.get("include", [])
-        tags_exclude = tags_filter.get("exclude", [])
+        tag_filter = section.get("tag_filter", {})
+        tags_include = tag_filter.get("include", [])
+        tags_exclude = tag_filter.get("exclude", [])
         
         parts = []
         

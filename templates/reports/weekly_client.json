@@ -1,6 +1,6 @@
 {
   "name": "Weekly Client Report",
-  "version": "1.1",
+  "version": "1.2",
   "template_type": "weekly_client",
   "description": "Weekly status report for client delivery",
   "recipient_type": "client",
@@ -136,6 +136,7 @@
     }
   },
   "metadata": {
+    "frequency": "weekly",
     "ai_provider_default": "gemini",
     "max_tokens": 3000,
     "temperature": 0.6,
