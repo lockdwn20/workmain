@@ -1,7 +1,7 @@
 """
 WorkmAIn Meetings Repository
-Meetings Repository v1.4
-20260210
+Meetings Repository v1.5
+20260217
 
 Data access layer for meetings with fuzzy matching and recurring detection.
 Handles all CRUD operations for the meetings table.
@@ -12,6 +12,8 @@ Version History:
 - v1.2: Optimized fuzzy_match with PostgreSQL trigram similarity (O(log N))
 - v1.3: Phase 5.1 - Added exclude_ifo parameter to get_note_count to filter #ifo notes
 - v1.4: Fixed fuzzy_match to sort by date descending as secondary sort for recurring meetings
+- v1.5: Fixed fuzzy_match secondary sort to use proximity-to-today (ascending) so today's
+        instance always ranks first instead of future recurring instances
 """
 
 from datetime import datetime, date
@@ -154,6 +156,8 @@ class MeetingsRepository:
         """
         try:
             # Use PostgreSQL trigram similarity - O(log N) with GIN index
+            # Secondary sort: proximity to today (ascending), so today's instance
+            # always ranks before future or past recurring instances with the same score
             matches = (
                 self.session.query(
                     Meeting,
@@ -162,7 +166,10 @@ class MeetingsRepository:
                 .filter(func.similarity(Meeting.title, title) >= threshold)
                 .order_by(
                     func.similarity(Meeting.title, title).desc(),
-                    Meeting.start_time.desc()
+                    func.abs(
+                        func.extract('epoch', Meeting.start_time) -
+                        func.extract('epoch', func.now())
+                    ).asc()
                 )
                 .all()
             )
@@ -186,8 +193,13 @@ class MeetingsRepository:
                 if similarity >= threshold:
                     matches.append((meeting, similarity))
 
-            # Sort by similarity score (highest first), then by date (most recent first)
-            matches.sort(key=lambda x: (x[1], x[0].start_time), reverse=True)
+            # Sort by similarity score (highest first), then by proximity to today (ascending)
+            # so today's instance always ranks before future or past recurring instances
+            now = datetime.now()
+            matches.sort(key=lambda x: (
+                -x[1],
+                abs((x[0].start_time - now).total_seconds())
+            ))
 
             return matches
     
