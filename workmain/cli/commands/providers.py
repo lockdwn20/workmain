@@ -1,7 +1,7 @@
 """
 WorkmAIn Provider CLI Commands
-Provider Commands v1.4
-20260210
+Provider Commands v1.5
+20260303
 
 CLI commands for managing AI providers (Claude and Gemini).
 
@@ -17,6 +17,7 @@ Version History:
 - v1.2: Phase 5.1 - Fixed help text formatting with \b escape sequence
 - v1.3: Phase 5.1 - Updated Gemini model and cost display for gemini-2.5-flash
 - v1.4: Phase 5.1 - Updated Claude fallback model to claude-sonnet-4-5-20250929
+- v1.5: CLI Standardization Sprint (Gate 1) - providers costs --limit -l → -n
 """
 
 from typing import Optional
@@ -208,7 +209,7 @@ def test_provider(provider: str):
 @click.option('--provider', '-p', type=click.Choice(['claude', 'gemini'], case_sensitive=False),
               help='Filter by specific provider')
 @click.option('--month', '-m', help='Filter by month (YYYY-MM)')
-@click.option('--limit', '-l', type=int, default=20, help='Limit number of reports shown')
+@click.option('--limit', '-n', type=int, default=20, help='Limit number of reports shown')
 def show_costs(provider: Optional[str], month: Optional[str], limit: int):
     """
     Show cost breakdown by provider from database.
@@ -216,14 +217,14 @@ def show_costs(provider: Optional[str], month: Optional[str], limit: int):
     Options:
         --provider, -p: Filter by specific provider (claude or gemini)
         --month, -m: Filter by month (YYYY-MM format)
-        --limit, -l: Limit number of reports (default: 20)
+        --limit, -n: Limit number of reports (default: 20)
 
     \b
     Examples:
       workmain providers costs
       workmain providers costs -p claude
       workmain providers costs -m 2025-12
-      workmain providers costs -p gemini -l 10
+      workmain providers costs -p gemini -n 10
     """
     # Get database session
     db = get_db()

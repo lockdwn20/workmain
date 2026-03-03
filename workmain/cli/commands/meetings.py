@@ -1,7 +1,7 @@
 """
 WorkmAIn Meeting CLI Commands
-Meeting Commands v2.9
-20260203
+Meeting Commands v2.10
+20260303
 
 CLI commands for meeting management.
 
@@ -18,6 +18,7 @@ Version History:
         meeting condense creates note and updates/creates time entry
 - v2.8: Phase 5.1 - Show date/time in meeting picker to distinguish recurring meetings
 - v2.9: Phase 5.1 - Updated help text to clarify meetings track vs note meeting workflow
+- v2.10: CLI Standardization Sprint (Gate 1) - meetings create --start add -b; --end add -e
 """
 
 import click
@@ -86,8 +87,8 @@ def meetings():
 
 @meetings.command()
 @click.argument('title')
-@click.option('--start', required=True, help='Start time (HH:MM, HHMM, or YYYY-MM-DD HH:MM)')
-@click.option('--end', required=True, help='End time (HH:MM, HHMM, or YYYY-MM-DD HH:MM)')
+@click.option('--start', '-b', required=True, help='Start time (HH:MM, HHMM, or YYYY-MM-DD HH:MM)')
+@click.option('--end', '-e', required=True, help='End time (HH:MM, HHMM, or YYYY-MM-DD HH:MM)')
 @click.option('--date', 'meeting_date', help='Meeting date (YYYY-MM-DD, defaults to today)')
 @click.option('--recurring', '-r', type=click.Choice(['daily', 'weekly', 'monthly']),
               help='Recurring frequency (daily = workdays only by default)')
@@ -104,11 +105,11 @@ def create(title: str, start: str, end: str, meeting_date: Optional[str],
 
     \b
     Examples:
-      workmain meetings create "Standup" --start 14:00 --end 14:30
-      workmain meetings create "Planning" --start 09:00 --end 10:30 --date 2026-01-20
-      workmain meetings create "Daily Sync" --start 09:00 --end 09:15 -r daily -u 2026-01-31
-      workmain meetings create "Weekly Review" --start 10:00 --end 11:00 -r weekly
-      workmain meetings create "Client Call" --start 14:00 --end 15:00 -a user@example.com
+      workmain meetings create "Standup" -b 14:00 -e 14:30
+      workmain meetings create "Planning" -b 09:00 -e 10:30 --date 2026-01-20
+      workmain meetings create "Daily Sync" -b 09:00 -e 09:15 -r daily -u 2026-01-31
+      workmain meetings create "Weekly Review" -b 10:00 -e 11:00 -r weekly
+      workmain meetings create "Client Call" -b 14:00 -e 15:00 -a user@example.com
     """
     db = get_db()
     session = db.get_session()

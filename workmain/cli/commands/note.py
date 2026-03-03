@@ -1,7 +1,7 @@
 """
 WorkmAIn Note CLI Commands
-Note Commands v2.8
-20260210
+Note Commands v2.9
+20260303
 
 CLI commands for note management with tag support and meeting integration.
 
@@ -17,6 +17,8 @@ Version History:
 - v2.6: Phase 5.1 - Show date/time in meeting picker to distinguish recurring meetings
 - v2.7: Phase 5.1 - Updated help text to clarify note meeting as primary workflow
 - v2.8: Phase 5.1 - Allow no-notes meeting to proceed to condensation instead of cancelling
+- v2.9: CLI Standardization Sprint (Gate 1) - note add --source add -f short form;
+        notes meeting --history add -H short form
 """
 
 import click
@@ -219,7 +221,7 @@ def note():
 @click.option('--tags', '-t', help='Tags (comma-separated short names: ilo,cf,blk)')
 @click.option('--meeting', '-m', help='Meeting title (fuzzy match supported)')
 @click.option('--project', '-p', type=int, help='Project ID')
-@click.option('--source', default='ad-hoc', help='Note source (ad-hoc, meeting, task)')
+@click.option('--source', '-f', default='ad-hoc', help='Note source (ad-hoc, meeting, task)')
 def add(text: Optional[str], tags: Optional[str], meeting: Optional[str], project: Optional[int], source: str):
     """
     Add a new note with tags.
@@ -819,7 +821,7 @@ def search(keyword: str, limit: int):
 
 @notes.command()
 @click.argument('meeting_title')
-@click.option('--history', is_flag=True, help='Show all instances of recurring meeting')
+@click.option('--history', '-H', is_flag=True, help='Show all instances of recurring meeting')
 def meeting(meeting_title: str, history: bool):
     """
     Show notes for a specific meeting.
