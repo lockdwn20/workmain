@@ -1,6 +1,6 @@
 """
 WorkmAIn
-CLI Interface v1.2.0
+CLI Interface v1.3.0
 20260303
 
 Main CLI interface using Click framework
@@ -19,6 +19,7 @@ Version History:
 - v1.0.0: Phase 5 complete - Clockify integration (sync, reports, status)
 - v1.1.0: CLI Standardization Sprint (Gate 2) - notes group migrated to notes.py; note group removed
 - v1.2.0: CLI Standardization Sprint (Gate 3) - meeting group unregistered; meetings is now unified
+- v1.3.0: CLI Standardization Sprint (Gate 4) - added eod command
 
 """
 
@@ -48,6 +49,9 @@ from workmain.cli.commands.providers import providers
 
 # Import Phase 5 commands
 from workmain.cli.commands.clockify import clockify
+
+# Import Sprint commands
+from workmain.cli.commands.eod import eod
 
 # Initialize console
 console = Console()
@@ -152,6 +156,9 @@ cli.add_command(providers)
 
 # Phase 5: Clockify Integration
 cli.add_command(clockify)
+
+# Standardization Sprint
+cli.add_command(eod)
 
 
 # Placeholder command groups moved to FEATURE_BACKLOG.md for Phase 6
