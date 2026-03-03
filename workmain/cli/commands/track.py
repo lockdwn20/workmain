@@ -27,7 +27,9 @@ Version History:
         --category -c → -C; added --start -b and --end -e (Clockify clock-in/out);
         track edit: --description -d → -D;
         sync push: --silent -s → -q;
-        time group: --show-ids add -i short form
+        time group: --show-ids add -i short form (no-op — IDs now always visible);
+        format_time_entry_display: show_id default False → True (consistent with
+        notes/meetings which always show IDs)
 """
 
 import click
@@ -39,7 +41,7 @@ from workmain.database.repositories.time_entries_repo import TimeEntriesReposito
 from workmain.integrations.clockify.sync import ClockifySync
 
 
-def format_time_entry_display(entry, show_id: bool = False, show_date: bool = True) -> str:
+def format_time_entry_display(entry, show_id: bool = True, show_date: bool = True) -> str:
     """
     Format time entry for display.
     
@@ -698,7 +700,7 @@ def time_today(ctx, show_ids: bool, category: Optional[str]):
         click.echo("=" * 60)
         
         for entry in entries:
-            click.echo(format_time_entry_display(entry, show_id=show_ids, show_date=False))
+            click.echo(format_time_entry_display(entry, show_date=False))
             click.echo("-" * 60)
         
         # Show summary
@@ -754,7 +756,7 @@ def time_week(ctx, show_ids: bool, category: Optional[str]):
                 click.echo("-" * 60)
                 current_date = entry.entry_date
             
-            click.echo(format_time_entry_display(entry, show_id=show_ids, show_date=False))
+            click.echo(format_time_entry_display(entry, show_date=False))
             click.echo()
         
         click.echo("=" * 60)
@@ -811,7 +813,7 @@ def time_date(ctx, target_date: Optional[str], show_ids: bool, category: Optiona
         click.echo("=" * 60)
         
         for entry in entries:
-            click.echo(format_time_entry_display(entry, show_id=show_ids, show_date=False))
+            click.echo(format_time_entry_display(entry, show_date=False))
             click.echo("-" * 60)
         
         # Show summary
