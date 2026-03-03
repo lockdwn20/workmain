@@ -1,6 +1,6 @@
 """
 WorkmAIn Provider CLI Commands
-Provider Commands v1.5
+Provider Commands v1.6
 20260303
 
 CLI commands for managing AI providers (Claude and Gemini).
@@ -18,6 +18,7 @@ Version History:
 - v1.3: Phase 5.1 - Updated Gemini model and cost display for gemini-2.5-flash
 - v1.4: Phase 5.1 - Updated Claude fallback model to claude-sonnet-4-5-20250929
 - v1.5: CLI Standardization Sprint (Gate 1) - providers costs --limit -l → -n
+- v1.6: CLI Standardization Sprint (Gate 6) - set-default stub updated with [NOT IMPLEMENTED]
 """
 
 from typing import Optional
@@ -387,7 +388,7 @@ def show_costs(provider: Optional[str], month: Optional[str], limit: int):
               help='Report type to configure')
 def set_default_provider(provider: str, report_type: str):
     """
-    Set default AI provider for a report type.
+    Set default AI provider for a report type. [NOT IMPLEMENTED]
 
     Args:
         provider: Provider to use (claude or gemini)
@@ -400,11 +401,11 @@ def set_default_provider(provider: str, report_type: str):
       workmain providers set-default claude --for all
 
     Note:
-        This feature requires configuration management system.
+        NOT IMPLEMENTED — requires Phase 12 configuration management system.
         Currently defaults are set in config/ai_settings.json manually.
     """
     console.print()
-    console.print("[yellow]⚠ This feature is not yet fully implemented[/yellow]")
+    console.print("[yellow]⚠ NOT IMPLEMENTED — requires Phase 12 configuration system[/yellow]")
     console.print()
     console.print("[dim]Current workaround:[/dim]")
     console.print("  1. Edit config/ai_settings.json")
@@ -413,7 +414,7 @@ def set_default_provider(provider: str, report_type: str):
     console.print()
     console.print(f"[dim]You want to set: {provider} for {report_type} reports[/dim]")
     console.print()
-    console.print("[dim]This will be fully automated in a future update.[/dim]")
+    console.print("[dim]This will be fully automated in Phase 12 (Setup Wizard).[/dim]")
     console.print()
 
 

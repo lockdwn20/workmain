@@ -1,6 +1,6 @@
 """
 WorkmAIn
-CLI Interface v1.4.0
+CLI Interface v1.5.0
 20260303
 
 Main CLI interface using Click framework
@@ -21,6 +21,7 @@ Version History:
 - v1.2.0: CLI Standardization Sprint (Gate 3) - meeting group unregistered; meetings is now unified
 - v1.3.0: CLI Standardization Sprint (Gate 4) - added eod command
 - v1.4.0: CLI Standardization Sprint (Gate 5) - rewrote today command with full 6-section workflow
+- v1.5.0: CLI Standardization Sprint (Gate 6) - init help text updated; version bump to v1.2.0
 
 """
 
@@ -75,15 +76,15 @@ def cli(ctx):
 
 @cli.command()
 def init():
-    """Initialize WorkmAIn configuration and database."""
+    """Basic initialization reference. Full setup wizard planned for Phase 12."""
     console.print("[bold green]WorkmAIn Initialization[/bold green]")
-    console.print("\nThis will set up your WorkmAIn environment.")
-    console.print("\n[yellow]Note: Full setup wizard coming in Phase 12[/yellow]")
+    console.print("\nThis is a basic reference. Full setup wizard coming in Phase 12.")
+    console.print("\n[yellow]Note: Full setup wizard planned for Phase 12[/yellow]")
     console.print("\nDatabase is already initialized! ✓")
     console.print("\nNext steps:")
     console.print("  1. Add your API keys to .env file")
-    console.print("  2. Try: workmain note add 'Test note' --tags ilo")
-    console.print("  3. Try: workmain notes today")
+    console.print("  2. Try: workmain notes today")
+    console.print("  3. Try: workmain meetings today")
     console.print("  4. Try: workmain status")
 
 
