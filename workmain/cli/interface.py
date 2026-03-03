@@ -1,6 +1,6 @@
 """
 WorkmAIn
-CLI Interface v1.1.0
+CLI Interface v1.2.0
 20260303
 
 Main CLI interface using Click framework
@@ -18,6 +18,7 @@ Version History:
 - v0.9.0: Phase 4 complete - Enhanced status display with Features 3 & 4
 - v1.0.0: Phase 5 complete - Clockify integration (sync, reports, status)
 - v1.1.0: CLI Standardization Sprint (Gate 2) - notes group migrated to notes.py; note group removed
+- v1.2.0: CLI Standardization Sprint (Gate 3) - meeting group unregistered; meetings is now unified
 
 """
 
@@ -34,7 +35,7 @@ except ImportError:
 
 # Import Phase 2 commands
 from workmain.cli.commands.notes import notes
-from workmain.cli.commands.meetings import meetings, meeting
+from workmain.cli.commands.meetings import meetings
 from workmain.cli.commands.track import track, time
 from workmain.cli.commands.tasks import tasks
 
@@ -132,7 +133,6 @@ def today():
 # Phase 2: Note and Meeting Commands
 cli.add_command(notes)
 cli.add_command(meetings)
-cli.add_command(meeting)
 
 # Phase 2: Time Tracking Commands
 cli.add_command(track)

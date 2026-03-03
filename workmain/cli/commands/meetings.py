@@ -1,6 +1,6 @@
 """
 WorkmAIn Meeting CLI Commands
-Meeting Commands v2.10
+Meeting Commands v3.0
 20260303
 
 CLI commands for meeting management.
@@ -19,6 +19,9 @@ Version History:
 - v2.8: Phase 5.1 - Show date/time in meeting picker to distinguish recurring meetings
 - v2.9: Phase 5.1 - Updated help text to clarify meetings track vs note meeting workflow
 - v2.10: CLI Standardization Sprint (Gate 1) - meetings create --start add -b; --end add -e
+- v3.0: CLI Standardization Sprint (Gate 3) - merge meeting group into meetings; add
+        meetings today, meetings upcoming (duration parser); remove --today/--upcoming
+        flags from meetings list; meeting group deprecated (unregistered from CLI)
 """
 
 import click
@@ -278,34 +281,26 @@ def create(title: str, start: str, end: str, meeting_date: Optional[str],
 
 
 @meetings.command()
-@click.option('--today', is_flag=True, help='Show only today\'s meetings')
-@click.option('--upcoming', is_flag=True, help='Show upcoming meetings (next 7 days)')
 @click.option('--search', '-s', help='Search meetings by title')
 @click.option('--limit', '-n', type=int, default=20, help='Maximum results')
-def list(today: bool, upcoming: bool, search: Optional[str], limit: int):
+def list(search: Optional[str], limit: int):
     """
     List meetings.
 
     \b
     Examples:
       workmain meetings list
-      workmain meetings list --today
-      workmain meetings list --upcoming
-      workmain meetings list --search "standup"
+      workmain meetings list -s "standup"
+      workmain meetings today
+      workmain meetings upcoming
     """
     db = get_db()
     session = db.get_session()
     repo = MeetingsRepository(session)
-    
+
     try:
         # Get meetings based on filters
-        if today:
-            meeting_list = repo.get_today()
-            title_text = "Today's Meetings"
-        elif upcoming:
-            meeting_list = repo.get_upcoming(days=7)
-            title_text = "Upcoming Meetings (Next 7 Days)"
-        elif search:
+        if search:
             meeting_list = repo.search_by_title(search, limit=limit)
             title_text = f"Search Results for '{search}'"
         else:
@@ -609,6 +604,319 @@ def track(title_or_id: str, date: Optional[datetime]):
         session.close()
 
 
+@meetings.command('today')
+@click.option('--search', '-s', help='Search meetings by title')
+def meetings_today_cmd(search: Optional[str]):
+    """
+    Show today's meetings.
+
+    \b
+    Examples:
+      workmain meetings today
+      workmain meetings today -s "standup"
+    """
+    db = get_db()
+    session = db.get_session()
+    repo = MeetingsRepository(session)
+
+    try:
+        all_today = repo.get_today()
+        if search:
+            meeting_list = [m for m in all_today if search.lower() in m.title.lower()]
+            title_text = f"Today's Meetings — '{search}'"
+        else:
+            meeting_list = all_today
+            title_text = "Today's Meetings"
+
+        if not meeting_list:
+            console.print()
+            console.print("[yellow]No meetings today[/yellow]")
+            console.print()
+            return
+
+        console.print(f"\n[bold]{title_text}[/bold] ({len(meeting_list)}):\n")
+        console.print("=" * 60)
+
+        for mtg in meeting_list:
+            console.print(format_meeting_display(mtg, repo))
+            console.print("-" * 60)
+
+    finally:
+        session.close()
+
+
+@meetings.command('upcoming')
+@click.option('--days', '-n', default='7d',
+              help='Lookahead duration (e.g., 7d, 2w, 1m) [default: 7d]')
+def meetings_upcoming(days: str):
+    """
+    Show upcoming meetings.
+
+    \b
+    Examples:
+      workmain meetings upcoming
+      workmain meetings upcoming -n 14d
+      workmain meetings upcoming -n 2w
+      workmain meetings upcoming -n 1m
+    """
+    from workmain.utils.duration_parser import parse_duration
+
+    db = get_db()
+    session = db.get_session()
+    repo = MeetingsRepository(session)
+
+    try:
+        try:
+            delta = parse_duration(days)
+        except ValueError as e:
+            console.print(f"[red]✗ {e}[/red]")
+            console.print()
+            return
+
+        total_days = delta.days
+        meeting_list = repo.get_upcoming(days=total_days)
+
+        if not meeting_list:
+            console.print()
+            console.print(f"[yellow]No meetings in the next {days}[/yellow]")
+            console.print()
+            return
+
+        console.print(f"\n[bold]Upcoming Meetings (Next {days})[/bold] ({len(meeting_list)}):\n")
+        console.print("=" * 60)
+
+        for mtg in meeting_list:
+            console.print(format_meeting_display(mtg, repo))
+            console.print("-" * 60)
+
+    finally:
+        session.close()
+
+
+@meetings.command('condense')
+@click.argument('meeting_title')
+def meetings_condense(meeting_title: str):
+    """
+    Condense meeting notes into a one-line summary using AI.
+
+    Creates a professional summary suitable for Clockify time entries.
+
+    \b
+    Example:
+      workmain meetings condense "Team Standup"
+    """
+    db = get_db()
+    session = db.get_session()
+    meetings_repo = MeetingsRepository(session)
+
+    try:
+        # Find meeting with fuzzy matching
+        matches = meetings_repo.fuzzy_match(meeting_title, threshold=0.6)
+
+        if not matches:
+            console.print(f"[red]✗ Meeting not found: '{meeting_title}'[/red]")
+            console.print()
+            return
+
+        # Interactive confirmation for fuzzy match
+        meeting = None
+        if len(matches) == 1:
+            meeting, score = matches[0]
+            if score < 0.95:  # Not exact match
+                console.print(f"\n[yellow]Found similar meeting:[/yellow] {meeting.title}")
+                if not click.confirm("Use this meeting?", default=True):
+                    console.print("Cancelled.")
+                    return
+        else:
+            # Multiple matches - show date to distinguish recurring meetings
+            today = date.today()
+            console.print(f"\n[yellow]Multiple meetings found:[/yellow]")
+            for i, (m, score) in enumerate(matches[:5], 1):
+                note_count = meetings_repo.get_note_count(m.id)
+                meeting_date = m.start_time.strftime('%Y-%m-%d %H:%M') if m.start_time else "No date"
+                is_today = m.start_time.date() == today if m.start_time else False
+                today_marker = " [green]← Today[/green]" if is_today else ""
+                console.print(f"  {i}. {m.title} ({meeting_date}, {note_count} notes, {score*100:.0f}% match){today_marker}")
+
+            choice = click.prompt("\nSelect meeting [1-5, or 0 to cancel]", type=int, default=1)
+            if choice == 0 or choice > len(matches):
+                console.print("Cancelled.")
+                return
+
+            meeting, _ = matches[choice - 1]
+
+        # Check if meeting has notes
+        note_count = meetings_repo.get_note_count(meeting.id)
+        if note_count == 0:
+            console.print(f"\n[yellow]✗ Meeting '{meeting.title}' has no notes to condense[/yellow]")
+            console.print()
+            console.print("[dim]Add notes first with:[/dim]")
+            console.print(f"  workmain notes log -m \"{meeting.title}\"")
+            console.print()
+            return
+
+        console.print()
+        console.print(f"[bold]Condensing {note_count} note(s) for:[/bold] {meeting.title}")
+        console.print("[dim]Sending to Claude...[/dim]")
+        console.print()
+
+        # Condense using AI
+        condenser = get_note_condenser(session)
+
+        try:
+            summary = condenser.condense_meeting(meeting)
+
+            # Get cost from last condensation
+            cost_tracker = condenser.cost_tracker
+            if cost_tracker._current_report:
+                total_cost = sum(s.cost for s in cost_tracker._current_report.sections)
+                total_tokens = sum(s.total_tokens for s in cost_tracker._current_report.sections)
+            else:
+                total_cost = 0.0
+                total_tokens = 0
+
+            console.print("[green]✓ Condensed summary:[/green]")
+            console.print(f"  \"{summary}\"")
+            console.print()
+            console.print(f"[dim]Cost: ${total_cost:.6f} ({total_tokens} tokens)[/dim]")
+
+            # Create a note from the condensed summary
+            from workmain.database.repositories.notes_repo import NotesRepository
+            notes_repo = NotesRepository(session)
+            condensed_note = notes_repo.create(
+                content=summary,
+                tags=['both'],
+                meeting_id=meeting.id,
+                source='meeting'
+            )
+            console.print(f"[green]✓ Note created (ID: {condensed_note.id})[/green]")
+
+            # Update or create time entry with condensed summary
+            from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+            time_repo = TimeEntriesRepository(session)
+
+            existing = time_repo.get_by_meeting(meeting.id)
+            meeting_date = meeting.start_time.date()
+            existing_today = [e for e in existing if e.entry_date == meeting_date]
+
+            if existing_today:
+                # Update existing time entry description with condensed summary
+                entry = existing_today[0]
+                entry.description = summary
+                session.commit()
+                console.print(f"[green]✓ Time entry (ID: {entry.id}) updated with condensed summary[/green]")
+            else:
+                # Create new time entry from meeting
+                duration_hours = (
+                    meeting.end_time - meeting.start_time
+                ).total_seconds() / 3600
+
+                entry = time_repo.create(
+                    description=summary,
+                    duration_hours=duration_hours,
+                    entry_date=meeting.start_time.date(),
+                    entry_time=meeting.start_time.time(),
+                    category='meeting',
+                    meeting_id=meeting.id
+                )
+                console.print(f"[green]✓ Time entry created (ID: {entry.id}, {duration_hours:.2f}h)[/green]")
+
+            console.print()
+
+        except ValueError as e:
+            console.print(f"[red]✗ Condensation failed: {e}[/red]")
+            console.print()
+
+    except Exception as e:
+        console.print(f"[red]✗ Error: {e}[/red]")
+        console.print()
+
+    finally:
+        session.close()
+
+
+@meetings.command('rename')
+@click.argument('meeting_id', type=int)
+@click.argument('new_title')
+def meetings_rename(meeting_id: int, new_title: str):
+    """
+    Rename a meeting.
+
+    \b
+    Example:
+      workmain meetings rename 5 "Daily Standup"
+    """
+    db = get_db()
+    session = db.get_session()
+    repo = MeetingsRepository(session)
+
+    try:
+        mtg = repo.get_by_id(meeting_id)
+        if not mtg:
+            console.print(f"[red]✗ Meeting {meeting_id} not found[/red]")
+            return
+
+        old_title = mtg.title
+
+        if repo.rename(meeting_id, new_title):
+            console.print(f"[green]✓ Renamed:[/green] '{old_title}' → '{new_title}'")
+        else:
+            console.print(f"[red]✗ Rename failed[/red]")
+
+    finally:
+        session.close()
+
+
+@meetings.command('merge')
+@click.argument('from_title')
+@click.argument('to_title')
+def meetings_merge(from_title: str, to_title: str):
+    """
+    Merge two meetings by moving notes from one to another.
+
+    \b
+    Example:
+      workmain meetings merge "Old Standup" "Team Standup"
+    """
+    db = get_db()
+    session = db.get_session()
+    repo = MeetingsRepository(session)
+
+    try:
+        from_mtg = repo.get_by_title(from_title, exact=False)
+        to_mtg = repo.get_by_title(to_title, exact=False)
+
+        if not from_mtg:
+            console.print(f"[red]✗ Source meeting '{from_title}' not found[/red]")
+            return
+
+        if not to_mtg:
+            console.print(f"[red]✗ Target meeting '{to_title}' not found[/red]")
+            return
+
+        from_notes = repo.get_note_count(from_mtg.id)
+
+        console.print(f"\n[bold]Merge Plan:[/bold]")
+        console.print(f"  From: {from_mtg.title} ({from_notes} notes)")
+        console.print(f"  To: {to_mtg.title}")
+
+        if not click.confirm("\nContinue?", default=False):
+            console.print("Cancelled.")
+            return
+
+        if repo.merge(from_mtg.id, to_mtg.id):
+            console.print(f"[green]✓ Moved {from_notes} note(s) to '{to_mtg.title}'[/green]")
+
+            if click.confirm(f"Delete old meeting '{from_mtg.title}'?", default=True):
+                if repo.delete(from_mtg.id, delete_notes=False):
+                    console.print(f"[green]✓ Old meeting deleted[/green]")
+        else:
+            console.print(f"[red]✗ Merge failed[/red]")
+
+    finally:
+        session.close()
+
+
 @click.group()
 def meeting():
     """Single meeting management commands."""
@@ -897,4 +1205,5 @@ def delete(meeting_id: int, delete_notes: bool):
 
 
 # Export command groups
+# Note: 'meeting' group retained as dead code — unregistered from CLI in Gate 3
 __all__ = ['meetings', 'meeting']
