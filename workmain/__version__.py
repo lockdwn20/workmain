@@ -1,7 +1,7 @@
 """
 WorkmAIn Package Version
-Version v1.1.0
-20260127
+Version v1.2.0
+20260303
 
 Version History:
 - v0.1.0: Initial structure
@@ -15,9 +15,11 @@ Version History:
 - v0.9.0: Phase 4 Features 3-4 - Enhanced status display
 - v1.0.0: Phase 5 complete - Clockify integration (sync, reports, status)
 - v1.1.0: Phase 5.1 complete - Operational test fixes and integration
+- v1.2.0: CLI Standardization Sprint complete - unified notes/meetings groups,
+          standardized flags, eod command, today rewrite
 """
 
-__version__ = "1.1.0"
-__version_info__ = (1, 1, 0)
+__version__ = "1.2.0"
+__version_info__ = (1, 2, 0)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
