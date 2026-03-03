@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v3.1
-20260210
+Feature Backlog v3.2
+20260303
 
 # WorkmAIn Feature Backlog
 
@@ -11,6 +11,31 @@ Items deferred from various phases for future implementation.
 - v2.0 (20251226): Added Phase 3.5/Pre-Phase 4 deferrals
 - v3.0 (20260127): Added Phase 5.1 deferrals
 - v3.1 (20260210): Added AI provider management items (model update process, new provider support)
+- v3.2 (20260303): Added CLI Standardization Sprint deferral (clockify report subcommand pattern)
+
+---
+
+## Deferred CLI Standardization Sprint Items
+
+### 1. `clockify report` Subcommand Refactor
+
+**Status:** Deferred
+**Priority:** Low (cosmetic consistency)
+**Added:** 20260303
+
+**Description:**
+Refactor `clockify report ACTION` to use the `clockify report get` subcommand pattern,
+consistent with `track sync push/pull/both`. Currently `clockify report get` is the
+action name but it does not follow a strict subcommand pattern.
+
+**Desired state:**
+```
+workmain clockify report get          # consistent with sync push/pull/both
+```
+
+**Notes:**
+- Low priority; current behavior works correctly
+- Address during a future CLI polish pass or Phase 10 (Report Generation Pipeline)
 
 ---
 

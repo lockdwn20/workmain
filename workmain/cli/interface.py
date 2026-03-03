@@ -1,7 +1,7 @@
 """
 WorkmAIn
-CLI Interface v1.0.0
-20260116
+CLI Interface v1.5.0
+20260303
 
 Main CLI interface using Click framework
 Updated for Phase 5: Clockify Integration
@@ -17,6 +17,11 @@ Version History:
 - v0.8.0: Added providers command group (Phase 4 Feature 2)
 - v0.9.0: Phase 4 complete - Enhanced status display with Features 3 & 4
 - v1.0.0: Phase 5 complete - Clockify integration (sync, reports, status)
+- v1.1.0: CLI Standardization Sprint (Gate 2) - notes group migrated to notes.py; note group removed
+- v1.2.0: CLI Standardization Sprint (Gate 3) - meeting group unregistered; meetings is now unified
+- v1.3.0: CLI Standardization Sprint (Gate 4) - added eod command
+- v1.4.0: CLI Standardization Sprint (Gate 5) - rewrote today command with full 6-section workflow
+- v1.5.0: CLI Standardization Sprint (Gate 6) - init help text updated; version bump to v1.2.0
 
 """
 
@@ -32,8 +37,8 @@ except ImportError:
     __version__ = "1.1.0"
 
 # Import Phase 2 commands
-from workmain.cli.commands.note import note, notes
-from workmain.cli.commands.meetings import meetings, meeting
+from workmain.cli.commands.notes import notes
+from workmain.cli.commands.meetings import meetings
 from workmain.cli.commands.track import track, time
 from workmain.cli.commands.tasks import tasks
 
@@ -46,6 +51,9 @@ from workmain.cli.commands.providers import providers
 
 # Import Phase 5 commands
 from workmain.cli.commands.clockify import clockify
+
+# Import Sprint commands
+from workmain.cli.commands.eod import eod
 
 # Initialize console
 console = Console()
@@ -68,15 +76,15 @@ def cli(ctx):
 
 @cli.command()
 def init():
-    """Initialize WorkmAIn configuration and database."""
+    """Basic initialization reference. Full setup wizard planned for Phase 12."""
     console.print("[bold green]WorkmAIn Initialization[/bold green]")
-    console.print("\nThis will set up your WorkmAIn environment.")
-    console.print("\n[yellow]Note: Full setup wizard coming in Phase 12[/yellow]")
+    console.print("\nThis is a basic reference. Full setup wizard coming in Phase 12.")
+    console.print("\n[yellow]Note: Full setup wizard planned for Phase 12[/yellow]")
     console.print("\nDatabase is already initialized! ✓")
     console.print("\nNext steps:")
     console.print("  1. Add your API keys to .env file")
-    console.print("  2. Try: workmain note add 'Test note' --tags ilo")
-    console.print("  3. Try: workmain notes today")
+    console.print("  2. Try: workmain notes today")
+    console.print("  3. Try: workmain meetings today")
     console.print("  4. Try: workmain status")
 
 
@@ -113,26 +121,62 @@ def status():
 
 @cli.command()
 def today():
-    """Show today's summary."""
-    console.print(f"\n[bold cyan]Today's Summary - {date.today().strftime('%A, %B %d, %Y')}[/bold cyan]")
-    console.print("\n[yellow]Quick Access:[/yellow]")
-    console.print("  • workmain notes today           - View today's notes")
-    console.print("  • workmain note add 'text'       - Add a new note")
-    console.print("  • workmain note meeting -m 'X'   - Bulk meeting notes (Feature 3)")
-    console.print("  • workmain track add 'desc' 2h   - Track time")
-    console.print("  • workmain track sync push       - Sync to Clockify")
-    console.print("  • workmain tasks carryover       - See carry-forward tasks")
-    console.print("  • workmain meeting condense 'X'  - AI summarize meeting (Feature 4)")
-    console.print("  • workmain report daily --send   - Generate AI report")
-    console.print("  • workmain clockify status       - Check Clockify connection")
+    """Show today's workflow reference."""
+    console.print(f"\n[bold cyan]WorkmAIn Daily Workflow — {date.today().strftime('%A, %B %d, %Y')}[/bold cyan]")
+
+    console.print("\n[bold yellow]MORNING STARTUP[/bold yellow]")
+    console.print("  workmain meetings today              # What's on today")
+    console.print("  workmain meetings upcoming -n 2w     # Look ahead 2 weeks")
+    console.print("  workmain notes today                 # Review yesterday's carry-forwards")
+    console.print("  workmain tasks carryover             # Open carry-forward tasks")
+
+    console.print("\n[bold yellow]DURING MEETINGS[/bold yellow]  [dim](primary workflow)[/dim]")
+    console.print("  workmain notes log -m 'Standup'      # Log notes into a meeting")
+    console.print("    → opens $EDITOR (or line-by-line prompt)")
+    console.print("    → each line = one note with inline tags  (#ilo #cf)")
+    console.print("    → prompts to condense + track time on exit")
+    console.print("")
+    console.print("  workmain meetings create 'Title' -b 0900 -e 1000   # Ad-hoc meeting")
+
+    console.print("\n[bold yellow]AFTER MEETINGS[/bold yellow]")
+    console.print("  workmain meetings condense 'Standup' # AI summarize → Clockify description")
+    console.print("  workmain meetings track 'Standup'    # Create time entry from meeting")
+    console.print("  workmain track add 'Deep work' 2h -T 1300 -t ilo   # Manual time entry")
+    console.print("    # -T = start time (required)  -t = tags  -N = note  -C = category")
+
+    console.print("\n[bold yellow]REVIEW & EDIT[/bold yellow]")
+    console.print("  workmain time today                  # Today's time entries (IDs always shown)")
+    console.print("  workmain track edit <id> -D 'desc'   # Edit description  (-D not -d)")
+    console.print("  workmain notes today                 # Today's notes")
+    console.print("  workmain notes meeting 'Standup' -H  # All notes for meeting (-H = history)")
+    console.print("  workmain notes search 'keyword'      # Full-text search")
+
+    console.print("\n[bold yellow]END OF DAY[/bold yellow]")
+    console.print("  workmain eod                         # Full guided EOD workflow:")
+    console.print("    1. Condense pending meetings")
+    console.print("    2. Sync to Clockify  (track sync push)")
+    console.print("    3. Review time entries")
+    console.print("    4. Generate daily report  (report daily --send)")
+    console.print("    5. Pull Clockify PDF")
+    console.print("  workmain eod --skip clockify         # Skip individual steps")
+    console.print("  workmain eod --dry-run               # Preview without executing")
+
+    console.print("\n[bold yellow]OTHER USEFUL COMMANDS[/bold yellow]")
+    console.print("  workmain notes add 'text' -t ilo     # Quick note  (-t = tags)")
+    console.print("  workmain track sync push             # Sync to Clockify manually")
+    console.print("  workmain track sync pull             # Import from Clockify")
+    console.print("  workmain meetings rename <id> 'New'  # Rename a meeting")
+    console.print("  workmain meetings merge 'Old' 'New'  # Move notes between meetings")
+    console.print("  workmain providers list              # Check AI provider status")
+    console.print("  workmain report daily                # Preview report (no --send)")
+    console.print("  workmain clockify status             # Check Clockify connection")
+
     console.print("\n[dim]Use 'workmain --help' for all commands[/dim]")
 
 
 # Phase 2: Note and Meeting Commands
-cli.add_command(note)
 cli.add_command(notes)
 cli.add_command(meetings)
-cli.add_command(meeting)
 
 # Phase 2: Time Tracking Commands
 cli.add_command(track)
@@ -152,6 +196,9 @@ cli.add_command(providers)
 
 # Phase 5: Clockify Integration
 cli.add_command(clockify)
+
+# Standardization Sprint
+cli.add_command(eod)
 
 
 # Placeholder command groups moved to FEATURE_BACKLOG.md for Phase 6

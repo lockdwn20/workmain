@@ -1,7 +1,7 @@
 """
 WorkmAIn Report Commands - Phase 4 Implementation
-Report Commands v1.7
-20251230
+Report Commands v1.8
+20260303
 
 Dynamic alias resolution - any template or alias works as a command.
 
@@ -24,6 +24,7 @@ Version History:
         Uses reports repository instead of filesystem scanning
         Costs queried from reports.metadata JSONB field
 - v1.7: Phase 5.1 - Fixed help text formatting with \b escape sequence
+- v1.8: CLI Standardization Sprint (Gate 1) - report list --limit -l → -n
 """
 
 import click
@@ -260,7 +261,7 @@ def report():
 
 
 @report.command('list')
-@click.option('--limit', '-l', type=int, default=10, help='Number of reports to show')
+@click.option('--limit', '-n', type=int, default=10, help='Number of reports to show')
 def report_list(limit: int):
     """
     List generated reports.
@@ -268,7 +269,7 @@ def report_list(limit: int):
     \b
     Examples:
       workmain report list
-      workmain report list -l 20
+      workmain report list -n 20
     """
     # Get database session and generator
     db = get_db()

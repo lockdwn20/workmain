@@ -1,7 +1,7 @@
 """
 WorkmAIn Track CLI Commands
-Track Commands v1.8
-20260203
+Track Commands v1.9
+20260303
 
 CLI commands for time tracking with 24-hour format support and Clockify sync.
 
@@ -22,6 +22,14 @@ Version History:
         clarified --tags help text to indicate it replaces default tag
 - v1.8: Phase 5.1 - Made --time required to prevent NULL entry_time sync crashes;
         updated help text to clarify command purpose vs note meeting workflow
+- v1.9: CLI Standardization Sprint (Gate 1) - Flag short-form changes:
+        track add: --time -t → -T (REQUIRED); --tags add -t; --notes -n → -N;
+        --category -c → -C; added --start -b and --end -e (Clockify clock-in/out);
+        track edit: --description -d → -D;
+        sync push: --silent -s → -q;
+        time group: --show-ids add -i short form (no-op — IDs now always visible);
+        format_time_entry_display: show_id default False → True (consistent with
+        notes/meetings which always show IDs)
 """
 
 import click
@@ -33,7 +41,7 @@ from workmain.database.repositories.time_entries_repo import TimeEntriesReposito
 from workmain.integrations.clockify.sync import ClockifySync
 
 
-def format_time_entry_display(entry, show_id: bool = False, show_date: bool = True) -> str:
+def format_time_entry_display(entry, show_id: bool = True, show_date: bool = True) -> str:
     """
     Format time entry for display.
     
@@ -127,28 +135,31 @@ def track():
 @track.command('add')
 @click.argument('description')
 @click.argument('duration')
-@click.option('--time', '-t', required=True, help='Start time in 24hr format (14:30 or 1430) or AM/PM (2:30pm or 230pm)')
+@click.option('--time', '-T', required=True, help='Start time in 24hr format (14:30 or 1430) or AM/PM (2:30pm or 230pm)')
 @click.option('--date', '-d', help='Date (YYYY-MM-DD, default: today)')
-@click.option('--category', '-c', help='Category (e.g., development, meeting)')
+@click.option('--category', '-C', help='Category (e.g., development, meeting)')
 @click.option('--project', '-p', type=int, help='Project ID')
 @click.option('--meeting', '-m', help='Link to meeting (title or ID)')
-@click.option('--notes', '-n', help='Create note for meeting (requires --meeting)')
-@click.option('--tags', help='Tags for note (comma-separated, e.g., ilo,cf). Replaces default tag (ilo).')
+@click.option('--notes', '-N', help='Create note for meeting (requires --meeting)')
+@click.option('--tags', '-t', help='Tags for note (comma-separated, e.g., ilo,cf). Replaces default tag (ilo).')
+@click.option('--start', '-b', help='Clock-in time for Clockify (HH:MM or HHMM, optional override)')
+@click.option('--end', '-e', help='Clock-out time for Clockify (HH:MM or HHMM, optional override)')
 def track_add(description: str, duration: str, time: str,
               date: Optional[str], category: Optional[str], project: Optional[int],
-              meeting: Optional[str], notes: Optional[str], tags: Optional[str]):
+              meeting: Optional[str], notes: Optional[str], tags: Optional[str],
+              start: Optional[str], end: Optional[str]):
     """
     Log a time entry with optional meeting linkage.
 
     A note is automatically created for each time entry. When using
     --meeting, the note is linked to that meeting. For detailed meeting
-    notes, use 'workmain note meeting' instead.
+    notes, use 'workmain notes log' instead.
 
     \b
     Examples:
-      workmain track add "Fixed login bug" 2h -t 14:30
-      workmain track add "Team meeting" 1.5h -t 1430 -m "Daily Standup"
-      workmain track add "Meeting time" 1h -t 09:00 -m 42 -n "Discussed features"
+      workmain track add "Fixed login bug" 2h -T 14:30
+      workmain track add "Team meeting" 1.5h -T 1430 -m "Daily Standup" -t ilo
+      workmain track add "Meeting time" 1h -T 09:00 -m 42 -N "Discussed features"
     """
     # Validate --notes requires --meeting
     if notes and not meeting:
@@ -319,7 +330,7 @@ def track_add(description: str, duration: str, time: str,
 
 @track.command('edit')
 @click.argument('entry_id', type=int)
-@click.option('--description', '-d', help='New description')
+@click.option('--description', '-D', help='New description')
 @click.option('--duration', help='New duration (e.g., 2h, 1.5h)')
 @click.option('--time', '-t', help='New time (14:30 or 1430)')
 @click.option('--category', '-c', help='New category')
@@ -331,7 +342,7 @@ def track_edit(entry_id: int, description: Optional[str], duration: Optional[str
 
     \b
     Examples:
-      workmain track edit 5 -d "Updated description"
+      workmain track edit 5 -D "Updated description"
       workmain track edit 5 --duration 3h
       workmain track edit 5 -t 16:00
       workmain track edit 5 -t 1600
@@ -446,7 +457,7 @@ def sync():
               help='Push all entries (including already synced)')
 @click.option('--date', '-d', type=click.DateTime(formats=['%Y-%m-%d']),
               help='Push entries for specific date only')
-@click.option('--silent', '-s', is_flag=True,
+@click.option('--silent', '-q', is_flag=True,
               help='Silent mode (no progress output)')
 def push(all, date, silent):
     """
@@ -649,7 +660,7 @@ def both(date):
 
 
 @click.group()
-@click.option('--show-ids', is_flag=True, help='Show entry IDs')
+@click.option('--show-ids', '-i', is_flag=True, help='Show entry IDs')
 @click.pass_context
 def time(ctx, show_ids: bool):
     """View time entries and summaries."""
@@ -689,7 +700,7 @@ def time_today(ctx, show_ids: bool, category: Optional[str]):
         click.echo("=" * 60)
         
         for entry in entries:
-            click.echo(format_time_entry_display(entry, show_id=show_ids, show_date=False))
+            click.echo(format_time_entry_display(entry, show_date=False))
             click.echo("-" * 60)
         
         # Show summary
@@ -745,7 +756,7 @@ def time_week(ctx, show_ids: bool, category: Optional[str]):
                 click.echo("-" * 60)
                 current_date = entry.entry_date
             
-            click.echo(format_time_entry_display(entry, show_id=show_ids, show_date=False))
+            click.echo(format_time_entry_display(entry, show_date=False))
             click.echo()
         
         click.echo("=" * 60)
@@ -802,7 +813,7 @@ def time_date(ctx, target_date: Optional[str], show_ids: bool, category: Optiona
         click.echo("=" * 60)
         
         for entry in entries:
-            click.echo(format_time_entry_display(entry, show_id=show_ids, show_date=False))
+            click.echo(format_time_entry_display(entry, show_date=False))
             click.echo("-" * 60)
         
         # Show summary
