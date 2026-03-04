@@ -1,7 +1,7 @@
 """
 WorkmAIn Track CLI Commands
-Track Commands v1.9
-20260303
+Track Commands v2.0
+20260304
 
 CLI commands for time tracking with 24-hour format support and Clockify sync.
 
@@ -30,6 +30,8 @@ Version History:
         time group: --show-ids add -i short form (no-op — IDs now always visible);
         format_time_entry_display: show_id default False → True (consistent with
         notes/meetings which always show IDs)
+- v2.0: Post-sprint cleanup - removed dead show_ids variable reads from time_today,
+        time_week, time_date (--show-ids/-i flag retained as no-op for muscle memory)
 """
 
 import click
@@ -683,11 +685,10 @@ def time_today(ctx, show_ids: bool, category: Optional[str]):
       workmain time today --show-ids
       workmain time today -c development
     """
-    show_ids = show_ids or ctx.obj.get('show_ids', False)
     db = get_db()
     session = db.get_session()
     repo = TimeEntriesRepository(session)
-    
+
     try:
         # Get entries
         entries = repo.get_today(category=category)
@@ -725,11 +726,10 @@ def time_week(ctx, show_ids: bool, category: Optional[str]):
       workmain time --show-ids week
       workmain time week -c meeting
     """
-    show_ids = show_ids or ctx.obj.get('show_ids', False)
     db = get_db()
     session = db.get_session()
     repo = TimeEntriesRepository(session)
-    
+
     try:
         # Get week entries
         entries = repo.get_week(category=category)
@@ -784,11 +784,10 @@ def time_date(ctx, target_date: Optional[str], show_ids: bool, category: Optiona
       workmain time --show-ids date yesterday
       workmain time date today
     """
-    show_ids = show_ids or ctx.obj.get('show_ids', False)
     db = get_db()
     session = db.get_session()
     repo = TimeEntriesRepository(session)
-    
+
     try:
         # Parse date
         if not target_date or target_date == 'today':

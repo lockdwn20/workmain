@@ -1,6 +1,6 @@
 """
 WorkmAIn Tasks CLI Commands
-Tasks Commands v1.2
+Tasks Commands v1.3
 20260127
 
 CLI commands for task management (carry-forward tasks).
@@ -9,6 +9,7 @@ Version History:
 - v1.0: Initial implementation with carryover command
 - v1.1: Phase 5.1 - Migrated to get_db() session management pattern
 - v1.2: Phase 5.1 - Fixed help text formatting with \b escape sequence
+- v1.3: Post-sprint cleanup - updated note add reference to notes add
 """
 
 import click
@@ -69,7 +70,7 @@ def carryover(show_ids: bool, show_all: bool, limit: Optional[int]):
         if not all_cf_notes:
             click.echo("No carry-forward tasks found.")
             click.echo("\nTip: Tag tasks with --tags cf to track them:")
-            click.echo("  workmain note add 'Task to complete later' --tags cf")
+            click.echo("  workmain notes add 'Task to complete later' --tags cf")
             return
         
         # Filter by age unless --all flag is used

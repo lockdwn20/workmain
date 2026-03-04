@@ -1,7 +1,7 @@
 """
 WorkmAIn
-CLI Interface v1.5.0
-20260303
+CLI Interface v1.6.0
+20260304
 
 Main CLI interface using Click framework
 Updated for Phase 5: Clockify Integration
@@ -22,6 +22,7 @@ Version History:
 - v1.3.0: CLI Standardization Sprint (Gate 4) - added eod command
 - v1.4.0: CLI Standardization Sprint (Gate 5) - rewrote today command with full 6-section workflow
 - v1.5.0: CLI Standardization Sprint (Gate 6) - init help text updated; version bump to v1.2.0
+- v1.6.0: Post-sprint cleanup - removed stale meeting/note command references from status table
 
 """
 
@@ -106,13 +107,13 @@ def status():
     table.add_row("Templates", "✓ Phase 3 Complete")
     table.add_row("AI Integration", "✓ Phase 4 Complete")
     table.add_row("├─ Providers CLI", "✓ Feature 2 (providers commands)")
-    table.add_row("├─ Bulk Meeting Notes", "✓ Feature 3 (note meeting)")
-    table.add_row("└─ AI Condensation", "✓ Feature 4 (meeting condense)")
+    table.add_row("├─ Bulk Meeting Notes", "✓ Feature 3 (notes log)")
+    table.add_row("└─ AI Condensation", "✓ Feature 4 (meetings condense)")
     table.add_row("Clockify Sync", "✓ Phase 5 Complete")
     table.add_row("├─ Bidirectional Sync", "✓ track sync push/pull/both")
     table.add_row("├─ PDF Reports", "✓ clockify report get")
     table.add_row("├─ Recurring Meetings", "✓ meetings create --recurring")
-    table.add_row("└─ Writing Style", "✓ meeting condense (enhanced)")
+    table.add_row("└─ Writing Style", "✓ meetings condense (enhanced)")
     
     console.print(table)
     console.print("\n[bold green]Phase 5 Complete![/bold green] Ready for Phase 6 (Outlook Integration)")
