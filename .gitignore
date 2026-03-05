@@ -52,7 +52,9 @@ data/
 logs/
 cache/
 temp/
-reports/
+
+# Generated output (reports, email drafts)
+output/
 
 # OS
 .DS_Store
