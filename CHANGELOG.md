@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-03-06
+
+### Fixed
+- `workmain eod` Step 4: replaced stale `report daily --send` with
+  `report save daily_internal` + `email save daily_internal` (split 4a/4b)
+- `workmain eod` Step 5: replaced passive PDF filesystem scan with active
+  `clockify report save daily` pull to `staging/clockify/`
+- `workmain clockify report` redesigned: `{get}` removed, `save <period>`
+  subcommand added (`daily` default, `weekly`, `monthly`), output staged to
+  `staging/clockify/`, `--start/-b` and `--end/-e` flag standard compliance
+
+### Changed
+- Renamed `output/` → `staging/` across entire codebase and gitignore
+- Added `staging/clockify/` and `staging/notes/` directories
+- Gitignore strategy: track directories via `.gitkeep`, ignore contents
+- Added `--skip email` flag to `workmain eod` (skips 4b only; `--skip report`
+  skips both 4a and 4b as a unit)
+
 ## [1.3.0] - 2026-03-05
 
 ### Added

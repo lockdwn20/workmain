@@ -1,7 +1,7 @@
 """
 WorkmAIn Package Version
-Version v1.3.0
-20260305
+Version v1.3.1
+20260306
 
 Version History:
 - v0.1.0: Initial structure
@@ -19,9 +19,11 @@ Version History:
           standardized flags, eod command, today rewrite
 - v1.3.0: Phase 6 complete - Outlook Integration (ICS import, calendar commands,
           email draft pipeline, recipient management)
+- v1.3.1: Hotfix — staging/ folder restructure (output/ renamed), eod Step 4/5
+          corrections, clockify report redesigned (save <period> subcommand)
 """
 
-__version__ = "1.3.0"
-__version_info__ = (1, 3, 0)
+__version__ = "1.3.1"
+__version_info__ = (1, 3, 1)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
