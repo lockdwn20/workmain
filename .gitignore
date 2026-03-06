@@ -52,7 +52,16 @@ data/
 logs/
 cache/
 temp/
-reports/
+
+# Staging directories — track structure, ignore user data
+staging/reports/*
+staging/email/*
+staging/clockify/*
+staging/notes/*
+!staging/reports/.gitkeep
+!staging/email/.gitkeep
+!staging/clockify/.gitkeep
+!staging/notes/.gitkeep
 
 # OS
 .DS_Store
@@ -70,3 +79,4 @@ htmlcov/
 test_notes-*.md
 docs/command_audit-20260220
 CLI_STANDARDIZATION_SPRINT_SPEC_v1.2.md
+tests/google_drive/

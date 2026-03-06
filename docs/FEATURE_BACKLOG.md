@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v3.2
-20260303
+Feature Backlog v3.3
+20260305
 
 # WorkmAIn Feature Backlog
 
@@ -12,6 +12,7 @@ Items deferred from various phases for future implementation.
 - v3.0 (20260127): Added Phase 5.1 deferrals
 - v3.1 (20260210): Added AI provider management items (model update process, new provider support)
 - v3.2 (20260303): Added CLI Standardization Sprint deferral (clockify report subcommand pattern)
+- v3.3 (20260305): Added Phase 6 technical debt (email.py internal session pattern)
 
 ---
 
@@ -731,29 +732,90 @@ workmain report daily --provider openai
 
 ---
 
+## Phase 6 Deferred — Technical Debt
+
+### 12. `email.py _generate_draft()` Internal Session
+
+**Status:** Deferred to Phase 12
+**Priority:** Low (no current impact)
+**Effort:** ~30 minutes
+**Added:** 20260305
+
+**Description:**
+`_generate_draft()` in `workmain/cli/commands/email.py` opens its own
+database session internally via `get_db()` rather than accepting a session
+as a parameter. This deviates from the repository pattern used throughout
+the project where sessions are opened by the CLI command and passed down
+to repositories.
+
+The function works correctly in the current email workflow because no
+unsaved changes exist in an outer session when drafts are generated.
+However if future features chain operations that call `_generate_draft()`
+mid-transaction, the internal session would read stale data without
+raising an error — producing silently wrong output.
+
+**Proposed Fix:**
+Refactor `_generate_draft()` to accept `session` as a parameter,
+consistent with the repository pattern:
+
+```python
+# Current (deviates from pattern)
+def _generate_draft(template: str) -> tuple | None:
+    session = get_db()
+    ...
+
+# Target (consistent with pattern)
+def _generate_draft(template: str, session: Session) -> tuple | None:
+    ...
+```
+
+Caller (CLI command) passes its existing session:
+```python
+session = get_session()
+try:
+    result = _generate_draft(template, session)
+finally:
+    session.close()
+```
+
+**Acceptance Criteria:**
+- [ ] `_generate_draft()` accepts `session` parameter
+- [ ] No internal `get_db()` call in `_generate_draft()`
+- [ ] All `test_email.py` tests still pass
+- [ ] `email.py` version incremented
+
+**Risk if deferred:** Low — no current workflow chains operations
+through `_generate_draft()`. Safe to defer to Phase 12 cleanup pass.
+
+**Files affected:**
+- `workmain/cli/commands/email.py`
+
+---
+
 ## Summary Statistics
 
-**Total Deferred Items:** 11 ⬆️ (was 9)
+**Total Deferred Items:** 12 ⬆️ (was 11)
 **Phase 2 Deferrals:** 2
 **Phase 3 Deferrals:** 4
 **Phase 3.5/Pre-Phase 4 Deferrals:** 3
-**Phase 5.1 Deferrals (AI Provider):** 2 ⭐ NEW
+**Phase 5.1 Deferrals (AI Provider):** 2
+**Phase 6 Deferrals (Technical Debt):** 1 ⭐ NEW
 
 **Priority Breakdown:**
 - High: 0
 - Medium: 4 (Shell autocomplete, Template editor, formatters.py, Streamlined model update)
-- Low: 6 (Command aliases, Field-database sync, Template versioning, Template sharing, master_log_template.md, Add new AI provider)
+- Low: 7 (Command aliases, Field-database sync, Template versioning, Template sharing, master_log_template.md, Add new AI provider, email.py internal session)
 - Conditional: 1 (examples.json - create only if needed)
 
 **Effort Estimates:**
-- Under 1 hour: 2 items (Command aliases, master_log_template.md)
+- Under 1 hour: 3 items (Command aliases, master_log_template.md, email.py internal session)
 - 1-3 hours: 3 items (Shell autocomplete, examples.json, Template sharing)
 - 3-5 hours: 3 items (Template editor, Template versioning, formatters.py)
 - 5+ hours: 3 items (Field-database sync, Streamlined model update, Add new AI provider)
 
-**Total Deferred Effort:** ~42 hours ⬆️ (was ~26 hours)
+**Total Deferred Effort:** ~42.5 hours ⬆️ (was ~42 hours)
 
-**Phase 12 Workload:** 6 items (Command aliases, Shell autocomplete, Template editor, formatters.py, master_log_template.md, Streamlined model update)
+**Phase 12 Workload:** 7 items (Command aliases, Shell autocomplete, Template editor, formatters.py, master_log_template.md, Streamlined model update, email.py internal session)
 
 ---
 
@@ -789,23 +851,32 @@ Build first, refactor later. See the complete picture before abstracting.
 3. Template interactive editor (~4 hours)
 4. formatters.py (~4 hours)
 5. master_log_template.md (~1 hour)
-6. Streamlined model update process (~4-6 hours) ⭐ NEW
+6. Streamlined model update process (~4-6 hours)
+7. email.py internal session refactor (~30 min) ⭐ NEW
 
 **Phase 11+ - Advanced Features:**
-7. Field-database sync (~8 hours)
+8. Field-database sync (~8 hours)
 
 **Deferred Indefinitely:**
-8. Template versioning (~3 hours)
-9. Template sharing/export (~2 hours)
-10. Add new AI provider support (~8-12 hours) ⭐ NEW
+9. Template versioning (~3 hours)
+10. Template sharing/export (~2 hours)
+11. Add new AI provider support (~8-12 hours)
 
 **Conditional (Phase 4):**
-11. examples.json (~2 hours) - Create only if AI needs it
+12. examples.json (~2 hours) - Create only if AI needs it
 
 ---
 
-**Last Updated:** 20260210 v3.1
-**Next Review:** Before Phase 6 kickoff
+**Last Updated:** 20260305 v3.3
+**Next Review:** Before Phase 7 kickoff
+
+**Changes in v3.3:**
+- Added Item 12: email.py `_generate_draft()` internal session (Phase 6 technical debt)
+- Updated summary statistics (12 items, ~42.5 hours total)
+- Updated Phase 12 workload and items-by-phase lists
+
+**Changes in v3.2:**
+- Added CLI Standardization Sprint deferral (clockify report subcommand pattern)
 
 **Changes in v3.1:**
 - Added Item 10: Streamlined model update process (from Sonnet 4→4.5 experience)

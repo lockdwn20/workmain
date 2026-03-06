@@ -1,9 +1,10 @@
 # WorkmAIn Requirements
-# Version: 1.1
-# Date: 20260115
-# Phases: 1-5 Complete
-# 
+# Version: 1.2
+# Date: 20260304
+# Phases: 1-5 Complete, 6 In Progress
+#
 # Version History:
+# - v1.2 (20260304): Phase 6 prep - add icalendar for ICS parsing
 # - v1.1 (20260115): Phase 5 - Clockify Integration
 #   - No new dependencies added (requests already present)
 #   - Phase 5 uses: requests, anthropic (for condensation)
@@ -32,6 +33,7 @@ google-auth==2.25.2                     # Phase 7: Google Docs
 google-auth-oauthlib==1.2.0             # Phase 7: Google Docs
 google-api-python-client==2.111.0       # Phase 7: Google Docs
 O365==2.0.27                            # Phase 6: Outlook Calendar
+icalendar>=7.0.3                        # Phase 6: ICS file parsing
 requests==2.31.0                        # Phase 5: Clockify API ← USED IN PHASE 5
 slack-sdk==3.26.1                       # Phase 8: Slack Integration
 

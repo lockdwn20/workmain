@@ -1,10 +1,10 @@
 """
 WorkmAIn
-CLI Interface v1.5.0
-20260303
+CLI Interface v1.9.0
+20260305
 
 Main CLI interface using Click framework
-Updated for Phase 5: Clockify Integration
+Updated for Phase 6: Outlook Integration
 
 Version History:
 - v0.1.0: Initial CLI with basic structure
@@ -22,6 +22,10 @@ Version History:
 - v1.3.0: CLI Standardization Sprint (Gate 4) - added eod command
 - v1.4.0: CLI Standardization Sprint (Gate 5) - rewrote today command with full 6-section workflow
 - v1.5.0: CLI Standardization Sprint (Gate 6) - init help text updated; version bump to v1.2.0
+- v1.6.0: Post-sprint cleanup - removed stale meeting/note command references from status table
+- v1.7.0: Gate 0 - Global NotImplementedError handler for OAuth stub commands
+- v1.8.0: Gate 4 - Register calendar command group (Phase 6)
+- v1.9.0: Gate 5 - Register email command group (Phase 6)
 
 """
 
@@ -52,6 +56,10 @@ from workmain.cli.commands.providers import providers
 # Import Phase 5 commands
 from workmain.cli.commands.clockify import clockify
 
+# Import Phase 6 commands
+from workmain.cli.commands.calendar import calendar
+from workmain.cli.commands.email import email
+
 # Import Sprint commands
 from workmain.cli.commands.eod import eod
 
@@ -59,7 +67,34 @@ from workmain.cli.commands.eod import eod
 console = Console()
 
 
-@click.group()
+class _StubCommandError(click.ClickException):
+    """
+    Raised when a stub command (OAuth-required) is invoked.
+    Converts NotImplementedError into a ClickException so Click's
+    main() dispatches display and exit exactly once.
+    """
+    exit_code = 1
+
+    def show(self):
+        console.print(f"\n[yellow]Not implemented:[/yellow] {self.format_message()}")
+        console.print("\n[dim]See docs/OAUTH_SETUP.md for OAuth setup requirements.[/dim]\n")
+
+
+class WorkmAInGroup(click.Group):
+    """
+    Custom Click Group that provides a clean user-facing message for
+    NotImplementedError — used by OAuth stub commands (report send,
+    email send, calendar sync) instead of a raw Python traceback.
+    """
+
+    def invoke(self, ctx):
+        try:
+            return super().invoke(ctx)
+        except NotImplementedError as e:
+            raise _StubCommandError(str(e)) from e
+
+
+@click.group(cls=WorkmAInGroup)
 @click.version_option(version=__version__, prog_name="workmain")
 @click.pass_context
 def cli(ctx):
@@ -106,13 +141,13 @@ def status():
     table.add_row("Templates", "✓ Phase 3 Complete")
     table.add_row("AI Integration", "✓ Phase 4 Complete")
     table.add_row("├─ Providers CLI", "✓ Feature 2 (providers commands)")
-    table.add_row("├─ Bulk Meeting Notes", "✓ Feature 3 (note meeting)")
-    table.add_row("└─ AI Condensation", "✓ Feature 4 (meeting condense)")
+    table.add_row("├─ Bulk Meeting Notes", "✓ Feature 3 (notes log)")
+    table.add_row("└─ AI Condensation", "✓ Feature 4 (meetings condense)")
     table.add_row("Clockify Sync", "✓ Phase 5 Complete")
     table.add_row("├─ Bidirectional Sync", "✓ track sync push/pull/both")
     table.add_row("├─ PDF Reports", "✓ clockify report get")
     table.add_row("├─ Recurring Meetings", "✓ meetings create --recurring")
-    table.add_row("└─ Writing Style", "✓ meeting condense (enhanced)")
+    table.add_row("└─ Writing Style", "✓ meetings condense (enhanced)")
     
     console.print(table)
     console.print("\n[bold green]Phase 5 Complete![/bold green] Ready for Phase 6 (Outlook Integration)")
@@ -196,6 +231,10 @@ cli.add_command(providers)
 
 # Phase 5: Clockify Integration
 cli.add_command(clockify)
+
+# Phase 6: Outlook Integration
+cli.add_command(calendar)
+cli.add_command(email)
 
 # Standardization Sprint
 cli.add_command(eod)

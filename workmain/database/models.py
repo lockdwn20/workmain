@@ -1,10 +1,10 @@
 """
 WorkmAIn Database Models
-Database Models v1.4
-20251231
+Database Models v1.5
+20260305
 
 SQLAlchemy ORM models for WorkmAIn database.
-Models: Note, TimeEntry, Meeting, Project
+Models: Note, TimeEntry, Meeting, Project, Report, Recipient, ReportRecipient
 
 These map to the PostgreSQL tables created by schema migrations.
 
@@ -14,6 +14,7 @@ Version History:
 - v1.2: Added Report model for AI-generated reports
 - v1.3: Fixed metadata → report_metadata for SQLAlchemy compatibility
 - v1.4: Added condensation fields (meetings.condensed_summary, time_entries.meeting_id)
+- v1.5: Gate 1 - Added Recipient model and ReportRecipient model (Phase 6 email pipeline)
 """
 
 from datetime import datetime, date, time
@@ -321,6 +322,50 @@ class Report(Base):
         return 0
 
 
+class Recipient(Base):
+    """
+    Recipient model - represents a single email recipient identity.
+
+    One row per person. Assignments to specific report templates and
+    roles (to/cc) live in ReportRecipient.
+    """
+    __tablename__ = 'recipients'
+
+    id = Column(Integer, primary_key=True)
+    email = Column(String(255), nullable=False, unique=True)
+    created_at = Column(DateTime, default=datetime.now)
+
+    assignments = relationship('ReportRecipient', back_populates='recipient',
+                               cascade='all, delete-orphan')
+
+    def __repr__(self):
+        return f"<Recipient(id={self.id}, email='{self.email}')>"
+
+
+class ReportRecipient(Base):
+    """
+    ReportRecipient model - maps recipients to report templates and roles.
+
+    Each row assigns one recipient to one report_type as 'to' or 'cc'.
+    recipient_id FK added by migration 004.
+    """
+    __tablename__ = 'report_recipients'
+
+    id = Column(Integer, primary_key=True)
+    report_type = Column(String(50), nullable=False)
+    email = Column(String(255), nullable=False)
+    recipient_type = Column(String(10), nullable=False)  # 'to' or 'cc'
+    client_id = Column(Integer, nullable=True)  # References clients.id (Client model Phase 6+)
+    recipient_id = Column(Integer, ForeignKey('recipients.id', ondelete='CASCADE'), nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+
+    recipient = relationship('Recipient', back_populates='assignments')
+
+    def __repr__(self):
+        return (f"<ReportRecipient(id={self.id}, report_type='{self.report_type}', "
+                f"email='{self.email}', role='{self.recipient_type}')>")
+
+
 # Database session management helper
 def get_model_by_name(model_name: str):
     """
@@ -338,6 +383,8 @@ def get_model_by_name(model_name: str):
         'Meeting': Meeting,
         'Project': Project,
         'Report': Report,
+        'Recipient': Recipient,
+        'ReportRecipient': ReportRecipient,
     }
     return models.get(model_name)
 
@@ -349,4 +396,4 @@ def get_all_models():
     Returns:
         List of model classes
     """
-    return [Note, TimeEntry, Meeting, Project, Report]
+    return [Note, TimeEntry, Meeting, Project, Report, Recipient, ReportRecipient]
