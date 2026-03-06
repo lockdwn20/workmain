@@ -53,8 +53,15 @@ logs/
 cache/
 temp/
 
-# Generated output (reports, email drafts)
-output/
+# Staging directories — track structure, ignore user data
+staging/reports/*
+staging/email/*
+staging/clockify/*
+staging/notes/*
+!staging/reports/.gitkeep
+!staging/email/.gitkeep
+!staging/clockify/.gitkeep
+!staging/notes/.gitkeep
 
 # OS
 .DS_Store

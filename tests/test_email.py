@@ -1,13 +1,14 @@
 """
 WorkmAIn Email Tests
-Email Test v1.0
-20260305
+Email Test v1.1
+20260306
 
 Tests for the email repository, draft pipeline, and recipient management
 (Phase 6 Gate 5).
 
 Version History:
 - v1.0: Initial implementation (Phase 6 Gate 5)
+- v1.1: Hotfix staging-eod — updated output/ docstring references to staging/
 """
 
 import pytest
@@ -35,7 +36,7 @@ _TEST_REPORT_BODY = "# Test Report\n\nTest report body content."
 
 
 def _create_test_report():
-    """Create minimal test report file in output/reports/."""
+    """Create minimal test report file in staging/reports/."""
     _REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     _TEST_REPORT_PATH.write_text(_TEST_REPORT_BODY, encoding="utf-8")
 
@@ -209,7 +210,7 @@ class TestDraftPipeline:
     # ------------------------------------------------------------------
 
     def test_07_draft_save(self, db_session):
-        """Draft save writes file to output/email/ with correct content."""
+        """Draft save writes file to staging/email/ with correct content."""
         _create_test_report()
         repo = get_email_repository(db_session)
         r = repo.add_recipient(_TEST_EMAIL)

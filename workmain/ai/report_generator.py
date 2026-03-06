@@ -1,7 +1,7 @@
 """
 WorkmAIn AI Report Generator
-Report Generator v1.7
-20260305
+Report Generator v1.8
+20260306
 
 High-level orchestrator for AI report generation with database integration.
 
@@ -33,6 +33,7 @@ Version History:
         substitutes variables (day_name, date_long, user_full_name), includes in markdown header
 - v1.7: Gate 0.1 - Updated default output_dir from reports/ to output/reports/
         for output directory restructure (Phase 6)
+- v1.8: Hotfix staging-eod — renamed output/reports/ to staging/reports/
 
 Workflow:
 1. Load template and validate
@@ -121,7 +122,7 @@ class ReportGenerator:
         # Set output directory
         if output_dir is None:
             project_root = Path(__file__).parent.parent.parent
-            output_dir = project_root / "output" / "reports"
+            output_dir = project_root / "staging" / "reports"
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
     

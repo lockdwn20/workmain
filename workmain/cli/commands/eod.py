@@ -1,7 +1,7 @@
 """
 WorkmAIn End-of-Day Workflow
-EOD v1.0
-20260303
+EOD v1.2
+20260306
 
 Guided end-of-day workflow for daily work wrap-up.
 
@@ -9,19 +9,21 @@ Steps:
   1. Condense pending meeting notes (meetings with notes, no condensed_summary)
   2. Sync time entries to Clockify (track sync push)
   3. Review today's time entries (loop until confirmed)
-  4. Generate and send daily report (report daily --send)
-  5. Pull Clockify PDF from Downloads
+  4a. Generate daily report (report save daily_internal)
+  4b. Create email draft (email save daily_internal)
+  5. Pull Clockify PDF (clockify report save daily → staging/clockify/)
   6. Complete — step summary and sign-off
 
 Version History:
 - v1.0: CLI Standardization Sprint (Gate 4) - initial implementation
+- v1.1: Hotfix staging-eod — split Step 4 into 4a (report save) and 4b (email save),
+        added --skip email flag, replaced stale report daily --send command
+- v1.2: Hotfix staging-eod — Step 5 replaced passive Downloads scan with active
+        clockify report save daily pull to staging/clockify/
 """
 
-import os
 import subprocess
 from datetime import date
-from pathlib import Path
-from typing import Optional
 
 import click
 from rich.console import Console
@@ -35,61 +37,16 @@ from workmain.database.repositories.meetings_repo import MeetingsRepository
 
 console = Console()
 
-VALID_STEPS = ['condense', 'sync', 'review', 'report', 'clockify']
+VALID_STEPS = ['condense', 'sync', 'review', 'report', 'email', 'clockify']
 
 STEP_DESCRIPTIONS = [
-    ('condense', '1/6', 'Condense pending meeting notes'),
-    ('sync',     '2/6', 'Sync time entries to Clockify'),
-    ('review',   '3/6', 'Review today\'s time entries'),
-    ('report',   '4/6', 'Generate and send daily report'),
-    ('clockify', '5/6', 'Pull Clockify PDF from Downloads'),
+    ('condense', '1/6',  'Condense pending meeting notes'),
+    ('sync',     '2/6',  'Sync time entries to Clockify'),
+    ('review',   '3/6',  'Review today\'s time entries'),
+    ('report',   '4a/6', 'Generate report (report save daily_internal)'),
+    ('email',    '4b/6', 'Create email draft (email save daily_internal)'),
+    ('clockify', '5/6',  'Pull Clockify PDF (clockify report save daily)'),
 ]
-
-
-def _get_windows_username() -> Optional[str]:
-    """
-    Detect Windows username for WSL Downloads path.
-
-    Checks WINDOWS_USERNAME env var first, then inspects /mnt/c/Users/.
-    Returns None if Windows filesystem is not accessible or ambiguous.
-    """
-    username = os.environ.get('WINDOWS_USERNAME')
-    if username:
-        return username
-
-    users_path = Path('/mnt/c/Users')
-    if users_path.exists():
-        excluded = {'Public', 'Default', 'Default User', 'All Users'}
-        candidates = [
-            d.name for d in users_path.iterdir()
-            if d.is_dir() and d.name not in excluded and not d.name.startswith('.')
-        ]
-        if len(candidates) == 1:
-            return candidates[0]
-
-    return None
-
-
-def _get_clockify_pdf_path(today: date) -> Optional[Path]:
-    """
-    Find today's Clockify PDF in Downloads.
-
-    Checks WSL Windows path first, falls back to ~/Downloads/.
-    Returns Path if found, None otherwise.
-    """
-    filename = f'Clockify_Daily_{today.strftime("%Y%m%d")}.pdf'
-
-    username = _get_windows_username()
-    if username:
-        wsl_path = Path(f'/mnt/c/Users/{username}/Downloads/{filename}')
-        if wsl_path.exists():
-            return wsl_path
-
-    home_path = Path.home() / 'Downloads' / filename
-    if home_path.exists():
-        return home_path
-
-    return None
 
 
 def _run_condense_step(dry_run: bool) -> bool:
@@ -215,19 +172,34 @@ def _run_review_step(dry_run: bool) -> bool:
 
 
 def _run_report_step(dry_run: bool) -> bool:
-    """Step 4: Generate and send daily report. Returns True if step ran without error."""
+    """Step 4a: Generate daily report. Returns True if step ran without error."""
     console.print()
-    console.print("[bold cyan]Step 4/6 — Generate and send daily report[/bold cyan]")
+    console.print("[bold cyan]Step 4a/6 — Generate report[/bold cyan]")
     console.print()
 
     if dry_run:
-        console.print("  [dim]Would run: workmain report daily --send[/dim]")
+        console.print("  [dim]Would run: workmain report save daily_internal[/dim]")
+        console.print("  [dim]Output: staging/reports/daily_internal_YYYYMMDD.md[/dim]")
         return True
 
     try:
-        result = subprocess.run(['workmain', 'report', 'daily', '--send'])
+        result = subprocess.run(['workmain', 'report', 'save', 'daily_internal'])
+
         if result.returncode != 0:
+            console.print()
             console.print(f"  [yellow]⚠ Report generation returned exit code {result.returncode}[/yellow]")
+            action = click.prompt(
+                "  Continue? [r]etry / [s]kip",
+                default='s',
+                show_choices=False
+            ).strip().lower()
+
+            if action == 'r':
+                result = subprocess.run(['workmain', 'report', 'save', 'daily_internal'])
+                if result.returncode != 0:
+                    console.print("  [red]✗ Retry failed[/red]")
+                    return False
+
         return True
 
     except Exception as e:
@@ -235,33 +207,72 @@ def _run_report_step(dry_run: bool) -> bool:
         return False
 
 
-def _run_clockify_step(dry_run: bool, today: date) -> bool:
-    """Step 5: Pull Clockify PDF. Returns True if step ran without error."""
+def _run_email_step(dry_run: bool) -> bool:
+    """Step 4b: Create email draft. Returns True if step ran without error."""
+    console.print()
+    console.print("[bold cyan]Step 4b/6 — Create email draft[/bold cyan]")
+    console.print()
+
+    if dry_run:
+        console.print("  [dim]Would run: workmain email save daily_internal[/dim]")
+        console.print("  [dim]Output: staging/email/daily_internal_YYYYMMDD_HHMMSS.txt[/dim]")
+        return True
+
+    try:
+        result = subprocess.run(['workmain', 'email', 'save', 'daily_internal'])
+
+        if result.returncode != 0:
+            console.print()
+            console.print(f"  [yellow]⚠ Email draft returned exit code {result.returncode}[/yellow]")
+            console.print("  [dim]No recipients configured? Run: workmain email recipients add <email>[/dim]")
+            action = click.prompt(
+                "  Continue? [r]etry / [s]kip",
+                default='s',
+                show_choices=False
+            ).strip().lower()
+
+            if action == 'r':
+                result = subprocess.run(['workmain', 'email', 'save', 'daily_internal'])
+                if result.returncode != 0:
+                    console.print("  [yellow]⚠ Retry failed — skipping email draft[/yellow]")
+
+        return True
+
+    except Exception as e:
+        console.print(f"  [red]✗ Email step error: {e}[/red]")
+        return False
+
+
+def _run_clockify_step(dry_run: bool) -> bool:
+    """Step 5: Pull Clockify PDF to staging/clockify/. Returns True if step ran without error."""
     console.print()
     console.print("[bold cyan]Step 5/6 — Pull Clockify PDF[/bold cyan]")
     console.print()
 
-    filename = f'Clockify_Daily_{today.strftime("%Y%m%d")}.pdf'
-
     if dry_run:
-        username = _get_windows_username()
-        if username:
-            console.print(f"  [dim]Would look for: /mnt/c/Users/{username}/Downloads/{filename}[/dim]")
-        console.print(f"  [dim]Fallback: ~/Downloads/{filename}[/dim]")
+        console.print("  [dim]Would run: workmain clockify report save daily[/dim]")
+        console.print("  [dim]Output: staging/clockify/Clockify_YYYYMMDD.pdf[/dim]")
+        console.print("  [dim]Staged for Drive upload (Phase 7)[/dim]")
         return True
 
     try:
-        pdf_path = _get_clockify_pdf_path(today)
+        result = subprocess.run(['workmain', 'clockify', 'report', 'save', 'daily'])
 
-        if pdf_path:
-            console.print(f"  [green]✓ Found:[/green] {pdf_path}")
+        if result.returncode != 0:
+            console.print()
+            console.print(f"  [yellow]⚠ Clockify report returned exit code {result.returncode}[/yellow]")
+            action = click.prompt(
+                "  Continue? [r]etry / [s]kip",
+                default='s',
+                show_choices=False
+            ).strip().lower()
+
+            if action == 'r':
+                result = subprocess.run(['workmain', 'clockify', 'report', 'save', 'daily'])
+                if result.returncode != 0:
+                    console.print("  [yellow]⚠ Retry failed — skipping Clockify PDF[/yellow]")
         else:
-            console.print(f"  [yellow]⚠ Not found: {filename}[/yellow]")
-            username = _get_windows_username()
-            if username:
-                console.print(f"  [dim]Expected: /mnt/c/Users/{username}/Downloads/{filename}[/dim]")
-            console.print(f"  [dim]Fallback:  ~/Downloads/{filename}[/dim]")
-            console.print(f"  [dim]Export from Clockify web and place in Downloads to resolve[/dim]")
+            console.print("  [dim]Staged to staging/clockify/ for Drive upload (Phase 7)[/dim]")
 
         return True
 
@@ -272,26 +283,32 @@ def _run_clockify_step(dry_run: bool, today: date) -> bool:
 
 @click.command()
 @click.option('--skip', '-s', default='',
-              help='Comma-separated steps to skip (condense, sync, review, report, clockify)')
+              help='Comma-separated steps to skip (condense, sync, review, report, email, clockify). '
+                   'Skipping report also skips email.')
 @click.option('--dry-run', is_flag=True,
               help='Show planned sequence without executing')
 def eod(skip: str, dry_run: bool):
     """
     Guided end-of-day workflow.
 
-    Runs 6 steps in sequence to wrap up the workday:
-    1. Condense pending meeting notes
-    2. Sync time entries to Clockify
-    3. Review today's time entries
-    4. Generate and send daily report
-    5. Pull Clockify PDF from Downloads
-    6. Complete — summary and sign-off
+    Runs steps in sequence to wrap up the workday:
+    1.  Condense pending meeting notes
+    2.  Sync time entries to Clockify
+    3.  Review today's time entries
+    4a. Generate daily report (report save daily_internal)
+    4b. Create email draft (email save daily_internal)
+    5.  Pull Clockify PDF
+    6.  Complete — summary and sign-off
+
+    Skipping 'report' also skips 'email' (4a + 4b as a unit).
+    Use '--skip email' to skip only the draft (4b), keeping report generation.
 
     \b
     Examples:
       workmain eod
       workmain eod --dry-run
       workmain eod --skip condense,clockify
+      workmain eod --skip email
       workmain eod -s sync --dry-run
     """
     today = date.today()
@@ -308,6 +325,10 @@ def eod(skip: str, dry_run: bool):
                 console.print(f"[dim]Valid steps: {', '.join(VALID_STEPS)}[/dim]")
                 return
             skip_steps.add(s)
+
+    # Skipping 'report' implies skipping 'email' (4a + 4b as a unit)
+    if 'report' in skip_steps:
+        skip_steps.add('email')
 
     # Header
     console.print()
@@ -327,7 +348,7 @@ def eod(skip: str, dry_run: bool):
 
     # Plan table
     plan_table = Table(show_header=True, header_style="bold cyan", box=box.SIMPLE)
-    plan_table.add_column("Step", width=6, style="dim")
+    plan_table.add_column("Step", width=7, style="dim")
     plan_table.add_column("Key", width=10)
     plan_table.add_column("Action")
     plan_table.add_column("", width=8)
@@ -355,7 +376,8 @@ def eod(skip: str, dry_run: bool):
         ('sync',     lambda: _run_sync_step(dry_run)),
         ('review',   lambda: _run_review_step(dry_run)),
         ('report',   lambda: _run_report_step(dry_run)),
-        ('clockify', lambda: _run_clockify_step(dry_run, today)),
+        ('email',    lambda: _run_email_step(dry_run)),
+        ('clockify', lambda: _run_clockify_step(dry_run)),
     ]
 
     for step_key, runner in step_runners:

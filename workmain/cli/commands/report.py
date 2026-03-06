@@ -1,13 +1,13 @@
 """
 WorkmAIn Report Commands - Phase 4 Implementation
-Report Commands v1.9
-20260305
+Report Commands v2.0
+20260306
 
 Static action-first command structure — template is an argument.
 
 Commands:
 - report preview <template>   # preview prompts, no AI cost
-- report save <template>      # generate with AI, save to output/reports/
+- report save <template>      # generate with AI, save to staging/reports/
 - report send <template>      # stub — chains to email send (OAuth required)
 - report list
 - report show <file>
@@ -31,6 +31,7 @@ Version History:
         Replaced with static preview/save/send commands taking <template> argument
         Added report send stub for OAuth email pipeline
         Updated stale hint text to new command syntax
+- v2.0: Hotfix staging-eod — updated output path references from output/ to staging/
 """
 
 import click
@@ -174,7 +175,7 @@ def report_preview(template: str, provider: Optional[str]):
               help='Override AI provider')
 def report_save(template: str, provider: Optional[str]):
     """
-    Generate report with AI and save to output/reports/.
+    Generate report with AI and save to staging/reports/.
 
     \b
     Examples:

@@ -1,7 +1,7 @@
 """
 WorkmAIn Email Commands
-Email Commands v1.0
-20260305
+Email Commands v1.1
+20260306
 
 Email command group for Outlook email draft pipeline (Phase 6).
 
@@ -9,7 +9,7 @@ Action-first command structure — template is an argument.
 
 Commands:
   workmain email preview <template>          # display draft in terminal
-  workmain email save <template>             # save draft to output/email/
+  workmain email save <template>             # save draft to staging/email/
   workmain email send <template>             # OAuth stub → push to Outlook drafts
   workmain email list                        # list saved local drafts
   workmain email show <n>                    # display saved draft #n
@@ -19,11 +19,12 @@ Commands:
   workmain email assign <id> <template> <role>    # assign to template as to/cc
   workmain email unassign <id> <template>         # remove from template
 
-Draft files stored in output/email/ (covered by .gitignore output/ rule).
+Draft files stored in staging/email/ (covered by .gitignore staging/ rule).
 Send command requires Azure AD OAuth — see docs/OAUTH_SETUP.md
 
 Version History:
 - v1.0: Initial implementation (Phase 6 Gate 5)
+- v1.1: Hotfix staging-eod — renamed output/ to staging/ across all path references
 """
 
 import re
@@ -43,8 +44,8 @@ console = Console()
 
 # Project root: workmain/cli/commands/email.py → 4 parents up
 _PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
-_REPORTS_DIR = _PROJECT_ROOT / "output" / "reports"
-_EMAIL_DIR = _PROJECT_ROOT / "output" / "email"
+_REPORTS_DIR = _PROJECT_ROOT / "staging" / "reports"
+_EMAIL_DIR = _PROJECT_ROOT / "staging" / "email"
 
 
 # ------------------------------------------------------------------
@@ -244,11 +245,11 @@ def email_preview(template: str):
 @click.argument('template')
 def email_save(template: str):
     """
-    Generate email draft and save to output/email/.
+    Generate email draft and save to staging/email/.
 
     Finds the most recent saved report for <template>, builds the
     email draft with recipients from the assignments table, and
-    saves to output/email/<template>_<YYYYMMDD_HHMMSS>.txt.
+    saves to staging/email/<template>_<YYYYMMDD_HHMMSS>.txt.
 
     \b
     Examples:
@@ -300,7 +301,7 @@ def email_send(template: str):
 @email.command('list')
 def email_list():
     """
-    List saved email drafts in output/email/.
+    List saved email drafts in staging/email/.
 
     \b
     Example:
