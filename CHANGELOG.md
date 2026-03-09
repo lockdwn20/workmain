@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-03-09
+
+### Fixed
+- `workmain today` updated for Phase 6 & 7: calendar sync in morning startup,
+  corrected eod 7-step listing (4a/4b split, gdocs step 6), added gdocs commands
+- `workmain status` updated with Phase 6 (Outlook) and Phase 7 (Google Drive) rows;
+  footer now reflects Phase 7 complete / ready for Phase 8
+
+### Docs
+- `FEATURE_BACKLOG.md` v3.4: logged 3 new deferred items — `datetime.utcnow()`
+  deprecation, `test_database.py` missing engine fixture, `test_templates.py`
+  stale import (all targeting Phase 13)
+
 ## [1.4.0] - 2026-03-09
 
 ### Added

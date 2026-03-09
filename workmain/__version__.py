@@ -1,6 +1,6 @@
 """
 WorkmAIn Package Version
-Version v1.4.0
+Version v1.4.1
 20260309
 
 Version History:
@@ -23,9 +23,10 @@ Version History:
           corrections, clockify report redesigned (save <period> subcommand)
 - v1.4.0: Phase 7 complete - Google Drive Integration (gdocs upload-all, eod Step 6,
           OAuth2 WSL-safe flow, folder caching, gdrive_uploads DB tracking)
+- v1.4.1: Hotfix — update today/status for Phase 6 & 7, add Phase 7 backlog items
 """
 
-__version__ = "1.4.0"
-__version_info__ = (1, 4, 0)
+__version__ = "1.4.1"
+__version_info__ = (1, 4, 1)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
