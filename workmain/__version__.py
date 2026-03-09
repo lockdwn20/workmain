@@ -1,6 +1,6 @@
 """
 WorkmAIn Package Version
-Version v1.4.2
+Version v1.4.3
 20260309
 
 Version History:
@@ -25,9 +25,10 @@ Version History:
           OAuth2 WSL-safe flow, folder caching, gdrive_uploads DB tracking)
 - v1.4.1: Hotfix — update today/status for Phase 6 & 7, add Phase 7 backlog items
 - v1.4.2: Hotfix — fix calendar import: fallback title+date match, UID deduplication
+- v1.4.3: Hotfix — fix Rich MarkupError in gdocs auth ([dim] tag split across print calls)
 """
 
-__version__ = "1.4.2"
-__version_info__ = (1, 4, 2)
+__version__ = "1.4.3"
+__version_info__ = (1, 4, 3)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
