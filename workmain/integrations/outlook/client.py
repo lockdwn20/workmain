@@ -1,7 +1,7 @@
 """
 WorkmAIn Outlook Integration Client
-Outlook Client v1.0
-20260305
+Outlook Client v1.1
+20260309
 
 Single integration point for all Microsoft Graph API interactions.
 All methods are stubbed — OAuth requires Azure AD app registration.
@@ -24,6 +24,7 @@ See docs/OAUTH_SETUP.md for setup instructions.
 
 Version History:
 - v1.0: Initial stub implementation (Phase 6 Gate 2)
+- v1.1: Moved to integrations/outlook/client.py (Phase 7 Gate 0)
 """
 
 import json

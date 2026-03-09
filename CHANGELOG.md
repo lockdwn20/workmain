@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-03-09
+
+### Added
+- Phase 7: Google Drive Integration — daily artifacts archived automatically at EOD
+- `workmain gdocs` command group — `auth`, `status`, `upload-notes`, `upload-report`,
+  `upload-clockify`, `upload-all` with `--dry-run` and `--force` flags
+- Google Drive OAuth2 WSL-safe flow (`run_console`) — no browser spawn required
+- Drive folder structure: `{GDRIVE_TIMECARDS_ROOT}/YYYYMM/Raw_Notes|Reports|Clockify/`
+- Folder ID cache at `~/.workmain/integrations/gdrive/cache.json` (chmod 600)
+- `gdrive_uploads` table for upload tracking and duplicate prevention
+- `GDriveRepository` with `record_upload`, `already_uploaded`, `get_uploads_for_date`
+- `workmain eod` Step 6 — `gdocs upload-all` (Complete promoted to Step 7)
+- `--skip gdocs` flag added to `workmain eod`
+- Notes markdown formatter (§3.8): tag brackets, 24h time, ascending order
+
+### Changed
+- `workmain/integrations/outlook_client.py` moved to `workmain/integrations/outlook/client.py`
+- `~/.workmain/` directory restructured: `integrations/{clockify,outlook,gdrive}/`
+- `GDRIVE_TIMECARDS_ROOT` env var added to `.env` and `.env.example`
+- `workmain eod` expanded from 6 to 7 steps
+
 ## [1.3.1] - 2026-03-06
 
 ### Fixed

@@ -1,10 +1,10 @@
 """
 WorkmAIn Database Models
-Database Models v1.5
-20260305
+Database Models v1.6
+20260309
 
 SQLAlchemy ORM models for WorkmAIn database.
-Models: Note, TimeEntry, Meeting, Project, Report, Recipient, ReportRecipient
+Models: Note, TimeEntry, Meeting, Project, Report, Recipient, ReportRecipient, GDriveUpload
 
 These map to the PostgreSQL tables created by schema migrations.
 
@@ -15,6 +15,7 @@ Version History:
 - v1.3: Fixed metadata → report_metadata for SQLAlchemy compatibility
 - v1.4: Added condensation fields (meetings.condensed_summary, time_entries.meeting_id)
 - v1.5: Gate 1 - Added Recipient model and ReportRecipient model (Phase 6 email pipeline)
+- v1.6: Gate 1 - Added GDriveUpload model for Drive archival tracking (Phase 7)
 """
 
 from datetime import datetime, date, time
@@ -366,6 +367,29 @@ class ReportRecipient(Base):
                 f"email='{self.email}', role='{self.recipient_type}')>")
 
 
+class GDriveUpload(Base):
+    """
+    GDriveUpload model - tracks every file uploaded to Google Drive.
+
+    Enables gdocs status to show history and prevents duplicate uploads
+    via the already_uploaded() repository method.
+    """
+    __tablename__ = "gdrive_uploads"
+
+    id              = Column(Integer, primary_key=True)
+    local_path      = Column(Text, nullable=False)
+    drive_file_id   = Column(Text, nullable=False)
+    drive_folder_id = Column(Text, nullable=False)
+    filename        = Column(Text, nullable=False)
+    upload_type     = Column(Text, nullable=False)  # 'notes', 'report', 'clockify'
+    upload_date     = Column(Date, nullable=False)
+    created_at      = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    def __repr__(self):
+        return (f"<GDriveUpload(id={self.id}, type='{self.upload_type}', "
+                f"filename='{self.filename}', date={self.upload_date})>")
+
+
 # Database session management helper
 def get_model_by_name(model_name: str):
     """
@@ -385,6 +409,7 @@ def get_model_by_name(model_name: str):
         'Report': Report,
         'Recipient': Recipient,
         'ReportRecipient': ReportRecipient,
+        'GDriveUpload': GDriveUpload,
     }
     return models.get(model_name)
 
@@ -392,8 +417,8 @@ def get_model_by_name(model_name: str):
 def get_all_models():
     """
     Get list of all model classes.
-    
+
     Returns:
         List of model classes
     """
-    return [Note, TimeEntry, Meeting, Project, Report, Recipient, ReportRecipient]
+    return [Note, TimeEntry, Meeting, Project, Report, Recipient, ReportRecipient, GDriveUpload]

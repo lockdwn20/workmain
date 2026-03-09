@@ -1,7 +1,7 @@
 """
 WorkmAIn End-of-Day Workflow
-EOD v1.2
-20260306
+EOD v1.3
+20260309
 
 Guided end-of-day workflow for daily work wrap-up.
 
@@ -12,7 +12,8 @@ Steps:
   4a. Generate daily report (report save daily_internal)
   4b. Create email draft (email save daily_internal)
   5. Pull Clockify PDF (clockify report save daily → staging/clockify/)
-  6. Complete — step summary and sign-off
+  6. Upload to Google Drive (gdocs upload-all)
+  7. Complete — step summary and sign-off
 
 Version History:
 - v1.0: CLI Standardization Sprint (Gate 4) - initial implementation
@@ -20,6 +21,7 @@ Version History:
         added --skip email flag, replaced stale report daily --send command
 - v1.2: Hotfix staging-eod — Step 5 replaced passive Downloads scan with active
         clockify report save daily pull to staging/clockify/
+- v1.3: Phase 7 Gate 4 — added Step 6 (gdocs upload-all), 6→7 steps, --skip gdocs
 """
 
 import subprocess
@@ -37,22 +39,23 @@ from workmain.database.repositories.meetings_repo import MeetingsRepository
 
 console = Console()
 
-VALID_STEPS = ['condense', 'sync', 'review', 'report', 'email', 'clockify']
+VALID_STEPS = ['condense', 'sync', 'review', 'report', 'email', 'clockify', 'gdocs']
 
 STEP_DESCRIPTIONS = [
-    ('condense', '1/6',  'Condense pending meeting notes'),
-    ('sync',     '2/6',  'Sync time entries to Clockify'),
-    ('review',   '3/6',  'Review today\'s time entries'),
-    ('report',   '4a/6', 'Generate report (report save daily_internal)'),
-    ('email',    '4b/6', 'Create email draft (email save daily_internal)'),
-    ('clockify', '5/6',  'Pull Clockify PDF (clockify report save daily)'),
+    ('condense', '1/7',  'Condense pending meeting notes'),
+    ('sync',     '2/7',  'Sync time entries to Clockify'),
+    ('review',   '3/7',  'Review today\'s time entries'),
+    ('report',   '4a/7', 'Generate report (report save daily_internal)'),
+    ('email',    '4b/7', 'Create email draft (email save daily_internal)'),
+    ('clockify', '5/7',  'Pull Clockify PDF (clockify report save daily)'),
+    ('gdocs',    '6/7',  'Upload to Google Drive (gdocs upload-all)'),
 ]
 
 
 def _run_condense_step(dry_run: bool) -> bool:
     """Step 1: Condense pending meeting notes. Returns True if step ran without error."""
     console.print()
-    console.print("[bold cyan]Step 1/6 — Condense pending meeting notes[/bold cyan]")
+    console.print("[bold cyan]Step 1/7 — Condense pending meeting notes[/bold cyan]")
     console.print()
 
     if dry_run:
@@ -106,7 +109,7 @@ def _run_condense_step(dry_run: bool) -> bool:
 def _run_sync_step(dry_run: bool) -> bool:
     """Step 2: Sync time entries to Clockify. Returns True if step ran without error."""
     console.print()
-    console.print("[bold cyan]Step 2/6 — Sync time entries to Clockify[/bold cyan]")
+    console.print("[bold cyan]Step 2/7 — Sync time entries to Clockify[/bold cyan]")
     console.print()
 
     if dry_run:
@@ -140,7 +143,7 @@ def _run_sync_step(dry_run: bool) -> bool:
 def _run_review_step(dry_run: bool) -> bool:
     """Step 3: Review today's time entries. Returns True if step ran without error."""
     console.print()
-    console.print("[bold cyan]Step 3/6 — Review today's time entries[/bold cyan]")
+    console.print("[bold cyan]Step 3/7 — Review today's time entries[/bold cyan]")
     console.print()
 
     if dry_run:
@@ -174,7 +177,7 @@ def _run_review_step(dry_run: bool) -> bool:
 def _run_report_step(dry_run: bool) -> bool:
     """Step 4a: Generate daily report. Returns True if step ran without error."""
     console.print()
-    console.print("[bold cyan]Step 4a/6 — Generate report[/bold cyan]")
+    console.print("[bold cyan]Step 4a/7 — Generate report[/bold cyan]")
     console.print()
 
     if dry_run:
@@ -210,7 +213,7 @@ def _run_report_step(dry_run: bool) -> bool:
 def _run_email_step(dry_run: bool) -> bool:
     """Step 4b: Create email draft. Returns True if step ran without error."""
     console.print()
-    console.print("[bold cyan]Step 4b/6 — Create email draft[/bold cyan]")
+    console.print("[bold cyan]Step 4b/7 — Create email draft[/bold cyan]")
     console.print()
 
     if dry_run:
@@ -246,7 +249,7 @@ def _run_email_step(dry_run: bool) -> bool:
 def _run_clockify_step(dry_run: bool) -> bool:
     """Step 5: Pull Clockify PDF to staging/clockify/. Returns True if step ran without error."""
     console.print()
-    console.print("[bold cyan]Step 5/6 — Pull Clockify PDF[/bold cyan]")
+    console.print("[bold cyan]Step 5/7 — Pull Clockify PDF[/bold cyan]")
     console.print()
 
     if dry_run:
@@ -272,7 +275,7 @@ def _run_clockify_step(dry_run: bool) -> bool:
                 if result.returncode != 0:
                     console.print("  [yellow]⚠ Retry failed — skipping Clockify PDF[/yellow]")
         else:
-            console.print("  [dim]Staged to staging/clockify/ for Drive upload (Phase 7)[/dim]")
+            console.print("  [dim]Staged to staging/clockify/ — Step 6 will upload to Drive[/dim]")
 
         return True
 
@@ -281,9 +284,48 @@ def _run_clockify_step(dry_run: bool) -> bool:
         return False
 
 
+def _run_gdocs_step(dry_run: bool) -> bool:
+    """Step 6: Upload artifacts to Google Drive. Returns True if step ran without error."""
+    console.print()
+    console.print("[bold cyan]Step 6/7 — Upload to Google Drive[/bold cyan]")
+    console.print()
+
+    if dry_run:
+        console.print("  [dim]Would run: workmain gdocs upload-all[/dim]")
+        console.print("  [dim]Uploads: notes → Raw_Notes/, report → Reports/, PDF → Clockify/[/dim]")
+        return True
+
+    try:
+        result = subprocess.run(['workmain', 'gdocs', 'upload-all'])
+
+        if result.returncode != 0:
+            console.print()
+            console.print(f"  [yellow]⚠ Drive upload returned exit code {result.returncode}[/yellow]")
+            action = click.prompt(
+                "  Not authenticated. Skip Drive upload? [Y/n]",
+                default='Y',
+                show_default=False,
+            ).strip().lower()
+
+            if action in ('', 'y', 'yes'):
+                console.print("  [dim]Drive upload skipped[/dim]")
+            else:
+                console.print("  [dim]Run 'workmain gdocs auth' then retry eod[/dim]")
+                return False
+        else:
+            console.print("  [green]✓ All files uploaded to Google Drive[/green]")
+
+        return True
+
+    except Exception as e:
+        console.print(f"  [red]✗ Drive upload step error: {e}[/red]")
+        return False
+
+
 @click.command()
 @click.option('--skip', '-s', default='',
-              help='Comma-separated steps to skip (condense, sync, review, report, email, clockify). '
+              help='Comma-separated steps to skip '
+                   '(condense, sync, review, report, email, clockify, gdocs). '
                    'Skipping report also skips email.')
 @click.option('--dry-run', is_flag=True,
               help='Show planned sequence without executing')
@@ -298,7 +340,8 @@ def eod(skip: str, dry_run: bool):
     4a. Generate daily report (report save daily_internal)
     4b. Create email draft (email save daily_internal)
     5.  Pull Clockify PDF
-    6.  Complete — summary and sign-off
+    6.  Upload to Google Drive (gdocs upload-all)
+    7.  Complete — summary and sign-off
 
     Skipping 'report' also skips 'email' (4a + 4b as a unit).
     Use '--skip email' to skip only the draft (4b), keeping report generation.
@@ -308,6 +351,7 @@ def eod(skip: str, dry_run: bool):
       workmain eod
       workmain eod --dry-run
       workmain eod --skip condense,clockify
+      workmain eod --skip gdocs
       workmain eod --skip email
       workmain eod -s sync --dry-run
     """
@@ -378,6 +422,7 @@ def eod(skip: str, dry_run: bool):
         ('report',   lambda: _run_report_step(dry_run)),
         ('email',    lambda: _run_email_step(dry_run)),
         ('clockify', lambda: _run_clockify_step(dry_run)),
+        ('gdocs',    lambda: _run_gdocs_step(dry_run)),
     ]
 
     for step_key, runner in step_runners:
@@ -394,9 +439,9 @@ def eod(skip: str, dry_run: bool):
                 console.print(f"[red]✗ Step '{step_key}' failed unexpectedly: {e}[/red]")
                 failed.append(step_key)
 
-    # Step 6: Complete
+    # Step 7: Complete
     console.print()
-    console.print("[bold cyan]Step 6/6 — Complete[/bold cyan]")
+    console.print("[bold cyan]Step 7/7 — Complete[/bold cyan]")
     console.print()
 
     summary_table = Table(show_header=False, box=None, show_edge=False, padding=(0, 2))
