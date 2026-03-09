@@ -1,6 +1,6 @@
 """
 WorkmAIn
-CLI Interface v2.0.0
+CLI Interface v2.1.0
 20260309
 
 Main CLI interface using Click framework
@@ -27,6 +27,7 @@ Version History:
 - v1.8.0: Gate 4 - Register calendar command group (Phase 6)
 - v1.9.0: Gate 5 - Register email command group (Phase 6)
 - v2.0.0: Gate 3/4 - Register gdocs command group (Phase 7)
+- v2.1.0: Update today() and status() for Phase 6 & 7 (calendar sync, email draft, gdocs upload)
 
 """
 
@@ -152,9 +153,18 @@ def status():
     table.add_row("├─ PDF Reports", "✓ clockify report get")
     table.add_row("├─ Recurring Meetings", "✓ meetings create --recurring")
     table.add_row("└─ Writing Style", "✓ meetings condense (enhanced)")
-    
+    table.add_row("Outlook Integration", "✓ Phase 6 Complete")
+    table.add_row("├─ Calendar Sync", "✓ calendar today/week/month sync")
+    table.add_row("├─ Email Drafts", "✓ email save/preview/send")
+    table.add_row("└─ Recipient Mgmt", "✓ email recipients add/list/assign")
+    table.add_row("Google Drive Integration", "✓ Phase 7 Complete")
+    table.add_row("├─ Upload Notes", "✓ gdocs upload-notes")
+    table.add_row("├─ Upload Reports", "✓ gdocs upload-report")
+    table.add_row("├─ Upload Clockify PDF", "✓ gdocs upload-clockify")
+    table.add_row("└─ Upload All", "✓ gdocs upload-all")
+
     console.print(table)
-    console.print("\n[bold green]Phase 5 Complete![/bold green] Ready for Phase 6 (Outlook Integration)")
+    console.print("\n[bold green]Phase 7 Complete![/bold green] Ready for Phase 8 (Slack Integration)")
     console.print("\n[yellow]Tip:[/yellow] Use 'workmain --help' to see all available commands")
 
 
@@ -164,6 +174,7 @@ def today():
     console.print(f"\n[bold cyan]WorkmAIn Daily Workflow — {date.today().strftime('%A, %B %d, %Y')}[/bold cyan]")
 
     console.print("\n[bold yellow]MORNING STARTUP[/bold yellow]")
+    console.print("  workmain calendar today sync         # Sync today's Outlook calendar")
     console.print("  workmain meetings today              # What's on today")
     console.print("  workmain meetings upcoming -n 2w     # Look ahead 2 weeks")
     console.print("  workmain notes today                 # Review yesterday's carry-forwards")
@@ -195,8 +206,10 @@ def today():
     console.print("    1. Condense pending meetings")
     console.print("    2. Sync to Clockify  (track sync push)")
     console.print("    3. Review time entries")
-    console.print("    4. Generate daily report  (report daily --send)")
-    console.print("    5. Pull Clockify PDF")
+    console.print("    4a. Generate daily report  (report save daily_internal)")
+    console.print("    4b. Create email draft  (email save daily_internal)")
+    console.print("    5. Pull Clockify PDF  (clockify report save daily)")
+    console.print("    6. Upload to Google Drive  (gdocs upload-all)")
     console.print("  workmain eod --skip clockify         # Skip individual steps")
     console.print("  workmain eod --dry-run               # Preview without executing")
 
@@ -209,6 +222,8 @@ def today():
     console.print("  workmain providers list              # Check AI provider status")
     console.print("  workmain report daily                # Preview report (no --send)")
     console.print("  workmain clockify status             # Check Clockify connection")
+    console.print("  workmain gdocs upload-all            # Archive to Google Drive manually")
+    console.print("  workmain gdocs status                # Check Google Drive connection")
 
     console.print("\n[dim]Use 'workmain --help' for all commands[/dim]")
 
