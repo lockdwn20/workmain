@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.3] - 2026-03-09
+
+### Fixed
+- `workmain gdocs auth` no longer crashes with `rich.errors.MarkupError` — `[dim]`
+  tag was split across two `console.print()` calls; merged into a single call
+
 ## [1.4.2] - 2026-03-09
 
 ### Fixed
