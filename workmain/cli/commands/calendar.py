@@ -1,7 +1,7 @@
 """
 WorkmAIn Calendar Commands
-Calendar Commands v1.0
-20260305
+Calendar Commands v1.1
+20260309
 
 Calendar command group for Outlook calendar integration (Phase 6).
 
@@ -20,6 +20,7 @@ Sync commands require Azure AD OAuth — see docs/OAUTH_SETUP.md
 
 Version History:
 - v1.0: Initial implementation (Phase 6 Gate 4)
+- v1.1: Use _fallback_match() in _classify_events() for title+date secondary lookup
 """
 
 import click
@@ -35,6 +36,7 @@ from workmain.database.models import Meeting
 from workmain.utils.ics_parser import (
     ICSEvent,
     ICSParseError,
+    _fallback_match,
     import_events_to_db,
     parse_ics_file,
 )
@@ -119,6 +121,8 @@ def _classify_events(session, events: list[ICSEvent]) -> list[dict]:
             .filter(Meeting.outlook_id == event.uid)
             .first()
         )
+        if existing is None:
+            existing = _fallback_match(session, event)
         if event.is_cancelled:
             status = 'cancelled'
         elif existing is None:

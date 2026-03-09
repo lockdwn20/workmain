@@ -1,7 +1,7 @@
 """
 WorkmAIn ICS Import Tests
-ICS Import Test v1.0
-20260305
+ICS Import Test v1.1
+20260309
 
 Tests for the ICS parser and database import pipeline (Phase 6 Gate 3).
 
@@ -14,6 +14,7 @@ Fixtures used:
 
 Version History:
 - v1.0: Initial implementation (Phase 6 Gate 3)
+- v1.1: Add test_13 for fallback title+date match on manually-created meetings
 """
 
 import pytest
@@ -285,3 +286,53 @@ class TestICSImport:
         # Core fields populated correctly
         assert row.title == "Team Standup"
         assert row.is_recurring is True
+
+    # ------------------------------------------------------------------
+    # Test 13 — Fallback match: manual meeting linked via title + date
+    # ------------------------------------------------------------------
+
+    def test_13_fallback_title_date_match(self, db_session):
+        """
+        A manual meeting (outlook_id=None) with a title and date matching an
+        ICS event is classified as 'unchanged' (not 'new') via fallback match.
+        After import, outlook_id is backfilled so future imports use the fast
+        exact-UID path.
+        """
+        from workmain.utils.ics_parser import _fallback_match, ICSEvent
+
+        # Insert a manual meeting that matches test-001@workmain
+        # Title and start date must exactly match the ICS event.
+        manual = Meeting(
+            title="Team Standup",
+            start_time=datetime(2026, 3, 9, 9, 0),
+            end_time=datetime(2026, 3, 9, 9, 30),
+            is_recurring=True,
+        )
+        db_session.add(manual)
+        db_session.commit()
+        db_session.refresh(manual)
+        manual_id = manual.id
+        assert manual.outlook_id is None
+
+        # Import week_normal.ics (contains Team Standup = test-001@workmain)
+        events = parse_ics_file(FIXTURES / "week_normal.ics")
+        counts = import_events_to_db(db_session, events)
+
+        # test-001 matched via fallback → unchanged; test-002/003 are new
+        assert counts['unchanged'] == 1
+        assert counts['new'] == 2
+        assert counts['updated'] == 0
+        assert counts['deleted'] == 0
+
+        # Verify outlook_id was backfilled on the manual meeting
+        db_session.expire(manual)
+        row = db_session.query(Meeting).filter(Meeting.id == manual_id).first()
+        assert row is not None
+        assert row.outlook_id == "test-001@workmain"
+        assert row.outlook_recurring_id == "test-001@workmain"
+
+        # Re-import: all 3 events now found via exact UID match
+        events2 = parse_ics_file(FIXTURES / "week_normal.ics")
+        counts2 = import_events_to_db(db_session, events2)
+        assert counts2['new'] == 0
+        assert counts2['unchanged'] == 3
