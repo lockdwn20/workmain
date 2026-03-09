@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v3.3
-20260305
+Feature Backlog v3.4
+20260309
 
 # WorkmAIn Feature Backlog
 
@@ -13,6 +13,7 @@ Items deferred from various phases for future implementation.
 - v3.1 (20260210): Added AI provider management items (model update process, new provider support)
 - v3.2 (20260303): Added CLI Standardization Sprint deferral (clockify report subcommand pattern)
 - v3.3 (20260305): Added Phase 6 technical debt (email.py internal session pattern)
+- v3.4 (20260309): Added Phase 7 technical debt (datetime.utcnow deprecation) and pre-Phase 13 test debt (test_database.py, test_templates.py)
 
 ---
 
@@ -792,30 +793,188 @@ through `_generate_draft()`. Safe to defer to Phase 12 cleanup pass.
 
 ---
 
+## Phase 7 Deferred — Technical Debt
+
+### 13. `datetime.utcnow()` Deprecation Cleanup
+
+**Status:** Deferred to Phase 13
+**Priority:** Low (no current breakage)
+**Effort:** ~30 minutes
+**Added:** 20260309
+
+**Description:**
+`datetime.utcnow()` was deprecated in Python 3.12. Two locations in the codebase
+still use the deprecated form and will produce `DeprecationWarning` in future Python
+versions. The code functions correctly today but should be swept up before the
+project approaches Phase 13 (Testing & Documentation).
+
+**Affected locations:**
+- `workmain/database/repositories/gdrive_repository.py:63` — `datetime.utcnow()` call
+- `workmain/database/models.py:386` — `default=datetime.utcnow` column default
+
+**Proposed Fix:**
+Replace both occurrences with the timezone-aware equivalent:
+
+```python
+# Before (deprecated)
+datetime.utcnow()
+default=datetime.utcnow
+
+# After (correct for Python 3.12+)
+from datetime import datetime, timezone
+datetime.now(timezone.utc)
+default=lambda: datetime.now(timezone.utc)
+```
+
+**Why Deferred:**
+- No current runtime breakage; Python 3.12 emits a warning, not an error
+- `models.py` also carries a separate `declarative_base()` deprecation from SQLAlchemy 2.0;
+  both should be addressed together in a single DB-layer cleanup pass
+- Phase 13 is the appropriate sweep for this class of deprecation warnings
+
+**Acceptance Criteria:**
+- [ ] Both `datetime.utcnow()` occurrences replaced with `datetime.now(timezone.utc)`
+- [ ] No `DeprecationWarning` emitted during test run
+- [ ] File versions incremented in `gdrive_repository.py` and `models.py`
+- [ ] Existing tests still pass
+
+**Files affected:**
+- `workmain/database/repositories/gdrive_repository.py`
+- `workmain/database/models.py`
+
+---
+
+## Pre-Phase 13 Technical Debt — Test Failures
+
+These failures predate Phase 7. They are logged here so they receive a
+dedicated investigation before Phase 13 (Testing & Documentation) rather
+than quietly accumulating.
+
+### 14. `test_database.py` — Missing `engine` Fixture
+
+**Status:** Deferred to Phase 13
+**Priority:** Medium (core DB tests non-functional)
+**Effort:** ~1–2 hours
+**Added:** 20260309
+
+**Description:**
+Four tests in `tests/test_database.py` fail at collection time with
+`fixture 'engine' not found`. The `engine` fixture is referenced but never
+defined — not in the test file, not in `tests/conftest.py`.
+One additional test (`test_database_connection`) passes but returns an
+`Engine` object instead of using `assert`, which will become an error
+in a future pytest version.
+
+**Failing tests:**
+```
+ERROR tests/test_database.py::test_models_structure     - fixture 'engine' not found
+ERROR tests/test_database.py::test_note_crud            - fixture 'engine' not found
+ERROR tests/test_database.py::test_tag_filtering        - fixture 'engine' not found
+ERROR tests/test_database.py::test_note_properties      - fixture 'engine' not found
+WARNING tests/test_database.py::test_database_connection - PytestReturnNotNoneWarning (return instead of assert)
+```
+
+**Root cause:**
+The `engine` fixture was likely planned but never implemented in `conftest.py`,
+or was removed during a refactor without updating the test file.
+
+**Proposed Fix:**
+1. Define an `engine` fixture in `tests/conftest.py` (or directly in the test
+   file) that creates a test SQLAlchemy engine (ideally against a test DB or
+   SQLite in-memory for isolation)
+2. Fix `test_database_connection` to use `assert` rather than `return`
+
+**Why Deferred:**
+- Pre-existing failures unrelated to Phase 7 scope
+- No production CLI impact; all 38 commands work correctly
+- Appropriate for Phase 13 (dedicated testing pass)
+
+**Acceptance Criteria:**
+- [ ] `engine` fixture defined and available to all tests in `test_database.py`
+- [ ] All 4 previously-erroring tests collected and passing
+- [ ] `test_database_connection` uses `assert` not `return`
+- [ ] No pytest warnings related to this file
+
+**Files affected:**
+- `tests/test_database.py`
+- `tests/conftest.py` (likely needs `engine` fixture added)
+
+---
+
+### 15. `test_templates.py` — Stale `validate_template` Import
+
+**Status:** Deferred to Phase 13
+**Priority:** Medium (entire test file non-functional)
+**Effort:** ~1 hour
+**Added:** 20260309
+
+**Description:**
+`tests/test_templates.py` fails at import time with:
+
+```
+ImportError: cannot import name 'validate_template' from 'workmain.templates_engine'
+```
+
+The test file imports `validate_template` from `workmain.templates_engine`,
+but that symbol no longer exists in the package's `__init__.py`. It was
+likely renamed or reorganized during Phase 3/3.5 template engine work
+without a corresponding update to the test file.
+
+**Current state:**
+- All `workmain templates` CLI commands work correctly in production
+- The template validation logic exists internally but is exposed under a
+  different name or access path than the test expects
+- The entire test file cannot be collected, so zero template tests run
+
+**Proposed Fix:**
+1. Identify the current public API of `workmain.templates_engine` (check `__init__.py`)
+2. Update the import in `test_templates.py` to use the correct symbol name
+3. Review remaining test assertions for staleness against current engine behavior
+
+**Why Deferred:**
+- Pre-existing failure unrelated to Phase 7 scope
+- Template engine and CLI commands work correctly in production
+- Full test audit belongs in Phase 13
+
+**Acceptance Criteria:**
+- [ ] `test_templates.py` imports successfully
+- [ ] All template tests collected by pytest
+- [ ] Tests pass against current `workmain.templates_engine` API
+- [ ] No stale symbol references remain
+
+**Files affected:**
+- `tests/test_templates.py`
+
+---
+
 ## Summary Statistics
 
-**Total Deferred Items:** 12 ⬆️ (was 11)
+**Total Deferred Items:** 15 ⬆️ (was 12)
 **Phase 2 Deferrals:** 2
 **Phase 3 Deferrals:** 4
 **Phase 3.5/Pre-Phase 4 Deferrals:** 3
 **Phase 5.1 Deferrals (AI Provider):** 2
-**Phase 6 Deferrals (Technical Debt):** 1 ⭐ NEW
+**Phase 6 Deferrals (Technical Debt):** 1
+**Phase 7 Deferrals (Technical Debt):** 1 ⭐ NEW
+**Pre-Phase 13 Test Debt:** 2 ⭐ NEW
 
 **Priority Breakdown:**
 - High: 0
-- Medium: 4 (Shell autocomplete, Template editor, formatters.py, Streamlined model update)
-- Low: 7 (Command aliases, Field-database sync, Template versioning, Template sharing, master_log_template.md, Add new AI provider, email.py internal session)
+- Medium: 6 (Shell autocomplete, Template editor, formatters.py, Streamlined model update, test_database.py fixture, test_templates.py import)
+- Low: 8 (Command aliases, Field-database sync, Template versioning, Template sharing, master_log_template.md, Add new AI provider, email.py internal session, datetime.utcnow deprecation)
 - Conditional: 1 (examples.json - create only if needed)
 
 **Effort Estimates:**
-- Under 1 hour: 3 items (Command aliases, master_log_template.md, email.py internal session)
-- 1-3 hours: 3 items (Shell autocomplete, examples.json, Template sharing)
+- Under 1 hour: 4 items (Command aliases, master_log_template.md, email.py internal session, datetime.utcnow deprecation)
+- 1-3 hours: 5 items (Shell autocomplete, examples.json, Template sharing, test_database.py fixture, test_templates.py import)
 - 3-5 hours: 3 items (Template editor, Template versioning, formatters.py)
 - 5+ hours: 3 items (Field-database sync, Streamlined model update, Add new AI provider)
 
-**Total Deferred Effort:** ~42.5 hours ⬆️ (was ~42 hours)
+**Total Deferred Effort:** ~46 hours ⬆️ (was ~42.5 hours)
 
 **Phase 12 Workload:** 7 items (Command aliases, Shell autocomplete, Template editor, formatters.py, master_log_template.md, Streamlined model update, email.py internal session)
+
+**Phase 13 Workload:** 3 items (datetime.utcnow deprecation, test_database.py fixture, test_templates.py import) ⭐ NEW
 
 ---
 
@@ -852,23 +1011,35 @@ Build first, refactor later. See the complete picture before abstracting.
 4. formatters.py (~4 hours)
 5. master_log_template.md (~1 hour)
 6. Streamlined model update process (~4-6 hours)
-7. email.py internal session refactor (~30 min) ⭐ NEW
+7. email.py internal session refactor (~30 min)
+
+**Phase 13 - Testing & Documentation (Technical Debt):** ⭐ NEW
+8. datetime.utcnow() deprecation cleanup (~30 min)
+9. test_database.py engine fixture (~1-2 hours)
+10. test_templates.py stale import (~1 hour)
 
 **Phase 11+ - Advanced Features:**
-8. Field-database sync (~8 hours)
+11. Field-database sync (~8 hours)
 
 **Deferred Indefinitely:**
-9. Template versioning (~3 hours)
-10. Template sharing/export (~2 hours)
-11. Add new AI provider support (~8-12 hours)
+12. Template versioning (~3 hours)
+13. Template sharing/export (~2 hours)
+14. Add new AI provider support (~8-12 hours)
 
 **Conditional (Phase 4):**
-12. examples.json (~2 hours) - Create only if AI needs it
+15. examples.json (~2 hours) - Create only if AI needs it
 
 ---
 
-**Last Updated:** 20260305 v3.3
-**Next Review:** Before Phase 7 kickoff
+**Last Updated:** 20260309 v3.4
+**Next Review:** Before Phase 8 kickoff
+
+**Changes in v3.4:**
+- Added Item 13: `datetime.utcnow()` deprecation in `gdrive_repository.py` and `models.py` (Phase 7 technical debt → Phase 13)
+- Added Item 14: `test_database.py` missing `engine` fixture — 4 tests non-functional (pre-Phase 13 test debt)
+- Added Item 15: `test_templates.py` stale `validate_template` import — entire file non-functional (pre-Phase 13 test debt)
+- Updated summary statistics (15 items, ~46 hours total)
+- Added Phase 13 workload section
 
 **Changes in v3.3:**
 - Added Item 12: email.py `_generate_draft()` internal session (Phase 6 technical debt)
