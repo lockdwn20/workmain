@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.2] - 2026-03-09
+
+### Fixed
+- `workmain calendar import` dry-run now correctly classifies manually-created
+  meetings as `(unchanged)` or `(updated)` instead of `(new)` by adding a
+  title+date fallback match when no `outlook_id` is found in the database;
+  `outlook_id` is backfilled on match so future imports use the fast exact-UID path
+- Fixed `UniqueViolation` crash when Outlook ICS exports contain both a recurring
+  series master event and a specific occurrence with the same UID — `parse_ics_file()`
+  now deduplicates by UID before returning (last occurrence wins)
+
 ## [1.4.1] - 2026-03-09
 
 ### Fixed

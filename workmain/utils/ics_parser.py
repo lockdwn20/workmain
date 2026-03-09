@@ -1,7 +1,7 @@
 """
 WorkmAIn ICS Parser
-ICS Parser v1.0
-20260305
+ICS Parser v1.2
+20260309
 
 Parses exported Outlook ICS files into ICSEvent dataclasses for database import.
 
@@ -19,6 +19,8 @@ Timezone: All datetimes converted to PST/PDT naive using America/Los_Angeles.
 
 Version History:
 - v1.0: Initial implementation (Phase 6 Gate 3)
+- v1.1: Add _fallback_match() for title+date secondary lookup; backfill outlook_id on match
+- v1.2: Deduplicate events by UID in parse_ics_file() (handles recurring series + occurrence exports)
 """
 
 from __future__ import annotations
@@ -29,6 +31,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from icalendar import Calendar
+from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session
 
 from workmain.database.models import Meeting
@@ -146,7 +149,40 @@ def parse_ics_file(file_path: Path | str) -> list[ICSEvent]:
             is_cancelled=is_cancelled,
         ))
 
-    return events
+    # Deduplicate by UID — last occurrence wins (handles recurring series where
+    # Outlook exports both the master event and a specific occurrence with the same UID)
+    seen: dict[str, ICSEvent] = {}
+    for event in events:
+        seen[event.uid] = event
+    return list(seen.values())
+
+
+def _fallback_match(session: Session, event: ICSEvent) -> Meeting | None:
+    """
+    Secondary match when no outlook_id lookup succeeds.
+
+    Matches by title (case-insensitive) + same calendar date, restricted to
+    meetings with outlook_id IS NULL (manually-created meetings only).
+    If multiple rows match, returns the most recent by start_time then id.
+
+    Args:
+        session: SQLAlchemy session
+        event: ICSEvent to match against
+
+    Returns:
+        Matching Meeting row or None
+    """
+    event_date = event.start_time.date()
+    return (
+        session.query(Meeting)
+        .filter(
+            Meeting.outlook_id.is_(None),
+            sa_func.lower(Meeting.title) == event.title.lower(),
+            sa_func.date(Meeting.start_time) == event_date,
+        )
+        .order_by(Meeting.start_time.desc(), Meeting.id.desc())
+        .first()
+    )
 
 
 def import_events_to_db(session: Session, events: list[ICSEvent]) -> dict:
@@ -177,6 +213,12 @@ def import_events_to_db(session: Session, events: list[ICSEvent]) -> dict:
             .filter(Meeting.outlook_id == event.uid)
             .first()
         )
+        if existing is None:
+            existing = _fallback_match(session, event)
+            if existing is not None:
+                existing.outlook_id = event.uid
+                if event.is_recurring and existing.outlook_recurring_id is None:
+                    existing.outlook_recurring_id = event.uid
 
         if event.is_cancelled:
             if existing:
