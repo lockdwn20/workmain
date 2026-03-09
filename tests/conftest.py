@@ -1,20 +1,21 @@
 """
 WorkmAIn Test Configuration
-conftest v1.1
-20260305
+conftest v1.2
+20260309
 
 Pytest fixtures shared across all test files.
 
 Version History:
 - v1.0: Initial implementation — db_session fixture with test meeting cleanup
 - v1.1: Added Recipient/ReportRecipient cleanup for email tests
+- v1.2: Added GDriveUpload cleanup for Phase 7 gdrive tests
 """
 
 import pytest
 from dotenv import load_dotenv
 
 from workmain.database.connection import get_db
-from workmain.database.models import Meeting, Recipient, ReportRecipient
+from workmain.database.models import Meeting, Recipient, ReportRecipient, GDriveUpload
 
 # Patterns cleaned up before and after each test
 _TEST_UID_PREFIX = "test-"           # ICS test meeting UIDs
@@ -46,6 +47,11 @@ def db_session():
         # Remove test meetings by UID prefix
         session.query(Meeting).filter(
             Meeting.outlook_id.like(f"{_TEST_UID_PREFIX}%")
+        ).delete(synchronize_session=False)
+
+        # Remove test gdrive_uploads (drive_file_id starts with 'test-drive-')
+        session.query(GDriveUpload).filter(
+            GDriveUpload.drive_file_id.like("test-drive-%")
         ).delete(synchronize_session=False)
 
         session.commit()

@@ -1,10 +1,10 @@
 """
 WorkmAIn
-CLI Interface v1.9.0
-20260305
+CLI Interface v2.0.0
+20260309
 
 Main CLI interface using Click framework
-Updated for Phase 6: Outlook Integration
+Updated for Phase 7: Google Drive Integration
 
 Version History:
 - v0.1.0: Initial CLI with basic structure
@@ -26,6 +26,7 @@ Version History:
 - v1.7.0: Gate 0 - Global NotImplementedError handler for OAuth stub commands
 - v1.8.0: Gate 4 - Register calendar command group (Phase 6)
 - v1.9.0: Gate 5 - Register email command group (Phase 6)
+- v2.0.0: Gate 3/4 - Register gdocs command group (Phase 7)
 
 """
 
@@ -59,6 +60,9 @@ from workmain.cli.commands.clockify import clockify
 # Import Phase 6 commands
 from workmain.cli.commands.calendar import calendar
 from workmain.cli.commands.email import email
+
+# Import Phase 7 commands
+from workmain.cli.commands.gdocs import gdocs
 
 # Import Sprint commands
 from workmain.cli.commands.eod import eod
@@ -235,6 +239,9 @@ cli.add_command(clockify)
 # Phase 6: Outlook Integration
 cli.add_command(calendar)
 cli.add_command(email)
+
+# Phase 7: Google Drive Integration
+cli.add_command(gdocs)
 
 # Standardization Sprint
 cli.add_command(eod)
