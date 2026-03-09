@@ -1,7 +1,7 @@
 """
 WorkmAIn CLI
 Google Drive Command Group
-gdocs.py v1.0
+gdocs.py v1.1
 20260309
 
 CLI commands for archiving daily work artifacts to Google Drive.
@@ -21,6 +21,7 @@ Drive structure:
 
 Version History:
 - v1.0: Initial implementation (Phase 7 Gate 3)
+- v1.1: Fix Rich MarkupError in gdocs auth — [dim] tag split across two print() calls
 """
 
 import os
@@ -192,8 +193,7 @@ def gdocs_auth(reauth: bool):
         return
 
     console.print("\n[cyan]Starting Google Drive authentication...[/cyan]")
-    console.print("[dim]A URL will be printed. Open it in your browser, sign in,")
-    console.print("then paste the authorization code below.[/dim]\n")
+    console.print("[dim]A URL will be printed. Open it in your browser, sign in,\nthen paste the authorization code below.[/dim]\n")
 
     try:
         svc = get_service()
