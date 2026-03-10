@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v3.4
-20260309
+Feature Backlog v3.5
+20260310
 
 # WorkmAIn Feature Backlog
 
@@ -947,9 +947,48 @@ without a corresponding update to the test file.
 
 ---
 
+### 16. `auth.py` — `RefreshError` Not Caught in `_require_auth()`
+
+**Status:** Deferred to Phase 13
+**Priority:** Low (edge case — only occurs if refresh token is revoked or network fails)
+**Effort:** ~30 min
+**Added:** 20260310
+
+**Description:**
+`_require_auth()` in `gdocs.py` catches `GDriveAuthError` to surface "not
+authenticated" errors. However, if the token refresh itself fails (revoked
+token, Google-side error, network failure), `get_credentials()` raises
+`google.auth.exceptions.RefreshError`, which is NOT a `GDriveAuthError`
+and is therefore not caught — it surfaces as an unhandled traceback.
+
+**Proposed Fix:**
+In `workmain/integrations/gdrive/auth.py`, wrap `creds.refresh(Request())`
+in a try/except that converts `google.auth.exceptions.RefreshError` to
+`GDriveAuthError` with the message:
+`"Token refresh failed. Run: workmain gdocs auth --reauth"`
+
+This keeps the error surfacing model consistent and gives the user a clear
+recovery path.
+
+**Why Deferred:**
+- Requires interactive auth to trigger (token must be revoked)
+- Normal expiry (the common case) is fully fixed by v1.5.2 hotfix
+- Error surfaces with a traceback rather than silently — still actionable
+- Small isolated change that belongs with Phase 13 auth hardening
+
+**Acceptance Criteria:**
+- [ ] `get_credentials()` converts `RefreshError` to `GDriveAuthError`
+- [ ] `_require_auth()` message reads: "Token refresh failed. Run: workmain gdocs auth --reauth"
+- [ ] Simulated revoked token test passes (manual test with corrupted access_token + expired expiry)
+
+**Files affected:**
+- `workmain/integrations/gdrive/auth.py`
+
+---
+
 ## Summary Statistics
 
-**Total Deferred Items:** 15 ⬆️ (was 12)
+**Total Deferred Items:** 16 ⬆️ (was 15)
 **Phase 2 Deferrals:** 2
 **Phase 3 Deferrals:** 4
 **Phase 3.5/Pre-Phase 4 Deferrals:** 3
@@ -970,11 +1009,11 @@ without a corresponding update to the test file.
 - 3-5 hours: 3 items (Template editor, Template versioning, formatters.py)
 - 5+ hours: 3 items (Field-database sync, Streamlined model update, Add new AI provider)
 
-**Total Deferred Effort:** ~46 hours ⬆️ (was ~42.5 hours)
+**Total Deferred Effort:** ~46.5 hours ⬆️ (was ~46 hours)
 
 **Phase 12 Workload:** 7 items (Command aliases, Shell autocomplete, Template editor, formatters.py, master_log_template.md, Streamlined model update, email.py internal session)
 
-**Phase 13 Workload:** 3 items (datetime.utcnow deprecation, test_database.py fixture, test_templates.py import) ⭐ NEW
+**Phase 13 Workload:** 4 items (datetime.utcnow deprecation, test_database.py fixture, test_templates.py import, auth.py RefreshError handling) ⭐ NEW
 
 ---
 
@@ -1017,22 +1056,28 @@ Build first, refactor later. See the complete picture before abstracting.
 8. datetime.utcnow() deprecation cleanup (~30 min)
 9. test_database.py engine fixture (~1-2 hours)
 10. test_templates.py stale import (~1 hour)
+11. auth.py RefreshError → GDriveAuthError conversion (~30 min)
 
 **Phase 11+ - Advanced Features:**
-11. Field-database sync (~8 hours)
+12. Field-database sync (~8 hours)
 
 **Deferred Indefinitely:**
-12. Template versioning (~3 hours)
-13. Template sharing/export (~2 hours)
-14. Add new AI provider support (~8-12 hours)
+13. Template versioning (~3 hours)
+14. Template sharing/export (~2 hours)
+15. Add new AI provider support (~8-12 hours)
 
 **Conditional (Phase 4):**
-15. examples.json (~2 hours) - Create only if AI needs it
+16. examples.json (~2 hours) - Create only if AI needs it
 
 ---
 
-**Last Updated:** 20260309 v3.4
+**Last Updated:** 20260310 v3.5
 **Next Review:** Before Phase 8 kickoff
+
+**Changes in v3.5:**
+- Added Item 16: `auth.py` RefreshError not caught in `_require_auth()` (v1.5.2 hotfix technical debt → Phase 13)
+- Updated summary statistics (16 items, ~46.5 hours total)
+- Updated Phase 13 workload
 
 **Changes in v3.4:**
 - Added Item 13: `datetime.utcnow()` deprecation in `gdrive_repository.py` and `models.py` (Phase 7 technical debt → Phase 13)
