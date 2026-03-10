@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-03-10
+
+### Fixed
+- `workmain slack post-weekly` no longer fails with `Error: No such option: --start` —
+  report generation now calls the Python API directly (`get_report_generator()`) instead
+  of a subprocess with invalid `--start`/`--end` flags that were removed from `report save`
+
 ## [1.5.0] - 2026-03-10
 
 ### Added
