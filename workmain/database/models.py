@@ -1,7 +1,7 @@
 """
 WorkmAIn Database Models
-Database Models v1.6
-20260309
+Database Models v1.7
+20260310
 
 SQLAlchemy ORM models for WorkmAIn database.
 Models: Note, TimeEntry, Meeting, Project, Report, Recipient, ReportRecipient, GDriveUpload
@@ -16,6 +16,7 @@ Version History:
 - v1.4: Added condensation fields (meetings.condensed_summary, time_entries.meeting_id)
 - v1.5: Gate 1 - Added Recipient model and ReportRecipient model (Phase 6 email pipeline)
 - v1.6: Gate 1 - Added GDriveUpload model for Drive archival tracking (Phase 7)
+- v1.7: Gate 1 - Added slack_channel, slack_workspace_name columns to Report (Phase 8)
 """
 
 from datetime import datetime, date, time
@@ -294,6 +295,8 @@ class Report(Base):
     # Integration fields
     outlook_draft_id = Column(String(255), nullable=True)
     slack_message_ts = Column(String(255), nullable=True)
+    slack_channel = Column(Text, nullable=True)
+    slack_workspace_name = Column(Text, nullable=True)
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.now)
