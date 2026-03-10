@@ -1,7 +1,7 @@
 """
 WorkmAIn Test Configuration
-conftest v1.2
-20260309
+conftest v1.3
+20260310
 
 Pytest fixtures shared across all test files.
 
@@ -9,13 +9,14 @@ Version History:
 - v1.0: Initial implementation — db_session fixture with test meeting cleanup
 - v1.1: Added Recipient/ReportRecipient cleanup for email tests
 - v1.2: Added GDriveUpload cleanup for Phase 7 gdrive tests
+- v1.3: Added Slack test report cleanup (Phase 8)
 """
 
 import pytest
 from dotenv import load_dotenv
 
 from workmain.database.connection import get_db
-from workmain.database.models import Meeting, Recipient, ReportRecipient, GDriveUpload
+from workmain.database.models import Meeting, Recipient, ReportRecipient, GDriveUpload, Report
 
 # Patterns cleaned up before and after each test
 _TEST_UID_PREFIX = "test-"           # ICS test meeting UIDs
@@ -53,6 +54,14 @@ def db_session():
         session.query(GDriveUpload).filter(
             GDriveUpload.drive_file_id.like("test-drive-%")
         ).delete(synchronize_session=False)
+
+        # Clean up any slack-tagged test report rows (slack_message_ts starts with 'test-ts-')
+        session.query(Report).filter(
+            Report.slack_message_ts.like("test-ts-%")
+        ).update(
+            {"slack_message_ts": None, "slack_channel": None, "slack_workspace_name": None},
+            synchronize_session=False,
+        )
 
         session.commit()
 

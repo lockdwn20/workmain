@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-03-10
+
+### Added
+- `workmain slack` command group (5 commands)
+- `workmain slack setup` — interactive setup checklist guiding Slack app creation,
+  token config, and channel setup; checks each step, shows ✓/✗/?
+- `workmain slack auth [--reauth]` — validates Bot Token via auth.test, caches
+  workspace name in config.json; --reauth forces re-validation after token replacement
+- `workmain slack status` — shows auth state, default channel, and last 5 reports
+  posted to Slack (queried from reports table)
+- `workmain slack channel set <channel>` — sets default posting channel in config.json,
+  normalises with/without # prefix
+- `workmain slack post-weekly` — Thursday draft workflow: report generation/stale-check →
+  Rich preview → [DRAFT — For Review] label → approve/edit/cancel → post to Slack → DB record
+  Flags: --date/-d, --channel, --dry-run, --force, --regenerate
+- `workmain/integrations/slack` module: auth.py, client.py, __init__.py
+- `SlackClient` with test_connection(), post_message()
+- `format_for_slack()` — Markdown → Slack mrkdwn conversion
+- `already_posted()` — duplicate-post detection via reports.slack_message_ts
+- `get_slack_client()` singleton factory
+- Config helpers: load_slack_config(), save_slack_config(), get_default_channel()
+- Migration 006: ALTER TABLE reports adds slack_channel TEXT, slack_workspace_name TEXT
+
+### Tests
+- `tests/test_slack.py` v1.0: 20 test cases, all Slack API mocked
+
 ## [1.4.3] - 2026-03-09
 
 ### Fixed
