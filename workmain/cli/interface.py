@@ -1,10 +1,10 @@
 """
 WorkmAIn
-CLI Interface v2.1.0
-20260309
+CLI Interface v2.2.0
+20260310
 
 Main CLI interface using Click framework
-Updated for Phase 7: Google Drive Integration
+Updated for Phase 8: Slack Integration
 
 Version History:
 - v0.1.0: Initial CLI with basic structure
@@ -28,6 +28,7 @@ Version History:
 - v1.9.0: Gate 5 - Register email command group (Phase 6)
 - v2.0.0: Gate 3/4 - Register gdocs command group (Phase 7)
 - v2.1.0: Update today() and status() for Phase 6 & 7 (calendar sync, email draft, gdocs upload)
+- v2.2.0: Register slack command group (Phase 8)
 
 """
 
@@ -64,6 +65,9 @@ from workmain.cli.commands.email import email
 
 # Import Phase 7 commands
 from workmain.cli.commands.gdocs import gdocs
+
+# Import Phase 8 commands
+from workmain.cli.commands.slack import slack
 
 # Import Sprint commands
 from workmain.cli.commands.eod import eod
@@ -162,9 +166,15 @@ def status():
     table.add_row("├─ Upload Reports", "✓ gdocs upload-report")
     table.add_row("├─ Upload Clockify PDF", "✓ gdocs upload-clockify")
     table.add_row("└─ Upload All", "✓ gdocs upload-all")
+    table.add_row("Slack Integration", "✓ Phase 8 Complete")
+    table.add_row("├─ Setup Checklist", "✓ slack setup")
+    table.add_row("├─ Auth Validation", "✓ slack auth [--reauth]")
+    table.add_row("├─ Status & History", "✓ slack status")
+    table.add_row("├─ Channel Config", "✓ slack channel set")
+    table.add_row("└─ Weekly Draft Post", "✓ slack post-weekly")
 
     console.print(table)
-    console.print("\n[bold green]Phase 7 Complete![/bold green] Ready for Phase 8 (Slack Integration)")
+    console.print("\n[bold green]Phase 8 Complete![/bold green] Ready for Phase 9 (Notifications & Scheduling)")
     console.print("\n[yellow]Tip:[/yellow] Use 'workmain --help' to see all available commands")
 
 
@@ -257,6 +267,9 @@ cli.add_command(email)
 
 # Phase 7: Google Drive Integration
 cli.add_command(gdocs)
+
+# Phase 8: Slack Integration
+cli.add_command(slack)
 
 # Standardization Sprint
 cli.add_command(eod)
