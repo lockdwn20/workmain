@@ -489,10 +489,10 @@ def slack_post_weekly(
         console.print(f"[green]✓ Report generated:[/green] staging/reports/weekly_client_{end_str}.md")
 
     else:
-        # Staged report exists — check freshness
+        # Staged report exists — check freshness (skipped in dry-run per spec §4.7)
         file_date = date.fromtimestamp(staged_path.stat().st_mtime)
         today = date.today()
-        if file_date < today:
+        if file_date < today and not dry_run:
             console.print(
                 f"\n[yellow]⚠ Staged report is from a prior day "
                 f"(staged: {file_date}, today: {today}).[/yellow]"
