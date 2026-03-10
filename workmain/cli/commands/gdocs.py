@@ -1,8 +1,8 @@
 """
 WorkmAIn CLI
 Google Drive Command Group
-gdocs.py v1.1
-20260309
+gdocs.py v1.2
+20260310
 
 CLI commands for archiving daily work artifacts to Google Drive.
 
@@ -22,6 +22,8 @@ Drive structure:
 Version History:
 - v1.0: Initial implementation (Phase 7 Gate 3)
 - v1.1: Fix Rich MarkupError in gdocs auth — [dim] tag split across two print() calls
+- v1.2: Fix _require_auth() to call get_credentials() instead of is_authenticated(),
+        enabling silent token refresh on expiry
 """
 
 import os
@@ -40,6 +42,7 @@ from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.gdrive_repository import GDriveRepository
 from workmain.integrations.gdrive.auth import (
     is_authenticated,
+    get_credentials,
     get_service,
     GDriveAuthError,
 )
@@ -85,8 +88,14 @@ def _require_env_root() -> str:
 
 
 def _require_auth() -> None:
-    """Abort with a clear message if not authenticated."""
-    if not is_authenticated():
+    """Abort with a clear message if not authenticated.
+
+    Calls get_credentials() which silently refreshes an expired token if a
+    refresh token is present. Only raises if interactive login is required.
+    """
+    try:
+        get_credentials()
+    except GDriveAuthError:
         console.print(
             "\n[red]✗ Not authenticated.[/red] "
             "Run: [bold]workmain gdocs auth[/bold]\n"

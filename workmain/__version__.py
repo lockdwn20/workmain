@@ -1,6 +1,6 @@
 """
 WorkmAIn Package Version
-Version v1.5.1
+Version v1.5.2
 20260310
 
 Version History:
@@ -30,9 +30,11 @@ Version History:
           slack setup/auth/status/channel commands, migration 006)
 - v1.5.1: Hotfix — fix slack post-weekly: replace invalid --start/--end subprocess flags
           with direct Python API call via get_report_generator()
+- v1.5.2: Hotfix — fix gdocs _require_auth(): call get_credentials() instead of
+          is_authenticated() to enable silent token refresh on expiry
 """
 
-__version__ = "1.5.1"
-__version_info__ = (1, 5, 1)
+__version__ = "1.5.2"
+__version_info__ = (1, 5, 2)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
