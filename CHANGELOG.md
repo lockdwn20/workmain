@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.2] - 2026-03-10
+
+### Fixed
+- `workmain gdocs upload-all` (and all gdocs upload commands) now silently
+  refresh expired Google access tokens instead of incorrectly reporting
+  "Not authenticated". Root cause: `_require_auth()` checked `creds.valid`
+  which is False on expiry even when a valid refresh token exists.
+  Fix: `_require_auth()` now calls `get_credentials()` which handles refresh
+  transparently. Only surfaces an auth error when interactive login is
+  genuinely required.
+
 ## [1.5.1] - 2026-03-10
 
 ### Fixed
