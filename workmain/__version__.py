@@ -1,6 +1,6 @@
 """
 WorkmAIn Package Version
-Version v1.5.0
+Version v1.5.1
 20260310
 
 Version History:
@@ -28,9 +28,11 @@ Version History:
 - v1.4.3: Hotfix — fix Rich MarkupError in gdocs auth ([dim] tag split across print calls)
 - v1.5.0: Phase 8 complete — Slack integration (post-weekly draft workflow,
           slack setup/auth/status/channel commands, migration 006)
+- v1.5.1: Hotfix — fix slack post-weekly: replace invalid --start/--end subprocess flags
+          with direct Python API call via get_report_generator()
 """
 
-__version__ = "1.5.0"
-__version_info__ = (1, 5, 0)
+__version__ = "1.5.1"
+__version_info__ = (1, 5, 1)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"

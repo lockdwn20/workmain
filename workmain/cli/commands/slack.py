@@ -1,7 +1,7 @@
 """
 WorkmAIn CLI
 Slack Command Group
-slack.py v1.0
+slack.py v1.1
 20260310
 
 CLI commands for posting weekly draft reports to Slack.
@@ -15,6 +15,8 @@ Commands:
 
 Version History:
 - v1.0: Initial implementation (Phase 8 Gate 3/4)
+- v1.1: Fix post-weekly generation — replace subprocess (invalid --start/--end flags)
+        with direct Python API call via get_report_generator()
 """
 
 import os
@@ -102,6 +104,26 @@ def _format_date_display(d: date) -> str:
 def _staged_report_path(anchor: date) -> Path:
     """Return the expected staged report path for a given anchor date."""
     return _STAGING_REPORTS / f"weekly_client_{anchor.strftime('%Y-%m-%d')}.md"
+
+
+def _run_generation(anchor: date) -> tuple:
+    """
+    Generate the weekly_client report for anchor date via Python API.
+
+    Returns:
+        (success: bool, error_message: str)
+    """
+    from workmain.ai import get_report_generator
+    db = get_db()
+    session = db.get_session()
+    try:
+        generator = get_report_generator(session)
+        generator.generate_report(template_name="weekly_client", report_date=anchor)
+        return True, ""
+    except Exception as e:
+        return False, str(e)
+    finally:
+        session.close()
 
 
 # ---------------------------------------------------------------------------
@@ -421,7 +443,7 @@ def slack_post_weekly(
     if dry_run and not staged_path.exists():
         console.print(
             f"\n[yellow][DRY RUN][/yellow] No staged report found — would generate "
-            f"weekly_client --start {start_str} --end {end_str}"
+            f"weekly_client for week ending {end_str}"
         )
         console.print("[yellow][DRY RUN][/yellow] Cannot preview content without a staged report.")
         return
@@ -433,24 +455,15 @@ def slack_post_weekly(
             f"\nGenerating weekly draft "
             f"({monday_display} – {anchor_display})..."
         )
-        console.print(f"  workmain report save weekly_client --start {start_str} --end {end_str}")
-        result = subprocess.run(
-            ["workmain", "report", "save", "weekly_client",
-             "--start", start_str, "--end", end_str],
-            capture_output=True, text=True,
-        )
-        if result.returncode != 0:
-            console.print(f"\n[red]✗ Report generation failed:[/red]")
-            console.print(result.stderr)
+        console.print(f"  workmain report save weekly_client  (date: {end_str})")
+        ok, err = _run_generation(anchor)
+        if not ok:
+            console.print(f"\n[red]✗ Report generation failed:[/red] {err}")
             choice = click.prompt("Retry or skip? [r/s]", default="s")
             if choice.lower() == "r":
-                result = subprocess.run(
-                    ["workmain", "report", "save", "weekly_client",
-                     "--start", start_str, "--end", end_str],
-                    capture_output=True, text=True,
-                )
-                if result.returncode != 0:
-                    console.print("[red]✗ Retry failed. Exiting.[/red]")
+                ok, err = _run_generation(anchor)
+                if not ok:
+                    console.print(f"[red]✗ Retry failed:[/red] {err}")
                     return
             else:
                 console.print("Skipping. No post made.")
@@ -464,24 +477,15 @@ def slack_post_weekly(
         console.print(
             f"Generating weekly draft ({monday_display} – {anchor_display})..."
         )
-        console.print(f"  workmain report save weekly_client --start {start_str} --end {end_str}")
-        result = subprocess.run(
-            ["workmain", "report", "save", "weekly_client",
-             "--start", start_str, "--end", end_str],
-            capture_output=True, text=True,
-        )
-        if result.returncode != 0:
-            console.print(f"\n[red]✗ Report generation failed:[/red]")
-            console.print(result.stderr)
+        console.print(f"  workmain report save weekly_client  (date: {end_str})")
+        ok, err = _run_generation(anchor)
+        if not ok:
+            console.print(f"\n[red]✗ Report generation failed:[/red] {err}")
             choice = click.prompt("Retry or skip? [r/s]", default="s")
             if choice.lower() == "r":
-                result = subprocess.run(
-                    ["workmain", "report", "save", "weekly_client",
-                     "--start", start_str, "--end", end_str],
-                    capture_output=True, text=True,
-                )
-                if result.returncode != 0:
-                    console.print("[red]✗ Retry failed. Exiting.[/red]")
+                ok, err = _run_generation(anchor)
+                if not ok:
+                    console.print(f"[red]✗ Retry failed:[/red] {err}")
                     return
             else:
                 console.print("Skipping. No post made.")
@@ -500,14 +504,9 @@ def slack_post_weekly(
             console.print("  It may not reflect today's notes and time entries.")
             choice = click.prompt("  Regenerate? [y]es / [n]o (use existing)", default="n")
             if choice.lower() == "y":
-                result = subprocess.run(
-                    ["workmain", "report", "save", "weekly_client",
-                     "--start", start_str, "--end", end_str],
-                    capture_output=True, text=True,
-                )
-                if result.returncode != 0:
-                    console.print(f"\n[red]✗ Report generation failed:[/red]")
-                    console.print(result.stderr)
+                ok, err = _run_generation(anchor)
+                if not ok:
+                    console.print(f"\n[red]✗ Report generation failed:[/red] {err}")
                     return
                 console.print(
                     f"[green]✓ Report regenerated:[/green] "
