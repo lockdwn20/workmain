@@ -1,7 +1,7 @@
 """
 WorkmAIn Notes CLI Commands
-Notes Commands v3.0
-20260303
+Notes Commands v3.1
+20260311
 
 Unified notes command group. Consolidates note (write) and notes (read) groups
 from note.py into a single group with all subcommands.
@@ -21,6 +21,8 @@ Version History:
           notes today/date/search/meeting carried forward
           --history/-H on notes meeting from Gate 1
         Migrated from legacy get_session() to standard get_db() pattern.
+- v3.1: Fix notes_meeting() to use get_by_meeting_title() — avoids recurring-meeting
+        instance mismatch where get_by_title() returned a future occurrence with no notes.
 """
 
 import click
@@ -792,7 +794,7 @@ def notes_meeting(meeting_title: str, history: bool):
 
             return
 
-        note_list = notes_repo.get_by_meeting(mtg.id, include_recurring=history)
+        note_list = notes_repo.get_by_meeting_title(meeting_title, most_recent_only=not history)
 
         if not note_list:
             click.echo(f"No notes for meeting '{mtg.title}'.")
