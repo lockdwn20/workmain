@@ -1,7 +1,7 @@
 """
 WorkmAIn Package Version
-Version v1.5.2
-20260310
+Version v1.5.3
+20260311
 
 Version History:
 - v0.1.0: Initial structure
@@ -32,9 +32,12 @@ Version History:
           with direct Python API call via get_report_generator()
 - v1.5.2: Hotfix — fix gdocs _require_auth(): call get_credentials() instead of
           is_authenticated() to enable silent token refresh on expiry
+- v1.5.3: Hotfix — fix `notes meeting` returning no results for recurring meetings;
+          get_by_title() was returning a future Outlook occurrence with no notes;
+          fix adds NotesRepository.get_by_meeting_title() joining on title
 """
 
-__version__ = "1.5.2"
-__version_info__ = (1, 5, 2)
+__version__ = "1.5.3"
+__version_info__ = (1, 5, 3)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"

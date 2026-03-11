@@ -1,7 +1,7 @@
 """
 WorkmAIn Notes Repository
-Notes Repository v1.3
-20251222
+Notes Repository v1.4
+20260311
 
 Data access layer for notes with tag filtering and full-text search.
 Handles all CRUD operations for the notes table.
@@ -11,6 +11,7 @@ Version History:
 - v1.1: Fixed tag filtering to use PostgreSQL array overlap operator (&&)
 - v1.2: Fixed exclude tags to use PostgreSQL array contains operator (@>)
 - v1.3: Added tag normalization (dedup + sort) in create() and update() methods
+- v1.4: Added get_by_meeting_title() to fix recurring-meeting instance mismatch
 """
 
 from datetime import date, datetime
@@ -324,7 +325,45 @@ class NotesRepository:
         return self.session.query(Note).filter(
             Note.meeting_id.in_(meeting_ids)
         ).order_by(Note.created_at).all()
-    
+
+    def get_by_meeting_title(
+        self,
+        title: str,
+        most_recent_only: bool = True
+    ) -> List[Note]:
+        """
+        Get notes for all meetings matching a title (case-insensitive).
+
+        Avoids the recurring-meeting instance mismatch by joining on title
+        rather than a specific meeting_id. Fixes the bug where get_by_meeting()
+        would find nothing when get_by_title() returned a future occurrence.
+
+        Args:
+            title: Meeting title to match (case-insensitive).
+            most_recent_only: If True, return only notes from the most recent
+                              date that has notes. If False, return all notes
+                              across all instances ordered by created_at.
+
+        Returns:
+            List of Note objects ordered by created_at ascending.
+        """
+        notes = (
+            self.session.query(Note)
+            .join(Meeting, Note.meeting_id == Meeting.id)
+            .filter(func.lower(Meeting.title) == func.lower(title))
+            .order_by(Note.created_at.desc())
+            .all()
+        )
+
+        if not notes or not most_recent_only:
+            return sorted(notes, key=lambda n: n.created_at)
+
+        # Filter to the most recent date that has notes, restore asc order
+        most_recent_date = notes[0].created_date
+        filtered = [n for n in notes if n.created_date == most_recent_date]
+        filtered.reverse()
+        return filtered
+
     def get_by_project(self, project_id: int) -> List[Note]:
         """
         Get all notes for a specific project.
