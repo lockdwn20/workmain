@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v3.5
-20260310
+Feature Backlog v3.6
+20260311
 
 # WorkmAIn Feature Backlog
 
@@ -14,6 +14,7 @@ Items deferred from various phases for future implementation.
 - v3.2 (20260303): Added CLI Standardization Sprint deferral (clockify report subcommand pattern)
 - v3.3 (20260305): Added Phase 6 technical debt (email.py internal session pattern)
 - v3.4 (20260309): Added Phase 7 technical debt (datetime.utcnow deprecation) and pre-Phase 13 test debt (test_database.py, test_templates.py)
+- v3.6 (20260311): Added Phase 8 deferral (workmain eod day-aware Thursday/Friday steps → Phase 10)
 
 ---
 
@@ -986,19 +987,77 @@ recovery path.
 
 ---
 
+## Phase 8 Deferred — EOD Day-Aware Steps
+
+### 17. `workmain eod` Day-Aware Thursday/Friday Steps
+
+**Status:** Deferred to Phase 10
+**Priority:** High (core daily workflow)
+**Effort:** ~3 hours
+**Added:** 20260311
+
+**Description:**
+`workmain eod` currently runs the same 7 steps every day regardless of the
+day of the week. Thursday and Friday require additional weekly steps that
+are not currently included.
+
+**Current State:**
+- `workmain eod` runs 7 fixed steps (condense, sync, review, report,
+  email, clockify, gdocs)
+- No Thursday Slack draft step
+- No Friday weekly report/email steps
+
+**Required Behaviour:**
+EOD should be day-aware — automatically include Thursday and Friday steps
+based on `date.today().weekday()`:
+
+| Day | Additional steps |
+|-----|-----------------|
+| Thursday | Step 8: `workmain slack post-weekly` (Mon–Thu draft → Slack) |
+| Friday | Step 8: `workmain report save weekly_client` (Mon–Fri final) |
+|  | Step 9: `workmain email save weekly_client` |
+
+**Flags:**
+- `--skip weekly` — skip all day-specific steps on that run
+- `--dry-run` — shows full day-appropriate step sequence including weekly steps
+- Non-Thu/Fri days run standard 7 steps only; weekly steps do not appear
+
+**Why Deferred to Phase 10:**
+Phase 10 (Complete Pipeline) is explicitly designed for the Thu/Fri workflow.
+Phase 8 delivers `workmain slack post-weekly` which is the Thursday EOD step.
+Phase 10 will have all dependencies available.
+
+**Phase 8 deliverables consumed by Phase 10:**
+- `workmain slack post-weekly` → EOD Thursday Step 8 (subprocess call)
+- `reports.slack_message_ts` → duplicate post check before running Step 8
+- `workmain integrations.slack` → already importable, no additional wiring
+
+**Acceptance Criteria:**
+- [ ] `workmain eod` detects Thursday and adds Slack post step
+- [ ] `workmain eod` detects Friday and adds weekly report + email steps
+- [ ] `--skip weekly` flag skips all day-specific steps
+- [ ] `--dry-run` shows correct step count for the current day
+- [ ] Monday–Wednesday run is unchanged (7 steps)
+- [ ] `eod.py` version bumped, CHANGELOG updated
+
+**Reference:** `docs/SESSION_HANDOFF_PHASE8_READY.md` §FEATURE_BACKLOG.md UPDATE REQUIRED
+
+---
+
 ## Summary Statistics
 
-**Total Deferred Items:** 16 ⬆️ (was 15)
+**Total Deferred Items:** 17 ⬆️ (was 16)
 **Phase 2 Deferrals:** 2
 **Phase 3 Deferrals:** 4
 **Phase 3.5/Pre-Phase 4 Deferrals:** 3
 **Phase 5.1 Deferrals (AI Provider):** 2
 **Phase 6 Deferrals (Technical Debt):** 1
-**Phase 7 Deferrals (Technical Debt):** 1 ⭐ NEW
-**Pre-Phase 13 Test Debt:** 2 ⭐ NEW
+**Phase 7 Deferrals (Technical Debt):** 1
+**Phase 8 Deferrals (EOD Pipeline):** 1 ⭐ NEW
+**Pre-Phase 13 Test Debt:** 2
 
 **Priority Breakdown:**
-- High: 0
+- High: 1 (workmain eod day-aware steps) ⭐ NEW
 - Medium: 6 (Shell autocomplete, Template editor, formatters.py, Streamlined model update, test_database.py fixture, test_templates.py import)
 - Low: 8 (Command aliases, Field-database sync, Template versioning, Template sharing, master_log_template.md, Add new AI provider, email.py internal session, datetime.utcnow deprecation)
 - Conditional: 1 (examples.json - create only if needed)
@@ -1006,14 +1065,16 @@ recovery path.
 **Effort Estimates:**
 - Under 1 hour: 4 items (Command aliases, master_log_template.md, email.py internal session, datetime.utcnow deprecation)
 - 1-3 hours: 5 items (Shell autocomplete, examples.json, Template sharing, test_database.py fixture, test_templates.py import)
-- 3-5 hours: 3 items (Template editor, Template versioning, formatters.py)
+- 3-5 hours: 4 items (Template editor, Template versioning, formatters.py, eod day-aware steps) ⭐ NEW
 - 5+ hours: 3 items (Field-database sync, Streamlined model update, Add new AI provider)
 
-**Total Deferred Effort:** ~46.5 hours ⬆️ (was ~46 hours)
+**Total Deferred Effort:** ~49.5 hours ⬆️ (was ~46.5 hours)
+
+**Phase 10 Workload:** 1 item (workmain eod day-aware Thursday/Friday steps) ⭐ NEW
 
 **Phase 12 Workload:** 7 items (Command aliases, Shell autocomplete, Template editor, formatters.py, master_log_template.md, Streamlined model update, email.py internal session)
 
-**Phase 13 Workload:** 4 items (datetime.utcnow deprecation, test_database.py fixture, test_templates.py import, auth.py RefreshError handling) ⭐ NEW
+**Phase 13 Workload:** 4 items (datetime.utcnow deprecation, test_database.py fixture, test_templates.py import, auth.py RefreshError handling)
 
 ---
 
@@ -1069,10 +1130,19 @@ Build first, refactor later. See the complete picture before abstracting.
 **Conditional (Phase 4):**
 16. examples.json (~2 hours) - Create only if AI needs it
 
+**Phase 10 - Complete Pipeline:** ⭐ NEW
+17. workmain eod day-aware Thursday/Friday steps (~3 hours)
+
 ---
 
-**Last Updated:** 20260310 v3.5
-**Next Review:** Before Phase 8 kickoff
+**Last Updated:** 20260311 v3.6
+**Next Review:** Before Phase 9 kickoff
+
+**Changes in v3.6:**
+- Added Item 17: `workmain eod` day-aware Thursday/Friday steps (Phase 8 deferral → Phase 10)
+- Updated summary statistics (17 items, ~49.5 hours total)
+- Added Phase 10 workload section
+- Updated Priority Breakdown (High: 1)
 
 **Changes in v3.5:**
 - Added Item 16: `auth.py` RefreshError not caught in `_require_auth()` (v1.5.2 hotfix technical debt → Phase 13)
