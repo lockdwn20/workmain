@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.3] - 2026-03-11
+
+### Fixed
+- `workmain notes meeting "<title>"` now correctly returns notes for recurring meetings.
+  Root cause: `get_by_title()` returned the most-recent meeting row by `start_time DESC`,
+  which for Outlook-imported recurring meetings is a future occurrence with no notes linked.
+  Fix: added `NotesRepository.get_by_meeting_title()` which JOINs notes with meetings on
+  title (case-insensitive), bypassing the instance-ID mismatch entirely. Default behaviour
+  (`most_recent_only=True`) shows notes from the most recent date with notes; `-H` flag
+  shows all instances.
+
 ## [1.5.2] - 2026-03-10
 
 ### Fixed
