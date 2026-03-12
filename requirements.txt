@@ -40,7 +40,7 @@ slack-sdk==3.26.1                       # Phase 8: Slack Integration
 # Utilities
 python-dateutil==2.8.2
 pytz==2023.3
-APScheduler==3.10.4     # Phase 9: Scheduling
+APScheduler==3.10.4     # Phase 10: Scheduling
 rich==13.7.0
 tabulate==0.9.0
 httpx>=0.24.0,<0.28.0

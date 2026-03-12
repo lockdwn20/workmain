@@ -1,6 +1,20 @@
+WorkmAIn
+Implementation Checklist v2.1
+20260311
+
+Version History:
+- v1.0: Original checklist through Phase 8 (maintained by Claude Code)
+- v2.0 (20260311): Swapped Phase 9/10 — pipeline before scheduler. Added EOD Day-Aware Pipeline section to Phase 9.
+- v2.1 (20260311): Restored Phase 2 completion status (regression fix); restored Phase 4 Provider CLI completed commands (regression fix); restored Phase 3 templates show [x] and templates preview [ ] with bug note; added DB auth config note to Phase 16 (moved from Phase 12); confirmed Phase 13 Code Quality Refactoring intentionally omitted (tracked in FEATURE_BACKLOG.md Item 7); updated Phase 6/7/8 headers to reflect completion.
+
+---
+
+# WorkmAIn - Implementation Checklist & Phased Approach (APPROVED)
+
 ## PROJECT TIMELINE OVERVIEW
 
-**Total Duration: 11 weeks (CLI complete)** **Extended: 13 weeks (with Web UI and Excel timecard)**
+**Total Duration: 11 weeks (CLI complete)**
+**Extended: 13 weeks (with Web UI and Excel timecard)**
 
 ---
 
@@ -36,7 +50,7 @@
 - [x] Add client Slack configuration fields
 - [x] Add notification preference fields
 
-### Configuration System
+### Configuration System ✓
 
 - [x] Create JSON config loader
 - [x] Implement config validator
@@ -48,15 +62,15 @@
 
 - ✓ Working database with complete schema
 - ✓ Basic CRUD operations
-- ⏳ Configuration loading system
+- ✓ Configuration loading system
 
 ---
 
-## PHASE 2: CLI Interface & Basic Note Management (Week 2)
+## PHASE 2: CLI Interface & Basic Note Management ✓ COMPLETED (Week 2)
 
 **Goal**: Create command-line interface for basic operations
 
-### CLI Framework
+### CLI Framework ✓
 
 - [x] Set up Click framework
 - [x] Create command structure (`workmain` entry point)
@@ -65,7 +79,7 @@
 - [x] Build interactive prompts
 - [x] Create formatters (Rich library for output)
 
-### Tag System Implementation
+### Tag System Implementation ✓
 
 - [x] Implement tag parser (#ilo → [internal-only])
 - [x] Tag conversion utilities
@@ -78,7 +92,7 @@
 - [x] Display formatting (show full tag names)
 - [x] Tag validation and autocomplete
 
-### Note Management Commands
+### Note Management Commands ✓
 
 - [x] `workmain note add "text" #tag` - Add note with tags
 - [x] `workmain note meeting "Title" #tag` - Capture meeting note
@@ -87,7 +101,7 @@
 - [x] `workmain notes meeting "Title" --history` - View recurring meeting history
 - [x] Implement tag filtering in queries
 
-### Time Tracking Commands (Local, 24-hour format)
+### Time Tracking Commands ✓ (Local, 24-hour format)
 
 - [x] `workmain track "Description" 1.5h 14:30 [category]` - Log time entry
 - [x] `workmain time today` - View today's time
@@ -95,13 +109,13 @@
 - [x] Store in 24-hour format in database
 - [x] Time format validation
 
-### Status Commands
+### Status Commands ✓
 
 - [x] `workmain status` - Daily overview
 - [x] `workmain today` - Today's summary
 - [x] `workmain tasks carryover` - Show pending tasks
 
-### Recurring Meeting Detection
+### Recurring Meeting Detection ✓
 
 - [x] Link notes to meetings via meeting_id
 - [x] Query meetings by outlook_recurring_id
@@ -118,11 +132,11 @@
 
 ---
 
-## PHASE 3: Template System (Week 3)
+## PHASE 3: Template System ✓ COMPLETED (Week 3)
 
 **Goal**: Flexible, JSON-based template system
 
-### Template Engine
+### Template Engine ✓
 
 - [x] Create template loader
 - [x] Build JSON schema validator
@@ -131,7 +145,7 @@
 - [ ] Add custom field support
 - [x] Support per-report AI provider specification
 
-### Default Templates (Based on User's Examples)
+### Default Templates ✓ (Based on User's Examples)
 
 - [x] Daily Internal Report template
     - [x] Analyze user's Master Log format
@@ -141,11 +155,11 @@
     - [x] Thursday draft version (Mon-Thu)
     - [x] Friday final version (Mon-Fri)
     - [x] Client-friendly tone
-- [x] (Removed-Handled by the notes and time module) Raw Notes Archive template
+- [x] Raw Notes Archive template (Removed — handled by the notes and time module)
     - [x] Match user's current format
     - [x] Preserve separators and structure
 
-### Field Templates
+### Field Templates ✓
 
 - [x] summary.json
 - [x] tasks_completed.json (filter by tags)
@@ -153,7 +167,7 @@
 - [x] time_breakdown.json (from Clockify)
 - [x] client_deliverables.json
 
-### Writing Style System
+### Writing Style System ✓
 
 - [x] Create style definition format
 - [x] Load style preferences from user examples
@@ -161,14 +175,14 @@
 - [x] Build style adapter for AI prompts
 - [x] Apply to each report type
 
-### Template CLI
+### Template CLI ✓
 
 - [x] `workmain templates list`
-- [x] - `workmain templates show <name>` (bonus - not originally planned)
-- [ ] `workmain templates edit <name>`
+- [x] `workmain templates show <n>` (bonus — not originally planned)
+- [ ] `workmain templates edit <n>`
 - [x] `workmain templates validate`
-- [x] `workmain templates preview <name>` (bonus - not originally planned)
-- [ ] `workmain templates add-field <name>`
+- [ ] `workmain templates preview <n>` (bonus — not originally planned) — BUG: ImportError: `get_session` not found; tracked in FEATURE_BACKLOG.md Item 18; fix required before Phase 9
+- [ ] `workmain templates add-field <n>`
 
 ### Field-Database Sync
 
@@ -186,11 +200,11 @@
 
 ---
 
-## PHASE 4: AI Integration (Week 4)
+## PHASE 4: AI Integration ✓ COMPLETED (Week 4)
 
 **Goal**: Connect Claude and Gemini for report generation
 
-### AI Provider System
+### AI Provider System ✓
 
 - [x] Build provider abstraction layer
 - [x] Implement Claude client
@@ -202,7 +216,7 @@
 - [x] Create fallback mechanism
 - [x] Implement cost tracking per provider
 
-### Prompt Engineering
+### Prompt Engineering ✓
 
 - [x] Build dynamic prompt constructor
 - [x] Include writing style in prompts
@@ -210,7 +224,7 @@
 - [x] Context window management
 - [x] Use user's Master Log for training examples
 
-### Report Generation
+### Report Generation ✓
 
 - [x] Data aggregation from database
 - [x] Tag-based filtering (#ilo, #cr, #ifo)
@@ -220,43 +234,35 @@
 - [x] Output validation
 - [x] Retry logic for failures
 
-### Note Condensation
+### Note Condensation ✓
 
 - [x] Extract key points from meeting notes
 - [x] Generate one-line summary for Clockify
 - [x] Preserve essential information
 
-### Provider CLI
+### Provider CLI ✓ (UPDATES 20251231 — actual commands delivered)
 
-- [ ] `workmain provider status`
-- [ ] `workmain provider set <name> --for <report_type>`
-- [ ] `workmain provider toggle <name> on/off`
-- [x] `workmain provider costs`
+- [x] `workmain providers list`
+- [x] `workmain providers test <provider>`
+- [x] `workmain providers set-default <provider>`
+- [x] `workmain providers costs`
 - [x] `workmain report daily --provider gemini` (override)
 
-UPDATES 20251231:
-### Provider CLI ✅
+### Additional Features Completed ✓
 
-- [x]  `workmain providers list`
-- [x]  `workmain providers test <provider>`
-- [x]  `workmain providers set-default <provider>`
-- [x]  `workmain providers costs`
-- [x]  `workmain report daily --provider gemini` (override)
+- [x] Template alias system
+- [x] Bulk meeting note entry
+    - [x] `workmain note meeting` command
+    - [x] $EDITOR support
+    - [x] Interactive mode
+    - [x] Per-line tag parsing
+    - [x] Fuzzy meeting matching
+- [x] AI note condensation
+    - [x] `workmain meeting condense` command
+    - [x] Database migration 002
+    - [x] Cost tracking per condensation
+    - [x] Clockify-ready summaries
 
-### Additional Features Completed ✅
-
-- [x]  Template alias system (Day 8)
-- [x]  Bulk meeting note entry (Feature 3)
-    - [x]  `workmain note meeting` command
-    - [x]  $EDITOR support
-    - [x]  Interactive mode
-    - [x]  Per-line tag parsing
-    - [x]  Fuzzy meeting matching
-- [x]  AI note condensation (Feature 4)
-    - [x]  `workmain meeting condense` command
-    - [x]  Database migration 002
-    - [x]  Cost tracking per condensation
-    - [x]  Clockify-ready summaries
 **Deliverables**:
 
 - Working AI report generation matching user's style
@@ -266,27 +272,31 @@ UPDATES 20251231:
 
 ---
 
-## PHASE 5: Clockify Integration (Week 5)
+## PHASE 5: Clockify Integration ✓ COMPLETED (Week 5)
 
 **Goal**: Bidirectional sync with Clockify
-Note: Ensure Strategy B, which will error if start times are not annotated for time tracking and allow for entry of the start times.
-### Time Format Conversion - Removed Clockify Set to 24HRR time
+
+Note: Strategy B implemented — errors if start times not annotated, allows entry of start times.
+
+### Time Format Conversion
+
+Note: Clockify configured to 24HR time — AM/PM conversion not required.
 
 - [ ] Implement 24hr → AM/PM converter
 - [ ] Implement AM/PM → 24hr converter
 - [ ] Validate time formats
 - [ ] Handle edge cases (midnight, noon)
 
-### Clockify API Client
+### Clockify API Client ✓
 
 - [x] Implement authentication
-- [x] Fetch time entries (convert to 24hr)
-- [x] Create time entries (convert from 24hr)
+- [x] Fetch time entries
+- [x] Create time entries
 - [x] Update time entries
 - [x] Delete time entries
 - [x] Fetch PDF report
 
-### Synchronization
+### Synchronization ✓
 
 - [ ] Sync local → Clockify (24hr to AM/PM)
 - [ ] Sync Clockify → local (AM/PM to 24hr)
@@ -295,7 +305,7 @@ Note: Ensure Strategy B, which will error if start times are not annotated for t
 - [x] Manual sync command
 - [x] Use condensed meeting notes for descriptions
 
-### Clockify CLI
+### Clockify CLI ✓
 
 - [x] `workmain track sync` - Manual sync
 - [x] `workmain clockify pull-report` - Get PDF
@@ -310,85 +320,89 @@ Note: Ensure Strategy B, which will error if start times are not annotated for t
 
 ---
 
-## PHASE 6: Outlook Integration (Week 6)
+## PHASE 6: Outlook Integration ✓ COMPLETED (Week 6)
 
 **Goal**: Calendar awareness and email drafts
 
+Note: OAuth 2.0 flow is stubbed — corporate O365 policy blocks Azure AD app registration. ICS file import is the active interim path. OAuth implementation deferred until policy changes.
+
 ### Outlook Authentication
 
-- [ ] Implement OAuth 2.0 flow
+- [ ] Implement OAuth 2.0 flow (BLOCKED — corporate policy; stubbed)
 - [ ] Store refresh tokens securely
 - [ ] Token refresh logic
 
-### Calendar Integration
+### Calendar Integration ✓ (via ICS import)
 
-- [ ] Fetch today's meetings
-- [ ] Fetch week's meetings
-- [ ] Store meetings in database
-- [ ] Detect recurring meetings (recurring_id)
-- [ ] Meeting reminder system (15 min before)
+- [x] Fetch today's meetings
+- [x] Fetch week's meetings
+- [x] Store meetings in database
+- [x] Detect recurring meetings (recurring_id)
+- [ ] Meeting reminder system (15 min before) — deferred to Phase 10
 
-### Email Draft Creation
+### Email Draft Creation ✓
 
-- [ ] Generate draft from report
-- [ ] Set recipients from configuration
-- [ ] Set subject line with date
-- [ ] Format body (HTML/plain text)
-- [ ] CC recipients for weekly report
+- [x] Generate draft from report
+- [x] Set recipients from configuration
+- [x] Set subject line with date
+- [x] Format body (HTML/plain text)
+- [x] CC recipients for weekly report
 
-### Outlook CLI
+### Outlook CLI ✓
 
-- [ ] `workmain calendar` - View calendar
-- [ ] `workmain calendar today` - Today's meetings
-- [ ] `workmain email draft daily` - Create draft
+- [x] `workmain calendar` - View calendar
+- [x] `workmain calendar today` - Today's meetings
+- [x] `workmain email save` - Create draft
 
 **Deliverables**:
 
-- Calendar visibility in CLI
+- Calendar visibility in CLI (ICS import)
 - Recurring meeting detection
 - Automated email draft creation
-- Meeting reminders
+- Meeting reminders (Phase 10)
 
 ---
 
-## PHASE 7: Google Docs Integration (Week 7)
+## PHASE 7: Google Docs Integration ✓ COMPLETED (Week 7)
 
 **Goal**: Archive raw notes and Clockify PDFs
 
-### Google Docs Authentication
+### Google Docs Authentication ✓
 
-- [ ] Implement OAuth 2.0 / Service Account
-- [ ] Store credentials securely
-- [ ] Token refresh logic
+- [x] Implement OAuth 2.0
+- [x] Store credentials securely (~/.workmain/integrations/gdrive/)
+- [x] Token refresh logic (silent refresh on expiry — v1.5.2 hotfix)
 
-### Folder Structure Implementation
+### Folder Structure Implementation ✓
 
-- [ ] Create month-based folders (YYYYMM format)
-- [ ] Create Clockify subfolder
-- [ ] Create Raw_Notes subfolder
-- [ ] Path: Google Drive/Timecards/YYYYMM/Clockify/
-- [ ] Path: Google Drive/Timecards/YYYYMM/Raw_Notes/
+- [x] Create month-based folders (YYYYMM format)
+- [x] Create Clockify subfolder
+- [x] Create Raw_Notes subfolder
+- [x] Path: Google Drive/Timecards/YYYYMM/Clockify/
+- [x] Path: Google Drive/Timecards/YYYYMM/Raw_Notes/
 
-### Document Operations
+### Document Operations ✓
 
-- [ ] Create new documents
-- [ ] Upload files (PDFs)
-- [ ] Set file naming (YYYYMMDD-Daily_Log.md)
-- [ ] Set file naming (Clockify default format)
+- [x] Create new documents
+- [x] Upload files (PDFs)
+- [x] Set file naming (YYYYMMDD-Daily_Log.md)
+- [x] Set file naming (Clockify default format)
 - [ ] Set sharing permissions
 
-### Daily Archive Process
+### Daily Archive Process ✓
 
-- [ ] Format raw notes for Google Docs
-- [ ] Upload to YYYYMM/Raw_Notes/
-- [ ] Upload Clockify PDF to YYYYMM/Clockify/
-- [ ] Store document IDs in database
+- [x] Format raw notes for Google Docs
+- [x] Upload to YYYYMM/Raw_Notes/
+- [x] Upload Clockify PDF to YYYYMM/Clockify/
+- [x] Store document IDs in database
 
-### Google Docs CLI
+### Google Docs CLI ✓
 
-- [ ] `workmain gdocs upload-notes`
-- [ ] `workmain gdocs upload-report <file>`
-- [ ] `workmain gdocs status`
+- [x] `workmain gdocs upload-notes`
+- [x] `workmain gdocs upload-all`
+- [x] `workmain gdocs upload-report <file>`
+- [x] `workmain gdocs status`
+- [x] `workmain gdocs auth [--reauth]`
 
 **Deliverables**:
 
@@ -399,56 +413,130 @@ Note: Ensure Strategy B, which will error if start times are not annotated for t
 
 ---
 
-## PHASE 8: Slack Integration (Week 8)
+## PHASE 8: Slack Integration ✓ COMPLETED (Week 8)
 
 **Goal**: Post weekly draft reports with review
 
-### Slack Authentication
+Note: OAuth not implemented — Bot Token model used. Single workspace, multiple channels. `config.json` is temporary scaffolding; Phase 11 wires to `system_state.active_client → clients.slack_channel`.
 
-- [ ] Implement OAuth flow
-- [ ] Store tokens securely per workspace
-- [ ] Support multiple workspaces
+### Slack Authentication ✓ (Bot Token)
+
+- [x] Store tokens securely (SLACK_BOT_TOKEN env var)
+- [x] Single workspace support
+- [ ] Support multiple workspaces (Phase 11)
 
 ### Client-Specific Configuration
 
-- [ ] Link clients to Slack workspaces
-- [ ] Link clients to specific channels
-- [ ] Store in clients table
-- [ ] Default fallback configuration
+- [ ] Link clients to Slack workspaces (Phase 11)
+- [ ] Link clients to specific channels (Phase 11)
+- [x] Default fallback configuration (config.json)
 
-### Messaging
+### Messaging ✓
 
-- [ ] Post to specific channel
-- [ ] Format message (markdown)
-- [ ] Thread replies if needed
+- [x] Post to specific channel
+- [x] Format message (Markdown → Slack mrkdwn)
+- [ ] Thread replies
 - [ ] Send direct messages
 
-### Thursday Weekly Draft with Review
+### Thursday Weekly Draft with Review ✓
 
-- [ ] Generate draft report
-- [ ] Display preview to user
-- [ ] Prompt for approval
-- [ ] Options: yes/no/edit
-- [ ] Post only if approved
-- [ ] Notification after posting
+- [x] Generate draft report
+- [x] Display preview to user
+- [x] Prompt for approval
+- [x] Options: yes/no/edit
+- [x] Post only if approved
+- [x] Duplicate post check (--force to override)
 
-### Slack CLI
+### Slack CLI ✓ (actual commands delivered)
 
-- [ ] `workmain slack post <channel> <message>`
-- [ ] `workmain slack test-connection`
-- [ ] `workmain slack workspace set <name>`
-- [ ] `workmain slack channel set <name>`
+- [x] `workmain slack setup` - Interactive setup checklist
+- [x] `workmain slack auth [--reauth]` - Validate token
+- [x] `workmain slack status` - Auth state + recent posts
+- [x] `workmain slack channel set <channel>` - Set default channel
+- [x] `workmain slack post-weekly` - Thu draft workflow
 
 **Deliverables**:
 
-- Slack posting capability
-- Per-client workspace/channel configuration
+- Slack posting capability (Bot Token)
+- Default channel configuration
 - Automated Thursday draft with user review
-- Preview before posting
+- Preview and edit before posting
 
 ---
 
-## PHASE 9: Notification & Scheduling System (Week 9)
+## PHASE 9: Report Generation Pipeline (Week 9) — NEXT
+
+**Goal**: Complete end-to-end report generation and day-aware EOD pipeline
+
+### Pre-Phase Fix Required
+
+- [ ] Fix `workmain templates preview` — replace `get_session` import with `get_db()` pattern (FEATURE_BACKLOG.md Item 18)
+
+### Daily Internal Report (Mon-Fri)
+
+- [ ] Aggregate data (notes, time, meetings)
+- [ ] Filter by tags (exclude #cr, #ifo)
+- [ ] Generate with AI (Claude default)
+- [ ] Match user's Copilot output style
+- [ ] Validate output
+- [ ] Create Outlook draft
+- [ ] Archive raw notes to Google Docs
+- [ ] Archive Clockify PDF to Google Docs
+
+### Weekly Client Report - Thursday Draft
+
+- [ ] Aggregate Monday-Thursday
+- [ ] Filter by tags (include #cr, #both; exclude #ilo, #ifo)
+- [ ] Generate with AI (Gemini default)
+- [ ] Client-friendly language
+- [ ] Show preview
+- [ ] Prompt for approval
+- [ ] Post to client's Slack workspace/channel if approved
+
+### Weekly Client Report - Friday Final
+
+- [ ] Aggregate Monday-Friday
+- [ ] Filter by tags (include #cr, #both; exclude #ilo, #ifo)
+- [ ] Generate with AI (Gemini default)
+- [ ] Create Outlook draft
+- [ ] CC internal recipients
+- [ ] Polished for client delivery
+
+### EOD Day-Aware Pipeline
+
+- [ ] `workmain eod` detects Thursday → adds Slack post step (Step 8)
+- [ ] `workmain eod` detects Friday → adds weekly report + email steps (Steps 8-9)
+- [ ] `--skip weekly` flag skips all day-specific steps
+- [ ] `--dry-run` shows correct step count for current day
+- [ ] Monday–Wednesday run unchanged (standard steps only)
+
+### Manual Report Generation
+
+- [ ] `workmain report daily --preview`
+- [ ] `workmain report daily --send`
+- [ ] `workmain report weekly --draft` (Thu draft)
+- [ ] `workmain report weekly --final` (Fri final)
+- [ ] `workmain report custom --start <date> --end <date>`
+
+### Report History
+
+- [ ] Store all generated reports in database
+- [ ] `workmain reports history`
+- [ ] `workmain reports view <id>`
+- [ ] `workmain reports resend <id>`
+
+**Deliverables**:
+
+- Complete report generation pipeline
+- Daily, Thursday draft, and Friday final working
+- Tag filtering implemented
+- Day-aware EOD (Thu/Fri weekly steps)
+- Manual and automated modes
+- Report history tracking
+
+---
+
+## PHASE 10: Notification & Scheduling System (Week 10)
 
 **Goal**: Proactive reminders and automation
 
@@ -524,77 +612,21 @@ Note: Ensure Strategy B, which will error if start times are not annotated for t
 
 ---
 
-## PHASE 10: Report Generation Pipeline (Week 10)
-
-**Goal**: Complete end-to-end report generation
-
-### Daily Internal Report (Mon-Fri)
-
-- [ ] Aggregate data (notes, time, meetings)
-- [ ] Filter by tags (exclude #cr, #ifo)
-- [ ] Generate with AI (Claude default)
-- [ ] Match user's Copilot output style
-- [ ] Validate output
-- [ ] Create Outlook draft
-- [ ] Archive raw notes to Google Docs
-- [ ] Archive Clockify PDF to Google Docs
-
-### Weekly Client Report - Thursday Draft
-
-- [ ] Aggregate Monday-Thursday
-- [ ] Filter by tags (include #cr, #both; exclude #ilo, #ifo)
-- [ ] Generate with AI (Gemini default)
-- [ ] Client-friendly language
-- [ ] Show preview
-- [ ] Prompt for approval
-- [ ] Post to client's Slack workspace/channel if approved
-
-### Weekly Client Report - Friday Final
-
-- [ ] Aggregate Monday-Friday
-- [ ] Filter by tags (include #cr, #both; exclude #ilo, #ifo)
-- [ ] Generate with AI (Gemini default)
-- [ ] Create Outlook draft
-- [ ] CC internal recipients
-- [ ] Polished for client delivery
-
-### Manual Report Generation
-
-- [ ] `workmain report daily --preview`
-- [ ] `workmain report daily --send`
-- [ ] `workmain report weekly --draft` (Thu draft)
-- [ ] `workmain report weekly --final` (Fri final)
-- [ ] `workmain report custom --start <date> --end <date>`
-
-### Report History
-
-- [ ] Store all generated reports in database
-- [ ] `workmain reports history`
-- [ ] `workmain reports view <id>`
-- [ ] `workmain reports resend <id>`
-
-**Deliverables**:
-
-- Complete report generation pipeline
-- Daily, Thursday draft, and Friday final working
-- Tag filtering implemented
-- Manual and automated modes
-- Report history tracking
-
----
-
 ## PHASE 11: Client & Recipient Management (Week 11)
 
 **Goal**: Flexible client and recipient configuration
 
+Note: Phase 11 replaces the temporary `config.json` Slack scaffolding with `system_state.active_client → clients.slack_channel` for multi-client support.
+
 ### Client Management
 
-- [ ] `workmain clients add <name> --slack-workspace X --slack-channel Y`
+- [ ] `workmain clients add <n> --slack-workspace X --slack-channel Y`
 - [ ] `workmain clients list`
-- [ ] `workmain clients set-active <name>`
-- [ ] `workmain clients show <name>`
-- [ ] `workmain clients edit <name>`
-- [ ] `workmain clients remove <name>`
+- [ ] `workmain clients set-active <n>`
+- [ ] `workmain clients show <n>`
+- [ ] `workmain clients edit <n>`
+- [ ] `workmain clients remove <n>`
+- [ ] Multi-client support via system_state.active_client (replaces config.json scaffolding)
 
 ### Recipient Management
 
@@ -609,16 +641,16 @@ Note: Ensure Strategy B, which will error if start times are not annotated for t
 
 ### Project Management
 
-- [ ] `workmain projects add <name> --client <client>`
+- [ ] `workmain projects add <n> --client <client>`
 - [ ] `workmain projects list`
-- [ ] `workmain projects set-active <name>`
+- [ ] `workmain projects set-active <n>`
 
 **Deliverables**:
 
 - Complete client management
 - Flexible recipient configuration
 - Bulk operations support
-- Per-client Slack configuration
+- Per-client Slack configuration (replaces config.json)
 
 ---
 
@@ -629,7 +661,7 @@ Note: Ensure Strategy B, which will error if start times are not annotated for t
 ### Setup Wizard
 
 - [ ] Welcome screen
-- [ ] Database configuration (Add migrations table)
+- [ ] Database configuration (add migrations table)
 - [ ] Run migrations
 - [ ] Integration setup (OAuth flows)
 - [ ] API key collection
@@ -663,6 +695,8 @@ Note: Ensure Strategy B, which will error if start times are not annotated for t
 
 **Goal**: Robust testing and user documentation
 
+Note: Code Quality Refactoring (formatters.py extraction) is intentionally deferred to Phase 13 and tracked in FEATURE_BACKLOG.md Item 7. See backlog for rationale (build all commands first, then extract real patterns).
+
 ### Unit Tests
 
 - [ ] Test all repositories
@@ -673,6 +707,7 @@ Note: Ensure Strategy B, which will error if start times are not annotated for t
 - [ ] Test tag conversion (#ilo → [internal-only])
 - [ ] Test time conversion (24hr ↔ AM/PM)
 - [ ] Test recurring meeting detection
+- [ ] Fix pre-existing test failures (test_database.py, test_templates.py — FEATURE_BACKLOG.md Items 14, 15)
 
 ### Integration Tests
 
@@ -682,11 +717,6 @@ Note: Ensure Strategy B, which will error if start times are not annotated for t
 - [ ] Thursday draft workflow
 - [ ] Friday EOW workflow
 
-### Code Quality Refactoring
-
-- [ ] Extract formatters.py
-- [ ] Identify duplicated logic
-- [ ] Create utility modules as needed.
 ### Documentation
 
 - [ ] Setup guide
@@ -786,7 +816,9 @@ Note: Ensure Strategy B, which will error if start times are not annotated for t
 ## PHASE 16: Packaging & Deployment (Week 15)
 
 **Goal**: Production-ready distribution
+
 Note: Add option to Setup Wizard for configuring database authentication and allow the user to choose.
+
 ### systemd Service
 
 - [ ] Create workmain.service
@@ -834,25 +866,27 @@ Note: Add option to Setup Wizard for configuring database authentication and all
 
 ## FINAL TIMELINE SUMMARY
 
-|Phase|Duration|Status|Key Deliverables|
-|---|---|---|---|
-|1|1 week|✓ DONE|Database, structure, GitHub|
-|2|1 week|⏳ NEXT|CLI, tags (#ilo→[internal-only]), notes|
-|3|1 week||Templates from user examples|
-|4|1 week||AI integration (Claude/Gemini)|
-|5|1 week||Clockify (24hr↔AM/PM)|
-|6|1 week||Outlook, recurring meetings|
-|7|1 week||Google Docs (YYYYMM folders)|
-|8|1 week||Slack (per-client, review)|
-|9|1 week||Notifications (Terminal/OS/Email)|
-|10|1 week||Complete pipeline (Thu/Fri)|
-|11|1 week||Clients, recipients, setup|
-|12|1 week||Testing, docs, man pages|
-|**TOTAL**|**12 weeks**||**CLI COMPLETE**|
-|13-14|2 weeks|DEFERRED|Web UI|
-|15|3 days|DEFERRED|Excel timecard|
-|16|1 week||Packaging (.deb/.rpm), systemd|
-|**EXTENDED**|**~15 weeks**||**FULLY COMPLETE**|
+| Phase | Duration | Status | Key Deliverables |
+|-------|----------|--------|------------------|
+| 1 | 1 week | ✓ DONE | Database, structure, GitHub |
+| 2 | 1 week | ✓ DONE | CLI, tags (#ilo→[internal-only]), notes |
+| 3 | 1 week | ✓ DONE | Templates from user examples |
+| 3.5 | 1 week | ✓ DONE | Template extensibility |
+| 4 | 1 week | ✓ DONE | AI integration (Claude/Gemini) |
+| 5 | 1 week | ✓ DONE | Clockify sync |
+| 5.1 | — | ✓ DONE | Operational testing & bug fixes |
+| 6 | 1 week | ✓ DONE | Outlook (ICS import; OAuth stubbed) |
+| 7 | 1 week | ✓ DONE | Google Docs (YYYYMM folders) |
+| 8 | 1 week | ✓ DONE | Slack (Bot Token, weekly draft) |
+| 9 | 1 week | ⏳ NEXT | Complete pipeline (Thu/Fri, day-aware EOD) |
+| 10 | 1 week | | Notifications (Terminal/OS/Email) |
+| 11 | 1 week | | Clients, recipients, multi-client |
+| 12 | 1 week | | Setup wizard & configuration |
+| 13 | 1 week | | Testing, docs, man pages |
+| **TOTAL** | **~13 weeks** | | **CLI COMPLETE** |
+| 14-15 | 2 weeks | DEFERRED | Web UI + Excel timecard |
+| 16 | 1 week | | Packaging (.deb/.rpm), systemd |
+| **EXTENDED** | **~16 weeks** | | **FULLY COMPLETE** |
 
 ---
 
@@ -862,7 +896,7 @@ Note: Add option to Setup Wizard for configuring database authentication and all
 
 - ✓ Database schema
 - ✓ Project structure
-- ⏳ Configuration system
+- ✓ Configuration system
 
 **Must Complete Before Phase 4 (AI):**
 
@@ -870,11 +904,11 @@ Note: Add option to Setup Wizard for configuring database authentication and all
 - Tag filtering implementation
 - Writing style analysis from user's Master Log
 
-**Must Complete Before Phase 9 (Notifications):**
+**Must Complete Before Phase 10 (Notifications):**
 
 - All integrations working
-- Report generation pipeline
-- Time format conversion
+- Report generation pipeline (Phase 9)
+- EOD day-aware steps implemented
 
 **Must Complete Before Phase 16 (Packaging):**
 
@@ -906,7 +940,7 @@ Note: Add option to Setup Wizard for configuring database authentication and all
 
 ## SUCCESS CRITERIA
 
-**Phase 2-12 (CLI) Success:**
+**Phase 2-13 (CLI) Success:**
 
 - ✅ Can capture notes with simplified tags
 - ✅ Can track time in 24-hour format
