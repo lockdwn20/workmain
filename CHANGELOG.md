@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.4] - 2026-03-12
+
+### Fixed
+- `workmain calendar import` now correctly expands recurring VEVENTs into individual
+  occurrence rows. Previously, a series master VEVENT with RRULE created only one
+  `Meeting` row (the DTSTART date), causing `calendar today/week` to show no future
+  occurrences. Fix: `ics_parser.py` uses `dateutil.rrulestr` to expand RRULE into one
+  `ICSEvent` per occurrence (cap 500). First occurrence keeps the series UID for
+  backward compatibility; subsequent occurrences get deterministic synthetic UIDs
+  (`{series_uid}_{YYYYMMDDTHHMMSS}`) so re-imports are idempotent. EXDATE dates
+  excluded. UNTIL=...Z values converted from UTC to local naive. `outlook_recurring_id`
+  now set from `recurring_series_uid` on insert and backfilled on update if NULL.
+  Import header updated to show series count and expanded occurrence count.
+
 ## [1.5.3] - 2026-03-11
 
 ### Fixed
