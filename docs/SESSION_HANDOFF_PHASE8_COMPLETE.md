@@ -4,7 +4,7 @@
 **Session Focus:** Phase 8 implementation — Slack weekly draft posting workflow
 **Status:** ✅ PHASE 8 COMPLETE — All 6 Gates delivered, verified, and hotfix applied
 **Version:** v1.5.1 (tag: v1.5.1; Phase 8 base tag: v1.5.0)
-**Next Phase:** Phase 9 — Notifications & Scheduling
+**Next Phase:** Phase 9 — Report Generation Pipeline
 
 ---
 
