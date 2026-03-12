@@ -1,6 +1,6 @@
 """
 WorkmAIn Package Version
-Version v1.5.4
+Version v1.5.5
 20260312
 
 Version History:
@@ -38,9 +38,11 @@ Version History:
 - v1.5.4: Hotfix — fix ICS import RRULE expansion; recurring VEVENTs now expanded
           into one row per occurrence via dateutil.rrulestr; EXDATE respected;
           outlook_recurring_id backfilled on update
+- v1.5.5: Hotfix — standardize track edit --time to -T (match track add/CLI standards);
+          add ID discovery help text pointing to workmain time today
 """
 
-__version__ = "1.5.4"
-__version_info__ = (1, 5, 4)
+__version__ = "1.5.5"
+__version_info__ = (1, 5, 5)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
