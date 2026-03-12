@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.5] - 2026-03-12
+
+### Fixed
+- `workmain track edit --time` short flag changed from `-t` to `-T` to match `track add`
+  and CLI standardization sprint conventions. Previously `-T` would error with "No such option".
+- `workmain track edit --help` now includes a note pointing to `workmain time today`
+  as the source for entry IDs needed to edit a time entry.
+
 ## [1.5.4] - 2026-03-12
 
 ### Fixed
