@@ -1,15 +1,16 @@
 """
 WorkmAIn ICS Parser
-ICS Parser v1.2
-20260309
+ICS Parser v1.3
+20260312
 
 Parses exported Outlook ICS files into ICSEvent dataclasses for database import.
 
 Pipeline (every run, automatic):
-    Read ICS → Validate file → Filter FREE events → Strip sensitive fields → Return ICSEvent list
+    Read ICS → Validate file → Filter FREE events → Strip sensitive fields →
+    Deduplicate by UID (prefer RRULE-bearing) → Expand RRULE occurrences → Return ICSEvent list
 
 Fields kept:
-    UID, SUMMARY, DTSTART, DTEND, RRULE, X-MICROSOFT-CDO-BUSYSTATUS
+    UID, SUMMARY, DTSTART, DTEND, RRULE, EXDATE, X-MICROSOFT-CDO-BUSYSTATUS
 
 Fields stripped automatically (never read):
     DESCRIPTION, ORGANIZER, ATTENDEE, CLASS, TRANSP, SEQUENCE, DTSTAMP,
@@ -17,36 +18,46 @@ Fields stripped automatically (never read):
 
 Timezone: All datetimes converted to PST/PDT naive using America/Los_Angeles.
 
+RRULE expansion: Recurring VEVENTs are expanded into one ICSEvent per occurrence.
+    First occurrence uses the series UID directly (backward-compatible with records
+    imported before this feature). Subsequent occurrences get deterministic synthetic
+    UIDs: ``{series_uid}_{YYYYMMDDTHHMMSS}``.
+
 Version History:
 - v1.0: Initial implementation (Phase 6 Gate 3)
 - v1.1: Add _fallback_match() for title+date secondary lookup; backfill outlook_id on match
 - v1.2: Deduplicate events by UID in parse_ics_file() (handles recurring series + occurrence exports)
+- v1.3: Expand RRULE into individual occurrences; add recurring_series_uid to ICSEvent;
+        prefer RRULE-bearing events in UID deduplication; update import_events_to_db
+        to set outlook_recurring_id from recurring_series_uid
 """
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
-from datetime import datetime, time as dt_time
+from datetime import datetime, time as dt_time, timedelta, timezone
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
+from dateutil.rrule import rrulestr
 from icalendar import Calendar
 from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session
 
 from workmain.database.models import Meeting
 
-LOCAL_TZ = ZoneInfo("America/Los_Angeles")
+LOCAL_TZ = __import__('zoneinfo').ZoneInfo("America/Los_Angeles")
 
 
 @dataclass
 class ICSEvent:
     uid: str
     title: str
-    start_time: datetime    # PST/PDT naive
-    end_time: datetime      # PST/PDT naive
+    start_time: datetime            # PST/PDT naive
+    end_time: datetime              # PST/PDT naive
     is_recurring: bool
     is_cancelled: bool
+    recurring_series_uid: str | None = None  # set when expanded from a recurring series
 
 
 class ICSParseError(Exception):
@@ -67,22 +78,134 @@ def to_local_naive(dt) -> datetime:
     return dt.replace(tzinfo=None)
 
 
+def _parse_exdates(component) -> set:
+    """
+    Extract EXDATE values from a VEVENT component as a set of date objects.
+
+    Args:
+        component: icalendar VEVENT component
+
+    Returns:
+        Set of date objects representing excluded occurrence dates
+    """
+    exdates: set = set()
+    exdate_prop = component.get('EXDATE')
+    if exdate_prop is None:
+        return exdates
+
+    if not isinstance(exdate_prop, list):
+        exdate_prop = [exdate_prop]
+
+    for item in exdate_prop:
+        dts = getattr(item, 'dts', [item])
+        for ex in dts:
+            ex_dt = ex.dt if hasattr(ex, 'dt') else ex
+            if isinstance(ex_dt, datetime):
+                exdates.add(to_local_naive(ex_dt).date())
+            else:
+                exdates.add(ex_dt)
+
+    return exdates
+
+
+def _expand_rrule_occurrences(
+    rrule_prop,
+    series_uid: str,
+    title: str,
+    dtstart: datetime,
+    duration: timedelta,
+    is_cancelled: bool,
+    exdates: set,
+) -> list[ICSEvent]:
+    """
+    Expand a VEVENT's RRULE into individual ICSEvent occurrences (cap: 500).
+
+    The first occurrence keeps the series UID as its uid so that records
+    previously imported from individual VEVENT exports are matched correctly
+    on re-import. All subsequent occurrences receive deterministic synthetic
+    UIDs: ``{series_uid}_{YYYYMMDDTHHMMSS}``.
+
+    All occurrences carry ``recurring_series_uid = series_uid``.
+
+    Args:
+        rrule_prop: vRecur object from icalendar (the RRULE property value)
+        series_uid: The VEVENT's UID; becomes recurring_series_uid for all occurrences
+        title: Meeting title
+        dtstart: First occurrence start datetime (PST/PDT naive)
+        duration: Meeting duration
+        is_cancelled: Whether the event is cancelled
+        exdates: Set of date objects to exclude (from EXDATE)
+
+    Returns:
+        List of ICSEvent, one per occurrence (max 500)
+    """
+    rrule_text = rrule_prop.to_ical().decode()
+
+    # UNTIL=...Z values are UTC — convert to local naive so rrulestr(ignoretz=True) works
+    until_match = re.search(r'UNTIL=(\d{8}T\d{6})Z', rrule_text)
+    if until_match:
+        until_utc = datetime.strptime(
+            until_match.group(1), '%Y%m%dT%H%M%S'
+        ).replace(tzinfo=timezone.utc)
+        until_local = to_local_naive(until_utc)
+        rrule_text = re.sub(
+            r'UNTIL=\d{8}T\d{6}Z',
+            f"UNTIL={until_local.strftime('%Y%m%dT%H%M%S')}",
+            rrule_text,
+        )
+
+    full_rrule = f"DTSTART:{dtstart.strftime('%Y%m%dT%H%M%S')}\nRRULE:{rrule_text}"
+
+    try:
+        dates = list(rrulestr(full_rrule, ignoretz=True))[:500]
+    except Exception:
+        # Fallback: single occurrence at DTSTART
+        return [ICSEvent(
+            uid=series_uid,
+            title=title,
+            start_time=dtstart,
+            end_time=dtstart + duration,
+            is_recurring=True,
+            is_cancelled=is_cancelled,
+            recurring_series_uid=series_uid,
+        )]
+
+    events = []
+    for i, occ_dt in enumerate(dates):
+        if occ_dt.date() in exdates:
+            continue
+        uid = series_uid if i == 0 else f"{series_uid}_{occ_dt.strftime('%Y%m%dT%H%M%S')}"
+        events.append(ICSEvent(
+            uid=uid,
+            title=title,
+            start_time=occ_dt,
+            end_time=occ_dt + duration,
+            is_recurring=True,
+            is_cancelled=is_cancelled,
+            recurring_series_uid=series_uid,
+        ))
+
+    return events
+
+
 def parse_ics_file(file_path: Path | str) -> list[ICSEvent]:
     """
     Parse an ICS file and return a list of ICSEvent dataclasses.
 
     Pipeline:
     1. Validate file (first line must be BEGIN:VCALENDAR)
-    2. Parse all VEVENT blocks
+    2. Parse all VEVENT blocks into raw dicts
     3. Filter FREE events silently
-    4. Strip sensitive fields (never read)
-    5. Return ICSEvent list
+    4. Deduplicate by UID — prefer RRULE-bearing (recurring) events over
+       single-occurrence exports with the same UID
+    5. Expand RRULE for recurring events into individual occurrences
+    6. Return final ICSEvent list
 
     Args:
         file_path: Path to the ICS file
 
     Returns:
-        List of ICSEvent dataclasses (FREE events excluded)
+        List of ICSEvent dataclasses (FREE events excluded, RRULE expanded)
 
     Raises:
         ICSParseError: If a required field is missing from an event
@@ -101,17 +224,17 @@ def parse_ics_file(file_path: Path | str) -> list[ICSEvent]:
 
     cal = Calendar.from_ical(raw)
 
-    events: list[ICSEvent] = []
+    # --- Pass 1: parse all VEVENTs into raw dicts ---
+    raw_events: list[dict] = []
     event_index = 0
+
     for component in cal.walk():
         if component.name != 'VEVENT':
             continue
 
         event_index += 1
-        # Get event name for error messages (may be missing SUMMARY)
         event_name = str(component.get('SUMMARY', f'Event #{event_index}'))
 
-        # Validate required fields
         for field in ('UID', 'SUMMARY', 'DTSTART', 'DTEND'):
             if component.get(field) is None:
                 raise ICSParseError(event_name, field)
@@ -121,40 +244,67 @@ def parse_ics_file(file_path: Path | str) -> list[ICSEvent]:
         if busystatus == 'FREE':
             continue
 
-        # Extract fields
         uid = str(component.get('UID'))
         title = str(component.get('SUMMARY'))
 
         dtstart = component.get('DTSTART').dt
         dtend = component.get('DTEND').dt
 
-        # Handle all-day events (date objects rather than datetime)
         if not isinstance(dtstart, datetime):
             dtstart = datetime.combine(dtstart, dt_time.min)
         if not isinstance(dtend, datetime):
             dtend = datetime.combine(dtend, dt_time.min)
 
-        start_time = to_local_naive(dtstart)
-        end_time = to_local_naive(dtend)
+        dtstart = to_local_naive(dtstart)
+        dtend = to_local_naive(dtend)
 
-        is_recurring = component.get('RRULE') is not None
-        is_cancelled = str(component.get('STATUS', '')).upper() == 'CANCELLED'
+        rrule_prop = component.get('RRULE')
 
-        events.append(ICSEvent(
-            uid=uid,
-            title=title,
-            start_time=start_time,
-            end_time=end_time,
-            is_recurring=is_recurring,
-            is_cancelled=is_cancelled,
-        ))
+        raw_events.append({
+            'uid': uid,
+            'title': title,
+            'dtstart': dtstart,
+            'duration': dtend - dtstart,
+            'is_recurring': rrule_prop is not None,
+            'is_cancelled': str(component.get('STATUS', '')).upper() == 'CANCELLED',
+            'rrule_prop': rrule_prop,
+            'exdates': _parse_exdates(component),
+        })
 
-    # Deduplicate by UID — last occurrence wins (handles recurring series where
-    # Outlook exports both the master event and a specific occurrence with the same UID)
-    seen: dict[str, ICSEvent] = {}
-    for event in events:
-        seen[event.uid] = event
-    return list(seen.values())
+    # --- Pass 2: deduplicate by UID, preferring RRULE-bearing events ---
+    seen: dict[str, dict] = {}
+    for raw in raw_events:
+        uid = raw['uid']
+        existing = seen.get(uid)
+        if existing is None or (raw['is_recurring'] and not existing['is_recurring']):
+            seen[uid] = raw
+
+    # --- Pass 3: expand RRULE recurring events into individual occurrences ---
+    final_events: list[ICSEvent] = []
+    for raw in seen.values():
+        if raw['is_recurring'] and raw['rrule_prop'] is not None:
+            expanded = _expand_rrule_occurrences(
+                rrule_prop=raw['rrule_prop'],
+                series_uid=raw['uid'],
+                title=raw['title'],
+                dtstart=raw['dtstart'],
+                duration=raw['duration'],
+                is_cancelled=raw['is_cancelled'],
+                exdates=raw['exdates'],
+            )
+            final_events.extend(expanded)
+        else:
+            final_events.append(ICSEvent(
+                uid=raw['uid'],
+                title=raw['title'],
+                start_time=raw['dtstart'],
+                end_time=raw['dtstart'] + raw['duration'],
+                is_recurring=raw['is_recurring'],
+                is_cancelled=raw['is_cancelled'],
+                recurring_series_uid=None,
+            ))
+
+    return final_events
 
 
 def _fallback_match(session: Session, event: ICSEvent) -> Meeting | None:
@@ -198,6 +348,9 @@ def import_events_to_db(session: Session, events: list[ICSEvent]) -> dict:
     - Existing UID, fields changed  → update
     - Existing UID, unchanged       → skip
 
+    For recurring events, outlook_recurring_id is set to recurring_series_uid
+    (the series master UID) on insert, and backfilled on update if currently NULL.
+
     Args:
         session: SQLAlchemy session
         events: List of ICSEvent dataclasses from parse_ics_file()
@@ -218,19 +371,20 @@ def import_events_to_db(session: Session, events: list[ICSEvent]) -> dict:
             if existing is not None:
                 existing.outlook_id = event.uid
                 if event.is_recurring and existing.outlook_recurring_id is None:
-                    existing.outlook_recurring_id = event.uid
+                    existing.outlook_recurring_id = event.recurring_series_uid or event.uid
 
         if event.is_cancelled:
             if existing:
                 session.delete(existing)
                 counts['deleted'] += 1
-            # unknown UID + cancelled → skip silently
             continue
+
+        new_recurring_id = event.recurring_series_uid or (event.uid if event.is_recurring else None)
 
         if existing is None:
             meeting = Meeting(
                 outlook_id=event.uid,
-                outlook_recurring_id=event.uid if event.is_recurring else None,
+                outlook_recurring_id=new_recurring_id,
                 title=event.title,
                 start_time=event.start_time,
                 end_time=event.end_time,
@@ -244,12 +398,15 @@ def import_events_to_db(session: Session, events: list[ICSEvent]) -> dict:
                 or existing.start_time != event.start_time
                 or existing.end_time != event.end_time
                 or existing.is_recurring != event.is_recurring
+                or (existing.outlook_recurring_id is None and new_recurring_id is not None)
             )
             if changed:
                 existing.title = event.title
                 existing.start_time = event.start_time
                 existing.end_time = event.end_time
                 existing.is_recurring = event.is_recurring
+                if existing.outlook_recurring_id is None and new_recurring_id:
+                    existing.outlook_recurring_id = new_recurring_id
                 counts['updated'] += 1
             else:
                 counts['unchanged'] += 1

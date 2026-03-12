@@ -1,7 +1,7 @@
 """
 WorkmAIn Calendar Commands
-Calendar Commands v1.1
-20260309
+Calendar Commands v1.2
+20260312
 
 Calendar command group for Outlook calendar integration (Phase 6).
 
@@ -21,6 +21,7 @@ Sync commands require Azure AD OAuth — see docs/OAUTH_SETUP.md
 Version History:
 - v1.0: Initial implementation (Phase 6 Gate 4)
 - v1.1: Use _fallback_match() in _classify_events() for title+date secondary lookup
+- v1.2: Update import header to handle expanded occurrence count from RRULE expansion
 """
 
 import click
@@ -423,7 +424,7 @@ def calendar_import(file: str, dry_run: bool, silent: bool):
             )
             return
 
-        filtered_free = total_events - len(events)
+        occ_count = len(events)
 
         # --- Classify events (no DB writes) ---
         classified = _classify_events(session, events)
@@ -436,11 +437,22 @@ def calendar_import(file: str, dry_run: bool, silent: bool):
         }
 
         # --- Display header ---
-        free_note = f", {filtered_free} filtered as FREE" if filtered_free else ""
+        # After RRULE expansion occ_count may greatly exceed the raw VEVENT count
+        if occ_count > total_events:
+            event_desc = (
+                f"[bold]{total_events}[/bold] "
+                f"{'series' if total_events != 1 else 'series'}, "
+                f"[bold]{occ_count}[/bold] occurrences after RRULE expansion"
+            )
+        else:
+            filtered_free = total_events - occ_count
+            free_note = f", {filtered_free} filtered as FREE" if filtered_free else ""
+            event_desc = f"[bold]{total_events}[/bold] events found{free_note}"
+
         if not silent:
             console.print(
                 f"\nImporting: {file_path}  "
-                f"([bold]{total_events}[/bold] events found{free_note})\n"
+                f"({event_desc})\n"
             )
 
         # --- Preview table (non-dry-run, non-silent) ---
