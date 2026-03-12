@@ -1,7 +1,7 @@
 """
 WorkmAIn Track CLI Commands
-Track Commands v2.0
-20260304
+Track Commands v2.1
+20260312
 
 CLI commands for time tracking with 24-hour format support and Clockify sync.
 
@@ -32,6 +32,8 @@ Version History:
         notes/meetings which always show IDs)
 - v2.0: Post-sprint cleanup - removed dead show_ids variable reads from time_today,
         time_week, time_date (--show-ids/-i flag retained as no-op for muscle memory)
+- v2.1: hotfix/track-edit-cli-fixes - track edit: --time -t → -T (match track add
+        standardization); updated track edit help to reference workmain time today for IDs
 """
 
 import click
@@ -334,7 +336,7 @@ def track_add(description: str, duration: str, time: str,
 @click.argument('entry_id', type=int)
 @click.option('--description', '-D', help='New description')
 @click.option('--duration', help='New duration (e.g., 2h, 1.5h)')
-@click.option('--time', '-t', help='New time (14:30 or 1430)')
+@click.option('--time', '-T', help='New time (14:30 or 1430)')
 @click.option('--category', '-c', help='New category')
 @click.option('--project', '-p', type=int, help='New project ID')
 def track_edit(entry_id: int, description: Optional[str], duration: Optional[str],
@@ -343,11 +345,14 @@ def track_edit(entry_id: int, description: Optional[str], duration: Optional[str
     Edit a time entry.
 
     \b
+    To find entry IDs, run: workmain time today
+
+    \b
     Examples:
       workmain track edit 5 -D "Updated description"
       workmain track edit 5 --duration 3h
-      workmain track edit 5 -t 16:00
-      workmain track edit 5 -t 1600
+      workmain track edit 5 -T 16:00
+      workmain track edit 5 -T 1600
     """
     db = get_db()
     session = db.get_session()
