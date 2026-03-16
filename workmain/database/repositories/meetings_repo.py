@@ -16,8 +16,8 @@ Version History:
         instance always ranks first instead of future recurring instances
 - v1.6: Hotfix - exclude source='meeting' (condensed summary notes) from get_note_count
         so auto-generated condensation notes don't inflate the displayed count
-- v1.7: Hotfix fix - use or_(source != 'meeting', source IS NULL) so notes
-        with NULL source (user-authored) are not excluded by SQL NULL semantics
+- v1.7: Hotfix fix - filter on source='condensed' instead of source='meeting'
+        since notes log also uses source='meeting' for regular user notes
 """
 
 from datetime import datetime, date
@@ -330,11 +330,9 @@ class MeetingsRepository:
         Returns:
             Number of notes (excluding #ifo and condensed summary notes)
         """
-        # Must use or_(... IS NULL) because NULL != 'meeting' is NULL in SQL,
-        # which would exclude user-authored notes where source is not set.
         query = self.session.query(Note).filter(
             Note.meeting_id == meeting_id,
-            or_(Note.source != 'meeting', Note.source.is_(None))
+            Note.source != 'condensed'
         )
         if exclude_ifo:
             query = query.filter(~Note.tags.op('@>')(['info-only']))
