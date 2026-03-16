@@ -1,7 +1,7 @@
 """
 WorkmAIn Note Condenser
-Note Condenser v1.4
-20260203
+Note Condenser v1.5
+20260313
 
 AI-powered condensation of meeting notes into one-line summaries for Clockify.
 
@@ -14,6 +14,8 @@ Version History:
 - v1.2: Added writing style context integration for consistent voice (Phase 5)
 - v1.3: Phase 5.1 - Filter out info-only (#ifo) notes from condensation
 - v1.4: Phase 5.1 - Return default "Attended <Meeting>" when all notes are #ifo
+- v1.5: Hotfix - exclude source='meeting' (prior condensed summary notes) from
+        condensation query so auto-generated notes don't pollute AI input
 """
 
 import json
@@ -98,10 +100,12 @@ class NoteCondenser:
         if not db_meeting:
             raise ValueError(f"Meeting with ID {meeting.id} not found in database")
         
-        # Get all notes for this meeting, excluding info-only (#ifo) notes
+        # Get all notes for this meeting, excluding info-only (#ifo) notes and
+        # auto-generated condensed summary notes (source='meeting')
         notes = self.session.query(Note).filter(
             Note.meeting_id == db_meeting.id,
-            ~Note.tags.op('@>')(['info-only'])
+            ~Note.tags.op('@>')(['info-only']),
+            Note.source != 'meeting'
         ).order_by(Note.created_at).all()
         
         if not notes:
@@ -294,10 +298,11 @@ Do not include pleasantries or unnecessary words. Be direct and informative."""
         Returns:
             True if condensation needed
         """
-        # Get notes, excluding info-only (#ifo) notes
+        # Get notes, excluding info-only (#ifo) notes and condensed summary notes
         notes = self.session.query(Note).filter(
             Note.meeting_id == meeting.id,
-            ~Note.tags.op('@>')(['info-only'])
+            ~Note.tags.op('@>')(['info-only']),
+            Note.source != 'meeting'
         ).all()
         
         if not notes:
