@@ -1,6 +1,6 @@
 """
 WorkmAIn Meetings Repository
-Meetings Repository v1.6
+Meetings Repository v1.7
 20260313
 
 Data access layer for meetings with fuzzy matching and recurring detection.
@@ -16,6 +16,8 @@ Version History:
         instance always ranks first instead of future recurring instances
 - v1.6: Hotfix - exclude source='meeting' (condensed summary notes) from get_note_count
         so auto-generated condensation notes don't inflate the displayed count
+- v1.7: Hotfix fix - use or_(source != 'meeting', source IS NULL) so notes
+        with NULL source (user-authored) are not excluded by SQL NULL semantics
 """
 
 from datetime import datetime, date
@@ -328,9 +330,11 @@ class MeetingsRepository:
         Returns:
             Number of notes (excluding #ifo and condensed summary notes)
         """
+        # Must use or_(... IS NULL) because NULL != 'meeting' is NULL in SQL,
+        # which would exclude user-authored notes where source is not set.
         query = self.session.query(Note).filter(
             Note.meeting_id == meeting_id,
-            Note.source != 'meeting'
+            or_(Note.source != 'meeting', Note.source.is_(None))
         )
         if exclude_ifo:
             query = query.filter(~Note.tags.op('@>')(['info-only']))

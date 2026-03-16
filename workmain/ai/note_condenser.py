@@ -1,6 +1,6 @@
 """
 WorkmAIn Note Condenser
-Note Condenser v1.5
+Note Condenser v1.6
 20260313
 
 AI-powered condensation of meeting notes into one-line summaries for Clockify.
@@ -16,6 +16,8 @@ Version History:
 - v1.4: Phase 5.1 - Return default "Attended <Meeting>" when all notes are #ifo
 - v1.5: Hotfix - exclude source='meeting' (prior condensed summary notes) from
         condensation query so auto-generated notes don't pollute AI input
+- v1.6: Hotfix fix - use or_(source != 'meeting', source IS NULL) so notes
+        with NULL source (user-authored) are not excluded by SQL NULL semantics
 """
 
 import json
@@ -23,6 +25,7 @@ from typing import List, Optional
 from datetime import datetime
 from pathlib import Path
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from workmain.database.models import Meeting, Note
@@ -101,11 +104,12 @@ class NoteCondenser:
             raise ValueError(f"Meeting with ID {meeting.id} not found in database")
         
         # Get all notes for this meeting, excluding info-only (#ifo) notes and
-        # auto-generated condensed summary notes (source='meeting')
+        # auto-generated condensed summary notes (source='meeting').
+        # Must use or_(... IS NULL) because NULL != 'meeting' is NULL in SQL.
         notes = self.session.query(Note).filter(
             Note.meeting_id == db_meeting.id,
             ~Note.tags.op('@>')(['info-only']),
-            Note.source != 'meeting'
+            or_(Note.source != 'meeting', Note.source.is_(None))
         ).order_by(Note.created_at).all()
         
         if not notes:
@@ -298,11 +302,12 @@ Do not include pleasantries or unnecessary words. Be direct and informative."""
         Returns:
             True if condensation needed
         """
-        # Get notes, excluding info-only (#ifo) notes and condensed summary notes
+        # Get notes, excluding info-only (#ifo) notes and condensed summary notes.
+        # Must use or_(... IS NULL) because NULL != 'meeting' is NULL in SQL.
         notes = self.session.query(Note).filter(
             Note.meeting_id == meeting.id,
             ~Note.tags.op('@>')(['info-only']),
-            Note.source != 'meeting'
+            or_(Note.source != 'meeting', Note.source.is_(None))
         ).all()
         
         if not notes:
