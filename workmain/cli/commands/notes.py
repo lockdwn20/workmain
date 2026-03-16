@@ -1,7 +1,7 @@
 """
 WorkmAIn Notes CLI Commands
-Notes Commands v3.1
-20260311
+Notes Commands v3.2
+20260313
 
 Unified notes command group. Consolidates note (write) and notes (read) groups
 from note.py into a single group with all subcommands.
@@ -23,6 +23,8 @@ Version History:
         Migrated from legacy get_session() to standard get_db() pattern.
 - v3.1: Fix notes_meeting() to use get_by_meeting_title() — avoids recurring-meeting
         instance mismatch where get_by_title() returned a future occurrence with no notes.
+- v3.2: Hotfix - use source='condensed' for condensed summary notes created in
+        notes log so they can be distinguished from regular meeting notes
 """
 
 import click
@@ -595,7 +597,7 @@ def notes_log(meeting: str):
                     content=summary,
                     tags=['both'],
                     meeting_id=meeting_obj.id,
-                    source='meeting'
+                    source='condensed'
                 )
                 click.echo(f"✓ Note created (ID: {condensed_note.id})")
 
