@@ -1,7 +1,7 @@
 """
 WorkmAIn Meetings Repository
-Meetings Repository v1.5
-20260217
+Meetings Repository v1.7
+20260313
 
 Data access layer for meetings with fuzzy matching and recurring detection.
 Handles all CRUD operations for the meetings table.
@@ -14,6 +14,10 @@ Version History:
 - v1.4: Fixed fuzzy_match to sort by date descending as secondary sort for recurring meetings
 - v1.5: Fixed fuzzy_match secondary sort to use proximity-to-today (ascending) so today's
         instance always ranks first instead of future recurring instances
+- v1.6: Hotfix - exclude source='meeting' (condensed summary notes) from get_note_count
+        so auto-generated condensation notes don't inflate the displayed count
+- v1.7: Hotfix fix - filter on source='condensed' instead of source='meeting'
+        since notes log also uses source='meeting' for regular user notes
 """
 
 from datetime import datetime, date
@@ -316,14 +320,20 @@ class MeetingsRepository:
         """
         Get count of notes for a meeting.
 
+        Excludes auto-generated condensed summary notes (source='meeting') so
+        the count reflects only user-authored notes.
+
         Args:
             meeting_id: Meeting ID
             exclude_ifo: If True, exclude info-only (#ifo) notes from count
 
         Returns:
-            Number of notes (excluding #ifo if exclude_ifo=True)
+            Number of notes (excluding #ifo and condensed summary notes)
         """
-        query = self.session.query(Note).filter(Note.meeting_id == meeting_id)
+        query = self.session.query(Note).filter(
+            Note.meeting_id == meeting_id,
+            Note.source != 'condensed'
+        )
         if exclude_ifo:
             query = query.filter(~Note.tags.op('@>')(['info-only']))
         return query.count()

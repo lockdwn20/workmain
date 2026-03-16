@@ -1,7 +1,7 @@
 """
 WorkmAIn Meeting CLI Commands
-Meeting Commands v3.1
-20260303
+Meeting Commands v3.2
+20260313
 
 CLI commands for meeting management.
 
@@ -23,6 +23,8 @@ Version History:
         meetings today, meetings upcoming (duration parser); remove --today/--upcoming
         flags from meetings list; meeting group deprecated (unregistered from CLI)
 - v3.1: Post-sprint cleanup - removed dead meeting group code
+- v3.2: Hotfix - use source='condensed' for condensed summary notes so they
+        can be distinguished from regular meeting notes (source='meeting')
 """
 
 import click
@@ -788,7 +790,7 @@ def meetings_condense(meeting_title: str):
                 content=summary,
                 tags=['both'],
                 meeting_id=meeting.id,
-                source='meeting'
+                source='condensed'
             )
             console.print(f"[green]✓ Note created (ID: {condensed_note.id})[/green]")
 
