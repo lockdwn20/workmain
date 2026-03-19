@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.6] - 2026-03-13
+
+### Fixed
+- `workmain meetings condense` no longer feeds prior AI-generated summary notes back
+  into the condensation prompt. Each run creates a note with `source='condensed'`
+  (previously `source='meeting'`, same as real user notes), which is now excluded from
+  both the condenser query and the `get_note_count` display. 58 existing condensed notes
+  in the database were backfilled to `source='condensed'` via a one-time data migration.
+
 ## [1.5.5] - 2026-03-12
 
 ### Fixed

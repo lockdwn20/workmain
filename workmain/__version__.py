@@ -1,7 +1,7 @@
 """
 WorkmAIn Package Version
-Version v1.5.5
-20260312
+Version v1.5.6
+20260313
 
 Version History:
 - v0.1.0: Initial structure
@@ -40,9 +40,12 @@ Version History:
           outlook_recurring_id backfilled on update
 - v1.5.5: Hotfix — standardize track edit --time to -T (match track add/CLI standards);
           add ID discovery help text pointing to workmain time today
+- v1.5.6: Hotfix — fix meetings condense pulling in prior AI-generated summary notes;
+          condensed notes now use source='condensed' to distinguish from user notes
+          (source='meeting'); 58 existing condensed notes backfilled via data migration
 """
 
-__version__ = "1.5.5"
-__version_info__ = (1, 5, 5)
+__version__ = "1.5.6"
+__version_info__ = (1, 5, 6)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"

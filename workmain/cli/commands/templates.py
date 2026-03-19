@@ -1,7 +1,7 @@
 """
 WorkmAIn Template CLI Commands
-Template Commands v2.7
-20251230
+Template Commands v2.8
+20260319
 
 CLI commands for template management with interactive creation and alias management.
 
@@ -19,6 +19,7 @@ Version History:
 - v2.5: Fixed list command to handle string template names (load each template for details)
 - v2.6: Added alias management (register, unregister, list-aliases) for simplified CLI usage
 - v2.7: Phase 5.1 - Fixed help text formatting with \b escape sequence
+- v2.8: Item 18 - Migrated preview command from get_session() to get_db() pattern
 """
 
 import click
@@ -334,24 +335,25 @@ def preview(template_name: str, date: Optional[str]):
       workmain templates preview daily_internal
       workmain templates preview weekly_client --date 2025-12-30
     """
-    from workmain.database.connection import get_session
-    
+    from workmain.database.connection import get_db
+
     loader = get_template_loader()
-    
+
     try:
         template = loader.load(template_name)
         if not template:
             click.echo(f"Template '{template_name}' not found.", err=True)
             return
-        
+
         # Parse date
         if date:
             preview_date = dt.strptime(date, '%Y-%m-%d').date()
         else:
             preview_date = dt.now().date()
-        
+
         # Get database session
-        session = get_session()
+        db = get_db()
+        session = db.get_session()
         
         try:
             # Create renderer with session
