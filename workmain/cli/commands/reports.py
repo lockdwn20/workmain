@@ -164,8 +164,8 @@ def report_preview(template: str, provider: Optional[str]):
 
     \b
     Examples:
-      workmain reportspreview daily_internal
-      workmain reportspreview weekly_client --provider claude
+      workmain reports preview daily_internal
+      workmain reports preview weekly_client --provider claude
     """
     generate_report_impl(template, preview_only=True, provider=provider)
 
@@ -180,8 +180,8 @@ def report_save(template: str, provider: Optional[str]):
 
     \b
     Examples:
-      workmain reportssave daily_internal
-      workmain reportssave weekly_client --provider gemini
+      workmain reports save daily_internal
+      workmain reports save weekly_client --provider gemini
     """
     generate_report_impl(template, preview_only=False, provider=provider)
 
@@ -193,13 +193,13 @@ def report_send(template: str):
     Generate report and send to Outlook via email pipeline.
 
     Requires OAuth authentication — see docs/OAUTH_SETUP.md
-    Use 'workmain reportssave <template>' to generate and save locally,
+    Use 'workmain reports save <template>' to generate and save locally,
     then 'workmain email save <template>' to create an email draft.
     """
     raise NotImplementedError(
         "report send requires workmain email send, which requires OAuth.\n"
         "See docs/OAUTH_SETUP.md\n"
-        "Use: workmain reportssave <template>"
+        "Use: workmain reports save <template>"
     )
 
 
@@ -211,8 +211,8 @@ def report_list(limit: int):
 
     \b
     Examples:
-      workmain reportslist
-      workmain reportslist -n 20
+      workmain reports list
+      workmain reports list -n 20
     """
     db = get_db()
     session = db.get_session()
@@ -224,7 +224,7 @@ def report_list(limit: int):
 
         if not reports:
             console.print("\n[yellow]No reports found.[/yellow]")
-            console.print("[dim]Generate your first report with: workmain reportssave daily_internal[/dim]\n")
+            console.print("[dim]Generate your first report with: workmain reports save daily_internal[/dim]\n")
             return
 
         table = Table(
@@ -276,7 +276,7 @@ def report_show(filename: str):
 
     \b
     Example:
-      workmain reportsshow daily_internal_2026-03-05.md
+      workmain reports show daily_internal_2026-03-05.md
     """
     db = get_db()
     session = db.get_session()
@@ -288,7 +288,7 @@ def report_show(filename: str):
 
         if not file_path.exists():
             console.print(f"[red]✗ Report not found: {filename}[/red]")
-            console.print("\n[dim]Use 'workmain reportslist' to see available reports[/dim]\n")
+            console.print("\n[dim]Use 'workmain reports list' to see available reports[/dim]\n")
             return
 
         with open(file_path, 'r', encoding='utf-8') as f:
@@ -318,7 +318,7 @@ def report_costs():
 
     \b
     Example:
-      workmain reportscosts
+      workmain reports costs
     """
     db = get_db()
     session = db.get_session()
@@ -332,7 +332,7 @@ def report_costs():
 
         if summary['total_cost'] == 0:
             console.print("[yellow]No costs tracked yet[/yellow]")
-            console.print("\n[dim]Generate a report with: workmain reportssave daily_internal[/dim]\n")
+            console.print("\n[dim]Generate a report with: workmain reports save daily_internal[/dim]\n")
             return
 
         console.print(f"[bold]Overall Cost Summary:[/bold]")
