@@ -19,7 +19,9 @@ Version History:
 - v2.5: Fixed list command to handle string template names (load each template for details)
 - v2.6: Added alias management (register, unregister, list-aliases) for simplified CLI usage
 - v2.7: Phase 5.1 - Fixed help text formatting with \b escape sequence
-- v2.8: Item 18 - Migrated preview command from get_session() to get_db() pattern
+- v2.8: Item 18 - Migrated preview command from get_session() to get_db() pattern;
+        fixed render() call to pass template_name string (not template dict);
+        switched to renderer.preview() to get plain string output
 """
 
 import click
@@ -358,10 +360,10 @@ def preview(template_name: str, date: Optional[str]):
         try:
             # Create renderer with session
             renderer = TemplateRenderer(session)
-            
-            # Render template
-            rendered = renderer.render(template, report_date=preview_date)
-            
+
+            # Use preview() which returns a plain string (not the full render dict)
+            rendered = renderer.preview(template_name, report_date=preview_date)
+
             click.echo(f"\nTemplate Preview: {template['name']}")
             click.echo(f"Date: {preview_date}")
             click.echo("=" * 60)

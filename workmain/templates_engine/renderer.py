@@ -1,10 +1,14 @@
 """
 WorkmAIn Template Renderer
-Template Renderer v1.0
-20251224
+Template Renderer v1.1
+20260319
 
 Renders templates by combining template structure with data.
 Prepares data for AI processing and generates final output.
+
+Version History:
+- v1.0: Initial implementation
+- v1.1: Item 18 — replace non-existent validate_and_raise() with validate_template()
 """
 
 from datetime import date, datetime
@@ -97,7 +101,9 @@ class TemplateRenderer:
         template = self.loader.load(template_name)
         
         # Validate template
-        self.validator.validate_and_raise(template)
+        validation_errors = self.validator.validate_template(template)
+        if validation_errors:
+            raise ValueError(f"Template validation failed: {validation_errors}")
         
         # Build variables for subject line
         variables = self._build_variables(report_date, user_full_name, recipients)
