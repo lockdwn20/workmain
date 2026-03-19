@@ -1,7 +1,7 @@
 """
 WorkmAIn End-of-Day Workflow
-EOD v1.3
-20260309
+EOD v1.4
+20260319
 
 Guided end-of-day workflow for daily work wrap-up.
 
@@ -9,7 +9,7 @@ Steps:
   1. Condense pending meeting notes (meetings with notes, no condensed_summary)
   2. Sync time entries to Clockify (track sync push)
   3. Review today's time entries (loop until confirmed)
-  4a. Generate daily report (report save daily_internal)
+  4a. Generate daily report (reports save daily_internal)
   4b. Create email draft (email save daily_internal)
   5. Pull Clockify PDF (clockify report save daily → staging/clockify/)
   6. Upload to Google Drive (gdocs upload-all)
@@ -22,6 +22,7 @@ Version History:
 - v1.2: Hotfix staging-eod — Step 5 replaced passive Downloads scan with active
         clockify report save daily pull to staging/clockify/
 - v1.3: Phase 7 Gate 4 — added Step 6 (gdocs upload-all), 6→7 steps, --skip gdocs
+- v1.4: Phase 9 Gate 1 — updated subprocess calls from 'report' to 'reports' (rename)
 """
 
 import subprocess
@@ -45,7 +46,7 @@ STEP_DESCRIPTIONS = [
     ('condense', '1/7',  'Condense pending meeting notes'),
     ('sync',     '2/7',  'Sync time entries to Clockify'),
     ('review',   '3/7',  'Review today\'s time entries'),
-    ('report',   '4a/7', 'Generate report (report save daily_internal)'),
+    ('report',   '4a/7', 'Generate report (reports save daily_internal)'),
     ('email',    '4b/7', 'Create email draft (email save daily_internal)'),
     ('clockify', '5/7',  'Pull Clockify PDF (clockify report save daily)'),
     ('gdocs',    '6/7',  'Upload to Google Drive (gdocs upload-all)'),
@@ -181,12 +182,12 @@ def _run_report_step(dry_run: bool) -> bool:
     console.print()
 
     if dry_run:
-        console.print("  [dim]Would run: workmain report save daily_internal[/dim]")
+        console.print("  [dim]Would run: workmain reports save daily_internal[/dim]")
         console.print("  [dim]Output: staging/reports/daily_internal_YYYYMMDD.md[/dim]")
         return True
 
     try:
-        result = subprocess.run(['workmain', 'report', 'save', 'daily_internal'])
+        result = subprocess.run(['workmain', 'reports', 'save', 'daily_internal'])
 
         if result.returncode != 0:
             console.print()
@@ -198,7 +199,7 @@ def _run_report_step(dry_run: bool) -> bool:
             ).strip().lower()
 
             if action == 'r':
-                result = subprocess.run(['workmain', 'report', 'save', 'daily_internal'])
+                result = subprocess.run(['workmain', 'reports', 'save', 'daily_internal'])
                 if result.returncode != 0:
                     console.print("  [red]✗ Retry failed[/red]")
                     return False

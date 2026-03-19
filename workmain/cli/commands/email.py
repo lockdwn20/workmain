@@ -1,7 +1,7 @@
 """
 WorkmAIn Email Commands
-Email Commands v1.1
-20260306
+Email Commands v1.2
+20260319
 
 Email command group for Outlook email draft pipeline (Phase 6).
 
@@ -25,6 +25,7 @@ Send command requires Azure AD OAuth — see docs/OAUTH_SETUP.md
 Version History:
 - v1.0: Initial implementation (Phase 6 Gate 5)
 - v1.1: Hotfix staging-eod — renamed output/ to staging/ across all path references
+- v1.2: Phase 9 Gate 1 — updated hint text from 'report save' to 'reports save'
 """
 
 import re
@@ -159,7 +160,7 @@ def _generate_draft(template: str) -> Optional[tuple[str, str, list, list, date]
             f"\n[red]✗ No report found for template '{template}'[/red]"
         )
         console.print(
-            f"[dim]Generate one first: workmain report save {template}[/dim]\n"
+            f"[dim]Generate one first: workmain reports save {template}[/dim]\n"
         )
         return None
 

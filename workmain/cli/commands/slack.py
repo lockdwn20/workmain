@@ -1,8 +1,8 @@
 """
 WorkmAIn CLI
 Slack Command Group
-slack.py v1.1
-20260310
+slack.py v1.2
+20260319
 
 CLI commands for posting weekly draft reports to Slack.
 
@@ -17,6 +17,7 @@ Version History:
 - v1.0: Initial implementation (Phase 8 Gate 3/4)
 - v1.1: Fix post-weekly generation — replace subprocess (invalid --start/--end flags)
         with direct Python API call via get_report_generator()
+- v1.2: Phase 9 Gate 1 — updated hint text from 'report save' to 'reports save'
 """
 
 import os
@@ -455,7 +456,7 @@ def slack_post_weekly(
             f"\nGenerating weekly draft "
             f"({monday_display} – {anchor_display})..."
         )
-        console.print(f"  workmain report save weekly_client  (date: {end_str})")
+        console.print(f"  workmain reports save weekly_client  (date: {end_str})")
         ok, err = _run_generation(anchor)
         if not ok:
             console.print(f"\n[red]✗ Report generation failed:[/red] {err}")
@@ -477,7 +478,7 @@ def slack_post_weekly(
         console.print(
             f"Generating weekly draft ({monday_display} – {anchor_display})..."
         )
-        console.print(f"  workmain report save weekly_client  (date: {end_str})")
+        console.print(f"  workmain reports save weekly_client  (date: {end_str})")
         ok, err = _run_generation(anchor)
         if not ok:
             console.print(f"\n[red]✗ Report generation failed:[/red] {err}")

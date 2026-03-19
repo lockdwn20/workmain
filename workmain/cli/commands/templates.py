@@ -111,8 +111,8 @@ def list_aliases():
         
         click.echo("\n" + "=" * 60)
         click.echo("\nUsage:")
-        click.echo("  workmain report <alias> --send")
-        click.echo("  Example: workmain report daily --send")
+        click.echo("  workmain reports <alias> --send")
+        click.echo("  Example: workmain reports daily_internal --send")
         
     except Exception as e:
         click.echo(f"Error listing aliases: {e}", err=True)
@@ -133,7 +133,7 @@ def register(template_name: str, alias: str):
       workmain templates register security_audit --alias security
 
     After registration:
-      workmain report monthly --send
+      workmain reports monthly --send
     """
     loader = get_template_loader()
     alias_manager = get_alias_manager()
@@ -162,8 +162,8 @@ def register(template_name: str, alias: str):
         click.echo(f"\n✓ Alias registered successfully!")
         click.echo(f"\n  {alias} → {template_name}")
         click.echo(f"\nUsage:")
-        click.echo(f"  workmain report {alias} --send")
-        click.echo(f"  workmain report {alias} --preview")
+        click.echo(f"  workmain reports {alias} --send")
+        click.echo(f"  workmain reports {alias} --preview")
         
     except Exception as e:
         click.echo(f"\n✗ Error registering alias: {e}", err=True)

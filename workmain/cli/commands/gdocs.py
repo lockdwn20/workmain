@@ -1,8 +1,8 @@
 """
 WorkmAIn CLI
 Google Drive Command Group
-gdocs.py v1.2
-20260310
+gdocs.py v1.3
+20260319
 
 CLI commands for archiving daily work artifacts to Google Drive.
 
@@ -24,6 +24,7 @@ Version History:
 - v1.1: Fix Rich MarkupError in gdocs auth — [dim] tag split across two print() calls
 - v1.2: Fix _require_auth() to call get_credentials() instead of is_authenticated(),
         enabling silent token refresh on expiry
+- v1.3: Phase 9 Gate 1 — updated hint text from 'report save' to 'reports save'
 """
 
 import os
@@ -431,7 +432,7 @@ def gdocs_upload_report(date_str: Optional[str], dry_run: bool, force: bool):
     root_name     = os.environ.get("GDRIVE_TIMECARDS_ROOT", "Timecards")
 
     if dry_run:
-        exists_note = "found" if local_path.exists() else "NOT FOUND — run: workmain report save daily_internal"
+        exists_note = "found" if local_path.exists() else "NOT FOUND — run: workmain reports save daily_internal"
         console.print(f"\n[dim][DRY RUN] Report: {report_name} ({exists_note})[/dim]")
         console.print(
             f"[dim][DRY RUN] Would upload: {filename} "
@@ -442,7 +443,7 @@ def gdocs_upload_report(date_str: Optional[str], dry_run: bool, force: bool):
     if not local_path.exists():
         console.print(
             f"\n[red]✗ No report found for {target_date}.[/red]\n"
-            f"  Run: [bold]workmain report save daily_internal[/bold]\n"
+            f"  Run: [bold]workmain reports save daily_internal[/bold]\n"
         )
         sys.exit(1)
 

@@ -1,17 +1,17 @@
 """
 WorkmAIn Report Commands - Phase 4 Implementation
-Report Commands v2.0
-20260306
+Report Commands v2.1
+20260319
 
 Static action-first command structure — template is an argument.
 
 Commands:
-- report preview <template>   # preview prompts, no AI cost
-- report save <template>      # generate with AI, save to staging/reports/
-- report send <template>      # stub — chains to email send (OAuth required)
-- report list
-- report show <file>
-- report costs
+- reports preview <template>   # preview prompts, no AI cost
+- reports save <template>      # generate with AI, save to staging/reports/
+- reports send <template>      # stub — chains to email send (OAuth required)
+- reports list
+- reports show <file>
+- reports costs
 
 Version History:
 - v1.0: Generic structure (report generate <template>)
@@ -32,6 +32,7 @@ Version History:
         Added report send stub for OAuth email pipeline
         Updated stale hint text to new command syntax
 - v2.0: Hotfix staging-eod — updated output path references from output/ to staging/
+- v2.1: Phase 9 Gate 1 — renamed command group report → reports (plural)
 """
 
 import click
@@ -148,12 +149,12 @@ def generate_report_impl(
 
 
 @click.group()
-def report():
+def reports():
     """Generate and manage reports."""
     pass
 
 
-@report.command('preview')
+@reports.command('preview')
 @click.argument('template')
 @click.option('--provider', type=click.Choice(['claude', 'gemini'], case_sensitive=False),
               help='Override AI provider')
@@ -163,13 +164,13 @@ def report_preview(template: str, provider: Optional[str]):
 
     \b
     Examples:
-      workmain report preview daily_internal
-      workmain report preview weekly_client --provider claude
+      workmain reportspreview daily_internal
+      workmain reportspreview weekly_client --provider claude
     """
     generate_report_impl(template, preview_only=True, provider=provider)
 
 
-@report.command('save')
+@reports.command('save')
 @click.argument('template')
 @click.option('--provider', type=click.Choice(['claude', 'gemini'], case_sensitive=False),
               help='Override AI provider')
@@ -179,30 +180,30 @@ def report_save(template: str, provider: Optional[str]):
 
     \b
     Examples:
-      workmain report save daily_internal
-      workmain report save weekly_client --provider gemini
+      workmain reportssave daily_internal
+      workmain reportssave weekly_client --provider gemini
     """
     generate_report_impl(template, preview_only=False, provider=provider)
 
 
-@report.command('send')
+@reports.command('send')
 @click.argument('template')
 def report_send(template: str):
     """
     Generate report and send to Outlook via email pipeline.
 
     Requires OAuth authentication — see docs/OAUTH_SETUP.md
-    Use 'workmain report save <template>' to generate and save locally,
+    Use 'workmain reportssave <template>' to generate and save locally,
     then 'workmain email save <template>' to create an email draft.
     """
     raise NotImplementedError(
         "report send requires workmain email send, which requires OAuth.\n"
         "See docs/OAUTH_SETUP.md\n"
-        "Use: workmain report save <template>"
+        "Use: workmain reportssave <template>"
     )
 
 
-@report.command('list')
+@reports.command('list')
 @click.option('--limit', '-n', type=int, default=10, help='Number of reports to show')
 def report_list(limit: int):
     """
@@ -210,8 +211,8 @@ def report_list(limit: int):
 
     \b
     Examples:
-      workmain report list
-      workmain report list -n 20
+      workmain reportslist
+      workmain reportslist -n 20
     """
     db = get_db()
     session = db.get_session()
@@ -223,7 +224,7 @@ def report_list(limit: int):
 
         if not reports:
             console.print("\n[yellow]No reports found.[/yellow]")
-            console.print("[dim]Generate your first report with: workmain report save daily_internal[/dim]\n")
+            console.print("[dim]Generate your first report with: workmain reportssave daily_internal[/dim]\n")
             return
 
         table = Table(
@@ -267,7 +268,7 @@ def report_list(limit: int):
         session.close()
 
 
-@report.command('show')
+@reports.command('show')
 @click.argument('filename', type=str)
 def report_show(filename: str):
     """
@@ -275,7 +276,7 @@ def report_show(filename: str):
 
     \b
     Example:
-      workmain report show daily_internal_2026-03-05.md
+      workmain reportsshow daily_internal_2026-03-05.md
     """
     db = get_db()
     session = db.get_session()
@@ -287,7 +288,7 @@ def report_show(filename: str):
 
         if not file_path.exists():
             console.print(f"[red]✗ Report not found: {filename}[/red]")
-            console.print("\n[dim]Use 'workmain report list' to see available reports[/dim]\n")
+            console.print("\n[dim]Use 'workmain reportslist' to see available reports[/dim]\n")
             return
 
         with open(file_path, 'r', encoding='utf-8') as f:
@@ -308,7 +309,7 @@ def report_show(filename: str):
         session.close()
 
 
-@report.command('costs')
+@reports.command('costs')
 def report_costs():
     """
     Show cost summary for generated reports from database.
@@ -317,7 +318,7 @@ def report_costs():
 
     \b
     Example:
-      workmain report costs
+      workmain reportscosts
     """
     db = get_db()
     session = db.get_session()
@@ -331,7 +332,7 @@ def report_costs():
 
         if summary['total_cost'] == 0:
             console.print("[yellow]No costs tracked yet[/yellow]")
-            console.print("\n[dim]Generate a report with: workmain report save daily_internal[/dim]\n")
+            console.print("\n[dim]Generate a report with: workmain reportssave daily_internal[/dim]\n")
             return
 
         console.print(f"[bold]Overall Cost Summary:[/bold]")
@@ -391,4 +392,4 @@ def report_costs():
 
 
 # Export command group
-__all__ = ['report']
+__all__ = ['reports']
