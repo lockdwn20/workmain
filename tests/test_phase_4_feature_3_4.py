@@ -1,7 +1,7 @@
 """
 WorkmAIn Features 3 & 4 Test Script
-Test Script v1.1
-20251231
+Test Script v1.2
+20260320
 
 Comprehensive testing for:
 - Feature 3: Bulk Meeting Note Entry
@@ -11,6 +11,8 @@ Comprehensive testing for:
 Version History:
 - v1.0: Initial test suite implementation
 - v1.1: Fixed condensation test session issue (re-query instead of refresh)
+- v1.2: Renamed chained helpers test_* → _run_* so pytest does not discover
+        them as standalone tests; they were committing data without cleanup
 
 Run with: python3 test_features_3_4.py
 """
@@ -46,7 +48,7 @@ def print_test(test_name: str, passed: bool, details: str = ""):
         print(f"  {details}")
 
 
-def test_migration():
+def _run_migration_check():
     """Test that migration 002 was applied correctly."""
     print_header("Test 1: Database Migration")
     
@@ -84,7 +86,7 @@ def test_migration():
         session.close()
 
 
-def test_meeting_creation():
+def _run_meeting_creation():
     """Test creating a test meeting."""
     print_header("Test 2: Meeting Creation")
     
@@ -124,7 +126,7 @@ def test_meeting_creation():
         session.close()
 
 
-def test_bulk_note_creation(meeting: Meeting):
+def _run_bulk_note_creation(meeting: Meeting):
     """Test creating multiple notes for a meeting."""
     print_header("Test 3: Bulk Note Creation")
     
@@ -172,7 +174,7 @@ def test_bulk_note_creation(meeting: Meeting):
         session.close()
 
 
-def test_note_condensation(meeting: Meeting):
+def _run_note_condensation(meeting: Meeting):
     """Test AI condensation of meeting notes."""
     print_header("Test 4: AI Note Condensation")
     
@@ -226,7 +228,7 @@ def test_note_condensation(meeting: Meeting):
         session.close()
 
 
-def test_time_entry_link(meeting: Meeting):
+def _run_time_entry_link(meeting: Meeting):
     """Test linking time entry to meeting (for future Clockify sync)."""
     print_header("Test 5: Time Entry → Meeting Link")
     
@@ -270,7 +272,7 @@ def test_time_entry_link(meeting: Meeting):
         session.close()
 
 
-def test_cleanup(meeting: Meeting):
+def _run_cleanup(meeting: Meeting):
     """Clean up test data."""
     print_header("Cleanup")
     
@@ -318,7 +320,7 @@ def run_all_tests():
     
     # Test 1: Migration
     try:
-        result = test_migration()
+        result = _run_migration_check()
         results.append(("Migration Applied", result))
     except Exception as e:
         print(f"✗ Migration test failed: {e}")
@@ -326,46 +328,46 @@ def run_all_tests():
         print("\n⚠️  Migration not applied. Run migration first:")
         print("  psql -U workmain_user -d workmain -f workmain/database/migrations/002_add_condensation_fields.sql")
         return 1
-    
+
     # Test 2: Meeting Creation
     try:
-        meeting = test_meeting_creation()
+        meeting = _run_meeting_creation()
         results.append(("Meeting Creation", meeting is not None))
     except Exception as e:
         print(f"✗ Meeting creation failed: {e}")
         results.append(("Meeting Creation", False))
-    
+
     # Test 3: Bulk Notes
     if meeting:
         try:
-            result = test_bulk_note_creation(meeting)
+            result = _run_bulk_note_creation(meeting)
             results.append(("Bulk Note Creation", result))
         except Exception as e:
             print(f"✗ Bulk note creation failed: {e}")
             results.append(("Bulk Note Creation", False))
-    
+
     # Test 4: Condensation
     if meeting:
         try:
-            result = test_note_condensation(meeting)
+            result = _run_note_condensation(meeting)
             results.append(("AI Condensation", result))
         except Exception as e:
             print(f"✗ Condensation failed: {e}")
             results.append(("AI Condensation", False))
-    
+
     # Test 5: Time Entry Link
     if meeting:
         try:
-            result = test_time_entry_link(meeting)
+            result = _run_time_entry_link(meeting)
             results.append(("Time Entry Link", result))
         except Exception as e:
             print(f"✗ Time entry link failed: {e}")
             results.append(("Time Entry Link", False))
-    
+
     # Cleanup
     if meeting:
         try:
-            test_cleanup(meeting)
+            _run_cleanup(meeting)
         except Exception as e:
             print(f"⚠️  Cleanup failed: {e}")
     
