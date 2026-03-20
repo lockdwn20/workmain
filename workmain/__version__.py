@@ -1,9 +1,11 @@
 """
 WorkmAIn Package Version
-Version v1.6.1
-20260319
+Version v1.6.2
+20260320
 
 Version History:
+- v1.6.2: Hotfix — full test DB isolation (transaction rollback); one-time cleanup
+          of ~300 leaked test rows from production database
 - v1.6.1: Hotfix — fix 4 test regressions: ICS RRULE expansion count mismatch
           (week_normal.ics UNTIL bound), gdrive test_03 stale DB state (sentinel date),
           gemini max_tokens too low (20→100), templates_engine missing validate_template()
@@ -37,7 +39,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.6.1"
-__version_info__ = (1, 6, 1)
+__version__ = "1.6.2"
+__version_info__ = (1, 6, 2)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.2] - 2026-03-20
+
+### Fixed
+- `tests/conftest.py` v2.1: replaced pattern-based cleanup with SQLAlchemy 2.0
+  transaction isolation (`session.commit → session.flush` + `session.rollback()` at
+  teardown) — no test data can ever reach the production database
+- `tests/test_recurring_meetings.py` v1.2: removed local `db_session` fixture that
+  was overriding conftest and committing data permanently; fixed
+  `test_fuzzy_match_case_insensitive` threshold (0.5 → 0.3, previously relied on
+  leaked "Team Sync" rows to satisfy the assertion)
+- `workmain/cli/commands/email.py` v1.3 + `tests/test_email.py` v1.2: added optional
+  `session` parameter to `_get_draft_recipients` / `_generate_draft` so tests can
+  thread the transaction session through for cross-session visibility
+- One-time cleanup of ~300 leaked test rows from production database (meetings,
+  notes, time entries created by prior test runs without proper isolation)
+
 ## [1.6.1] - 2026-03-19
 
 ### Fixed
