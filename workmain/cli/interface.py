@@ -1,10 +1,10 @@
 """
 WorkmAIn
-CLI Interface v2.2.0
-20260310
+CLI Interface v2.3.0
+20260319
 
 Main CLI interface using Click framework
-Updated for Phase 8: Slack Integration
+Updated for Phase 9: Report Generation Pipeline
 
 Version History:
 - v0.1.0: Initial CLI with basic structure
@@ -29,6 +29,7 @@ Version History:
 - v2.0.0: Gate 3/4 - Register gdocs command group (Phase 7)
 - v2.1.0: Update today() and status() for Phase 6 & 7 (calendar sync, email draft, gdocs upload)
 - v2.2.0: Register slack command group (Phase 8)
+- v2.3.0: Phase 9 — report→reports rename registered, status/today updated
 
 """
 
@@ -53,7 +54,7 @@ from workmain.cli.commands.tasks import tasks
 from workmain.cli.commands.templates import templates
 
 # Import Phase 4 commands
-from workmain.cli.commands.report import report
+from workmain.cli.commands.reports import reports
 from workmain.cli.commands.providers import providers
 
 # Import Phase 5 commands
@@ -172,9 +173,12 @@ def status():
     table.add_row("├─ Status & History", "✓ slack status")
     table.add_row("├─ Channel Config", "✓ slack channel set")
     table.add_row("└─ Weekly Draft Post", "✓ slack post-weekly")
+    table.add_row("Report Pipeline", "✓ Phase 9 Complete")
+    table.add_row("├─ EOD Day-Aware", "✓ Thu/Fri weekly steps")
+    table.add_row("└─ Report History", "✓ history/view/resend")
 
     console.print(table)
-    console.print("\n[bold green]Phase 8 Complete![/bold green] Ready for Phase 9 (Notifications & Scheduling)")
+    console.print("\n[bold green]Phase 9 Complete![/bold green] Ready for Phase 10 (Notifications & Scheduling)")
     console.print("\n[yellow]Tip:[/yellow] Use 'workmain --help' to see all available commands")
 
 
@@ -212,15 +216,18 @@ def today():
     console.print("  workmain notes search 'keyword'      # Full-text search")
 
     console.print("\n[bold yellow]END OF DAY[/bold yellow]")
-    console.print("  workmain eod                         # Full guided EOD workflow:")
+    console.print("  workmain eod                         # Full guided EOD workflow (day-aware):")
     console.print("    1. Condense pending meetings")
     console.print("    2. Sync to Clockify  (track sync push)")
     console.print("    3. Review time entries")
-    console.print("    4a. Generate daily report  (report save daily_internal)")
+    console.print("    4a. Generate daily report  (reports save daily_internal)")
     console.print("    4b. Create email draft  (email save daily_internal)")
     console.print("    5. Pull Clockify PDF  (clockify report save daily)")
     console.print("    6. Upload to Google Drive  (gdocs upload-all)")
+    console.print("    + Thu: Post weekly Slack draft  (step 7)")
+    console.print("    + Fri: Weekly report + email  (steps 7–8)")
     console.print("  workmain eod --skip clockify         # Skip individual steps")
+    console.print("  workmain eod --skip weekly           # Skip Thu/Fri weekly steps")
     console.print("  workmain eod --dry-run               # Preview without executing")
 
     console.print("\n[bold yellow]OTHER USEFUL COMMANDS[/bold yellow]")
@@ -230,10 +237,14 @@ def today():
     console.print("  workmain meetings rename <id> 'New'  # Rename a meeting")
     console.print("  workmain meetings merge 'Old' 'New'  # Move notes between meetings")
     console.print("  workmain providers list              # Check AI provider status")
-    console.print("  workmain report daily                # Preview report (no --send)")
+    console.print("  workmain reports preview daily_internal  # Preview report (no AI cost)")
     console.print("  workmain clockify status             # Check Clockify connection")
     console.print("  workmain gdocs upload-all            # Archive to Google Drive manually")
     console.print("  workmain gdocs status                # Check Google Drive connection")
+    console.print("  workmain eod                         - End-of-day workflow (day-aware Thu/Fri)")
+    console.print("  workmain reports history             - View past generated reports")
+    console.print("  workmain reports view <id>           - Show full report content")
+    console.print("  workmain reports resend <id>         - Recreate email draft from report")
 
     console.print("\n[dim]Use 'workmain --help' for all commands[/dim]")
 
@@ -253,7 +264,7 @@ cli.add_command(tasks)
 cli.add_command(templates)
 
 # Phase 4: AI Report Generation (REAL IMPLEMENTATION)
-cli.add_command(report)
+cli.add_command(reports)
 
 # Phase 4: AI Provider Management (Feature 2)
 cli.add_command(providers)

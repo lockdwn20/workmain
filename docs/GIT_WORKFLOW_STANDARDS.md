@@ -1,6 +1,6 @@
 WorkmAIn
-GIT_WORKFLOW_STANDARDS v1.0
-20260306
+GIT_WORKFLOW_STANDARDS v1.1
+20260319
 
 # WorkmAIn Git Workflow Standards
 
@@ -75,6 +75,41 @@ hotfix/*    — targeted fixes only. Branches from main, merges to main AND dev.
   git branch -d hotfix/staging-eod
   ```
 
+### Hotfix → Feature Branch Exception
+
+When a hotfix is a direct prerequisite for a feature branch (i.e. it cannot
+ship independently because it has no standalone value, and the feature branch
+depends on it), the following alternative flow is permitted:
+
+```
+hotfix/* → feature/* → dev → main
+```
+
+**Rules for this exception:**
+- The hotfix branch MUST still branch from `main`
+- The fix MUST be minimal scope (single file or targeted correction)
+- The deviation MUST be documented explicitly in the feature spec
+- The hotfix branch is merged into the feature branch at Gate 0, then deleted
+- The fix reaches `main` via the feature branch's normal merge path
+- Version bump for the fix is included in the feature's version bump (no
+  separate patch version)
+
+**Example:**
+```bash
+# Branch hotfix from main
+git checkout main && git checkout -b hotfix/some-fix
+
+# Apply fix, commit
+git commit -m "fix(...): ..."
+
+# At feature Gate 0: merge hotfix into feature branch
+git checkout feature/phase9-report-pipeline
+git merge --no-ff hotfix/some-fix -m "fix: merge hotfix/some-fix"
+git branch -d hotfix/some-fix
+
+# Fix travels with the feature branch through dev → main
+```
+
 ---
 
 ## Commit Message Standard
@@ -135,4 +170,4 @@ Before writing any code in any session:
 
 END OF GIT WORKFLOW STANDARDS
 WorkmAIn — Standing Instruction for Claude Code
-v1.0 — 20260306
+v1.1 — 20260319
