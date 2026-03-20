@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 WorkmAIn Writing Style System Test
-Style System Test v1.0
-20251224
+Style System Test v1.1
+20260320
 
 Test writing style loading, adaptation, and AI prompt generation.
 """
@@ -35,7 +35,7 @@ def print_test(test_name: str, passed: bool, details: str = ""):
         print(f"  {details}")
 
 
-def test_style_loading():
+def _run_style_loading():
     """Test loading writing style definition."""
     print_header("Testing Style Loading")
     
@@ -75,7 +75,7 @@ def test_style_loading():
         return None
 
 
-def test_style_prompts(adapter: StyleAdapter):
+def _run_style_prompts(adapter: StyleAdapter):
     """Test style prompt generation."""
     print_header("Testing Style Prompt Generation")
     
@@ -104,7 +104,7 @@ def test_style_prompts(adapter: StyleAdapter):
     )
 
 
-def test_section_styles(adapter: StyleAdapter):
+def _run_section_styles(adapter: StyleAdapter):
     """Test section-specific style retrieval."""
     print_header("Testing Section-Specific Styles")
     
@@ -125,7 +125,7 @@ def test_section_styles(adapter: StyleAdapter):
         )
 
 
-def test_examples(adapter: StyleAdapter):
+def _run_examples(adapter: StyleAdapter):
     """Test example retrieval."""
     print_header("Testing Examples Retrieval")
     
@@ -161,7 +161,7 @@ def test_examples(adapter: StyleAdapter):
     )
 
 
-def test_ai_prompt_building(adapter: StyleAdapter):
+def _run_ai_prompt_building(adapter: StyleAdapter):
     """Test complete AI prompt building."""
     print_header("Testing AI Prompt Building")
     
@@ -207,7 +207,7 @@ def test_ai_prompt_building(adapter: StyleAdapter):
         print("-" * 70)
 
 
-def test_empty_data_handling(adapter: StyleAdapter):
+def _run_empty_data_handling(adapter: StyleAdapter):
     """Test handling of sections with no data."""
     print_header("Testing Empty Data Handling")
     
