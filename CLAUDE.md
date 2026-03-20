@@ -1,14 +1,16 @@
 # CLAUDE.md - WorkmAIn Project Context
 
 WorkmAIn
-CLAUDE.md v2.0
-20260311
+CLAUDE.md v2.1
+20260320
 
 Version History:
 - v1.0: Initial (through Phase 5.1)
 - v2.0 (20260311): Updated through Phase 8 complete; swapped Phase 9/10 order;
   added integrations to architecture; updated session handoff reference;
   added templates preview bug to pitfalls; refreshed command count note.
+- v2.1 (20260320): Added testing standards reference, scripts-deprecated/ dir,
+  updated test rule §6 to reflect consolidated suite.
 
 ---
 
@@ -34,6 +36,7 @@ Read these when you need deeper context. Do NOT duplicate their content — refe
 | `docs/implementation-checklist.md` | 16-phase roadmap with deliverables | Planning next phase or checking scope |
 | `docs/FEATURE_BACKLOG.md` | Deferred features with rationale | Before proposing new features |
 | `docs/SESSION_HANDOFF_PHASE8_COMPLETE.md` | Phase 8 status, file versions, deviations from spec | Understanding current state |
+| `docs/TESTING_STANDARDS.md` | How to run the suite, db_session fixture contract, rules for new tests | Writing any test or debugging test failures |
 
 ## Tech Stack
 
@@ -65,8 +68,9 @@ Key directories:
 - `config/` - JSON configs (tags.json)
 - `templates/` - Report templates and writing style definitions
 - `staging/` - Staged report outputs (renamed from output/ in hotfix)
-- `tests/` - Test files at ROOT level (test_*.py), fixtures/, mocks/
+- `tests/` - Pytest suite (test_*.py), fixtures/, mocks/ — see `docs/TESTING_STANDARDS.md`
 - `scripts/` - Utility scripts only (NOT tests)
+- `scripts-deprecated/` - Legacy manual validation scripts (Claude Desktop era, pre-operational)
 - `docs/` - Project documentation
 - `~/.workmain/integrations/` - Per-integration runtime config/cache (gdrive/, slack/, outlook/)
 
@@ -140,10 +144,14 @@ Never use short names: ~~`get_tags()`~~, ~~`get_loader()`~~, ~~`get_validator()`
 
 ### 6. Test Files
 
-- Test files go in `tests/` at ROOT level: `tests/test_something.py`
-- Test data goes in `tests/fixtures/`
-- Mock implementations go in `tests/mocks/`
-- NEVER put test files in `scripts/`
+**Full standards: `docs/TESTING_STANDARDS.md` — read it before writing any test.**
+
+- Test files go in `tests/`: `tests/test_something.py`
+- Test data goes in `tests/fixtures/`, mock implementations in `tests/mocks/`
+- Every test that touches the DB **must** use the `db_session` fixture — NEVER call `get_db()` directly in a test file
+- Use sentinel dates (e.g. `date(2099, 1, 1)`) for any test asserting exact totals or counts
+- `scripts-deprecated/` contains legacy manual scripts from the pre-operational phase — do NOT add to it; do NOT run with pytest
+- Run the suite: `python -m pytest tests/` — expected baseline 142 passed, 0 failed, 0 errors
 
 ### 7. Integration Over Separation
 
