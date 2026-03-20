@@ -1,11 +1,11 @@
 """
 WorkmAIn End-of-Day Workflow
-EOD v1.4
+EOD v1.5
 20260319
 
 Guided end-of-day workflow for daily work wrap-up.
 
-Steps:
+Base sequence (Mon–Wed):
   1. Condense pending meeting notes (meetings with notes, no condensed_summary)
   2. Sync time entries to Clockify (track sync push)
   3. Review today's time entries (loop until confirmed)
@@ -15,6 +15,15 @@ Steps:
   6. Upload to Google Drive (gdocs upload-all)
   7. Complete — step summary and sign-off
 
+Thursday adds:
+  7. Post weekly draft to Slack (slack post-weekly)
+  8. Complete
+
+Friday adds:
+  7. Generate weekly report (reports save weekly_client)
+  8. Create weekly email draft (email save weekly_client)
+  9. Complete
+
 Version History:
 - v1.0: CLI Standardization Sprint (Gate 4) - initial implementation
 - v1.1: Hotfix staging-eod — split Step 4 into 4a (report save) and 4b (email save),
@@ -23,6 +32,8 @@ Version History:
         clockify report save daily pull to staging/clockify/
 - v1.3: Phase 7 Gate 4 — added Step 6 (gdocs upload-all), 6→7 steps, --skip gdocs
 - v1.4: Phase 9 Gate 1 — updated subprocess calls from 'report' to 'reports' (rename)
+- v1.5: Phase 9 Gate 2 — day-aware Thu/Fri steps; _build_step_sequence refactor;
+        --skip weekly; dynamic step numbering; updated help text
 """
 
 import subprocess
@@ -40,25 +51,32 @@ from workmain.database.repositories.meetings_repo import MeetingsRepository
 
 console = Console()
 
-VALID_STEPS = ['condense', 'sync', 'review', 'report', 'email', 'clockify', 'gdocs']
+THURSDAY = 3
+FRIDAY = 4
 
-STEP_DESCRIPTIONS = [
-    ('condense', '1/7',  'Condense pending meeting notes'),
-    ('sync',     '2/7',  'Sync time entries to Clockify'),
-    ('review',   '3/7',  'Review today\'s time entries'),
-    ('report',   '4a/7', 'Generate report (reports save daily_internal)'),
-    ('email',    '4b/7', 'Create email draft (email save daily_internal)'),
-    ('clockify', '5/7',  'Pull Clockify PDF (clockify report save daily)'),
-    ('gdocs',    '6/7',  'Upload to Google Drive (gdocs upload-all)'),
-]
+VALID_STEPS = ['condense', 'sync', 'review', 'report', 'email', 'clockify', 'gdocs', 'weekly']
 
+# Fixed position labels for the 7 base steps.
+# Day-specific steps are assigned sequential positions starting at 7.
+_BASE_POSITIONS = {
+    'condense': '1',
+    'sync':     '2',
+    'review':   '3',
+    'report':   '4a',
+    'email':    '4b',
+    'clockify': '5',
+    'gdocs':    '6',
+}
+
+
+# ---------------------------------------------------------------------------
+# Step runner functions
+# Each returns True on success / acceptable outcome, False on hard failure.
+# Step header printing is handled by the caller (_build_step_sequence loop).
+# ---------------------------------------------------------------------------
 
 def _run_condense_step(dry_run: bool) -> bool:
-    """Step 1: Condense pending meeting notes. Returns True if step ran without error."""
-    console.print()
-    console.print("[bold cyan]Step 1/7 — Condense pending meeting notes[/bold cyan]")
-    console.print()
-
+    """Step: Condense pending meeting notes."""
     if dry_run:
         console.print("  [dim]Would query today's meetings for uncondensed notes[/dim]")
         console.print("  [dim]Would offer to condense each via 'workmain meetings condense'[/dim]")
@@ -108,11 +126,7 @@ def _run_condense_step(dry_run: bool) -> bool:
 
 
 def _run_sync_step(dry_run: bool) -> bool:
-    """Step 2: Sync time entries to Clockify. Returns True if step ran without error."""
-    console.print()
-    console.print("[bold cyan]Step 2/7 — Sync time entries to Clockify[/bold cyan]")
-    console.print()
-
+    """Step: Sync time entries to Clockify."""
     if dry_run:
         console.print("  [dim]Would run: workmain track sync push[/dim]")
         return True
@@ -142,11 +156,7 @@ def _run_sync_step(dry_run: bool) -> bool:
 
 
 def _run_review_step(dry_run: bool) -> bool:
-    """Step 3: Review today's time entries. Returns True if step ran without error."""
-    console.print()
-    console.print("[bold cyan]Step 3/7 — Review today's time entries[/bold cyan]")
-    console.print()
-
+    """Step: Review today's time entries."""
     if dry_run:
         console.print("  [dim]Would display today's time entries[/dim]")
         console.print("  [dim]Would loop until user confirms entries are correct[/dim]")
@@ -176,11 +186,7 @@ def _run_review_step(dry_run: bool) -> bool:
 
 
 def _run_report_step(dry_run: bool) -> bool:
-    """Step 4a: Generate daily report. Returns True if step ran without error."""
-    console.print()
-    console.print("[bold cyan]Step 4a/7 — Generate report[/bold cyan]")
-    console.print()
-
+    """Step 4a: Generate daily report."""
     if dry_run:
         console.print("  [dim]Would run: workmain reports save daily_internal[/dim]")
         console.print("  [dim]Output: staging/reports/daily_internal_YYYYMMDD.md[/dim]")
@@ -212,11 +218,7 @@ def _run_report_step(dry_run: bool) -> bool:
 
 
 def _run_email_step(dry_run: bool) -> bool:
-    """Step 4b: Create email draft. Returns True if step ran without error."""
-    console.print()
-    console.print("[bold cyan]Step 4b/7 — Create email draft[/bold cyan]")
-    console.print()
-
+    """Step 4b: Create email draft."""
     if dry_run:
         console.print("  [dim]Would run: workmain email save daily_internal[/dim]")
         console.print("  [dim]Output: staging/email/daily_internal_YYYYMMDD_HHMMSS.txt[/dim]")
@@ -248,15 +250,11 @@ def _run_email_step(dry_run: bool) -> bool:
 
 
 def _run_clockify_step(dry_run: bool) -> bool:
-    """Step 5: Pull Clockify PDF to staging/clockify/. Returns True if step ran without error."""
-    console.print()
-    console.print("[bold cyan]Step 5/7 — Pull Clockify PDF[/bold cyan]")
-    console.print()
-
+    """Step 5: Pull Clockify PDF to staging/clockify/."""
     if dry_run:
         console.print("  [dim]Would run: workmain clockify report save daily[/dim]")
         console.print("  [dim]Output: staging/clockify/Clockify_YYYYMMDD.pdf[/dim]")
-        console.print("  [dim]Staged for Drive upload (Phase 7)[/dim]")
+        console.print("  [dim]Staged for Drive upload[/dim]")
         return True
 
     try:
@@ -276,7 +274,7 @@ def _run_clockify_step(dry_run: bool) -> bool:
                 if result.returncode != 0:
                     console.print("  [yellow]⚠ Retry failed — skipping Clockify PDF[/yellow]")
         else:
-            console.print("  [dim]Staged to staging/clockify/ — Step 6 will upload to Drive[/dim]")
+            console.print("  [dim]Staged to staging/clockify/ — gdocs step will upload to Drive[/dim]")
 
         return True
 
@@ -286,11 +284,7 @@ def _run_clockify_step(dry_run: bool) -> bool:
 
 
 def _run_gdocs_step(dry_run: bool) -> bool:
-    """Step 6: Upload artifacts to Google Drive. Returns True if step ran without error."""
-    console.print()
-    console.print("[bold cyan]Step 6/7 — Upload to Google Drive[/bold cyan]")
-    console.print()
-
+    """Step 6: Upload artifacts to Google Drive."""
     if dry_run:
         console.print("  [dim]Would run: workmain gdocs upload-all[/dim]")
         console.print("  [dim]Uploads: notes → Raw_Notes/, report → Reports/, PDF → Clockify/[/dim]")
@@ -323,29 +317,162 @@ def _run_gdocs_step(dry_run: bool) -> bool:
         return False
 
 
+def _run_slack_weekly_step(dry_run: bool) -> bool:
+    """Thursday step: Post weekly draft to Slack."""
+    if dry_run:
+        console.print("  [dim]Would run: workmain slack post-weekly[/dim]")
+        console.print("  [dim]Interactive: Rich preview → [y/n/e] approval → post or abort[/dim]")
+        return True
+
+    try:
+        result = subprocess.run(['workmain', 'slack', 'post-weekly'])
+
+        if result.returncode != 0:
+            console.print()
+            console.print("  [yellow]⚠ Slack post-weekly returned non-zero "
+                          "(user aborted or already posted)[/yellow]")
+            console.print("  [dim]Continuing to Complete.[/dim]")
+
+        return True
+
+    except Exception as e:
+        console.print(f"  [red]✗ Slack weekly step error: {e}[/red]")
+        return True  # Non-fatal — log and continue
+
+
+def _run_weekly_report_step(dry_run: bool) -> bool:
+    """Friday step A: Generate weekly client report."""
+    if dry_run:
+        console.print("  [dim]Would run: workmain reports save weekly_client[/dim]")
+        console.print("  [dim]Output: staging/reports/weekly_client_YYYY-MM-DD.md[/dim]")
+        return True
+
+    try:
+        result = subprocess.run(['workmain', 'reports', 'save', 'weekly_client'])
+
+        if result.returncode != 0:
+            console.print()
+            console.print(f"  [yellow]⚠ Weekly report returned exit code {result.returncode}[/yellow]")
+            console.print("  [dim]Continuing to next step.[/dim]")
+
+        return True
+
+    except Exception as e:
+        console.print(f"  [red]✗ Weekly report step error: {e}[/red]")
+        return True  # Non-fatal — log and continue
+
+
+def _run_weekly_email_step(dry_run: bool) -> bool:
+    """Friday step B: Create weekly email draft."""
+    if dry_run:
+        console.print("  [dim]Would run: workmain email save weekly_client[/dim]")
+        console.print("  [dim]Output: staging/email/weekly_client_YYYYMMDD_HHMMSS.txt[/dim]")
+        return True
+
+    try:
+        result = subprocess.run(['workmain', 'email', 'save', 'weekly_client'])
+
+        if result.returncode != 0:
+            console.print()
+            console.print(f"  [yellow]⚠ Weekly email draft returned exit code {result.returncode}[/yellow]")
+            console.print("  [dim]Continuing to Complete.[/dim]")
+
+        return True
+
+    except Exception as e:
+        console.print(f"  [red]✗ Weekly email step error: {e}[/red]")
+        return True  # Non-fatal — log and continue
+
+
+# ---------------------------------------------------------------------------
+# Step sequence builder
+# ---------------------------------------------------------------------------
+
+def _build_step_sequence(weekday: int, skip: list) -> list:
+    """Build the ordered step sequence for the given weekday and skip list.
+
+    Args:
+        weekday: Integer weekday from date.today().weekday()
+                 (0=Monday … 3=Thursday, 4=Friday)
+        skip:    List of skip-target strings (already validated).
+
+    Returns:
+        List of step dicts — each has keys: 'key', 'num', 'desc', 'runner'.
+        'weekly' steps are excluded from the list when 'weekly' is in skip,
+        so the plan table automatically hides them.
+        Other skipped steps remain in the list; the caller marks them as skipped.
+        The Complete step is NOT included — the caller adds it dynamically.
+
+    Step denominator = len(returned list).  Complete position = denominator.
+    """
+    # Build ordered list of (key, position_label, description, runner)
+    raw = [
+        ('condense',  '1',  'Condense pending meeting notes',                _run_condense_step),
+        ('sync',      '2',  'Sync time entries to Clockify',                  _run_sync_step),
+        ('review',    '3',  "Review today's time entries",                    _run_review_step),
+        ('report',    '4a', 'Generate report (reports save daily_internal)',  _run_report_step),
+        ('email',     '4b', 'Create email draft (email save daily_internal)', _run_email_step),
+        ('clockify',  '5',  'Pull Clockify PDF (clockify report save daily)', _run_clockify_step),
+        ('gdocs',     '6',  'Upload to Google Drive (gdocs upload-all)',      _run_gdocs_step),
+    ]
+
+    # Add day-specific steps unless 'weekly' is skipped
+    if 'weekly' not in skip:
+        if weekday == THURSDAY:
+            raw.append(('weekly',        '7', 'Post weekly draft to Slack (slack post-weekly)',        _run_slack_weekly_step))
+        elif weekday == FRIDAY:
+            raw.append(('weekly_report', '7', 'Generate weekly report (reports save weekly_client)',   _run_weekly_report_step))
+            raw.append(('weekly_email',  '8', 'Create weekly email draft (email save weekly_client)', _run_weekly_email_step))
+
+    # Denominator = total steps (Complete will use this same number)
+    N = len(raw)
+
+    return [
+        {'key': key, 'num': f'{pos}/{N}', 'desc': desc, 'runner': runner}
+        for key, pos, desc, runner in raw
+    ]
+
+
+# ---------------------------------------------------------------------------
+# EOD command
+# ---------------------------------------------------------------------------
+
 @click.command()
 @click.option('--skip', '-s', default='',
               help='Comma-separated steps to skip '
-                   '(condense, sync, review, report, email, clockify, gdocs). '
-                   'Skipping report also skips email.')
+                   '(condense, sync, review, report, email, clockify, gdocs, weekly). '
+                   'Skipping report also skips email. '
+                   'Skipping weekly skips Thu/Fri day-specific steps.')
 @click.option('--dry-run', is_flag=True,
               help='Show planned sequence without executing')
 def eod(skip: str, dry_run: bool):
     """
-    Guided end-of-day workflow.
+    Guided end-of-day workflow. Runs steps in sequence to wrap up the workday.
 
-    Runs steps in sequence to wrap up the workday:
-    1.  Condense pending meeting notes
-    2.  Sync time entries to Clockify
-    3.  Review today's time entries
-    4a. Generate daily report (report save daily_internal)
-    4b. Create email draft (email save daily_internal)
-    5.  Pull Clockify PDF
-    6.  Upload to Google Drive (gdocs upload-all)
-    7.  Complete — summary and sign-off
+    \b
+    Base sequence (Mon–Wed):
+      1.  Condense pending meeting notes
+      2.  Sync time entries to Clockify
+      3.  Review today's time entries
+      4a. Generate daily report (reports save daily_internal)
+      4b. Create email draft (email save daily_internal)
+      5.  Pull Clockify PDF (clockify report save daily)
+      6.  Upload to Google Drive (gdocs upload-all)
+      7.  Complete — summary and sign-off
 
+    \b
+    Thursday adds:
+      7.  Post weekly draft to Slack (slack post-weekly)
+
+    \b
+    Friday adds:
+      7.  Generate weekly report (reports save weekly_client)
+      8.  Create weekly email draft (email save weekly_client)
+
+    \b
     Skipping 'report' also skips 'email' (4a + 4b as a unit).
     Use '--skip email' to skip only the draft (4b), keeping report generation.
+    Use '--skip weekly' to skip Thursday/Friday weekly steps only.
 
     \b
     Examples:
@@ -354,9 +481,12 @@ def eod(skip: str, dry_run: bool):
       workmain eod --skip condense,clockify
       workmain eod --skip gdocs
       workmain eod --skip email
+      workmain eod --skip weekly
+      workmain eod --skip report,weekly --dry-run
       workmain eod -s sync --dry-run
     """
     today = date.today()
+    today_weekday = today.weekday()
 
     # Parse and validate skip list
     skip_steps = set()
@@ -375,6 +505,10 @@ def eod(skip: str, dry_run: bool):
     if 'report' in skip_steps:
         skip_steps.add('email')
 
+    # Build the day-appropriate step sequence
+    steps = _build_step_sequence(today_weekday, skip_steps)
+    complete_num = len(steps)  # Complete step number = N (same as denominator)
+
     # Header
     console.print()
     if dry_run:
@@ -391,16 +525,16 @@ def eod(skip: str, dry_run: bool):
         ))
     console.print()
 
-    # Plan table
+    # Plan table — uses dynamic step sequence
     plan_table = Table(show_header=True, header_style="bold cyan", box=box.SIMPLE)
     plan_table.add_column("Step", width=7, style="dim")
-    plan_table.add_column("Key", width=10)
+    plan_table.add_column("Key", width=14)
     plan_table.add_column("Action")
     plan_table.add_column("", width=8)
 
-    for step_key, step_num, step_desc in STEP_DESCRIPTIONS:
-        status = "[dim]skip[/dim]" if step_key in skip_steps else "[green]run[/green]"
-        plan_table.add_row(step_num, step_key, step_desc, status)
+    for step in steps:
+        status = "[dim]skip[/dim]" if step['key'] in skip_steps else "[green]run[/green]"
+        plan_table.add_row(step['num'], step['key'], step['desc'], status)
 
     console.print(plan_table)
     console.print()
@@ -416,33 +550,25 @@ def eod(skip: str, dry_run: bool):
     skipped = []
     failed = []
 
-    step_runners = [
-        ('condense', lambda: _run_condense_step(dry_run)),
-        ('sync',     lambda: _run_sync_step(dry_run)),
-        ('review',   lambda: _run_review_step(dry_run)),
-        ('report',   lambda: _run_report_step(dry_run)),
-        ('email',    lambda: _run_email_step(dry_run)),
-        ('clockify', lambda: _run_clockify_step(dry_run)),
-        ('gdocs',    lambda: _run_gdocs_step(dry_run)),
-    ]
-
-    for step_key, runner in step_runners:
-        if step_key in skip_steps:
-            step_num = next(n for k, n, _ in STEP_DESCRIPTIONS if k == step_key)
+    for step in steps:
+        if step['key'] in skip_steps:
             console.print()
-            console.print(f"[dim]Step {step_num} — {step_key}: SKIPPED[/dim]")
-            skipped.append(step_key)
+            console.print(f"[dim]Step {step['num']} — {step['key']}: SKIPPED[/dim]")
+            skipped.append(step['key'])
         else:
+            console.print()
+            console.print(f"[bold cyan]Step {step['num']} — {step['desc']}[/bold cyan]")
+            console.print()
             try:
-                runner()
-                completed.append(step_key)
+                step['runner'](dry_run)
+                completed.append(step['key'])
             except Exception as e:
-                console.print(f"[red]✗ Step '{step_key}' failed unexpectedly: {e}[/red]")
-                failed.append(step_key)
+                console.print(f"[red]✗ Step '{step['key']}' failed unexpectedly: {e}[/red]")
+                failed.append(step['key'])
 
-    # Step 7: Complete
+    # Complete step — always runs
     console.print()
-    console.print("[bold cyan]Step 7/7 — Complete[/bold cyan]")
+    console.print(f"[bold cyan]Step {complete_num}/{complete_num} — Complete[/bold cyan]")
     console.print()
 
     summary_table = Table(show_header=False, box=None, show_edge=False, padding=(0, 2))
