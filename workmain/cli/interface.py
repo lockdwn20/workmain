@@ -173,9 +173,12 @@ def status():
     table.add_row("├─ Status & History", "✓ slack status")
     table.add_row("├─ Channel Config", "✓ slack channel set")
     table.add_row("└─ Weekly Draft Post", "✓ slack post-weekly")
+    table.add_row("Report Pipeline", "✓ Phase 9 Complete")
+    table.add_row("├─ EOD Day-Aware", "✓ Thu/Fri weekly steps")
+    table.add_row("└─ Report History", "✓ history/view/resend")
 
     console.print(table)
-    console.print("\n[bold green]Phase 8 Complete![/bold green] Ready for Phase 9 (Notifications & Scheduling)")
+    console.print("\n[bold green]Phase 9 Complete![/bold green] Ready for Phase 10 (Notifications & Scheduling)")
     console.print("\n[yellow]Tip:[/yellow] Use 'workmain --help' to see all available commands")
 
 
@@ -213,7 +216,7 @@ def today():
     console.print("  workmain notes search 'keyword'      # Full-text search")
 
     console.print("\n[bold yellow]END OF DAY[/bold yellow]")
-    console.print("  workmain eod                         # Full guided EOD workflow:")
+    console.print("  workmain eod                         # Full guided EOD workflow (day-aware):")
     console.print("    1. Condense pending meetings")
     console.print("    2. Sync to Clockify  (track sync push)")
     console.print("    3. Review time entries")
@@ -221,7 +224,10 @@ def today():
     console.print("    4b. Create email draft  (email save daily_internal)")
     console.print("    5. Pull Clockify PDF  (clockify report save daily)")
     console.print("    6. Upload to Google Drive  (gdocs upload-all)")
+    console.print("    + Thu: Post weekly Slack draft  (step 7)")
+    console.print("    + Fri: Weekly report + email  (steps 7–8)")
     console.print("  workmain eod --skip clockify         # Skip individual steps")
+    console.print("  workmain eod --skip weekly           # Skip Thu/Fri weekly steps")
     console.print("  workmain eod --dry-run               # Preview without executing")
 
     console.print("\n[bold yellow]OTHER USEFUL COMMANDS[/bold yellow]")
@@ -235,6 +241,10 @@ def today():
     console.print("  workmain clockify status             # Check Clockify connection")
     console.print("  workmain gdocs upload-all            # Archive to Google Drive manually")
     console.print("  workmain gdocs status                # Check Google Drive connection")
+    console.print("  workmain eod                         - End-of-day workflow (day-aware Thu/Fri)")
+    console.print("  workmain reports history             - View past generated reports")
+    console.print("  workmain reports view <id>           - Show full report content")
+    console.print("  workmain reports resend <id>         - Recreate email draft from report")
 
     console.print("\n[dim]Use 'workmain --help' for all commands[/dim]")
 
