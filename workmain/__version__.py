@@ -1,9 +1,11 @@
 """
 WorkmAIn Package Version
-Version v1.6.4
+Version v1.6.5
 20260320
 
 Version History:
+- v1.6.5: Merge dev → main: consolidate test hotfixes (v1.6.1–v1.6.4 dev-side
+          merges) and docs/ reorganization into main
 - v1.6.4: Hotfix — test suite consolidation: move 5 legacy scripts to
           scripts-deprecated/, rewrite test_time_tracking.py as proper pytest suite
           (sentinel dates, db_session fixture, correct method names), add
@@ -45,7 +47,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.6.4"
-__version_info__ = (1, 6, 4)
+__version__ = "1.6.5"
+__version_info__ = (1, 6, 5)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.5] - 2026-03-20
+
+### Changed
+- `docs/` reorganized: dev artifacts (session handoffs, phase specs, hotfix specs)
+  moved to gitignored `docs/dev/{handoffs,specs,hotfixes}/`. Living application
+  references remain tracked in `docs/` root.
+- `CLAUDE.md` v2.2: updated handoff reference to `docs/dev/handoffs/`; added
+  Documentation Standards section; updated Architecture entry for `docs/dev/`.
+- `.gitignore`: replaced stale per-file doc entries with `docs/dev/` blanket rule.
+
+### Notes
+- Consolidates dev-side hotfix merges (v1.6.1–v1.6.4) into main; no code changes
+  beyond what was already released via individual hotfix→main merges.
+
 ## [1.6.4] - 2026-03-20
 
 ### Changed
