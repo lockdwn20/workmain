@@ -1,7 +1,7 @@
 """
 WorkmAIn Email Tests
-Email Test v1.1
-20260306
+Email Test v1.2
+20260320
 
 Tests for the email repository, draft pipeline, and recipient management
 (Phase 6 Gate 5).
@@ -9,6 +9,7 @@ Tests for the email repository, draft pipeline, and recipient management
 Version History:
 - v1.0: Initial implementation (Phase 6 Gate 5)
 - v1.1: Hotfix staging-eod — updated output/ docstring references to staging/
+- v1.2: Pass db_session to _generate_draft calls for transaction isolation (hotfix/test-db-isolation)
 """
 
 import pytest
@@ -188,7 +189,7 @@ class TestDraftPipeline:
         repo.assign_recipient(r.id, _TEST_TEMPLATE, "to")
 
         try:
-            result = _generate_draft(_TEST_TEMPLATE)
+            result = _generate_draft(_TEST_TEMPLATE, session=db_session)
             assert result is not None
 
             subject, content, to_list, cc_list, report_date = result
@@ -218,7 +219,7 @@ class TestDraftPipeline:
 
         saved_path = None
         try:
-            result = _generate_draft(_TEST_TEMPLATE)
+            result = _generate_draft(_TEST_TEMPLATE, session=db_session)
             assert result is not None
 
             subject, content, to_list, cc_list, report_date = result
