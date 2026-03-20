@@ -173,7 +173,7 @@ def test_gemini_generation():
     # Create request
     request = GenerationRequest(
         prompt="Say 'Hello from Gemini!' and nothing else.",
-        max_tokens=20,
+        max_tokens=100,
         temperature=0.0
     )
     

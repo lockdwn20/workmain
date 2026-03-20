@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v3.7
-20260311
+Feature Backlog v3.8
+20260319
 
 # WorkmAIn Feature Backlog
 
@@ -16,6 +16,7 @@ Items deferred from various phases for future implementation.
 - v3.4 (20260309): Added Phase 7 technical debt (datetime.utcnow deprecation) and pre-Phase 13 test debt (test_database.py, test_templates.py)
 - v3.6 (20260311): Added Phase 8 deferral (workmain eod day-aware Thursday/Friday steps → Phase 10)
 - v3.7 (20260311): Retargeted Item 17 Phase 10 → Phase 9 (phase swap); added Item 18 (templates preview ImportError — pre-Phase 9 fix); fixed phase labels in summary/Items by Phase to match current checklist
+- v3.8 (20260319): Items 17 and 18 marked COMPLETE (Phase 9, v1.6.0); summary statistics updated
 
 ---
 
@@ -990,9 +991,9 @@ recovery path.
 
 ## Phase 8 Deferred — EOD Day-Aware Steps
 
-### 17. `workmain eod` Day-Aware Thursday/Friday Steps
+### 17. `workmain eod` Day-Aware Thursday/Friday Steps ✓ COMPLETE
 
-**Status:** Deferred to Phase 9
+**Status:** ✓ Complete — Phase 9, v1.6.0 (20260319)
 **Priority:** High (core daily workflow)
 **Effort:** ~3 hours
 **Added:** 20260311
@@ -1034,12 +1035,12 @@ Phase 9 will have all dependencies available.
 - `workmain integrations.slack` → already importable, no additional wiring
 
 **Acceptance Criteria:**
-- [ ] `workmain eod` detects Thursday and adds Slack post step
-- [ ] `workmain eod` detects Friday and adds weekly report + email steps
-- [ ] `--skip weekly` flag skips all day-specific steps
-- [ ] `--dry-run` shows correct step count for the current day
-- [ ] Monday–Wednesday run is unchanged (7 steps)
-- [ ] `eod.py` version bumped, CHANGELOG updated
+- [x] `workmain eod` detects Thursday and adds Slack post step
+- [x] `workmain eod` detects Friday and adds weekly report + email steps
+- [x] `--skip weekly` flag skips all day-specific steps
+- [x] `--dry-run` shows correct step count for the current day
+- [x] Monday–Wednesday run is unchanged (7 steps)
+- [x] `eod.py` version bumped, CHANGELOG updated
 
 **Reference:** `docs/SESSION_HANDOFF_PHASE8_READY.md` §FEATURE_BACKLOG.md UPDATE REQUIRED
 
@@ -1047,9 +1048,9 @@ Phase 9 will have all dependencies available.
 
 ## Pre-Phase 9 Fix Required
 
-### 18. `workmain templates preview` — `get_session` ImportError
+### 18. `workmain templates preview` — `get_session` ImportError ✓ COMPLETE
 
-**Status:** Pre-Phase 9 fix required
+**Status:** ✓ Complete — Phase 9 Gate 0, v1.6.0 (20260319)
 **Priority:** High (blocks Phase 9 start — listed as "Pre-Phase Fix Required" in checklist)
 **Effort:** ~30 min
 **Added:** 20260311
@@ -1078,10 +1079,10 @@ Replace `from workmain.database.connection import get_session` with `get_db()` p
 in `templates.py`. Bump file version.
 
 **Acceptance Criteria:**
-- [ ] `workmain templates preview daily_internal` completes without ImportError
-- [ ] `workmain templates preview weekly_client` completes without ImportError
-- [ ] `templates.py` version bumped, CHANGELOG updated
-- [ ] No other `get_session` imports remain in templates.py
+- [x] `workmain templates preview daily_internal` completes without ImportError
+- [x] `workmain templates preview weekly_client` completes without ImportError
+- [x] `templates.py` version bumped, CHANGELOG updated
+- [x] No other `get_session` imports remain in templates.py
 
 **Files affected:**
 - `workmain/cli/commands/templates.py`
@@ -1090,34 +1091,31 @@ in `templates.py`. Bump file version.
 
 ## Summary Statistics
 
-**Total Deferred Items:** 18 ⬆️ (was 17)
+**Total Open Items:** 16 ⬇️ (was 18; Items 17 & 18 completed in Phase 9)
 **Phase 2 Deferrals:** 2
 **Phase 3 Deferrals:** 4
-**Phase 3 Bug (Pre-Phase 9 Fix):** 1 ⭐ NEW
 **Phase 3.5/Pre-Phase 4 Deferrals:** 3
 **Phase 5.1 Deferrals (AI Provider):** 2
 **Phase 6 Deferrals (Technical Debt):** 1
 **Phase 7 Deferrals (Technical Debt):** 1
-**Phase 8 Deferrals (EOD Pipeline):** 1
 **Pre-Phase 13 Test Debt:** 2
+**Completed (Phase 9):** 2 ✓ (Items 17 & 18)
 
 **Priority Breakdown:**
-- High: 2 (workmain eod day-aware steps, templates preview ImportError) ⭐ +1
+- High: 0 (Items 17 & 18 complete ✓)
 - Medium: 6 (Shell autocomplete, Template editor, formatters.py, Streamlined model update, test_database.py fixture, test_templates.py import)
 - Low: 8 (Command aliases, Field-database sync, Template versioning, Template sharing, master_log_template.md, Add new AI provider, email.py internal session, datetime.utcnow deprecation)
 - Conditional: 1 (examples.json - create only if needed)
 
-**Effort Estimates:**
-- Under 1 hour: 5 items (Command aliases, master_log_template.md, email.py internal session, datetime.utcnow deprecation, templates preview fix) ⭐ +1
+**Effort Estimates (open items only):**
+- Under 1 hour: 4 items (Command aliases, master_log_template.md, email.py internal session, datetime.utcnow deprecation)
 - 1-3 hours: 5 items (Shell autocomplete, examples.json, Template sharing, test_database.py fixture, test_templates.py import)
-- 3-5 hours: 4 items (Template editor, Template versioning, formatters.py, eod day-aware steps)
+- 3-5 hours: 3 items (Template editor, Template versioning, formatters.py)
 - 5+ hours: 3 items (Field-database sync, Streamlined model update, Add new AI provider)
 
-**Total Deferred Effort:** ~50 hours ⬆️ (was ~49.5 hours)
+**Total Deferred Effort (open items):** ~46.5 hours ⬇️ (was ~50 hours)
 
-**Phase 9 Workload:** 1 item (workmain eod day-aware Thursday/Friday steps)
-
-**Pre-Phase 9 Fix Required:** 1 item (templates preview ImportError — fix before Phase 9 start) ⭐ NEW
+**Phase 9 Workload:** ✓ Complete (Items 17 & 18 shipped in v1.6.0)
 
 **Phase 13 Workload:** 7 items (Command aliases, Shell autocomplete, Template editor, formatters.py, master_log_template.md, Streamlined model update, email.py internal session)
 
@@ -1151,11 +1149,9 @@ Build first, refactor later. See the complete picture before abstracting.
 
 ## Items by Phase
 
-**Pre-Phase 9 Fix Required (before Phase 9 kickoff):** ⭐ NEW
-18. templates preview ImportError — get_session → get_db() (~30 min)
-
-**Phase 9 - Report Generation Pipeline:**
-17. workmain eod day-aware Thursday/Friday steps (~3 hours)
+**Phase 9 - Report Generation Pipeline (✓ Complete — v1.6.0):**
+17. ✓ workmain eod day-aware Thursday/Friday steps (~3 hours)
+18. ✓ templates preview ImportError — get_session → get_db() (~30 min)
 
 **Phase 13 - Testing & Documentation:**
 1. Command aliases (~20 min)
