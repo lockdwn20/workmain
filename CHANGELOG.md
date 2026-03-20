@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.3] - 2026-03-20
+
+### Fixed
+- `tests/test_phase_4_feature_3_4.py` v1.2: renamed all chained helper functions
+  from `test_*` → `_run_*` so pytest no longer discovers and runs `_run_meeting_creation()`
+  as a standalone test (it was committing "Test Standup (Auto-created)" meetings with
+  today's date on every pytest invocation with no cleanup path)
+- `tests/test_style_system.py` v1.1: same rename treatment — eliminates 5 pre-existing
+  fixture-not-found errors (`adapter` fixture) from the test output
+- One-time cleanup of 8 additional leaked "Test Standup (Auto-created)" meetings
+
 ## [1.6.2] - 2026-03-20
 
 ### Fixed

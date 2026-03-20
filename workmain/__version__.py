@@ -1,9 +1,11 @@
 """
 WorkmAIn Package Version
-Version v1.6.2
+Version v1.6.3
 20260320
 
 Version History:
+- v1.6.3: Hotfix — rename chained test_* helpers in script-style test files to
+          _run_* so pytest no longer discovers and runs them unguarded
 - v1.6.2: Hotfix — full test DB isolation (transaction rollback); one-time cleanup
           of ~300 leaked test rows from production database
 - v1.6.1: Hotfix — fix 4 test regressions: ICS RRULE expansion count mismatch
@@ -39,7 +41,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.6.2"
-__version_info__ = (1, 6, 2)
+__version__ = "1.6.3"
+__version_info__ = (1, 6, 3)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
