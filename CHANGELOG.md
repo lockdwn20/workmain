@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-03-19
+
+### Fixed
+- `tests/fixtures/week_normal.ics`: added `UNTIL=20260309T235959Z` to bound RRULE
+  to a single occurrence — the v1.5.4 RRULE expansion was expanding the recurring
+  test event to 500 rows, causing 4 `test_ics_import.py` count assertions to fail
+- `test_gdrive.py::test_03_already_uploaded_false`: changed sentinel from
+  `Daily_Notes_20260310.md` (now a real production DB record) to far-future date
+  `20991231` which is guaranteed to never exist
+- `test_ai_clients.py::test_gemini_generation`: raised `max_tokens` from 20 → 100;
+  gemini-2.5-flash was returning `MAX_TOKENS` with empty content at 20 tokens
+- `templates_engine/__init__.py` v1.3: added `validate_template()` module-level
+  convenience function; `test_templates.py` was importing it as a standalone
+  function that did not exist (only `TemplateValidator.validate_template()` existed)
+
 ## [1.6.0] - 2026-03-19
 
 ### Changed
