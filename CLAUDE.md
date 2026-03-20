@@ -1,7 +1,7 @@
 # CLAUDE.md - WorkmAIn Project Context
 
 WorkmAIn
-CLAUDE.md v2.1
+CLAUDE.md v2.2
 20260320
 
 Version History:
@@ -11,6 +11,8 @@ Version History:
   added templates preview bug to pitfalls; refreshed command count note.
 - v2.1 (20260320): Added testing standards reference, scripts-deprecated/ dir,
   updated test rule §6 to reflect consolidated suite.
+- v2.2 (20260320): docs/ reorganization — dev artifacts moved to gitignored docs/dev/;
+  updated handoff reference; added Documentation Standards section.
 
 ---
 
@@ -35,7 +37,7 @@ Read these when you need deeper context. Do NOT duplicate their content — refe
 | `docs/PATTERN_CORRECTIONS_SUMMARY.md` | Mistakes made and lessons learned | Before making structural changes |
 | `docs/implementation-checklist.md` | 16-phase roadmap with deliverables | Planning next phase or checking scope |
 | `docs/FEATURE_BACKLOG.md` | Deferred features with rationale | Before proposing new features |
-| `docs/SESSION_HANDOFF_PHASE8_COMPLETE.md` | Phase 8 status, file versions, deviations from spec | Understanding current state |
+| `docs/dev/handoffs/` (most recent file by date) | Current project state, file versions, deviations from spec | Starting any session to understand current state |
 | `docs/TESTING_STANDARDS.md` | How to run the suite, db_session fixture contract, rules for new tests | Writing any test or debugging test failures |
 
 ## Tech Stack
@@ -71,7 +73,8 @@ Key directories:
 - `tests/` - Pytest suite (test_*.py), fixtures/, mocks/ — see `docs/TESTING_STANDARDS.md`
 - `scripts/` - Utility scripts only (NOT tests)
 - `scripts-deprecated/` - Legacy manual validation scripts (Claude Desktop era, pre-operational)
-- `docs/` - Project documentation
+- `docs/` - Living application references (standards, backlog, checklist, roadmap)
+- `docs/dev/` - Gitignored dev artifacts: `handoffs/`, `specs/`, `hotfixes/`
 - `~/.workmain/integrations/` - Per-integration runtime config/cache (gdrive/, slack/, outlook/)
 
 ## Critical Rules
@@ -235,3 +238,19 @@ Report outputs go to `staging/` (not `output/`). This was renamed in the hotfix 
 6. **SQLAlchemy session discipline** — objects must be re-queried within the session that will modify them; passing objects across session boundaries causes silent persistence failures.
 7. **Staged output path** — reports write to `staging/` not `output/`. The `output/` directory no longer exists.
 8. **Phase 11 wires Slack config** — `slack/config.json` is temporary Phase 8 scaffolding. Phase 11 replaces it with `system_state.active_client → clients.slack_channel`. Do not expand config.json into a permanent solution.
+
+## Documentation Standards
+
+| Location | Type | Tracked? |
+|----------|------|----------|
+| `docs/` | Living application references (standards, backlog, checklist) | Yes |
+| `docs/dev/handoffs/` | Phase/feature session handoffs | No — local only |
+| `docs/dev/specs/` | Phase & feature specs | No — local only |
+| `docs/dev/hotfixes/` | Hotfix specs and hotfix session handoffs | No — local only |
+
+**Rules:**
+- Dev artifacts always go in `docs/dev/<type>/` — never in `docs/` root
+- Filenames are never changed — directory is the type delimiter
+- Phase/feature handoffs → `docs/dev/handoffs/`; hotfix handoffs → `docs/dev/hotfixes/`
+- Latest relevant handoff is always the most recently dated file in the appropriate subdir
+- When starting a new phase, spec, or hotfix session, create the handoff/spec in the correct subdir before writing code
