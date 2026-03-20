@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.4] - 2026-03-20
+
+### Changed
+- Moved 5 legacy Claude Desktop-era manual test scripts to `scripts-deprecated/`:
+  `test_time_tracking.py`, `test_database.py`, `test_phase_4_feature_3_4.py`,
+  `test_style_system.py`, `test_prompt_builder.py`. These can still be run directly
+  via `python3 scripts-deprecated/<file>.py` but are not part of the pytest suite.
+
+### Added
+- `tests/test_time_tracking.py` v2.0: full pytest rewrite using `db_session` fixture,
+  sentinel date `date(2099, 1, 1)`, and correct method names
+  (`get_category_breakdown_by_date` — the old script called a non-existent method,
+  silently failing cleanup every run and leaking 4 time entries each time)
+- `docs/TESTING_STANDARDS.md` v1.0: comprehensive testing guide — how to run the suite,
+  `db_session` fixture contract, sentinel date pattern, rules for new tests,
+  `scripts-deprecated/` inventory, test file inventory, and phase-addition workflow
+- Updated `CLAUDE.md` v2.1: §6 (Test Files) now references testing standards explicitly;
+  `scripts-deprecated/` listed in Key Directories; `docs/TESTING_STANDARDS.md` added to
+  Deep Reference Docs table
+
+### Notes
+- Suite baseline: **142 passed, 0 failed, 0 errors**
+
+## [1.6.3] - 2026-03-20
+
+### Fixed
+- `tests/test_phase_4_feature_3_4.py` v1.2: renamed all chained helper functions
+  from `test_*` → `_run_*` so pytest no longer discovers and runs `_run_meeting_creation()`
+  as a standalone test (it was committing "Test Standup (Auto-created)" meetings with
+  today's date on every pytest invocation with no cleanup path)
+- `tests/test_style_system.py` v1.1: same rename treatment — eliminates 5 pre-existing
+  fixture-not-found errors (`adapter` fixture) from the test output
+- One-time cleanup of 8 additional leaked "Test Standup (Auto-created)" meetings
+
 ## [1.6.2] - 2026-03-20
 
 ### Fixed
