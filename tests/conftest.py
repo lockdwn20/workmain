@@ -1,7 +1,7 @@
 """
 WorkmAIn Test Configuration
-conftest v1.3
-20260310
+conftest v2.1
+20260320
 
 Pytest fixtures shared across all test files.
 
@@ -10,65 +10,44 @@ Version History:
 - v1.1: Added Recipient/ReportRecipient cleanup for email tests
 - v1.2: Added GDriveUpload cleanup for Phase 7 gdrive tests
 - v1.3: Added Slack test report cleanup (Phase 8)
+- v2.0: Replaced pattern-based cleanup with transaction rollback isolation
+        (SQLAlchemy connection-level approach — superseded by v2.1)
+- v2.1: Correct SQLAlchemy 2.0 isolation: session.commit → session.flush,
+        explicit session.rollback() at teardown.  The bind= approach used in
+        v2.0 is deprecated in SA 2.0 and did not reliably suppress commits.
 """
 
 import pytest
 from dotenv import load_dotenv
 
-from workmain.database.connection import get_db
-from workmain.database.models import Meeting, Recipient, ReportRecipient, GDriveUpload, Report
-
-# Patterns cleaned up before and after each test
-_TEST_UID_PREFIX = "test-"           # ICS test meeting UIDs
-_TEST_EMAIL_SUFFIX = "@workmain-test.com"  # Email test recipient addresses
-
 
 @pytest.fixture
 def db_session():
     """
-    Database session fixture with automatic test data cleanup.
+    Database session fixture with full transaction isolation.
 
-    Cleans up before and after each test:
-    - Meetings whose outlook_id starts with 'test-'
-    - Recipients whose email ends with '@workmain-test.com'
-    - ReportRecipient assignments for those recipients (via cascade)
+    How it works:
+    - session.commit is redirected to session.flush so all repository code
+      works normally (data becomes visible within the session for subsequent
+      queries) but nothing is ever committed to the database.
+    - session.rollback() is called at teardown, rolling back every INSERT,
+      UPDATE, and DELETE performed during the test.
+
+    Result: the production database is completely unaffected by any test,
+    regardless of what data the test creates.
     """
     load_dotenv()
+
+    from workmain.database.connection import get_db
     db = get_db()
     session = db.get_session()
 
-    def _cleanup():
-        # Remove test recipients (cascade removes their assignments)
-        test_recipients = session.query(Recipient).filter(
-            Recipient.email.like(f"%{_TEST_EMAIL_SUFFIX}")
-        ).all()
-        for r in test_recipients:
-            session.delete(r)
-
-        # Remove test meetings by UID prefix
-        session.query(Meeting).filter(
-            Meeting.outlook_id.like(f"{_TEST_UID_PREFIX}%")
-        ).delete(synchronize_session=False)
-
-        # Remove test gdrive_uploads (drive_file_id starts with 'test-drive-')
-        session.query(GDriveUpload).filter(
-            GDriveUpload.drive_file_id.like("test-drive-%")
-        ).delete(synchronize_session=False)
-
-        # Clean up any slack-tagged test report rows (slack_message_ts starts with 'test-ts-')
-        session.query(Report).filter(
-            Report.slack_message_ts.like("test-ts-%")
-        ).update(
-            {"slack_message_ts": None, "slack_channel": None, "slack_workspace_name": None},
-            synchronize_session=False,
-        )
-
-        session.commit()
-
-    _cleanup()
+    # Redirect commit → flush: data lands in the DB transaction (visible
+    # for subsequent queries within this session) but is never committed.
+    session.commit = session.flush
 
     try:
         yield session
     finally:
-        _cleanup()
+        session.rollback()   # undo every flushed-but-uncommitted change
         session.close()

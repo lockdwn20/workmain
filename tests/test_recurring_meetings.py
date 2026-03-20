@@ -2,12 +2,14 @@
 Unit tests for recurring meetings functionality.
 Tests Phase 5.1 operational fixes.
 
-Version: 1.1
-Date: 2026-01-28
+Version: 1.2
+Date: 20260320
 
 Version History:
 - v1.0: Initial test suite with placeholder db_session fixture
 - v1.1: Implemented db_session fixture with proper database connection
+- v1.2: Remove local db_session fixture — defer to conftest.py v2.1 which
+        correctly redirects commit→flush and rolls back at teardown
 """
 
 import pytest
@@ -300,9 +302,10 @@ class TestFuzzyMatchPerformance:
         )
 
         # All should match regardless of case
-        matches_lower = repo.fuzzy_match("team", threshold=0.5)
-        matches_upper = repo.fuzzy_match("TEAM", threshold=0.5)
-        matches_mixed = repo.fuzzy_match("Team", threshold=0.5)
+        # threshold=0.3: similarity('team','Team Standup')=0.38, needs room below 0.5
+        matches_lower = repo.fuzzy_match("team", threshold=0.3)
+        matches_upper = repo.fuzzy_match("TEAM", threshold=0.3)
+        matches_mixed = repo.fuzzy_match("Team", threshold=0.3)
 
         assert len(matches_lower) >= 1
         assert len(matches_upper) >= 1
@@ -376,22 +379,3 @@ class TestEdgeCases:
         assert duration == 0.0
 
 
-# Fixtures
-@pytest.fixture
-def db_session():
-    """
-    Provide a database session for testing.
-
-    Uses the actual production database connection.
-    Rolls back changes after each test to maintain isolation.
-    """
-    from workmain.database.connection import get_db
-
-    db = get_db()
-    session = db.get_session()
-
-    yield session
-
-    # Rollback any changes made during the test
-    session.rollback()
-    session.close()
