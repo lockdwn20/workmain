@@ -1,9 +1,13 @@
 """
 WorkmAIn Package Version
-Version v1.6.3
+Version v1.6.4
 20260320
 
 Version History:
+- v1.6.4: Hotfix — test suite consolidation: move 5 legacy scripts to
+          scripts-deprecated/, rewrite test_time_tracking.py as proper pytest suite
+          (sentinel dates, db_session fixture, correct method names), add
+          docs/TESTING_STANDARDS.md, update CLAUDE.md §6 with testing rules
 - v1.6.3: Hotfix — rename chained test_* helpers in script-style test files to
           _run_* so pytest no longer discovers and runs them unguarded
 - v1.6.2: Hotfix — full test DB isolation (transaction rollback); one-time cleanup
@@ -41,7 +45,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.6.3"
-__version_info__ = (1, 6, 3)
+__version__ = "1.6.4"
+__version_info__ = (1, 6, 4)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
