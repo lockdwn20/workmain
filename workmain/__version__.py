@@ -1,51 +1,40 @@
 """
 WorkmAIn Package Version
-Version v1.5.6
-20260313
+Version v1.6.0
+20260319
 
 Version History:
-- v0.1.0: Initial structure
-- v0.2.0: Phase 2 complete (CLI, notes, meetings, time tracking)
-- v0.3.0: Phase 2 tasks feature
-- v0.4.0: Phase 2 complete with all 24 commands
-- v0.5.0: Phase 3 complete (template system)
-- v0.6.0: Phase 3.5 complete (template extensibility)
-- v0.7.0: Phase 4 Days 1-7 (AI integration core)
-- v0.8.0: Phase 4 Features 1-2 (providers CLI, bulk meeting notes, AI condensation)
-- v0.9.0: Phase 4 Features 3-4 - Enhanced status display
-- v1.0.0: Phase 5 complete - Clockify integration (sync, reports, status)
-- v1.1.0: Phase 5.1 complete - Operational test fixes and integration
-- v1.2.0: CLI Standardization Sprint complete - unified notes/meetings groups,
-          standardized flags, eod command, today rewrite
-- v1.3.0: Phase 6 complete - Outlook Integration (ICS import, calendar commands,
-          email draft pipeline, recipient management)
-- v1.3.1: Hotfix — staging/ folder restructure (output/ renamed), eod Step 4/5
-          corrections, clockify report redesigned (save <period> subcommand)
-- v1.4.0: Phase 7 complete - Google Drive Integration (gdocs upload-all, eod Step 6,
-          OAuth2 WSL-safe flow, folder caching, gdrive_uploads DB tracking)
-- v1.4.1: Hotfix — update today/status for Phase 6 & 7, add Phase 7 backlog items
-- v1.4.2: Hotfix — fix calendar import: fallback title+date match, UID deduplication
-- v1.4.3: Hotfix — fix Rich MarkupError in gdocs auth ([dim] tag split across print calls)
-- v1.5.0: Phase 8 complete — Slack integration (post-weekly draft workflow,
-          slack setup/auth/status/channel commands, migration 006)
-- v1.5.1: Hotfix — fix slack post-weekly: replace invalid --start/--end subprocess flags
-          with direct Python API call via get_report_generator()
-- v1.5.2: Hotfix — fix gdocs _require_auth(): call get_credentials() instead of
-          is_authenticated() to enable silent token refresh on expiry
-- v1.5.3: Hotfix — fix `notes meeting` returning no results for recurring meetings;
-          get_by_title() was returning a future Outlook occurrence with no notes;
-          fix adds NotesRepository.get_by_meeting_title() joining on title
-- v1.5.4: Hotfix — fix ICS import RRULE expansion; recurring VEVENTs now expanded
-          into one row per occurrence via dateutil.rrulestr; EXDATE respected;
-          outlook_recurring_id backfilled on update
-- v1.5.5: Hotfix — standardize track edit --time to -T (match track add/CLI standards);
-          add ID discovery help text pointing to workmain time today
+- v1.6.0: Phase 9 complete — report→reports rename, EOD day-aware Thu/Fri pipeline,
+          reports history/view/resend commands, templates preview ImportError fix (Item 18)
 - v1.5.6: Hotfix — fix meetings condense pulling in prior AI-generated summary notes;
           condensed notes now use source='condensed' to distinguish from user notes
           (source='meeting'); 58 existing condensed notes backfilled via data migration
+- v1.5.5: Hotfix — track edit --time short flag conflict (-t → -T)
+- v1.5.4: Hotfix — calendar import RRULE expansion for recurring events
+- v1.5.3: Hotfix — notes meeting recurring lookup via JOIN
+- v1.5.2: Hotfix — gdocs auth token refresh (creds.valid false on expiry)
+- v1.5.1: Hotfix — slack post-weekly subprocess fix (invalid --start/--end flags)
+- v1.5.0: Phase 8 complete — Slack integration, post-weekly workflow
+- v1.4.0: Phase 7 complete - Google Drive Integration (gdocs upload-all, eod Step 6,
+          OAuth2 WSL-safe flow, folder caching, gdrive_uploads DB tracking)
+- v1.3.0: Phase 6 complete - Outlook Integration (ICS import, calendar commands,
+          email draft pipeline, recipient management)
+- v1.2.0: CLI Standardization Sprint complete - unified notes/meetings groups,
+          standardized flags, eod command, today rewrite
+- v1.1.0: Phase 5.1 complete - Operational test fixes and integration
+- v1.0.0: Phase 5 complete - Clockify integration (sync, reports, status)
+- v0.9.0: Phase 4 Features 3-4 - Enhanced status display
+- v0.8.0: Phase 4 Features 1-2 (providers CLI, bulk meeting notes, AI condensation)
+- v0.7.0: Phase 4 Days 1-7 (AI integration core)
+- v0.6.0: Phase 3.5 complete (template extensibility)
+- v0.5.0: Phase 3 complete (template system)
+- v0.4.0: Phase 2 complete with all 24 commands
+- v0.3.0: Phase 2 tasks feature
+- v0.2.0: Phase 2 complete (CLI, notes, meetings, time tracking)
+- v0.1.0: Initial structure
 """
 
-__version__ = "1.5.6"
-__version_info__ = (1, 5, 6)
+__version__ = "1.6.0"
+__version_info__ = (1, 6, 0)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
