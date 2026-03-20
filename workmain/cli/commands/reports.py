@@ -1,6 +1,6 @@
 """
 WorkmAIn Report Commands - Phase 4 Implementation
-Report Commands v2.1
+Report Commands v2.2
 20260319
 
 Static action-first command structure — template is an argument.
@@ -9,8 +9,10 @@ Commands:
 - reports preview <template>   # preview prompts, no AI cost
 - reports save <template>      # generate with AI, save to staging/reports/
 - reports send <template>      # stub — chains to email send (OAuth required)
-- reports list
+- reports list / history       # list reports from DB (history is alias)
 - reports show <file>
+- reports view <id>            # show full content by DB id
+- reports resend <id>          # recreate email draft from stored report
 - reports costs
 
 Version History:
@@ -33,8 +35,11 @@ Version History:
         Updated stale hint text to new command syntax
 - v2.0: Hotfix staging-eod — updated output path references from output/ to staging/
 - v2.1: Phase 9 Gate 1 — renamed command group report → reports (plural)
+- v2.2: Phase 9 Gate 3 — enhanced list (ID/Slack/preview columns, --type filter),
+        added history alias, view <id>, resend <id> commands
 """
 
+import subprocess
 import click
 from datetime import date, datetime
 from pathlib import Path
@@ -46,7 +51,10 @@ from rich.panel import Panel
 from rich import box
 
 from workmain.database.connection import get_db
+from workmain.database.models import Report
 from workmain.ai import get_report_generator, ReportFormat, ProviderType
+
+VALID_REPORT_TYPES = ['daily_internal', 'weekly_client']
 
 console = Console()
 
@@ -203,69 +211,106 @@ def report_send(template: str):
     )
 
 
-@reports.command('list')
-@click.option('--limit', '-n', type=int, default=10, help='Number of reports to show')
-def report_list(limit: int):
-    """
-    List generated reports.
+def _report_list_impl(limit: int, report_type: Optional[str]) -> None:
+    """Shared implementation for 'list' and 'history' commands."""
+    if report_type and report_type not in VALID_REPORT_TYPES:
+        console.print(f"[red]Error: Unknown report type '{report_type}'. Valid types: {', '.join(VALID_REPORT_TYPES)}[/red]")
+        raise SystemExit(1)
 
-    \b
-    Examples:
-      workmain reports list
-      workmain reports list -n 20
-    """
     db = get_db()
     session = db.get_session()
 
     try:
-        generator = get_report_generator(session)
+        rows = (
+            session.query(Report)
+            .filter(Report.report_type == report_type if report_type else True)
+            .order_by(Report.report_date.desc(), Report.id.desc())
+            .limit(limit)
+            .all()
+        )
 
-        reports = generator.get_report_history(limit=limit)
-
-        if not reports:
+        if not rows:
             console.print("\n[yellow]No reports found.[/yellow]")
             console.print("[dim]Generate your first report with: workmain reports save daily_internal[/dim]\n")
             return
 
+        title = f"Report History (last {len(rows)})"
+        if report_type:
+            title += f" — {report_type}"
+
         table = Table(
-            title=f"\nGenerated Reports ({len(reports)})",
+            title=f"\n{title}",
             show_header=True,
             header_style="bold cyan",
             box=box.ROUNDED
         )
 
-        table.add_column("Template", style="cyan")
+        table.add_column("ID", style="dim", justify="right")
+        table.add_column("Type", style="cyan")
         table.add_column("Date", style="green")
-        table.add_column("Size", justify="right")
         table.add_column("Created", style="dim")
-        table.add_column("File", style="blue")
+        table.add_column("Slack", justify="center")
+        table.add_column("Preview", style="dim")
 
-        for r in reports:
-            size_kb = r['file_size'] / 1024
-            size_str = f"{size_kb:.1f} KB"
-
-            created = datetime.fromisoformat(r['created_at'])
-            created_str = created.strftime('%Y-%m-%d %H:%M')
-
-            file_path = Path(r['file_path'])
-            file_name = file_path.name
+        for r in rows:
+            created_str = r.created_at.strftime('%H:%M') if r.created_at else "—"
+            slack_str = "✓" if r.slack_message_ts else "—"
+            preview = r.content.lstrip('# \n')[:50] if r.content else ""
 
             table.add_row(
-                r['template_name'],
-                r['report_date'],
-                size_str,
+                str(r.id),
+                r.report_type or "—",
+                str(r.report_date) if r.report_date else "—",
                 created_str,
-                file_name
+                slack_str,
+                preview
             )
 
         console.print(table)
         console.print()
 
+    except SystemExit:
+        raise
     except Exception as e:
         console.print(f"[red]✗ Failed to list reports: {e}[/red]")
 
     finally:
         session.close()
+
+
+@reports.command('list')
+@click.option('--limit', '-n', type=int, default=10, help='Number of reports to show')
+@click.option('--type', '-t', 'report_type', default=None,
+              help='Filter by report type (daily_internal, weekly_client)')
+def report_list(limit: int, report_type: Optional[str]):
+    """
+    List generated reports (DB-backed).
+
+    \b
+    Examples:
+      workmain reports list
+      workmain reports list -n 20
+      workmain reports list --type daily_internal
+    """
+    _report_list_impl(limit, report_type)
+
+
+@reports.command('history')
+@click.option('--limit', '-n', type=int, default=10, help='Number of rows to show')
+@click.option('--type', '-t', 'report_type', default=None,
+              help='Filter by report type (daily_internal, weekly_client)')
+def report_history(limit: int, report_type: Optional[str]):
+    """
+    List past generated reports (alias for 'list').
+
+    \b
+    Examples:
+      workmain reports history
+      workmain reports history --limit 3
+      workmain reports history --type daily_internal
+      workmain reports history --type weekly_client
+    """
+    _report_list_impl(limit, report_type)
 
 
 @reports.command('show')
@@ -304,6 +349,106 @@ def report_show(filename: str):
 
     except Exception as e:
         console.print(f"[red]✗ Failed to show report: {e}[/red]")
+
+    finally:
+        session.close()
+
+
+@reports.command('view')
+@click.argument('id', type=click.INT)
+def report_view(id: int):
+    """
+    Display full content of a stored report by database ID.
+
+    \b
+    Example:
+      workmain reports view 42
+    """
+    db = get_db()
+    session = db.get_session()
+
+    try:
+        report = session.query(Report).filter(Report.id == id).first()
+
+        if not report:
+            console.print(f"[red]Error: No report found with ID {id}.[/red]")
+            raise SystemExit(1)
+
+        title = f"Report #{report.id} — {report.report_type} — {report.report_date}"
+
+        console.print()
+        console.print(Panel(
+            report.content or "(no content)",
+            title=f"[bold]{title}[/bold]",
+            border_style="green"
+        ))
+        console.print()
+
+    except SystemExit:
+        raise
+    except Exception as e:
+        console.print(f"[red]✗ Failed to show report: {e}[/red]")
+
+    finally:
+        session.close()
+
+
+@reports.command('resend')
+@click.argument('id', type=click.INT)
+def report_resend(id: int):
+    """
+    Recreate an email draft from a previously stored report.
+
+    Stages report content to staging/reports/ then invokes the email pipeline.
+
+    \b
+    Example:
+      workmain reports resend 42
+    """
+    db = get_db()
+    session = db.get_session()
+
+    try:
+        report = session.query(Report).filter(Report.id == id).first()
+
+        if not report:
+            console.print(f"[red]Error: No report found with ID {id}.[/red]")
+            raise SystemExit(1)
+
+        report_type = report.report_type
+        report_date = report.report_date.isoformat() if report.report_date else "unknown"
+        staging_filename = f"{report_type}_{report_date}.md"
+
+        # Resolve staging dir relative to project root
+        project_root = Path(__file__).resolve().parents[3]
+        staging_path = project_root / "staging" / "reports" / staging_filename
+
+        if staging_path.exists():
+            console.print(f"{staging_path} already exists.")
+            overwrite = click.prompt("Overwrite? [y/N]", default="n")
+            if overwrite.strip().lower() != 'y':
+                console.print("Aborted.")
+                return
+
+        staging_path.parent.mkdir(parents=True, exist_ok=True)
+        staging_path.write_text(report.content or "", encoding='utf-8')
+        console.print(f"[green]✓ Report #{id} staged to {staging_path.relative_to(project_root)}[/green]")
+
+        # Invoke email pipeline via subprocess (no get_email_generator() API exists)
+        try:
+            result = subprocess.run(
+                ['workmain', 'email', 'save', report_type],
+                check=True
+            )
+            console.print(f"[green]✓ Email draft created. View with: workmain email list[/green]")
+        except subprocess.CalledProcessError as e:
+            console.print(f"[red]✗ Email draft failed: {e}[/red]")
+            console.print(f"[dim]Note: staging file written. Retry with: workmain email save {report_type}[/dim]")
+
+    except SystemExit:
+        raise
+    except Exception as e:
+        console.print(f"[red]✗ resend failed: {e}[/red]")
 
     finally:
         session.close()
