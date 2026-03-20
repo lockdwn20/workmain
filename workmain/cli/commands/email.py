@@ -1,7 +1,7 @@
 """
 WorkmAIn Email Commands
-Email Commands v1.2
-20260319
+Email Commands v1.3
+20260320
 
 Email command group for Outlook email draft pipeline (Phase 6).
 
@@ -26,6 +26,7 @@ Version History:
 - v1.0: Initial implementation (Phase 6 Gate 5)
 - v1.1: Hotfix staging-eod — renamed output/ to staging/ across all path references
 - v1.2: Phase 9 Gate 1 — updated hint text from 'report save' to 'reports save'
+- v1.3: Add optional session param to _get_draft_recipients/_generate_draft for test isolation
 """
 
 import re
@@ -106,22 +107,37 @@ def _build_draft_content(
     return "\n".join(lines)
 
 
-def _get_draft_recipients(template: str) -> tuple[list[str], list[str]]:
+def _get_draft_recipients(
+    template: str,
+    session=None,
+) -> tuple[list[str], list[str]]:
     """
     Look up recipients for a template from report_recipients table.
 
     Returns (to_list, cc_list) of email addresses.
+
+    Args:
+        template: Report template name.
+        session: Optional existing session (used by tests for transaction isolation).
+                 When None a fresh session is opened and closed internally.
     """
-    db = get_db()
-    session = db.get_session()
-    try:
+    if session is not None:
         repo = get_email_repository(session)
         assignments = repo.get_assignments_for_template(template)
         to_list = [a.email for a in assignments if a.recipient_type == 'to']
         cc_list = [a.email for a in assignments if a.recipient_type == 'cc']
         return to_list, cc_list
+
+    db = get_db()
+    _session = db.get_session()
+    try:
+        repo = get_email_repository(_session)
+        assignments = repo.get_assignments_for_template(template)
+        to_list = [a.email for a in assignments if a.recipient_type == 'to']
+        cc_list = [a.email for a in assignments if a.recipient_type == 'cc']
+        return to_list, cc_list
     finally:
-        session.close()
+        _session.close()
 
 
 def _resolve_draft_file(n: str) -> Optional[Path]:
@@ -147,12 +163,20 @@ def _resolve_draft_file(n: str) -> Optional[Path]:
 # Draft pipeline (shared by preview and save)
 # ------------------------------------------------------------------
 
-def _generate_draft(template: str) -> Optional[tuple[str, str, list, list, date]]:
+def _generate_draft(
+    template: str,
+    session=None,
+) -> Optional[tuple[str, str, list, list, date]]:
     """
     Generate a draft for the given template.
 
     Returns (subject, content, to_list, cc_list, report_date) or None on error.
     Prints error messages directly if something is missing.
+
+    Args:
+        template: Report template name.
+        session: Optional existing session forwarded to _get_draft_recipients
+                 (used by tests for transaction isolation).
     """
     report_path = _find_latest_report(template)
     if report_path is None:
@@ -167,7 +191,7 @@ def _generate_draft(template: str) -> Optional[tuple[str, str, list, list, date]
     report_date = _extract_report_date(report_path)
     body = report_path.read_text(encoding='utf-8')
     subject = _build_subject(template, report_date)
-    to_list, cc_list = _get_draft_recipients(template)
+    to_list, cc_list = _get_draft_recipients(template, session=session)
 
     draft_date = datetime.now()
     content = _build_draft_content(subject, to_list, cc_list, body, draft_date)

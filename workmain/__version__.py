@@ -1,9 +1,12 @@
 """
 WorkmAIn Package Version
-Version v1.6.0
+Version v1.6.1
 20260319
 
 Version History:
+- v1.6.1: Hotfix — fix 4 test regressions: ICS RRULE expansion count mismatch
+          (week_normal.ics UNTIL bound), gdrive test_03 stale DB state (sentinel date),
+          gemini max_tokens too low (20→100), templates_engine missing validate_template()
 - v1.6.0: Phase 9 complete — report→reports rename, EOD day-aware Thu/Fri pipeline,
           reports history/view/resend commands, templates preview ImportError fix (Item 18)
 - v1.5.6: Hotfix — fix meetings condense pulling in prior AI-generated summary notes;
@@ -34,7 +37,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.6.0"
-__version_info__ = (1, 6, 0)
+__version__ = "1.6.1"
+__version_info__ = (1, 6, 1)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
