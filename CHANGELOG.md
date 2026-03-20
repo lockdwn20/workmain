@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-03-19
+
+### Changed
+- **BREAKING:** `workmain report` command group renamed to `workmain reports`
+  (plural) for consistency with `note`/`notes` convention. All subcommands
+  (`costs`, `list`, `preview`, `save`, `send`, `show`) move unchanged.
+  Update any external scripts referencing `workmain report`.
+
+### Added
+- `workmain eod` is now day-aware: Thursday adds `slack post-weekly` step;
+  Friday adds `reports save weekly_client` and `email save weekly_client` steps;
+  Mon–Wed behaviour unchanged
+- `--skip weekly` flag on `workmain eod` skips all day-specific weekly steps;
+  silently no-ops on Mon–Wed
+- `workmain eod --dry-run` now shows correct day-appropriate step sequence
+- `workmain reports history [--limit N] [--type TYPE]` — list past generated
+  reports from the database with Rich table output (ID, type, date, Slack status,
+  content preview)
+- `workmain reports view <id>` — display full stored content of a report in a
+  Rich Panel
+- `workmain reports resend <id>` — recreate email draft from stored report
+  content; stages to staging/reports/<type>_<date>.md and invokes email pipeline
+
+### Fixed
+- `workmain templates preview` no longer raises
+  `ImportError: cannot import name 'get_session'` — migrated to `get_db()`
+  pattern (FEATURE_BACKLOG Item 18)
+
+### Tests
+- `tests/test_eod_pipeline.py` v1.0: 9 test cases — day detection,
+  --skip weekly, --dry-run step labels
+- `tests/test_report_history.py` v1.0: 12 test cases — history filtering,
+  view by ID, resend staging and abort paths
+
+## [1.5.6] - 2026-03-13
+
+### Fixed
+- `workmain meetings condense` no longer feeds prior AI-generated summary notes back
+  into the condensation prompt. Each run creates a note with `source='condensed'`
+  (previously `source='meeting'`, same as real user notes), which is now excluded from
+  both the condenser query and the `get_note_count` display. 58 existing condensed notes
+  in the database were backfilled to `source='condensed'` via a one-time data migration.
+
 ## [1.5.5] - 2026-03-12
 
 ### Fixed

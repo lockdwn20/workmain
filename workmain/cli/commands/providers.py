@@ -1,7 +1,7 @@
 """
 WorkmAIn Provider CLI Commands
-Provider Commands v1.6
-20260303
+Provider Commands v1.7
+20260319
 
 CLI commands for managing AI providers (Claude and Gemini).
 
@@ -19,6 +19,7 @@ Version History:
 - v1.4: Phase 5.1 - Updated Claude fallback model to claude-sonnet-4-5-20250929
 - v1.5: CLI Standardization Sprint (Gate 1) - providers costs --limit -l → -n
 - v1.6: CLI Standardization Sprint (Gate 6) - set-default stub updated with [NOT IMPLEMENTED]
+- v1.7: Phase 9 Gate 1 — updated hint text from 'report daily' to 'reports save daily_internal'
 """
 
 from typing import Optional
@@ -258,7 +259,7 @@ def show_costs(provider: Optional[str], month: Optional[str], limit: int):
             console.print()
             console.print("[yellow]No reports found in database[/yellow]")
             console.print()
-            console.print("[dim]Generate a report first with: workmain report daily --send[/dim]")
+            console.print("[dim]Generate a report first with: workmain reports save daily_internal[/dim]")
             console.print()
             return
         

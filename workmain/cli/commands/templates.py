@@ -1,7 +1,7 @@
 """
 WorkmAIn Template CLI Commands
-Template Commands v2.7
-20251230
+Template Commands v2.8
+20260319
 
 CLI commands for template management with interactive creation and alias management.
 
@@ -19,6 +19,9 @@ Version History:
 - v2.5: Fixed list command to handle string template names (load each template for details)
 - v2.6: Added alias management (register, unregister, list-aliases) for simplified CLI usage
 - v2.7: Phase 5.1 - Fixed help text formatting with \b escape sequence
+- v2.8: Item 18 - Migrated preview command from get_session() to get_db() pattern;
+        fixed render() call to pass template_name string (not template dict);
+        switched to renderer.preview() to get plain string output
 """
 
 import click
@@ -108,8 +111,8 @@ def list_aliases():
         
         click.echo("\n" + "=" * 60)
         click.echo("\nUsage:")
-        click.echo("  workmain report <alias> --send")
-        click.echo("  Example: workmain report daily --send")
+        click.echo("  workmain reports <alias> --send")
+        click.echo("  Example: workmain reports daily_internal --send")
         
     except Exception as e:
         click.echo(f"Error listing aliases: {e}", err=True)
@@ -130,7 +133,7 @@ def register(template_name: str, alias: str):
       workmain templates register security_audit --alias security
 
     After registration:
-      workmain report monthly --send
+      workmain reports monthly --send
     """
     loader = get_template_loader()
     alias_manager = get_alias_manager()
@@ -159,8 +162,8 @@ def register(template_name: str, alias: str):
         click.echo(f"\n✓ Alias registered successfully!")
         click.echo(f"\n  {alias} → {template_name}")
         click.echo(f"\nUsage:")
-        click.echo(f"  workmain report {alias} --send")
-        click.echo(f"  workmain report {alias} --preview")
+        click.echo(f"  workmain reports {alias} --send")
+        click.echo(f"  workmain reports {alias} --preview")
         
     except Exception as e:
         click.echo(f"\n✗ Error registering alias: {e}", err=True)
@@ -334,32 +337,33 @@ def preview(template_name: str, date: Optional[str]):
       workmain templates preview daily_internal
       workmain templates preview weekly_client --date 2025-12-30
     """
-    from workmain.database.connection import get_session
-    
+    from workmain.database.connection import get_db
+
     loader = get_template_loader()
-    
+
     try:
         template = loader.load(template_name)
         if not template:
             click.echo(f"Template '{template_name}' not found.", err=True)
             return
-        
+
         # Parse date
         if date:
             preview_date = dt.strptime(date, '%Y-%m-%d').date()
         else:
             preview_date = dt.now().date()
-        
+
         # Get database session
-        session = get_session()
+        db = get_db()
+        session = db.get_session()
         
         try:
             # Create renderer with session
             renderer = TemplateRenderer(session)
-            
-            # Render template
-            rendered = renderer.render(template, report_date=preview_date)
-            
+
+            # Use preview() which returns a plain string (not the full render dict)
+            rendered = renderer.preview(template_name, report_date=preview_date)
+
             click.echo(f"\nTemplate Preview: {template['name']}")
             click.echo(f"Date: {preview_date}")
             click.echo("=" * 60)
