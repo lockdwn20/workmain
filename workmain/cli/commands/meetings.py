@@ -1,6 +1,6 @@
 """
 WorkmAIn Meeting CLI Commands
-Meeting Commands v3.3
+Meeting Commands v3.4
 20260327
 
 CLI commands for meeting management.
@@ -28,6 +28,8 @@ Version History:
 - v3.3: Hotfix — condense gate uses total note count (exclude_ifo=False) so
         meetings with only info-only notes are not blocked from condensation;
         they reach the condenser which returns the "Attended <Meeting>" default
+- v3.4: Hotfix — pass meeting_date to get_note_count for per-occurrence scoping;
+        fix cost display to read _last_completed (end_report cleared _current_report)
 """
 
 import click
@@ -738,9 +740,10 @@ def meetings_condense(meeting_title: str):
             today = date.today()
             console.print(f"\n[yellow]Multiple meetings found:[/yellow]")
             for i, (m, score) in enumerate(matches[:5], 1):
-                note_count = meetings_repo.get_note_count(m.id)
+                occ_date = m.start_time.date() if m.start_time else None
+                note_count = meetings_repo.get_note_count(m.id, meeting_date=occ_date)
                 meeting_date = m.start_time.strftime('%Y-%m-%d %H:%M') if m.start_time else "No date"
-                is_today = m.start_time.date() == today if m.start_time else False
+                is_today = occ_date == today if occ_date else False
                 today_marker = " [green]← Today[/green]" if is_today else ""
                 console.print(f"  {i}. {m.title} ({meeting_date}, {note_count} notes, {score*100:.0f}% match){today_marker}")
 
@@ -752,8 +755,10 @@ def meetings_condense(meeting_title: str):
             meeting, _ = matches[choice - 1]
 
         # Check if meeting has notes (include ifo so ifo-only meetings aren't blocked;
-        # the condenser handles them by returning "Attended <Meeting>" default)
-        total_count = meetings_repo.get_note_count(meeting.id, exclude_ifo=False)
+        # the condenser handles them by returning "Attended <Meeting>" default).
+        # Scope to meeting date to avoid counting notes from other recurring occurrences.
+        occurrence_date = meeting.start_time.date() if meeting.start_time else None
+        total_count = meetings_repo.get_note_count(meeting.id, exclude_ifo=False, meeting_date=occurrence_date)
         if total_count == 0:
             console.print(f"\n[yellow]✗ Meeting '{meeting.title}' has no notes to condense[/yellow]")
             console.print()
@@ -762,7 +767,7 @@ def meetings_condense(meeting_title: str):
             console.print()
             return
 
-        non_ifo_count = meetings_repo.get_note_count(meeting.id)
+        non_ifo_count = meetings_repo.get_note_count(meeting.id, meeting_date=occurrence_date)
         if non_ifo_count == 0:
             console.print()
             console.print(f"[bold]Condensing for:[/bold] {meeting.title} [dim](ifo-only notes → will use default summary)[/dim]")
@@ -778,11 +783,13 @@ def meetings_condense(meeting_title: str):
         try:
             summary = condenser.condense_meeting(meeting)
 
-            # Get cost from last condensation
+            # Get cost from last condensation.
+            # end_report() clears _current_report, so read from _last_completed.
             cost_tracker = condenser.cost_tracker
-            if cost_tracker._current_report:
-                total_cost = sum(s.cost for s in cost_tracker._current_report.sections)
-                total_tokens = sum(s.total_tokens for s in cost_tracker._current_report.sections)
+            report = cost_tracker._last_completed
+            if report and report.sections:
+                total_cost = sum(s.cost for s in report.sections)
+                total_tokens = sum(s.total_tokens for s in report.sections)
             else:
                 total_cost = 0.0
                 total_tokens = 0

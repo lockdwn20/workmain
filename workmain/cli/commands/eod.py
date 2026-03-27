@@ -1,6 +1,6 @@
 """
 WorkmAIn End-of-Day Workflow
-EOD v1.6
+EOD v1.7
 20260327
 
 Guided end-of-day workflow for daily work wrap-up.
@@ -37,6 +37,7 @@ Version History:
 - v1.6: Hotfix — condense step gate now checks total note count (exclude_ifo=False)
         so meetings with only info-only notes are included and trigger the default
         "Attended <Meeting>" summary; surfaced by per-occurrence calendar expansion
+- v1.7: Hotfix — pass meeting_date to get_note_count to scope counts per occurrence
 """
 
 import subprocess
@@ -94,8 +95,9 @@ def _run_condense_step(dry_run: bool) -> bool:
 
         pending = []
         for mtg in today_meetings:
-            total_count = repo.get_note_count(mtg.id, exclude_ifo=False)
-            non_ifo_count = repo.get_note_count(mtg.id)
+            mtg_date = mtg.start_time.date() if mtg.start_time else None
+            total_count = repo.get_note_count(mtg.id, exclude_ifo=False, meeting_date=mtg_date)
+            non_ifo_count = repo.get_note_count(mtg.id, meeting_date=mtg_date)
             if total_count > 0 and not mtg.condensed_summary:
                 pending.append((mtg, total_count, non_ifo_count))
 

@@ -1,9 +1,14 @@
 """
 WorkmAIn Package Version
-Version v1.6.7
+Version v1.6.8
 20260327
 
 Version History:
+- v1.6.8: Hotfix — stale note condensation: condenser and get_note_count now scope
+          queries to meeting date so notes from previous recurring occurrences sharing
+          the same meeting_id are not included; fixes deleted notes reappearing in
+          subsequent condensations. Also fixes cost display ($0 always shown) by
+          reading _last_completed instead of _current_report (which end_report clears).
 - v1.6.7: Hotfix — ifo-only note condensation gate: eod.py and meetings condense
           now use exclude_ifo=False for the "has notes?" existence check so meetings
           with only info-only notes are not skipped; the condenser correctly returns
@@ -58,7 +63,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.6.7"
-__version_info__ = (1, 6, 7)
+__version__ = "1.6.8"
+__version_info__ = (1, 6, 8)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
