@@ -1,9 +1,15 @@
 """
 WorkmAIn Package Version
-Version v1.6.6
+Version v1.6.7
 20260327
 
 Version History:
+- v1.6.7: Hotfix — ifo-only note condensation gate: eod.py and meetings condense
+          now use exclude_ifo=False for the "has notes?" existence check so meetings
+          with only info-only notes are not skipped; the condenser correctly returns
+          "Attended <Meeting>" for these. Bug was latent since Phase 5.1 but surfaced
+          after v1.6.6 per-occurrence calendar expansion began creating fresh meeting
+          rows that accumulated only ifo notes before condensation could run.
 - v1.6.6: Hotfix — calendar import date-migration and stale-UID orphan bugs:
           date-shift protection prevents notes travelling to future occurrences
           when series start shifts between ICS exports; stale-UID orphan cleanup
@@ -52,7 +58,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.6.6"
-__version_info__ = (1, 6, 6)
+__version__ = "1.6.7"
+__version_info__ = (1, 6, 7)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
