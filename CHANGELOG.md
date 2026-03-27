@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.6] - 2026-03-27
+
+### Fixed
+- **Calendar import date-migration bug**: when a recurring series' ICS export started
+  from a later date than a previous export, the import would move the series master row
+  (matched by series UID) to the new date — dragging accumulated notes with it to future
+  occurrences. Fix: when a UID match would change the calendar date AND the meeting has
+  notes, the existing record is re-keyed to a synthetic UID (preserving notes on the
+  original date) and a fresh row is inserted for the new occurrence.
+- **Stale-UID orphan accumulation**: when Outlook regenerates a series UID between
+  exports, the old UID's row becomes an unreachable duplicate. Fix: after every
+  primary UID match, `_find_stale_duplicates()` detects same-title+date+time rows
+  with a different `outlook_id` and auto-deletes them if they have zero notes.
+- **Import preview**: `_classify_events()` now surfaces `date_shift_notes` status
+  with label "notes kept on original date — new occurrence added" so the protection
+  is visible before confirming an import.
+- Data fix: deleted orphan rows ID 420 and ID 439 (zero notes, stale synthetic UIDs
+  duplicating the CSIRT Daily and Policy Violation touchpoint occurrences for 2026-03-27).
+
+### Changed
+- `workmain/utils/ics_parser.py` v1.3 → v1.4: added `_note_count_for()`,
+  `_find_stale_duplicates()` helpers; updated `import_events_to_db()` with
+  date-shift protection and orphan cleanup; added `Note` import.
+- `workmain/cli/commands/calendar.py` v1.2 → v1.3: `date_shift_notes` status in
+  `_classify_events()`, `_display_import_preview()`, `_build_summary_str()`, and
+  the confirmation prompt.
+
+### Tests
+- `tests/test_ics_import.py` v1.1 → v1.2: 3 new tests (14–16) covering date-shift
+  with notes, date-shift without notes, and stale-UID orphan deletion. Suite: 145 passed.
+
 ## [1.6.5] - 2026-03-20
 
 ### Changed
