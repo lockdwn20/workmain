@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.7] - 2026-03-27
+
+### Fixed
+- **ifo-only note condensation gate**: meetings with only `[info-only]` notes were
+  silently skipped during EOD condensation and `meetings condense`, so the
+  "Attended \<Meeting\>" default summary was never generated and no time entry was
+  created. Root cause: `get_note_count(exclude_ifo=True)` returned 0 for ifo-only
+  meetings, and both call sites treated 0 as "no notes, skip". Fix: gate check now
+  uses `get_note_count(exclude_ifo=False)` to detect any notes exist; the condenser
+  itself filters ifo notes and returns the correct default.
+- **Why this surfaced now**: bug was latent since Phase 5.1 but only triggered after
+  the v1.6.6 calendar import hotfix, which introduced per-occurrence RRULE expansion.
+  New recurring meeting rows start with zero notes; if the first note logged is
+  `[info-only]`, the meeting hit the bug immediately.
+
+### Changed
+- `workmain/cli/commands/eod.py` v1.5 → v1.6: condense step gate uses
+  `exclude_ifo=False`; ifo-only meetings display "(ifo-only → default summary)" label.
+- `workmain/cli/commands/meetings.py` v3.2 → v3.3: condense command gate uses
+  `exclude_ifo=False`; ifo-only path shows distinct status line before calling condenser.
+
 ## [1.6.6] - 2026-03-27
 
 ### Fixed
