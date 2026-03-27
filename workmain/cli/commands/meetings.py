@@ -1,7 +1,7 @@
 """
 WorkmAIn Meeting CLI Commands
-Meeting Commands v3.2
-20260313
+Meeting Commands v3.3
+20260327
 
 CLI commands for meeting management.
 
@@ -25,6 +25,9 @@ Version History:
 - v3.1: Post-sprint cleanup - removed dead meeting group code
 - v3.2: Hotfix - use source='condensed' for condensed summary notes so they
         can be distinguished from regular meeting notes (source='meeting')
+- v3.3: Hotfix — condense gate uses total note count (exclude_ifo=False) so
+        meetings with only info-only notes are not blocked from condensation;
+        they reach the condenser which returns the "Attended <Meeting>" default
 """
 
 import click
@@ -748,9 +751,10 @@ def meetings_condense(meeting_title: str):
 
             meeting, _ = matches[choice - 1]
 
-        # Check if meeting has notes
-        note_count = meetings_repo.get_note_count(meeting.id)
-        if note_count == 0:
+        # Check if meeting has notes (include ifo so ifo-only meetings aren't blocked;
+        # the condenser handles them by returning "Attended <Meeting>" default)
+        total_count = meetings_repo.get_note_count(meeting.id, exclude_ifo=False)
+        if total_count == 0:
             console.print(f"\n[yellow]✗ Meeting '{meeting.title}' has no notes to condense[/yellow]")
             console.print()
             console.print("[dim]Add notes first with:[/dim]")
@@ -758,8 +762,13 @@ def meetings_condense(meeting_title: str):
             console.print()
             return
 
-        console.print()
-        console.print(f"[bold]Condensing {note_count} note(s) for:[/bold] {meeting.title}")
+        non_ifo_count = meetings_repo.get_note_count(meeting.id)
+        if non_ifo_count == 0:
+            console.print()
+            console.print(f"[bold]Condensing for:[/bold] {meeting.title} [dim](ifo-only notes → will use default summary)[/dim]")
+        else:
+            console.print()
+            console.print(f"[bold]Condensing {non_ifo_count} note(s) for:[/bold] {meeting.title}")
         console.print("[dim]Sending to Claude...[/dim]")
         console.print()
 

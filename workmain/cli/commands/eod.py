@@ -1,7 +1,7 @@
 """
 WorkmAIn End-of-Day Workflow
-EOD v1.5
-20260319
+EOD v1.6
+20260327
 
 Guided end-of-day workflow for daily work wrap-up.
 
@@ -34,6 +34,9 @@ Version History:
 - v1.4: Phase 9 Gate 1 — updated subprocess calls from 'report' to 'reports' (rename)
 - v1.5: Phase 9 Gate 2 — day-aware Thu/Fri steps; _build_step_sequence refactor;
         --skip weekly; dynamic step numbering; updated help text
+- v1.6: Hotfix — condense step gate now checks total note count (exclude_ifo=False)
+        so meetings with only info-only notes are included and trigger the default
+        "Attended <Meeting>" summary; surfaced by per-occurrence calendar expansion
 """
 
 import subprocess
@@ -91,22 +94,24 @@ def _run_condense_step(dry_run: bool) -> bool:
 
         pending = []
         for mtg in today_meetings:
-            note_count = repo.get_note_count(mtg.id)
-            if note_count > 0 and not mtg.condensed_summary:
-                pending.append((mtg, note_count))
+            total_count = repo.get_note_count(mtg.id, exclude_ifo=False)
+            non_ifo_count = repo.get_note_count(mtg.id)
+            if total_count > 0 and not mtg.condensed_summary:
+                pending.append((mtg, total_count, non_ifo_count))
 
         if not pending:
             console.print("  [green]✓ No pending meetings to condense[/green]")
             return True
 
         console.print(f"  [yellow]{len(pending)} meeting(s) with notes but no summary:[/yellow]")
-        for mtg, count in pending:
-            console.print(f"    • (ID: {mtg.id}) {mtg.title} — {count} note(s)")
+        for mtg, total_count, non_ifo_count in pending:
+            ifo_label = " (ifo-only → default summary)" if non_ifo_count == 0 else ""
+            console.print(f"    • (ID: {mtg.id}) {mtg.title} — {total_count} note(s){ifo_label}")
         console.print()
 
-        for mtg, count in pending:
+        for mtg, total_count, non_ifo_count in pending:
             console.print(f"  [bold]→ {mtg.title}[/bold]")
-            if click.confirm(f"    Condense {count} note(s)?", default=True):
+            if click.confirm(f"    Condense {total_count} note(s)?", default=True):
                 result = subprocess.run(
                     ['workmain', 'meetings', 'condense', mtg.title]
                 )
