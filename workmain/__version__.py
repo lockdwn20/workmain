@@ -1,9 +1,14 @@
 """
 WorkmAIn Package Version
-Version v1.6.5
-20260320
+Version v1.6.6
+20260327
 
 Version History:
+- v1.6.6: Hotfix — calendar import date-migration and stale-UID orphan bugs:
+          date-shift protection prevents notes travelling to future occurrences
+          when series start shifts between ICS exports; stale-UID orphan cleanup
+          auto-deletes zero-note duplicates during import; preview surfaces
+          'notes kept on original date' status
 - v1.6.5: Merge dev → main: consolidate test hotfixes (v1.6.1–v1.6.4 dev-side
           merges) and docs/ reorganization into main
 - v1.6.4: Hotfix — test suite consolidation: move 5 legacy scripts to
@@ -47,7 +52,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.6.5"
-__version_info__ = (1, 6, 5)
+__version__ = "1.6.6"
+__version_info__ = (1, 6, 6)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
