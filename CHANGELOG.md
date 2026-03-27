@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.8] - 2026-03-27
+
+### Fixed
+- **Stale note reappearing after deletion**: after deleting today's meeting notes and
+  re-running `meetings condense`, the same old summary was regenerated. Root cause:
+  the condenser queried all notes for `meeting_id` with no date filter — historical
+  notes from previous recurring occurrences sharing the same `meeting_id` were
+  included, so deletion of today's notes had no effect on the condensation input.
+  Fix: condenser notes query now scopes to `Note.created_date == meeting_date`
+  (the date of the specific occurrence being condensed). `get_note_count` gains an
+  optional `meeting_date` parameter for the same scoping; all condense call sites
+  (EOD condense step, `meetings condense` picker and gate) now pass it.
+- **Cost always showing $0.000000**: `end_report()` sets `_current_report = None`
+  before the caller could read it, so the cost display in `meetings condense` always
+  showed zero. Fix: `end_report` now stores the completed report in `_last_completed`;
+  the display reads from there instead.
+
+### Changed
+- `workmain/ai/note_condenser.py` v1.6 → v1.7: date-scoped notes query in both
+  `condense_meeting` and `needs_condensation`.
+- `workmain/database/repositories/meetings_repo.py` v1.7 → v1.8: `get_note_count`
+  gains optional `meeting_date: Optional[date]` parameter.
+- `workmain/cli/commands/meetings.py` v3.3 → v3.4: condense picker and gate pass
+  `meeting_date`; cost display reads `_last_completed`.
+- `workmain/cli/commands/eod.py` v1.6 → v1.7: condense step passes `meeting_date`
+  to both `get_note_count` calls.
+- `workmain/ai/cost_tracker.py` v1.0 → v1.1: `_last_completed` attribute added;
+  `end_report` stores completed report there before clearing `_current_report`.
+
 ## [1.6.7] - 2026-03-27
 
 ### Fixed

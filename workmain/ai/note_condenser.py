@@ -1,7 +1,7 @@
 """
 WorkmAIn Note Condenser
-Note Condenser v1.6
-20260313
+Note Condenser v1.7
+20260327
 
 AI-powered condensation of meeting notes into one-line summaries for Clockify.
 
@@ -18,6 +18,9 @@ Version History:
         condensation query so auto-generated notes don't pollute AI input
 - v1.6: Hotfix fix - filter on source='condensed' instead of source='meeting'
         since notes log also uses source='meeting' for regular user notes
+- v1.7: Hotfix - scope notes query to meeting date (Note.created_date == meeting_date)
+        so notes from previous recurring occurrences sharing the same meeting_id are
+        not included; fixes stale content reappearing after user deletes today's notes
 """
 
 import json
@@ -102,10 +105,14 @@ class NoteCondenser:
         if not db_meeting:
             raise ValueError(f"Meeting with ID {meeting.id} not found in database")
         
-        # Get all notes for this meeting, excluding info-only (#ifo) notes and
-        # auto-generated condensed summary notes (source='condensed')
+        # Get notes for this meeting occurrence only (scoped to meeting date),
+        # excluding info-only (#ifo) notes and condensed summary notes.
+        # Date scoping prevents notes from previous recurring occurrences that share
+        # the same meeting_id from polluting the condensation input.
+        meeting_date = db_meeting.start_time.date()
         notes = self.session.query(Note).filter(
             Note.meeting_id == db_meeting.id,
+            Note.created_date == meeting_date,
             ~Note.tags.op('@>')(['info-only']),
             Note.source != 'condensed'
         ).order_by(Note.created_at).all()
@@ -300,9 +307,11 @@ Do not include pleasantries or unnecessary words. Be direct and informative."""
         Returns:
             True if condensation needed
         """
-        # Get notes, excluding info-only (#ifo) notes and condensed summary notes
+        # Scope to meeting date — same rationale as condense_meeting
+        meeting_date = meeting.start_time.date()
         notes = self.session.query(Note).filter(
             Note.meeting_id == meeting.id,
+            Note.created_date == meeting_date,
             ~Note.tags.op('@>')(['info-only']),
             Note.source != 'condensed'
         ).all()

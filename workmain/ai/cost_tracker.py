@@ -1,7 +1,7 @@
 """
 WorkmAIn AI Cost Tracker
-Cost Tracker v1.0
-20251229
+Cost Tracker v1.1
+20260327
 
 Tracks AI usage costs per provider, per report, and per section.
 Provides cost analytics and budget monitoring.
@@ -12,6 +12,12 @@ Features:
 - Provider-specific tracking
 - Cost history and analytics
 - Budget alerts
+
+Version History:
+- v1.0: Initial implementation
+- v1.1: Hotfix — end_report now stores completed report in _last_completed so
+        callers can read cost after the report is finalized (previously _current_report
+        was cleared to None by end_report, always showing $0 in post-call displays)
 """
 
 from datetime import datetime, date
@@ -140,6 +146,7 @@ class CostTracker:
         """
         self.storage_path = storage_path
         self._current_report: Optional[ReportCost] = None
+        self._last_completed: Optional[ReportCost] = None
         self._history: List[ReportCost] = []
         
         if storage_path:
@@ -226,8 +233,9 @@ class CostTracker:
         
         self._current_report.generation_time = generation_time
         self._save_report(self._current_report)
-        
+
         completed = self._current_report
+        self._last_completed = completed
         self._current_report = None
         return completed
     
