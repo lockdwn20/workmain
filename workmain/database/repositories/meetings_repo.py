@@ -1,7 +1,7 @@
 """
 WorkmAIn Meetings Repository
-Meetings Repository v1.7
-20260313
+Meetings Repository v1.8
+20260327
 
 Data access layer for meetings with fuzzy matching and recurring detection.
 Handles all CRUD operations for the meetings table.
@@ -18,6 +18,8 @@ Version History:
         so auto-generated condensation notes don't inflate the displayed count
 - v1.7: Hotfix fix - filter on source='condensed' instead of source='meeting'
         since notes log also uses source='meeting' for regular user notes
+- v1.8: Hotfix - add optional meeting_date param to get_note_count so condense
+        call sites can scope the count to a specific occurrence date
 """
 
 from datetime import datetime, date
@@ -316,19 +318,26 @@ class MeetingsRepository:
         
         return query.all()
     
-    def get_note_count(self, meeting_id: int, exclude_ifo: bool = True) -> int:
+    def get_note_count(
+        self,
+        meeting_id: int,
+        exclude_ifo: bool = True,
+        meeting_date: Optional[date] = None
+    ) -> int:
         """
         Get count of notes for a meeting.
 
-        Excludes auto-generated condensed summary notes (source='meeting') so
+        Excludes auto-generated condensed summary notes (source='condensed') so
         the count reflects only user-authored notes.
 
         Args:
             meeting_id: Meeting ID
             exclude_ifo: If True, exclude info-only (#ifo) notes from count
+            meeting_date: If provided, only count notes created on this date
+                          (use for per-occurrence counts on recurring meetings)
 
         Returns:
-            Number of notes (excluding #ifo and condensed summary notes)
+            Number of notes (excluding condensed summary notes; optionally ifo/date-scoped)
         """
         query = self.session.query(Note).filter(
             Note.meeting_id == meeting_id,
@@ -336,6 +345,8 @@ class MeetingsRepository:
         )
         if exclude_ifo:
             query = query.filter(~Note.tags.op('@>')(['info-only']))
+        if meeting_date is not None:
+            query = query.filter(Note.created_date == meeting_date)
         return query.count()
     
     def get_recurring_series(self, outlook_recurring_id: str) -> List[Meeting]:
