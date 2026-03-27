@@ -1,7 +1,7 @@
 """
 WorkmAIn Calendar Commands
-Calendar Commands v1.2
-20260312
+Calendar Commands v1.3
+20260327
 
 Calendar command group for Outlook calendar integration (Phase 6).
 
@@ -22,6 +22,7 @@ Version History:
 - v1.0: Initial implementation (Phase 6 Gate 4)
 - v1.1: Use _fallback_match() in _classify_events() for title+date secondary lookup
 - v1.2: Update import header to handle expanded occurrence count from RRULE expansion
+- v1.3: Surface date_shift_notes status in preview; import Note for note-count queries
 """
 
 import click
@@ -33,11 +34,12 @@ from rich.console import Console
 from sqlalchemy import func
 
 from workmain.database.connection import get_db
-from workmain.database.models import Meeting
+from workmain.database.models import Meeting, Note
 from workmain.utils.ics_parser import (
     ICSEvent,
     ICSParseError,
     _fallback_match,
+    _find_stale_duplicates,
     import_events_to_db,
     parse_ics_file,
 )
@@ -110,8 +112,12 @@ def _display_meetings(title: str, meetings: list) -> None:
 
 def _classify_events(session, events: list[ICSEvent]) -> list[dict]:
     """
-    Classify each event as 'new', 'updated', 'unchanged', or 'cancelled'
-    by comparing against the database. No writes performed.
+    Classify each event as 'new', 'updated', 'unchanged', 'cancelled', or
+    'date_shift_notes' by comparing against the database. No writes performed.
+
+    'date_shift_notes': the import would move this meeting to a different calendar
+    date, but it has notes — a fresh occurrence will be inserted and the existing
+    record will be re-keyed to preserve notes on their original date.
 
     Returns list of dicts: {event, status, existing}
     """
@@ -129,13 +135,25 @@ def _classify_events(session, events: list[ICSEvent]) -> list[dict]:
         elif existing is None:
             status = 'new'
         else:
-            changed = (
-                existing.title != event.title
-                or existing.start_time != event.start_time
-                or existing.end_time != event.end_time
-                or existing.is_recurring != event.is_recurring
-            )
-            status = 'updated' if changed else 'unchanged'
+            date_shifting = existing.start_time.date() != event.start_time.date()
+            if date_shifting:
+                note_count = (
+                    session.query(func.count(Note.id))
+                    .filter(Note.meeting_id == existing.id)
+                    .scalar()
+                ) or 0
+                if note_count > 0:
+                    status = 'date_shift_notes'
+                else:
+                    status = 'updated'
+            else:
+                changed = (
+                    existing.title != event.title
+                    or existing.start_time != event.start_time
+                    or existing.end_time != event.end_time
+                    or existing.is_recurring != event.is_recurring
+                )
+                status = 'updated' if changed else 'unchanged'
         classified.append({'event': event, 'status': status, 'existing': existing})
     return classified
 
@@ -154,12 +172,14 @@ def _display_import_preview(classified: list[dict]) -> None:
         'updated': 'yellow',
         'unchanged': 'dim',
         'cancelled': 'red',
+        'date_shift_notes': 'cyan',
     }
     _STATUS_LABEL = {
         'new': '(new)',
         'updated': '(updated)',
         'unchanged': '(unchanged)',
         'cancelled': '(deleted)',
+        'date_shift_notes': '(notes kept on original date — new occurrence added)',
     }
 
     for c in classified:
@@ -197,6 +217,8 @@ def _build_summary_str(counts: dict) -> str:
     if counts.get('deleted') or counts.get('cancelled'):
         n = counts.get('deleted') or counts.get('cancelled', 0)
         parts.append(f"[red]{n} deleted[/red]")
+    if counts.get('date_shift_notes'):
+        parts.append(f"[cyan]{counts['date_shift_notes']} notes preserved on original date[/cyan]")
     return ", ".join(parts) if parts else "[dim]nothing to do[/dim]"
 
 
@@ -434,6 +456,7 @@ def calendar_import(file: str, dry_run: bool, silent: bool):
             'updated': sum(1 for c in classified if c['status'] == 'updated'),
             'unchanged': sum(1 for c in classified if c['status'] == 'unchanged'),
             'cancelled': sum(1 for c in classified if c['status'] == 'cancelled'),
+            'date_shift_notes': sum(1 for c in classified if c['status'] == 'date_shift_notes'),
         }
 
         # --- Display header ---
@@ -472,20 +495,25 @@ def calendar_import(file: str, dry_run: bool, silent: bool):
         # --- Nothing to import ---
         if (counts_preview['new'] == 0
                 and counts_preview['updated'] == 0
-                and counts_preview['cancelled'] == 0):
+                and counts_preview['cancelled'] == 0
+                and counts_preview['date_shift_notes'] == 0):
             console.print(f"Nothing to import: {summary_str}")
             console.print()
             return
 
         # --- Confirmation ---
         if not silent:
+            parts = [
+                f"{counts_preview['new']} new",
+                f"{counts_preview['updated']} updated",
+                f"{counts_preview['unchanged']} unchanged",
+            ]
+            if counts_preview['date_shift_notes']:
+                parts.append(
+                    f"{counts_preview['date_shift_notes']} notes preserved on original date"
+                )
             confirmed = click.confirm(
-                click.style(
-                    f"{counts_preview['new']} new, "
-                    f"{counts_preview['updated']} updated, "
-                    f"{counts_preview['unchanged']} unchanged. Import?",
-                    fg='white'
-                ),
+                click.style(", ".join(parts) + ". Import?", fg='white'),
                 default=True,
             )
             if not confirmed:

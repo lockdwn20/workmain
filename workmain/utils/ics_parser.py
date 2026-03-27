@@ -1,7 +1,7 @@
 """
 WorkmAIn ICS Parser
-ICS Parser v1.3
-20260312
+ICS Parser v1.4
+20260327
 
 Parses exported Outlook ICS files into ICSEvent dataclasses for database import.
 
@@ -23,6 +23,16 @@ RRULE expansion: Recurring VEVENTs are expanded into one ICSEvent per occurrence
     imported before this feature). Subsequent occurrences get deterministic synthetic
     UIDs: ``{series_uid}_{YYYYMMDDTHHMMSS}``.
 
+Date-shift protection: When a UID match would move an existing meeting to a different
+    calendar date AND that meeting has notes attached, the existing record is re-keyed
+    to a synthetic UID (preserving it on its original date with its notes) and a fresh
+    row is inserted for the new date. This prevents notes from "travelling" to future
+    occurrences when an ICS export starts from a later date than a previous export.
+
+Orphan cleanup: After a primary UID match, stale-UID duplicates (rows with the same
+    title+date+time but a different outlook_id from a prior import) are automatically
+    deleted if they have zero notes attached.
+
 Version History:
 - v1.0: Initial implementation (Phase 6 Gate 3)
 - v1.1: Add _fallback_match() for title+date secondary lookup; backfill outlook_id on match
@@ -30,6 +40,7 @@ Version History:
 - v1.3: Expand RRULE into individual occurrences; add recurring_series_uid to ICSEvent;
         prefer RRULE-bearing events in UID deduplication; update import_events_to_db
         to set outlook_recurring_id from recurring_series_uid
+- v1.4: Date-shift protection for note-bearing records; orphan stale-UID cleanup
 """
 
 from __future__ import annotations
@@ -44,7 +55,7 @@ from icalendar import Calendar
 from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session
 
-from workmain.database.models import Meeting
+from workmain.database.models import Meeting, Note
 
 LOCAL_TZ = __import__('zoneinfo').ZoneInfo("America/Los_Angeles")
 
@@ -335,6 +346,45 @@ def _fallback_match(session: Session, event: ICSEvent) -> Meeting | None:
     )
 
 
+def _note_count_for(session: Session, meeting_id: int) -> int:
+    """Return the number of notes attached to a meeting row."""
+    return (
+        session.query(sa_func.count(Note.id))
+        .filter(Note.meeting_id == meeting_id)
+        .scalar()
+    ) or 0
+
+
+def _find_stale_duplicates(
+    session: Session, event: ICSEvent, primary_id: int
+) -> list[Meeting]:
+    """
+    Find meetings with the same title, calendar date, and start time that have a
+    *different* outlook_id (stale UID from a prior import). Only called after a
+    primary UID match succeeds, to detect zero-note orphans safe to remove.
+
+    Args:
+        session: SQLAlchemy session
+        event: The ICSEvent that was just matched by primary UID
+        primary_id: The id of the meeting already matched (excluded from results)
+
+    Returns:
+        List of Meeting rows that are potential stale duplicates
+    """
+    event_date = event.start_time.date()
+    return (
+        session.query(Meeting)
+        .filter(
+            Meeting.id != primary_id,
+            sa_func.lower(Meeting.title) == event.title.lower(),
+            sa_func.date(Meeting.start_time) == event_date,
+            sa_func.extract('hour', Meeting.start_time) == event.start_time.hour,
+            sa_func.extract('minute', Meeting.start_time) == event.start_time.minute,
+        )
+        .all()
+    )
+
+
 def import_events_to_db(session: Session, events: list[ICSEvent]) -> dict:
     """
     Upsert parsed ICS events into the meetings table.
@@ -393,6 +443,37 @@ def import_events_to_db(session: Session, events: list[ICSEvent]) -> dict:
             session.add(meeting)
             counts['new'] += 1
         else:
+            # --- Orphan cleanup ---
+            # After a primary UID match, delete any stale-UID duplicates for this
+            # title+date+time that have no notes. These accumulate when Outlook
+            # regenerates a series UID between exports.
+            stale = _find_stale_duplicates(session, event, existing.id)
+            for orphan in stale:
+                if _note_count_for(session, orphan.id) == 0:
+                    session.delete(orphan)
+
+            # --- Date-shift protection ---
+            # If the import would move this meeting to a different calendar date
+            # AND it has notes, re-key it to a synthetic UID (preserving notes on
+            # the original date) and insert a fresh row for the new date instead.
+            date_shifting = existing.start_time.date() != event.start_time.date()
+            if date_shifting and _note_count_for(session, existing.id) > 0:
+                old_start = existing.start_time
+                series_uid = event.recurring_series_uid or event.uid
+                existing.outlook_id = f"{series_uid}_{old_start.strftime('%Y%m%dT%H%M%S')}"
+                meeting = Meeting(
+                    outlook_id=event.uid,
+                    outlook_recurring_id=new_recurring_id,
+                    title=event.title,
+                    start_time=event.start_time,
+                    end_time=event.end_time,
+                    is_recurring=event.is_recurring,
+                )
+                session.add(meeting)
+                counts['new'] += 1
+                continue
+
+            # --- Normal update path ---
             changed = (
                 existing.title != event.title
                 or existing.start_time != event.start_time
