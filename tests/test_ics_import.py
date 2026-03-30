@@ -1,6 +1,6 @@
 """
 WorkmAIn ICS Import Tests
-ICS Import Test v1.2
+ICS Import Test v1.3
 20260327
 
 Tests for the ICS parser and database import pipeline (Phase 6 Gate 3).
@@ -16,6 +16,8 @@ Version History:
 - v1.0: Initial implementation (Phase 6 Gate 3)
 - v1.1: Add test_13 for fallback title+date match on manually-created meetings
 - v1.2: Add test_14/15 for date-shift protection; test_16 for stale-UID orphan cleanup
+- v1.3: Update test_01/03/12/13 for all-synthetic-UID RRULE expansion (no i==0 exception);
+        add test_17/18/19 for migrate_series_uid_records()
 """
 
 import pytest
@@ -27,6 +29,7 @@ from workmain.utils.ics_parser import (
     ICSEvent,
     ICSParseError,
     import_events_to_db,
+    migrate_series_uid_records,
     parse_ics_file,
 )
 
@@ -41,7 +44,12 @@ class TestICSImport:
     # ------------------------------------------------------------------
 
     def test_01_new_events_inserted(self, db_session):
-        """3 new UIDs from week_normal.ics → 3 rows inserted, outlook_id populated."""
+        """3 new UIDs from week_normal.ics → 3 rows inserted, outlook_id populated.
+
+        test-001 is a recurring event (RRULE expands to 1 occurrence on 2026-03-09).
+        All RRULE occurrences now use synthetic UIDs; the series UID is stored only
+        in outlook_recurring_id.
+        """
         events = parse_ics_file(FIXTURES / "week_normal.ics")
         counts = import_events_to_db(db_session, events)
 
@@ -50,11 +58,17 @@ class TestICSImport:
         assert counts['unchanged'] == 0
         assert counts['deleted'] == 0
 
-        # Verify outlook_id is populated on all inserted rows
-        for uid in ("test-001@workmain", "test-002@workmain", "test-003@workmain"):
+        # test-001 is recurring; outlook_id is the synthetic UID for 2026-03-09 09:00
+        recurring_row = db_session.query(Meeting).filter(
+            Meeting.outlook_id == "test-001@workmain_20260309T090000"
+        ).first()
+        assert recurring_row is not None
+        assert recurring_row.outlook_recurring_id == "test-001@workmain"
+
+        # Non-recurring events keep their original UIDs unchanged
+        for uid in ("test-002@workmain", "test-003@workmain"):
             row = db_session.query(Meeting).filter(Meeting.outlook_id == uid).first()
             assert row is not None, f"Expected meeting with outlook_id={uid}"
-            assert row.outlook_id == uid
 
     # ------------------------------------------------------------------
     # Test 2 — Unchanged on re-import
@@ -79,13 +93,17 @@ class TestICSImport:
     # ------------------------------------------------------------------
 
     def test_03_updated_event(self, db_session):
-        """Same UID with changed start_time → meeting updated."""
+        """Same UID with changed start_time → meeting updated.
+
+        Uses the synthetic UID (test-001@workmain_20260309T090000) that was stored
+        by the initial import, not the bare series UID.
+        """
         events = parse_ics_file(FIXTURES / "week_normal.ics")
         import_events_to_db(db_session, events)
 
-        # Build a modified version of test-001 with a new start time
+        # Build a modified version of test-001 using its stored synthetic UID
         modified = ICSEvent(
-            uid="test-001@workmain",
+            uid="test-001@workmain_20260309T090000",
             title="Team Standup",
             start_time=datetime(2026, 3, 9, 10, 0),  # shifted 1 hour
             end_time=datetime(2026, 3, 9, 10, 30),
@@ -98,7 +116,7 @@ class TestICSImport:
         assert counts['new'] == 0
 
         row = db_session.query(Meeting).filter(
-            Meeting.outlook_id == "test-001@workmain"
+            Meeting.outlook_id == "test-001@workmain_20260309T090000"
         ).first()
         assert row.start_time == datetime(2026, 3, 9, 10, 0)
 
@@ -276,7 +294,7 @@ class TestICSImport:
         import_events_to_db(db_session, events)
 
         row = db_session.query(Meeting).filter(
-            Meeting.outlook_id == "test-001@workmain"
+            Meeting.outlook_id == "test-001@workmain_20260309T090000"
         ).first()
         assert row is not None
 
@@ -325,11 +343,11 @@ class TestICSImport:
         assert counts['updated'] == 0
         assert counts['deleted'] == 0
 
-        # Verify outlook_id was backfilled on the manual meeting
+        # Verify outlook_id was backfilled on the manual meeting with the synthetic UID
         db_session.expire(manual)
         row = db_session.query(Meeting).filter(Meeting.id == manual_id).first()
         assert row is not None
-        assert row.outlook_id == "test-001@workmain"
+        assert row.outlook_id == "test-001@workmain_20260309T090000"
         assert row.outlook_recurring_id == "test-001@workmain"
 
         # Re-import: all 3 events now found via exact UID match
@@ -522,3 +540,181 @@ class TestICSImport:
         assert db_session.query(Meeting).filter(Meeting.id == orphan_id).first() is None
         # Canonical row should still exist
         assert db_session.query(Meeting).filter(Meeting.id == canonical_id).first() is not None
+
+    # ------------------------------------------------------------------
+    # Test 17 — Migration re-keys series-UID record with no counterpart
+    # ------------------------------------------------------------------
+
+    def test_17_migration_rekeys_no_counterpart(self, db_session):
+        """
+        migrate_series_uid_records() re-keys a series-UID record (outlook_id ==
+        outlook_recurring_id) to a synthetic UID when no counterpart exists.
+        """
+        series_uid = "series-test17@workmain"
+        occ_time = datetime(2099, 4, 1, 9, 0)
+
+        record = Meeting(
+            outlook_id=series_uid,
+            outlook_recurring_id=series_uid,
+            title="Weekly Sync",
+            start_time=occ_time,
+            end_time=datetime(2099, 4, 1, 9, 30),
+            is_recurring=True,
+        )
+        db_session.add(record)
+        db_session.commit()
+        db_session.refresh(record)
+        record_id = record.id
+
+        counts = migrate_series_uid_records(db_session)
+
+        assert counts['re_keyed'] >= 1
+        assert counts['conflicts'] == 0
+
+        db_session.expire_all()
+        row = db_session.query(Meeting).filter(Meeting.id == record_id).first()
+        assert row is not None
+        expected_uid = f"{series_uid}_{occ_time.strftime('%Y%m%dT%H%M%S')}"
+        assert row.outlook_id == expected_uid
+        assert row.outlook_recurring_id == series_uid
+
+    # ------------------------------------------------------------------
+    # Test 18 — Migration re-keys record, deletes zero-note counterpart
+    # ------------------------------------------------------------------
+
+    def test_18_migration_rekeys_deletes_zero_note_counterpart(self, db_session):
+        """
+        When a series-UID record has a zero-note synthetic counterpart, migration
+        deletes the counterpart and re-keys the series-UID record in its place.
+        Notes on the series-UID record are preserved.
+        """
+        series_uid = "series-test18@workmain"
+        occ_time = datetime(2099, 5, 5, 14, 0)
+        synthetic_uid = f"{series_uid}_{occ_time.strftime('%Y%m%dT%H%M%S')}"
+
+        # Series-UID record (the old-format one with notes)
+        old_record = Meeting(
+            outlook_id=series_uid,
+            outlook_recurring_id=series_uid,
+            title="CSIRT Weekly",
+            start_time=occ_time,
+            end_time=datetime(2099, 5, 5, 14, 30),
+            is_recurring=True,
+        )
+        db_session.add(old_record)
+        db_session.commit()
+        db_session.refresh(old_record)
+        old_id = old_record.id
+
+        note = Note(
+            meeting_id=old_id,
+            content="Notes from this occurrence",
+            tags=["internal-only"],
+            source="meeting",
+        )
+        db_session.add(note)
+        db_session.commit()
+
+        # Synthetic counterpart (the empty duplicate created by a later import)
+        counterpart = Meeting(
+            outlook_id=synthetic_uid,
+            outlook_recurring_id=series_uid,
+            title="CSIRT Weekly",
+            start_time=occ_time,
+            end_time=datetime(2099, 5, 5, 14, 30),
+            is_recurring=True,
+        )
+        db_session.add(counterpart)
+        db_session.commit()
+        db_session.refresh(counterpart)
+        counterpart_id = counterpart.id
+
+        counts = migrate_series_uid_records(db_session)
+
+        assert counts['re_keyed'] >= 1
+        assert counts['deleted'] >= 1
+        assert counts['conflicts'] == 0
+
+        db_session.expire_all()
+
+        # Counterpart deleted
+        assert db_session.query(Meeting).filter(Meeting.id == counterpart_id).first() is None
+
+        # Old record re-keyed to synthetic UID
+        row = db_session.query(Meeting).filter(Meeting.id == old_id).first()
+        assert row is not None
+        assert row.outlook_id == synthetic_uid
+
+        # Note still attached to the same meeting_id
+        note_row = db_session.query(Note).filter(Note.meeting_id == old_id).first()
+        assert note_row is not None
+
+    # ------------------------------------------------------------------
+    # Test 19 — Migration skips conflict (both records have notes)
+    # ------------------------------------------------------------------
+
+    def test_19_migration_skips_conflict_both_have_notes(self, db_session):
+        """
+        When both the series-UID record and its synthetic counterpart have notes,
+        migration counts it as a conflict and leaves both records unchanged.
+        """
+        series_uid = "series-test19@workmain"
+        occ_time = datetime(2099, 6, 10, 11, 0)
+        synthetic_uid = f"{series_uid}_{occ_time.strftime('%Y%m%dT%H%M%S')}"
+
+        old_record = Meeting(
+            outlook_id=series_uid,
+            outlook_recurring_id=series_uid,
+            title="Monthly Review",
+            start_time=occ_time,
+            end_time=datetime(2099, 6, 10, 12, 0),
+            is_recurring=True,
+        )
+        db_session.add(old_record)
+        db_session.commit()
+        db_session.refresh(old_record)
+        old_id = old_record.id
+
+        db_session.add(Note(
+            meeting_id=old_id,
+            content="Notes on the old record",
+            tags=["internal-only"],
+            source="meeting",
+        ))
+        db_session.commit()
+
+        new_record = Meeting(
+            outlook_id=synthetic_uid,
+            outlook_recurring_id=series_uid,
+            title="Monthly Review",
+            start_time=occ_time,
+            end_time=datetime(2099, 6, 10, 12, 0),
+            is_recurring=True,
+        )
+        db_session.add(new_record)
+        db_session.commit()
+        db_session.refresh(new_record)
+        new_id = new_record.id
+
+        db_session.add(Note(
+            meeting_id=new_id,
+            content="Notes on the synthetic record",
+            tags=["internal-only"],
+            source="meeting",
+        ))
+        db_session.commit()
+
+        counts = migrate_series_uid_records(db_session)
+
+        assert counts['conflicts'] >= 1
+
+        db_session.expire_all()
+
+        # Both records unchanged
+        old_row = db_session.query(Meeting).filter(Meeting.id == old_id).first()
+        assert old_row is not None
+        assert old_row.outlook_id == series_uid   # not re-keyed
+
+        new_row = db_session.query(Meeting).filter(Meeting.id == new_id).first()
+        assert new_row is not None
+        assert new_row.outlook_id == synthetic_uid  # not deleted

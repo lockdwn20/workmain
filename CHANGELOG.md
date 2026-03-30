@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.9] - 2026-03-27
+
+### Fixed
+- **Permanent duplicate meetings from series-UID → synthetic-UID mismatch**: recurring
+  meetings imported before RRULE expansion (pre-v1.5.4) stored the bare series UID as
+  `outlook_id`. After RRULE expansion was added, subsequent imports generated synthetic
+  UIDs (`{series_uid}_{YYYYMMDDTHHMMSS}`) for each occurrence and could not match the
+  old records (fallback match only covers `outlook_id IS NULL`), creating permanent
+  duplicate rows. The v1.6.6 orphan cleanup could not resolve duplicates where the
+  note-bearing record held the old series UID.
+- Root fix: removed the `i == 0` exception in `_expand_rrule_occurrences` — all RRULE
+  occurrences now receive synthetic UIDs; the series UID is stored only in
+  `outlook_recurring_id`, never in `outlook_id`. This removes the ambiguity entirely.
+- One-time migration (`scripts/migrate_series_uids.py`) re-keyed 16 existing records
+  and deleted 6 zero-note synthetic counterparts. Post-migration: 5 visible duplicate
+  meetings for 2026-03-30 collapsed to 3; invariant `outlook_id != outlook_recurring_id`
+  now holds for all recurring occurrence records (verified: 0 violations).
+
+### Added
+- `migrate_series_uid_records(session, dry_run=False)` in `ics_parser.py` — callable
+  migration function used by both the script and the test suite.
+- `scripts/migrate_series_uids.py` — CLI wrapper for the migration with `--dry-run`.
+- Tests 17–19 in `test_ics_import.py` covering migration re-key, counterpart deletion,
+  and conflict detection.
+
+### Changed
+- `workmain/utils/ics_parser.py` v1.4 → v1.5: synthetic UIDs for all RRULE occurrences;
+  `migrate_series_uid_records()` added.
+- `tests/test_ics_import.py` v1.2 → v1.3: tests 01, 03, 12, 13 updated for new UID
+  format; tests 17–19 added.
+
 ## [1.6.8] - 2026-03-27
 
 ### Fixed

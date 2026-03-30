@@ -1,9 +1,16 @@
 """
 WorkmAIn Package Version
-Version v1.6.8
+Version v1.6.9
 20260327
 
 Version History:
+- v1.6.9: Hotfix — series-UID migration: all RRULE occurrences now use synthetic UIDs
+          ({series_uid}_{YYYYMMDDTHHMMSS}); the series UID is stored only in
+          outlook_recurring_id. Removes the i==0 exception in _expand_rrule_occurrences
+          that caused pre-RRULE-expansion records to accumulate permanent duplicates.
+          migrate_series_uid_records() re-keys 16 existing records and deletes 6
+          zero-note counterparts. Post-migration invariant: outlook_id != outlook_recurring_id
+          for all recurring occurrence records.
 - v1.6.8: Hotfix — stale note condensation: condenser and get_note_count now scope
           queries to meeting date so notes from previous recurring occurrences sharing
           the same meeting_id are not included; fixes deleted notes reappearing in
@@ -63,7 +70,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.6.8"
-__version_info__ = (1, 6, 8)
+__version__ = "1.6.9"
+__version_info__ = (1, 6, 9)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
