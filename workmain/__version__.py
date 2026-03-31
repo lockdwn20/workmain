@@ -1,9 +1,13 @@
 """
 WorkmAIn Package Version
-Version v1.6.9
-20260327
+Version v1.6.10
+20260331
 
 Version History:
+- v1.6.10: Hotfix eod-date-option — add --date/-d YYYY-MM-DD to workmain eod and
+           workmain reports save; backdated EOD now correctly scopes meeting condense,
+           report generation, Clockify PDF, gdocs upload, and email draft to the
+           target date instead of today
 - v1.6.9: Hotfix — series-UID migration: all RRULE occurrences now use synthetic UIDs
           ({series_uid}_{YYYYMMDDTHHMMSS}); the series UID is stored only in
           outlook_recurring_id. Removes the i==0 exception in _expand_rrule_occurrences
@@ -70,7 +74,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.6.9"
-__version_info__ = (1, 6, 9)
+__version__ = "1.6.10"
+__version_info__ = (1, 6, 10)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
