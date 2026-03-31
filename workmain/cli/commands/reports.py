@@ -1,7 +1,7 @@
 """
 WorkmAIn Report Commands - Phase 4 Implementation
-Report Commands v2.2
-20260319
+Report Commands v2.3
+20260331
 
 Static action-first command structure — template is an argument.
 
@@ -37,6 +37,8 @@ Version History:
 - v2.1: Phase 9 Gate 1 — renamed command group report → reports (plural)
 - v2.2: Phase 9 Gate 3 — enhanced list (ID/Slack/preview columns, --type filter),
         added history alias, view <id>, resend <id> commands
+- v2.3: Hotfix eod-date-option — add optional report_date param to generate_report_impl;
+        add --date YYYY-MM-DD option to reports save for backdated report generation
 """
 
 import subprocess
@@ -64,7 +66,8 @@ def generate_report_impl(
     preview_only: bool = False,
     provider: Optional[str] = None,
     max_tokens: int = 4000,
-    temperature: float = 0.7
+    temperature: float = 0.7,
+    report_date: Optional[date] = None,
 ):
     """
     Implementation for report generation.
@@ -75,13 +78,15 @@ def generate_report_impl(
         provider: AI provider override (claude/gemini)
         max_tokens: Maximum tokens
         temperature: Temperature for generation
+        report_date: Date to generate report for (default: today)
     """
     db = get_db()
     session = db.get_session()
 
     try:
         generator = get_report_generator(session)
-        report_date = datetime.today().date()
+        if report_date is None:
+            report_date = datetime.today().date()
 
         if preview_only:
             console.print(f"\n[cyan]Previewing {template_name} report for {report_date}...[/cyan]\n")
@@ -182,7 +187,9 @@ def report_preview(template: str, provider: Optional[str]):
 @click.argument('template')
 @click.option('--provider', type=click.Choice(['claude', 'gemini'], case_sensitive=False),
               help='Override AI provider')
-def report_save(template: str, provider: Optional[str]):
+@click.option('-d', '--date', 'report_date_str', default=None, metavar='YYYY-MM-DD',
+              help='Generate report for this date instead of today')
+def report_save(template: str, provider: Optional[str], report_date_str: Optional[str]):
     """
     Generate report with AI and save to staging/reports/.
 
@@ -190,8 +197,16 @@ def report_save(template: str, provider: Optional[str]):
     Examples:
       workmain reports save daily_internal
       workmain reports save weekly_client --provider gemini
+      workmain reports save daily_internal --date 2026-03-30
     """
-    generate_report_impl(template, preview_only=False, provider=provider)
+    target_date = None
+    if report_date_str:
+        try:
+            target_date = date.fromisoformat(report_date_str)
+        except ValueError:
+            console.print(f"[red]✗ Invalid date: '{report_date_str}' — expected YYYY-MM-DD[/red]")
+            return
+    generate_report_impl(template, preview_only=False, provider=provider, report_date=target_date)
 
 
 @reports.command('send')
