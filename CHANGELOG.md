@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.10] - 2026-03-31
+
+### Added
+- `workmain eod --date/-d YYYY-MM-DD` — run the full EOD pipeline for a past date (e.g.
+  when EOD was missed and needs to be run the following morning). The backdated date drives
+  meeting condensation, report generation, Clockify PDF pull, gdocs upload, and email draft.
+  Header displays `(backdated — running Mar 31)` note when a past date is specified.
+- `workmain reports save <template> --date/-d YYYY-MM-DD` — generate a report for a
+  specific date instead of today. Used internally by backdated EOD and also available
+  standalone.
+
+### Fixed
+- Backdated EOD gdocs step: `upload-all` was called without `--date`, causing notes,
+  report, and Clockify PDF to be looked up against today instead of the target date.
+
 ## [1.6.9] - 2026-03-27
 
 ### Fixed

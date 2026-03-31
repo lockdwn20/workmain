@@ -1,7 +1,7 @@
 """
 WorkmAIn End-of-Day Workflow
-EOD v1.7
-20260327
+EOD v1.9
+20260331
 
 Guided end-of-day workflow for daily work wrap-up.
 
@@ -38,6 +38,11 @@ Version History:
         so meetings with only info-only notes are included and trigger the default
         "Attended <Meeting>" summary; surfaced by per-occurrence calendar expansion
 - v1.7: Hotfix — pass meeting_date to get_note_count to scope counts per occurrence
+- v1.8: Hotfix eod-date-option — add --date YYYY-MM-DD option to run EOD for a past date;
+        thread target_date through all step runners; condense uses get_by_date(target_date);
+        report step passes --date; clockify step passes --start/--end
+- v1.9: Hotfix eod-date-option — gdocs step passes --date YYYYMMDD to upload-all so notes,
+        report, and Clockify PDF are all resolved for the target date not today
 """
 
 import subprocess
@@ -79,10 +84,10 @@ _BASE_POSITIONS = {
 # Step header printing is handled by the caller (_build_step_sequence loop).
 # ---------------------------------------------------------------------------
 
-def _run_condense_step(dry_run: bool) -> bool:
+def _run_condense_step(dry_run: bool, target_date: date) -> bool:
     """Step: Condense pending meeting notes."""
     if dry_run:
-        console.print("  [dim]Would query today's meetings for uncondensed notes[/dim]")
+        console.print(f"  [dim]Would query meetings for {target_date} for uncondensed notes[/dim]")
         console.print("  [dim]Would offer to condense each via 'workmain meetings condense'[/dim]")
         return True
 
@@ -91,7 +96,7 @@ def _run_condense_step(dry_run: bool) -> bool:
 
     try:
         repo = MeetingsRepository(session)
-        today_meetings = repo.get_today()
+        today_meetings = repo.get_by_date(target_date)
 
         pending = []
         for mtg in today_meetings:
@@ -132,7 +137,7 @@ def _run_condense_step(dry_run: bool) -> bool:
         session.close()
 
 
-def _run_sync_step(dry_run: bool) -> bool:
+def _run_sync_step(dry_run: bool, target_date: date) -> bool:
     """Step: Sync time entries to Clockify."""
     if dry_run:
         console.print("  [dim]Would run: workmain track sync push[/dim]")
@@ -162,7 +167,7 @@ def _run_sync_step(dry_run: bool) -> bool:
         return False
 
 
-def _run_review_step(dry_run: bool) -> bool:
+def _run_review_step(dry_run: bool, target_date: date) -> bool:
     """Step: Review today's time entries."""
     if dry_run:
         console.print("  [dim]Would display today's time entries[/dim]")
@@ -170,6 +175,8 @@ def _run_review_step(dry_run: bool) -> bool:
         return True
 
     try:
+        if target_date != date.today():
+            console.print(f"  [dim]Note: displaying today's actual entries (no date filter for 'time today')[/dim]")
         while True:
             subprocess.run(['workmain', 'time', 'today'])
             console.print()
@@ -192,15 +199,17 @@ def _run_review_step(dry_run: bool) -> bool:
         return False
 
 
-def _run_report_step(dry_run: bool) -> bool:
+def _run_report_step(dry_run: bool, target_date: date) -> bool:
     """Step 4a: Generate daily report."""
+    date_str = target_date.isoformat()
+    cmd = ['workmain', 'reports', 'save', 'daily_internal', '--date', date_str]
     if dry_run:
-        console.print("  [dim]Would run: workmain reports save daily_internal[/dim]")
-        console.print("  [dim]Output: staging/reports/daily_internal_YYYYMMDD.md[/dim]")
+        console.print(f"  [dim]Would run: workmain reports save daily_internal --date {date_str}[/dim]")
+        console.print(f"  [dim]Output: staging/reports/daily_internal_{date_str}.md[/dim]")
         return True
 
     try:
-        result = subprocess.run(['workmain', 'reports', 'save', 'daily_internal'])
+        result = subprocess.run(cmd)
 
         if result.returncode != 0:
             console.print()
@@ -212,7 +221,7 @@ def _run_report_step(dry_run: bool) -> bool:
             ).strip().lower()
 
             if action == 'r':
-                result = subprocess.run(['workmain', 'reports', 'save', 'daily_internal'])
+                result = subprocess.run(cmd)
                 if result.returncode != 0:
                     console.print("  [red]✗ Retry failed[/red]")
                     return False
@@ -224,7 +233,7 @@ def _run_report_step(dry_run: bool) -> bool:
         return False
 
 
-def _run_email_step(dry_run: bool) -> bool:
+def _run_email_step(dry_run: bool, target_date: date) -> bool:
     """Step 4b: Create email draft."""
     if dry_run:
         console.print("  [dim]Would run: workmain email save daily_internal[/dim]")
@@ -256,16 +265,18 @@ def _run_email_step(dry_run: bool) -> bool:
         return False
 
 
-def _run_clockify_step(dry_run: bool) -> bool:
+def _run_clockify_step(dry_run: bool, target_date: date) -> bool:
     """Step 5: Pull Clockify PDF to staging/clockify/."""
+    date_str = target_date.isoformat()
+    cmd = ['workmain', 'clockify', 'report', 'save', 'daily', '--start', date_str, '--end', date_str]
     if dry_run:
-        console.print("  [dim]Would run: workmain clockify report save daily[/dim]")
+        console.print(f"  [dim]Would run: workmain clockify report save daily --start {date_str} --end {date_str}[/dim]")
         console.print("  [dim]Output: staging/clockify/Clockify_YYYYMMDD.pdf[/dim]")
         console.print("  [dim]Staged for Drive upload[/dim]")
         return True
 
     try:
-        result = subprocess.run(['workmain', 'clockify', 'report', 'save', 'daily'])
+        result = subprocess.run(cmd)
 
         if result.returncode != 0:
             console.print()
@@ -277,7 +288,7 @@ def _run_clockify_step(dry_run: bool) -> bool:
             ).strip().lower()
 
             if action == 'r':
-                result = subprocess.run(['workmain', 'clockify', 'report', 'save', 'daily'])
+                result = subprocess.run(cmd)
                 if result.returncode != 0:
                     console.print("  [yellow]⚠ Retry failed — skipping Clockify PDF[/yellow]")
         else:
@@ -290,15 +301,17 @@ def _run_clockify_step(dry_run: bool) -> bool:
         return False
 
 
-def _run_gdocs_step(dry_run: bool) -> bool:
+def _run_gdocs_step(dry_run: bool, target_date: date) -> bool:
     """Step 6: Upload artifacts to Google Drive."""
+    date_str = target_date.strftime('%Y%m%d')
+    cmd = ['workmain', 'gdocs', 'upload-all', '--date', date_str]
     if dry_run:
-        console.print("  [dim]Would run: workmain gdocs upload-all[/dim]")
+        console.print(f"  [dim]Would run: workmain gdocs upload-all --date {date_str}[/dim]")
         console.print("  [dim]Uploads: notes → Raw_Notes/, report → Reports/, PDF → Clockify/[/dim]")
         return True
 
     try:
-        result = subprocess.run(['workmain', 'gdocs', 'upload-all'])
+        result = subprocess.run(cmd)
 
         if result.returncode != 0:
             console.print()
@@ -324,7 +337,7 @@ def _run_gdocs_step(dry_run: bool) -> bool:
         return False
 
 
-def _run_slack_weekly_step(dry_run: bool) -> bool:
+def _run_slack_weekly_step(dry_run: bool, target_date: date) -> bool:
     """Thursday step: Post weekly draft to Slack."""
     if dry_run:
         console.print("  [dim]Would run: workmain slack post-weekly[/dim]")
@@ -347,7 +360,7 @@ def _run_slack_weekly_step(dry_run: bool) -> bool:
         return True  # Non-fatal — log and continue
 
 
-def _run_weekly_report_step(dry_run: bool) -> bool:
+def _run_weekly_report_step(dry_run: bool, target_date: date) -> bool:
     """Friday step A: Generate weekly client report."""
     if dry_run:
         console.print("  [dim]Would run: workmain reports save weekly_client[/dim]")
@@ -369,7 +382,7 @@ def _run_weekly_report_step(dry_run: bool) -> bool:
         return True  # Non-fatal — log and continue
 
 
-def _run_weekly_email_step(dry_run: bool) -> bool:
+def _run_weekly_email_step(dry_run: bool, target_date: date) -> bool:
     """Friday step B: Create weekly email draft."""
     if dry_run:
         console.print("  [dim]Would run: workmain email save weekly_client[/dim]")
@@ -452,7 +465,9 @@ def _build_step_sequence(weekday: int, skip: list) -> list:
                    'Skipping weekly skips Thu/Fri day-specific steps.')
 @click.option('--dry-run', is_flag=True,
               help='Show planned sequence without executing')
-def eod(skip: str, dry_run: bool):
+@click.option('-d', '--date', 'eod_date_str', default=None, metavar='YYYY-MM-DD',
+              help='Run EOD for this date instead of today (e.g. 2026-03-30)')
+def eod(skip: str, dry_run: bool, eod_date_str: str):
     """
     Guided end-of-day workflow. Runs steps in sequence to wrap up the workday.
 
@@ -491,8 +506,17 @@ def eod(skip: str, dry_run: bool):
       workmain eod --skip weekly
       workmain eod --skip report,weekly --dry-run
       workmain eod -s sync --dry-run
+      workmain eod --date 2026-03-30
+      workmain eod --date 2026-03-30 --dry-run
     """
-    today = date.today()
+    if eod_date_str:
+        try:
+            today = date.fromisoformat(eod_date_str)
+        except ValueError:
+            console.print(f"[red]✗ Invalid date: '{eod_date_str}' — expected YYYY-MM-DD[/red]")
+            return
+    else:
+        today = date.today()
     today_weekday = today.weekday()
 
     # Parse and validate skip list
@@ -517,17 +541,20 @@ def eod(skip: str, dry_run: bool):
     complete_num = len(steps)  # Complete step number = N (same as denominator)
 
     # Header
+    date_label = today.strftime('%A, %B %d, %Y')
+    if today != date.today():
+        date_label += f"  [yellow](backdated — running {date.today().strftime('%b %d')})[/yellow]"
     console.print()
     if dry_run:
         console.print(Panel(
             f"[bold cyan]WorkmAIn End-of-Day — DRY RUN[/bold cyan]\n"
-            f"[dim]{today.strftime('%A, %B %d, %Y')} — nothing will execute[/dim]",
+            f"[dim]{date_label} — nothing will execute[/dim]",
             box=box.ROUNDED
         ))
     else:
         console.print(Panel(
             f"[bold cyan]WorkmAIn End-of-Day[/bold cyan]\n"
-            f"[dim]{today.strftime('%A, %B %d, %Y')}[/dim]",
+            f"[dim]{date_label}[/dim]",
             box=box.ROUNDED
         ))
     console.print()
@@ -567,7 +594,7 @@ def eod(skip: str, dry_run: bool):
             console.print(f"[bold cyan]Step {step['num']} — {step['desc']}[/bold cyan]")
             console.print()
             try:
-                step['runner'](dry_run)
+                step['runner'](dry_run, today)
                 completed.append(step['key'])
             except Exception as e:
                 console.print(f"[red]✗ Step '{step['key']}' failed unexpectedly: {e}[/red]")
