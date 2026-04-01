@@ -1,15 +1,17 @@
 """
 WorkmAIn Report History Tests
-test_report_history v1.0
-20260319
+test_report_history v1.1
+20260401
 
-Tests for reports history, view, and resend commands (Phase 9 Gate 3).
+Tests for reports history, show, and resend commands (Phase 9 Gate 3).
 Uses db_session fixture from conftest.py. Seeds Report rows per test
 and cleans up by ID in tearDown.
 
 Version History:
 - v1.0: Phase 9 Gate 5 — 12 test cases for history filtering, view by ID,
         resend staging and abort paths
+- v1.1: CLI Standardization Sprint Part 1 (WU-6) — `reports view` → `reports show`;
+        TestReportView class updated: all ['view', ...] invocations → ['show', ...]
 """
 
 import os
@@ -144,7 +146,7 @@ class TestReportHistory(unittest.TestCase):
 
 
 class TestReportView(unittest.TestCase):
-    """Tests for 'workmain reports view <id>' command."""
+    """Tests for 'workmain reports show <id>' command (formerly view)."""
 
     def setUp(self):
         from dotenv import load_dotenv
@@ -167,18 +169,18 @@ class TestReportView(unittest.TestCase):
         return r
 
     def test_view_valid_id(self):
-        """reports view <id> returns full content in a Rich Panel."""
+        """reports show <id> returns full content in a Rich Panel."""
         content = "## My Test Report\n\nFull content here."
         r = self._seed('daily_internal', date(2026, 3, 19), content)
 
-        result = self.runner.invoke(reports, ['view', str(r.id)])
+        result = self.runner.invoke(reports, ['show', str(r.id)])
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn('My Test Report', result.output)
         self.assertIn('Full content here', result.output)
 
     def test_view_invalid_id(self):
-        """reports view 99999 exits non-zero with error message."""
-        result = self.runner.invoke(reports, ['view', '99999'])
+        """reports show 99999 exits non-zero with error message."""
+        result = self.runner.invoke(reports, ['show', '99999'])
         self.assertNotEqual(result.exit_code, 0)
         self.assertIn('99999', result.output)
 

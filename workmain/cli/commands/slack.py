@@ -1,23 +1,26 @@
 """
 WorkmAIn CLI
 Slack Command Group
-slack.py v1.2
-20260319
+slack.py v1.3
+20260401
 
-CLI commands for posting weekly draft reports to Slack.
+CLI commands for posting reports to Slack.
 
 Commands:
 - slack setup                           # Interactive setup checklist
 - slack auth [--reauth]                 # Validate Bot Token, cache workspace name
 - slack status                          # Auth state + recent Slack posts
 - slack channel set <channel>           # Set default posting channel
-- slack post-weekly [flags]             # Thu draft workflow: generate → preview → post
+- slack post PERIOD [flags]             # Generate → preview → post; PERIOD=weekly|daily|monthly
 
 Version History:
 - v1.0: Initial implementation (Phase 8 Gate 3/4)
 - v1.1: Fix post-weekly generation — replace subprocess (invalid --start/--end flags)
         with direct Python API call via get_report_generator()
 - v1.2: Phase 9 Gate 1 — updated hint text from 'report save' to 'reports save'
+- v1.3: CLI Standardization Sprint Part 1 (WU-2) — renamed command `post-weekly` → `post`;
+        added required PERIOD argument (weekly|daily|monthly); guards non-weekly with
+        NotImplementedError; renamed function slack_post_weekly → slack_post
 """
 
 import os
@@ -133,7 +136,7 @@ def _run_generation(anchor: date) -> tuple:
 
 @click.group()
 def slack():
-    """Slack integration — post weekly draft reports to a channel."""
+    """Slack integration — post reports to a channel."""
 
 
 # ---------------------------------------------------------------------------
@@ -380,10 +383,11 @@ def slack_setup():
 
 
 # ---------------------------------------------------------------------------
-# slack post-weekly
+# slack post PERIOD
 # ---------------------------------------------------------------------------
 
-@slack.command("post-weekly")
+@slack.command("post")
+@click.argument("period", type=click.Choice(["weekly", "daily", "monthly"]))
 @click.option("-d", "--date", "date_str", default=None, metavar="YYYYMMDD",
               help="Anchor date for the weekly range (default: today).")
 @click.option("--channel", default=None,
@@ -394,14 +398,26 @@ def slack_setup():
               help="Post even if this date was already posted (REPOST).")
 @click.option("--regenerate", is_flag=True, default=False,
               help="Force report regeneration — skip stale-file prompt.")
-def slack_post_weekly(
+def slack_post(
+    period: str,
     date_str: Optional[str],
     channel: Optional[str],
     dry_run: bool,
     force: bool,
     regenerate: bool,
 ):
-    """Generate Mon–Thu weekly draft, preview, and post to Slack."""
+    """Post a report period draft to Slack (PERIOD: weekly, daily, monthly).
+
+    \b
+    Examples:
+      workmain slack post weekly
+      workmain slack post weekly --dry-run
+      workmain slack post weekly -d 20260327 --channel #reports
+    """
+    if period != "weekly":
+        raise NotImplementedError(
+            f"slack post {period} is not yet implemented."
+        )
     # -----------------------------------------------------------------------
     # Channel resolution
     # -----------------------------------------------------------------------

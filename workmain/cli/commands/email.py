@@ -1,7 +1,7 @@
 """
 WorkmAIn Email Commands
-Email Commands v1.3
-20260320
+Email Commands v1.4
+20260401
 
 Email command group for Outlook email draft pipeline (Phase 6).
 
@@ -15,7 +15,7 @@ Commands:
   workmain email show <n>                    # display saved draft #n
   workmain email recipients list             # recipients with template assignments
   workmain email recipients add <email>      # add recipient, returns ID
-  workmain email recipients remove <id>      # remove recipient (with verification)
+  workmain email recipients delete <id>      # delete recipient (with verification)
   workmain email assign <id> <template> <role>    # assign to template as to/cc
   workmain email unassign <id> <template>         # remove from template
 
@@ -27,6 +27,8 @@ Version History:
 - v1.1: Hotfix staging-eod — renamed output/ to staging/ across all path references
 - v1.2: Phase 9 Gate 1 — updated hint text from 'report save' to 'reports save'
 - v1.3: Add optional session param to _get_draft_recipients/_generate_draft for test isolation
+- v1.4: CLI Standardization Sprint Part 1 (WU-5) — `recipients remove` → `recipients delete`;
+        avoids banned synonym `remove` (§3.2); function renamed recipients_remove → recipients_delete
 """
 
 import re
@@ -222,7 +224,7 @@ def email():
     Recipient management:
       workmain email recipients list
       workmain email recipients add <email>
-      workmain email recipients remove <id>
+      workmain email recipients delete <id>
       workmain email assign <id> <template> <to|cc>
       workmain email unassign <id> <template>
     """
@@ -504,17 +506,17 @@ def recipients_add(email_addr: str):
         session.close()
 
 
-@email_recipients.command('remove')
+@email_recipients.command('delete')
 @click.argument('recipient_id', type=int)
-def recipients_remove(recipient_id: int):
+def recipients_delete(recipient_id: int):
     """
-    Remove a recipient completely (cascades to all assignments).
+    Delete a recipient completely (cascades to all assignments).
 
     Displays current assignments and prompts for confirmation.
 
     \b
     Example:
-      workmain email recipients remove 1
+      workmain email recipients delete 1
     """
     db = get_db()
     session = db.get_session()
