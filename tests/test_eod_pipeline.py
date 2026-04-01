@@ -1,13 +1,15 @@
 """
 WorkmAIn EOD Pipeline Tests
-test_eod_pipeline v1.0
-20260319
+test_eod_pipeline v1.1
+20260401
 
 Tests for eod.py day-aware pipeline (Phase 9 Gate 2).
 Covers _build_step_sequence, --skip weekly, and --dry-run output.
 
 Version History:
 - v1.0: Phase 9 Gate 5 — 9 test cases for day detection, --skip weekly, --dry-run
+- v1.1: CLI Standardization Sprint Part 1 (WU-3) — updated assertions:
+        'slack post-weekly' → 'slack post weekly' in dry-run label test
 """
 
 import unittest
@@ -35,7 +37,7 @@ class TestEodDayDetection(unittest.TestCase):
         self.assertEqual(len(steps), 7)
 
     def test_thu_includes_slack_step(self):
-        """Thursday: slack post-weekly step added as step 8."""
+        """Thursday: slack post weekly step added as step 8."""
         steps = _build_step_sequence(THURSDAY, skip=[])
         keys = [s['key'] for s in steps]
         self.assertIn('weekly', keys)
@@ -92,10 +94,10 @@ class TestEodDryRun(unittest.TestCase):
         return result
 
     def test_dry_run_thu_labels_include_slack(self):
-        """Thursday dry-run output contains 'slack post-weekly'."""
+        """Thursday dry-run output contains 'slack post weekly'."""
         result = self._run_dry_run(THURSDAY)
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn('slack post-weekly', result.output)
+        self.assertIn('slack post weekly', result.output)
 
     def test_dry_run_fri_labels_include_weekly_report(self):
         """Friday dry-run output contains 'reports save weekly_client'."""

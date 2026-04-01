@@ -1,13 +1,13 @@
 """
 WorkmAIn End-of-Day Workflow
-EOD v1.9
-20260331
+EOD v2.0
+20260401
 
 Guided end-of-day workflow for daily work wrap-up.
 
 Base sequence (Mon–Wed):
   1. Condense pending meeting notes (meetings with notes, no condensed_summary)
-  2. Sync time entries to Clockify (track sync push)
+  2. Sync time entries to Clockify (clockify sync push)
   3. Review today's time entries (loop until confirmed)
   4a. Generate daily report (reports save daily_internal)
   4b. Create email draft (email save daily_internal)
@@ -16,7 +16,7 @@ Base sequence (Mon–Wed):
   7. Complete — step summary and sign-off
 
 Thursday adds:
-  7. Post weekly draft to Slack (slack post-weekly)
+  7. Post weekly draft to Slack (slack post weekly)
   8. Complete
 
 Friday adds:
@@ -140,11 +140,11 @@ def _run_condense_step(dry_run: bool, target_date: date) -> bool:
 def _run_sync_step(dry_run: bool, target_date: date) -> bool:
     """Step: Sync time entries to Clockify."""
     if dry_run:
-        console.print("  [dim]Would run: workmain track sync push[/dim]")
+        console.print("  [dim]Would run: workmain clockify sync push[/dim]")
         return True
 
     try:
-        result = subprocess.run(['workmain', 'track', 'sync', 'push'])
+        result = subprocess.run(['workmain', 'clockify', 'sync', 'push'])
 
         if result.returncode != 0:
             console.print()
@@ -156,7 +156,7 @@ def _run_sync_step(dry_run: bool, target_date: date) -> bool:
             ).strip().lower()
 
             if action == 'r':
-                subprocess.run(['workmain', 'track', 'sync', 'push'])
+                subprocess.run(['workmain', 'clockify', 'sync', 'push'])
             elif action == 's':
                 console.print("  [dim]Sync skipped[/dim]")
 
@@ -340,16 +340,16 @@ def _run_gdocs_step(dry_run: bool, target_date: date) -> bool:
 def _run_slack_weekly_step(dry_run: bool, target_date: date) -> bool:
     """Thursday step: Post weekly draft to Slack."""
     if dry_run:
-        console.print("  [dim]Would run: workmain slack post-weekly[/dim]")
+        console.print("  [dim]Would run: workmain slack post weekly[/dim]")
         console.print("  [dim]Interactive: Rich preview → [y/n/e] approval → post or abort[/dim]")
         return True
 
     try:
-        result = subprocess.run(['workmain', 'slack', 'post-weekly'])
+        result = subprocess.run(['workmain', 'slack', 'post', 'weekly'])
 
         if result.returncode != 0:
             console.print()
-            console.print("  [yellow]⚠ Slack post-weekly returned non-zero "
+            console.print("  [yellow]⚠ Slack post weekly returned non-zero "
                           "(user aborted or already posted)[/yellow]")
             console.print("  [dim]Continuing to Complete.[/dim]")
 
@@ -439,7 +439,7 @@ def _build_step_sequence(weekday: int, skip: list) -> list:
     # Add day-specific steps unless 'weekly' is skipped
     if 'weekly' not in skip:
         if weekday == THURSDAY:
-            raw.append(('weekly',        '7', 'Post weekly draft to Slack (slack post-weekly)',        _run_slack_weekly_step))
+            raw.append(('weekly',        '7', 'Post weekly draft to Slack (slack post weekly)',        _run_slack_weekly_step))
         elif weekday == FRIDAY:
             raw.append(('weekly_report', '7', 'Generate weekly report (reports save weekly_client)',   _run_weekly_report_step))
             raw.append(('weekly_email',  '8', 'Create weekly email draft (email save weekly_client)', _run_weekly_email_step))
@@ -484,7 +484,7 @@ def eod(skip: str, dry_run: bool, eod_date_str: str):
 
     \b
     Thursday adds:
-      7.  Post weekly draft to Slack (slack post-weekly)
+      7.  Post weekly draft to Slack (slack post weekly)
 
     \b
     Friday adds:
