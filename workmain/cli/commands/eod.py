@@ -1,6 +1,6 @@
 """
 WorkmAIn End-of-Day Workflow
-EOD v2.2
+EOD v2.3
 20260401
 
 Guided end-of-day workflow for daily work wrap-up.
@@ -49,6 +49,7 @@ Version History:
         avoids conflict with reserved -s (--search)
 - v2.2: CLI Standardization Sprint Part 1 (WU-7) — gdocs upload-all → gdocs upload all
         in subprocess call, dry-run print, step description, and help text
+- v2.3: CLI Standardization Sprint Part 1 (WU-9) — review step hint: track → time
 """
 
 import subprocess
@@ -192,8 +193,8 @@ def _run_review_step(dry_run: bool, target_date: date) -> bool:
                 return True
 
             console.print()
-            console.print("  [dim]Edit:   workmain track edit <id> -D 'new description'[/dim]")
-            console.print("  [dim]Delete: workmain track delete <id>[/dim]")
+            console.print("  [dim]Edit:   workmain time edit <id> -D 'new description'[/dim]")
+            console.print("  [dim]Delete: workmain time delete <id>[/dim]")
             console.print()
 
             if not click.confirm("  Review again after editing?", default=True):

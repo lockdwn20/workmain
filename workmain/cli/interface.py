@@ -1,6 +1,6 @@
 """
 WorkmAIn
-CLI Interface v2.4.0
+CLI Interface v2.5.0
 20260401
 
 Main CLI interface using Click framework
@@ -32,6 +32,9 @@ Version History:
 - v2.3.0: Phase 9 — report→reports rename registered, status/today updated
 - v2.4.0: CLI Standardization Sprint Part 1 (WU-1) — import `time` from time.py; removed
           `track` registration; today() and status() updated: track→time, track sync→clockify sync
+- v2.5.0: CLI Standardization Sprint Part 1 (WU-9) — residual reference sweep:
+          gdocs upload-* → upload *; calendar today sync → calendar sync;
+          reports view → reports show; track edit/delete → time edit/delete in eod review hint
 
 """
 
@@ -165,10 +168,10 @@ def status():
     table.add_row("├─ Email Drafts", "✓ email save/preview/send")
     table.add_row("└─ Recipient Mgmt", "✓ email recipients add/list/assign")
     table.add_row("Google Drive Integration", "✓ Phase 7 Complete")
-    table.add_row("├─ Upload Notes", "✓ gdocs upload-notes")
-    table.add_row("├─ Upload Reports", "✓ gdocs upload-report")
-    table.add_row("├─ Upload Clockify PDF", "✓ gdocs upload-clockify")
-    table.add_row("└─ Upload All", "✓ gdocs upload-all")
+    table.add_row("├─ Upload Notes", "✓ gdocs upload notes")
+    table.add_row("├─ Upload Reports", "✓ gdocs upload report")
+    table.add_row("├─ Upload Clockify PDF", "✓ gdocs upload clockify")
+    table.add_row("└─ Upload All", "✓ gdocs upload all")
     table.add_row("Slack Integration", "✓ Phase 8 Complete")
     table.add_row("├─ Setup Checklist", "✓ slack setup")
     table.add_row("├─ Auth Validation", "✓ slack auth [--reauth]")
@@ -177,7 +180,7 @@ def status():
     table.add_row("└─ Weekly Draft Post", "✓ slack post weekly")
     table.add_row("Report Pipeline", "✓ Phase 9 Complete")
     table.add_row("├─ EOD Day-Aware", "✓ Thu/Fri weekly steps")
-    table.add_row("└─ Report History", "✓ history/view/resend")
+    table.add_row("└─ Report History", "✓ history/show/resend")
 
     console.print(table)
     console.print("\n[bold green]Phase 9 Complete![/bold green] Ready for Phase 10 (Notifications & Scheduling)")
@@ -190,7 +193,7 @@ def today():
     console.print(f"\n[bold cyan]WorkmAIn Daily Workflow — {date.today().strftime('%A, %B %d, %Y')}[/bold cyan]")
 
     console.print("\n[bold yellow]MORNING STARTUP[/bold yellow]")
-    console.print("  workmain calendar today sync         # Sync today's Outlook calendar")
+    console.print("  workmain calendar sync               # Sync Outlook calendar (OAuth)")
     console.print("  workmain meetings today              # What's on today")
     console.print("  workmain meetings upcoming -n 2w     # Look ahead 2 weeks")
     console.print("  workmain notes today                 # Review yesterday's carry-forwards")
@@ -225,7 +228,7 @@ def today():
     console.print("    4a. Generate daily report  (reports save daily_internal)")
     console.print("    4b. Create email draft  (email save daily_internal)")
     console.print("    5. Pull Clockify PDF  (clockify report save daily)")
-    console.print("    6. Upload to Google Drive  (gdocs upload-all)")
+    console.print("    6. Upload to Google Drive  (gdocs upload all)")
     console.print("    + Thu: Post weekly Slack draft  (step 7)")
     console.print("    + Fri: Weekly report + email  (steps 7–8)")
     console.print("  workmain eod --skip clockify         # Skip individual steps")
@@ -241,11 +244,11 @@ def today():
     console.print("  workmain providers list              # Check AI provider status")
     console.print("  workmain reports preview daily_internal  # Preview report (no AI cost)")
     console.print("  workmain clockify status             # Check Clockify connection")
-    console.print("  workmain gdocs upload-all            # Archive to Google Drive manually")
+    console.print("  workmain gdocs upload all            # Archive to Google Drive manually")
     console.print("  workmain gdocs status                # Check Google Drive connection")
     console.print("  workmain eod                         - End-of-day workflow (day-aware Thu/Fri)")
     console.print("  workmain reports history             - View past generated reports")
-    console.print("  workmain reports view <id>           - Show full report content")
+    console.print("  workmain reports show <id>           - Show full report content")
     console.print("  workmain reports resend <id>         - Recreate email draft from report")
 
     console.print("\n[dim]Use 'workmain --help' for all commands[/dim]")

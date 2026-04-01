@@ -1,9 +1,13 @@
 """
 WorkmAIn Package Version
-Version v1.6.10
-20260331
+Version v1.7.0
+20260401
 
 Version History:
+- v1.7.0: CLI Standardization Sprint Part 1 — track→time, clockify sync subgroup,
+          slack post <period>, gdocs upload subgroup, calendar sync subcommand,
+          reports show (unified view+show), email recipients delete, flag short-form
+          conflicts resolved (-S/-P/-M/-R/-b), interactive time add description prompt
 - v1.6.10: Hotfix eod-date-option — add --date/-d YYYY-MM-DD to workmain eod and
            workmain reports save; backdated EOD now correctly scopes meeting condense,
            report generation, Clockify PDF, gdocs upload, and email draft to the
@@ -74,7 +78,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.6.10"
-__version_info__ = (1, 6, 10)
+__version__ = "1.7.0"
+__version_info__ = (1, 7, 0)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
