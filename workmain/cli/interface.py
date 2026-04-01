@@ -1,10 +1,10 @@
 """
 WorkmAIn
-CLI Interface v2.3.0
-20260319
+CLI Interface v2.4.0
+20260401
 
 Main CLI interface using Click framework
-Updated for Phase 9: Report Generation Pipeline
+Updated for CLI Standardization Sprint Part 1
 
 Version History:
 - v0.1.0: Initial CLI with basic structure
@@ -30,6 +30,8 @@ Version History:
 - v2.1.0: Update today() and status() for Phase 6 & 7 (calendar sync, email draft, gdocs upload)
 - v2.2.0: Register slack command group (Phase 8)
 - v2.3.0: Phase 9 — report→reports rename registered, status/today updated
+- v2.4.0: CLI Standardization Sprint Part 1 (WU-1) — import `time` from time.py; removed
+          `track` registration; today() and status() updated: track→time, track sync→clockify sync
 
 """
 
@@ -47,7 +49,7 @@ except ImportError:
 # Import Phase 2 commands
 from workmain.cli.commands.notes import notes
 from workmain.cli.commands.meetings import meetings
-from workmain.cli.commands.track import track, time
+from workmain.cli.commands.time import time
 from workmain.cli.commands.tasks import tasks
 
 # Import Phase 3 commands
@@ -154,12 +156,12 @@ def status():
     table.add_row("├─ Bulk Meeting Notes", "✓ Feature 3 (notes log)")
     table.add_row("└─ AI Condensation", "✓ Feature 4 (meetings condense)")
     table.add_row("Clockify Sync", "✓ Phase 5 Complete")
-    table.add_row("├─ Bidirectional Sync", "✓ track sync push/pull/both")
-    table.add_row("├─ PDF Reports", "✓ clockify report get")
+    table.add_row("├─ Bidirectional Sync", "✓ clockify sync push/pull/both")
+    table.add_row("├─ PDF Reports", "✓ clockify report save")
     table.add_row("├─ Recurring Meetings", "✓ meetings create --recurring")
     table.add_row("└─ Writing Style", "✓ meetings condense (enhanced)")
     table.add_row("Outlook Integration", "✓ Phase 6 Complete")
-    table.add_row("├─ Calendar Sync", "✓ calendar today/week/month sync")
+    table.add_row("├─ Calendar Sync", "✓ calendar sync (ICS import)")
     table.add_row("├─ Email Drafts", "✓ email save/preview/send")
     table.add_row("└─ Recipient Mgmt", "✓ email recipients add/list/assign")
     table.add_row("Google Drive Integration", "✓ Phase 7 Complete")
@@ -172,7 +174,7 @@ def status():
     table.add_row("├─ Auth Validation", "✓ slack auth [--reauth]")
     table.add_row("├─ Status & History", "✓ slack status")
     table.add_row("├─ Channel Config", "✓ slack channel set")
-    table.add_row("└─ Weekly Draft Post", "✓ slack post-weekly")
+    table.add_row("└─ Weekly Draft Post", "✓ slack post weekly")
     table.add_row("Report Pipeline", "✓ Phase 9 Complete")
     table.add_row("├─ EOD Day-Aware", "✓ Thu/Fri weekly steps")
     table.add_row("└─ Report History", "✓ history/view/resend")
@@ -205,12 +207,12 @@ def today():
     console.print("\n[bold yellow]AFTER MEETINGS[/bold yellow]")
     console.print("  workmain meetings condense 'Standup' # AI summarize → Clockify description")
     console.print("  workmain meetings track 'Standup'    # Create time entry from meeting")
-    console.print("  workmain track add 'Deep work' 2h -T 1300 -t ilo   # Manual time entry")
+    console.print("  workmain time add 'Deep work' 2h -T 1300 -t ilo   # Manual time entry")
     console.print("    # -T = start time (required)  -t = tags  -N = note  -C = category")
 
     console.print("\n[bold yellow]REVIEW & EDIT[/bold yellow]")
     console.print("  workmain time today                  # Today's time entries (IDs always shown)")
-    console.print("  workmain track edit <id> -D 'desc'   # Edit description  (-D not -d)")
+    console.print("  workmain time edit <id> -D 'desc'    # Edit description  (-D not -d)")
     console.print("  workmain notes today                 # Today's notes")
     console.print("  workmain notes meeting 'Standup' -H  # All notes for meeting (-H = history)")
     console.print("  workmain notes search 'keyword'      # Full-text search")
@@ -218,7 +220,7 @@ def today():
     console.print("\n[bold yellow]END OF DAY[/bold yellow]")
     console.print("  workmain eod                         # Full guided EOD workflow (day-aware):")
     console.print("    1. Condense pending meetings")
-    console.print("    2. Sync to Clockify  (track sync push)")
+    console.print("    2. Sync to Clockify  (clockify sync push)")
     console.print("    3. Review time entries")
     console.print("    4a. Generate daily report  (reports save daily_internal)")
     console.print("    4b. Create email draft  (email save daily_internal)")
@@ -232,8 +234,8 @@ def today():
 
     console.print("\n[bold yellow]OTHER USEFUL COMMANDS[/bold yellow]")
     console.print("  workmain notes add 'text' -t ilo     # Quick note  (-t = tags)")
-    console.print("  workmain track sync push             # Sync to Clockify manually")
-    console.print("  workmain track sync pull             # Import from Clockify")
+    console.print("  workmain clockify sync push          # Sync to Clockify manually")
+    console.print("  workmain clockify sync pull          # Import from Clockify")
     console.print("  workmain meetings rename <id> 'New'  # Rename a meeting")
     console.print("  workmain meetings merge 'Old' 'New'  # Move notes between meetings")
     console.print("  workmain providers list              # Check AI provider status")
@@ -254,7 +256,6 @@ cli.add_command(notes)
 cli.add_command(meetings)
 
 # Phase 2: Time Tracking Commands
-cli.add_command(track)
 cli.add_command(time)
 
 # Phase 2: Task Management Commands
