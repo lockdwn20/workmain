@@ -1,7 +1,7 @@
 """
 WorkmAIn Report Commands - Phase 4 Implementation
-Report Commands v2.3
-20260331
+Report Commands v2.4
+20260401
 
 Static action-first command structure — template is an argument.
 
@@ -39,6 +39,8 @@ Version History:
         added history alias, view <id>, resend <id> commands
 - v2.3: Hotfix eod-date-option — add optional report_date param to generate_report_impl;
         add --date YYYY-MM-DD option to reports save for backdated report generation
+- v2.4: CLI Standardization Sprint Part 1 (WU-4) — reports list/history --type/-t → -R;
+        avoids conflict with reserved -t (--tags)
 """
 
 import subprocess
@@ -295,7 +297,7 @@ def _report_list_impl(limit: int, report_type: Optional[str]) -> None:
 
 @reports.command('list')
 @click.option('--limit', '-n', type=int, default=10, help='Number of reports to show')
-@click.option('--type', '-t', 'report_type', default=None,
+@click.option('--type', '-R', 'report_type', default=None,
               help='Filter by report type (daily_internal, weekly_client)')
 def report_list(limit: int, report_type: Optional[str]):
     """
@@ -312,7 +314,7 @@ def report_list(limit: int, report_type: Optional[str]):
 
 @reports.command('history')
 @click.option('--limit', '-n', type=int, default=10, help='Number of rows to show')
-@click.option('--type', '-t', 'report_type', default=None,
+@click.option('--type', '-R', 'report_type', default=None,
               help='Filter by report type (daily_internal, weekly_client)')
 def report_history(limit: int, report_type: Optional[str]):
     """

@@ -1,6 +1,6 @@
 # WorkmAIn
-# CLI_STANDARDS.md v1.5
-# 20260331
+# CLI_STANDARDS.md v1.6
+# 20260401
 
 ---
 
@@ -29,6 +29,8 @@
   --days/-d` — live code uses `--days/-n`, already compliant); §5.3 reserved table
   annotated with WU-4 sprint assignments (`-b` scope expanded, `-S`/`-C`/`-P`/`-M`/`-R`
   added, `clockify sync push --all` added to no-short-form table).
+- v1.6 (20260401): All WU-4 short form assignments implemented in code — this version
+  confirms §5.3 table matches live implementation.
 
 ---
 

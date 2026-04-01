@@ -1,6 +1,6 @@
 """
 WorkmAIn End-of-Day Workflow
-EOD v2.0
+EOD v2.1
 20260401
 
 Guided end-of-day workflow for daily work wrap-up.
@@ -43,6 +43,10 @@ Version History:
         report step passes --date; clockify step passes --start/--end
 - v1.9: Hotfix eod-date-option — gdocs step passes --date YYYYMMDD to upload-all so notes,
         report, and Clockify PDF are all resolved for the target date not today
+- v2.0: CLI Standardization Sprint Part 1 (WU-3) — subprocess calls updated:
+        track sync push → clockify sync push; slack post-weekly → slack post weekly
+- v2.1: CLI Standardization Sprint Part 1 (WU-4) — --skip/-s → --skip/-S (uppercase);
+        avoids conflict with reserved -s (--search)
 """
 
 import subprocess
@@ -458,7 +462,7 @@ def _build_step_sequence(weekday: int, skip: list) -> list:
 # ---------------------------------------------------------------------------
 
 @click.command()
-@click.option('--skip', '-s', default='',
+@click.option('--skip', '-S', default='',
               help='Comma-separated steps to skip '
                    '(condense, sync, review, report, email, clockify, gdocs, weekly). '
                    'Skipping report also skips email. '
@@ -505,7 +509,7 @@ def eod(skip: str, dry_run: bool, eod_date_str: str):
       workmain eod --skip email
       workmain eod --skip weekly
       workmain eod --skip report,weekly --dry-run
-      workmain eod -s sync --dry-run
+      workmain eod -S sync --dry-run
       workmain eod --date 2026-03-30
       workmain eod --date 2026-03-30 --dry-run
     """

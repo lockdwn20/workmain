@@ -1,6 +1,6 @@
 """
 WorkmAIn Time CLI Commands
-Time Commands v1.0
+Time Commands v1.1
 20260401
 
 CLI commands for time tracking with 24-hour format support and Clockify sync.
@@ -13,6 +13,8 @@ Version History:
         into single `time` group with add/edit/delete; added interactive prompt
         fallback on `time add` when DESCRIPTION is omitted (Item 5 §4.4);
         updated all docstring examples from `track` to `time`
+- v1.1: CLI Standardization Sprint Part 1 (WU-4) — time edit --category/-c → -C;
+        avoids conflict with reserved -c (--content); consistent with time add -C
 """
 
 import click

@@ -1,7 +1,7 @@
 """
 WorkmAIn CLI
 Clockify Command Group
-v1.4
+v1.5
 20260401
 
 CLI commands for Clockify report retrieval, sync, and connection status.
@@ -20,7 +20,10 @@ Version History:
         staging/clockify/, --start/-b and --end/-e flag standard compliance
 - v1.4: CLI Standardization Sprint Part 1 (WU-1) — sync push/pull/both subgroup
         moved here from track.py; status() hint updated to clockify sync push;
-        sync pull --start flag corrected to -b (was conflicting -s, see WU-4)
+        sync pull --start uses -b (not -s, which is reserved for --search)
+- v1.5: CLI Standardization Sprint Part 1 (WU-4) — version bump confirming clockify
+        conflicts resolved in WU-1: sync pull -b (not -s), sync push --all has no
+        short form (deliberate friction)
 """
 
 import calendar
