@@ -1,18 +1,18 @@
 """
 WorkmAIn CLI
 Google Drive Command Group
-gdocs.py v1.3
-20260319
+gdocs.py v1.4
+20260401
 
 CLI commands for archiving daily work artifacts to Google Drive.
 
 Commands:
 - gdocs auth [--reauth]          # Authenticate / re-authenticate
 - gdocs status                   # Auth state, cached folders, recent uploads
-- gdocs upload-notes             # DB notes → markdown → staging/notes/ → Drive
-- gdocs upload-report            # staging/reports/daily_internal_YYYY-MM-DD.md → Drive
-- gdocs upload-clockify          # staging/clockify/Clockify_YYYYMMDD.pdf → Drive
-- gdocs upload-all               # Runs all three in sequence
+- gdocs upload notes             # DB notes → markdown → staging/notes/ → Drive
+- gdocs upload report            # staging/reports/daily_internal_YYYY-MM-DD.md → Drive
+- gdocs upload clockify          # staging/clockify/Clockify_YYYYMMDD.pdf → Drive
+- gdocs upload all               # Runs all three in sequence
 
 Drive structure:
     {GDRIVE_TIMECARDS_ROOT}/YYYYMM/Raw_Notes/
@@ -25,6 +25,10 @@ Version History:
 - v1.2: Fix _require_auth() to call get_credentials() instead of is_authenticated(),
         enabling silent token refresh on expiry
 - v1.3: Phase 9 Gate 1 — updated hint text from 'report save' to 'reports save'
+- v1.4: CLI Standardization Sprint Part 1 (WU-7) — refactored four `upload-*` commands
+        into `upload` subgroup with positional artifact argument (notes/report/clockify/all);
+        function names unchanged (ctx.invoke references function objects); eod.py updated
+        separately to call `gdocs upload all`
 """
 
 import os
@@ -294,10 +298,16 @@ def gdocs_status():
 
 
 # ---------------------------------------------------------------------------
-# gdocs upload-notes
+# gdocs upload <ARTIFACT>
 # ---------------------------------------------------------------------------
 
-@gdocs.command("upload-notes")
+@gdocs.group("upload")
+def gdocs_upload():
+    """Upload work artifacts to Google Drive."""
+    pass
+
+
+@gdocs_upload.command("notes")
 @click.option("--date", "date_str", type=str, default=None,
               help="Target date YYYYMMDD. Default: today.")
 @click.option("--dry-run", is_flag=True, default=False,
@@ -314,10 +324,10 @@ def gdocs_upload_notes(date_str: Optional[str], dry_run: bool, force: bool):
 
     \b
     Examples:
-      workmain gdocs upload-notes
-      workmain gdocs upload-notes --date 20260308
-      workmain gdocs upload-notes --dry-run
-      workmain gdocs upload-notes --force
+      workmain gdocs upload notes
+      workmain gdocs upload notes --date 20260308
+      workmain gdocs upload notes --dry-run
+      workmain gdocs upload notes --force
     """
     _require_env_root()
     _require_auth()
@@ -394,11 +404,7 @@ def gdocs_upload_notes(date_str: Optional[str], dry_run: bool, force: bool):
         session.close()
 
 
-# ---------------------------------------------------------------------------
-# gdocs upload-report
-# ---------------------------------------------------------------------------
-
-@gdocs.command("upload-report")
+@gdocs_upload.command("report")
 @click.option("--date", "date_str", type=str, default=None,
               help="Target date YYYYMMDD. Default: today.")
 @click.option("--dry-run", is_flag=True, default=False,
@@ -414,10 +420,10 @@ def gdocs_upload_report(date_str: Optional[str], dry_run: bool, force: bool):
 
     \b
     Examples:
-      workmain gdocs upload-report
-      workmain gdocs upload-report --date 20260308
-      workmain gdocs upload-report --dry-run
-      workmain gdocs upload-report --force
+      workmain gdocs upload report
+      workmain gdocs upload report --date 20260308
+      workmain gdocs upload report --dry-run
+      workmain gdocs upload report --force
     """
     _require_env_root()
     _require_auth()
@@ -489,11 +495,7 @@ def gdocs_upload_report(date_str: Optional[str], dry_run: bool, force: bool):
         session.close()
 
 
-# ---------------------------------------------------------------------------
-# gdocs upload-clockify
-# ---------------------------------------------------------------------------
-
-@gdocs.command("upload-clockify")
+@gdocs_upload.command("clockify")
 @click.option("--date", "date_str", type=str, default=None,
               help="Target date YYYYMMDD. Default: today.")
 @click.option("--dry-run", is_flag=True, default=False,
@@ -509,10 +511,10 @@ def gdocs_upload_clockify(date_str: Optional[str], dry_run: bool, force: bool):
 
     \b
     Examples:
-      workmain gdocs upload-clockify
-      workmain gdocs upload-clockify --date 20260308
-      workmain gdocs upload-clockify --dry-run
-      workmain gdocs upload-clockify --force
+      workmain gdocs upload clockify
+      workmain gdocs upload clockify --date 20260308
+      workmain gdocs upload clockify --dry-run
+      workmain gdocs upload clockify --force
     """
     _require_env_root()
     _require_auth()
@@ -581,11 +583,7 @@ def gdocs_upload_clockify(date_str: Optional[str], dry_run: bool, force: bool):
         session.close()
 
 
-# ---------------------------------------------------------------------------
-# gdocs upload-all
-# ---------------------------------------------------------------------------
-
-@gdocs.command("upload-all")
+@gdocs_upload.command("all")
 @click.option("--date", "date_str", type=str, default=None,
               help="Target date YYYYMMDD. Default: today.")
 @click.option("--dry-run", is_flag=True, default=False,
@@ -597,14 +595,14 @@ def gdocs_upload_all(ctx, date_str: Optional[str], dry_run: bool, force: bool):
     """
     Upload notes, report, and Clockify PDF to Drive in sequence.
 
-    Runs upload-notes, upload-report, upload-clockify in order.
+    Runs upload notes, report, and clockify in order.
     On failure of any step, prompts whether to continue with remaining uploads.
 
     \b
     Examples:
-      workmain gdocs upload-all
-      workmain gdocs upload-all --date 20260308
-      workmain gdocs upload-all --dry-run
+      workmain gdocs upload all
+      workmain gdocs upload all --date 20260308
+      workmain gdocs upload all --dry-run
     """
     _require_env_root()
     _require_auth()

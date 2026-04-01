@@ -154,7 +154,7 @@ Never use short names: ~~`get_tags()`~~, ~~`get_loader()`~~, ~~`get_validator()`
 - Every test that touches the DB **must** use the `db_session` fixture — NEVER call `get_db()` directly in a test file
 - Use sentinel dates (e.g. `date(2099, 1, 1)`) for any test asserting exact totals or counts
 - `scripts-deprecated/` contains legacy manual scripts from the pre-operational phase — do NOT add to it; do NOT run with pytest
-- Run the suite: `python -m pytest tests/` — expected baseline 142 passed, 0 failed, 0 errors
+- Run the suite: `python -m pytest tests/` — expected baseline 148 passed, 0 failed, 0 errors
 
 ### 7. Integration Over Separation
 

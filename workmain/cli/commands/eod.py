@@ -1,22 +1,22 @@
 """
 WorkmAIn End-of-Day Workflow
-EOD v1.9
-20260331
+EOD v2.3
+20260401
 
 Guided end-of-day workflow for daily work wrap-up.
 
 Base sequence (Mon–Wed):
   1. Condense pending meeting notes (meetings with notes, no condensed_summary)
-  2. Sync time entries to Clockify (track sync push)
+  2. Sync time entries to Clockify (clockify sync push)
   3. Review today's time entries (loop until confirmed)
   4a. Generate daily report (reports save daily_internal)
   4b. Create email draft (email save daily_internal)
   5. Pull Clockify PDF (clockify report save daily → staging/clockify/)
-  6. Upload to Google Drive (gdocs upload-all)
+  6. Upload to Google Drive (gdocs upload all)
   7. Complete — step summary and sign-off
 
 Thursday adds:
-  7. Post weekly draft to Slack (slack post-weekly)
+  7. Post weekly draft to Slack (slack post weekly)
   8. Complete
 
 Friday adds:
@@ -43,6 +43,13 @@ Version History:
         report step passes --date; clockify step passes --start/--end
 - v1.9: Hotfix eod-date-option — gdocs step passes --date YYYYMMDD to upload-all so notes,
         report, and Clockify PDF are all resolved for the target date not today
+- v2.0: CLI Standardization Sprint Part 1 (WU-3) — subprocess calls updated:
+        track sync push → clockify sync push; slack post-weekly → slack post weekly
+- v2.1: CLI Standardization Sprint Part 1 (WU-4) — --skip/-s → --skip/-S (uppercase);
+        avoids conflict with reserved -s (--search)
+- v2.2: CLI Standardization Sprint Part 1 (WU-7) — gdocs upload-all → gdocs upload all
+        in subprocess call, dry-run print, step description, and help text
+- v2.3: CLI Standardization Sprint Part 1 (WU-9) — review step hint: track → time
 """
 
 import subprocess
@@ -140,11 +147,11 @@ def _run_condense_step(dry_run: bool, target_date: date) -> bool:
 def _run_sync_step(dry_run: bool, target_date: date) -> bool:
     """Step: Sync time entries to Clockify."""
     if dry_run:
-        console.print("  [dim]Would run: workmain track sync push[/dim]")
+        console.print("  [dim]Would run: workmain clockify sync push[/dim]")
         return True
 
     try:
-        result = subprocess.run(['workmain', 'track', 'sync', 'push'])
+        result = subprocess.run(['workmain', 'clockify', 'sync', 'push'])
 
         if result.returncode != 0:
             console.print()
@@ -156,7 +163,7 @@ def _run_sync_step(dry_run: bool, target_date: date) -> bool:
             ).strip().lower()
 
             if action == 'r':
-                subprocess.run(['workmain', 'track', 'sync', 'push'])
+                subprocess.run(['workmain', 'clockify', 'sync', 'push'])
             elif action == 's':
                 console.print("  [dim]Sync skipped[/dim]")
 
@@ -186,8 +193,8 @@ def _run_review_step(dry_run: bool, target_date: date) -> bool:
                 return True
 
             console.print()
-            console.print("  [dim]Edit:   workmain track edit <id> -D 'new description'[/dim]")
-            console.print("  [dim]Delete: workmain track delete <id>[/dim]")
+            console.print("  [dim]Edit:   workmain time edit <id> -D 'new description'[/dim]")
+            console.print("  [dim]Delete: workmain time delete <id>[/dim]")
             console.print()
 
             if not click.confirm("  Review again after editing?", default=True):
@@ -304,9 +311,9 @@ def _run_clockify_step(dry_run: bool, target_date: date) -> bool:
 def _run_gdocs_step(dry_run: bool, target_date: date) -> bool:
     """Step 6: Upload artifacts to Google Drive."""
     date_str = target_date.strftime('%Y%m%d')
-    cmd = ['workmain', 'gdocs', 'upload-all', '--date', date_str]
+    cmd = ['workmain', 'gdocs', 'upload', 'all', '--date', date_str]
     if dry_run:
-        console.print(f"  [dim]Would run: workmain gdocs upload-all --date {date_str}[/dim]")
+        console.print(f"  [dim]Would run: workmain gdocs upload all --date {date_str}[/dim]")
         console.print("  [dim]Uploads: notes → Raw_Notes/, report → Reports/, PDF → Clockify/[/dim]")
         return True
 
@@ -340,16 +347,16 @@ def _run_gdocs_step(dry_run: bool, target_date: date) -> bool:
 def _run_slack_weekly_step(dry_run: bool, target_date: date) -> bool:
     """Thursday step: Post weekly draft to Slack."""
     if dry_run:
-        console.print("  [dim]Would run: workmain slack post-weekly[/dim]")
+        console.print("  [dim]Would run: workmain slack post weekly[/dim]")
         console.print("  [dim]Interactive: Rich preview → [y/n/e] approval → post or abort[/dim]")
         return True
 
     try:
-        result = subprocess.run(['workmain', 'slack', 'post-weekly'])
+        result = subprocess.run(['workmain', 'slack', 'post', 'weekly'])
 
         if result.returncode != 0:
             console.print()
-            console.print("  [yellow]⚠ Slack post-weekly returned non-zero "
+            console.print("  [yellow]⚠ Slack post weekly returned non-zero "
                           "(user aborted or already posted)[/yellow]")
             console.print("  [dim]Continuing to Complete.[/dim]")
 
@@ -433,13 +440,13 @@ def _build_step_sequence(weekday: int, skip: list) -> list:
         ('report',    '4a', 'Generate report (reports save daily_internal)',  _run_report_step),
         ('email',     '4b', 'Create email draft (email save daily_internal)', _run_email_step),
         ('clockify',  '5',  'Pull Clockify PDF (clockify report save daily)', _run_clockify_step),
-        ('gdocs',     '6',  'Upload to Google Drive (gdocs upload-all)',      _run_gdocs_step),
+        ('gdocs',     '6',  'Upload to Google Drive (gdocs upload all)',       _run_gdocs_step),
     ]
 
     # Add day-specific steps unless 'weekly' is skipped
     if 'weekly' not in skip:
         if weekday == THURSDAY:
-            raw.append(('weekly',        '7', 'Post weekly draft to Slack (slack post-weekly)',        _run_slack_weekly_step))
+            raw.append(('weekly',        '7', 'Post weekly draft to Slack (slack post weekly)',        _run_slack_weekly_step))
         elif weekday == FRIDAY:
             raw.append(('weekly_report', '7', 'Generate weekly report (reports save weekly_client)',   _run_weekly_report_step))
             raw.append(('weekly_email',  '8', 'Create weekly email draft (email save weekly_client)', _run_weekly_email_step))
@@ -458,7 +465,7 @@ def _build_step_sequence(weekday: int, skip: list) -> list:
 # ---------------------------------------------------------------------------
 
 @click.command()
-@click.option('--skip', '-s', default='',
+@click.option('--skip', '-S', default='',
               help='Comma-separated steps to skip '
                    '(condense, sync, review, report, email, clockify, gdocs, weekly). '
                    'Skipping report also skips email. '
@@ -479,12 +486,12 @@ def eod(skip: str, dry_run: bool, eod_date_str: str):
       4a. Generate daily report (reports save daily_internal)
       4b. Create email draft (email save daily_internal)
       5.  Pull Clockify PDF (clockify report save daily)
-      6.  Upload to Google Drive (gdocs upload-all)
+      6.  Upload to Google Drive (gdocs upload all)
       7.  Complete — summary and sign-off
 
     \b
     Thursday adds:
-      7.  Post weekly draft to Slack (slack post-weekly)
+      7.  Post weekly draft to Slack (slack post weekly)
 
     \b
     Friday adds:
@@ -505,7 +512,7 @@ def eod(skip: str, dry_run: bool, eod_date_str: str):
       workmain eod --skip email
       workmain eod --skip weekly
       workmain eod --skip report,weekly --dry-run
-      workmain eod -s sync --dry-run
+      workmain eod -S sync --dry-run
       workmain eod --date 2026-03-30
       workmain eod --date 2026-03-30 --dry-run
     """

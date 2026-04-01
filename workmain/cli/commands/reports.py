@@ -1,7 +1,7 @@
 """
 WorkmAIn Report Commands - Phase 4 Implementation
-Report Commands v2.3
-20260331
+Report Commands v2.5
+20260401
 
 Static action-first command structure — template is an argument.
 
@@ -10,8 +10,7 @@ Commands:
 - reports save <template>      # generate with AI, save to staging/reports/
 - reports send <template>      # stub — chains to email send (OAuth required)
 - reports list / history       # list reports from DB (history is alias)
-- reports show <file>
-- reports view <id>            # show full content by DB id
+- reports show <id|file>       # show by DB id (int) or filename (str)
 - reports resend <id>          # recreate email draft from stored report
 - reports costs
 
@@ -39,6 +38,11 @@ Version History:
         added history alias, view <id>, resend <id> commands
 - v2.3: Hotfix eod-date-option — add optional report_date param to generate_report_impl;
         add --date YYYY-MM-DD option to reports save for backdated report generation
+- v2.4: CLI Standardization Sprint Part 1 (WU-4) — reports list/history --type/-t → -R;
+        avoids conflict with reserved -t (--tags)
+- v2.5: CLI Standardization Sprint Part 1 (WU-6) — consolidated `reports view <id>` into
+        `reports show`; show now accepts either int ID (DB lookup) or str filename (file read);
+        `view` command removed
 """
 
 import subprocess
@@ -295,7 +299,7 @@ def _report_list_impl(limit: int, report_type: Optional[str]) -> None:
 
 @reports.command('list')
 @click.option('--limit', '-n', type=int, default=10, help='Number of reports to show')
-@click.option('--type', '-t', 'report_type', default=None,
+@click.option('--type', '-R', 'report_type', default=None,
               help='Filter by report type (daily_internal, weekly_client)')
 def report_list(limit: int, report_type: Optional[str]):
     """
@@ -312,7 +316,7 @@ def report_list(limit: int, report_type: Optional[str]):
 
 @reports.command('history')
 @click.option('--limit', '-n', type=int, default=10, help='Number of rows to show')
-@click.option('--type', '-t', 'report_type', default=None,
+@click.option('--type', '-R', 'report_type', default=None,
               help='Filter by report type (daily_internal, weekly_client)')
 def report_history(limit: int, report_type: Optional[str]):
     """
@@ -329,75 +333,61 @@ def report_history(limit: int, report_type: Optional[str]):
 
 
 @reports.command('show')
-@click.argument('filename', type=str)
-def report_show(filename: str):
+@click.argument('target', type=str)
+def report_show(target: str):
     """
-    Display a generated report.
+    Display a report by database ID or filename.
+
+    TARGET can be an integer database ID or a report filename.
 
     \b
-    Example:
+    Examples:
+      workmain reports show 42
       workmain reports show daily_internal_2026-03-05.md
     """
     db = get_db()
     session = db.get_session()
 
     try:
-        generator = get_report_generator(session)
+        try:
+            report_id = int(target)
+            # ID path — fetch from database
+            report = session.query(Report).filter(Report.id == report_id).first()
 
-        file_path = generator.output_dir / filename
+            if not report:
+                console.print(f"[red]Error: No report found with ID {report_id}.[/red]")
+                raise SystemExit(1)
 
-        if not file_path.exists():
-            console.print(f"[red]✗ Report not found: {filename}[/red]")
-            console.print("\n[dim]Use 'workmain reports list' to see available reports[/dim]\n")
-            return
+            title = f"Report #{report.id} — {report.report_type} — {report.report_date}"
 
-        with open(file_path, 'r', encoding='utf-8') as f:
-            content = f.read()
+            console.print()
+            console.print(Panel(
+                report.content or "(no content)",
+                title=f"[bold]{title}[/bold]",
+                border_style="green"
+            ))
+            console.print()
 
-        console.print()
-        console.print(Panel(
-            content,
-            title=f"[bold]{filename}[/bold]",
-            border_style="green"
-        ))
-        console.print()
+        except ValueError:
+            # Filename path — read from staging directory
+            generator = get_report_generator(session)
+            file_path = generator.output_dir / target
 
-    except Exception as e:
-        console.print(f"[red]✗ Failed to show report: {e}[/red]")
+            if not file_path.exists():
+                console.print(f"[red]✗ Report not found: {target}[/red]")
+                console.print("\n[dim]Use 'workmain reports list' to see available reports[/dim]\n")
+                return
 
-    finally:
-        session.close()
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
 
-
-@reports.command('view')
-@click.argument('id', type=click.INT)
-def report_view(id: int):
-    """
-    Display full content of a stored report by database ID.
-
-    \b
-    Example:
-      workmain reports view 42
-    """
-    db = get_db()
-    session = db.get_session()
-
-    try:
-        report = session.query(Report).filter(Report.id == id).first()
-
-        if not report:
-            console.print(f"[red]Error: No report found with ID {id}.[/red]")
-            raise SystemExit(1)
-
-        title = f"Report #{report.id} — {report.report_type} — {report.report_date}"
-
-        console.print()
-        console.print(Panel(
-            report.content or "(no content)",
-            title=f"[bold]{title}[/bold]",
-            border_style="green"
-        ))
-        console.print()
+            console.print()
+            console.print(Panel(
+                content,
+                title=f"[bold]{target}[/bold]",
+                border_style="green"
+            ))
+            console.print()
 
     except SystemExit:
         raise

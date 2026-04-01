@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-04-01
+
+### Changed — Breaking CLI Changes (CLI Standardization Sprint Part 1)
+
+- **`track` command group removed** — replaced by `time` (e.g. `workmain time add`, `workmain time today`)
+- **`clockify sync push/pull/both`** — moved from `track sync` to `clockify sync` subgroup
+- **`slack post weekly`** — was `slack post-weekly`; now `slack post <period>` with `weekly` argument
+- **`gdocs upload notes/report/clockify/all`** — was `upload-notes/upload-report/upload-clockify/upload-all`; now a `upload` subgroup with subcommands
+- **`calendar sync`** — dedicated subcommand (OAuth stub); `calendar today/week/month sync` removed
+- **`reports show <id-or-filename>`** — was `reports view <id>`; now unified command supporting int ID or filename
+- **`email recipients delete <id>`** — was `email recipients remove <id>`
+- **`--skip/-S` on `workmain eod`** — short form changed from `-s` to `-S` (uppercase) to avoid conflict with reserved `-s/--search`
+- **`providers costs --provider/-P --month/-M`** — short forms changed from `-p/-m` to `-P/-M`
+- **`reports history/list --type/-R`** — short form changed from `-t` to `-R`
+- **`time add <description>`** — description argument is now optional; prompts interactively if omitted
+- **`clockify sync pull --start/-b`** — short form changed from `-s` to `-b` to avoid conflict with reserved `-s/--search`
+
+### Added
+- `workmain calendar sync` — dedicated OAuth stub subcommand (replaces action positional on today/week/month)
+- `workmain time` command group (replaces `track`)
+- `workmain clockify sync` subgroup with `push`, `pull`, `both` subcommands
+- `workmain gdocs upload` subgroup with `notes`, `report`, `clockify`, `all` subcommands
+- `workmain slack post <period>` — extensible period argument (only `weekly` implemented)
+
 ## [1.6.10] - 2026-03-31
 
 ### Added

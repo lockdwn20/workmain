@@ -1,7 +1,7 @@
 """
 WorkmAIn Calendar Commands
-Calendar Commands v1.3
-20260327
+Calendar Commands v1.4
+20260401
 
 Calendar command group for Outlook calendar integration (Phase 6).
 
@@ -10,19 +10,19 @@ Commands:
   workmain calendar today                  # local DB, today's Outlook events
   workmain calendar week                   # local DB, this week's Outlook events
   workmain calendar month                  # local DB, current date → end of month
-  workmain calendar today sync             # OAuth stub
-  workmain calendar week sync              # OAuth stub
-  workmain calendar month sync             # OAuth stub
+  workmain calendar sync                   # OAuth stub (requires Azure AD OAuth)
   workmain calendar import <file>          # ICS import pipeline
 
 Local view queries meetings where outlook_id IS NOT NULL.
-Sync commands require Azure AD OAuth — see docs/OAUTH_SETUP.md
+Sync requires Azure AD OAuth — see docs/OAUTH_SETUP.md
 
 Version History:
 - v1.0: Initial implementation (Phase 6 Gate 4)
 - v1.1: Use _fallback_match() in _classify_events() for title+date secondary lookup
 - v1.2: Update import header to handle expanded occurrence count from RRULE expansion
 - v1.3: Surface date_shift_notes status in preview; import Note for note-count queries
+- v1.4: CLI Standardization Sprint Part 1 (WU-8) — remove 'sync' action positional from
+        today/week/month; add dedicated 'calendar sync' subcommand (NotImplementedError stub)
 """
 
 import click
@@ -241,9 +241,7 @@ def calendar(ctx):
 
     \b
     Live sync (OAuth required — see docs/OAUTH_SETUP.md):
-      workmain calendar today sync
-      workmain calendar week sync
-      workmain calendar month sync
+      workmain calendar sync
     """
     if ctx.invoked_subcommand is None:
         db = get_db()
@@ -270,25 +268,14 @@ def calendar(ctx):
 # ------------------------------------------------------------------
 
 @calendar.command('today')
-@click.argument('action', required=False, default=None,
-                type=click.Choice(['sync']))
-def calendar_today(action: Optional[str]):
+def calendar_today():
     """
     Show today's Outlook calendar events.
-
-    Pass 'sync' to pull live data from Outlook (requires OAuth).
 
     \b
     Examples:
       workmain calendar today
-      workmain calendar today sync
     """
-    if action == 'sync':
-        raise NotImplementedError(
-            "Calendar sync requires OAuth. See docs/OAUTH_SETUP.md\n"
-            "Use 'workmain calendar import <file>' to import via ICS export."
-        )
-
     db = get_db()
     session = db.get_session()
     today = date.today()
@@ -309,25 +296,14 @@ def calendar_today(action: Optional[str]):
 
 
 @calendar.command('week')
-@click.argument('action', required=False, default=None,
-                type=click.Choice(['sync']))
-def calendar_week(action: Optional[str]):
+def calendar_week():
     """
     Show this week's Outlook calendar events (Monday–Sunday).
-
-    Pass 'sync' to pull live data from Outlook (requires OAuth).
 
     \b
     Examples:
       workmain calendar week
-      workmain calendar week sync
     """
-    if action == 'sync':
-        raise NotImplementedError(
-            "Calendar sync requires OAuth. See docs/OAUTH_SETUP.md\n"
-            "Use 'workmain calendar import <file>' to import via ICS export."
-        )
-
     db = get_db()
     session = db.get_session()
     today = date.today()
@@ -352,25 +328,14 @@ def calendar_week(action: Optional[str]):
 
 
 @calendar.command('month')
-@click.argument('action', required=False, default=None,
-                type=click.Choice(['sync']))
-def calendar_month(action: Optional[str]):
+def calendar_month():
     """
     Show Outlook events from today through end of current month.
-
-    Pass 'sync' to pull live data from Outlook (requires OAuth).
 
     \b
     Examples:
       workmain calendar month
-      workmain calendar month sync
     """
-    if action == 'sync':
-        raise NotImplementedError(
-            "Calendar sync requires OAuth. See docs/OAUTH_SETUP.md\n"
-            "Use 'workmain calendar import <file>' to import via ICS export."
-        )
-
     db = get_db()
     session = db.get_session()
     today = date.today()
@@ -395,6 +360,29 @@ def calendar_month(action: Optional[str]):
         _display_meetings(month_name, meetings)
     finally:
         session.close()
+
+
+# ------------------------------------------------------------------
+# Sync command (OAuth stub)
+# ------------------------------------------------------------------
+
+@calendar.command('sync')
+def calendar_sync():
+    """
+    Sync calendar events live from Outlook (requires Azure AD OAuth).
+
+    OAuth is not yet available in this environment (corporate policy).
+    Use 'workmain calendar import <file.ics>' to import via ICS export instead.
+
+    \b
+    Examples:
+      workmain calendar sync
+      workmain calendar import ~/exports/week.ics
+    """
+    raise NotImplementedError(
+        "Calendar sync requires Azure AD OAuth. See docs/OAUTH_SETUP.md\n"
+        "Use 'workmain calendar import <file>' to import via ICS export."
+    )
 
 
 # ------------------------------------------------------------------

@@ -1,7 +1,7 @@
 """
 WorkmAIn Provider CLI Commands
-Provider Commands v1.7
-20260319
+Provider Commands v1.8
+20260401
 
 CLI commands for managing AI providers (Claude and Gemini).
 
@@ -20,6 +20,8 @@ Version History:
 - v1.5: CLI Standardization Sprint (Gate 1) - providers costs --limit -l → -n
 - v1.6: CLI Standardization Sprint (Gate 6) - set-default stub updated with [NOT IMPLEMENTED]
 - v1.7: Phase 9 Gate 1 — updated hint text from 'report daily' to 'reports save daily_internal'
+- v1.8: CLI Standardization Sprint Part 1 (WU-4) — providers costs --provider/-p → -P,
+        --month/-m → -M; avoids conflicts with reserved -p (--project) and -m (--meeting)
 """
 
 from typing import Optional
@@ -208,9 +210,9 @@ def test_provider(provider: str):
 
 
 @providers.command('costs')
-@click.option('--provider', '-p', type=click.Choice(['claude', 'gemini'], case_sensitive=False),
+@click.option('--provider', '-P', type=click.Choice(['claude', 'gemini'], case_sensitive=False),
               help='Filter by specific provider')
-@click.option('--month', '-m', help='Filter by month (YYYY-MM)')
+@click.option('--month', '-M', help='Filter by month (YYYY-MM)')
 @click.option('--limit', '-n', type=int, default=20, help='Limit number of reports shown')
 def show_costs(provider: Optional[str], month: Optional[str], limit: int):
     """
@@ -224,9 +226,9 @@ def show_costs(provider: Optional[str], month: Optional[str], limit: int):
     \b
     Examples:
       workmain providers costs
-      workmain providers costs -p claude
-      workmain providers costs -m 2025-12
-      workmain providers costs -p gemini -n 10
+      workmain providers costs -P claude
+      workmain providers costs -M 2025-12
+      workmain providers costs -P gemini -n 10
     """
     # Get database session
     db = get_db()
