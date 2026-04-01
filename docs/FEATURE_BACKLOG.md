@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v3.8
-20260319
+Feature Backlog v4.0
+20260331
 
 # WorkmAIn Feature Backlog
 
@@ -17,6 +17,8 @@ Items deferred from various phases for future implementation.
 - v3.6 (20260311): Added Phase 8 deferral (workmain eod day-aware Thursday/Friday steps → Phase 10)
 - v3.7 (20260311): Retargeted Item 17 Phase 10 → Phase 9 (phase swap); added Item 18 (templates preview ImportError — pre-Phase 9 fix); fixed phase labels in summary/Items by Phase to match current checklist
 - v3.8 (20260319): Items 17 and 18 marked COMPLETE (Phase 9, v1.6.0); summary statistics updated
+- v3.9 (20260327): Added Item 19 (Meeting visibility/tagging for report prompt context)
+- v4.0 (20260331): Added Items 20–24 from CLI Standardization Sprint Part 1 deferred violations (violations 6, 7, 8, 9, 18); updated summary statistics; added Phase 10/11/12 workload entries
 
 ---
 
@@ -1089,9 +1091,140 @@ in `templates.py`. Bump file version.
 
 ---
 
+### 19. Meeting Visibility / Tagging for Report Prompt Context
+
+**Status:** Deferred
+**Priority:** Medium (report quality / data leakage risk)
+**Effort:** ~3-5 hours
+**Added:** 20260327
+
+**Description:**
+Meetings are currently fetched for the full week and appended to every section's context in the AI prompt without any filtering. Because meetings have no tag equivalent, internal meetings (e.g., "Splunk Normalization Project - Internal Sync") are exposed to the AI when generating client-facing reports (weekly_client), potentially causing the AI to generate content about internal discussions.
+
+**Options to evaluate:**
+1. **Meeting-level default tag** — Add a `visibility` or `tags` field to the Meeting model (e.g., `internal-only`, `client-report`, `both`). The prompt builder would then filter meetings the same way it filters notes.
+2. **Respect `data_sources`** — The prompt builder currently ignores `data_sources` for meetings. Wrapping the meeting fetch in a `"meetings" in data_sources` check would remove meetings from all sections that don't explicitly opt in. Since no current template section lists `"meetings"` in `data_sources`, this immediately stops meeting context from leaking into client reports.
+3. **Exclude meeting list entirely from weekly_client** — Simplest fix: don't include the meeting title list in weekly report prompts at all, since meeting-specific content is already captured in tagged notes by the user.
+
+**Context:**
+Investigated 2026-03-27 after weekly report included AI-generated content derived from an "Internal Sync" meeting title. Note-level `internal-only` filtering was confirmed working correctly — the issue is unfiltered meeting context in the prompt. Tagging decisions (notes tagged `both` that should have been `internal-only`) were also a contributing factor that week, so observing over the next week before implementing.
+
+**Acceptance Criteria:**
+- [ ] Evaluate which option best fits the workflow (meeting tag vs. data_sources gate vs. remove entirely)
+- [ ] Internal meetings do not appear in weekly_client report prompt context
+- [ ] If meeting tags are added: Meeting model updated, migration written, meetings CLI commands updated
+- [ ] If `data_sources` gating: `prompt_builder.py` updated, templates updated if meeting context is desired anywhere
+- [ ] Tests updated to cover meeting filtering behavior
+
+**Files likely affected:**
+- `workmain/ai/prompt_builder.py` (meeting fetch logic)
+- `workmain/database/models.py` (if adding meeting tags)
+- `templates/reports/weekly_client.json` (if adding `"meetings"` to `data_sources`)
+
+---
+
+## Deferred CLI Standardization Sprint Part 1 Items
+
+The following violations were audited during the pre-Phase 10 CLI standardization sprint and deferred to their respective target phases. See `docs/CLI_STANDARDS.md` Violation Register and `docs/dev/specs/CLI_STANDARDIZATION_SPRINT_PART1_SPEC_v1.0.md` for full context.
+
+### 20. Violation 6 — `tasks carryover` Single-Command Group
+
+**Status:** Deferred
+**Priority:** Low (structural inconsistency, no user impact)
+**Effort:** ~1 hour (rename/restructure only when new commands are added)
+**Added:** 20260331
+**Target Phase:** Phase 11
+
+**Description:**
+The `tasks` group currently has only one command (`carryover`). §2.2 states that a group with only one command barely qualifies — when the `tasks` group scope expands in Phase 11, the full group structure should be reviewed and additional commands added so the group has sufficient breadth to justify its existence.
+
+**Acceptance Criteria:**
+- [ ] Phase 11 `tasks` group review complete
+- [ ] At minimum 2–3 commands under `tasks` group
+- [ ] If `carryover` is the only remaining command after Phase 11 design, consider folding into a different group
+
+---
+
+### 21. Violation 7 — `reports costs` + `providers costs` Duplicate Surface
+
+**Status:** Deferred
+**Priority:** Low (possible redundancy, no immediate user impact)
+**Effort:** ~1 hour (audit + removal if redundant)
+**Added:** 20260331
+**Target Phase:** Phase 12
+
+**Description:**
+Both `reports costs` and `providers costs` may expose overlapping cost-reporting functionality. Audit during Phase 12 to confirm whether each command has a distinct purpose or if one is redundant. Remove the redundant surface if found.
+
+**Acceptance Criteria:**
+- [ ] Audit both commands — confirm distinct purposes or identify overlap
+- [ ] If redundant: remove one, update help text for the retained command, update any eod.py or interface.py references
+- [ ] Document the decision in the Phase 12 handoff
+
+---
+
+### 22. Violation 8 — `add-holiday` Top-Level Placement
+
+**Status:** Pre-emptive (not yet implemented)
+**Priority:** Pre-emptive
+**Effort:** N/A — build correctly from the start
+**Added:** 20260331
+**Target Phase:** Phase 10
+
+**Description:**
+The implementation checklist includes a planned `add-holiday` command. Placing it as a top-level command violates §2.1 (groups are nouns). When built in Phase 10, it must be placed under the `schedule` group as `workmain schedule holiday add` or similar.
+
+**Acceptance Criteria:**
+- [ ] `add-holiday` built under `schedule` group in Phase 10 — not as a top-level command
+- [ ] Naming follows §3.2 standard verb vocabulary
+
+---
+
+### 23. Violation 9 — `add-timeoff` Top-Level Placement
+
+**Status:** Pre-emptive (not yet implemented)
+**Priority:** Pre-emptive
+**Effort:** N/A — build correctly from the start
+**Added:** 20260331
+**Target Phase:** Phase 10
+
+**Description:**
+Same as Item 22. The `add-timeoff` command must be placed under the `schedule` group in Phase 10 as `workmain schedule timeoff add` or similar — not as a top-level standalone command.
+
+**Acceptance Criteria:**
+- [ ] `add-timeoff` built under `schedule` group in Phase 10 — not as a top-level command
+- [ ] Naming follows §3.2 standard verb vocabulary
+
+---
+
+### 24. Violation 18 — Name-or-ID Rule Missing on Edit/Delete Commands
+
+**Status:** Deferred
+**Priority:** Low (functional gap, no immediate user-facing confusion)
+**Effort:** ~4–6 hours (fuzzy picker implementation across all affected commands)
+**Added:** 20260331
+**Target Phase:** Phase 12
+
+**Description:**
+§4.3 requires all commands that target a specific database resource to accept either the record ID or the resource name (with fuzzy picker on ambiguous matches). The following commands currently accept only integer ID:
+
+- `notes edit`, `notes delete`
+- `time edit`, `time delete`
+- `meetings delete`, `meetings rename`
+- `email recipients delete` (formerly `remove`)
+
+**Acceptance Criteria:**
+- [ ] All listed commands accept either ID or name string as the identifier
+- [ ] Exact name match → direct resolution
+- [ ] Ambiguous name → fuzzy picker invoked with context (date, type, status)
+- [ ] Most likely match highlighted in picker
+- [ ] Tests cover ID resolution, exact-name resolution, and picker invocation paths
+
+---
+
 ## Summary Statistics
 
-**Total Open Items:** 16 ⬇️ (was 18; Items 17 & 18 completed in Phase 9)
+**Total Open Items:** 22 ⬆️ (was 17; added Items 20–24)
 **Phase 2 Deferrals:** 2
 **Phase 3 Deferrals:** 4
 **Phase 3.5/Pre-Phase 4 Deferrals:** 3
@@ -1099,12 +1232,14 @@ in `templates.py`. Bump file version.
 **Phase 6 Deferrals (Technical Debt):** 1
 **Phase 7 Deferrals (Technical Debt):** 1
 **Pre-Phase 13 Test Debt:** 2
+**CLI Standardization Sprint Deferrals:** 5 (Items 20–24)
 **Completed (Phase 9):** 2 ✓ (Items 17 & 18)
 
 **Priority Breakdown:**
 - High: 0 (Items 17 & 18 complete ✓)
-- Medium: 6 (Shell autocomplete, Template editor, formatters.py, Streamlined model update, test_database.py fixture, test_templates.py import)
-- Low: 8 (Command aliases, Field-database sync, Template versioning, Template sharing, master_log_template.md, Add new AI provider, email.py internal session, datetime.utcnow deprecation)
+- Medium: 7 (Shell autocomplete, Template editor, formatters.py, Streamlined model update, test_database.py fixture, test_templates.py import, Meeting visibility/tagging)
+- Low: 10 (Command aliases, Field-database sync, Template versioning, Template sharing, master_log_template.md, Add new AI provider, email.py internal session, datetime.utcnow deprecation, tasks group scope, reports/providers costs audit, name-or-ID rule)
+- Pre-emptive: 2 (add-holiday placement, add-timeoff placement)
 - Conditional: 1 (examples.json - create only if needed)
 
 **Effort Estimates (open items only):**
@@ -1113,7 +1248,7 @@ in `templates.py`. Bump file version.
 - 3-5 hours: 3 items (Template editor, Template versioning, formatters.py)
 - 5+ hours: 3 items (Field-database sync, Streamlined model update, Add new AI provider)
 
-**Total Deferred Effort (open items):** ~46.5 hours ⬇️ (was ~50 hours)
+**Total Deferred Effort (open items):** ~50 hours ⬆️ (was ~46.5 hours)
 
 **Phase 9 Workload:** ✓ Complete (Items 17 & 18 shipped in v1.6.0)
 
@@ -1168,6 +1303,17 @@ Build first, refactor later. See the complete picture before abstracting.
 10. test_templates.py stale import (~1 hour)
 11. auth.py RefreshError → GDriveAuthError conversion (~30 min)
 
+**Phase 10 - Notification & Scheduling (Pre-emptive):**
+20. `add-holiday` → `schedule holiday add` (pre-emptive, no effort — build correctly from start)
+21. `add-timeoff` → `schedule timeoff add` (pre-emptive, no effort — build correctly from start)
+
+**Phase 11 - Client & Recipient Management:**
+22. `tasks carryover` single-command group review (~1 hour)
+
+**Phase 12 - Code Quality Refactoring:**
+23. `reports costs` + `providers costs` audit (~1 hour)
+24. Name-or-ID rule across edit/delete commands (~4–6 hours)
+
 **Phase 11+ - Advanced Features:**
 12. Field-database sync (~8 hours)
 
@@ -1181,8 +1327,14 @@ Build first, refactor later. See the complete picture before abstracting.
 
 ---
 
-**Last Updated:** 20260311 v3.7
+**Last Updated:** 20260331 v4.0
 **Next Review:** Before Phase 10 kickoff
+
+**Changes in v4.0:**
+- Added Items 20–24: CLI Standardization Sprint Part 1 deferred violations (6=tasks group, 7=costs audit, 8=add-holiday, 9=add-timeoff, 18=name-or-ID rule)
+- Updated summary statistics (22 total open items)
+- Added Phase 10/11/12 CLI sprint workload entries to Items by Phase
+- Updated Priority Breakdown (Low: 10, Pre-emptive: 2)
 
 **Changes in v3.7:**
 - Retargeted Item 17: Phase 10 → Phase 9 (phase swap per implementation-checklist v2.1)
