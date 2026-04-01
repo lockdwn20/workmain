@@ -1,6 +1,6 @@
 """
 WorkmAIn End-of-Day Workflow
-EOD v2.1
+EOD v2.2
 20260401
 
 Guided end-of-day workflow for daily work wrap-up.
@@ -12,7 +12,7 @@ Base sequence (Mon–Wed):
   4a. Generate daily report (reports save daily_internal)
   4b. Create email draft (email save daily_internal)
   5. Pull Clockify PDF (clockify report save daily → staging/clockify/)
-  6. Upload to Google Drive (gdocs upload-all)
+  6. Upload to Google Drive (gdocs upload all)
   7. Complete — step summary and sign-off
 
 Thursday adds:
@@ -47,6 +47,8 @@ Version History:
         track sync push → clockify sync push; slack post-weekly → slack post weekly
 - v2.1: CLI Standardization Sprint Part 1 (WU-4) — --skip/-s → --skip/-S (uppercase);
         avoids conflict with reserved -s (--search)
+- v2.2: CLI Standardization Sprint Part 1 (WU-7) — gdocs upload-all → gdocs upload all
+        in subprocess call, dry-run print, step description, and help text
 """
 
 import subprocess
@@ -308,9 +310,9 @@ def _run_clockify_step(dry_run: bool, target_date: date) -> bool:
 def _run_gdocs_step(dry_run: bool, target_date: date) -> bool:
     """Step 6: Upload artifacts to Google Drive."""
     date_str = target_date.strftime('%Y%m%d')
-    cmd = ['workmain', 'gdocs', 'upload-all', '--date', date_str]
+    cmd = ['workmain', 'gdocs', 'upload', 'all', '--date', date_str]
     if dry_run:
-        console.print(f"  [dim]Would run: workmain gdocs upload-all --date {date_str}[/dim]")
+        console.print(f"  [dim]Would run: workmain gdocs upload all --date {date_str}[/dim]")
         console.print("  [dim]Uploads: notes → Raw_Notes/, report → Reports/, PDF → Clockify/[/dim]")
         return True
 
@@ -437,7 +439,7 @@ def _build_step_sequence(weekday: int, skip: list) -> list:
         ('report',    '4a', 'Generate report (reports save daily_internal)',  _run_report_step),
         ('email',     '4b', 'Create email draft (email save daily_internal)', _run_email_step),
         ('clockify',  '5',  'Pull Clockify PDF (clockify report save daily)', _run_clockify_step),
-        ('gdocs',     '6',  'Upload to Google Drive (gdocs upload-all)',      _run_gdocs_step),
+        ('gdocs',     '6',  'Upload to Google Drive (gdocs upload all)',       _run_gdocs_step),
     ]
 
     # Add day-specific steps unless 'weekly' is skipped
@@ -483,7 +485,7 @@ def eod(skip: str, dry_run: bool, eod_date_str: str):
       4a. Generate daily report (reports save daily_internal)
       4b. Create email draft (email save daily_internal)
       5.  Pull Clockify PDF (clockify report save daily)
-      6.  Upload to Google Drive (gdocs upload-all)
+      6.  Upload to Google Drive (gdocs upload all)
       7.  Complete — summary and sign-off
 
     \b

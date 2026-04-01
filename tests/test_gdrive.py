@@ -1,18 +1,19 @@
 """
 WorkmAIn Google Drive Tests
-test_gdrive.py v1.0
-20260309
+test_gdrive.py v1.1
+20260401
 
 Integration tests for Phase 7 Google Drive components:
   - GDriveRepository (DB layer)
   - cache.py (folder ID cache)
   - _format_notes_markdown (§3.8 notes formatter)
-  - gdocs upload-all --dry-run (CLI)
+  - gdocs upload all --dry-run (CLI)
 
 All Drive API calls are mocked — no real Drive operations in this suite.
 
 Version History:
 - v1.0: Initial implementation (Phase 7 Gate 5)
+- v1.1: CLI Standardization Sprint Part 1 (WU-7) — upload-all → upload all
 """
 
 import json
@@ -236,7 +237,7 @@ class TestGDocsCLI:
 
     def test_10_upload_all_dry_run(self):
         """
-        upload-all --dry-run prints correct output and makes no DB writes.
+        upload all --dry-run prints correct output and makes no DB writes.
         Drive API and auth are fully mocked.
         """
         runner = CliRunner()
@@ -251,7 +252,7 @@ class TestGDocsCLI:
             mock_session = MagicMock()
             mock_db.return_value.get_session.return_value = mock_session
 
-            result = runner.invoke(gdocs, ["upload-all", "--dry-run",
+            result = runner.invoke(gdocs, ["upload", "all", "--dry-run",
                                            "--date", "20260309"])
 
         assert result.exit_code == 0, f"exit_code={result.exit_code}\n{result.output}"
