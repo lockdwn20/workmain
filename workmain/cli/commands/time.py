@@ -1,7 +1,7 @@
 """
 WorkmAIn Time CLI Commands
-Time Commands v1.1
-20260401
+Time Commands v1.2
+20260402
 
 CLI commands for time tracking with 24-hour format support and Clockify sync.
 Replaces track.py — `track` and `time` groups merged into a single `time` group.
@@ -15,6 +15,8 @@ Version History:
         updated all docstring examples from `track` to `time`
 - v1.1: CLI Standardization Sprint Part 1 (WU-4) — time edit --category/-c → -C;
         avoids conflict with reserved -c (--content); consistent with time add -C
+- v1.2: Add --duration/-L short form to time edit; uppercase pair of -l (--title on
+        meetings edit); registered in CLI_STANDARDS.md §5.3
 """
 
 import click
@@ -323,7 +325,7 @@ def time_add(description: Optional[str], duration: str, time: str,
 @time.command('edit')
 @click.argument('entry_id', type=int)
 @click.option('--description', '-D', help='New description')
-@click.option('--duration', help='New duration (e.g., 2h, 1.5h)')
+@click.option('--duration', '-L', help='New duration (e.g., 2h, 1.5h)')
 @click.option('--time', '-T', help='New time (14:30 or 1430)')
 @click.option('--category', '-C', help='New category')
 @click.option('--project', '-p', type=int, help='New project ID')
