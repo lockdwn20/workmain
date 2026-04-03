@@ -1,6 +1,6 @@
 # WorkmAIn
-# CLI_STANDARDS.md v1.6
-# 20260401
+# CLI_STANDARDS.md v1.7
+# 20260402
 
 ---
 
@@ -31,6 +31,8 @@
   added, `clockify sync push --all` added to no-short-form table).
 - v1.6 (20260401): All WU-4 short form assignments implemented in code — this version
   confirms §5.3 table matches live implementation.
+- v1.7 (20260402): §5.3 reserved table updated with -l/--title (meetings edit) and
+  -L/--duration (time edit); Violation Register item 18 annotated for meetings edit.
 
 ---
 
@@ -311,6 +313,8 @@ The following assignments are **reserved across all commands**. No flag may use 
 | `-P` | `--provider` | `providers costs` | Uppercase; `-p` reserved for `--project` |
 | `-M` | `--month` | `providers costs` | Uppercase; `-m` reserved for `--meeting` |
 | `-R` | `--type` | `reports list` | Uppercase; `-T` already taken by `--time`; less-common filter |
+| `-l` | `--title` | `meetings edit` | Lowercase; infrequent title edit option |
+| `-L` | `--duration` | `time edit` | Uppercase pair of `-l`; duration edits less common than description |
 
 New short forms must be checked against this table **and** against all other flags in the same command before assignment. If no unambiguous short form is available, omit it rather than create a conflict.
 
@@ -449,7 +453,7 @@ The following existing commands were audited against this standard on 20260320 a
 | 15 | `meetings track`, `meetings condense`, `meetings rename`, `meetings merge` | `track` is a banned verb group name used as subcommand; `condense`/`rename`/`merge` are domain-specific verbs not in §3.2 | §3.2 | Low | `condense`/`rename`/`merge` are retroactively approved per §3.3; `meetings track` verb needs review — consider `meetings time` |
 | 16 | `templates register`, `unregister`, `validate`, `list-aliases`, `add-section` | Domain-specific verbs not in §3.2; `list-aliases` and `add-section` are hyphenated | §3.2, §3.1 | Low | `register`/`unregister`/`validate` retroactively approved per §3.3; `list-aliases` → `list --aliases`; `add-section` → `section add TEMPLATE SECTION` (Phase 12) |
 | 17 | `providers set-default` | Hyphenated compound; `set-default` not in §3.2 vocabulary | §3.2 | Low | Refactor to `providers set default` with positional, or `providers set --default`; currently stubbed — address when implemented |
-| 18 | `notes edit`, `notes delete`, `time edit`, `time delete`, `meetings delete`, `meetings rename`, `email recipients remove` | §4.3 name-or-ID rule — these commands accept only integer ID, no name resolution or picker | §4.3 | Low | Implement name resolution + fuzzy picker for all; deferred to Phase 12 |
+| 18 | `notes edit`, `notes delete`, `time edit`, `time delete`, `meetings delete`, `meetings rename`, `meetings edit`, `email recipients remove` | §4.3 name-or-ID rule — these commands accept only integer ID, no name resolution or picker | §4.3 | Low | Implement name resolution + fuzzy picker for all; deferred to Phase 12. `meetings edit` added 20260402 — ID-only by design, pending Phase 12 resolution. |
 
 **Severity definitions:**
 - **High** — Affects discoverability, breaks the integration pattern, or creates naming confusion for users

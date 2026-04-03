@@ -1,7 +1,7 @@
 """
 WorkmAIn Meeting CLI Commands
-Meeting Commands v3.4
-20260327
+Meeting Commands v3.5
+20260402
 
 CLI commands for meeting management.
 
@@ -30,6 +30,10 @@ Version History:
         they reach the condenser which returns the "Attended <Meeting>" default
 - v3.4: Hotfix — pass meeting_date to get_note_count for per-occurrence scoping;
         fix cost display to read _last_completed (end_report cleared _current_report)
+- v3.5: Add meetings edit command — ad-hoc meetings only (outlook_id must be NULL);
+        --title/-l, --start/-b, --end/-e, --date/-d; blocks Outlook-managed meetings
+        with actionable error pointing to ICS import; --duration/-L added to time edit
+        in time.py (tracked here per sprint note)
 """
 
 import click
@@ -931,6 +935,134 @@ def meetings_merge(from_title: str, to_title: str):
                     console.print(f"[green]✓ Old meeting deleted[/green]")
         else:
             console.print(f"[red]✗ Merge failed[/red]")
+
+    finally:
+        session.close()
+
+
+@meetings.command('edit')
+@click.argument('meeting_id', type=int)
+@click.option('--title', '-l', help='New title')
+@click.option('--start', '-b', help='New start time (HH:MM, HHMM, or YYYY-MM-DD HH:MM)')
+@click.option('--end', '-e', help='New end time (HH:MM, HHMM, or YYYY-MM-DD HH:MM)')
+@click.option('--date', '-d', 'meeting_date', help='New date (YYYY-MM-DD) — shifts both start and end, preserving wall-clock times')
+def meetings_edit(meeting_id: int, title: Optional[str], start: Optional[str],
+                  end: Optional[str], meeting_date: Optional[str]):
+    """
+    Edit an ad-hoc meeting's title, time, or date.
+
+    Only ad-hoc meetings (not imported from Outlook) may be edited here.
+    To update an Outlook-managed meeting, reimport the updated ICS file:
+      workmain calendar import <file.ics>
+
+    At least one option must be provided.
+
+    Note: name-or-ID resolution deferred to Phase 12 (Violation Register item 18).
+
+    \b
+    Examples:
+      workmain meetings edit 5 -b 14:00 -e 15:00
+      workmain meetings edit 5 -d 2026-04-10
+      workmain meetings edit 5 -l "Renamed Standup" -b 09:30 -e 10:00
+    """
+    if not any([title, start, end, meeting_date]):
+        console.print("[red]✗ No changes specified. Provide at least one option.[/red]")
+        console.print("[dim]Run `workmain meetings edit --help` for usage.[/dim]")
+        return
+
+    db = get_db()
+    session = db.get_session()
+    repo = MeetingsRepository(session)
+
+    try:
+        mtg = repo.get_by_id(meeting_id)
+        if not mtg:
+            console.print(f"[red]✗ Meeting {meeting_id} not found[/red]")
+            return
+
+        # Block Outlook-managed meetings
+        if mtg.outlook_id is not None:
+            console.print(f"[red]✗ Meeting {meeting_id} is Outlook-managed and cannot be edited here.[/red]")
+            console.print("[dim]To update it, reimport the updated ICS file:[/dim]")
+            console.print("[dim]  workmain calendar import <file.ics>[/dim]")
+            return
+
+        # Resolve the date to shift onto (explicit --date or keep existing)
+        if meeting_date:
+            try:
+                new_date = datetime.strptime(meeting_date, '%Y-%m-%d').date()
+            except ValueError:
+                console.print(f"[red]✗ Invalid date format: {meeting_date}. Use YYYY-MM-DD[/red]")
+                return
+        else:
+            new_date = mtg.start_time.date()
+
+        # Parse start/end times if provided
+        from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+        time_repo = TimeEntriesRepository(session)
+
+        new_start_dt = None
+        new_end_dt = None
+
+        if start:
+            try:
+                if ' ' in start:
+                    new_start_dt = datetime.strptime(start, '%Y-%m-%d %H:%M')
+                else:
+                    new_start_dt = datetime.combine(new_date, time_repo.parse_time(start))
+            except ValueError as e:
+                console.print(f"[red]✗ Invalid start time: {e}[/red]")
+                console.print("[dim]Use HH:MM, HHMM, or YYYY-MM-DD HH:MM[/dim]")
+                return
+        elif meeting_date:
+            # --date only: shift existing start wall-clock time onto new date
+            new_start_dt = datetime.combine(new_date, mtg.start_time.time())
+
+        if end:
+            try:
+                if ' ' in end:
+                    new_end_dt = datetime.strptime(end, '%Y-%m-%d %H:%M')
+                else:
+                    end_date = new_start_dt.date() if new_start_dt else new_date
+                    new_end_dt = datetime.combine(end_date, time_repo.parse_time(end))
+            except ValueError as e:
+                console.print(f"[red]✗ Invalid end time: {e}[/red]")
+                console.print("[dim]Use HH:MM, HHMM, or YYYY-MM-DD HH:MM[/dim]")
+                return
+        elif meeting_date:
+            # --date only: shift existing end wall-clock time onto new date
+            new_end_dt = datetime.combine(new_date, mtg.end_time.time())
+
+        # Validate ordering if both sides known
+        effective_start = new_start_dt or mtg.start_time
+        effective_end = new_end_dt or mtg.end_time
+        if effective_end <= effective_start:
+            console.print("[red]✗ End time must be after start time[/red]")
+            return
+
+        # Show before state
+        console.print(f"\n[bold]Meeting (ID: {mtg.id}) — \"{mtg.title}\"[/bold]")
+        console.print(f"  Before: {mtg.start_time.strftime('%Y-%m-%d %H:%M')} → {mtg.end_time.strftime('%H:%M')}")
+
+        # Apply updates
+        updated = repo.update(
+            meeting_id=meeting_id,
+            title=title,
+            start_time=new_start_dt,
+            end_time=new_end_dt,
+        )
+
+        if not updated:
+            console.print("[red]✗ Update failed[/red]")
+            return
+
+        console.print(f"  After:  {updated.start_time.strftime('%Y-%m-%d %H:%M')} → {updated.end_time.strftime('%H:%M')}")
+        if title:
+            console.print(f"  Title:  \"{updated.title}\"")
+        console.print("[green]✓ Updated.[/green]\n")
+
+    except Exception as e:
+        console.print(f"[red]✗ Error: {e}[/red]")
 
     finally:
         session.close()
