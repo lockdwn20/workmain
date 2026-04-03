@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-04-02
+
+### Added
+- `workmain meetings edit <id>` — edit title, start time, end time, or date on ad-hoc meetings
+  (`--title/-l`, `--start/-b`, `--end/-e`, `--date/-d`). Outlook-managed meetings (any meeting
+  with an `outlook_id`) are blocked with an actionable error pointing to `workmain calendar import`.
+- `time edit --duration/-L` — short form for `--duration` on `time edit`; uppercase pair of `-l`
+
+### Changed
+- CLI_STANDARDS.md v1.7: §5.3 reserved table updated with `-l/--title` and `-L/--duration`;
+  Violation Register item 18 annotated with `meetings edit` (ID-only, Phase 12 deferral)
+
 ## [1.7.0] - 2026-04-01
 
 ### Changed — Breaking CLI Changes (CLI Standardization Sprint Part 1)
