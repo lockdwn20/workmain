@@ -1,6 +1,6 @@
 # WorkmAIn
-# CLI_STANDARDS.md v1.7
-# 20260402
+# CLI_STANDARDS.md v1.8
+# 20260406
 
 ---
 
@@ -33,6 +33,8 @@
   confirms §5.3 table matches live implementation.
 - v1.7 (20260402): §5.3 reserved table updated with -l/--title (meetings edit) and
   -L/--duration (time edit); Violation Register item 18 annotated for meetings edit.
+- v1.8 (20260406): §3.3 approved verbs table updated — `track` retroactively approved
+  for `meetings track`; Violation Register item 15 resolved.
 
 ---
 
@@ -177,6 +179,7 @@ Standard verbs in §3.2 cover the majority of operations. When no standard verb 
 | `unregister` | `templates unregister` | Template lifecycle — unbind alias |
 | `validate` | `templates validate` | Schema/content validation — no standard verb equivalent |
 | `carryover` | `tasks carryover` | Day-boundary workflow operation — no standard verb equivalent |
+| `track` | `meetings track` | Create a time entry from a meeting — semantically distinct from `add`; `track` as a *subcommand verb* (not a group name) is acceptable |
 
 Any verb not in §3.2 and not in this table is not approved. Adding a new domain-specific verb requires user confirmation before implementation begins.
 
@@ -450,7 +453,7 @@ The following existing commands were audited against this standard on 20260320 a
 | 12 | `reports view` | Non-standard verb (`view` listed as "do not use"); duplicates `reports show` for same conceptual action; both exist as separate commands | §3.2, §4.3 | Medium | Consolidate into `reports show` accepting either filename or ID; remove `reports view` |
 | 13 | `gdocs upload-notes`, `upload-report`, `upload-clockify`, `upload-all` | Hyphenated artifact type baked into subcommand; should be `gdocs upload <ARTIFACT>` with positional argument | §3.1, §3.2 | Medium | Refactor to `gdocs upload <ARTIFACT>` where ARTIFACT = `notes`, `report`, `clockify`, `all` |
 | 14 | `calendar today/week/month` optional `sync` positional | Non-standard pattern — action argument on a view command; `sync` should be a separate `calendar sync` subcommand | §1, §3.1 | Medium | Extract `sync` into `calendar sync` subcommand; remove optional positional from view commands |
-| 15 | `meetings track`, `meetings condense`, `meetings rename`, `meetings merge` | `track` is a banned verb group name used as subcommand; `condense`/`rename`/`merge` are domain-specific verbs not in §3.2 | §3.2 | Low | `condense`/`rename`/`merge` are retroactively approved per §3.3; `meetings track` verb needs review — consider `meetings time` |
+| 15 | `meetings track`, `meetings condense`, `meetings rename`, `meetings merge` | `track` is a banned verb group name used as subcommand; `condense`/`rename`/`merge` are domain-specific verbs not in §3.2 | §3.2 | Low | **Resolved (20260406):** All four retroactively approved under §3.3 — `track` as a *subcommand verb* is distinct from the banned `track` group name; added to §3.3 table |
 | 16 | `templates register`, `unregister`, `validate`, `list-aliases`, `add-section` | Domain-specific verbs not in §3.2; `list-aliases` and `add-section` are hyphenated | §3.2, §3.1 | Low | `register`/`unregister`/`validate` retroactively approved per §3.3; `list-aliases` → `list --aliases`; `add-section` → `section add TEMPLATE SECTION` (Phase 12) |
 | 17 | `providers set-default` | Hyphenated compound; `set-default` not in §3.2 vocabulary | §3.2 | Low | Refactor to `providers set default` with positional, or `providers set --default`; currently stubbed — address when implemented |
 | 18 | `notes edit`, `notes delete`, `time edit`, `time delete`, `meetings delete`, `meetings rename`, `meetings edit`, `email recipients remove` | §4.3 name-or-ID rule — these commands accept only integer ID, no name resolution or picker | §4.3 | Low | Implement name resolution + fuzzy picker for all; deferred to Phase 12. `meetings edit` added 20260402 — ID-only by design, pending Phase 12 resolution. |
