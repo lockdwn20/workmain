@@ -1,7 +1,7 @@
 """
 WorkmAIn Template CLI Commands
-Template Commands v2.8
-20260319
+Template Commands v2.9
+20260406
 
 CLI commands for template management with interactive creation and alias management.
 
@@ -22,6 +22,9 @@ Version History:
 - v2.8: Item 18 - Migrated preview command from get_session() to get_db() pattern;
         fixed render() call to pass template_name string (not template dict);
         switched to renderer.preview() to get plain string output
+- v2.9: CLI Standardization Sprint Part 2 — templates list shows aliases inline
+        (list-aliases command removed as redundant); add-section moved to
+        templates section add subgroup (V16a, V16b)
 """
 
 import click
@@ -46,76 +49,47 @@ def templates():
 @templates.command()
 def list():
     """
-    List all available templates.
+    List all available templates with their registered aliases.
 
     \b
     Example:
       workmain templates list
     """
     loader = get_template_loader()
-    
+    alias_manager = get_alias_manager()
+
     try:
         template_names = loader.list_templates()
-        
+
         if not template_names:
             click.echo("No templates found.")
             return
-        
+
+        # Build alias lookup: template_name → [alias, ...]
+        alias_map: dict = {}
+        for alias_info in alias_manager.list_aliases():
+            alias_map.setdefault(alias_info.template_name, []).append(alias_info.alias)
+
         click.echo(f"\nAvailable templates ({len(template_names)}):\n")
         click.echo("=" * 60)
-        
+
         for name in template_names:
-            # Load each template to get details
             template = loader.load(name)
             if template:
                 click.echo(f"\nName: {template['name']}")
                 click.echo(f"  File: {name}.json")
                 click.echo(f"  Type: {template.get('recipient_type', 'N/A')}")
                 click.echo(f"  Sections: {len(template.get('sections', []))}")
+                aliases = alias_map.get(name, [])
+                if aliases:
+                    click.echo(f"  Aliases: {', '.join(aliases)}")
                 click.echo("-" * 60)
-        
+
     except Exception as e:
         click.echo(f"Error listing templates: {e}", err=True)
         import traceback
         click.echo("\nFull error traceback:", err=True)
         traceback.print_exc()
-
-
-@templates.command(name='list-aliases')
-def list_aliases():
-    """
-    List all registered template aliases.
-
-    Shows shortcut names that can be used instead of full template names.
-
-    \b
-    Example:
-      workmain templates list-aliases
-    """
-    alias_manager = get_alias_manager()
-    
-    try:
-        aliases = alias_manager.list_aliases()
-        
-        if not aliases:
-            click.echo("\nNo template aliases registered.")
-            click.echo("\nRegister an alias with:")
-            click.echo("  workmain templates register <template_name> --alias <shortcut>")
-            return
-        
-        click.echo(f"\nRegistered aliases ({len(aliases)}):\n")
-        click.echo("=" * 60)
-        
-        for alias_info in aliases:
-            click.echo(f"\n  {alias_info.alias} → {alias_info.template_name}")
-        
-        click.echo("\n" + "=" * 60)
-        click.echo("\nUsage:")
-        click.echo("  workmain reports <alias> --send")
-        click.echo("  Example: workmain reports daily_internal --send")
-        
-    except Exception as e:
-        click.echo(f"Error listing aliases: {e}", err=True)
 
 
 @templates.command()
