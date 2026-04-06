@@ -1,7 +1,7 @@
 """
 WorkmAIn Template CLI Commands
-Template Commands v2.8
-20260319
+Template Commands v2.9
+20260406
 
 CLI commands for template management with interactive creation and alias management.
 
@@ -22,6 +22,9 @@ Version History:
 - v2.8: Item 18 - Migrated preview command from get_session() to get_db() pattern;
         fixed render() call to pass template_name string (not template dict);
         switched to renderer.preview() to get plain string output
+- v2.9: CLI Standardization Sprint Part 2 — templates list shows aliases inline
+        (list-aliases command removed as redundant); add-section moved to
+        templates section add subgroup (V16a, V16b)
 """
 
 import click
@@ -46,76 +49,47 @@ def templates():
 @templates.command()
 def list():
     """
-    List all available templates.
+    List all available templates with their registered aliases.
 
     \b
     Example:
       workmain templates list
     """
     loader = get_template_loader()
-    
+    alias_manager = get_alias_manager()
+
     try:
         template_names = loader.list_templates()
-        
+
         if not template_names:
             click.echo("No templates found.")
             return
-        
+
+        # Build alias lookup: template_name → [alias, ...]
+        alias_map: dict = {}
+        for alias_info in alias_manager.list_aliases():
+            alias_map.setdefault(alias_info.template_name, []).append(alias_info.alias)
+
         click.echo(f"\nAvailable templates ({len(template_names)}):\n")
         click.echo("=" * 60)
-        
+
         for name in template_names:
-            # Load each template to get details
             template = loader.load(name)
             if template:
                 click.echo(f"\nName: {template['name']}")
                 click.echo(f"  File: {name}.json")
                 click.echo(f"  Type: {template.get('recipient_type', 'N/A')}")
                 click.echo(f"  Sections: {len(template.get('sections', []))}")
+                aliases = alias_map.get(name, [])
+                if aliases:
+                    click.echo(f"  Aliases: {', '.join(aliases)}")
                 click.echo("-" * 60)
-        
+
     except Exception as e:
         click.echo(f"Error listing templates: {e}", err=True)
         import traceback
         click.echo("\nFull error traceback:", err=True)
         traceback.print_exc()
-
-
-@templates.command(name='list-aliases')
-def list_aliases():
-    """
-    List all registered template aliases.
-
-    Shows shortcut names that can be used instead of full template names.
-
-    \b
-    Example:
-      workmain templates list-aliases
-    """
-    alias_manager = get_alias_manager()
-    
-    try:
-        aliases = alias_manager.list_aliases()
-        
-        if not aliases:
-            click.echo("\nNo template aliases registered.")
-            click.echo("\nRegister an alias with:")
-            click.echo("  workmain templates register <template_name> --alias <shortcut>")
-            return
-        
-        click.echo(f"\nRegistered aliases ({len(aliases)}):\n")
-        click.echo("=" * 60)
-        
-        for alias_info in aliases:
-            click.echo(f"\n  {alias_info.alias} → {alias_info.template_name}")
-        
-        click.echo("\n" + "=" * 60)
-        click.echo("\nUsage:")
-        click.echo("  workmain reports <alias> --send")
-        click.echo("  Example: workmain reports daily_internal --send")
-        
-    except Exception as e:
-        click.echo(f"Error listing aliases: {e}", err=True)
 
 
 @templates.command()
@@ -455,7 +429,7 @@ def create(name: str, type: str):
         
         click.echo(f"\n✓ Template created: {template_path}")
         click.echo(f"\nNext steps:")
-        click.echo(f"  1. Add sections: workmain templates add-section {template_name} \"Section Title\"")
+        click.echo(f"  1. Add sections: workmain templates section add {template_name} \"Section Title\"")
         click.echo(f"  2. Validate: workmain templates validate {template_name}")
         click.echo(f"  3. Preview: workmain templates preview {template_name}")
         
@@ -463,10 +437,16 @@ def create(name: str, type: str):
         click.echo(f"\nError creating template: {e}", err=True)
 
 
-@templates.command(name='add-section')
+@templates.group('section')
+def templates_section():
+    """Section management for templates."""
+    pass
+
+
+@templates_section.command('add')
 @click.argument('template_name')
 @click.argument('section_title')
-def add_section(template_name: str, section_title: str):
+def section_add(template_name: str, section_title: str):
     """
     Add a section to an existing template interactively.
 
@@ -474,58 +454,58 @@ def add_section(template_name: str, section_title: str):
 
     \b
     Examples:
-      workmain templates add-section monthly_executive "Summary"
-      workmain templates add-section security_audit "Findings"
+      workmain templates section add monthly_executive "Summary"
+      workmain templates section add security_audit "Findings"
     """
     loader = get_template_loader()
     field_manager = FieldManager()
-    
+
     try:
         # Load template
         template = loader.load(template_name)
         if not template:
             click.echo(f"\nTemplate '{template_name}' not found.", err=True)
             return
-        
+
         click.echo(f"\nAdding section to: {template['name']}")
         click.echo("=" * 60)
         click.echo(f"Section Title: {section_title}")
-        
+
         # Generate section name
         section_name = section_title.lower().replace(' ', '_').replace('-', '_')
-        
+
         # Gather section details
         description = click.prompt("\nDescription", default="")
-        
+
         required = click.confirm("Required section?", default=True)
-        
+
         # Data source
         data_source = click.prompt(
             "Data Source",
             type=click.Choice(['notes', 'time_entries', 'meetings', 'tasks']),
             default='notes'
         )
-        
+
         # Tags
         include_tags_str = click.prompt(
             "Include tags (comma-separated)",
             default="both"
         )
         include_tags = [t.strip() for t in include_tags_str.split(',') if t.strip()]
-        
+
         exclude_tags_str = click.prompt(
             "Exclude tags (comma-separated, or leave empty)",
             default=""
         )
         exclude_tags = [t.strip() for t in exclude_tags_str.split(',') if t.strip()]
-        
+
         # Format
         format_type = click.prompt(
             "Format",
             type=click.Choice(['bullets', 'numbered_list', 'paragraphs']),
             default='bullets'
         )
-        
+
         # Create section
         section = {
             "name": section_name,
@@ -536,55 +516,55 @@ def add_section(template_name: str, section_title: str):
             "include_tags": include_tags,
             "format": format_type
         }
-        
+
         if exclude_tags:
             section["exclude_tags"] = exclude_tags
-        
+
         # Add section to template
         if 'sections' not in template:
             template['sections'] = []
-        
+
         template['sections'].append(section)
-        
+
         # Update metadata
         if 'metadata' in template:
             template['metadata']['updated_at'] = dt.now().isoformat()
-        
+
         # Save updated template
         # Path from templates.py: workmain/cli/commands/templates.py
         # Need 4 levels up to get to project root
         project_root = Path(__file__).parent.parent.parent.parent
         templates_dir = project_root / "templates" / "reports"
-        
+
         # Find template file using iterdir instead of glob (glob conflicts with Click)
         template_files = [
-            f for f in templates_dir.iterdir() 
+            f for f in templates_dir.iterdir()
             if f.name == f"{template_name}.json"
         ]
-        
+
         if not template_files:
             # Try with underscores
             template_files = [
                 f for f in templates_dir.iterdir()
                 if f.name == f"{template_name.replace('-', '_')}.json"
             ]
-        
+
         if not template_files:
             click.echo(f"\nCould not find template file for '{template_name}'", err=True)
             return
-        
+
         template_path = template_files[0]
-        
+
         with open(template_path, 'w') as f:
             json.dump(template, f, indent=2)
-        
+
         click.echo(f"\n✓ Section added to {template['name']}")
         click.echo(f"Total sections: {len(template['sections'])}")
         click.echo(f"\nNext steps:")
-        click.echo(f"  - Add more sections: workmain templates add-section {template_name} \"Title\"")
+        click.echo(f"  - Add more sections: workmain templates section add {template_name} \"Title\"")
         click.echo(f"  - Validate: workmain templates validate {template_name}")
         click.echo(f"  - Preview: workmain templates preview {template_name}")
-        
+
     except Exception as e:
         click.echo(f"\nError adding section: {e}", err=True)
         import traceback

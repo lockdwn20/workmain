@@ -1,9 +1,13 @@
 """
 WorkmAIn Package Version
-Version v1.8.0
-20260402
+Version v1.9.0
+20260406
 
 Version History:
+- v1.9.0: CLI Standardization Sprint Part 2 — templates list-aliases removed
+          (aliases shown inline in templates list); add-section → templates section add
+          subgroup; providers set-default → providers set default subgroup;
+          meetings track retroactively approved under §3.3
 - v1.8.0: Add meetings edit command (ad-hoc only, Outlook-managed blocked);
           time edit --duration/-L short form; CLI_STANDARDS.md v1.7 (-l/-L registered)
 - v1.7.0: CLI Standardization Sprint Part 1 — track→time, clockify sync subgroup,
@@ -80,7 +84,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.8.0"
-__version_info__ = (1, 8, 0)
+__version__ = "1.9.0"
+__version_info__ = (1, 9, 0)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"

@@ -1,7 +1,7 @@
 """
 WorkmAIn Provider CLI Commands
-Provider Commands v1.8
-20260401
+Provider Commands v1.9
+20260406
 
 CLI commands for managing AI providers (Claude and Gemini).
 
@@ -9,7 +9,7 @@ Commands:
 - providers list: Show available providers and their status
 - providers test <provider>: Test provider API connection
 - providers costs: Show cost breakdown by provider
-- providers set-default <provider> --for <type>: Set default provider (future)
+- providers set default <provider> --for <type>: Set default provider (future)
 
 Version History:
 - v1.0: Initial implementation with list, test, costs, and set-default commands
@@ -22,6 +22,8 @@ Version History:
 - v1.7: Phase 9 Gate 1 — updated hint text from 'report daily' to 'reports save daily_internal'
 - v1.8: CLI Standardization Sprint Part 1 (WU-4) — providers costs --provider/-p → -P,
         --month/-m → -M; avoids conflicts with reserved -p (--project) and -m (--meeting)
+- v1.9: CLI Standardization Sprint Part 2 (WU-P2-4) — set-default → providers set group;
+        providers set default <provider> --for <type> (Phase 12 extensibility)
 """
 
 from typing import Optional
@@ -384,7 +386,13 @@ def show_costs(provider: Optional[str], month: Optional[str], limit: int):
         session.close()
 
 
-@providers.command('set-default')
+@providers.group('set')
+def providers_set():
+    """Configure provider settings (Phase 12)."""
+    pass
+
+
+@providers_set.command('default')
 @click.argument('provider', type=click.Choice(['claude', 'gemini'], case_sensitive=False))
 @click.option('--for', 'report_type', required=True,
               type=click.Choice(['daily', 'weekly', 'all'], case_sensitive=False),
@@ -399,9 +407,9 @@ def set_default_provider(provider: str, report_type: str):
 
     \b
     Examples:
-      workmain providers set-default claude --for daily
-      workmain providers set-default gemini --for weekly
-      workmain providers set-default claude --for all
+      workmain providers set default claude --for daily
+      workmain providers set default gemini --for weekly
+      workmain providers set default claude --for all
 
     Note:
         NOT IMPLEMENTED — requires Phase 12 configuration management system.

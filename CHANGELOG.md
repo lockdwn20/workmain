@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-04-06
+
+### Changed — Breaking CLI Changes (CLI Standardization Sprint Part 2)
+
+- **`templates list-aliases` removed** — alias names are now shown inline in `workmain templates list` output
+- **`templates section add <template> <title>`** — was `templates add-section`; moved to `section` subgroup for Phase 12 extensibility
+- **`providers set default <provider> --for <type>`** — was `providers set-default`; moved to `set` subgroup for Phase 12 extensibility (`providers set model`, etc.)
+
+### No Change
+
+- **`meetings track`** — retroactively approved as a domain-specific verb under §3.3; command unchanged
+
 ## [1.8.0] - 2026-04-02
 
 ### Added
