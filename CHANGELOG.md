@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-04-06
+
 ### Changed — Breaking CLI Changes (CLI Standardization Sprint Part 2)
 
 - **`templates list-aliases` removed** — alias names are now shown inline in `workmain templates list` output
