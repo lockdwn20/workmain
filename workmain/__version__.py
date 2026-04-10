@@ -1,9 +1,11 @@
 """
 WorkmAIn Package Version
-Version v1.9.0
-20260406
+Version v1.9.1
+20260410
 
 Version History:
+- v1.9.1: Hotfix — add meeting ID to notes search output; recurring meeting
+          instances now show as "Meeting Name (ID: ###)" in format_note_display()
 - v1.9.0: CLI Standardization Sprint Part 2 — templates list-aliases removed
           (aliases shown inline in templates list); add-section → templates section add
           subgroup; providers set-default → providers set default subgroup;
@@ -84,7 +86,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.9.0"
-__version_info__ = (1, 9, 0)
+__version__ = "1.9.1"
+__version_info__ = (1, 9, 1)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"

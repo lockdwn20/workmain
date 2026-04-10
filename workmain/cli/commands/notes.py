@@ -1,7 +1,7 @@
 """
 WorkmAIn Notes CLI Commands
-Notes Commands v3.2
-20260313
+Notes Commands v3.3
+20260410
 
 Unified notes command group. Consolidates note (write) and notes (read) groups
 from note.py into a single group with all subcommands.
@@ -25,6 +25,8 @@ Version History:
         instance mismatch where get_by_title() returned a future occurrence with no notes.
 - v3.2: Hotfix - use source='condensed' for condensed summary notes created in
         notes log so they can be distinguished from regular meeting notes
+- v3.3: Hotfix - add meeting ID to format_note_display() output so recurring
+        meeting instances are distinguishable in notes search results
 """
 
 import click
@@ -70,7 +72,7 @@ def format_note_display(note, show_id: bool = True) -> str:
 
     # Meeting
     if note.meeting:
-        lines.append(f"  Meeting: {note.meeting.title}")
+        lines.append(f"  Meeting: {note.meeting.title} (ID: {note.meeting.id})")
 
     # Project
     if note.project:
