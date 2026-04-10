@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.1] - 2026-04-10
+
+### Fixed
+- **`notes search` meeting display** — recurring meeting instances are now distinguishable
+  in note search output; meeting line now shows `Meeting Name (ID: ###)` instead of
+  title only. Preparatory work for Phase 12 §4.3 ID-or-name input standardization.
+
 ## [1.9.0] - 2026-04-06
 
 ### Changed — Breaking CLI Changes (CLI Standardization Sprint Part 2)
