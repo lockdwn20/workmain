@@ -1,13 +1,14 @@
 """
 WorkmAIn ICS Parser
-ICS Parser v1.5
-20260327
+ICS Parser v1.6
+20260415
 
 Parses exported Outlook ICS files into ICSEvent dataclasses for database import.
 
 Pipeline (every run, automatic):
     Read ICS → Validate file → Filter FREE events → Strip sensitive fields →
-    Deduplicate by UID (prefer RRULE-bearing) → Expand RRULE occurrences → Return ICSEvent list
+    Deduplicate by UID (prefer RRULE-bearing) → Inherit titles for SUMMARY-less
+    overrides → Expand RRULE occurrences → Return ICSEvent list
 
 Fields kept:
     UID, SUMMARY, DTSTART, DTEND, RRULE, EXDATE, X-MICROSOFT-CDO-BUSYSTATUS
@@ -38,6 +39,12 @@ Series UID migration: migrate_series_uid_records() performs a one-time re-key of
     the series UID was used as the occurrence UID). After migration the invariant
     holds: no recurring occurrence record has outlook_id == outlook_recurring_id.
 
+SUMMARY optional: RFC 5545 §3.6.1 defines SUMMARY as optional. Outlook legally omits
+    it on recurrence exception VEVENTs (RECURRENCE-ID present) that change only the
+    time, not the title. Pass 1 accepts a missing SUMMARY; a post-dedup title
+    inheritance pass copies the title from the same-UID event that has one. Any event
+    that still has no title after inheritance is set to "(No Title)".
+
 Version History:
 - v1.0: Initial implementation (Phase 6 Gate 3)
 - v1.1: Add _fallback_match() for title+date secondary lookup; backfill outlook_id on match
@@ -48,6 +55,8 @@ Version History:
 - v1.4: Date-shift protection for note-bearing records; orphan stale-UID cleanup
 - v1.5: All occurrences use synthetic UIDs (remove i==0 series-UID exception);
         add migrate_series_uid_records() for one-time DB migration
+- v1.6: Make SUMMARY optional (RFC 5545 compliant); add UID-based title inheritance
+        pass after Pass 1 to resolve recurrence exception events that omit SUMMARY
 """
 
 from __future__ import annotations
@@ -212,12 +221,13 @@ def parse_ics_file(file_path: Path | str) -> list[ICSEvent]:
 
     Pipeline:
     1. Validate file (first line must be BEGIN:VCALENDAR)
-    2. Parse all VEVENT blocks into raw dicts
+    2. Parse all VEVENT blocks into raw dicts (SUMMARY optional)
     3. Filter FREE events silently
-    4. Deduplicate by UID — prefer RRULE-bearing (recurring) events over
+    4. Resolve empty titles via UID-based inheritance (Pass 1b)
+    5. Deduplicate by UID — prefer RRULE-bearing (recurring) events over
        single-occurrence exports with the same UID
-    5. Expand RRULE for recurring events into individual occurrences
-    6. Return final ICSEvent list
+    6. Expand RRULE for recurring events into individual occurrences
+    7. Return final ICSEvent list
 
     Args:
         file_path: Path to the ICS file
@@ -226,7 +236,7 @@ def parse_ics_file(file_path: Path | str) -> list[ICSEvent]:
         List of ICSEvent dataclasses (FREE events excluded, RRULE expanded)
 
     Raises:
-        ICSParseError: If a required field is missing from an event
+        ICSParseError: If UID, DTSTART, or DTEND is missing from an event
         ValueError: If the file is not a valid ICS file
     """
     file_path = Path(file_path)
@@ -253,7 +263,8 @@ def parse_ics_file(file_path: Path | str) -> list[ICSEvent]:
         event_index += 1
         event_name = str(component.get('SUMMARY', f'Event #{event_index}'))
 
-        for field in ('UID', 'SUMMARY', 'DTSTART', 'DTEND'):
+        # SUMMARY is optional per RFC 5545 §3.6.1; title resolved below
+        for field in ('UID', 'DTSTART', 'DTEND'):
             if component.get(field) is None:
                 raise ICSParseError(event_name, field)
 
@@ -263,7 +274,7 @@ def parse_ics_file(file_path: Path | str) -> list[ICSEvent]:
             continue
 
         uid = str(component.get('UID'))
-        title = str(component.get('SUMMARY'))
+        title = str(component.get('SUMMARY', ''))
 
         dtstart = component.get('DTSTART').dt
         dtend = component.get('DTEND').dt
@@ -288,6 +299,18 @@ def parse_ics_file(file_path: Path | str) -> list[ICSEvent]:
             'rrule_prop': rrule_prop,
             'exdates': _parse_exdates(component),
         })
+
+    # --- Pass 1b: resolve empty titles via UID-based inheritance ---
+    # Recurrence exception VEVENTs (RECURRENCE-ID present, SUMMARY absent) are
+    # RFC-valid. Inherit the title from another raw event with the same UID that
+    # has one (typically the series master). Any event still without a title
+    # after this pass is set to the sentinel "(No Title)".
+    uid_to_title: dict[str, str] = {
+        e['uid']: e['title'] for e in raw_events if e['title']
+    }
+    for e in raw_events:
+        if not e['title']:
+            e['title'] = uid_to_title.get(e['uid'], '(No Title)')
 
     # --- Pass 2: deduplicate by UID, preferring RRULE-bearing events ---
     seen: dict[str, dict] = {}

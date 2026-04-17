@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.2] - 2026-04-15
+
+### Fixed
+- **`calendar import` missing SUMMARY** — ICS import no longer raises `ICSParseError` on
+  recurrence exception VEVENTs that omit the SUMMARY field. RFC 5545 §3.6.1 defines SUMMARY
+  as optional; Outlook legally omits it when an override changes only the time, not the title.
+  Missing titles are now resolved via UID-based inheritance from the series master event.
+  Any event with no resolvable title falls back to `"(No Title)"`.
+
 ## [1.9.1] - 2026-04-10
 
 ### Fixed

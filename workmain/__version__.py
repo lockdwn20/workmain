@@ -1,9 +1,12 @@
 """
 WorkmAIn Package Version
-Version v1.9.1
-20260410
+Version v1.9.2
+20260415
 
 Version History:
+- v1.9.2: Hotfix — ICS import tolerates missing SUMMARY (RFC 5545 §3.6.1 optional);
+          recurrence exception VEVENTs without SUMMARY now inherit title from same-UID
+          series master via UID-based inheritance pass; final fallback is "(No Title)"
 - v1.9.1: Hotfix — add meeting ID to notes search output; recurring meeting
           instances now show as "Meeting Name (ID: ###)" in format_note_display()
 - v1.9.0: CLI Standardization Sprint Part 2 — templates list-aliases removed
@@ -86,7 +89,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.9.1"
-__version_info__ = (1, 9, 1)
+__version__ = "1.9.2"
+__version_info__ = (1, 9, 2)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
