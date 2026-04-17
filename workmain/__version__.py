@@ -7,7 +7,9 @@ Version History:
 - v1.9.3: Hotfix — ICS RECURRENCE-ID exceptions now applied during RRULE expansion;
           rescheduled occurrences emit at their new date/time with a synthetic UID
           based on the new DTSTART; cancelled exceptions drop the occurrence entirely;
-          fixes "moved occurrence appears on wrong date + missing from new date" bug
+          fixes "moved occurrence appears on wrong date + missing from new date" bug.
+          Also adds "Series Notes: N total" line to meeting display for recurring
+          Outlook meetings when prior occurrences hold notes beyond the current one
 - v1.9.2: Hotfix — ICS import tolerates missing SUMMARY (RFC 5545 §3.6.1 optional);
           recurrence exception VEVENTs without SUMMARY now inherit title from same-UID
           series master via UID-based inheritance pass; final fallback is "(No Title)"

@@ -21,6 +21,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Cancelled exceptions (STATUS:CANCELLED on the override VEVENT) drop the occurrence
   entirely. Re-import is idempotent — the same synthetic UID is produced each time.
 
+### Added
+- **Series Notes in meeting display** — recurring Outlook meetings now show a
+  "Series Notes: N total" line when prior occurrences of the same series hold notes
+  beyond the current occurrence. Only shown when the series total exceeds the current
+  occurrence count (no duplicate display when all notes are on the current occurrence).
+  Applies to `meetings today`, `meetings list`, `meetings show`, and anywhere
+  `format_meeting_display()` is used. Non-recurring and ad-hoc meetings are unaffected.
+
 ## [1.9.2] - 2026-04-15
 
 ### Fixed
