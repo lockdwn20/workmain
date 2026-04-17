@@ -1,7 +1,7 @@
 """
 WorkmAIn Meetings Repository
-Meetings Repository v1.8
-20260327
+Meetings Repository v1.9
+20260415
 
 Data access layer for meetings with fuzzy matching and recurring detection.
 Handles all CRUD operations for the meetings table.
@@ -20,6 +20,8 @@ Version History:
         since notes log also uses source='meeting' for regular user notes
 - v1.8: Hotfix - add optional meeting_date param to get_note_count so condense
         call sites can scope the count to a specific occurrence date
+- v1.9: Add get_series_note_count() — total user-authored notes across all
+        occurrences of a recurring series, keyed by outlook_recurring_id
 """
 
 from datetime import datetime, date
@@ -349,6 +351,32 @@ class MeetingsRepository:
             query = query.filter(Note.created_date == meeting_date)
         return query.count()
     
+    def get_series_note_count(self, outlook_recurring_id: str) -> int:
+        """
+        Get total user-authored notes across all occurrences of a recurring series.
+
+        Counts notes on every meeting row that shares the given outlook_recurring_id.
+        Applies the same exclusions as get_note_count: source='condensed' notes and
+        info-only tagged notes are excluded so the result is directly comparable to
+        the per-occurrence count shown alongside it.
+
+        Args:
+            outlook_recurring_id: The Outlook recurring series UID
+
+        Returns:
+            Total number of user-authored, non-ifo notes across the entire series
+        """
+        return (
+            self.session.query(Note)
+            .join(Meeting, Note.meeting_id == Meeting.id)
+            .filter(
+                Meeting.outlook_recurring_id == outlook_recurring_id,
+                Note.source != 'condensed',
+                ~Note.tags.op('@>')(['info-only']),
+            )
+            .count()
+        )
+
     def get_recurring_series(self, outlook_recurring_id: str) -> List[Meeting]:
         """
         Get all meetings in a recurring series.

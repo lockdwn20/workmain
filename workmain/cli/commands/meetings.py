@@ -1,7 +1,7 @@
 """
 WorkmAIn Meeting CLI Commands
-Meeting Commands v3.5
-20260402
+Meeting Commands v3.6
+20260415
 
 CLI commands for meeting management.
 
@@ -34,6 +34,9 @@ Version History:
         --title/-l, --start/-b, --end/-e, --date/-d; blocks Outlook-managed meetings
         with actionable error pointing to ICS import; --duration/-L added to time edit
         in time.py (tracked here per sprint note)
+- v3.6: format_meeting_display() — add "Series Notes: N total" line for recurring
+        Outlook meetings when the series total across all occurrences exceeds the
+        current occurrence count, surfacing historical notes on sibling occurrences
 """
 
 import click
@@ -56,32 +59,44 @@ console = Console()
 def format_meeting_display(meeting, meetings_repo: MeetingsRepository, show_notes: bool = True) -> str:
     """
     Format meeting for display.
-    
+
+    For recurring Outlook meetings, shows both the per-occurrence note count
+    ("Notes: N captured") and, when the series total exceeds the occurrence
+    count, a "Series Notes: N total" line so historical notes on sibling
+    occurrences are always visible.
+
     Args:
         meeting: Meeting object
         meetings_repo: Meetings repository for note count
         show_notes: Whether to show note count
-        
+
     Returns:
         Formatted string
     """
     lines = []
-    
+
     # Title with ID and type
     meeting_type = "Recurring (Outlook)" if meeting.outlook_recurring_id else \
                    "Outlook" if meeting.outlook_id else "Ad-hoc"
     # Use (ID: N) format to avoid Rich markup interpretation of [#N]
     lines.append(f"(ID: {meeting.id}) {meeting.title} [{meeting_type}]")
-    
+
     # Time
     time_str = meeting.start_time.strftime('%Y-%m-%d %H:%M')
     lines.append(f"  Time: {time_str}")
-    
-    # Note count
+
+    # Note counts
     if show_notes:
         note_count = meetings_repo.get_note_count(meeting.id)
         lines.append(f"  Notes: {note_count} captured")
-    
+
+        # Series total — only for recurring Outlook meetings and only when
+        # there are notes on other occurrences beyond this one
+        if meeting.outlook_recurring_id:
+            series_total = meetings_repo.get_series_note_count(meeting.outlook_recurring_id)
+            if series_total > note_count:
+                lines.append(f"  Series Notes: {series_total} total")
+
     # Flags
     flags = []
     if meeting.notes_captured:
@@ -90,7 +105,7 @@ def format_meeting_display(meeting, meetings_repo: MeetingsRepository, show_note
         flags.append("reminder sent")
     if flags:
         lines.append(f"  Status: {', '.join(flags)}")
-    
+
     return "\n".join(lines)
 
 
