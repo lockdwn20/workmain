@@ -1,16 +1,18 @@
 """
 WorkmAIn ICS Import Tests
-ICS Import Test v1.3
-20260327
+ICS Import Test v1.4
+20260415
 
 Tests for the ICS parser and database import pipeline (Phase 6 Gate 3).
 
 Fixtures used:
-    week_normal.ics       — 3 BUSY events (1 recurring), DESCRIPTION/ORGANIZER fields present
-    week_with_free.ics    — 1 BUSY, 1 TENTATIVE, 1 FREE
-    week_with_cancelled.ics — 1 CANCELLED known UID, 1 CANCELLED unknown UID
-    week_malformed.ics    — 1 good event, 1 missing DTEND
-    week_cst.ics          — 1 event in America/Denver (Mountain = 1hr ahead of Pacific)
+    week_normal.ics           — 3 BUSY events (1 recurring), DESCRIPTION/ORGANIZER fields present
+    week_with_free.ics        — 1 BUSY, 1 TENTATIVE, 1 FREE
+    week_with_cancelled.ics   — 1 CANCELLED known UID, 1 CANCELLED unknown UID
+    week_malformed.ics        — 1 good event, 1 missing DTEND
+    week_cst.ics              — 1 event in America/Denver (Mountain = 1hr ahead of Pacific)
+    recurrence_id_override.ics — series with 3 Monday occurrences; first Monday moved to
+                                 Wednesday via RECURRENCE-ID exception (no SUMMARY on exception)
 
 Version History:
 - v1.0: Initial implementation (Phase 6 Gate 3)
@@ -18,6 +20,7 @@ Version History:
 - v1.2: Add test_14/15 for date-shift protection; test_16 for stale-UID orphan cleanup
 - v1.3: Update test_01/03/12/13 for all-synthetic-UID RRULE expansion (no i==0 exception);
         add test_17/18/19 for migrate_series_uid_records()
+- v1.4: Add test_20 for RECURRENCE-ID exception handling (occurrence reschedule)
 """
 
 import pytest
@@ -718,3 +721,64 @@ class TestICSImport:
         new_row = db_session.query(Meeting).filter(Meeting.id == new_id).first()
         assert new_row is not None
         assert new_row.outlook_id == synthetic_uid  # not deleted
+
+    # ------------------------------------------------------------------
+    # Test 20 — RECURRENCE-ID exception reschedules an occurrence
+    # ------------------------------------------------------------------
+
+    def test_20_recurrence_id_reschedules_occurrence(self, db_session):
+        """
+        A RECURRENCE-ID VEVENT with no SUMMARY overrides one RRULE occurrence:
+        the original Monday occurrence is replaced by a Wednesday occurrence at
+        a different time. The remaining 2 Monday occurrences are unaffected.
+
+        Fixture: recurrence_id_override.ics
+            Series: weekly Monday, COUNT=3, starting 2099-05-11 09:00 PST
+              → raw expansion gives 2099-05-11 (Mon), 2099-05-18 (Mon), 2099-05-25 (Mon)
+            Exception: RECURRENCE-ID=2099-05-11 09:00 PST → DTSTART=2099-05-13 14:00 PST
+              → first Monday moved to Wednesday 2099-05-13 14:00 PST; no SUMMARY on exception
+
+        Expected ICSEvent list (3 total):
+            Wed 2099-05-13 14:00–15:00 PST  (rescheduled, synthetic UID based on Wed date)
+            Mon 2099-05-18 09:00–10:00 PST  (normal occurrence)
+            Mon 2099-05-25 09:00–10:00 PST  (normal occurrence)
+
+        The original Mon 2099-05-11 09:00 occurrence must NOT appear.
+        """
+        from datetime import date
+
+        events = parse_ics_file(FIXTURES / "recurrence_id_override.ics")
+
+        assert len(events) == 3, (
+            f"Expected 3 events (Wed exception + 2 remaining Mondays), got {len(events)}: "
+            + str([(e.start_time, e.uid) for e in events])
+        )
+
+        start_dates = {e.start_time.date() for e in events}
+
+        # Original Monday occurrence must NOT be present
+        assert date(2099, 5, 11) not in start_dates, (
+            "Original Mon 2099-05-11 occurrence should have been replaced by the exception"
+        )
+
+        # Wednesday rescheduled occurrence must be present
+        assert date(2099, 5, 13) in start_dates, (
+            "Rescheduled Wed 2099-05-13 occurrence missing"
+        )
+
+        # Remaining two Mondays must be present
+        assert date(2099, 5, 18) in start_dates
+        assert date(2099, 5, 25) in start_dates
+
+        # All three share the same recurring_series_uid
+        series_uid = "test-recurrence-id-series-001"
+        for e in events:
+            assert e.recurring_series_uid == series_uid
+            assert e.is_recurring is True
+
+        # Wednesday occurrence carries the correct title (inherited from series master)
+        wed_event = next(e for e in events if e.start_time.date() == date(2099, 5, 13))
+        assert wed_event.title == "Weekly Recurring Meeting"
+        assert wed_event.start_time.hour == 14
+        assert wed_event.end_time.hour == 15
+        assert wed_event.uid == f"{series_uid}_20990513T140000"
