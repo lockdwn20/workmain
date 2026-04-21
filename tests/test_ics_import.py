@@ -1,16 +1,18 @@
 """
 WorkmAIn ICS Import Tests
-ICS Import Test v1.3
-20260327
+ICS Import Test v1.4
+20260415
 
 Tests for the ICS parser and database import pipeline (Phase 6 Gate 3).
 
 Fixtures used:
-    week_normal.ics       — 3 BUSY events (1 recurring), DESCRIPTION/ORGANIZER fields present
-    week_with_free.ics    — 1 BUSY, 1 TENTATIVE, 1 FREE
-    week_with_cancelled.ics — 1 CANCELLED known UID, 1 CANCELLED unknown UID
-    week_malformed.ics    — 1 good event, 1 missing DTEND
-    week_cst.ics          — 1 event in America/Denver (Mountain = 1hr ahead of Pacific)
+    week_normal.ics           — 3 BUSY events (1 recurring), DESCRIPTION/ORGANIZER fields present
+    week_with_free.ics        — 1 BUSY, 1 TENTATIVE, 1 FREE
+    week_with_cancelled.ics   — 1 CANCELLED known UID, 1 CANCELLED unknown UID
+    week_malformed.ics        — 1 good event, 1 missing DTEND
+    week_cst.ics              — 1 event in America/Denver (Mountain = 1hr ahead of Pacific)
+    recurrence_id_override.ics — series with 3 Monday occurrences; first Monday moved to
+                                 Wednesday via RECURRENCE-ID exception (no SUMMARY on exception)
 
 Version History:
 - v1.0: Initial implementation (Phase 6 Gate 3)
@@ -18,6 +20,7 @@ Version History:
 - v1.2: Add test_14/15 for date-shift protection; test_16 for stale-UID orphan cleanup
 - v1.3: Update test_01/03/12/13 for all-synthetic-UID RRULE expansion (no i==0 exception);
         add test_17/18/19 for migrate_series_uid_records()
+- v1.4: Add test_20 for RECURRENCE-ID exception handling (occurrence reschedule)
 """
 
 import pytest
@@ -718,3 +721,199 @@ class TestICSImport:
         new_row = db_session.query(Meeting).filter(Meeting.id == new_id).first()
         assert new_row is not None
         assert new_row.outlook_id == synthetic_uid  # not deleted
+
+    # ------------------------------------------------------------------
+    # Test 20 — RECURRENCE-ID exception reschedules an occurrence
+    # ------------------------------------------------------------------
+
+    def test_20_recurrence_id_reschedules_occurrence(self, db_session):
+        """
+        A RECURRENCE-ID VEVENT with no SUMMARY overrides one RRULE occurrence:
+        the original Monday occurrence is replaced by a Wednesday occurrence at
+        a different time. The remaining 2 Monday occurrences are unaffected.
+
+        Fixture: recurrence_id_override.ics
+            Series: weekly Monday, COUNT=3, starting 2099-05-11 09:00 PST
+              → raw expansion gives 2099-05-11 (Mon), 2099-05-18 (Mon), 2099-05-25 (Mon)
+            Exception: RECURRENCE-ID=2099-05-11 09:00 PST → DTSTART=2099-05-13 14:00 PST
+              → first Monday moved to Wednesday 2099-05-13 14:00 PST; no SUMMARY on exception
+
+        Expected ICSEvent list (3 total):
+            Wed 2099-05-13 14:00–15:00 PST  (rescheduled, synthetic UID based on Wed date)
+            Mon 2099-05-18 09:00–10:00 PST  (normal occurrence)
+            Mon 2099-05-25 09:00–10:00 PST  (normal occurrence)
+
+        The original Mon 2099-05-11 09:00 occurrence must NOT appear.
+        """
+        from datetime import date
+
+        events = parse_ics_file(FIXTURES / "recurrence_id_override.ics")
+
+        assert len(events) == 3, (
+            f"Expected 3 events (Wed exception + 2 remaining Mondays), got {len(events)}: "
+            + str([(e.start_time, e.uid) for e in events])
+        )
+
+        start_dates = {e.start_time.date() for e in events}
+
+        # Original Monday occurrence must NOT be present
+        assert date(2099, 5, 11) not in start_dates, (
+            "Original Mon 2099-05-11 occurrence should have been replaced by the exception"
+        )
+
+        # Wednesday rescheduled occurrence must be present
+        assert date(2099, 5, 13) in start_dates, (
+            "Rescheduled Wed 2099-05-13 occurrence missing"
+        )
+
+        # Remaining two Mondays must be present
+        assert date(2099, 5, 18) in start_dates
+        assert date(2099, 5, 25) in start_dates
+
+        # All three share the same recurring_series_uid
+        series_uid = "test-recurrence-id-series-001"
+        for e in events:
+            assert e.recurring_series_uid == series_uid
+            assert e.is_recurring is True
+
+        # Wednesday occurrence carries the correct title (inherited from series master)
+        wed_event = next(e for e in events if e.start_time.date() == date(2099, 5, 13))
+        assert wed_event.title == "Weekly Recurring Meeting"
+        assert wed_event.start_time.hour == 14
+        assert wed_event.end_time.hour == 15
+        assert wed_event.uid == f"{series_uid}_20990513T140000"
+
+    # ------------------------------------------------------------------
+    # Test 21 — get_series_note_count() returns total across all occurrences
+    # ------------------------------------------------------------------
+
+    def test_21_get_series_note_count(self, db_session):
+        """
+        get_series_note_count() sums user-authored notes across all meeting rows
+        that share the same outlook_recurring_id, excluding source='condensed'
+        and info-only tagged notes.
+        """
+        from workmain.database.repositories.meetings_repo import MeetingsRepository
+
+        series_uid = "series-test21@workmain"
+
+        # Two occurrences of the same recurring series
+        occ_a = Meeting(
+            outlook_id=f"{series_uid}_20990101T090000",
+            outlook_recurring_id=series_uid,
+            title="Weekly Sync",
+            start_time=datetime(2099, 1, 1, 9, 0),
+            end_time=datetime(2099, 1, 1, 9, 30),
+            is_recurring=True,
+        )
+        occ_b = Meeting(
+            outlook_id=f"{series_uid}_20990108T090000",
+            outlook_recurring_id=series_uid,
+            title="Weekly Sync",
+            start_time=datetime(2099, 1, 8, 9, 0),
+            end_time=datetime(2099, 1, 8, 9, 30),
+            is_recurring=True,
+        )
+        db_session.add_all([occ_a, occ_b])
+        db_session.commit()
+        db_session.refresh(occ_a)
+        db_session.refresh(occ_b)
+
+        # 2 regular notes on occ_a, 1 on occ_b
+        db_session.add_all([
+            Note(meeting_id=occ_a.id, content="Note 1", tags=["internal-only"], source="meeting"),
+            Note(meeting_id=occ_a.id, content="Note 2", tags=["internal-only"], source="meeting"),
+            Note(meeting_id=occ_b.id, content="Note 3", tags=["internal-only"], source="meeting"),
+        ])
+        # Condensed note — must NOT be counted
+        db_session.add(Note(
+            meeting_id=occ_a.id, content="AI summary", tags=["internal-only"], source="condensed"
+        ))
+        # Info-only note — must NOT be counted
+        db_session.add(Note(
+            meeting_id=occ_b.id, content="FYI only", tags=["info-only"], source="meeting"
+        ))
+        db_session.commit()
+
+        repo = MeetingsRepository(db_session)
+
+        # Series total: 3 (2 on occ_a + 1 on occ_b; condensed and ifo excluded)
+        assert repo.get_series_note_count(series_uid) == 3
+
+        # Per-occurrence counts still correct
+        assert repo.get_note_count(occ_a.id) == 2
+        assert repo.get_note_count(occ_b.id) == 1
+
+    # ------------------------------------------------------------------
+    # Test 22 — format_meeting_display() Series Notes line visibility
+    # ------------------------------------------------------------------
+
+    def test_22_format_meeting_display_series_notes(self, db_session):
+        """
+        format_meeting_display() appends "Series Notes: N total" only when the
+        series total exceeds the current occurrence's note count.
+
+        Case A: occurrence has 0 notes, series has 3 → line shown
+        Case B: occurrence has 3 notes, series has 3 → line NOT shown (same number)
+        Case C: non-recurring meeting → line never shown
+        """
+        from workmain.database.repositories.meetings_repo import MeetingsRepository
+        from workmain.cli.commands.meetings import format_meeting_display
+
+        series_uid = "series-test22@workmain"
+
+        # Two occurrences sharing a series
+        occ_with_notes = Meeting(
+            outlook_id=f"{series_uid}_20990201T090000",
+            outlook_recurring_id=series_uid,
+            title="Weekly Sync",
+            start_time=datetime(2099, 2, 1, 9, 0),
+            end_time=datetime(2099, 2, 1, 9, 30),
+            is_recurring=True,
+        )
+        occ_empty = Meeting(
+            outlook_id=f"{series_uid}_20990208T090000",
+            outlook_recurring_id=series_uid,
+            title="Weekly Sync",
+            start_time=datetime(2099, 2, 8, 9, 0),
+            end_time=datetime(2099, 2, 8, 9, 30),
+            is_recurring=True,
+        )
+        non_recurring = Meeting(
+            outlook_id="standalone-test22@workmain",
+            title="One-off Meeting",
+            start_time=datetime(2099, 2, 1, 14, 0),
+            end_time=datetime(2099, 2, 1, 15, 0),
+            is_recurring=False,
+        )
+        db_session.add_all([occ_with_notes, occ_empty, non_recurring])
+        db_session.commit()
+        db_session.refresh(occ_with_notes)
+        db_session.refresh(occ_empty)
+        db_session.refresh(non_recurring)
+
+        # 3 notes on the first occurrence only
+        for i in range(3):
+            db_session.add(Note(
+                meeting_id=occ_with_notes.id,
+                content=f"Note {i + 1}",
+                tags=["internal-only"],
+                source="meeting",
+            ))
+        db_session.commit()
+
+        repo = MeetingsRepository(db_session)
+
+        # Case A: occ_empty has 0 notes; series total = 3 → "Series Notes" shown
+        display_a = format_meeting_display(occ_empty, repo)
+        assert "Series Notes: 3 total" in display_a
+        assert "Notes: 0 captured" in display_a
+
+        # Case B: occ_with_notes has 3 notes; series total = 3 → line NOT shown
+        display_b = format_meeting_display(occ_with_notes, repo)
+        assert "Series Notes" not in display_b
+        assert "Notes: 3 captured" in display_b
+
+        # Case C: non-recurring meeting → "Series Notes" line never appears
+        display_c = format_meeting_display(non_recurring, repo)
+        assert "Series Notes" not in display_c

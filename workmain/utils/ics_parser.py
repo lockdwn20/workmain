@@ -1,16 +1,19 @@
 """
 WorkmAIn ICS Parser
-ICS Parser v1.5
-20260327
+ICS Parser v1.7
+20260415
 
 Parses exported Outlook ICS files into ICSEvent dataclasses for database import.
 
 Pipeline (every run, automatic):
     Read ICS → Validate file → Filter FREE events → Strip sensitive fields →
-    Deduplicate by UID (prefer RRULE-bearing) → Expand RRULE occurrences → Return ICSEvent list
+    Route RECURRENCE-ID exceptions to separate map → Deduplicate series masters
+    by UID (prefer RRULE-bearing) → Inherit titles for SUMMARY-less events →
+    Expand RRULE occurrences (applying exceptions) → Return ICSEvent list
 
 Fields kept:
-    UID, SUMMARY, DTSTART, DTEND, RRULE, EXDATE, X-MICROSOFT-CDO-BUSYSTATUS
+    UID, SUMMARY, DTSTART, DTEND, RRULE, EXDATE, RECURRENCE-ID,
+    X-MICROSOFT-CDO-BUSYSTATUS
 
 Fields stripped automatically (never read):
     DESCRIPTION, ORGANIZER, ATTENDEE, CLASS, TRANSP, SEQUENCE, DTSTAMP,
@@ -22,6 +25,16 @@ RRULE expansion: Recurring VEVENTs are expanded into one ICSEvent per occurrence
     All occurrences (including the first) receive deterministic synthetic UIDs:
     ``{series_uid}_{YYYYMMDDTHHMMSS}``. The series UID is stored only in
     outlook_recurring_id, never in outlook_id.
+
+RECURRENCE-ID exceptions: VEVENTs with a RECURRENCE-ID property override a
+    specific occurrence of a recurring series (RFC 5545 §3.8.4.4). These events
+    are routed to a separate ``recurrence_exceptions`` map (keyed by UID) and
+    never enter Pass 2 deduplication. During RRULE expansion (Pass 3), each
+    occurrence date is checked against the exception map for the same UID:
+      - Exception found, not cancelled → emit exception's DTSTART/DTEND with
+        synthetic UID ``{series_uid}_{exc_dtstart_YYYYMMDDTHHMMSS}``
+      - Exception found, cancelled → skip the occurrence entirely
+      - No exception → emit normal occurrence
 
 Date-shift protection: When a UID match would move an existing meeting to a different
     calendar date AND that meeting has notes attached, the existing record is re-keyed
@@ -38,6 +51,12 @@ Series UID migration: migrate_series_uid_records() performs a one-time re-key of
     the series UID was used as the occurrence UID). After migration the invariant
     holds: no recurring occurrence record has outlook_id == outlook_recurring_id.
 
+SUMMARY optional: RFC 5545 §3.6.1 defines SUMMARY as optional. Outlook legally omits
+    it on recurrence exception VEVENTs (RECURRENCE-ID present) that change only the
+    time, not the title. Pass 1 accepts a missing SUMMARY; a post-dedup title
+    inheritance pass copies the title from the same-UID event that has one. Any event
+    that still has no title after inheritance is set to "(No Title)".
+
 Version History:
 - v1.0: Initial implementation (Phase 6 Gate 3)
 - v1.1: Add _fallback_match() for title+date secondary lookup; backfill outlook_id on match
@@ -48,6 +67,11 @@ Version History:
 - v1.4: Date-shift protection for note-bearing records; orphan stale-UID cleanup
 - v1.5: All occurrences use synthetic UIDs (remove i==0 series-UID exception);
         add migrate_series_uid_records() for one-time DB migration
+- v1.6: Make SUMMARY optional (RFC 5545 compliant); add UID-based title inheritance
+        pass after Pass 1 to resolve recurrence exception events that omit SUMMARY
+- v1.7: Handle RECURRENCE-ID exceptions (RFC 5545 §3.8.4.4) — rescheduled or
+        cancelled occurrences now correctly replace the original RRULE expansion
+        date with the exception's new date (or skip entirely if cancelled)
 """
 
 from __future__ import annotations
@@ -134,25 +158,34 @@ def _expand_rrule_occurrences(
     duration: timedelta,
     is_cancelled: bool,
     exdates: set,
+    exceptions: list[dict] | None = None,
 ) -> list[ICSEvent]:
     """
     Expand a VEVENT's RRULE into individual ICSEvent occurrences (cap: 500).
 
-    The first occurrence keeps the series UID as its uid so that records
-    previously imported from individual VEVENT exports are matched correctly
-    on re-import. All subsequent occurrences receive deterministic synthetic
-    UIDs: ``{series_uid}_{YYYYMMDDTHHMMSS}``.
+    All occurrences receive deterministic synthetic UIDs:
+    ``{series_uid}_{YYYYMMDDTHHMMSS}``. The series UID is stored only in
+    outlook_recurring_id, never in outlook_id.
 
     All occurrences carry ``recurring_series_uid = series_uid``.
+
+    RECURRENCE-ID exceptions are applied during expansion:
+      - Exception with matching date, not cancelled → emit the exception's
+        DTSTART/DTEND with a synthetic UID based on the exception's new date
+      - Exception with matching date, cancelled → skip the occurrence entirely
+      - No matching exception → emit normal occurrence
 
     Args:
         rrule_prop: vRecur object from icalendar (the RRULE property value)
         series_uid: The VEVENT's UID; becomes recurring_series_uid for all occurrences
-        title: Meeting title
+        title: Meeting title (series master title; used as fallback for exceptions)
         dtstart: First occurrence start datetime (PST/PDT naive)
         duration: Meeting duration
-        is_cancelled: Whether the event is cancelled
+        is_cancelled: Whether the series master is cancelled
         exdates: Set of date objects to exclude (from EXDATE)
+        exceptions: List of RECURRENCE-ID exception dicts for this series, each with
+            keys: recurrence_id_date (date), dtstart (datetime), duration (timedelta),
+            title (str), is_cancelled (bool)
 
     Returns:
         List of ICSEvent, one per occurrence (max 500)
@@ -179,7 +212,7 @@ def _expand_rrule_occurrences(
     except Exception:
         # Fallback: single occurrence at DTSTART
         return [ICSEvent(
-            uid=series_uid,
+            uid=f"{series_uid}_{dtstart.strftime('%Y%m%dT%H%M%S')}",
             title=title,
             start_time=dtstart,
             end_time=dtstart + duration,
@@ -188,20 +221,46 @@ def _expand_rrule_occurrences(
             recurring_series_uid=series_uid,
         )]
 
+    # Build date → exception map for O(1) lookup during expansion
+    exception_by_date: dict = {
+        e['recurrence_id_date']: e for e in (exceptions or [])
+    }
+
     events = []
     for occ_dt in dates:
-        if occ_dt.date() in exdates:
+        occ_date = occ_dt.date()
+
+        if occ_date in exdates:
             continue
-        uid = f"{series_uid}_{occ_dt.strftime('%Y%m%dT%H%M%S')}"
-        events.append(ICSEvent(
-            uid=uid,
-            title=title,
-            start_time=occ_dt,
-            end_time=occ_dt + duration,
-            is_recurring=True,
-            is_cancelled=is_cancelled,
-            recurring_series_uid=series_uid,
-        ))
+
+        exc = exception_by_date.get(occ_date)
+        if exc is not None:
+            if exc['is_cancelled']:
+                # Exception cancels this occurrence — skip it
+                continue
+            # Exception reschedules this occurrence — emit at the new date/time
+            exc_dtstart = exc['dtstart']
+            exc_duration = exc['duration']
+            exc_title = exc['title'] or title
+            events.append(ICSEvent(
+                uid=f"{series_uid}_{exc_dtstart.strftime('%Y%m%dT%H%M%S')}",
+                title=exc_title,
+                start_time=exc_dtstart,
+                end_time=exc_dtstart + exc_duration,
+                is_recurring=True,
+                is_cancelled=False,
+                recurring_series_uid=series_uid,
+            ))
+        else:
+            events.append(ICSEvent(
+                uid=f"{series_uid}_{occ_dt.strftime('%Y%m%dT%H%M%S')}",
+                title=title,
+                start_time=occ_dt,
+                end_time=occ_dt + duration,
+                is_recurring=True,
+                is_cancelled=is_cancelled,
+                recurring_series_uid=series_uid,
+            ))
 
     return events
 
@@ -212,21 +271,23 @@ def parse_ics_file(file_path: Path | str) -> list[ICSEvent]:
 
     Pipeline:
     1. Validate file (first line must be BEGIN:VCALENDAR)
-    2. Parse all VEVENT blocks into raw dicts
+    2. Parse all VEVENT blocks — RECURRENCE-ID events routed to a separate
+       exceptions map; all others collected as raw_events (SUMMARY optional)
     3. Filter FREE events silently
-    4. Deduplicate by UID — prefer RRULE-bearing (recurring) events over
-       single-occurrence exports with the same UID
-    5. Expand RRULE for recurring events into individual occurrences
-    6. Return final ICSEvent list
+    4. Resolve empty titles via UID-based inheritance (Pass 1b)
+    5. Deduplicate series masters by UID — prefer RRULE-bearing events
+    6. Expand RRULE occurrences, applying RECURRENCE-ID exceptions per series
+    7. Return final ICSEvent list
 
     Args:
         file_path: Path to the ICS file
 
     Returns:
-        List of ICSEvent dataclasses (FREE events excluded, RRULE expanded)
+        List of ICSEvent dataclasses (FREE events excluded, RRULE expanded,
+        RECURRENCE-ID exceptions applied)
 
     Raises:
-        ICSParseError: If a required field is missing from an event
+        ICSParseError: If UID, DTSTART, or DTEND is missing from an event
         ValueError: If the file is not a valid ICS file
     """
     file_path = Path(file_path)
@@ -243,7 +304,12 @@ def parse_ics_file(file_path: Path | str) -> list[ICSEvent]:
     cal = Calendar.from_ical(raw)
 
     # --- Pass 1: parse all VEVENTs into raw dicts ---
+    # VEVENTs with RECURRENCE-ID are exception overrides for a specific
+    # occurrence of a recurring series (RFC 5545 §3.8.4.4). Route them to
+    # recurrence_exceptions (keyed by UID) instead of raw_events so they never
+    # enter Pass 2 deduplication but are applied during RRULE expansion.
     raw_events: list[dict] = []
+    recurrence_exceptions: dict[str, list[dict]] = {}  # uid → [exception dicts]
     event_index = 0
 
     for component in cal.walk():
@@ -253,17 +319,18 @@ def parse_ics_file(file_path: Path | str) -> list[ICSEvent]:
         event_index += 1
         event_name = str(component.get('SUMMARY', f'Event #{event_index}'))
 
-        for field in ('UID', 'SUMMARY', 'DTSTART', 'DTEND'):
+        # SUMMARY is optional per RFC 5545 §3.6.1; title resolved in Pass 1b
+        for field in ('UID', 'DTSTART', 'DTEND'):
             if component.get(field) is None:
                 raise ICSParseError(event_name, field)
 
-        # Filter FREE events silently
+        # Filter FREE events silently (catches Outlook "Copy: Canceled:" exports)
         busystatus = str(component.get('X-MICROSOFT-CDO-BUSYSTATUS', '')).upper()
         if busystatus == 'FREE':
             continue
 
         uid = str(component.get('UID'))
-        title = str(component.get('SUMMARY'))
+        title = str(component.get('SUMMARY', ''))
 
         dtstart = component.get('DTSTART').dt
         dtend = component.get('DTEND').dt
@@ -276,20 +343,59 @@ def parse_ics_file(file_path: Path | str) -> list[ICSEvent]:
         dtstart = to_local_naive(dtstart)
         dtend = to_local_naive(dtend)
 
-        rrule_prop = component.get('RRULE')
+        recurrence_id_prop = component.get('RECURRENCE-ID')
+        if recurrence_id_prop is not None:
+            # RECURRENCE-ID event — override for one specific occurrence
+            rec_id_dt = recurrence_id_prop.dt
+            if not isinstance(rec_id_dt, datetime):
+                rec_id_dt = datetime.combine(rec_id_dt, dt_time.min)
+            rec_id_dt = to_local_naive(rec_id_dt)
 
-        raw_events.append({
-            'uid': uid,
-            'title': title,
-            'dtstart': dtstart,
-            'duration': dtend - dtstart,
-            'is_recurring': rrule_prop is not None,
-            'is_cancelled': str(component.get('STATUS', '')).upper() == 'CANCELLED',
-            'rrule_prop': rrule_prop,
-            'exdates': _parse_exdates(component),
-        })
+            exc = {
+                'uid': uid,
+                'title': title,
+                'recurrence_id_date': rec_id_dt.date(),
+                'dtstart': dtstart,
+                'duration': dtend - dtstart,
+                'is_cancelled': str(component.get('STATUS', '')).upper() == 'CANCELLED',
+            }
+            recurrence_exceptions.setdefault(uid, []).append(exc)
+        else:
+            rrule_prop = component.get('RRULE')
+            raw_events.append({
+                'uid': uid,
+                'title': title,
+                'dtstart': dtstart,
+                'duration': dtend - dtstart,
+                'is_recurring': rrule_prop is not None,
+                'is_cancelled': str(component.get('STATUS', '')).upper() == 'CANCELLED',
+                'rrule_prop': rrule_prop,
+                'exdates': _parse_exdates(component),
+            })
 
-    # --- Pass 2: deduplicate by UID, preferring RRULE-bearing events ---
+    # --- Pass 1b: resolve empty titles via UID-based inheritance ---
+    # Build a title map from all events (raw_events + exceptions) that have one.
+    # Any raw event or exception still without a title after this pass:
+    #   - raw_events → sentinel "(No Title)"
+    #   - exceptions → left as '' (series master title used as fallback at emit)
+    uid_to_title: dict[str, str] = {}
+    for e in raw_events:
+        if e['title'] and e['uid'] not in uid_to_title:
+            uid_to_title[e['uid']] = e['title']
+    for excs in recurrence_exceptions.values():
+        for e in excs:
+            if e['title'] and e['uid'] not in uid_to_title:
+                uid_to_title[e['uid']] = e['title']
+
+    for e in raw_events:
+        if not e['title']:
+            e['title'] = uid_to_title.get(e['uid'], '(No Title)')
+    for excs in recurrence_exceptions.values():
+        for e in excs:
+            if not e['title']:
+                e['title'] = uid_to_title.get(e['uid'], '')
+
+    # --- Pass 2: deduplicate series masters by UID, preferring RRULE-bearing ---
     seen: dict[str, dict] = {}
     for raw in raw_events:
         uid = raw['uid']
@@ -297,7 +403,7 @@ def parse_ics_file(file_path: Path | str) -> list[ICSEvent]:
         if existing is None or (raw['is_recurring'] and not existing['is_recurring']):
             seen[uid] = raw
 
-    # --- Pass 3: expand RRULE recurring events into individual occurrences ---
+    # --- Pass 3: expand RRULE recurring events, applying RECURRENCE-ID exceptions ---
     final_events: list[ICSEvent] = []
     for raw in seen.values():
         if raw['is_recurring'] and raw['rrule_prop'] is not None:
@@ -309,6 +415,7 @@ def parse_ics_file(file_path: Path | str) -> list[ICSEvent]:
                 duration=raw['duration'],
                 is_cancelled=raw['is_cancelled'],
                 exdates=raw['exdates'],
+                exceptions=recurrence_exceptions.get(raw['uid']),
             )
             final_events.extend(expanded)
         else:

@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.3] - 2026-04-15
+
+### Fixed
+- **`calendar import` RECURRENCE-ID exceptions ignored** — when Outlook exports a
+  single rescheduled occurrence (e.g. Apr 17 moved to Apr 24), the ICS contains both
+  the series master (RRULE) and a RECURRENCE-ID override VEVENT with the same UID.
+  Previously the override was silently discarded by Pass 2 deduplication and the RRULE
+  expansion generated the original date as if no move occurred. The override VEVENT is
+  now routed to a separate exceptions map in Pass 1 and applied during RRULE expansion:
+  the original occurrence is replaced by the exception's new DTSTART/DTEND with a
+  deterministic synthetic UID `{series_uid}_{new_dtstart_YYYYMMDDTHHMMSS}`.
+  Cancelled exceptions (STATUS:CANCELLED on the override VEVENT) drop the occurrence
+  entirely. Re-import is idempotent — the same synthetic UID is produced each time.
+
+### Added
+- **Series Notes in meeting display** — recurring Outlook meetings now show a
+  "Series Notes: N total" line when prior occurrences of the same series hold notes
+  beyond the current occurrence. Only shown when the series total exceeds the current
+  occurrence count (no duplicate display when all notes are on the current occurrence).
+  Applies to `meetings today`, `meetings list`, `meetings show`, and anywhere
+  `format_meeting_display()` is used. Non-recurring and ad-hoc meetings are unaffected.
+
+## [1.9.2] - 2026-04-15
+
+### Fixed
+- **`calendar import` missing SUMMARY** — ICS import no longer raises `ICSParseError` on
+  recurrence exception VEVENTs that omit the SUMMARY field. RFC 5545 §3.6.1 defines SUMMARY
+  as optional; Outlook legally omits it when an override changes only the time, not the title.
+  Missing titles are now resolved via UID-based inheritance from the series master event.
+  Any event with no resolvable title falls back to `"(No Title)"`.
+
 ## [1.9.1] - 2026-04-10
 
 ### Fixed

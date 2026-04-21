@@ -1,9 +1,18 @@
 """
 WorkmAIn Package Version
-Version v1.9.1
-20260410
+Version v1.9.3
+20260415
 
 Version History:
+- v1.9.3: Hotfix — ICS RECURRENCE-ID exceptions now applied during RRULE expansion;
+          rescheduled occurrences emit at their new date/time with a synthetic UID
+          based on the new DTSTART; cancelled exceptions drop the occurrence entirely;
+          fixes "moved occurrence appears on wrong date + missing from new date" bug.
+          Also adds "Series Notes: N total" line to meeting display for recurring
+          Outlook meetings when prior occurrences hold notes beyond the current one
+- v1.9.2: Hotfix — ICS import tolerates missing SUMMARY (RFC 5545 §3.6.1 optional);
+          recurrence exception VEVENTs without SUMMARY now inherit title from same-UID
+          series master via UID-based inheritance pass; final fallback is "(No Title)"
 - v1.9.1: Hotfix — add meeting ID to notes search output; recurring meeting
           instances now show as "Meeting Name (ID: ###)" in format_note_display()
 - v1.9.0: CLI Standardization Sprint Part 2 — templates list-aliases removed
@@ -86,7 +95,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.9.1"
-__version_info__ = (1, 9, 1)
+__version__ = "1.9.3"
+__version_info__ = (1, 9, 3)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
