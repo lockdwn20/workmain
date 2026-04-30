@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.5] - 2026-04-30
+
+### Fixed
+- **Step 3 table label still said "Review today's time entries"** — the v1.9.4 hotfix
+  updated the Click docstring and dry-run message but missed the hard-coded string
+  inside `_build_step_sequence()`. Updated to "Review time entries".
+- **Report generation ignored non-meeting work entries** — `prompt_builder.py`
+  only included time entry descriptions when the template section type was
+  `"time_tracking"` or `"summary"`. The daily_internal template sections
+  (deliverables, accomplishments, etc.) never received time entry content, so the AI
+  only saw meeting notes. Individual work entry descriptions (time, hours, description)
+  are now included in every section's context. The project-level summary (total hours,
+  by-project breakdown) remains gated to `time_tracking`/`summary` sections.
+
 ## [1.9.4] - 2026-04-30
 
 ### Fixed

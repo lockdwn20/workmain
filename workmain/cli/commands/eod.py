@@ -1,6 +1,6 @@
 """
 WorkmAIn End-of-Day Workflow
-EOD v2.4
+EOD v2.5
 20260430
 
 Guided end-of-day workflow for daily work wrap-up.
@@ -52,6 +52,8 @@ Version History:
 - v2.3: CLI Standardization Sprint Part 1 (WU-9) — review step hint: track → time
 - v2.4: Hotfix eod-backdate-bugs — review step uses 'time date <date>' for past dates
         instead of 'time today'; fixed stale "today's" language in docstring/dry-run
+- v2.5: Hotfix eod-backdate-bugs-2 — fixed step 3 label in _build_step_sequence()
+        (missed in v2.4): "Review today's time entries" → "Review time entries"
 """
 
 import subprocess
@@ -439,7 +441,7 @@ def _build_step_sequence(weekday: int, skip: list) -> list:
     raw = [
         ('condense',  '1',  'Condense pending meeting notes',                _run_condense_step),
         ('sync',      '2',  'Sync time entries to Clockify',                  _run_sync_step),
-        ('review',    '3',  "Review today's time entries",                    _run_review_step),
+        ('review',    '3',  'Review time entries',                            _run_review_step),
         ('report',    '4a', 'Generate report (reports save daily_internal)',  _run_report_step),
         ('email',     '4b', 'Create email draft (email save daily_internal)', _run_email_step),
         ('clockify',  '5',  'Pull Clockify PDF (clockify report save daily)', _run_clockify_step),
