@@ -1,9 +1,12 @@
 """
 WorkmAIn Package Version
-Version v1.9.5
+Version v1.9.6
 20260430
 
 Version History:
+- v1.9.6: Hotfix eod-backdate-bugs-3 — gdocs upload step now passes --force when
+          running EOD for a past date; previously the already-uploaded guard returned
+          early and displayed ✓ in the summary without actually re-uploading to Drive
 - v1.9.5: Hotfix eod-backdate-bugs-2 — two additional fixes missed in v1.9.4:
           (1) step 3 table label corrected from "Review today's time entries" →
           "Review time entries" in _build_step_sequence(); (2) prompt_builder now
@@ -106,7 +109,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.9.5"
-__version_info__ = (1, 9, 5)
+__version__ = "1.9.6"
+__version_info__ = (1, 9, 6)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"

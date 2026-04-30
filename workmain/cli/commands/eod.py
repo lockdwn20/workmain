@@ -1,6 +1,6 @@
 """
 WorkmAIn End-of-Day Workflow
-EOD v2.5
+EOD v2.6
 20260430
 
 Guided end-of-day workflow for daily work wrap-up.
@@ -54,6 +54,8 @@ Version History:
         instead of 'time today'; fixed stale "today's" language in docstring/dry-run
 - v2.5: Hotfix eod-backdate-bugs-2 — fixed step 3 label in _build_step_sequence()
         (missed in v2.4): "Review today's time entries" → "Review time entries"
+- v2.6: Hotfix eod-backdate-bugs-3 — gdocs step passes --force for past dates so
+        re-running EOD actually overwrites the Drive files instead of silently skipping
 """
 
 import subprocess
@@ -316,9 +318,13 @@ def _run_clockify_step(dry_run: bool, target_date: date) -> bool:
 def _run_gdocs_step(dry_run: bool, target_date: date) -> bool:
     """Step 6: Upload artifacts to Google Drive."""
     date_str = target_date.strftime('%Y%m%d')
+    backdated = target_date != date.today()
     cmd = ['workmain', 'gdocs', 'upload', 'all', '--date', date_str]
+    if backdated:
+        cmd.append('--force')
     if dry_run:
-        console.print(f"  [dim]Would run: workmain gdocs upload all --date {date_str}[/dim]")
+        force_note = ' --force' if backdated else ''
+        console.print(f"  [dim]Would run: workmain gdocs upload all --date {date_str}{force_note}[/dim]")
         console.print("  [dim]Uploads: notes → Raw_Notes/, report → Reports/, PDF → Clockify/[/dim]")
         return True
 
