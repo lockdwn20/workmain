@@ -1,7 +1,7 @@
 """
 WorkmAIn Meeting CLI Commands
-Meeting Commands v3.6
-20260415
+Meeting Commands v3.7
+20260430
 
 CLI commands for meeting management.
 
@@ -37,6 +37,7 @@ Version History:
 - v3.6: format_meeting_display() — add "Series Notes: N total" line for recurring
         Outlook meetings when the series total across all occurrences exceeds the
         current occurrence count, surfacing historical notes on sibling occurrences
+- v3.7: Add --date/-d option to meetings list for viewing meetings on a specific date
 """
 
 import click
@@ -310,7 +311,9 @@ def create(title: str, start: str, end: str, meeting_date: Optional[str],
 @meetings.command()
 @click.option('--search', '-s', help='Search meetings by title')
 @click.option('--limit', '-n', type=int, default=20, help='Maximum results')
-def list(search: Optional[str], limit: int):
+@click.option('--date', '-d', 'target_date', default=None, metavar='YYYY-MM-DD',
+              help='Show meetings for a specific date')
+def list(search: Optional[str], limit: int, target_date: Optional[str]):
     """
     List meetings.
 
@@ -318,6 +321,8 @@ def list(search: Optional[str], limit: int):
     Examples:
       workmain meetings list
       workmain meetings list -s "standup"
+      workmain meetings list --date 2026-04-28
+      workmain meetings list -d 2026-04-28 -s "standup"
       workmain meetings today
       workmain meetings upcoming
     """
@@ -326,25 +331,42 @@ def list(search: Optional[str], limit: int):
     repo = MeetingsRepository(session)
 
     try:
+        # Parse --date if provided
+        parsed_date = None
+        if target_date:
+            try:
+                parsed_date = datetime.strptime(target_date, '%Y-%m-%d').date()
+            except ValueError:
+                console.print(f"[red]✗ Invalid date: '{target_date}' — expected YYYY-MM-DD[/red]")
+                return
+
         # Get meetings based on filters
-        if search:
+        if parsed_date:
+            meeting_list = repo.get_by_date(parsed_date)
+            date_label = parsed_date.strftime('%Y-%m-%d')
+            if search:
+                meeting_list = [m for m in meeting_list if search.lower() in m.title.lower()]
+                title_text = f"Meetings for {date_label} matching '{search}'"
+            else:
+                title_text = f"Meetings for {date_label}"
+        elif search:
             meeting_list = repo.search_by_title(search, limit=limit)
             title_text = f"Search Results for '{search}'"
         else:
             meeting_list = repo.get_all(limit=limit)
             title_text = f"All Meetings (Last {limit})"
-        
+
         if not meeting_list:
             console.print(f"No meetings found.")
             return
-        
+
         console.print(f"\n[bold]{title_text}[/bold] ({len(meeting_list)}):\n")
         console.print("=" * 60)
-        
+
         for meeting in meeting_list:
             console.print(format_meeting_display(meeting, repo))
             console.print("-" * 60)
-    
+
     finally:
         session.close()
 

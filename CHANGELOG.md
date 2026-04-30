@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.7] - 2026-04-30
+
+### Added
+- **`workmain meetings list --date/-d YYYY-MM-DD`** — filter meeting list to a
+  specific date. Useful for reviewing past-day meetings to assign notes after
+  running a backdated EOD. Can be combined with `--search/-s` to further filter
+  by title. Reuses existing `MeetingsRepository.get_by_date()`.
+
 ## [1.9.6] - 2026-04-30
 
 ### Fixed
