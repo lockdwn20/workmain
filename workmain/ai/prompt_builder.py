@@ -1,7 +1,7 @@
 """
 WorkmAIn AI Prompt Builder
-Prompt Builder v1.5
-20260206
+Prompt Builder v1.6
+20260430
 
 Dynamic prompt construction for AI report generation.
 
@@ -23,6 +23,9 @@ Version History:
 - v1.4: Phase 5.1 - Removed redundant Python-level tag filtering in _get_filtered_notes;
         database-level filtering via notes_repo.get_date_range is sufficient
 - v1.5: Fixed tag_filter key mismatch (was tags_filter); now matches template format
+- v1.6: Hotfix eod-backdate-bugs-2 — always include individual time entry descriptions
+        in every section's context (not just time_tracking/summary); project-level
+        summary still gated; fixes backdated reports missing non-meeting work entries
 
 Workflow:
 1. Load template structure
@@ -285,24 +288,32 @@ class PromptBuilder:
                 content = note.get("content", "")
                 parts.append(f"- {timestamp} {tags_str}: {content}")
         
-        # Get time entries if section includes time tracking
-        if section_type in ["time_tracking", "summary"]:
-            time_entries = self._get_time_entries(start_date, end_date)
-            if time_entries:
-                parts.append("\n### Time Tracking:")
-                total_hours = sum(e.get("duration_hours", 0) for e in time_entries)
-                parts.append(f"Total time logged: {total_hours:.2f} hours")
-                
-                # Group by project if available
-                by_project = {}
-                for entry in time_entries:
-                    project = entry.get("project_name", "General")
-                    duration = entry.get("duration_hours", 0)
-                    by_project[project] = by_project.get(project, 0) + duration
-                
-                parts.append("\nBy project:")
-                for project, hours in sorted(by_project.items()):
-                    parts.append(f"- {project}: {hours:.2f} hours")
+        # Always include individual work entry descriptions so every section has full
+        # context — critical for backdated reports where notes may have the wrong
+        # created_date but time entries always filter by entry_date correctly.
+        time_entries = self._get_time_entries(start_date, end_date)
+        if time_entries:
+            parts.append("\n### Work Entries:")
+            for entry in time_entries:
+                time_str = entry.get("start_time") or ""
+                hours = entry.get("duration_hours", 0)
+                desc = entry.get("description") or ""
+                parts.append(f"- {time_str} ({hours}h): {desc}")
+
+        # Project-level time tracking summary only for time_tracking/summary sections
+        if section_type in ["time_tracking", "summary"] and time_entries:
+            parts.append("\n### Time Tracking Summary:")
+            total_hours = sum(e.get("duration_hours", 0) for e in time_entries)
+            parts.append(f"Total time logged: {total_hours:.2f} hours")
+
+            by_project: Dict[str, float] = {}
+            for entry in time_entries:
+                project = entry.get("project_name") or "General"
+                by_project[project] = by_project.get(project, 0) + entry.get("duration_hours", 0)
+
+            parts.append("\nBy project:")
+            for project, hours in sorted(by_project.items()):
+                parts.append(f"- {project}: {hours:.2f} hours")
         
         # Get meetings
         meetings = self._get_meetings(start_date, end_date)
