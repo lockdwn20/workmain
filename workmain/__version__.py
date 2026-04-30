@@ -1,9 +1,13 @@
 """
 WorkmAIn Package Version
-Version v1.9.6
+Version v1.9.7
 20260430
 
 Version History:
+- v1.9.7: Hotfix meetings-list-date-filter — add --date/-d YYYY-MM-DD option to
+          `workmain meetings list` for viewing meetings on a specific past or future
+          date; reuses existing repo.get_by_date(); --date + --search combined filter
+          supported
 - v1.9.6: Hotfix eod-backdate-bugs-3 — gdocs upload step now passes --force when
           running EOD for a past date; previously the already-uploaded guard returned
           early and displayed ✓ in the summary without actually re-uploading to Drive
@@ -109,7 +113,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.9.6"
-__version_info__ = (1, 9, 6)
+__version__ = "1.9.7"
+__version_info__ = (1, 9, 7)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
