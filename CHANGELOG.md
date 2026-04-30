@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.6] - 2026-04-30
+
+### Fixed
+- **`eod --date` gdocs step showed ✓ but didn't re-upload to Drive** — the
+  `gdocs upload notes/report/clockify` commands guard against duplicate uploads and
+  do an early `return` when a file is already recorded as uploaded. The EOD
+  `_run_step` wrapper treated that early return as success and showed ✓ in the
+  summary, even though nothing was uploaded. When running EOD for a past date (a
+  redo by definition), the gdocs step now appends `--force` to the subprocess call
+  so the corrected files actually reach Google Drive.
+
 ## [1.9.5] - 2026-04-30
 
 ### Fixed
