@@ -1,7 +1,7 @@
 """
 WorkmAIn Time CLI Commands
-Time Commands v1.2
-20260402
+Time Commands v1.3
+20260430
 
 CLI commands for time tracking with 24-hour format support and Clockify sync.
 Replaces track.py — `track` and `time` groups merged into a single `time` group.
@@ -17,6 +17,8 @@ Version History:
         avoids conflict with reserved -c (--content); consistent with time add -C
 - v1.2: Add --duration/-L short form to time edit; uppercase pair of -l (--title on
         meetings edit); registered in CLI_STANDARDS.md §5.3
+- v1.3: Hotfix eod-backdate-bugs — pass created_at override to notes_repo.create()
+        when entry_date is in the past so notes land on the correct date
 """
 
 import click
@@ -188,6 +190,12 @@ def time_add(description: Optional[str], duration: str, time: str,
                 click.echo(f"✗ Invalid date format. Use YYYY-MM-DD")
                 return
 
+        # When backdating, set note created_at to entry_date so report queries find it
+        note_created_at = (
+            datetime.combine(entry_date, datetime.now().time())
+            if entry_date != datetime.today().date() else None
+        )
+
         # Handle meeting linkage
         meeting_obj = None
         if meeting:
@@ -268,7 +276,8 @@ def time_add(description: Optional[str], duration: str, time: str,
                 content=notes,
                 tags=note_tags,
                 source='meeting',
-                meeting_id=meeting_obj.id
+                meeting_id=meeting_obj.id,
+                created_at=note_created_at,
             )
 
             click.echo(f"✓ Note created (ID: {note.id}) and linked to meeting [#{meeting_obj.id}]")
@@ -280,7 +289,8 @@ def time_add(description: Optional[str], duration: str, time: str,
                 content=description,
                 tags=note_tags,
                 source='meeting',
-                meeting_id=meeting_obj.id
+                meeting_id=meeting_obj.id,
+                created_at=note_created_at,
             )
             click.echo(f"✓ Note created (ID: {note.id}) linked to meeting [#{meeting_obj.id}]")
 
@@ -290,7 +300,8 @@ def time_add(description: Optional[str], duration: str, time: str,
                 extra_note = notes_repo.create(
                     content=note_content,
                     tags=note_tags,
-                    meeting_id=meeting_obj.id
+                    meeting_id=meeting_obj.id,
+                    created_at=note_created_at,
                 )
 
                 click.echo(f"✓ Note created (ID: {extra_note.id}) and linked to meeting [#{meeting_obj.id}]")
@@ -300,7 +311,8 @@ def time_add(description: Optional[str], duration: str, time: str,
             note = notes_repo.create(
                 content=description,
                 tags=note_tags,
-                source='task'
+                source='task',
+                created_at=note_created_at,
             )
             click.echo(f"✓ Note created (ID: {note.id})")
 
