@@ -1,9 +1,14 @@
 """
 WorkmAIn Package Version
-Version v1.9.3
-20260415
+Version v1.9.4
+20260430
 
 Version History:
+- v1.9.4: Hotfix eod-backdate-bugs — three fixes for `workmain eod --date <past-date>`:
+          (1) review step now calls `time date <date>` for past dates instead of `time
+          today`; (2) notes created via `time add -d <past-date>` now land on the correct
+          date so the report generator finds them; (3) stale "today's" language removed
+          from eod docstring/dry-run; `-d` example added to help text
 - v1.9.3: Hotfix — ICS RECURRENCE-ID exceptions now applied during RRULE expansion;
           rescheduled occurrences emit at their new date/time with a synthetic UID
           based on the new DTSTART; cancelled exceptions drop the occurrence entirely;
@@ -95,7 +100,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.9.3"
-__version_info__ = (1, 9, 3)
+__version__ = "1.9.4"
+__version_info__ = (1, 9, 4)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"

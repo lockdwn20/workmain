@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.4] - 2026-04-30
+
+### Fixed
+- **`eod --date` review step showed wrong day's entries** — step 3 always called
+  `workmain time today` regardless of the `--date` flag. It now calls
+  `workmain time date <YYYY-MM-DD>` when running for a past date, so you see the
+  correct day's time entries during the review loop.
+- **`eod --date` report missed retroactively-added notes** — notes created via
+  `workmain time add -d <past-date>` were stamped with today's `created_at`
+  timestamp, so the report generator's date-range query (which filters by
+  `Note.created_date`) couldn't find them. The note's `created_at` is now set to
+  match `entry_date` when backdating, so the note lands on the correct date and
+  appears in the generated report.
+- **Stale "today's" language in `eod` help text** — the docstring and dry-run output
+  referred to "today's time entries" even when `--date` was in use. Updated to
+  "time entries" throughout. Added `-d` short-form example to the help text.
+
 ## [1.9.3] - 2026-04-15
 
 ### Fixed

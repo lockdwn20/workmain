@@ -1,14 +1,14 @@
 """
 WorkmAIn End-of-Day Workflow
-EOD v2.3
-20260401
+EOD v2.4
+20260430
 
 Guided end-of-day workflow for daily work wrap-up.
 
 Base sequence (Mon–Wed):
   1. Condense pending meeting notes (meetings with notes, no condensed_summary)
   2. Sync time entries to Clockify (clockify sync push)
-  3. Review today's time entries (loop until confirmed)
+  3. Review time entries (loop until confirmed; uses target date when --date is set)
   4a. Generate daily report (reports save daily_internal)
   4b. Create email draft (email save daily_internal)
   5. Pull Clockify PDF (clockify report save daily → staging/clockify/)
@@ -50,6 +50,8 @@ Version History:
 - v2.2: CLI Standardization Sprint Part 1 (WU-7) — gdocs upload-all → gdocs upload all
         in subprocess call, dry-run print, step description, and help text
 - v2.3: CLI Standardization Sprint Part 1 (WU-9) — review step hint: track → time
+- v2.4: Hotfix eod-backdate-bugs — review step uses 'time date <date>' for past dates
+        instead of 'time today'; fixed stale "today's" language in docstring/dry-run
 """
 
 import subprocess
@@ -177,15 +179,16 @@ def _run_sync_step(dry_run: bool, target_date: date) -> bool:
 def _run_review_step(dry_run: bool, target_date: date) -> bool:
     """Step: Review today's time entries."""
     if dry_run:
-        console.print("  [dim]Would display today's time entries[/dim]")
+        console.print("  [dim]Would display time entries for target date[/dim]")
         console.print("  [dim]Would loop until user confirms entries are correct[/dim]")
         return True
 
     try:
-        if target_date != date.today():
-            console.print(f"  [dim]Note: displaying today's actual entries (no date filter for 'time today')[/dim]")
         while True:
-            subprocess.run(['workmain', 'time', 'today'])
+            if target_date == date.today():
+                subprocess.run(['workmain', 'time', 'today'])
+            else:
+                subprocess.run(['workmain', 'time', 'date', target_date.isoformat()])
             console.print()
 
             if click.confirm("  Are these time entries correct?", default=True):
@@ -482,7 +485,7 @@ def eod(skip: str, dry_run: bool, eod_date_str: str):
     Base sequence (Mon–Wed):
       1.  Condense pending meeting notes
       2.  Sync time entries to Clockify
-      3.  Review today's time entries
+      3.  Review time entries
       4a. Generate daily report (reports save daily_internal)
       4b. Create email draft (email save daily_internal)
       5.  Pull Clockify PDF (clockify report save daily)
@@ -514,6 +517,7 @@ def eod(skip: str, dry_run: bool, eod_date_str: str):
       workmain eod --skip report,weekly --dry-run
       workmain eod -S sync --dry-run
       workmain eod --date 2026-03-30
+      workmain eod -d 2026-03-30
       workmain eod --date 2026-03-30 --dry-run
     """
     if eod_date_str:
