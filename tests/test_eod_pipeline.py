@@ -1,7 +1,7 @@
 """
 WorkmAIn EOD Pipeline Tests
-test_eod_pipeline v1.1
-20260401
+test_eod_pipeline v1.2
+20260430
 
 Tests for eod.py day-aware pipeline (Phase 9 Gate 2).
 Covers _build_step_sequence, --skip weekly, and --dry-run output.
@@ -10,14 +10,18 @@ Version History:
 - v1.0: Phase 9 Gate 5 — 9 test cases for day detection, --skip weekly, --dry-run
 - v1.1: CLI Standardization Sprint Part 1 (WU-3) — updated assertions:
         'slack post-weekly' → 'slack post weekly' in dry-run label test
+- v1.2: Hotfix eod-backdate-bugs — added TestReviewStepDispatch (2 tests) verifying
+        that _run_review_step calls 'time date <date>' for past dates and 'time today'
+        for today
 """
 
 import unittest
-from unittest.mock import patch, MagicMock
+from datetime import date
+from unittest.mock import patch, call, MagicMock
 
 from click.testing import CliRunner
 
-from workmain.cli.commands.eod import _build_step_sequence, eod
+from workmain.cli.commands.eod import _build_step_sequence, _run_review_step, eod
 
 MONDAY    = 0
 THURSDAY  = 3
@@ -110,6 +114,26 @@ class TestEodDryRun(unittest.TestCase):
         result = self._run_dry_run(FRIDAY)
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn('email save weekly_client', result.output)
+
+
+class TestReviewStepDispatch(unittest.TestCase):
+    """Tests that _run_review_step calls the correct time subcommand for the date."""
+
+    def _run_review(self, target_date: date):
+        with patch('workmain.cli.commands.eod.subprocess.run') as mock_run, \
+             patch('click.confirm', return_value=True):
+            _run_review_step(dry_run=False, target_date=target_date)
+        return mock_run
+
+    def test_review_step_uses_time_date_for_past_date(self):
+        """Past date: review step runs 'time date YYYY-MM-DD', not 'time today'."""
+        mock_run = self._run_review(date(2026, 4, 27))
+        mock_run.assert_called_once_with(['workmain', 'time', 'date', '2026-04-27'])
+
+    def test_review_step_uses_time_today_for_today(self):
+        """Today: review step runs 'time today'."""
+        mock_run = self._run_review(date.today())
+        mock_run.assert_called_once_with(['workmain', 'time', 'today'])
 
 
 if __name__ == '__main__':

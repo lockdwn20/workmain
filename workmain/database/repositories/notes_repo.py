@@ -1,7 +1,7 @@
 """
 WorkmAIn Notes Repository
-Notes Repository v1.4
-20260311
+Notes Repository v1.5
+20260430
 
 Data access layer for notes with tag filtering and full-text search.
 Handles all CRUD operations for the notes table.
@@ -12,6 +12,8 @@ Version History:
 - v1.2: Fixed exclude tags to use PostgreSQL array contains operator (@>)
 - v1.3: Added tag normalization (dedup + sort) in create() and update() methods
 - v1.4: Added get_by_meeting_title() to fix recurring-meeting instance mismatch
+- v1.5: Hotfix eod-backdate-bugs — create() accepts optional created_at override so
+        retroactively-entered notes land on the correct date for report generation
 """
 
 from datetime import date, datetime
@@ -51,30 +53,34 @@ class NotesRepository:
         tags: List[str],
         project_id: Optional[int] = None,
         meeting_id: Optional[int] = None,
-        source: str = 'ad-hoc'
+        source: str = 'ad-hoc',
+        created_at: Optional[datetime] = None,
     ) -> Note:
         """
         Create a new note.
-        
+
         Args:
             content: Note content (clean text without hashtags)
             tags: List of full tag names (e.g., ['internal-only'])
             project_id: Optional project ID to link
             meeting_id: Optional meeting ID to link
             source: Note source ('ad-hoc', 'meeting', 'task')
-            
+            created_at: Override creation timestamp (used when backdating entries
+                        so note.created_date matches the intended entry date)
+
         Returns:
             Created Note object
         """
         # Normalize tags: remove duplicates and sort alphabetically
         normalized_tags = sorted(set(tags)) if tags else []
-        
+
         note = Note(
             content=content,
             tags=normalized_tags,
             project_id=project_id,
             meeting_id=meeting_id,
-            source=source
+            source=source,
+            created_at=created_at or datetime.now(),
         )
         
         self.session.add(note)
