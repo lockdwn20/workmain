@@ -1,7 +1,7 @@
 """
 WorkmAIn Notes Repository
-Notes Repository v1.5
-20260430
+Notes Repository v1.6
+20260501
 
 Data access layer for notes with tag filtering and full-text search.
 Handles all CRUD operations for the notes table.
@@ -14,6 +14,8 @@ Version History:
 - v1.4: Added get_by_meeting_title() to fix recurring-meeting instance mismatch
 - v1.5: Hotfix eod-backdate-bugs — create() accepts optional created_at override so
         retroactively-entered notes land on the correct date for report generation
+- v1.6: Add find_by_content_like() for name-or-ID resolution on edit/delete commands
+        (Item 26, CLI V18)
 """
 
 from datetime import date, datetime
@@ -426,6 +428,28 @@ class NotesRepository:
             Note.created_date == target_date
         ).count()
     
+    def find_by_content_like(self, query: str, limit: int = 10) -> List[Note]:
+        """
+        Find notes by content substring (case-insensitive).
+
+        Used by name-or-ID resolution on notes edit/delete commands so users
+        can target a note by partial content instead of hunting down its ID.
+
+        Args:
+            query: Substring to search for in note content.
+            limit: Maximum results to return (default 10).
+
+        Returns:
+            List of Note objects ordered by created_at DESC.
+        """
+        return (
+            self.session.query(Note)
+            .filter(func.lower(Note.content).contains(query.lower()))
+            .order_by(Note.created_at.desc())
+            .limit(limit)
+            .all()
+        )
+
     def get_note_age_warning(self, note_id: int) -> Optional[Tuple[int, bool]]:
         """
         Get age warning info for a note.

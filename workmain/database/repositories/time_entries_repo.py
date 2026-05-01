@@ -1,7 +1,7 @@
 """
 WorkmAIn Time Entries Repository
-Time Entries Repository v1.3
-20260116
+Time Entries Repository v1.4
+20260501
 
 Data access layer for time entries with 24-hour time format.
 Handles all CRUD operations for the time_entries table.
@@ -12,6 +12,8 @@ Version History:
         (1430, 0900, 930) and AM/PM without colons (230pm, 900am)
 - v1.2: Added meeting_id support for linking time entries to meetings (Phase 4 Feature 4)
 - v1.3: Phase 5 - Added get_by_clockify_id() for pull sync duplicate detection
+- v1.4: Add find_by_description_like() for name-or-ID resolution on time edit/delete
+        commands (Item 26, CLI V18)
 """
 
 from datetime import date, datetime, time, timedelta
@@ -457,6 +459,28 @@ class TimeEntriesRepository:
         
         return entry
     
+    def find_by_description_like(self, query: str, limit: int = 10) -> List[TimeEntry]:
+        """
+        Find time entries by description substring (case-insensitive).
+
+        Used by name-or-ID resolution on time edit/delete commands so users
+        can target an entry by partial description instead of its numeric ID.
+
+        Args:
+            query: Substring to search for in entry description.
+            limit: Maximum results to return (default 10).
+
+        Returns:
+            List of TimeEntry objects ordered by entry_date DESC, entry_time DESC.
+        """
+        return (
+            self.session.query(TimeEntry)
+            .filter(func.lower(TimeEntry.description).contains(query.lower()))
+            .order_by(TimeEntry.entry_date.desc(), TimeEntry.entry_time.desc())
+            .limit(limit)
+            .all()
+        )
+
     def get_recent(self, limit: int = 10) -> List[TimeEntry]:
         """
         Get recent time entries (most recent first).
