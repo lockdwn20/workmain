@@ -566,35 +566,38 @@ purpose or if one is redundant. Remove the redundant surface if found.
 
 ### 26. Violation 18 — Name-or-ID Rule Missing on Edit/Delete Commands
 
-**Status:** Deferred
-**Priority:** Low (functional gap, no immediate user-facing confusion)
-**Effort:** ~4–6 hours
-**Added:** 20260331
-**Target Phase:** Phase 14 (was old Phase 12 — renumbered per phase restructure)
+**Status:** ✓ Complete — feature/name-or-id-resolution, v1.10.0 (20260501)
 
 **Description:**
 §4.3 of `CLI_STANDARDS.md` requires all commands that target a specific database
 resource to accept either the record ID or the resource name (with fuzzy picker on
-ambiguous matches). The following commands currently accept only integer ID:
+ambiguous matches). Implemented for both directions (ID-only and name-only violations).
 
-- `notes edit`, `notes delete`
-- `time edit`, `time delete`
-- `meetings delete`, `meetings rename`
-- `email recipients delete`
+**Implemented (Direction A — ID-only, now accept name too):**
+- `notes edit`, `notes delete` — content substring + picker
+- `time edit`, `time delete` — description substring + picker
+- `meetings delete`, `meetings rename`, `meetings edit` — fuzzy title + picker
+- `email recipients delete` — email substring + picker
+
+**Implemented (Direction B — name-only, now also accept ID):**
+- `fuzzy_match_meeting()` in notes.py — `notes add/edit -m` and `notes log -m`
+- `notes meeting <TITLE>` — also accepts meeting ID
+- `meetings condense <TITLE>` — also accepts meeting ID
+- `meetings merge <FROM> <TO>` — both args accept ID or title
 
 **Acceptance Criteria:**
-- [ ] All listed commands accept either ID or name string as the identifier
-- [ ] Exact name match → direct resolution
-- [ ] Ambiguous name → fuzzy picker invoked with context (date, type, status)
-- [ ] Most likely match highlighted in picker
-- [ ] Tests cover ID resolution, exact-name resolution, and picker invocation paths
+- [x] All listed commands accept either ID or name string as the identifier
+- [x] Exact name match → direct resolution
+- [x] Ambiguous name → fuzzy picker invoked with context (date, type, status)
+- [x] Most likely match highlighted in picker
+- [x] Tests cover ID resolution, exact-name resolution, and picker invocation paths
 
 ---
 
 ## Summary Statistics
 
-**Total Open Items:** 24
-**Completed Items:** 2 (Items 17 & 18 — Phase 9, v1.6.0)
+**Total Open Items:** 23
+**Completed Items:** 3 (Items 17 & 18 — Phase 9, v1.6.0; Item 26 — v1.10.0)
 
 **Priority Breakdown:**
 - High: 0
@@ -636,7 +639,7 @@ ambiguous matches). The following commands currently accept only integer ID:
 - Trigger time configuration (deferred from Phase 10)
 - Ollama host configuration
 25. `reports costs` + `providers costs` audit (~1 hour)
-26. Name-or-ID rule across edit/delete commands (~4-6 hours)
+26. ✓ Name-or-ID rule across edit/delete commands — COMPLETE v1.10.0
 
 **Phase 15 - Testing & Documentation:**
 1. Command aliases (~20 min)

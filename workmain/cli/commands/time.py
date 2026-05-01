@@ -1,7 +1,7 @@
 """
 WorkmAIn Time CLI Commands
-Time Commands v1.3
-20260430
+Time Commands v1.4
+20260501
 
 CLI commands for time tracking with 24-hour format support and Clockify sync.
 Replaces track.py — `track` and `time` groups merged into a single `time` group.
@@ -19,6 +19,8 @@ Version History:
         meetings edit); registered in CLI_STANDARDS.md §5.3
 - v1.3: Hotfix eod-backdate-bugs — pass created_at override to notes_repo.create()
         when entry_date is in the past so notes land on the correct date
+- v1.4: Item 26 (CLI V18) — name-or-ID resolution on time edit/delete. New
+        _resolve_time_entry() helper; both commands accept ID or description substring.
 """
 
 import click
@@ -113,6 +115,52 @@ def format_time_summary(entries, show_breakdown: bool = True) -> str:
                 lines.append(f"  {cat}: {float(hours)}h")
 
     return "\n".join(lines)
+
+
+def _resolve_time_entry(identifier: str, repo: TimeEntriesRepository):
+    """
+    Resolve a time entry by ID or description substring.
+
+    - Digit string → get_by_id() directly.
+    - String → description ILIKE search; single match used directly,
+      multiple → numbered picker.
+    - No match → error message, returns None.
+    """
+    if identifier.isdigit():
+        entry = repo.get_by_id(int(identifier))
+        if not entry:
+            click.echo(f"✗ No time entry found with ID {identifier}")
+        return entry
+
+    matches = repo.find_by_description_like(identifier)
+    if not matches:
+        click.echo(f"✗ No time entries found matching '{identifier}'")
+        click.echo("  Try: workmain time today to browse entries first")
+        return None
+
+    if len(matches) == 1:
+        return matches[0]
+
+    click.echo(f"\nMultiple time entries found for '{identifier}':")
+    for i, entry in enumerate(matches, 1):
+        date_str = entry.entry_date.strftime('%Y-%m-%d')
+        duration = f"{float(entry.duration_hours)}h"
+        preview = entry.description[:60] + "..." if len(entry.description) > 60 else entry.description
+        click.echo(f"  {i}. [ID: {entry.id}] {date_str} {preview} ({duration})")
+
+    choice = click.prompt("\nSelect [number, or q to cancel]", default="1")
+    if choice.lower() == 'q':
+        click.echo("Cancelled.")
+        return None
+    try:
+        idx = int(choice) - 1
+        if 0 <= idx < len(matches):
+            return matches[idx]
+        click.echo("Invalid selection.")
+        return None
+    except ValueError:
+        click.echo("Invalid input.")
+        return None
 
 
 @click.group()
@@ -335,37 +383,33 @@ def time_add(description: Optional[str], duration: str, time: str,
 
 
 @time.command('edit')
-@click.argument('entry_id', type=int)
+@click.argument('identifier')
 @click.option('--description', '-D', help='New description')
 @click.option('--duration', '-L', help='New duration (e.g., 2h, 1.5h)')
 @click.option('--time', '-T', help='New time (14:30 or 1430)')
 @click.option('--category', '-C', help='New category')
 @click.option('--project', '-p', type=int, help='New project ID')
-def time_edit(entry_id: int, description: Optional[str], duration: Optional[str],
+def time_edit(identifier: str, description: Optional[str], duration: Optional[str],
               time: Optional[str], category: Optional[str], project: Optional[int]):
     """
-    Edit a time entry.
-
-    \b
-    To find entry IDs, run: workmain time today
+    Edit a time entry by ID or description substring.
 
     \b
     Examples:
       workmain time edit 5 -D "Updated description"
+      workmain time edit "Clockify sync" -D "Updated description"
       workmain time edit 5 --duration 3h
       workmain time edit 5 -T 16:00
-      workmain time edit 5 -T 1600
     """
     db = get_db()
     session = db.get_session()
     repo = TimeEntriesRepository(session)
 
     try:
-        # Get existing entry
-        entry = repo.get_by_id(entry_id)
+        entry = _resolve_time_entry(identifier, repo)
         if not entry:
-            click.echo(f"✗ Time entry {entry_id} not found")
             return
+        entry_id = entry.id
 
         # Parse duration if provided
         duration_hours = None
@@ -411,25 +455,25 @@ def time_edit(entry_id: int, description: Optional[str], duration: Optional[str]
 
 
 @time.command('delete')
-@click.argument('entry_id', type=int)
-def time_delete(entry_id: int):
+@click.argument('identifier')
+def time_delete(identifier: str):
     """
-    Delete a time entry.
+    Delete a time entry by ID or description substring.
 
     \b
-    Example:
+    Examples:
       workmain time delete 5
+      workmain time delete "Clockify sync"
     """
     db = get_db()
     session = db.get_session()
     repo = TimeEntriesRepository(session)
 
     try:
-        # Get entry to show what will be deleted
-        entry = repo.get_by_id(entry_id)
+        entry = _resolve_time_entry(identifier, repo)
         if not entry:
-            click.echo(f"✗ Time entry {entry_id} not found")
             return
+        entry_id = entry.id
 
         # Show entry
         click.echo(f"\nTime entry to delete:")

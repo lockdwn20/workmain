@@ -1,7 +1,7 @@
 """
 WorkmAIn Email Commands
-Email Commands v1.4
-20260401
+Email Commands v1.5
+20260501
 
 Email command group for Outlook email draft pipeline (Phase 6).
 
@@ -29,6 +29,8 @@ Version History:
 - v1.3: Add optional session param to _get_draft_recipients/_generate_draft for test isolation
 - v1.4: CLI Standardization Sprint Part 1 (WU-5) — `recipients remove` → `recipients delete`;
         avoids banned synonym `remove` (§3.2); function renamed recipients_remove → recipients_delete
+- v1.5: Item 26 (CLI V18) — name-or-ID resolution on recipients delete; accepts ID or
+        email substring with picker for multiple matches.
 """
 
 import re
@@ -507,26 +509,62 @@ def recipients_add(email_addr: str):
 
 
 @email_recipients.command('delete')
-@click.argument('recipient_id', type=int)
-def recipients_delete(recipient_id: int):
+@click.argument('identifier')
+def recipients_delete(identifier: str):
     """
     Delete a recipient completely (cascades to all assignments).
 
-    Displays current assignments and prompts for confirmation.
+    Accepts a numeric ID or email substring. Displays current assignments
+    and prompts for confirmation.
 
     \b
-    Example:
+    Examples:
       workmain email recipients delete 1
+      workmain email recipients delete "peter@example.com"
+      workmain email recipients delete "peter"
     """
     db = get_db()
     session = db.get_session()
     try:
         repo = get_email_repository(session)
-        recipient = repo.get_recipient_by_id(recipient_id)
 
-        if not recipient:
-            console.print(f"\n[red]✗ Recipient ID {recipient_id} not found.[/red]\n")
-            return
+        # Resolve by ID or email substring (Item 26 Direction A fix)
+        if identifier.isdigit():
+            recipient = repo.get_recipient_by_id(int(identifier))
+            if not recipient:
+                console.print(f"\n[red]✗ Recipient ID {identifier} not found.[/red]\n")
+                return
+        else:
+            all_recipients = repo.get_all_recipients()
+            matches = [r for r in all_recipients if identifier.lower() in r.email.lower()]
+
+            if not matches:
+                console.print(f"\n[red]✗ No recipients found matching '{identifier}'.[/red]\n")
+                return
+
+            if len(matches) == 1:
+                recipient = matches[0]
+            else:
+                console.print(f"\n[yellow]Multiple recipients found for '{identifier}':[/yellow]")
+                for i, r in enumerate(matches, 1):
+                    assignment_strs = [f"{a.report_type} ({a.recipient_type})" for a in r.assignments]
+                    assign_text = ", ".join(assignment_strs) if assignment_strs else "no assignments"
+                    console.print(f"  {i}. [ID: {r.id}] {r.email} — {assign_text}")
+
+                choice = click.prompt("\nSelect [number, or q to cancel]", default="1")
+                if choice.lower() == 'q':
+                    console.print("[dim]Cancelled.[/dim]\n")
+                    return
+                try:
+                    idx = int(choice) - 1
+                    if 0 <= idx < len(matches):
+                        recipient = matches[idx]
+                    else:
+                        console.print("[red]Invalid selection.[/red]\n")
+                        return
+                except ValueError:
+                    console.print("[red]Invalid input.[/red]\n")
+                    return
 
         assignments = recipient.assignments
         if assignments:
