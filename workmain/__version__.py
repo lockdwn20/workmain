@@ -1,9 +1,16 @@
 """
 WorkmAIn Package Version
-Version v1.9.7
-20260430
+Version v1.10.0
+20260501
 
 Version History:
+- v1.10.0: Name-or-ID resolution on all resource-targeting commands (Item 26 / CLI V18) —
+           `notes edit/delete`, `meetings edit/delete/rename/condense/merge`, `time edit/delete`,
+           `email recipients delete` now accept either an integer ID or a name/title string;
+           Direction B fixes: `notes add/edit/log -m`, `notes meeting`, `meetings condense/merge`
+           now also accept numeric IDs. Adds `find_by_content_like()` (NotesRepository),
+           `find_by_description_like()` (TimeEntriesRepository), and per-command `_resolve_*()`
+           helpers with fuzzy picker for ambiguous matches.
 - v1.9.7: Hotfix meetings-list-date-filter — add --date/-d YYYY-MM-DD option to
           `workmain meetings list` for viewing meetings on a specific past or future
           date; reuses existing repo.get_by_date(); --date + --search combined filter
@@ -113,7 +120,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.9.7"
-__version_info__ = (1, 9, 7)
+__version__ = "1.10.0"
+__version_info__ = (1, 10, 0)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
