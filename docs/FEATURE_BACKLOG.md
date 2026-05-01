@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v4.1
-20260421
+Feature Backlog v4.2
+20260501
 
 # WorkmAIn Feature Backlog
 
@@ -19,6 +19,7 @@ Items deferred from various phases for future implementation.
 - v3.8 (20260319): Items 17 and 18 marked COMPLETE (Phase 9, v1.6.0); summary statistics updated
 - v4.0 (20260421): Phase restructure following bidirectional Slack scoping session. Phase references updated throughout (old 12→14, 13→15). Added Items 19 (Ollama GPU offloading — Phase 13), 20 (multi-client data attribution — Phase 11+), 21 (Cloudflare Tunnel / Events API — deferred indefinitely). Added Item 22 (active client context switch data model — Phase 11 design, full attribution deferred). Updated Items by Phase section for new phases 12 and 13. NOTE: accidentally dropped Items 19/20/21/24 from old backlog v4.0 (20260331) — corrected in v4.1.
 - v4.1 (20260421): Restored four accidentally dropped items: Item 23 (meeting visibility/tagging — Phase 15), Item 24 (V6 tasks group review — Phase 11), Item 25 (V7 costs audit — Phase 14), Item 26 (V18 name-or-ID rule — Phase 14). Updated summary statistics.
+- v4.2 (20260501): Item 26 marked COMPLETE (v1.10.0); summary statistics updated (23 open → 23 open, 2 complete → 3 complete).
 
 ---
 
