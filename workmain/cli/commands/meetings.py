@@ -1,7 +1,7 @@
 """
 WorkmAIn Meeting CLI Commands
-Meeting Commands v3.7
-20260430
+Meeting Commands v3.8
+20260501
 
 CLI commands for meeting management.
 
@@ -38,6 +38,9 @@ Version History:
         Outlook meetings when the series total across all occurrences exceeds the
         current occurrence count, surfacing historical notes on sibling occurrences
 - v3.7: Add --date/-d option to meetings list for viewing meetings on a specific date
+- v3.8: Item 26 (CLI V18) — name-or-ID resolution on all resource-targeting commands.
+        New _resolve_meeting() helper; delete/rename/edit/condense/merge all accept
+        ID or title string with fuzzy picker for ambiguous matches.
 """
 
 import click
@@ -108,6 +111,75 @@ def format_meeting_display(meeting, meetings_repo: MeetingsRepository, show_note
         lines.append(f"  Status: {', '.join(flags)}")
 
     return "\n".join(lines)
+
+
+def _resolve_meeting(identifier: str, repo: MeetingsRepository):
+    """
+    Resolve a meeting identifier (ID or name) to a Meeting object.
+
+    - Digit string → get_by_id() directly.
+    - String → check today's meetings first (best UX for recurring meetings),
+      then fuzzy match.
+    - Single close match (score ≥ 0.95) → used without confirmation.
+    - Single fuzzy match (score < 0.95) → user confirms.
+    - Multiple matches → numbered picker.
+    - No match → error message, returns None.
+    """
+    if identifier.isdigit():
+        mtg = repo.get_by_id(int(identifier))
+        if not mtg:
+            console.print(f"[red]✗ Meeting {identifier} not found[/red]")
+        return mtg
+
+    # Check today's meetings first — best pick for recurring series
+    today = datetime.now().date()
+    meetings_today = repo.get_by_date(today)
+    for m in meetings_today:
+        if identifier.lower() in m.title.lower():
+            return m
+
+    # Fuzzy match across all meetings
+    matches = repo.fuzzy_match(identifier, threshold=0.6)
+    if not matches:
+        console.print(f"[red]✗ No meeting found matching '{identifier}'[/red]")
+        return None
+
+    if len(matches) == 1:
+        mtg, score = matches[0]
+        if score >= 0.95:
+            return mtg
+        console.print(f"\n[yellow]Found similar meeting:[/yellow] {mtg.title}")
+        if not click.confirm("Use this meeting?", default=True):
+            console.print("Cancelled.")
+            return None
+        return mtg
+
+    # Multiple matches — picker
+    console.print(f"\n[yellow]Multiple meetings found for '{identifier}':[/yellow]")
+    for i, (m, score) in enumerate(matches[:5], 1):
+        occ_date = m.start_time.date() if m.start_time else None
+        meeting_date = m.start_time.strftime('%Y-%m-%d %H:%M') if m.start_time else "No date"
+        is_today = occ_date == today if occ_date else False
+        today_marker = " [green]← Today[/green]" if is_today else ""
+        note_count = repo.get_note_count(m.id)
+        console.print(
+            f"  {i}. (ID: {m.id}) {m.title} "
+            f"({meeting_date}, {note_count} notes, {score*100:.0f}% match){today_marker}"
+        )
+
+    choice = click.prompt("\nSelect [1-5, or q to cancel]", default="1")
+    if choice.lower() == 'q':
+        console.print("Cancelled.")
+        return None
+    try:
+        idx = int(choice) - 1
+        if 0 <= idx < len(matches):
+            return matches[idx][0]
+        console.print("[red]Invalid selection.[/red]")
+        return None
+    except ValueError:
+        console.print("[red]Invalid input.[/red]")
+        return None
 
 
 @click.group()
@@ -493,29 +565,26 @@ def show(title_or_id: str, date: Optional[datetime]):
 
 
 @meetings.command()
-@click.argument('meeting_id', type=int)
+@click.argument('identifier')
 @click.option('--delete-notes', is_flag=True, help='Also delete associated notes')
-def delete(meeting_id: int, delete_notes: bool):
+def delete(identifier: str, delete_notes: bool):
     """
-    Delete a meeting by ID.
-
-    Alias for 'workmain meeting delete' for improved discoverability.
+    Delete a meeting by ID or title.
 
     \b
     Examples:
       workmain meetings delete 42
-      workmain meeting delete 42
+      workmain meetings delete "Daily Standup"
     """
     db = get_db()
     session = db.get_session()
     repo = MeetingsRepository(session)
 
     try:
-        # Get meeting
-        mtg = repo.get_by_id(meeting_id)
+        mtg = _resolve_meeting(identifier, repo)
         if not mtg:
-            console.print(f"[red]✗ Meeting {meeting_id} not found[/red]")
             return
+        meeting_id = mtg.id
 
         note_count = repo.get_note_count(meeting_id)
 
@@ -751,49 +820,19 @@ def meetings_condense(meeting_title: str):
     Creates a professional summary suitable for Clockify time entries.
 
     \b
-    Example:
+    Examples:
       workmain meetings condense "Team Standup"
+      workmain meetings condense 42
     """
     db = get_db()
     session = db.get_session()
     meetings_repo = MeetingsRepository(session)
 
     try:
-        # Find meeting with fuzzy matching
-        matches = meetings_repo.fuzzy_match(meeting_title, threshold=0.6)
-
-        if not matches:
-            console.print(f"[red]✗ Meeting not found: '{meeting_title}'[/red]")
+        meeting = _resolve_meeting(meeting_title, meetings_repo)
+        if not meeting:
             console.print()
             return
-
-        # Interactive confirmation for fuzzy match
-        meeting = None
-        if len(matches) == 1:
-            meeting, score = matches[0]
-            if score < 0.95:  # Not exact match
-                console.print(f"\n[yellow]Found similar meeting:[/yellow] {meeting.title}")
-                if not click.confirm("Use this meeting?", default=True):
-                    console.print("Cancelled.")
-                    return
-        else:
-            # Multiple matches - show date to distinguish recurring meetings
-            today = date.today()
-            console.print(f"\n[yellow]Multiple meetings found:[/yellow]")
-            for i, (m, score) in enumerate(matches[:5], 1):
-                occ_date = m.start_time.date() if m.start_time else None
-                note_count = meetings_repo.get_note_count(m.id, meeting_date=occ_date)
-                meeting_date = m.start_time.strftime('%Y-%m-%d %H:%M') if m.start_time else "No date"
-                is_today = occ_date == today if occ_date else False
-                today_marker = " [green]← Today[/green]" if is_today else ""
-                console.print(f"  {i}. {m.title} ({meeting_date}, {note_count} notes, {score*100:.0f}% match){today_marker}")
-
-            choice = click.prompt("\nSelect meeting [1-5, or 0 to cancel]", type=int, default=1)
-            if choice == 0 or choice > len(matches):
-                console.print("Cancelled.")
-                return
-
-            meeting, _ = matches[choice - 1]
 
         # Check if meeting has notes (include ifo so ifo-only meetings aren't blocked;
         # the condenser handles them by returning "Attended <Meeting>" default).
@@ -896,29 +935,29 @@ def meetings_condense(meeting_title: str):
 
 
 @meetings.command('rename')
-@click.argument('meeting_id', type=int)
+@click.argument('identifier')
 @click.argument('new_title')
-def meetings_rename(meeting_id: int, new_title: str):
+def meetings_rename(identifier: str, new_title: str):
     """
-    Rename a meeting.
+    Rename a meeting by ID or title.
 
     \b
-    Example:
+    Examples:
       workmain meetings rename 5 "Daily Standup"
+      workmain meetings rename "Old Standup" "Daily Standup"
     """
     db = get_db()
     session = db.get_session()
     repo = MeetingsRepository(session)
 
     try:
-        mtg = repo.get_by_id(meeting_id)
+        mtg = _resolve_meeting(identifier, repo)
         if not mtg:
-            console.print(f"[red]✗ Meeting {meeting_id} not found[/red]")
             return
 
         old_title = mtg.title
 
-        if repo.rename(meeting_id, new_title):
+        if repo.rename(mtg.id, new_title):
             console.print(f"[green]✓ Renamed:[/green] '{old_title}' → '{new_title}'")
         else:
             console.print(f"[red]✗ Rename failed[/red]")
@@ -928,30 +967,31 @@ def meetings_rename(meeting_id: int, new_title: str):
 
 
 @meetings.command('merge')
-@click.argument('from_title')
-@click.argument('to_title')
-def meetings_merge(from_title: str, to_title: str):
+@click.argument('from_identifier')
+@click.argument('to_identifier')
+def meetings_merge(from_identifier: str, to_identifier: str):
     """
     Merge two meetings by moving notes from one to another.
 
+    Both arguments accept an ID or title string.
+
     \b
-    Example:
+    Examples:
       workmain meetings merge "Old Standup" "Team Standup"
+      workmain meetings merge 12 "Team Standup"
+      workmain meetings merge 12 15
     """
     db = get_db()
     session = db.get_session()
     repo = MeetingsRepository(session)
 
     try:
-        from_mtg = repo.get_by_title(from_title, exact=False)
-        to_mtg = repo.get_by_title(to_title, exact=False)
-
+        from_mtg = _resolve_meeting(from_identifier, repo)
         if not from_mtg:
-            console.print(f"[red]✗ Source meeting '{from_title}' not found[/red]")
             return
 
+        to_mtg = _resolve_meeting(to_identifier, repo)
         if not to_mtg:
-            console.print(f"[red]✗ Target meeting '{to_title}' not found[/red]")
             return
 
         from_notes = repo.get_note_count(from_mtg.id)
@@ -978,12 +1018,12 @@ def meetings_merge(from_title: str, to_title: str):
 
 
 @meetings.command('edit')
-@click.argument('meeting_id', type=int)
+@click.argument('identifier')
 @click.option('--title', '-l', help='New title')
 @click.option('--start', '-b', help='New start time (HH:MM, HHMM, or YYYY-MM-DD HH:MM)')
 @click.option('--end', '-e', help='New end time (HH:MM, HHMM, or YYYY-MM-DD HH:MM)')
 @click.option('--date', '-d', 'meeting_date', help='New date (YYYY-MM-DD) — shifts both start and end, preserving wall-clock times')
-def meetings_edit(meeting_id: int, title: Optional[str], start: Optional[str],
+def meetings_edit(identifier: str, title: Optional[str], start: Optional[str],
                   end: Optional[str], meeting_date: Optional[str]):
     """
     Edit an ad-hoc meeting's title, time, or date.
@@ -994,12 +1034,10 @@ def meetings_edit(meeting_id: int, title: Optional[str], start: Optional[str],
 
     At least one option must be provided.
 
-    Note: name-or-ID resolution deferred to Phase 12 (Violation Register item 18).
-
     \b
     Examples:
       workmain meetings edit 5 -b 14:00 -e 15:00
-      workmain meetings edit 5 -d 2026-04-10
+      workmain meetings edit "Daily Standup" -d 2026-04-10
       workmain meetings edit 5 -l "Renamed Standup" -b 09:30 -e 10:00
     """
     if not any([title, start, end, meeting_date]):
@@ -1012,14 +1050,14 @@ def meetings_edit(meeting_id: int, title: Optional[str], start: Optional[str],
     repo = MeetingsRepository(session)
 
     try:
-        mtg = repo.get_by_id(meeting_id)
+        mtg = _resolve_meeting(identifier, repo)
         if not mtg:
-            console.print(f"[red]✗ Meeting {meeting_id} not found[/red]")
             return
+        meeting_id = mtg.id
 
         # Block Outlook-managed meetings
         if mtg.outlook_id is not None:
-            console.print(f"[red]✗ Meeting {meeting_id} is Outlook-managed and cannot be edited here.[/red]")
+            console.print(f"[red]✗ Meeting (ID: {meeting_id}) '{mtg.title}' is Outlook-managed and cannot be edited here.[/red]")
             console.print("[dim]To update it, reimport the updated ICS file:[/dim]")
             console.print("[dim]  workmain calendar import <file.ics>[/dim]")
             return

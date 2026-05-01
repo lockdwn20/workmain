@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-05-01
+
+### Added
+- **Name-or-ID resolution on all resource-targeting commands (Item 26 / CLI V18)** —
+  all `edit`, `delete`, and `rename` commands now accept either an integer ID or a
+  name/title string as the `<identifier>` argument:
+  - `workmain notes edit <identifier>` — digit → ID lookup; string → content substring match with fuzzy picker
+  - `workmain notes delete <identifier>` — same
+  - `workmain meetings edit <identifier>` — digit → ID lookup; string → fuzzy title match with picker
+  - `workmain meetings delete <identifier>` — same
+  - `workmain meetings rename <identifier> <new-title>` — same
+  - `workmain meetings condense <identifier>` — replaces previous title-only inline picker
+  - `workmain meetings merge <from-identifier> <to-identifier>` — both args accept ID or name
+  - `workmain time edit <identifier>` — digit → ID lookup; string → description substring match
+  - `workmain time delete <identifier>` — same
+  - `workmain email recipients delete <identifier>` — digit → ID lookup; string → email/name match
+- **Direction B fixes** — commands that previously accepted ONLY a name string now also
+  accept a numeric ID: `notes add/edit/log --meeting/-m`, `notes meeting <identifier>`,
+  `meetings condense <identifier>`, `meetings merge <from> <to>`
+- **New repository methods:** `NotesRepository.find_by_content_like()`,
+  `TimeEntriesRepository.find_by_description_like()`
+- **17 new tests** in `tests/test_name_or_id_resolution.py` covering ID path, name path,
+  ordering, limit, and missing-record behavior for all three repositories
+
 ## [1.9.7] - 2026-04-30
 
 ### Added

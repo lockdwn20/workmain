@@ -1,7 +1,7 @@
 """
 WorkmAIn Notes CLI Commands
-Notes Commands v3.3
-20260410
+Notes Commands v3.4
+20260501
 
 Unified notes command group. Consolidates note (write) and notes (read) groups
 from note.py into a single group with all subcommands.
@@ -27,6 +27,11 @@ Version History:
         notes log so they can be distinguished from regular meeting notes
 - v3.3: Hotfix - add meeting ID to format_note_display() output so recurring
         meeting instances are distinguishable in notes search results
+- v3.4: Item 26 (CLI V18) — name-or-ID resolution on all resource-targeting commands.
+        Direction A: notes edit/delete now accept ID or content substring.
+        Direction B: fuzzy_match_meeting() checks isdigit() first; notes log and
+        notes meeting also resolve meeting by ID or title.
+        New helper: _resolve_note().
 """
 
 import click
@@ -135,15 +140,23 @@ def interactive_meeting_picker(meetings_repo: MeetingsRepository) -> Optional[in
 
 def fuzzy_match_meeting(meetings_repo: MeetingsRepository, title: str) -> Optional[int]:
     """
-    Try to match meeting title with fuzzy matching.
+    Try to match meeting by ID or fuzzy title match.
 
     Args:
         meetings_repo: Meetings repository
-        title: Meeting title to match
+        title: Meeting title or numeric ID string
 
     Returns:
         Meeting ID or None if cancelled
     """
+    # Try ID first (Item 26 Direction B fix)
+    if title.isdigit():
+        meeting = meetings_repo.get_by_id(int(title))
+        if meeting:
+            return meeting.id
+        click.echo(f"✗ No meeting found with ID {title}")
+        return None
+
     exact = meetings_repo.get_by_title(title, exact=False)
     if exact:
         return exact.id
@@ -184,6 +197,51 @@ def fuzzy_match_meeting(meetings_repo: MeetingsRepository, title: str) -> Option
         else:
             click.echo("Invalid selection.")
             return None
+    except ValueError:
+        click.echo("Invalid input.")
+        return None
+
+
+def _resolve_note(identifier: str, notes_repo: NotesRepository):
+    """
+    Resolve a note by ID or content substring.
+
+    - Digit string → get_by_id() directly.
+    - String → content ILIKE search; single match used directly, multiple → picker.
+    - No match → error message, returns None.
+    """
+    if identifier.isdigit():
+        note = notes_repo.get_by_id(int(identifier))
+        if not note:
+            click.echo(f"✗ No note found with ID {identifier}")
+        return note
+
+    matches = notes_repo.find_by_content_like(identifier)
+    if not matches:
+        click.echo(f"✗ No notes found matching '{identifier}'")
+        click.echo("  Try: workmain notes search \"keyword\" to browse notes first")
+        return None
+
+    if len(matches) == 1:
+        return matches[0]
+
+    click.echo(f"\nMultiple notes found for '{identifier}':")
+    for i, note in enumerate(matches, 1):
+        date_str = note.created_date.strftime('%Y-%m-%d') if note.created_date else "no date"
+        tags_str = f"[{note.display_tags}]" if note.tags else ""
+        preview = note.content[:70] + "..." if len(note.content) > 70 else note.content
+        click.echo(f"  {i}. [#{note.id}] {date_str} {tags_str} {preview}")
+
+    choice = click.prompt("\nSelect [number, or q to cancel]", default="1")
+    if choice.lower() == 'q':
+        click.echo("Cancelled.")
+        return None
+    try:
+        idx = int(choice) - 1
+        if 0 <= idx < len(matches):
+            return matches[idx]
+        click.echo("Invalid selection.")
+        return None
     except ValueError:
         click.echo("Invalid input.")
         return None
@@ -319,22 +377,23 @@ def notes_add(text: Optional[str], tags: Optional[str], meeting: Optional[str],
 
 
 @notes.command('edit')
-@click.argument('note_id', type=int)
+@click.argument('identifier')
 @click.option('--content', '-c', help='New content')
 @click.option('--tags', '-t', help='New tags (comma-separated: ilo,cf or "#ilo #cf")')
-@click.option('--meeting', '-m', help='Meeting title')
+@click.option('--meeting', '-m', help='Meeting title or ID')
 @click.option('--project', '-p', type=int, help='Project ID')
-def notes_edit(note_id: int, content: Optional[str], tags: Optional[str],
+def notes_edit(identifier: str, content: Optional[str], tags: Optional[str],
                meeting: Optional[str], project: Optional[int]):
     """
-    Edit an existing note.
+    Edit an existing note by ID or content substring.
 
     \b
     Examples:
       workmain notes edit 5 -c "Updated text"
+      workmain notes edit "security review" -c "Updated text"
       workmain notes edit 5 -t both,cf
-      workmain notes edit 5 -t "#both #cf"
       workmain notes edit 5 -m "Team Standup"
+      workmain notes edit 5 -m 42
     """
     db = get_db()
     session = db.get_session()
@@ -342,10 +401,10 @@ def notes_edit(note_id: int, content: Optional[str], tags: Optional[str],
     meetings_repo = MeetingsRepository(session)
 
     try:
-        note = notes_repo.get_by_id(note_id)
+        note = _resolve_note(identifier, notes_repo)
         if not note:
-            click.echo(f"✗ Note {note_id} not found")
             return
+        note_id = note.id
 
         # Check age and warn
         age_info = notes_repo.get_note_age_warning(note_id)
@@ -399,24 +458,25 @@ def notes_edit(note_id: int, content: Optional[str], tags: Optional[str],
 
 
 @notes.command('delete')
-@click.argument('note_id', type=int)
-def notes_delete(note_id: int):
+@click.argument('identifier')
+def notes_delete(identifier: str):
     """
-    Delete a note.
+    Delete a note by ID or content substring.
 
     \b
-    Example:
+    Examples:
       workmain notes delete 5
+      workmain notes delete "security review"
     """
     db = get_db()
     session = db.get_session()
     notes_repo = NotesRepository(session)
 
     try:
-        note = notes_repo.get_by_id(note_id)
+        note = _resolve_note(identifier, notes_repo)
         if not note:
-            click.echo(f"✗ Note {note_id} not found")
             return
+        note_id = note.id
 
         click.echo(f"\nNote to delete:")
         click.echo(format_note_display(note))
@@ -456,43 +516,49 @@ def notes_log(meeting: str):
     meetings_repo = MeetingsRepository(session)
 
     try:
-        # Find meeting with fuzzy matching
-        matches = meetings_repo.fuzzy_match(meeting, threshold=0.6)
-
-        if not matches:
-            click.echo(f"\n✗ Meeting not found: '{meeting}'")
-            click.echo()
-            click.echo("To create this meeting first:")
-            click.echo(f"  workmain meetings create \"{meeting}\" -b HH:MM -e HH:MM")
-            click.echo()
-            return
-
-        # Interactive confirmation for fuzzy match
+        # Resolve meeting by ID or fuzzy title match (Item 26 Direction B fix)
         meeting_obj = None
-        if len(matches) == 1:
-            meeting_obj, score = matches[0]
-            if score < 0.95:
-                click.echo(f"\nFound similar meeting: {meeting_obj.title}")
-                if not click.confirm("Use this meeting?", default=True):
-                    click.echo("Cancelled.")
-                    return
-        else:
-            # Multiple matches — show date to distinguish recurring meetings
-            today = datetime.now().date()
-            click.echo(f"\nMultiple meetings found:")
-            for i, (m, score) in enumerate(matches[:5], 1):
-                note_count = meetings_repo.get_note_count(m.id)
-                meeting_date = m.start_time.strftime('%Y-%m-%d %H:%M') if m.start_time else "No date"
-                is_today = m.start_time.date() == today if m.start_time else False
-                today_marker = " ← Today" if is_today else ""
-                click.echo(f"  {i}. {m.title} ({meeting_date}, {note_count} notes, {score*100:.0f}% match){today_marker}")
 
-            choice = click.prompt("\nSelect meeting [1-5, or 0 to cancel]", type=int, default=1)
-            if choice == 0 or choice > len(matches):
-                click.echo("Cancelled.")
+        if meeting.isdigit():
+            meeting_obj = meetings_repo.get_by_id(int(meeting))
+            if not meeting_obj:
+                click.echo(f"\n✗ No meeting found with ID {meeting}")
+                return
+        else:
+            matches = meetings_repo.fuzzy_match(meeting, threshold=0.6)
+
+            if not matches:
+                click.echo(f"\n✗ Meeting not found: '{meeting}'")
+                click.echo()
+                click.echo("To create this meeting first:")
+                click.echo(f"  workmain meetings create \"{meeting}\" -b HH:MM -e HH:MM")
+                click.echo()
                 return
 
-            meeting_obj, _ = matches[choice - 1]
+            if len(matches) == 1:
+                meeting_obj, score = matches[0]
+                if score < 0.95:
+                    click.echo(f"\nFound similar meeting: {meeting_obj.title}")
+                    if not click.confirm("Use this meeting?", default=True):
+                        click.echo("Cancelled.")
+                        return
+            else:
+                # Multiple matches — show date to distinguish recurring meetings
+                today = datetime.now().date()
+                click.echo(f"\nMultiple meetings found:")
+                for i, (m, score) in enumerate(matches[:5], 1):
+                    note_count = meetings_repo.get_note_count(m.id)
+                    meeting_date = m.start_time.strftime('%Y-%m-%d %H:%M') if m.start_time else "No date"
+                    is_today = m.start_time.date() == today if m.start_time else False
+                    today_marker = " ← Today" if is_today else ""
+                    click.echo(f"  {i}. {m.title} ({meeting_date}, {note_count} notes, {score*100:.0f}% match){today_marker}")
+
+                choice = click.prompt("\nSelect meeting [1-5, or 0 to cancel]", type=int, default=1)
+                if choice == 0 or choice > len(matches):
+                    click.echo("Cancelled.")
+                    return
+
+                meeting_obj, _ = matches[choice - 1]
 
         # Get bulk input
         click.echo(f"\nAdding notes to meeting: {meeting_obj.title}")
@@ -772,11 +838,12 @@ def notes_search(keyword: str, limit: int):
 @click.option('--history', '-H', is_flag=True, help='Show all instances of recurring meeting')
 def notes_meeting(meeting_title: str, history: bool):
     """
-    Show notes for a specific meeting.
+    Show notes for a specific meeting (by title or ID).
 
     \b
     Examples:
       workmain notes meeting "Team Standup"
+      workmain notes meeting 42
       workmain notes meeting "Team Standup" -H
     """
     db = get_db()
@@ -785,26 +852,35 @@ def notes_meeting(meeting_title: str, history: bool):
     meetings_repo = MeetingsRepository(session)
 
     try:
-        mtg = meetings_repo.get_by_title(meeting_title, exact=False)
+        # Resolve meeting by ID or title (Item 26 Direction B fix)
+        if meeting_title.isdigit():
+            mtg = meetings_repo.get_by_id(int(meeting_title))
+            if not mtg:
+                click.echo(f"✗ No meeting found with ID {meeting_title}")
+                return
+            title_for_lookup = mtg.title
+        else:
+            mtg = meetings_repo.get_by_title(meeting_title, exact=False)
+            title_for_lookup = meeting_title
 
-        if not mtg:
-            click.echo(f"✗ Meeting '{meeting_title}' not found")
+            if not mtg:
+                click.echo(f"✗ Meeting '{meeting_title}' not found")
 
-            matches = meetings_repo.fuzzy_match(meeting_title, threshold=0.6)
-            if matches:
-                click.echo("\nDid you mean:")
-                for m, score in matches[:3]:
-                    click.echo(f"  - {m.title}")
+                matches = meetings_repo.fuzzy_match(meeting_title, threshold=0.6)
+                if matches:
+                    click.echo("\nDid you mean:")
+                    for m, score in matches[:3]:
+                        click.echo(f"  - {m.title}")
 
-            return
+                return
 
-        note_list = notes_repo.get_by_meeting_title(meeting_title, most_recent_only=not history)
+        note_list = notes_repo.get_by_meeting_title(title_for_lookup, most_recent_only=not history)
 
         if not note_list:
             click.echo(f"No notes for meeting '{mtg.title}'.")
             return
 
-        title = f"Notes for '{mtg.title}'"
+        title = f"Notes for '{mtg.title}' (ID: {mtg.id})"
         if history and mtg.is_recurring:
             title += " (all instances)"
 
