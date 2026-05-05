@@ -1,5 +1,5 @@
 # WorkmAIn Notification Daemon
-# workmain-notify.service v1.0
+# workmain-notify.service v1.1
 # 20260505
 #
 # systemd user service unit for the WorkmAIn notification daemon.
@@ -41,11 +41,8 @@ RestartSec=30
 
 # --- Identity and Privilege Management ---
 # User service runs as the invoking user — no User= directive needed.
-# AssertUser=!root is a hard assert (not Condition) so failure is visible
-# in the journal. Support in user-mode units varies by systemd version.
-# The Python-level _check_not_root() in daemon.py is the authoritative
-# enforcement mechanism; this directive is defense-in-depth.
-AssertUser=!root
+# Root guard is enforced by _check_not_root() in daemon.py (Python-level).
+# AssertUser=!root removed — not recognized by the installed systemd version.
 NoNewPrivileges=yes
 # CapabilityBoundingSet= and AmbientCapabilities= omitted — WSL2 kernel returns
 # EPERM when systemd attempts to drop the capability bounding set for user
@@ -76,7 +73,11 @@ RestrictRealtime=yes
 RestrictSUIDSGID=yes
 # AF_INET/AF_INET6 for HTTPS (AI providers, Slack) and PostgreSQL TCP.
 # AF_UNIX for local sockets.
-RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+# AF_VSOCK required for WSL2 interop — the mechanism that runs Windows .exe files
+# (wsl-notify-send.exe) uses VSOCK to communicate with the Windows NT kernel side.
+# On native Linux (Phase 18 service promotion), AF_VSOCK can be removed if no
+# WSL-specific tools are used. See FEATURE_BACKLOG Item 30.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_VSOCK
 SystemCallArchitectures=native
 SystemCallFilter=@system-service
 # Prevents memory regions from being both writable and executable.
