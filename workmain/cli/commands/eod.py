@@ -1,19 +1,20 @@
 """
 WorkmAIn End-of-Day Workflow
-EOD v2.6
-20260430
+EOD v2.7
+20260505
 
 Guided end-of-day workflow for daily work wrap-up.
 
 Base sequence (Mon–Wed):
-  1. Condense pending meeting notes (meetings with notes, no condensed_summary)
-  2. Sync time entries to Clockify (clockify sync push)
-  3. Review time entries (loop until confirmed; uses target date when --date is set)
+  1.  Condense pending meeting notes (meetings with notes, no condensed_summary)
+  2.  Sync time entries to Clockify (clockify sync push)
+  3.  Review time entries (loop until confirmed; uses target date when --date is set)
+  3b. Run pre-flight inspection (rules-based gap detection + AI narration)
   4a. Generate daily report (reports save daily_internal)
   4b. Create email draft (email save daily_internal)
-  5. Pull Clockify PDF (clockify report save daily → staging/clockify/)
-  6. Upload to Google Drive (gdocs upload all)
-  7. Complete — step summary and sign-off
+  5.  Pull Clockify PDF (clockify report save daily → staging/clockify/)
+  6.  Upload to Google Drive (gdocs upload all)
+  7.  Complete — step summary and sign-off
 
 Thursday adds:
   7. Post weekly draft to Slack (slack post weekly)
@@ -56,10 +57,16 @@ Version History:
         (missed in v2.4): "Review today's time entries" → "Review time entries"
 - v2.6: Hotfix eod-backdate-bugs-3 — gdocs step passes --force for past dates so
         re-running EOD actually overwrites the Drive files instead of silently skipping
+- v2.7: Phase 10 Gate 5 — pre_flight_inspection step added between review and report;
+        _write_last_inspection() helper writes daemon state file; _run_pre_flight_inspection_step()
+        runs InspectionEngine + narrate(); results persisted to last_inspection.json
 """
 
+import json
+import os
 import subprocess
-from datetime import date
+from datetime import date, datetime
+from pathlib import Path
 
 import click
 from rich.console import Console
@@ -76,18 +83,20 @@ console = Console()
 THURSDAY = 3
 FRIDAY = 4
 
-VALID_STEPS = ['condense', 'sync', 'review', 'report', 'email', 'clockify', 'gdocs', 'weekly']
+VALID_STEPS = ['condense', 'sync', 'review', 'pre_flight_inspection',
+               'report', 'email', 'clockify', 'gdocs', 'weekly']
 
-# Fixed position labels for the 7 base steps.
+# Fixed position labels for the 8 base steps.
 # Day-specific steps are assigned sequential positions starting at 7.
 _BASE_POSITIONS = {
-    'condense': '1',
-    'sync':     '2',
-    'review':   '3',
-    'report':   '4a',
-    'email':    '4b',
-    'clockify': '5',
-    'gdocs':    '6',
+    'condense':              '1',
+    'sync':                  '2',
+    'review':                '3',
+    'pre_flight_inspection': '3b',
+    'report':                '4a',
+    'email':                 '4b',
+    'clockify':              '5',
+    'gdocs':                 '6',
 }
 
 
@@ -211,6 +220,78 @@ def _run_review_step(dry_run: bool, target_date: date) -> bool:
     except Exception as e:
         console.print(f"  [red]✗ Review step error: {e}[/red]")
         return False
+
+
+def _write_last_inspection(observations: list, summary: str,
+                           target_date: date) -> None:
+    """Write inspection results to daemon state file for status display.
+
+    Writes to {WORKMAIN_STATE_DIR}/daemon/last_inspection.json — the same
+    file the daemon writes after each enriched notification. This makes
+    results available to `notifications status` and, in Phase 12, to the
+    prompt builder via file read.
+
+    Note: daemon.py defines an identical copy of this function. Both the
+    daemon and EOD CLI are separate processes writing the same format.
+    The duplication is intentional for Phase 10 — Phase 12+ can extract
+    to a shared utility.
+    """
+    state_dir = Path(os.environ.get('WORKMAIN_STATE_DIR', '~/.workmain')).expanduser()
+    path = state_dir / 'daemon' / 'last_inspection.json'
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+
+    payload = {
+        'run_at': datetime.now().isoformat(timespec='seconds'),
+        'target_date': str(target_date),
+        'observations': [
+            {'type': o.type.value, 'message': o.message, 'acknowledged': o.acknowledged}
+            for o in observations
+        ],
+        'summary': summary,
+    }
+    path.write_text(json.dumps(payload, indent=2))
+
+
+def _run_pre_flight_inspection_step(dry_run: bool, target_date: date) -> bool:
+    """Step 3b: Run pre-flight inspection.
+
+    Runs the rules-based inspection engine for target_date, narrates the
+    results via AI, and persists them to last_inspection.json so that
+    `notifications status` and the daemon share the same state file.
+
+    Never blocks EOD — always returns True.
+    """
+    if dry_run:
+        console.print(f"  [dim]Would run pre-flight inspection for {target_date}[/dim]")
+        return True
+
+    db = get_db()
+    session = db.get_session()
+    try:
+        from workmain.daemon.inspection_engine import InspectionEngine
+        from workmain.daemon.narration import narrate
+
+        engine = InspectionEngine(session)
+        observations = engine.run(target_date)
+        summary = narrate(observations)
+        _write_last_inspection(observations, summary, target_date)
+
+        if observations:
+            console.print(
+                f"  [yellow]Pre-flight: {len(observations)} item(s) flagged[/yellow]"
+            )
+        else:
+            console.print("  [green]Pre-flight: all clear[/green]")
+        return True
+
+    except Exception as e:
+        console.print(
+            f"  [yellow]⚠ Pre-flight inspection failed ({e}) — continuing[/yellow]"
+        )
+        return True
+
+    finally:
+        session.close()
 
 
 def _run_report_step(dry_run: bool, target_date: date) -> bool:
@@ -445,13 +526,14 @@ def _build_step_sequence(weekday: int, skip: list) -> list:
     """
     # Build ordered list of (key, position_label, description, runner)
     raw = [
-        ('condense',  '1',  'Condense pending meeting notes',                _run_condense_step),
-        ('sync',      '2',  'Sync time entries to Clockify',                  _run_sync_step),
-        ('review',    '3',  'Review time entries',                            _run_review_step),
-        ('report',    '4a', 'Generate report (reports save daily_internal)',  _run_report_step),
-        ('email',     '4b', 'Create email draft (email save daily_internal)', _run_email_step),
-        ('clockify',  '5',  'Pull Clockify PDF (clockify report save daily)', _run_clockify_step),
-        ('gdocs',     '6',  'Upload to Google Drive (gdocs upload all)',       _run_gdocs_step),
+        ('condense',              '1',  'Condense pending meeting notes',                _run_condense_step),
+        ('sync',                  '2',  'Sync time entries to Clockify',                  _run_sync_step),
+        ('review',                '3',  'Review time entries',                            _run_review_step),
+        ('pre_flight_inspection', '3b', 'Run pre-flight inspection',                     _run_pre_flight_inspection_step),
+        ('report',                '4a', 'Generate report (reports save daily_internal)',  _run_report_step),
+        ('email',                 '4b', 'Create email draft (email save daily_internal)', _run_email_step),
+        ('clockify',              '5',  'Pull Clockify PDF (clockify report save daily)', _run_clockify_step),
+        ('gdocs',                 '6',  'Upload to Google Drive (gdocs upload all)',       _run_gdocs_step),
     ]
 
     # Add day-specific steps unless 'weekly' is skipped
@@ -491,14 +573,15 @@ def eod(skip: str, dry_run: bool, eod_date_str: str):
 
     \b
     Base sequence (Mon–Wed):
-      1.  Condense pending meeting notes
-      2.  Sync time entries to Clockify
-      3.  Review time entries
-      4a. Generate daily report (reports save daily_internal)
-      4b. Create email draft (email save daily_internal)
-      5.  Pull Clockify PDF (clockify report save daily)
-      6.  Upload to Google Drive (gdocs upload all)
-      7.  Complete — summary and sign-off
+      1.   Condense pending meeting notes
+      2.   Sync time entries to Clockify
+      3.   Review time entries
+      3b.  Run pre-flight inspection
+      4a.  Generate daily report (reports save daily_internal)
+      4b.  Create email draft (email save daily_internal)
+      5.   Pull Clockify PDF (clockify report save daily)
+      6.   Upload to Google Drive (gdocs upload all)
+      7.   Complete — summary and sign-off
 
     \b
     Thursday adds:
