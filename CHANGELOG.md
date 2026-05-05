@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.1] - 2026-05-05
+
+### Fixed
+- **wsl-notify-send invocation** — `delivery.py` was passing title and body as two
+  positional args; `wsl-notify-send` v0.1 only accepts one positional arg (body) and
+  uses `--category` for the notification title. Two positional args caused the binary
+  to print usage and exit 0 without sending a toast. Terminal echo still appeared,
+  masking the failure. Fixed by passing `--category <title> <body>`.
+
 ## [1.11.0] - 2026-05-05
 
 ### Added

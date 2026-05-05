@@ -1,6 +1,6 @@
 """
 WorkmAIn Daemon Delivery Layer
-delivery.py v1.0
+delivery.py v1.1
 20260505
 
 Handles notification delivery via three methods:
@@ -15,6 +15,8 @@ mount paths — no PATH configuration required on the host.
 
 Version History:
 - v1.0: Phase 10 Gate 2 initial implementation
+- v1.1: Fix wsl-notify-send invocation — use --category for title; binary only
+        accepts one positional arg (body); two args triggers usage output, exit 0
 """
 
 import os
@@ -104,7 +106,7 @@ def _deliver_os(title: str, body: str) -> None:
         return
     try:
         subprocess.run(
-            [NOTIFY_CMD, title, body],
+            [NOTIFY_CMD, "--category", title, body],
             timeout=5,
             check=True,
             capture_output=True,
