@@ -1,7 +1,7 @@
 """
 WorkmAIn
-CLI Interface v2.5.0
-20260401
+CLI Interface v2.6.0
+20260505
 
 Main CLI interface using Click framework
 Updated for CLI Standardization Sprint Part 1
@@ -35,6 +35,7 @@ Version History:
 - v2.5.0: CLI Standardization Sprint Part 1 (WU-9) — residual reference sweep:
           gdocs upload-* → upload *; calendar today sync → calendar sync;
           reports view → reports show; track edit/delete → time edit/delete in eod review hint
+- v2.6.0: Phase 10 Gate 6 — register schedule command group
 
 """
 
@@ -77,6 +78,9 @@ from workmain.cli.commands.slack import slack
 
 # Import Sprint commands
 from workmain.cli.commands.eod import eod
+
+# Phase 10: Notification & Scheduling
+from workmain.cli.commands.schedule import schedule
 
 # Initialize console
 console = Console()
@@ -288,6 +292,9 @@ cli.add_command(slack)
 
 # Standardization Sprint
 cli.add_command(eod)
+
+# Phase 10: Notification & Scheduling
+cli.add_command(schedule)
 
 
 # Placeholder command groups moved to FEATURE_BACKLOG.md for Phase 6
