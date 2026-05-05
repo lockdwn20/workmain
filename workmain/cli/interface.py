@@ -1,6 +1,6 @@
 """
 WorkmAIn
-CLI Interface v2.7.0
+CLI Interface v2.8.0
 20260505
 
 Main CLI interface using Click framework
@@ -37,6 +37,7 @@ Version History:
           reports view → reports show; track edit/delete → time edit/delete in eod review hint
 - v2.6.0: Phase 10 Gate 6 — register schedule command group
 - v2.7.0: Phase 10 Gate 7 — register notifications command group
+- v2.8.0: Phase 10 Gate 9 — status() Phase 10 rows + footer; today() hints
 
 """
 
@@ -187,9 +188,14 @@ def status():
     table.add_row("Report Pipeline", "✓ Phase 9 Complete")
     table.add_row("├─ EOD Day-Aware", "✓ Thu/Fri weekly steps")
     table.add_row("└─ Report History", "✓ history/show/resend")
+    table.add_row("Notification Daemon", "✓ Phase 10 Complete")
+    table.add_row("├─ Inspection Engine", "✓ Rules-based gap detection")
+    table.add_row("├─ Enriched Notifications", "✓ AI narration (Level 2)")
+    table.add_row("├─ Schedule Exceptions", "✓ schedule holiday/timeoff")
+    table.add_row("└─ Delivery Config", "✓ notifications set/test/status")
 
     console.print(table)
-    console.print("\n[bold green]Phase 9 Complete![/bold green] Ready for Phase 10 (Notifications & Scheduling)")
+    console.print("\n[bold green]Phase 10 Complete![/bold green] Ready for Phase 11 (Client & Recipient Management)")
     console.print("\n[yellow]Tip:[/yellow] Use 'workmain --help' to see all available commands")
 
 
@@ -242,6 +248,9 @@ def today():
     console.print("  workmain eod --dry-run               # Preview without executing")
 
     console.print("\n[bold yellow]OTHER USEFUL COMMANDS[/bold yellow]")
+    console.print("  workmain notifications status       # Today's inspection observations")
+    console.print("  workmain schedule holiday list      # Upcoming holidays (daemon suppression)")
+    console.print("  workmain schedule timeoff list      # Time-off blocks (daemon suppression)")
     console.print("  workmain notes add 'text' -t ilo     # Quick note  (-t = tags)")
     console.print("  workmain clockify sync push          # Sync to Clockify manually")
     console.print("  workmain clockify sync pull          # Import from Clockify")
