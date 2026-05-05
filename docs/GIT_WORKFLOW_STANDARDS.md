@@ -1,6 +1,6 @@
 WorkmAIn
-GIT_WORKFLOW_STANDARDS v1.2
-20260410
+GIT_WORKFLOW_STANDARDS v1.3
+20260505
 
 # WorkmAIn Git Workflow Standards
 
@@ -14,6 +14,7 @@ These rules are permanent and apply to all future work.
 - v1.0 (20260306): Initial standards
 - v1.1 (20260319): Added hotfix → feature branch exception
 - v1.2 (20260410): Updated dev → main cadence (after every feature merge, not phase completion); added explicit branch deletion rules and cleanup commands
+- v1.3 (20260505): Explicit GitHub PR requirement for dev → main; never local merge
 
 ---
 
@@ -45,6 +46,9 @@ hotfix/*    — targeted fixes only. Branches from main, merges to main AND dev.
   after a feature branch has already merged
 - **Must be merged to main after every feature branch merge, once the integrated work
   is verified stable. Do not let dev sit ahead of main.**
+- **The dev → main merge MUST happen via GitHub PR — never a local `git merge`.**
+  Push dev, create the PR with `gh pr create`, verify on GitHub, merge on GitHub,
+  then `git pull origin main` locally.
 
 ### `feature/*`
 - Used for: full phases, major features, multi-gate implementations
@@ -62,12 +66,18 @@ hotfix/*    — targeted fixes only. Branches from main, merges to main AND dev.
   git checkout dev
   git merge --no-ff feature/phase-7-gdocs
   git branch -d feature/phase-7-gdocs                    # delete local
+  git push origin dev
   git push origin --delete feature/phase-7-gdocs         # delete remote
-  # verify stable, then:
+
+  # Create GitHub PR: dev → main  (NEVER merge dev → main locally)
+  gh pr create --base main --head dev --title "..." --body "..."
+  # Verify on GitHub, merge via GitHub UI or gh pr merge
+
+  # After GitHub merges:
   git checkout main
-  git merge --no-ff dev
+  git pull origin main
   git tag v<version>
-  git push && git push --tags
+  git push --tags
   ```
 
 ### `hotfix/*`
@@ -213,6 +223,7 @@ Before writing any code in any session:
 - Commit directly to `main`
 - Commit directly to `dev` (except trivial version/changelog chores post-merge)
 - Merge a feature branch directly to `main` (must go through `dev` first)
+- Merge `dev` into `main` locally — this merge MUST go through a GitHub PR
 - Skip the version bump on a merge to `main`
 - Combine hotfix and feature work on the same branch
 - Start writing code before creating the appropriate branch
