@@ -1,9 +1,11 @@
 """
 WorkmAIn Package Version
-Version v1.11.0
+Version v1.11.1
 20260505
 
 Version History:
+- v1.11.1: Hotfix — fix wsl-notify-send invocation; binary only accepts one
+           positional arg (body); title now passed via --category flag
 - v1.11.0: Phase 10 complete — always-on APScheduler daemon with systemd
            user service; rules-based inspection engine (time gap, coverage,
            tag anomaly, missing notes, carry-forward); AI narration layer
@@ -132,7 +134,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.11.0"
-__version_info__ = (1, 11, 0)
+__version__ = "1.11.1"
+__version_info__ = (1, 11, 1)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
