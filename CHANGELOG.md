@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.2] - 2026-05-05
+
+### Fixed
+- **Daemon startup ordering** — `_schedule_meeting_reminders()` and the "daemon running"
+  log were placed after `scheduler.start()`, which is a blocking call. Pre-meeting
+  reminders were never scheduled; both lines now execute before `scheduler.start()`.
+- **AF_VSOCK missing from RestrictAddressFamilies** — WSL2 interop (needed to run
+  `wsl-notify-send.exe`) uses `AF_VSOCK` sockets to communicate with the Windows NT
+  kernel. Without it, every call returned `EAFNOSUPPORT` / exit code 1. Added
+  `AF_VSOCK` to the allowed set in `workmain-notify.service`.
+- **AssertUser=!root removed** from `workmain-notify.service` — directive is not
+  recognized by the installed systemd version; produced warning spam. Root guard is
+  enforced by `_check_not_root()` in `daemon.py`.
+
 ## [1.11.1] - 2026-05-05
 
 ### Fixed
