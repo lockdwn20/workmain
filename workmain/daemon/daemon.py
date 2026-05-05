@@ -1,6 +1,6 @@
 """
 WorkmAIn Notification Daemon
-daemon.py v1.0
+daemon.py v1.1
 20260505
 
 Entry point for the always-on background daemon process.
@@ -8,10 +8,13 @@ Manages the APScheduler instance, graceful shutdown, and
 coordinates inspection + delivery on each scheduled trigger.
 
 Run via systemd user service (workmain-notify.service).
-Do not run as root — enforced by _check_not_root() and AssertUser=!root.
+Do not run as root — enforced by _check_not_root().
 
 Version History:
 - v1.0: Phase 10 Gate 8 initial implementation
+- v1.1: Fix startup ordering — _schedule_meeting_reminders() and "daemon running"
+        log moved to before scheduler.start() (which blocks); they were executing
+        only at shutdown, making pre-meeting reminders non-functional
 """
 
 import json
@@ -263,9 +266,9 @@ def main() -> None:
     logging.info("workmain-notify daemon starting.")
     scheduler = _build_scheduler()
     _register_signal_handlers(scheduler)
-    scheduler.start()
     _schedule_meeting_reminders(date.today(), scheduler)
     logging.info("workmain-notify daemon running.")
+    scheduler.start()
 
 
 if __name__ == '__main__':

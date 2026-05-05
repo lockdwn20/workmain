@@ -1,9 +1,13 @@
 """
 WorkmAIn Package Version
-Version v1.11.1
+Version v1.11.2
 20260505
 
 Version History:
+- v1.11.2: Hotfix — three daemon fixes: (1) startup ordering — pre-meeting reminders
+           now scheduled before scheduler.start() blocks; (2) AF_VSOCK added to
+           RestrictAddressFamilies so WSL2 interop can run wsl-notify-send.exe;
+           (3) AssertUser=!root removed from service file (unsupported directive)
 - v1.11.1: Hotfix — fix wsl-notify-send invocation; binary only accepts one
            positional arg (body); title now passed via --category flag
 - v1.11.0: Phase 10 complete — always-on APScheduler daemon with systemd
@@ -134,7 +138,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.11.1"
-__version_info__ = (1, 11, 1)
+__version__ = "1.11.2"
+__version_info__ = (1, 11, 2)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
