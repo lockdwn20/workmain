@@ -1,6 +1,6 @@
 """
 WorkmAIn
-CLI Interface v2.6.0
+CLI Interface v2.7.0
 20260505
 
 Main CLI interface using Click framework
@@ -36,6 +36,7 @@ Version History:
           gdocs upload-* → upload *; calendar today sync → calendar sync;
           reports view → reports show; track edit/delete → time edit/delete in eod review hint
 - v2.6.0: Phase 10 Gate 6 — register schedule command group
+- v2.7.0: Phase 10 Gate 7 — register notifications command group
 
 """
 
@@ -81,6 +82,7 @@ from workmain.cli.commands.eod import eod
 
 # Phase 10: Notification & Scheduling
 from workmain.cli.commands.schedule import schedule
+from workmain.cli.commands.notifications import notifications
 
 # Initialize console
 console = Console()
@@ -295,6 +297,7 @@ cli.add_command(eod)
 
 # Phase 10: Notification & Scheduling
 cli.add_command(schedule)
+cli.add_command(notifications)
 
 
 # Placeholder command groups moved to FEATURE_BACKLOG.md for Phase 6
