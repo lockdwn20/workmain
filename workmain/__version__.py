@@ -1,9 +1,21 @@
 """
 WorkmAIn Package Version
-Version v1.10.0
-20260501
+Version v1.11.0
+20260505
 
 Version History:
+- v1.11.0: Phase 10 complete — always-on APScheduler daemon with systemd
+           user service; rules-based inspection engine (time gap, coverage,
+           tag anomaly, missing notes, carry-forward); AI narration layer
+           (Level 2); enriched notifications via wsl-notify-send / terminal
+           fallback; `workmain schedule` command group (holiday/timeoff);
+           `workmain notifications` command group (set/test/status/enable/
+           disable); acknowledgment store suppresses re-flagged items;
+           EOD inspection pre-step added to _build_step_sequence();
+           systemd unit with full security hardening profile (AssertUser=!root,
+           MemoryDenyWriteExecute, ProtectSystem=strict, resource limits);
+           root guard in daemon startup; all paths via WORKMAIN_STATE_DIR
+           env var for future portability
 - v1.10.0: Name-or-ID resolution on all resource-targeting commands (Item 26 / CLI V18) —
            `notes edit/delete`, `meetings edit/delete/rename/condense/merge`, `time edit/delete`,
            `email recipients delete` now accept either an integer ID or a name/title string;
@@ -120,7 +132,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.10.0"
-__version_info__ = (1, 10, 0)
+__version__ = "1.11.0"
+__version_info__ = (1, 11, 0)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
