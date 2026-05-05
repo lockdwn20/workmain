@@ -1,0 +1,103 @@
+# WorkmAIn Notification Daemon
+# workmain-notify.service v1.0
+# 20260505
+#
+# systemd user service unit for the WorkmAIn notification daemon.
+# Install: cp deploy/workmain-notify.service ~/.config/systemd/user/
+# Enable:  systemctl --user enable workmain-notify
+# Start:   systemctl --user start workmain-notify
+# Status:  systemctl --user status workmain-notify
+# Logs:    journalctl --user -u workmain-notify -f
+#
+# Security posture: user service, no elevated privileges, outbound-only.
+# See FEATURE_BACKLOG.md Item 30 for system service promotion decision.
+
+[Unit]
+Description=WorkmAIn Notification Daemon
+Documentation=https://github.com/lockdwn20/workmain
+After=network-online.target
+Wants=network-online.target
+# Note: network-online.target is unreliable in some systemd configurations.
+# This is best-effort — the daemon handles AI provider and Slack failures
+# gracefully via the narration fallback path in narration.py.
+
+[Service]
+Type=simple
+
+# --- Paths (read from environment file for portability) ---
+# All paths are derived from WORKMAIN_STATE_DIR so a future system
+# service promotion requires only environment file changes.
+EnvironmentFile=%h/Projects/workmain/.env
+
+ExecStart=%h/Projects/workmain/.venv/bin/python \
+    -m workmain.daemon.daemon
+WorkingDirectory=%h/Projects/workmain
+
+StandardOutput=journal
+StandardError=journal
+
+Restart=on-failure
+RestartSec=30
+
+# --- Identity and Privilege Management ---
+# User service runs as the invoking user — no User= directive needed.
+# AssertUser=!root is a hard assert (not Condition) so failure is visible
+# in the journal. Support in user-mode units varies by systemd version.
+# The Python-level _check_not_root() in daemon.py is the authoritative
+# enforcement mechanism; this directive is defense-in-depth.
+AssertUser=!root
+NoNewPrivileges=yes
+# CapabilityBoundingSet= and AmbientCapabilities= omitted — WSL2 kernel returns
+# EPERM when systemd attempts to drop the capability bounding set for user
+# services. _check_not_root() in daemon.py is the authoritative privilege guard.
+# Re-add both directives when deploying on native Linux (FEATURE_BACKLOG Item 30).
+
+# --- Filesystem Sandboxing ---
+ProtectSystem=strict
+ProtectHome=read-only
+# Explicit write access for daemon state (daemon/) and config root.
+# ~/.workmain/daemon/ holds acknowledgments.json and last_inspection.json.
+# All paths under WORKMAIN_STATE_DIR — must match .env.
+ReadWritePaths=%h/.workmain
+# ReadOnlyPaths for the project dir is omitted — ProtectHome=read-only
+# already makes the entire home tree read-only; an explicit ReadOnlyPaths
+# entry would be redundant.
+PrivateTmp=yes
+PrivateDevices=yes
+
+# --- System / Hardware Isolation ---
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+# AF_INET/AF_INET6 for HTTPS (AI providers, Slack) and PostgreSQL TCP.
+# AF_UNIX for local sockets.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+# Prevents memory regions from being both writable and executable.
+# Compatible with WorkmAIn's dependency set (verified at Gate 8).
+# If a dependency fails under this restriction, document the exception
+# and remove only this directive — do not remove other directives.
+MemoryDenyWriteExecute=yes
+
+# --- Resource Limits ---
+# Daemon is idle most of the time; APScheduler + Python baseline < 100MB.
+# 256M gives headroom for AI response payloads.
+MemoryMax=256M
+# 20% CPU quota — prevents daemon from impacting interactive use
+# during the AI narration call (most CPU-intensive moment).
+CPUQuota=20%
+# Thread/process limit — APScheduler thread pool + subprocess headroom.
+TasksMax=32
+# File descriptor ceiling — DB connection + HTTPS sockets.
+LimitNOFILE=256
+# LimitNPROC=64 omitted — WSL2 kernel returns EPERM when systemd sets RLIMIT_NPROC
+# alongside other security directives. Re-add when deploying on native Linux.
+
+[Install]
+WantedBy=default.target

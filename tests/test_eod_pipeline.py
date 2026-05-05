@@ -1,7 +1,7 @@
 """
 WorkmAIn EOD Pipeline Tests
-test_eod_pipeline v1.2
-20260430
+test_eod_pipeline v1.3
+20260505
 
 Tests for eod.py day-aware pipeline (Phase 9 Gate 2).
 Covers _build_step_sequence, --skip weekly, and --dry-run output.
@@ -13,6 +13,7 @@ Version History:
 - v1.2: Hotfix eod-backdate-bugs — added TestReviewStepDispatch (2 tests) verifying
         that _run_review_step calls 'time date <date>' for past dates and 'time today'
         for today
+- v1.3: Phase 10 Gate 5 — updated step count assertions (+1 for pre_flight_inspection)
 """
 
 import unittest
@@ -32,47 +33,48 @@ class TestEodDayDetection(unittest.TestCase):
     """Tests that _build_step_sequence returns correct steps per weekday."""
 
     def test_mon_step_sequence_count(self):
-        """Monday: no weekly steps added — 7 base steps returned."""
+        """Monday: no weekly steps added — 8 base steps returned (includes pre_flight)."""
         steps = _build_step_sequence(MONDAY, skip=[])
         keys = [s['key'] for s in steps]
         self.assertNotIn('weekly', keys)
         self.assertNotIn('weekly_report', keys)
         self.assertNotIn('weekly_email', keys)
-        self.assertEqual(len(steps), 7)
+        self.assertIn('pre_flight_inspection', keys)
+        self.assertEqual(len(steps), 8)
 
     def test_thu_includes_slack_step(self):
-        """Thursday: slack post weekly step added as step 8."""
+        """Thursday: slack post weekly step added — 9 steps total."""
         steps = _build_step_sequence(THURSDAY, skip=[])
         keys = [s['key'] for s in steps]
         self.assertIn('weekly', keys)
-        self.assertEqual(len(steps), 8)
+        self.assertEqual(len(steps), 9)
 
     def test_fri_includes_weekly_report_and_email(self):
-        """Friday: weekly_report and weekly_email steps added (steps 8 & 9)."""
+        """Friday: weekly_report and weekly_email steps added — 10 steps total."""
         steps = _build_step_sequence(FRIDAY, skip=[])
         keys = [s['key'] for s in steps]
         self.assertIn('weekly_report', keys)
         self.assertIn('weekly_email', keys)
-        self.assertEqual(len(steps), 9)
+        self.assertEqual(len(steps), 10)
 
 
 class TestEodSkipWeekly(unittest.TestCase):
     """Tests that --skip weekly removes day-specific steps."""
 
     def test_skip_weekly_thu_removes_slack(self):
-        """Thursday + skip=weekly: slack step absent from sequence."""
+        """Thursday + skip=weekly: slack step absent, 8 base steps remain."""
         steps = _build_step_sequence(THURSDAY, skip=['weekly'])
         keys = [s['key'] for s in steps]
         self.assertNotIn('weekly', keys)
-        self.assertEqual(len(steps), 7)
+        self.assertEqual(len(steps), 8)
 
     def test_skip_weekly_fri_removes_both(self):
-        """Friday + skip=weekly: weekly_report and weekly_email both absent."""
+        """Friday + skip=weekly: weekly_report and weekly_email both absent, 8 base steps remain."""
         steps = _build_step_sequence(FRIDAY, skip=['weekly'])
         keys = [s['key'] for s in steps]
         self.assertNotIn('weekly_report', keys)
         self.assertNotIn('weekly_email', keys)
-        self.assertEqual(len(steps), 7)
+        self.assertEqual(len(steps), 8)
 
     def test_skip_weekly_mon_is_noop(self):
         """Monday + skip=weekly: sequence unchanged (still 6 steps)."""

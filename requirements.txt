@@ -1,9 +1,10 @@
 # WorkmAIn Requirements
-# Version: 1.2
-# Date: 20260304
-# Phases: 1-5 Complete, 6 In Progress
+# Version: 1.3
+# Date: 20260505
+# Phases: 1-10
 #
 # Version History:
+# - v1.3 (20260505): Phase 10 — APScheduler already present; confirmed 3.10.4
 # - v1.2 (20260304): Phase 6 prep - add icalendar for ICS parsing
 # - v1.1 (20260115): Phase 5 - Clockify Integration
 #   - No new dependencies added (requests already present)

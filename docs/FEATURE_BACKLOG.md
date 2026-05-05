@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v5.2
-20260504
+Feature Backlog v5.3
+20260505
 
 # WorkmAIn Feature Backlog
 
@@ -23,6 +23,7 @@ Items deferred from various phases for future implementation.
 - v5.0 (20260504): Structural overhaul — Quick Reference Register added; Items 27–29 assigned to previously unnumbered items; standard template enforced; duplicate changelog blocks and math errors removed.
 - v5.1 (20260504): Backlog Item Template added; Philosophy on Deferrals moved before register; Summary Statistics moved after register; Status column last in register, simplified to ✓ complete only; items in numerical order.
 - v5.2 (20260504): Collapsed Open Items / Conditional / Deferred Indefinitely / Completed into one flat ## Backlog Items section, all 29 items in numerical order. Status tracked in each item's fields and the register — no section moves needed when status changes.
+- v5.3 (20260505): Added Item 30 — System Service Promotion for workmain-notify (Phase 10 deferral); updated register and statistics.
 
 ---
 
@@ -99,18 +100,19 @@ Build first, refactor later. See the complete picture before abstracting.
 | 27 | Recurring Meeting Advanced Features | Medium | Phase 15 | ~12–16 hrs | |
 | 28 | Placeholder Command Groups | Low | Phase 11+ | varies | |
 | 29 | clockify report Subcommand Refactor | Low | Phase 15 | ~30 min | |
+| 30 | System Service Promotion for workmain-notify | Low | Phase 18 | ~4 hours | |
 
 ---
 
 ## Summary Statistics
 
-**Total Items:** 29 (Item 22 is a redirect — no separate deferred work; see Item 20)
+**Total Items:** 30 (Item 22 is a redirect — no separate deferred work; see Item 20)
 **Completed:** 3 (Items 17, 18, 26)
-**Open:** 25
+**Open:** 26
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Open (targeted) | 20 | 1, 2, 3, 4, 7, 8, 10, 12, 13, 14, 15, 16, 19, 20, 23, 24, 25, 27, 28, 29 |
+| Open (targeted) | 21 | 1, 2, 3, 4, 7, 8, 10, 12, 13, 14, 15, 16, 19, 20, 23, 24, 25, 27, 28, 29, 30 |
 | Conditional | 1 | 9 |
 | Indefinitely | 4 | 5, 6, 11, 21 |
 | Complete | 3 | 17, 18, 26 |
@@ -120,7 +122,7 @@ Build first, refactor later. See the complete picture before abstracting.
 |----------|-------|-------|
 | High | 0 | — |
 | Medium | 9 | 2, 3, 7, 10, 14, 15, 20, 23, 27 |
-| Low | 15 | 1, 4, 5, 6, 8, 11, 12, 13, 16, 19, 21, 24, 25, 28, 29 |
+| Low | 16 | 1, 4, 5, 6, 8, 11, 12, 13, 16, 19, 21, 24, 25, 28, 29, 30 |
 | Conditional | 1 | 9 |
 
 | Target Phase | Items |
@@ -130,10 +132,11 @@ Build first, refactor later. See the complete picture before abstracting.
 | Phase 13+ | 19 |
 | Phase 14 | 25 |
 | Phase 15 | 1, 2, 3, 7, 8, 10, 12, 13, 14, 15, 16, 23, 27, 29 |
+| Phase 18 | 30 |
 | Conditional | 9 |
 | Indefinitely | 5, 6, 11, 21 |
 
-**Total Deferred Effort (open items):** ~85 hours
+**Total Deferred Effort (open items):** ~89 hours
 
 ---
 
@@ -828,3 +831,59 @@ Current behavior works correctly. Cosmetic CLI consistency issue only. Phase 15 
 
 **Files Affected:**
 - `workmain/cli/commands/` (clockify-related command file)
+
+---
+
+#### Item 30 — System Service Promotion for workmain-notify
+
+**Status:** Deferred — design decision required before Phase 18 Gate 0
+**Priority:** Low
+**Effort:** ~4 hours
+**Added:** 20260505
+**Target Phase:** Phase 18
+
+**Background:**
+Phase 10 ships `workmain-notify` as a systemd user service. This is correct for development
+and single-user interactive sessions where desktop notification delivery (`wsl-notify-send` /
+`notify-send`) requires access to `DISPLAY` and `DBUS_SESSION_BUS_ADDRESS` from the
+logged-in user's session context. A dedicated system user cannot access these without
+additional plumbing.
+
+**Design decision required at Phase 18:**
+
+Option A — Promote to system service:
+  Dedicated `workmain` system user and group; `/opt` install path;
+  `/var/lib/workmain` state directory; session environment injection
+  mechanism for notification delivery (env file or D-Bus bridge);
+  `postinst` script creates user/group on package install.
+
+Option B — Keep as user service installed from `/opt`:
+  Simpler; notification delivery unchanged; acceptable for single-user
+  personal productivity tool. No session plumbing required.
+
+**Why both are viable:**
+A system service provides stronger isolation and allows the daemon to run before interactive
+login. A user service is simpler and works correctly for a single-user tool on a machine
+where the user is always logged in interactively. For a home lab / personal productivity
+setup, the difference in security posture is marginal.
+
+**Why Phase 10 enables this transition:**
+All daemon paths are derived from `WORKMAIN_STATE_DIR` (environment variable). This was an
+explicit Phase 10 design decision so that a future system service promotion requires
+environment file changes rather than a code rewrite.
+
+**WSL2 exceptions to re-enable on native Linux (documented in service unit):**
+- `CapabilityBoundingSet=` and `AmbientCapabilities=` — kernel EPERM on WSL2
+- `LimitNPROC=64` — kernel EPERM when combined with other security directives on WSL2
+
+**Acceptance Criteria:**
+- [ ] Architecture decision documented before Phase 18 Gate 0
+- [ ] If Option A: `postinst` creates `workmain` user/group; daemon starts without
+      interactive user logged in; notifications confirmed delivered
+- [ ] If Option B: install path documented; functional behaviour unchanged
+- [ ] WSL2 service unit exceptions resolved or documented for target platform
+
+**Files Affected:**
+- `deploy/workmain-notify.service`
+- `workmain/daemon/daemon.py` (path config, if Option A changes state dir)
+- `workmain/__version__.py` (packaging phase)

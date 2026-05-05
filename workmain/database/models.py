@@ -1,10 +1,11 @@
 """
 WorkmAIn Database Models
-Database Models v1.7
-20260310
+Database Models v1.8
+20260505
 
 SQLAlchemy ORM models for WorkmAIn database.
-Models: Note, TimeEntry, Meeting, Project, Report, Recipient, ReportRecipient, GDriveUpload
+Models: Note, TimeEntry, Meeting, Project, Report, Recipient, ReportRecipient,
+        GDriveUpload, ScheduleException, NotificationConfig
 
 These map to the PostgreSQL tables created by schema migrations.
 
@@ -17,6 +18,7 @@ Version History:
 - v1.5: Gate 1 - Added Recipient model and ReportRecipient model (Phase 6 email pipeline)
 - v1.6: Gate 1 - Added GDriveUpload model for Drive archival tracking (Phase 7)
 - v1.7: Gate 1 - Added slack_channel, slack_workspace_name columns to Report (Phase 8)
+- v1.8: Gate 1 - Added ScheduleException and NotificationConfig models (Phase 10)
 """
 
 from datetime import datetime, date, time
@@ -24,7 +26,7 @@ from typing import List, Optional
 
 from sqlalchemy import (
     Column, Integer, String, Text, Boolean, DateTime, Date, Time,
-    DECIMAL, ForeignKey, ARRAY, Computed, JSON
+    DECIMAL, ForeignKey, ARRAY, Computed, JSON, func
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -424,4 +426,27 @@ def get_all_models():
     Returns:
         List of model classes
     """
-    return [Note, TimeEntry, Meeting, Project, Report, Recipient, ReportRecipient, GDriveUpload]
+    return [Note, TimeEntry, Meeting, Project, Report, Recipient, ReportRecipient, GDriveUpload,
+            ScheduleException, NotificationConfig]
+
+
+class ScheduleException(Base):
+    __tablename__ = 'schedule_exceptions'
+
+    id         = Column(Integer, primary_key=True)
+    type       = Column(String(20), nullable=False)
+    start_date = Column(Date, nullable=False)
+    end_date   = Column(Date, nullable=False)
+    name       = Column(Text, nullable=True)
+    reason     = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class NotificationConfig(Base):
+    __tablename__ = 'notification_config'
+
+    id         = Column(Integer, primary_key=True)
+    method     = Column(String(20), nullable=False, default='terminal')
+    enabled    = Column(Boolean, nullable=False, default=True)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(),
+                        onupdate=func.now())
