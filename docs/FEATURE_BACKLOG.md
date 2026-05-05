@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v4.2
-20260501
+Feature Backlog v5.3
+20260505
 
 # WorkmAIn Feature Backlog
 
@@ -10,135 +10,182 @@ Items deferred from various phases for future implementation.
 - v1.0 (20251224): Initial backlog with Phase 2 & 3 deferrals
 - v2.0 (20251226): Added Phase 3.5/Pre-Phase 4 deferrals
 - v3.0 (20260127): Added Phase 5.1 deferrals
-- v3.1 (20260210): Added AI provider management items (model update process, new provider support)
-- v3.2 (20260303): Added CLI Standardization Sprint deferral (clockify report subcommand pattern)
-- v3.3 (20260305): Added Phase 6 technical debt (email.py internal session pattern)
-- v3.4 (20260309): Added Phase 7 technical debt (datetime.utcnow deprecation) and pre-Phase 13 test debt (test_database.py, test_templates.py)
-- v3.6 (20260311): Added Phase 8 deferral (workmain eod day-aware Thursday/Friday steps → Phase 10)
-- v3.7 (20260311): Retargeted Item 17 Phase 10 → Phase 9 (phase swap); added Item 18 (templates preview ImportError — pre-Phase 9 fix); fixed phase labels in summary/Items by Phase to match current checklist
-- v3.8 (20260319): Items 17 and 18 marked COMPLETE (Phase 9, v1.6.0); summary statistics updated
-- v4.0 (20260421): Phase restructure following bidirectional Slack scoping session. Phase references updated throughout (old 12→14, 13→15). Added Items 19 (Ollama GPU offloading — Phase 13), 20 (multi-client data attribution — Phase 11+), 21 (Cloudflare Tunnel / Events API — deferred indefinitely). Added Item 22 (active client context switch data model — Phase 11 design, full attribution deferred). Updated Items by Phase section for new phases 12 and 13. NOTE: accidentally dropped Items 19/20/21/24 from old backlog v4.0 (20260331) — corrected in v4.1.
-- v4.1 (20260421): Restored four accidentally dropped items: Item 23 (meeting visibility/tagging — Phase 15), Item 24 (V6 tasks group review — Phase 11), Item 25 (V7 costs audit — Phase 14), Item 26 (V18 name-or-ID rule — Phase 14). Updated summary statistics.
-- v4.2 (20260501): Item 26 marked COMPLETE (v1.10.0); summary statistics updated (23 open → 23 open, 2 complete → 3 complete).
+- v3.1 (20260210): Added AI provider management items
+- v3.2 (20260303): Added CLI Sprint deferral (clockify report subcommand)
+- v3.3 (20260305): Added Phase 6 technical debt (email.py internal session)
+- v3.4 (20260309): Added Phase 7 technical debt (datetime.utcnow) and pre-Phase 15 test debt (Items 14–16)
+- v3.6 (20260311): Added Phase 8 deferral (eod day-aware → Phase 9)
+- v3.7 (20260311): Retargeted Item 17 → Phase 9; added Item 18 (templates preview ImportError)
+- v3.8 (20260319): Items 17 and 18 marked COMPLETE (Phase 9, v1.6.0)
+- v4.0 (20260421): Phase restructure (old 12→14, 13→15). Added Items 19–22.
+- v4.1 (20260421): Restored accidentally dropped Items 23–26.
+- v4.2 (20260501): Item 26 marked COMPLETE (v1.10.0).
+- v5.0 (20260504): Structural overhaul — Quick Reference Register added; Items 27–29 assigned to previously unnumbered items; standard template enforced; duplicate changelog blocks and math errors removed.
+- v5.1 (20260504): Backlog Item Template added; Philosophy on Deferrals moved before register; Summary Statistics moved after register; Status column last in register, simplified to ✓ complete only; items in numerical order.
+- v5.2 (20260504): Collapsed Open Items / Conditional / Deferred Indefinitely / Completed into one flat ## Backlog Items section, all 29 items in numerical order. Status tracked in each item's fields and the register — no section moves needed when status changes.
+- v5.3 (20260505): Added Item 30 — System Service Promotion for workmain-notify (Phase 10 deferral); updated register and statistics.
 
 ---
 
-## Deferred CLI Standardization Sprint Items
+## Backlog Item Template
 
-### 1. `clockify report` Subcommand Refactor
+Use this template for every new backlog item. All fields are required except Files Affected.
 
-**Status:** Deferred
-**Priority:** Low (cosmetic consistency)
-**Added:** 20260303
+```
+#### Item N — Title
+
+**Status:** Open — Deferred to Phase X
+**Priority:** High / Medium / Low
+**Effort:** ~X hours
+**Added:** YYYYMMDD
+**Target Phase:** Phase X — Name
 
 **Description:**
-Refactor `clockify report ACTION` to use the `clockify report get` subcommand pattern,
-consistent with `clockify sync push/pull/both`. Currently `clockify report save` is the
-action name but it does not follow a strict subcommand pattern.
-
-**Desired state:**
-```
-workmain clockify report save daily    # consistent with sync push/pull/both
-```
-
-**Notes:**
-- Low priority; current behavior works correctly
-- Address during a future CLI polish pass or Phase 15 (Testing & Documentation)
-
----
-
-## Deferred Phase 5.1 Features
-
-### 1. Recurring Meeting Advanced Features
-
-**Status:** Deferred to Phase 15
-**Priority:** Medium (nice-to-have enhancements)
-**Effort:** ~12-16 hours
-**Added:** 20260127
-
-**Description:**
-Advanced recurring meeting management features beyond basic creation and instance selection.
-
-**Features:**
-1. **Edit Series:** Modify all future instances of a recurring meeting
-2. **Skip Occurrence:** Mark specific instance as skipped without deleting
-3. **Reschedule Instance:** Move single occurrence to different time
-4. **Recurring Templates:** Pre-defined patterns (daily standup, weekly review)
+What the feature or fix is.
 
 **Why Deferred:**
-- Core recurring functionality (create, view, delete) is complete and working
-- These are convenience features that can be worked around
-- Phase 5.1 focused on critical bugs preventing basic usage
-
-**Proposed Implementation (Future):**
-```bash
-workmain meetings edit-series "Daily Standup" --start 10:00 --end 10:15
-workmain meetings skip "Daily Standup" --date 2026-02-15
-workmain meetings reschedule 42 --date 2026-02-20 --start 14:00
-```
+Reason this work was not done in the originating phase.
 
 **Acceptance Criteria:**
-- [ ] Can edit all future instances of recurring series
-- [ ] Can skip individual occurrences without deleting
-- [ ] Can reschedule single instance to different time/date
-- [ ] Changes properly tracked in database
-- [ ] UI clearly shows modified instances
+- [ ] Criterion one
+- [ ] Criterion two
+
+**Files Affected:** (optional — list known files when scope is clear)
+```
 
 ---
 
-### 2. Placeholder Command Groups
+## Philosophy on Deferrals
 
-**Status:** Deferred — partially addressed (clients/notifications in Phase 10/11)
-**Priority:** Low
-**Effort:** Varies
-**Added:** 20260127
+- Focus on MVP functionality first
+- Defer UX polish until core features are solid
+- Avoid over-engineering (YAGNI principle)
+- Add enhancements based on actual usage patterns, not speculation
+- Don't abstract until patterns are proven across multiple implementations
 
-**Description:**
-Command groups that were placeholders in interface.py, removed in v1.1.0.
-`clients` and `notifications` are now scoped in Phases 10/11. Remaining:
-
-**Still Deferred:**
-- **config** (Phase 14) - Settings like default tags, trigger times, Ollama host
-- **provider** (Low) - Covered by existing `providers` command
+Build first, refactor later. See the complete picture before abstracting.
 
 ---
 
-## Deferred Phase 2 Features
+## Quick Reference Register
 
-### 1. Command Aliases
+| # | Title | Priority | Target Phase | Effort | Status |
+|---|-------|----------|--------------|--------|--------|
+| 1 | Command Aliases | Low | Phase 15 | ~20 min | |
+| 2 | Shell Autocomplete | Medium | Phase 15 | ~2 hrs | |
+| 3 | Template Interactive Editor | Medium | Phase 15 | ~4 hrs | |
+| 4 | Field-Database Sync | Low | Phase 11+ | ~8 hrs | |
+| 5 | Template Versioning | Low | — | ~3 hrs | |
+| 6 | Template Sharing/Export | Low | — | ~2 hrs | |
+| 7 | formatters.py Extraction | Medium | Phase 15 | ~4 hrs | |
+| 8 | master_log_template.md | Low | Phase 15 | ~1 hr | |
+| 9 | examples.json | Low | Conditional | ~2 hrs | |
+| 10 | Streamlined Model Update Process | Medium | Phase 15 | ~4–6 hrs | |
+| 11 | Add New AI Provider | Low | — | ~8–12 hrs | |
+| 12 | email.py Internal Session Refactor | Low | Phase 15 | ~30 min | |
+| 13 | datetime.utcnow() Deprecation | Low | Phase 15 | ~30 min | |
+| 14 | test_database.py Engine Fixture | Medium | Phase 15 | ~1–2 hrs | |
+| 15 | test_templates.py Stale Import | Medium | Phase 15 | ~1 hr | |
+| 16 | auth.py RefreshError → GDriveAuthError | Low | Phase 15 | ~30 min | |
+| 17 | eod Day-Aware Thu/Fri Steps | — | Phase 9 | — | ✓ |
+| 18 | templates preview get_session ImportError | — | Phase 9 | — | ✓ |
+| 19 | Ollama / Mistral 7B GPU Offloading | Low | Phase 13+ | ~2–3 hrs | |
+| 20 | Multi-Client Data Attribution | Medium | Phase 11+ | ~8–12 hrs | |
+| 21 | Cloudflare Tunnel / Slack Events API | Low | — | ~3–4 hrs | |
+| 22 | Active Client Context Data Model | — | → Item 20 | — | |
+| 23 | Meeting Visibility / Tagging | Medium | Phase 15 | ~3–5 hrs | |
+| 24 | tasks carryover Group Review | Low | Phase 11 | ~1 hr | |
+| 25 | reports costs + providers costs Audit | Low | Phase 14 | ~1 hr | |
+| 26 | Name-or-ID Rule (Edit/Delete) | — | Phase 14 | — | ✓ |
+| 27 | Recurring Meeting Advanced Features | Medium | Phase 15 | ~12–16 hrs | |
+| 28 | Placeholder Command Groups | Low | Phase 11+ | varies | |
+| 29 | clockify report Subcommand Refactor | Low | Phase 15 | ~30 min | |
+| 30 | System Service Promotion for workmain-notify | Low | Phase 18 | ~4 hours | |
 
-**Status:** Deferred to Phase 15
+---
+
+## Summary Statistics
+
+**Total Items:** 30 (Item 22 is a redirect — no separate deferred work; see Item 20)
+**Completed:** 3 (Items 17, 18, 26)
+**Open:** 26
+
+| Status | Count | Items |
+|--------|-------|-------|
+| Open (targeted) | 21 | 1, 2, 3, 4, 7, 8, 10, 12, 13, 14, 15, 16, 19, 20, 23, 24, 25, 27, 28, 29, 30 |
+| Conditional | 1 | 9 |
+| Indefinitely | 4 | 5, 6, 11, 21 |
+| Complete | 3 | 17, 18, 26 |
+| Redirect | 1 | 22 → Item 20 |
+
+| Priority | Count | Items |
+|----------|-------|-------|
+| High | 0 | — |
+| Medium | 9 | 2, 3, 7, 10, 14, 15, 20, 23, 27 |
+| Low | 16 | 1, 4, 5, 6, 8, 11, 12, 13, 16, 19, 21, 24, 25, 28, 29, 30 |
+| Conditional | 1 | 9 |
+
+| Target Phase | Items |
+|-------------|-------|
+| Phase 11 | 24 |
+| Phase 11+ | 4, 20, 28 |
+| Phase 13+ | 19 |
+| Phase 14 | 25 |
+| Phase 15 | 1, 2, 3, 7, 8, 10, 12, 13, 14, 15, 16, 23, 27, 29 |
+| Phase 18 | 30 |
+| Conditional | 9 |
+| Indefinitely | 5, 6, 11, 21 |
+
+**Total Deferred Effort (open items):** ~89 hours
+
+---
+
+## Backlog Items
+
+---
+
+#### Item 1 — Command Aliases
+
+**Status:** Open — Deferred to Phase 15
 **Priority:** Low (UX polish)
 **Effort:** ~20 minutes
 **Added:** 20251223
+**Target Phase:** Phase 15
 
 **Description:**
 Add short aliases for frequently used command groups.
 
 **Proposed Aliases:**
-```bash
+```
 workmain n  → workmain note
 workmain m  → workmain meetings
 workmain tk → workmain tasks
 ```
 
+**Why Deferred:**
+UX polish. Core CLI works without aliases. Phase 15 documentation/polish pass is the appropriate time.
+
 **Acceptance Criteria:**
-- [ ] All main command groups have 1-2 letter aliases
+- [ ] All main command groups have 1–2 letter aliases
 - [ ] `--help` shows both full name and alias
 - [ ] No alias conflicts
 - [ ] Documentation updated
 
 ---
 
-### 2. Shell Autocomplete
+#### Item 2 — Shell Autocomplete
 
-**Status:** Deferred to Phase 15
+**Status:** Open — Deferred to Phase 15
 **Priority:** Medium (UX enhancement)
 **Effort:** ~2 hours
 **Added:** 20251223
+**Target Phase:** Phase 15
 
 **Description:**
 Tab completion for bash and zsh shells with command, option, and value completion.
+
+**Why Deferred:**
+UX polish. No impact on functionality. Phase 15 documentation/polish pass.
 
 **Acceptance Criteria:**
 - [ ] Bash completion working
@@ -149,265 +196,402 @@ Tab completion for bash and zsh shells with command, option, and value completio
 
 ---
 
-## Deferred Phase 3 Features
+#### Item 3 — Template Interactive Editor
 
-### 3. Template Interactive Editor
-
-**Status:** Deferred to Phase 15
+**Status:** Open — Deferred to Phase 15
 **Priority:** Medium
 **Effort:** ~4 hours
 **Added:** 20251223
+**Target Phase:** Phase 15
 
 **Description:**
-Interactive editor for template JSON files with validation on save.
+Interactive editor for template JSON files that opens the file in `$EDITOR` with live validation on save.
+
+**Why Deferred:**
+Templates are modified infrequently. Direct JSON editing works. Phase 15 polish pass.
 
 **Acceptance Criteria:**
-- [ ] Opens template in $EDITOR with live validation
+- [ ] Opens template in `$EDITOR` with live validation
 - [ ] Prevents saving invalid templates
 - [ ] Version bump on save
 
 ---
 
-### 4. Field-Database Sync
+#### Item 4 — Field-Database Sync
 
-**Status:** Deferred to Phase 11+
+**Status:** Open — Deferred to Phase 11+
 **Priority:** Low
 **Effort:** ~8 hours
 **Added:** 20251223
+**Target Phase:** Phase 11+ (exact phase TBD after multi-client data model is locked)
 
 **Description:**
-Auto-migrate database schema when new fields are added to templates.
+Auto-migrate database schema when new fields are added to templates. Currently adding a field to a template JSON requires a manual database migration. This feature would detect new fields and apply schema changes automatically.
+
+**Why Deferred:**
+Template schema has been stable since Phase 3. Auto-migration adds significant complexity for a problem that hasn't been painful in practice. Phase 11 multi-client data model changes are the better evaluation point for whether this pattern is needed.
 
 **Acceptance Criteria:**
-- [ ] Detect new fields in templates
-- [ ] Auto-migrate database schema
-- [ ] Validate field compatibility
-- [ ] Migration safety checks
+- [ ] Detect new fields in templates vs current schema
+- [ ] Auto-migrate database schema when new fields found
+- [ ] Validate field compatibility before migration
+- [ ] Migration safety checks (dry run, rollback path)
 
 ---
 
-### 5. Template Versioning
+#### Item 5 — Template Versioning
 
 **Status:** Deferred Indefinitely
 **Priority:** Low
 **Effort:** ~3 hours
 **Added:** 20251223
+**Target Phase:** None (revisit if template management complexity grows)
+
+**Description:**
+Track version history for individual template JSON files — version bump, timestamp, and changelog entry when template structure changes.
+
+**Why Deferred:**
+No practical use case identified. Templates are infrequently modified and changes are visible in git history. YAGNI until template management becomes complex enough to warrant it.
+
+**Acceptance Criteria (if implemented):**
+- [ ] Templates have a `version` field in their JSON structure
+- [ ] Version increments on save via template editor (depends on Item 3)
+- [ ] `workmain templates list` shows current version per template
 
 ---
 
-### 6. Template Sharing/Export
+#### Item 6 — Template Sharing/Export
 
 **Status:** Deferred Indefinitely
 **Priority:** Low
 **Effort:** ~2 hours
 **Added:** 20251223
+**Target Phase:** None (revisit if multi-installation use case emerges)
+
+**Description:**
+Export templates to a portable format for sharing between WorkmAIn installations.
+
+**Why Deferred:**
+Single-installation use case. No multi-user or deployment scenario identified. YAGNI.
+
+**Acceptance Criteria (if implemented):**
+- [ ] `workmain templates export <name> --output <path>` exports to JSON
+- [ ] `workmain templates import <path>` imports and validates
+- [ ] Conflict resolution on import (existing template with same name)
 
 ---
 
-## Deferred Phase 3.5/Pre-Phase 4 Features
+#### Item 7 — formatters.py Extraction
 
-### 7. formatters.py Extraction
-
-**Status:** Deferred to Phase 15
+**Status:** Open — Deferred to Phase 15
 **Priority:** Medium
 **Effort:** ~4 hours
 **Added:** 20251226
+**Target Phase:** Phase 15
 
 **Description:**
-Extract formatting functions scattered across command files into a shared formatters.py.
-Deferred until all commands are built so real patterns are visible before abstracting.
+Extract formatting functions scattered across command files into a shared `formatters.py` module. Deferred until all commands are built so real patterns are visible before abstracting.
+
+**Why Deferred:**
+Premature abstraction risk. All commands needed to be built first to see the real pattern. Phase 15 refactor pass is the right time.
+
+**Acceptance Criteria:**
+- [ ] Common formatting functions extracted to `workmain/utils/formatters.py` (or similar)
+- [ ] All command files updated to import from shared module
+- [ ] No behavior change — formatting output identical
+- [ ] Tests updated if formatting functions have unit tests
+
+**Files Affected:**
+- `workmain/cli/commands/*.py` (all command files)
+- New: `workmain/utils/formatters.py`
 
 ---
 
-### 8. master_log_template.md
+#### Item 8 — master_log_template.md
 
-**Status:** Deferred to Phase 15
+**Status:** Open — Deferred to Phase 15
 **Priority:** Low
 **Effort:** ~1 hour
 **Added:** 20251226
+**Target Phase:** Phase 15
+
+**Description:**
+Create a `master_log_template.md` documenting the expected format for daily master log files used as reference context for AI report generation.
+
+**Why Deferred:**
+AI report quality is acceptable without formal template documentation. Useful reference but not blocking any feature. Phase 15 docs pass.
+
+**Acceptance Criteria:**
+- [ ] `master_log_template.md` created in `templates/` or `docs/`
+- [ ] Documents all section headers and expected content format
+- [ ] Reviewed against actual daily master logs for accuracy
 
 ---
 
-### 9. examples.json
+#### Item 9 — examples.json
 
-**Status:** Conditional — Phase 4
+**Status:** Conditional — create only if AI output quality is poor without it
 **Priority:** Low
 **Effort:** ~2 hours
 **Added:** 20251226
+**Target Phase:** Conditional (re-evaluate if quality issues arise)
 
 **Description:**
-Create examples.json for AI prompts only if AI output quality is poor without it.
+Create `examples.json` for AI prompts providing few-shot examples of high-quality report output. Only warranted if AI report quality is insufficient without explicit examples.
+
+**Why Deferred:**
+AI report quality has been acceptable without examples. Creating them speculatively adds maintenance overhead for no current benefit.
+
+**Acceptance Criteria (if triggered):**
+- [ ] `examples.json` created with representative high-quality report sections
+- [ ] Prompt builder updated to include examples when available
+- [ ] Report quality measurably improved vs baseline
 
 ---
 
-## Deferred Phase 5.1 — AI Provider Items
+#### Item 10 — Streamlined Model Update Process
 
-### 10. Streamlined Model Update Process
-
-**Status:** Deferred to Phase 15
+**Status:** Open — Deferred to Phase 15
 **Priority:** Medium
-**Effort:** ~4-6 hours
+**Effort:** ~4–6 hours
 **Added:** 20260210
+**Target Phase:** Phase 15
 
 **Description:**
-Documented process for updating AI model versions (e.g., Claude Sonnet 4 → 4.5 experience).
+Documented process for updating AI model versions — steps for testing new model versions, updating model identifiers in code, verifying output quality, and committing changes. Demonstrated informally during Claude Sonnet 4 → 4.5 update.
+
+**Why Deferred:**
+Process exists informally and works. No urgent need to formalize. Phase 15 documentation pass.
+
+**Acceptance Criteria:**
+- [ ] Written process in `docs/` covering: locate model identifiers, test report quality, update code, commit format
+- [ ] Model identifier locations documented (which files contain model strings)
+- [ ] Quality checklist for comparing old vs new model output
+
+**Files Affected:**
+- New: `docs/MODEL_UPDATE_PROCESS.md`
+- `workmain/ai/` (model identifier locations to document)
 
 ---
 
-### 11. Add New AI Provider Support
+#### Item 11 — Add New AI Provider
 
 **Status:** Deferred Indefinitely
 **Priority:** Low
-**Effort:** ~8-12 hours
+**Effort:** ~8–12 hours
 **Added:** 20260210
+**Target Phase:** None (revisit if a specific use case emerges)
+
+**Description:**
+Add support for a third AI provider beyond Claude (daily internal reports, note condensation) and Gemini (weekly client reports). A new provider would require a client in `workmain/ai/`, cost tracker entry, and template configuration.
+
+**Why Deferred:**
+No current use case. Two-provider architecture covers all report types. Speculative work until a specific provider or use case is identified. YAGNI.
+
+**Acceptance Criteria (if implemented):**
+- [ ] New provider client implemented in `workmain/ai/`
+- [ ] Cost tracking supports new provider
+- [ ] Template configuration supports provider assignment
+- [ ] `workmain providers list` shows new provider
+
+**Files Affected:**
+- `workmain/ai/` (new provider client)
+- `workmain/ai/cost_tracker.py`
+- Template configuration files
 
 ---
 
-## Deferred Phase 6 Technical Debt
+#### Item 12 — email.py Internal Session Refactor
 
-### 12. email.py Internal Session Refactor
-
-**Status:** Deferred to Phase 15
+**Status:** Open — Deferred to Phase 15
 **Priority:** Low
 **Effort:** ~30 min
 **Added:** 20260305
+**Target Phase:** Phase 15
 
 **Description:**
-`_generate_draft()` in email.py uses an internal session pattern rather than
-receiving a session via the standard get_db() path. Low risk but inconsistent.
+`_generate_draft()` in `email.py` uses an internal session pattern rather than receiving a session via the standard `get_db()` path. Low risk but inconsistent with the rest of the codebase.
+
+**Why Deferred:**
+No functional bug. Internal session is self-contained and works correctly. Technical debt only. Phase 15 cleanup pass.
+
+**Acceptance Criteria:**
+- [ ] `_generate_draft()` receives session via parameter instead of creating internally
+- [ ] Pattern consistent with other command files (`get_db()` + `try/finally`)
+- [ ] No functional change to email draft behavior
+
+**Files Affected:**
+- `workmain/cli/commands/email.py`
 
 ---
 
-## Deferred Phase 7 Technical Debt
+#### Item 13 — datetime.utcnow() Deprecation
 
-### 13. `datetime.utcnow()` Deprecation
-
-**Status:** Deferred to Phase 15
+**Status:** Open — Deferred to Phase 15
 **Priority:** Low
 **Effort:** ~30 min
 **Added:** 20260309
+**Target Phase:** Phase 15
 
 **Description:**
-`gdrive_repository.py` uses `datetime.utcnow()` (deprecated Python 3.12).
-Logs a DeprecationWarning. No functional impact.
+`gdrive_repository.py` uses `datetime.utcnow()` (deprecated in Python 3.12). Logs a `DeprecationWarning`. No functional impact.
 
 **Fix:** Replace with `datetime.now(timezone.utc)`.
 
+**Why Deferred:**
+No functional impact. Warning only. Phase 15 cleanup pass.
+
+**Acceptance Criteria:**
+- [ ] All `datetime.utcnow()` calls replaced with `datetime.now(timezone.utc)`
+- [ ] No `DeprecationWarning` on `workmain gdocs` operations
+
+**Files Affected:**
+- `workmain/integrations/gdrive/gdrive_repository.py`
+
 ---
 
-## Pre-Phase 15 Test Debt
+#### Item 14 — test_database.py Missing Engine Fixture
 
-### 14. test_database.py Missing Engine Fixture
-
-**Status:** Deferred to Phase 15
+**Status:** Open — Deferred to Phase 15
 **Priority:** Medium
-**Effort:** ~1-2 hours
+**Effort:** ~1–2 hours
 **Added:** 20260309
+**Target Phase:** Phase 15
 
 **Description:**
-`tests/test_database.py` requires a raw SQLAlchemy `engine` object for schema-level
-assertions. `conftest.py` only provides `db_session`. 13 tests currently erroring.
+`tests/test_database.py` requires a raw SQLAlchemy `engine` object for schema-level assertions. `conftest.py` only provides `db_session`. 13 tests currently erroring due to missing fixture.
+
+**Why Deferred:**
+Erroring tests don't block the suite baseline (161 passed). Schema-level assertions are a nice-to-have validation, not blocking any feature work. Phase 15 test debt cleanup.
+
+**Acceptance Criteria:**
+- [ ] `engine` fixture added to `conftest.py`
+- [ ] `test_database.py` passes with 0 errors
+- [ ] No regression to existing test baseline
+
+**Files Affected:**
+- `tests/conftest.py`
+- `tests/test_database.py`
 
 ---
 
-### 15. test_templates.py Stale Import
+#### Item 15 — test_templates.py Stale Import
 
-**Status:** Deferred to Phase 15
+**Status:** Open — Deferred to Phase 15
 **Priority:** Medium
 **Effort:** ~1 hour
 **Added:** 20260309
+**Target Phase:** Phase 15
 
 **Description:**
-Stale import in test_templates.py causes collection error. Entire file non-functional.
+Stale import in `test_templates.py` causes a collection error. The entire file is non-functional.
+
+**Why Deferred:**
+File doesn't block the suite (collection errors are isolated). Template behavior covered by other tests. Phase 15 test debt cleanup.
+
+**Acceptance Criteria:**
+- [ ] Stale import identified and removed or updated
+- [ ] `test_templates.py` collects and passes with 0 errors
+- [ ] No regression to existing test baseline
+
+**Files Affected:**
+- `tests/test_templates.py`
 
 ---
 
-### 16. auth.py RefreshError → GDriveAuthError
+#### Item 16 — auth.py RefreshError → GDriveAuthError
 
-**Status:** Deferred to Phase 15
+**Status:** Open — Deferred to Phase 15
 **Priority:** Low
 **Effort:** ~30 min
 **Added:** 20260311
+**Target Phase:** Phase 15
 
 **Description:**
-`auth.py` `_require_auth()` does not catch `RefreshError` and convert it to a clean
-`GDriveAuthError`. Causes unhandled exception on token expiry edge case.
+`_require_auth()` in `auth.py` does not catch `RefreshError` and convert it to a clean `GDriveAuthError`. On token expiry, an unhandled exception surfaces instead of a user-friendly message.
 
----
-
-## Completed Items
-
-### 17. `workmain eod` Day-Aware Thursday/Friday Steps — COMPLETE
-
-**Status:** ✓ Complete — Phase 9, v1.6.0 (20260319)
-
----
-
-### 18. `workmain templates preview` — `get_session` ImportError — COMPLETE
-
-**Status:** ✓ Complete — Phase 9 Gate 0, v1.6.0 (20260319)
-
----
-
-## New Items — Added 20260421
-
-### 19. Ollama / Mistral 7B GPU Offloading
-
-**Status:** Deferred to Phase 13 polish pass
-**Priority:** Low (performance enhancement — not blocking)
-**Effort:** ~2-3 hours
-**Added:** 20260421
-**Target Phase:** Phase 13 (Bidirectional Slack) or post-Phase 13 polish
-
-**Description:**
-Phase 13 deploys Mistral 7B on the Proxmox server (i9-12950HX) via Ollama for CPU-only
-intent parsing. Estimated latency: ~4-7 seconds per parse. Acceptable for Phase 13 use.
-
-The Alienware M18R2 (RTX 4070 laptop GPU) is available on the home network and can serve
-as an optional GPU inference host when the laptop is online, reducing parse latency to
-~60-80 tok/s.
-
-**Implementation notes:**
-- Ollama supports GPU offloading via `OLLAMA_GPU_LAYERS` or model parameter
-- WorkmAIn Ollama client should support configurable host endpoint
-- Proxmox remains the primary/fallback host; M18R2 is optional acceleration
-- Configuration: `OLLAMA_HOST` env var, defaulting to Proxmox server address
-- GPU offloading setup documented in README at Phase 13 implementation time
+**Why Deferred:**
+Edge case — only triggers on token expiry, which is infrequent. No silent data loss. Phase 15 cleanup pass.
 
 **Acceptance Criteria:**
-- [ ] WorkmAIn Ollama client accepts configurable host endpoint via env var
+- [ ] `_require_auth()` catches `RefreshError` from `google.auth.exceptions`
+- [ ] Raises clean `GDriveAuthError` with user-friendly message
+- [ ] No raw traceback on token expiry
+
+**Files Affected:**
+- `workmain/integrations/gdrive/auth.py`
+
+---
+
+#### Item 17 — workmain eod Day-Aware Thursday/Friday Steps
+
+**Status:** ✓ Complete — Phase 9, v1.6.0 (20260319)
+**Priority:** —
+**Effort:** —
+**Added:** 20260311
+**Target Phase:** Phase 9
+
+Day-aware EOD pipeline: Thursday adds `slack post weekly` (step 7/8); Friday adds weekly report + email (steps 7–8/9). New `--skip weekly` flag on `workmain eod`. New commands: `reports history`, `reports show <id>`, `reports resend <id>`. 21 new tests added.
+
+---
+
+#### Item 18 — workmain templates preview get_session ImportError
+
+**Status:** ✓ Complete — Phase 9 Gate 0, v1.6.0 (20260319)
+**Priority:** —
+**Effort:** —
+**Added:** 20260311
+**Target Phase:** Phase 9
+
+`workmain templates preview` raised `ImportError` due to stale `get_session` import. Fixed by migrating to the `get_db()` + `db.get_session()` pattern.
+
+---
+
+#### Item 19 — Ollama / Mistral 7B GPU Offloading
+
+**Status:** Open — Deferred to Phase 13 polish pass
+**Priority:** Low (performance enhancement — not blocking)
+**Effort:** ~2–3 hours
+**Added:** 20260421
+**Target Phase:** Phase 13 polish pass (after primary CPU path is validated)
+
+**Description:**
+Phase 13 deploys Mistral 7B on the Proxmox server (i9-12950HX) via Ollama for CPU-only intent parsing. Estimated latency: ~4–7 seconds per parse. Acceptable for Phase 13 use.
+
+The Alienware M18R2 (RTX 4070 laptop GPU) is available on the home network and can serve as an optional GPU inference host when online, reducing parse latency to ~60–80 tok/s.
+
+**Why Deferred:**
+Phase 13 primary path (Proxmox CPU) is sufficient. GPU offloading is a latency improvement, not a correctness requirement. Adding infrastructure complexity before the base path is validated is premature.
+
+**Acceptance Criteria:**
+- [ ] WorkmAIn Ollama client accepts configurable host endpoint via env var (`OLLAMA_HOST`)
 - [ ] Fallback to Proxmox CPU host if configured GPU host unreachable
 - [ ] README includes GPU offloading setup instructions for Ollama on RTX 4070
 - [ ] Benchmark results documented (CPU vs GPU latency for Mistral 7B)
 
-**Why Deferred:**
-Phase 13 primary path (Proxmox CPU) is sufficient for the use case. GPU offloading
-is a latency improvement, not a correctness requirement. Adding infrastructure
-complexity before the base path is validated is premature.
+**Files Affected:**
+- `workmain/ai/` (Ollama client)
+- `README.md` or `docs/` (setup instructions)
 
 ---
 
-### 20. Multi-Client Data Attribution
+#### Item 20 — Multi-Client Data Attribution
 
-**Status:** Design decision Phase 11 — full implementation deferred
+**Status:** Open — Design decision Phase 11, full implementation deferred
 **Priority:** Medium (needed before multi-client use is viable)
-**Effort:** ~8-12 hours (data model + migration + CLI updates)
+**Effort:** ~8–12 hours (data model + migration + CLI updates)
 **Added:** 20260421
 **Target Phase:** Post-Phase 11 design decision; implementation phase TBD
 
 **Description:**
-Currently all notes, meetings, and time entries go into one undifferentiated pool.
-This works with a single client but breaks when multiple clients are active simultaneously.
+Currently all notes, meetings, and time entries go into one undifferentiated pool. This works with a single client but breaks when multiple clients are active simultaneously.
 
 **Design decision (approved 20260421):**
-Option A — Active client context switch: `workmain client set active <name>`. All
-subsequent notes, meetings, and time entries are attributed to the active client
-until switched. Low friction, matches CLI work model.
+Option A — Active client context switch: `workmain client set active <name>`. All subsequent notes, meetings, and time entries are attributed to the active client until switched. Low friction, matches CLI work model.
 
-**Phase 11 delivers:** Active client context switch UI (`workmain client set active`,
-`workmain client current`) and documents the data model changes needed.
+**Phase 11 delivers:** Active client context switch UI (`workmain client set active`, `workmain client current`) and documents the data model changes needed.
 
-**This backlog item tracks:** The actual data model changes required for full attribution.
+**This item tracks:** The actual data model changes required for full attribution.
 
 **Data model changes needed:**
 - `client_id` foreign key on `notes`, `meetings`, `time_entries` tables
@@ -416,6 +600,9 @@ until switched. Low friction, matches CLI work model.
 - `workmain notes today`, `workmain time today`, report generation all respect active client
 - CLI commands updated to pass active client context through to queries
 
+**Why Deferred:**
+Data model change touches every table and query in the system. Requires careful migration planning. Phase 11 makes the design decision and delivers the UI; the data model work follows once the design is locked.
+
 **Acceptance Criteria:**
 - [ ] `notes`, `meetings`, `time_entries` tables have `client_id` column
 - [ ] All note/meeting/time queries respect active client context
@@ -423,40 +610,28 @@ until switched. Low friction, matches CLI work model.
 - [ ] Existing data migrated cleanly to default client
 - [ ] `workmain client set active <n>` propagates to all downstream queries
 
-**Why Deferred:**
-Data model change touches every table and query in the system. Requires careful
-migration planning. Phase 11 makes the design decision and delivers the UI;
-the data model work follows in a dedicated pass once the design is locked.
+**Note:** Item 22 pointed to this item — there is no separate deferred work for Item 22; it is fully subsumed here.
 
 ---
 
-### 21. Cloudflare Tunnel / Slack Events API Upgrade
+#### Item 21 — Cloudflare Tunnel / Slack Events API Upgrade
 
 **Status:** Deferred Indefinitely (revisit if home lab infrastructure expands)
 **Priority:** Low
-**Effort:** ~3-4 hours
+**Effort:** ~3–4 hours
 **Added:** 20260421
-**Target Phase:** Optional upgrade post-Phase 13, no target phase assigned
+**Target Phase:** None (optional upgrade post-Phase 13)
 
 **Description:**
-Phase 13 uses Slack Web API polling (~10 second latency) for inbound messages.
-The Slack Events API (webhook/push model) would reduce latency to ~1 second but
-requires a publicly reachable HTTPS endpoint from WSL.
-
-Cloudflare Tunnel is the cleanest solution — creates a persistent public URL
-forwarding to localhost without requiring port forwarding or a static IP.
+Phase 13 uses Slack Web API polling (~10 second latency) for inbound messages. The Slack Events API (webhook/push model) would reduce latency to ~1 second but requires a publicly reachable HTTPS endpoint from WSL. Cloudflare Tunnel is the cleanest solution — creates a persistent public URL forwarding to localhost without port forwarding or a static IP.
 
 **When to reconsider:**
-- If home lab gains other services that benefit from Cloudflare Tunnel exposure
-- If polling latency becomes a noticeable friction point in daily use
+- If home lab gains other services that benefit from Cloudflare Tunnel
+- If polling latency becomes noticeable friction in daily use
 - If Cloudflare Tunnel is set up for other reasons and the upgrade becomes low-cost
 
-**Implementation notes:**
-- WorkmAIn's polling client and an Events API webhook handler are nearly identical
-  in structure — the swap is a small code change
-- Cloudflare Tunnel runs as a persistent process alongside the Phase 10/13 daemon
-- Tunnel outage = silent loss of inbound Slack messages (no fallback to polling)
-  unless explicitly handled
+**Why Deferred:**
+Polling is sufficient for Phase 13. Cloudflare Tunnel adds infrastructure complexity and a new failure mode (tunnel outage = silent loss of inbound messages) before the base path is proven.
 
 **Acceptance Criteria (if implemented):**
 - [ ] Cloudflare Tunnel configured and running as systemd service
@@ -466,241 +641,249 @@ forwarding to localhost without requiring port forwarding or a static IP.
 
 ---
 
-### 22. Active Client Context Switch — Data Model (See Item 20)
+#### Item 22 — Active Client Context Data Model
 
-This item is captured under Item 20 (Multi-Client Data Attribution). The design
-decision (Option A) was approved 20260421. Phase 11 delivers the UI. The data model
-migration is the deferred portion tracked in Item 20.
+**Status:** Merged into Item 20 — no separate deferred work
+**Priority:** —
+**Effort:** —
+**Added:** 20260421
+**Target Phase:** → See Item 20
+
+The design decision (Option A — active client context switch) was approved 20260421. Phase 11 delivers the UI. The data model migration work is tracked entirely under Item 20.
 
 ---
 
-## Restored CLI Standardization Sprint Items (dropped in v4.0 rewrite)
+#### Item 23 — Meeting Visibility / Tagging for Report Prompt Context
 
-### 23. Meeting Visibility / Tagging for Report Prompt Context
-
-**Status:** Deferred
+**Status:** Open — Deferred
 **Priority:** Medium (report quality / data leakage risk)
-**Effort:** ~3-5 hours
+**Effort:** ~3–5 hours
 **Added:** 20260327
-**Target Phase:** Phase 15 (Testing & Documentation — prompt quality pass)
+**Target Phase:** Phase 15 (prompt quality pass)
 
 **Description:**
-Meetings are currently fetched for the full week and appended to every section's
-context in the AI prompt without any filtering. Because meetings have no tag
-equivalent, internal meetings (e.g., "Splunk Normalization Project - Internal Sync")
-are exposed to the AI when generating client-facing reports (weekly_client), potentially
-causing the AI to generate content about internal discussions.
+Meetings are fetched for the full week and appended to every section's context in the AI prompt without filtering. Because meetings have no tag equivalent, internal meetings (e.g., "Splunk Normalization Project - Internal Sync") are exposed when generating client-facing reports (`weekly_client`), potentially causing AI-generated content about internal discussions.
 
 **Options to evaluate:**
-1. **Meeting-level default tag** — Add a `visibility` or `tags` field to the Meeting
-   model (e.g., `internal-only`, `client-report`, `both`). The prompt builder would
-   filter meetings the same way it filters notes.
-2. **Respect `data_sources`** — The prompt builder currently ignores `data_sources`
-   for meetings. Wrapping the meeting fetch in a `"meetings" in data_sources` check
-   removes meetings from all sections that don't explicitly opt in.
-3. **Exclude meeting list entirely from weekly_client** — Don't include the meeting
-   title list in weekly report prompts at all; meeting-specific content is already
-   captured in tagged notes.
+1. **Meeting-level tag** — Add a `visibility` or `tags` field to the Meeting model (e.g., `internal-only`, `client-report`, `both`). Prompt builder filters meetings the same way it filters notes.
+2. **Respect `data_sources`** — Prompt builder currently ignores `data_sources` for meetings. Wrap meeting fetch in a `"meetings" in data_sources` check.
+3. **Exclude meetings from weekly_client entirely** — Don't include meeting titles in weekly report prompts at all; meeting content is already captured in tagged notes.
 
 **Context:**
-Investigated 2026-03-27 after weekly report included AI-generated content derived from
-an "Internal Sync" meeting title. Note-level `internal-only` filtering confirmed working
-correctly — the issue is unfiltered meeting context in the prompt.
+Investigated 2026-03-27 after weekly report included AI-generated content derived from an "Internal Sync" meeting title. Note-level `internal-only` filtering confirmed working — issue is unfiltered meeting context in the prompt.
+
+**Why Deferred:**
+Workaround exists (internal meetings captured as internal-only notes). Requires design decision between three options before implementation. Phase 15 prompt quality pass.
 
 **Acceptance Criteria:**
 - [ ] Evaluate which option best fits the workflow
-- [ ] Internal meetings do not appear in weekly_client report prompt context
+- [ ] Internal meetings do not appear in `weekly_client` report prompt context
 - [ ] If meeting tags added: Meeting model updated, migration written, CLI updated
 - [ ] If `data_sources` gating: `prompt_builder.py` updated
 - [ ] Tests updated to cover meeting filtering behavior
 
-**Files likely affected:**
+**Files Affected:**
 - `workmain/ai/prompt_builder.py`
 - `workmain/database/models.py` (if adding meeting tags)
 - `templates/reports/weekly_client.json`
 
 ---
 
-### 24. Violation 6 — `tasks carryover` Single-Command Group Review
+#### Item 24 — tasks carryover Single-Command Group Review
 
-**Status:** Deferred
+**Status:** Open
 **Priority:** Low (structural inconsistency, no user impact)
 **Effort:** ~1 hour
 **Added:** 20260331
 **Target Phase:** Phase 11
 
 **Description:**
-The `tasks` group currently has only one command (`carryover`). §2.2 of
-`CLI_STANDARDS.md` states that a group with only one command barely qualifies.
-When the `tasks` group scope expands in Phase 11, the full group structure should
-be reviewed and additional commands added so the group has sufficient breadth to
-justify its existence.
+The `tasks` group currently has only one command (`carryover`). §2.2 of `CLI_STANDARDS.md` states that a group with only one command barely qualifies. When the `tasks` group scope expands in Phase 11, the full group structure should be reviewed and additional commands added so the group has sufficient breadth to justify its existence.
+
+**Why Deferred:**
+Phase 11 is the natural point to expand `tasks` scope. Reviewing the group before that expansion would be premature.
 
 **Acceptance Criteria:**
 - [ ] Phase 11 `tasks` group review complete
 - [ ] At minimum 2–3 commands under `tasks` group after Phase 11
-- [ ] If `carryover` remains the only command after Phase 11 design, consider folding
-  into a different group
+- [ ] If `carryover` remains the only command after Phase 11 design, consider folding into a different group
 
 ---
 
-### 25. Violation 7 — `reports costs` + `providers costs` Duplicate Surface
+#### Item 25 — reports costs + providers costs Duplicate Surface Audit
 
-**Status:** Deferred
+**Status:** Open
 **Priority:** Low (possible redundancy, no immediate user impact)
 **Effort:** ~1 hour
 **Added:** 20260331
-**Target Phase:** Phase 14 (was old Phase 12 — renumbered per phase restructure)
+**Target Phase:** Phase 14
 
 **Description:**
-Both `reports costs` and `providers costs` may expose overlapping cost-reporting
-functionality. Audit during Phase 14 to confirm whether each command has a distinct
-purpose or if one is redundant. Remove the redundant surface if found.
+Both `reports costs` and `providers costs` may expose overlapping cost-reporting functionality. Audit during Phase 14 to confirm whether each command has a distinct purpose or if one is redundant. Remove the redundant surface if found.
+
+**Why Deferred:**
+Both commands exist and work correctly. No user-visible bug. Redundancy audit belongs in a CLI polish pass, not mid-feature work.
 
 **Acceptance Criteria:**
 - [ ] Audit both commands — confirm distinct purposes or identify overlap
-- [ ] If redundant: remove one, update help text for retained command, update any
-  `eod.py` or `interface.py` references
+- [ ] If redundant: remove one, update help text for retained command, update any `eod.py` or `interface.py` references
 - [ ] Decision documented in Phase 14 handoff
 
 ---
 
-### 26. Violation 18 — Name-or-ID Rule Missing on Edit/Delete Commands
+#### Item 26 — Name-or-ID Rule on Edit/Delete Commands
 
 **Status:** ✓ Complete — feature/name-or-id-resolution, v1.10.0 (20260501)
+**Priority:** —
+**Effort:** —
+**Added:** 20260331
+**Target Phase:** Phase 14
+
+§4.3 of `CLI_STANDARDS.md` requires all commands targeting a specific DB resource to accept either record ID or name (fuzzy picker on ambiguous matches). Implemented for `notes edit/delete`, `time edit/delete`, `meetings delete/rename/edit`, `email recipients delete`, `notes meeting`, `meetings condense`, and `meetings merge`. Both directions resolved: ID-only commands now accept names; name-only commands now accept IDs.
+
+---
+
+#### Item 27 — Recurring Meeting Advanced Features
+
+**Status:** Open — Deferred to Phase 15
+**Priority:** Medium (nice-to-have enhancements)
+**Effort:** ~12–16 hours
+**Added:** 20260127
+**Target Phase:** Phase 15
 
 **Description:**
-§4.3 of `CLI_STANDARDS.md` requires all commands that target a specific database
-resource to accept either the record ID or the resource name (with fuzzy picker on
-ambiguous matches). Implemented for both directions (ID-only and name-only violations).
+Advanced recurring meeting management features beyond basic creation and instance selection:
 
-**Implemented (Direction A — ID-only, now accept name too):**
-- `notes edit`, `notes delete` — content substring + picker
-- `time edit`, `time delete` — description substring + picker
-- `meetings delete`, `meetings rename`, `meetings edit` — fuzzy title + picker
-- `email recipients delete` — email substring + picker
+1. **Edit Series** — Modify all future instances of a recurring meeting
+2. **Skip Occurrence** — Mark a specific instance as skipped without deleting
+3. **Reschedule Instance** — Move a single occurrence to a different time
+4. **Recurring Templates** — Pre-defined patterns (daily standup, weekly review)
 
-**Implemented (Direction B — name-only, now also accept ID):**
-- `fuzzy_match_meeting()` in notes.py — `notes add/edit -m` and `notes log -m`
-- `notes meeting <TITLE>` — also accepts meeting ID
-- `meetings condense <TITLE>` — also accepts meeting ID
-- `meetings merge <FROM> <TO>` — both args accept ID or title
+**Proposed Commands:**
+```bash
+workmain meetings edit-series "Daily Standup" --start 10:00 --end 10:15
+workmain meetings skip "Daily Standup" --date 2026-02-15
+workmain meetings reschedule 42 --date 2026-02-20 --start 14:00
+```
+
+**Why Deferred:**
+Core recurring functionality (create, view, delete) is complete and working. These are convenience features with known workarounds. Phase 5.1 focused on critical bugs preventing basic usage.
 
 **Acceptance Criteria:**
-- [x] All listed commands accept either ID or name string as the identifier
-- [x] Exact name match → direct resolution
-- [x] Ambiguous name → fuzzy picker invoked with context (date, type, status)
-- [x] Most likely match highlighted in picker
-- [x] Tests cover ID resolution, exact-name resolution, and picker invocation paths
+- [ ] Can edit all future instances of recurring series
+- [ ] Can skip individual occurrences without deleting
+- [ ] Can reschedule single instance to different time/date
+- [ ] Changes properly tracked in database
+- [ ] UI clearly shows modified instances
+
+**Files Affected:**
+- `workmain/cli/commands/meetings.py`
+- `workmain/database/repositories/` (meeting repository)
 
 ---
 
-## Summary Statistics
+#### Item 28 — Placeholder Command Groups
 
-**Total Open Items:** 23
-**Completed Items:** 3 (Items 17 & 18 — Phase 9, v1.6.0; Item 26 — v1.10.0)
+**Status:** Open — partially addressed (clients/notifications in Phase 10/11)
+**Priority:** Low
+**Effort:** Varies
+**Added:** 20260127
+**Target Phase:** Phase 11+ for config; audit for provider
 
-**Priority Breakdown:**
-- High: 0
-- Medium: 8 (Shell autocomplete, Template editor, formatters.py, Streamlined model update, test_database.py fixture, test_templates.py import, Multi-client data attribution, Meeting visibility/tagging)
-- Low: 13 (Command aliases, Field-database sync, Template versioning, Template sharing, master_log_template.md, Add new AI provider, email.py internal session, datetime.utcnow deprecation, auth.py RefreshError, Ollama GPU offloading, Cloudflare Tunnel, tasks group review, reports/providers costs audit, name-or-ID rule)
-- Conditional: 1 (examples.json — create only if needed)
-- Deferred Indefinitely: 4 (Template versioning, Template sharing, Add new AI provider, Cloudflare Tunnel)
+**Description:**
+Command groups that were placeholders in `interface.py`, removed in v1.1.0. `clients` and `notifications` are now scoped in Phases 10/11. Remaining unresolved:
 
-**Effort Estimates (open items only):**
-- Under 1 hour: 5 items (Command aliases, master_log_template.md, email.py session, datetime.utcnow, auth.py RefreshError, costs audit)
-- 1-3 hours: 5 items (Shell autocomplete, examples.json, test_database.py fixture, Ollama GPU offloading, tasks group review)
-- 3-5 hours: 4 items (Template editor, Template versioning, formatters.py, Cloudflare Tunnel, Meeting visibility/tagging)
-- 5+ hours: 4 items (Field-database sync, Streamlined model update, Add new AI provider, Multi-client data attribution, name-or-ID rule)
+- **config** (Phase 14) — Settings like default tags, trigger times, Ollama host. Phase 14 setup wizard is the intended home.
+- **provider** (Low) — Overlaps with existing `providers` command. Likely redundant; needs audit.
 
-**Total Deferred Effort (open items):** ~65 hours
+**Why Deferred:**
+The active placeholder groups (`clients`, `notifications`) have phase homes. `config` deferred to Phase 14. `provider` redundancy should be confirmed before any work is done.
 
----
-
-## Items by Phase
-
-**Phase 9 - Report Generation Pipeline (✓ Complete — v1.6.0):**
-17. ✓ workmain eod day-aware Thursday/Friday steps
-18. ✓ templates preview ImportError — get_session → get_db()
-
-**Phase 11 - Client & Recipient Management:**
-- Active client context switch UI (Option A design, see Item 20/22)
-- config.json → clients.slack_channel (Phase 8 scaffolding removal)
-24. `tasks carryover` single-command group review (~1 hour)
-
-**Phase 12 - Data Integrity & Correction Loop:**
-- PC-1: Clockify reconciliation (task state drift)
-- PC-2: Task carry-forward with context history
-- PC-3: Report correction propagation
-
-**Phase 13 - Bidirectional Slack Interface:**
-19. Ollama GPU offloading (post-Phase 13 polish pass)
-
-**Phase 14 - Setup Wizard & Configuration:**
-- Trigger time configuration (deferred from Phase 10)
-- Ollama host configuration
-25. `reports costs` + `providers costs` audit (~1 hour)
-26. ✓ Name-or-ID rule across edit/delete commands — COMPLETE v1.10.0
-
-**Phase 15 - Testing & Documentation:**
-1. Command aliases (~20 min)
-2. Shell autocomplete (~2 hours)
-3. Template interactive editor (~4 hours)
-4. formatters.py (~4 hours)
-5. master_log_template.md (~1 hour)
-6. Streamlined model update process (~4-6 hours)
-7. email.py internal session refactor (~30 min)
-8. datetime.utcnow() deprecation cleanup (~30 min)
-9. test_database.py engine fixture (~1-2 hours)
-10. test_templates.py stale import (~1 hour)
-11. auth.py RefreshError → GDriveAuthError conversion (~30 min)
-12. Recurring meeting advanced features (~12-16 hours)
-23. Meeting visibility/tagging for report prompt context (~3-5 hours)
-
-**Post-Phase 11 (TBD Phase):**
-20. Multi-client data attribution — full data model implementation (~8-12 hours)
-
-**Deferred Indefinitely:**
-- Template versioning (~3 hours)
-- Template sharing/export (~2 hours)
-- Add new AI provider support (~8-12 hours)
-- Cloudflare Tunnel / Events API upgrade (~3-4 hours) — revisit if home lab expands
-
-**Conditional (Phase 4):**
-- examples.json (~2 hours) — create only if AI needs it
+**Acceptance Criteria:**
+- [ ] Phase 14 setup wizard covers `config` use case — or `config` group re-added at that time
+- [ ] `provider` vs `providers` audited; if redundant, confirm `providers` covers all need with no gap
 
 ---
 
-## Notes
+#### Item 29 — clockify report Subcommand Refactor
 
-**Philosophy on Deferrals:**
-- Focus on MVP functionality first
-- Defer UX polish until core features solid
-- Avoid over-engineering (YAGNI principle)
-- Can add enhancements based on actual usage patterns
-- Don't abstract until patterns are proven
+**Status:** Open — Deferred to Phase 15
+**Priority:** Low (cosmetic consistency)
+**Effort:** ~30 min
+**Added:** 20260303
+**Target Phase:** Phase 15
 
-**Decision-Making Principle:**
-Build first, refactor later. See the complete picture before abstracting.
+**Description:**
+Refactor `clockify report ACTION` to use a consistent subcommand pattern matching `clockify sync push/pull/both`. Currently `clockify report save` uses the action as a positional argument rather than a Click subcommand.
+
+**Desired state:**
+```bash
+workmain clockify report save daily    # consistent subcommand pattern
+```
+
+**Why Deferred:**
+Current behavior works correctly. Cosmetic CLI consistency issue only. Phase 15 polish pass.
+
+**Acceptance Criteria:**
+- [ ] `clockify report save` follows the same subcommand pattern as `clockify sync`
+- [ ] `--help` output consistent with `clockify sync` format
+- [ ] No functional change to report behavior
+
+**Files Affected:**
+- `workmain/cli/commands/` (clockify-related command file)
 
 ---
 
-**Last Updated:** 20260421 v4.1
+#### Item 30 — System Service Promotion for workmain-notify
 
-**Changes in v4.1 (20260421):**
-- Restored Item 23: Meeting visibility/tagging for report prompt context (~3-5 hours, Phase 15) — accidentally dropped in v4.0 rewrite
-- Restored Item 24: Violation 6 — `tasks carryover` single-command group review (~1 hour, Phase 11) — accidentally dropped in v4.0 rewrite
-- Restored Item 25: Violation 7 — `reports costs` + `providers costs` audit (~1 hour, Phase 14) — accidentally dropped in v4.0 rewrite; phase updated old 12 → 14
-- Restored Item 26: Violation 18 — Name-or-ID rule on edit/delete commands (~4-6 hours, Phase 14) — accidentally dropped in v4.0 rewrite; phase updated old 12 → 14
-- Items 22/23 (V8/V9 pre-emptive) correctly remain dropped — resolved by Phase 10 schedule group
-- Updated summary statistics (24 open items, ~65 hours total)
-- Updated Items by Phase section
+**Status:** Deferred — design decision required before Phase 18 Gate 0
+**Priority:** Low
+**Effort:** ~4 hours
+**Added:** 20260505
+**Target Phase:** Phase 18
 
-**Changes in v4.0 (20260421):**
-- Phase restructure following bidirectional Slack scoping session (20260421)
-- Phase references updated: old Phase 12 → 14, old Phase 13 → 15 throughout
-- Added Item 19: Ollama GPU offloading — Phase 13 polish pass
-- Added Item 20: Multi-client data attribution — Phase 11 design decision, full implementation deferred
-- Added Item 21: Cloudflare Tunnel / Slack Events API upgrade — deferred indefinitely
-- Item 22: note only, points to Item 20 (same concern)
-- Updated Items by Phase section for new Phases 12, 13, 14
+**Background:**
+Phase 10 ships `workmain-notify` as a systemd user service. This is correct for development
+and single-user interactive sessions where desktop notification delivery (`wsl-notify-send` /
+`notify-send`) requires access to `DISPLAY` and `DBUS_SESSION_BUS_ADDRESS` from the
+logged-in user's session context. A dedicated system user cannot access these without
+additional plumbing.
+
+**Design decision required at Phase 18:**
+
+Option A — Promote to system service:
+  Dedicated `workmain` system user and group; `/opt` install path;
+  `/var/lib/workmain` state directory; session environment injection
+  mechanism for notification delivery (env file or D-Bus bridge);
+  `postinst` script creates user/group on package install.
+
+Option B — Keep as user service installed from `/opt`:
+  Simpler; notification delivery unchanged; acceptable for single-user
+  personal productivity tool. No session plumbing required.
+
+**Why both are viable:**
+A system service provides stronger isolation and allows the daemon to run before interactive
+login. A user service is simpler and works correctly for a single-user tool on a machine
+where the user is always logged in interactively. For a home lab / personal productivity
+setup, the difference in security posture is marginal.
+
+**Why Phase 10 enables this transition:**
+All daemon paths are derived from `WORKMAIN_STATE_DIR` (environment variable). This was an
+explicit Phase 10 design decision so that a future system service promotion requires
+environment file changes rather than a code rewrite.
+
+**WSL2 exceptions to re-enable on native Linux (documented in service unit):**
+- `CapabilityBoundingSet=` and `AmbientCapabilities=` — kernel EPERM on WSL2
+- `LimitNPROC=64` — kernel EPERM when combined with other security directives on WSL2
+
+**Acceptance Criteria:**
+- [ ] Architecture decision documented before Phase 18 Gate 0
+- [ ] If Option A: `postinst` creates `workmain` user/group; daemon starts without
+      interactive user logged in; notifications confirmed delivered
+- [ ] If Option B: install path documented; functional behaviour unchanged
+- [ ] WSL2 service unit exceptions resolved or documented for target platform
+
+**Files Affected:**
+- `deploy/workmain-notify.service`
+- `workmain/daemon/daemon.py` (path config, if Option A changes state dir)
+- `workmain/__version__.py` (packaging phase)

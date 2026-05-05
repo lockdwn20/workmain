@@ -373,7 +373,7 @@ Note: ICS-first path implemented. Live OAuth sync stubbed — corporate policy b
 
 ---
 
-## PHASE 10: Notification & Scheduling System (Week 10)
+## PHASE 10: Notification & Scheduling System ✓ COMPLETED (Week 10)
 
 **Goal**: Proactive enriched reminders via always-on daemon with rules-based state inspection
 
@@ -391,19 +391,19 @@ one.
 
 ### WSL / OS Notification Detection
 
-- [ ] Detect WSL environment at startup
-- [ ] Implement `wsl-notify-send` for OS-level toast notifications (WSL)
-- [ ] Implement `notify-send` fallback for native Linux
-- [ ] Implement Rich terminal fallback (always available)
-- [ ] Fallback chain: OS toast → Rich terminal
+- ✓ Detect WSL environment at startup
+- ✓ Implement `wsl-notify-send` for OS-level toast notifications (WSL)
+- ✓ Implement `notify-send` fallback for native Linux
+- ✓ Implement Rich terminal fallback (always available)
+- ✓ Fallback chain: OS toast → Rich terminal
 
 ### Daemon (APScheduler)
 
-- [ ] Always-on background daemon process
-- [ ] systemd user service unit for daemon auto-start
-- [ ] APScheduler job configuration (hardcoded schedule for Phase 10)
-- [ ] Daemon start/stop/status management
-- [ ] Graceful shutdown handling
+- ✓ Always-on background daemon process
+- ✓ systemd user service unit for daemon auto-start
+- ✓ APScheduler job configuration (hardcoded schedule for Phase 10)
+- ✓ Daemon start/stop/status management
+- ✓ Graceful shutdown handling
 
 **Default schedule (hardcoded — configurable in Phase 14):**
 
@@ -421,51 +421,51 @@ one.
 Runs before enriched notifications fire. Inspects today's data and builds a context
 report of specific observations. No AI call at inspection time — deterministic checks only.
 
-- [ ] Time gap detection: meeting exists with no linked time entry
-- [ ] Coverage check: total logged time vs. expected workday hours
-- [ ] Tag anomaly detection: notes with no tags (should have at least internal-only)
-- [ ] Missing notes detection: meeting occurred with no notes at all
-- [ ] Carry-forward check: open tasks from previous day still unresolved
+- ✓ Time gap detection: meeting exists with no linked time entry
+- ✓ Coverage check: total logged time vs. expected workday hours
+- ✓ Tag anomaly detection: notes with no tags (should have at least internal-only)
+- ✓ Missing notes detection: meeting occurred with no notes at all
+- ✓ Carry-forward check: open tasks from previous day still unresolved
 
 ### Enriched Notification Content
 
 Notifications include specific, actionable observations from the inspection engine.
 Not "time to do EOD" — "time for EOD, and here's what was noticed."
 
-- [ ] Observation list formatted for notification body
-- [ ] Observation list also available via `workmain notifications status`
-- [ ] Inspection results carried into EOD report generation context (Level 2)
-- [ ] Acknowledged corrections suppressed from future inspection cycles
+- ✓ Observation list formatted for notification body
+- ✓ Observation list also available via `workmain notifications status`
+- ✓ Inspection results carried into EOD report generation context (Level 2)
+- ✓ Acknowledged corrections suppressed from future inspection cycles
 
 ### `workmain schedule` Command Group
 
 Owns calendar exceptions — when the daemon should not fire (holidays, time-off).
 
-- [ ] `workmain schedule holiday add <date> [--name TEXT]`
-- [ ] `workmain schedule holiday list`
-- [ ] `workmain schedule holiday remove <id-or-name>`
-- [ ] `workmain schedule timeoff add <start> <end> [--reason TEXT]`
-- [ ] `workmain schedule timeoff list`
-- [ ] `workmain schedule timeoff remove <id>`
-- [ ] Database migration: `schedule_exceptions` table (type, start_date, end_date, name/reason)
-- [ ] Daemon reads schedule exceptions before firing any notification
+- ✓ `workmain schedule holiday add <date> [--name TEXT]`
+- ✓ `workmain schedule holiday list`
+- ✓ `workmain schedule holiday remove <id-or-name>`
+- ✓ `workmain schedule timeoff add <start> <end> [--reason TEXT]`
+- ✓ `workmain schedule timeoff list`
+- ✓ `workmain schedule timeoff remove <id>`
+- ✓ Database migration: `schedule_exceptions` table (type, start_date, end_date, name/reason)
+- ✓ Daemon reads schedule exceptions before firing any notification
 
 ### `workmain notifications` Command Group
 
 Owns delivery method configuration — how the user receives notifications.
 
-- [ ] `workmain notifications set <method>` — terminal | os | email
-- [ ] `workmain notifications test [--method METHOD]`
-- [ ] `workmain notifications status` — show current delivery config + today's inspection observations
-- [ ] `workmain notifications enable`
-- [ ] `workmain notifications disable`
-- [ ] Database migration: `notification_config` table (method, enabled, updated_at)
+- ✓ `workmain notifications set <method>` — terminal | os | email
+- ✓ `workmain notifications test [--method METHOD]`
+- ✓ `workmain notifications status` — show current delivery config + today's inspection observations
+- ✓ `workmain notifications enable`
+- ✓ `workmain notifications disable`
+- ✓ Database migration: `notification_config` table (method, enabled, updated_at)
 
 ### Tests
 
-- [ ] `tests/test_notification_engine.py` — rules engine gap detection, tag anomaly, carry-forward check
-- [ ] `tests/test_schedule_commands.py` — holiday/timeoff CRUD, daemon exception reads
-- [ ] `tests/test_notifications_commands.py` — delivery method set/test/status
+- ✓ `tests/test_notification_engine.py` — rules engine gap detection, tag anomaly, carry-forward check
+- ✓ `tests/test_schedule_commands.py` — holiday/timeoff CRUD, daemon exception reads
+- ✓ `tests/test_notifications_commands.py` — delivery method set/test/status
 
 **Deliverables**:
 

@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-05-05
+
+### Added
+- **Always-on background daemon** (APScheduler, systemd user service `workmain-notify`)
+- **Rules-based inspection engine** — 5 deterministic pre-notification checks: time gap,
+  coverage, tag anomaly, missing notes, carry-forward
+- **AI narration layer** — enriched notification bodies via existing provider abstraction
+  (Level 2; max 200 tokens; fallback to bullet list on provider failure)
+- **`workmain schedule` command group** — holiday and time-off exception management
+  (`schedule holiday add/list/remove`, `schedule timeoff add/list/remove`)
+- **`workmain notifications` command group** — delivery method config and live status
+  (`notifications set/test/status/enable/disable`)
+- **Acknowledgment store** — addressed items suppressed from future inspection cycles;
+  7-day TTL, SHA-256 keyed by observation type + data
+- **EOD pre-flight inspection step** — inspection + narration integrated into
+  `_build_step_sequence()` as step 3b; writes `last_inspection.json` state file
+- **WSL notification support** — `wsl-notify-send` auto-detected via glob search;
+  Rich terminal Panel fallback always available
+- **DB migrations** — `007_schedule_exceptions.sql`, `008_notification_config.sql`
+- **28 new tests** — `test_schedule_commands.py` (16), `test_notifications_commands.py` (12);
+  `test_notification_engine.py` (15, added at Gate 3); total suite: 221 passed
+
+### Security
+- systemd unit: `NoNewPrivileges=yes`, `ProtectSystem=strict`, `ProtectHome=read-only`,
+  `MemoryDenyWriteExecute=yes`, `RestrictAddressFamilies`, `SystemCallFilter=@system-service`,
+  resource limits (`MemoryMax=256M`, `CPUQuota=20%`, `TasksMax=32`, `LimitNOFILE=256`)
+- Python root guard in daemon startup (`os.getuid()` check, exits with message)
+- All daemon paths derived from `WORKMAIN_STATE_DIR` env var for future portability
+- WSL2 exceptions documented: `CapabilityBoundingSet=` and `LimitNPROC=64` omitted
+  (kernel EPERM); security exposure score 4.3 (target < 5.0)
+
+### Resolves
+- CLI_STANDARDS.md V8 (add-holiday) and V9 (add-timeoff) — commands built correctly
+  under `schedule` group from day one
+
+### Deferred
+- Trigger time configuration → Phase 14 (Setup Wizard)
+- Email notification delivery → Phase 13
+- Inbound Slack → Phase 13
+- System service promotion → Feature Backlog Item 30
+
 ## [1.10.0] - 2026-05-01
 
 ### Added
