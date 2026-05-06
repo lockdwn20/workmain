@@ -1,7 +1,7 @@
 """
 WorkmAIn Daemon Scheduler
-scheduler.py v1.0
-20260505
+scheduler.py v1.1
+20260506
 
 APScheduler job configuration. All trigger times are hardcoded in
 this file for Phase 10. Trigger time configuration is deferred to
@@ -13,15 +13,24 @@ registration pattern should be preserved.
 
 Version History:
 - v1.0: Phase 10 Gate 8 initial implementation
+- v1.1: Store _scheduler in this module to avoid cross-module import ambiguity
+        when daemon runs as __main__. job_workday_start now accesses the
+        module-level _scheduler directly instead of importing from daemon.py.
 """
 
 import logging
 from datetime import date
+from typing import Optional
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 logger = logging.getLogger(__name__)
+
+# Module-level scheduler reference set by build_scheduler().
+# Owned here so job functions in this module can access it without a
+# cross-module import that breaks when the daemon runs as __main__.
+_scheduler: Optional[BlockingScheduler] = None
 
 
 # ---------------------------------------------------------------------------
@@ -31,7 +40,7 @@ logger = logging.getLogger(__name__)
 def job_workday_start() -> None:
     """05:30 Mon–Fri — workday start greeting and pre-meeting reminder scheduling."""
     from workmain.daemon.daemon import (
-        _enriched_notify, _is_exception_day, _schedule_meeting_reminders, _scheduler,
+        _enriched_notify, _is_exception_day, _schedule_meeting_reminders,
     )
     logger.info("job_workday_start firing")
     if _is_exception_day(date.today()):
@@ -89,7 +98,11 @@ def build_scheduler() -> BlockingScheduler:
     All trigger times are US/Pacific (America/Los_Angeles).
     Pre-meeting reminders are added dynamically by job_workday_start
     and _schedule_meeting_reminders — not registered here.
+
+    Sets the module-level _scheduler so job functions in this module
+    can access it without a cross-module import.
     """
+    global _scheduler
     scheduler = BlockingScheduler(timezone='America/Los_Angeles')
 
     # 05:30 Mon–Fri — workday start
@@ -127,4 +140,5 @@ def build_scheduler() -> BlockingScheduler:
         id='eod_prompt',
     )
 
+    _scheduler = scheduler
     return scheduler

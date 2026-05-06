@@ -1,9 +1,15 @@
 """
 WorkmAIn Package Version
-Version v1.11.3
+Version v1.11.4
 20260506
 
 Version History:
+- v1.11.4: Hotfix — fix pre-meeting reminders never firing: _scheduler moved to
+           scheduler.py module level to avoid cross-module import ambiguity when
+           daemon runs as __main__; add _write_scheduled_jobs() so `notifications
+           status` can display pre-meeting times; add Today's Schedule section to
+           `workmain notifications status` showing remaining cron slots and
+           pre-meeting reminders with past/upcoming tags
 - v1.11.3: Hotfix — fix `workmain schedule` CLI standards violations: `holiday add` and
            `timeoff add` dates were positional arguments (now `--date/-d`, `--start/-b`,
            `--end/-e` options); `timeoff add` used `--notes/-N` (now `--title/-l`
@@ -143,7 +149,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.11.3"
-__version_info__ = (1, 11, 3)
+__version__ = "1.11.4"
+__version_info__ = (1, 11, 4)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
