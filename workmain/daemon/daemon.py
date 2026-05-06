@@ -1,7 +1,7 @@
 """
 WorkmAIn Notification Daemon
-daemon.py v1.1
-20260505
+daemon.py v1.2
+20260506
 
 Entry point for the always-on background daemon process.
 Manages the APScheduler instance, graceful shutdown, and
@@ -15,6 +15,9 @@ Version History:
 - v1.1: Fix startup ordering — _schedule_meeting_reminders() and "daemon running"
         log moved to before scheduler.start() (which blocks); they were executing
         only at shutdown, making pre-meeting reminders non-functional
+- v1.2: Remove module-level _scheduler (now owned by scheduler.py to avoid
+        cross-module import ambiguity when daemon runs as __main__); add
+        _write_scheduled_jobs() to persist pre-meeting schedule for status display
 """
 
 import json
@@ -25,8 +28,6 @@ import stat
 import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import List, Optional
-
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.date import DateTrigger
 
@@ -37,10 +38,6 @@ from workmain.database.connection import get_db
 from workmain.database.repositories.notification_repository import NotificationConfigRepository
 from workmain.database.repositories.schedule_repository import ScheduleExceptionRepository
 from workmain.daemon.scheduler import build_scheduler
-
-# Module-level scheduler reference — set by _build_scheduler(), used by job functions
-# that need to add/remove jobs (e.g. job_workday_start scheduling pre-meeting reminders).
-_scheduler: Optional[BlockingScheduler] = None
 
 
 # ---------------------------------------------------------------------------
@@ -97,10 +94,8 @@ def _register_signal_handlers(scheduler: BlockingScheduler) -> None:
 
 
 def _build_scheduler() -> BlockingScheduler:
-    """Build and cache the APScheduler instance."""
-    global _scheduler
-    _scheduler = build_scheduler()
-    return _scheduler
+    """Build and return the APScheduler instance."""
+    return build_scheduler()
 
 
 # ---------------------------------------------------------------------------
@@ -129,6 +124,16 @@ def _write_last_inspection(observations: list, summary: str,
         'summary': summary,
     }
     _daemon_state_path('last_inspection.json').write_text(json.dumps(payload, indent=2))
+
+
+def _write_scheduled_jobs(reminders: list, target_date: date) -> None:
+    """Write pre-meeting reminder schedule to daemon state file for status display."""
+    payload = {
+        'written_at': datetime.now().isoformat(timespec='seconds'),
+        'target_date': str(target_date),
+        'pre_meeting_reminders': reminders,
+    }
+    _daemon_state_path('scheduled_jobs.json').write_text(json.dumps(payload, indent=2))
 
 
 # ---------------------------------------------------------------------------
@@ -228,6 +233,7 @@ def _schedule_meeting_reminders(target_date: date, scheduler: BlockingScheduler)
         meetings = repo.get_by_date(target_date)
         now = datetime.now()
         scheduled = 0
+        reminder_list = []
         for meeting in meetings:
             if meeting.start_time is None:
                 continue
@@ -242,12 +248,17 @@ def _schedule_meeting_reminders(target_date: date, scheduler: BlockingScheduler)
                 kwargs={'meeting_title': meeting.title or '(No Title)'},
             )
             scheduled += 1
+            reminder_list.append({
+                'title': meeting.title or '(No Title)',
+                'fire_at': fire_time.strftime('%H:%M'),
+            })
             logging.info(
                 "Scheduled pre-meeting reminder for '%s' at %s",
                 meeting.title,
                 fire_time.strftime('%H:%M'),
             )
         logging.info("Pre-meeting reminders scheduled: %d", scheduled)
+        _write_scheduled_jobs(reminder_list, target_date)
     except Exception:
         logging.exception("Error scheduling pre-meeting reminders")
     finally:

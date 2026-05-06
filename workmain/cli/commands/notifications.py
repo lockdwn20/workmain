@@ -1,7 +1,7 @@
 """
 WorkmAIn Notifications Commands
-notifications.py v1.0
-20260505
+notifications.py v1.1
+20260506
 
 CLI command group: workmain notifications
 Owns delivery method configuration and notification delivery status.
@@ -9,17 +9,19 @@ Owns delivery method configuration and notification delivery status.
 Commands:
   set     — Set notification delivery method
   test    — Send a test notification via current (or specified) method
-  status  — Show delivery config + today's inspection observations
+  status  — Show delivery config + today's inspection observations + today's schedule
   enable  — Enable notification delivery
   disable — Disable notification delivery
 
 Version History:
 - v1.0: Phase 10 Gate 7 initial implementation
+- v1.1: Add "Today's Schedule" section to status — shows remaining cron jobs and
+        pre-meeting reminders so users can see upcoming notifications at a glance
 """
 
 import json
 import os
-from datetime import date, datetime
+from datetime import date, datetime, time
 from pathlib import Path
 from typing import Optional
 
@@ -126,12 +128,54 @@ def notifications_test(method: Optional[str]):
 
 
 # ---------------------------------------------------------------------------
+# Schedule helpers for status display
+# ---------------------------------------------------------------------------
+
+# Fixed daily cron schedule — mirrors scheduler.py hardcoded triggers.
+# Each entry: (label, time, day_of_week) where day_of_week is a set of
+# isoweekday() integers (Mon=1 … Sun=7).
+_CRON_JOBS = [
+    ("Workday Start",   time(5, 30),  {1, 2, 3, 4, 5}),
+    ("Daily Closeout",  time(14, 0),  {1, 2, 3, 4}),
+    ("Weekly Draft",    time(14, 0),  {4}),
+    ("EOW Reminder",    time(14, 0),  {5}),
+    ("EOD Prompt",      time(14, 30), {1, 2, 3, 4, 5}),
+]
+
+
+def _remaining_cron_jobs(now: datetime) -> list:
+    """Return today's cron slots as (label, time_str, is_past) tuples."""
+    dow = now.isoweekday()
+    today_time = now.time().replace(second=0, microsecond=0)
+    slots = []
+    for label, slot_time, days in _CRON_JOBS:
+        if dow not in days:
+            continue
+        slots.append((label, slot_time.strftime('%H:%M'), slot_time <= today_time))
+    return slots
+
+
+def _load_scheduled_jobs(state_dir: Path) -> list:
+    """Return pre-meeting reminders from scheduled_jobs.json, or [] if absent/stale."""
+    path = state_dir / 'daemon' / 'scheduled_jobs.json'
+    if not path.exists():
+        return []
+    try:
+        payload = json.loads(path.read_text())
+    except (json.JSONDecodeError, OSError):
+        return []
+    if payload.get('target_date') != str(date.today()):
+        return []
+    return payload.get('pre_meeting_reminders', [])
+
+
+# ---------------------------------------------------------------------------
 # notifications status
 # ---------------------------------------------------------------------------
 
 @notifications.command('status')
 def notifications_status():
-    """Show delivery configuration and today's inspection observations."""
+    """Show delivery configuration, today's inspection observations, and today's schedule."""
     db = get_db()
     session = db.get_session()
     try:
@@ -151,40 +195,62 @@ def notifications_status():
     console.print(f"  Notifications:     {enabled_str}")
     console.print(f"  Last updated:      {updated}")
 
-    console.print("\n[bold cyan]Today's Inspection Observations[/bold cyan]")
-
     state_dir = Path(os.environ.get('WORKMAIN_STATE_DIR', '~/.workmain')).expanduser()
-    path = state_dir / 'daemon' / 'last_inspection.json'
+    now = datetime.now()
 
-    if not path.exists():
+    console.print("\n[bold cyan]Today's Inspection Observations[/bold cyan]")
+    inspection_path = state_dir / 'daemon' / 'last_inspection.json'
+
+    if not inspection_path.exists():
         console.print(
             "  [dim]No inspection has run today. Daemon may not be active.[/dim]"
         )
-        return
-
-    try:
-        payload = json.loads(path.read_text())
-    except (json.JSONDecodeError, OSError):
-        console.print("  [red]✗ Could not read inspection state file.[/red]")
-        return
-
-    target_date_str = payload.get('target_date', '')
-    if target_date_str != str(date.today()):
-        console.print(
-            "  [dim]No inspection has run today. Daemon may not be active.[/dim]"
-        )
-        return
-
-    observations = payload.get('observations', [])
-    if not observations:
-        console.print("  [green]Pre-flight check passed. No items flagged.[/green]")
     else:
-        for obs in observations:
-            obs_type = obs.get('type', 'unknown')
-            message = obs.get('message', '')
-            acked = obs.get('acknowledged', False)
-            ack_tag = " [dim](acknowledged)[/dim]" if acked else ""
-            console.print(f"  [yellow]•[/yellow] [{obs_type}] {message}{ack_tag}")
+        try:
+            payload = json.loads(inspection_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            payload = None
+
+        if payload is None:
+            console.print("  [red]✗ Could not read inspection state file.[/red]")
+        elif payload.get('target_date') != str(date.today()):
+            console.print(
+                "  [dim]No inspection has run today. Daemon may not be active.[/dim]"
+            )
+        else:
+            observations = payload.get('observations', [])
+            if not observations:
+                console.print("  [green]Pre-flight check passed. No items flagged.[/green]")
+            else:
+                for obs in observations:
+                    obs_type = obs.get('type', 'unknown')
+                    message = obs.get('message', '')
+                    acked = obs.get('acknowledged', False)
+                    ack_tag = " [dim](acknowledged)[/dim]" if acked else ""
+                    console.print(f"  [yellow]•[/yellow] [{obs_type}] {message}{ack_tag}")
+
+    # ------------------------------------------------------------------
+    # Today's schedule
+    # ------------------------------------------------------------------
+    console.print("\n[bold cyan]Today's Schedule[/bold cyan]")
+
+    pre_meeting = _load_scheduled_jobs(state_dir)
+    if pre_meeting:
+        for reminder in pre_meeting:
+            title = reminder.get('title', '')
+            fire_at = reminder.get('fire_at', '')
+            fire_dt = datetime.strptime(fire_at, '%H:%M').replace(
+                year=now.year, month=now.month, day=now.day
+            )
+            is_past = fire_dt <= now
+            tag = "[dim](passed)[/dim]" if is_past else "[green]upcoming[/green]"
+            console.print(f"  [blue]○[/blue]  Pre-meeting: {title} at {fire_at}  {tag}")
+    else:
+        console.print("  [dim]No pre-meeting reminders scheduled today.[/dim]")
+
+    for label, time_str, is_past in _remaining_cron_jobs(now):
+        tag = "[dim](passed)[/dim]" if is_past else "[green]upcoming[/green]"
+        console.print(f"  [blue]○[/blue]  {label} at {time_str}  {tag}")
 
 
 # ---------------------------------------------------------------------------
