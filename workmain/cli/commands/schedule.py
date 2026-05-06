@@ -1,7 +1,7 @@
 """
 WorkmAIn Schedule Commands
-schedule.py v1.0
-20260505
+schedule.py v1.1
+20260506
 
 CLI command group: workmain schedule
 Owns calendar exceptions — when the daemon should not fire notifications.
@@ -15,6 +15,8 @@ built correctly under the schedule group from day one.
 
 Version History:
 - v1.0: Phase 10 Gate 6 initial implementation
+- v1.1: Fix CLI standards violations — --date/-d, --start/-b, --end/-e options;
+        --title/-l on both add commands (replace --notes/-N); delete verb
 """
 
 from datetime import datetime, date as date_type
@@ -93,7 +95,7 @@ def _resolve_holiday(identifier: str, repo: ScheduleExceptionRepository):
 
 
 def _resolve_timeoff(identifier: str, repo: ScheduleExceptionRepository):
-    """Resolve a time-off exception by integer ID or notes text string.
+    """Resolve a time-off exception by integer ID or title text string.
 
     - Digit string → get_by_id() directly.
     - String → case-insensitive substring match against reason column.
@@ -122,7 +124,7 @@ def _resolve_timeoff(identifier: str, repo: ScheduleExceptionRepository):
 
     console.print(f"\nMultiple time-off entries match '[cyan]{identifier}[/cyan]':")
     for i, t in enumerate(matches, 1):
-        reason = t.reason or '(no notes)'
+        reason = t.reason or '(no title)'
         console.print(
             f"  {i}. [dim][ID: {t.id}][/dim] "
             f"{t.start_date} to {t.end_date} — {reason}"
@@ -162,16 +164,16 @@ def holiday():
 
 
 @holiday.command('add')
-@click.argument('date_str', metavar='DATE')
+@click.option('--date', '-d', 'date_str', required=True, help='Holiday date (YYYY-MM-DD)')
 @click.option('--title', '-l', default=None, help='Optional label (e.g. "Memorial Day")')
 def holiday_add(date_str: str, title: Optional[str]):
-    """Add a holiday on DATE (YYYY-MM-DD).
+    """Add a holiday on --date (YYYY-MM-DD).
 
     \b
     Examples:
-      workmain schedule holiday add 2026-07-04
-      workmain schedule holiday add 2026-07-04 --title "Independence Day"
-      workmain schedule holiday add 2026-12-25 -l "Christmas"
+      workmain schedule holiday add --date 2026-07-04
+      workmain schedule holiday add --date 2026-07-04 --title "Independence Day"
+      workmain schedule holiday add -d 2026-12-25 -l "Christmas"
     """
     parsed = _parse_date(date_str)
     if parsed is None:
@@ -218,15 +220,15 @@ def holiday_list():
         session.close()
 
 
-@holiday.command('remove')
+@holiday.command('delete')
 @click.argument('identifier', metavar='ID_OR_TITLE')
-def holiday_remove(identifier: str):
-    """Remove a holiday by ID or title.
+def holiday_delete(identifier: str):
+    """Delete a holiday by ID or title.
 
     \b
     Examples:
-      workmain schedule holiday remove 1
-      workmain schedule holiday remove "Independence Day"
+      workmain schedule holiday delete 1
+      workmain schedule holiday delete "Independence Day"
     """
     db = get_db()
     session = db.get_session()
@@ -238,13 +240,13 @@ def holiday_remove(identifier: str):
 
         title = exc.name or '(no title)'
         if not click.confirm(
-            f'Remove holiday "{title}" on {exc.start_date}?', default=False
+            f'Delete holiday "{title}" on {exc.start_date}?', default=False
         ):
             console.print("Cancelled.")
             return
 
         repo.delete(exc.id)
-        console.print("[green]Holiday removed.[/green]")
+        console.print("[green]Holiday deleted.[/green]")
     finally:
         session.close()
 
@@ -259,17 +261,17 @@ def timeoff():
 
 
 @timeoff.command('add')
-@click.argument('start_date_str', metavar='START_DATE')
-@click.argument('end_date_str', metavar='END_DATE')
-@click.option('--notes', '-N', default=None, help='Optional context (e.g. "Family vacation")')
-def timeoff_add(start_date_str: str, end_date_str: str, notes: Optional[str]):
-    """Add a time-off range from START_DATE to END_DATE (YYYY-MM-DD).
+@click.option('--start', '-b', 'start_date_str', required=True, help='Start date (YYYY-MM-DD)')
+@click.option('--end',   '-e', 'end_date_str',   required=True, help='End date (YYYY-MM-DD)')
+@click.option('--title', '-l', default=None, help='Optional label (e.g. "Family vacation")')
+def timeoff_add(start_date_str: str, end_date_str: str, title: Optional[str]):
+    """Add a time-off range from --start to --end (YYYY-MM-DD).
 
     \b
     Examples:
-      workmain schedule timeoff add 2026-08-01 2026-08-07
-      workmain schedule timeoff add 2026-08-01 2026-08-07 --notes "Vacation"
-      workmain schedule timeoff add 2026-12-24 2026-12-26 -N "Holiday break"
+      workmain schedule timeoff add --start 2026-08-01 --end 2026-08-07
+      workmain schedule timeoff add --start 2026-08-01 --end 2026-08-07 --title "Vacation"
+      workmain schedule timeoff add -b 2026-12-24 -e 2026-12-26 -l "Holiday break"
     """
     start = _parse_date(start_date_str)
     if start is None:
@@ -288,8 +290,8 @@ def timeoff_add(start_date_str: str, end_date_str: str, notes: Optional[str]):
     session = db.get_session()
     try:
         repo = ScheduleExceptionRepository(session)
-        repo.add_timeoff(start, end, reason=notes)
-        label = f" ({notes})" if notes else ""
+        repo.add_timeoff(start, end, reason=title)
+        label = f" ({title})" if title else ""
         console.print(f"[green]Time off added:[/green] {start} to {end}{label}")
     finally:
         session.close()
@@ -313,7 +315,7 @@ def timeoff_list():
         table.add_column("Start", width=12)
         table.add_column("End", width=12)
         table.add_column("Days", justify="right", width=5)
-        table.add_column("Notes")
+        table.add_column("Title")
 
         for t in entries:
             days = (t.end_date - t.start_date).days + 1
@@ -330,15 +332,15 @@ def timeoff_list():
         session.close()
 
 
-@timeoff.command('remove')
-@click.argument('identifier', metavar='ID_OR_NOTES')
-def timeoff_remove(identifier: str):
-    """Remove a time-off entry by ID or notes text.
+@timeoff.command('delete')
+@click.argument('identifier', metavar='ID_OR_TITLE')
+def timeoff_delete(identifier: str):
+    """Delete a time-off entry by ID or title.
 
     \b
     Examples:
-      workmain schedule timeoff remove 1
-      workmain schedule timeoff remove "Vacation"
+      workmain schedule timeoff delete 1
+      workmain schedule timeoff delete "Vacation"
     """
     db = get_db()
     session = db.get_session()
@@ -349,13 +351,13 @@ def timeoff_remove(identifier: str):
             return
 
         if not click.confirm(
-            f'Remove time off {exc.start_date} to {exc.end_date}?', default=False
+            f'Delete time off {exc.start_date} to {exc.end_date}?', default=False
         ):
             console.print("Cancelled.")
             return
 
         repo.delete(exc.id)
-        console.print("[green]Time off removed.[/green]")
+        console.print("[green]Time off deleted.[/green]")
     finally:
         session.close()
 
