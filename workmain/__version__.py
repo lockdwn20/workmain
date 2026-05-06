@@ -1,9 +1,14 @@
 """
 WorkmAIn Package Version
-Version v1.11.2
-20260505
+Version v1.11.3
+20260506
 
 Version History:
+- v1.11.3: Hotfix — fix `workmain schedule` CLI standards violations: `holiday add` and
+           `timeoff add` dates were positional arguments (now `--date/-d`, `--start/-b`,
+           `--end/-e` options); `timeoff add` used `--notes/-N` (now `--title/-l`
+           consistent with `holiday add`); `holiday remove` and `timeoff remove` renamed
+           to `delete` per §3.2; `CLI_STANDARDS.md` updated (V19–V22, `-l` scope)
 - v1.11.2: Hotfix — three daemon fixes: (1) startup ordering — pre-meeting reminders
            now scheduled before scheduler.start() blocks; (2) AF_VSOCK added to
            RestrictAddressFamilies so WSL2 interop can run wsl-notify-send.exe;
@@ -138,7 +143,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.11.2"
-__version_info__ = (1, 11, 2)
+__version__ = "1.11.3"
+__version_info__ = (1, 11, 3)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"

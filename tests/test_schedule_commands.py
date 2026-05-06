@@ -1,7 +1,7 @@
 """
 WorkmAIn Schedule Command Tests
-test_schedule_commands.py v1.0
-20260505
+test_schedule_commands.py v1.1
+20260506
 
 Tests for ScheduleExceptionRepository (CRUD) and the exception date check.
 Resolver helper tests (_resolve_holiday, _resolve_timeoff) exercise the
@@ -17,6 +17,7 @@ Sentinel dates used:
 
 Version History:
 - v1.0: Phase 10 Gate 10 initial implementation
+- v1.1: Update class docstrings — remove → delete to match CLI rename (hotfix v1.11.3)
 """
 
 from datetime import date
@@ -36,7 +37,7 @@ SENTINEL_C = date(2099, 6, 10)
 # ---------------------------------------------------------------------------
 
 class TestHolidayCRUD:
-    """ScheduleExceptionRepository holiday add/list/remove operations."""
+    """ScheduleExceptionRepository holiday add/list/delete operations."""
 
     def test_add_holiday_creates_exception(self, db_session):
         """add_holiday() persists a holiday row retrievable via list_by_type."""
@@ -92,7 +93,7 @@ class TestHolidayCRUD:
 # ---------------------------------------------------------------------------
 
 class TestTimeoffCRUD:
-    """ScheduleExceptionRepository time-off add/list/remove operations."""
+    """ScheduleExceptionRepository time-off add/list/delete operations."""
 
     def test_add_timeoff_creates_range(self, db_session):
         """add_timeoff() persists a timeoff row with correct start/end dates."""
