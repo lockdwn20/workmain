@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.4] - 2026-05-06
+
+### Fixed
+- **Pre-meeting reminders never firing** — `job_workday_start` imported `_scheduler`
+  from `daemon.py`, but when the daemon runs as `python -m workmain.daemon.daemon`,
+  the module loads as `__main__` and the cross-module import resolved to a fresh instance
+  where `_scheduler = None`. The `if _scheduler is not None:` guard silently skipped
+  `_schedule_meeting_reminders` on every workday start. Fix: `_scheduler` is now owned
+  by `scheduler.py` (the module that defines `build_scheduler()`), so `job_workday_start`
+  accesses it directly with no cross-module import ambiguity.
+
+### Added
+- **`workmain notifications status` — Today's Schedule section** — shows all of today's
+  remaining cron-based notifications (Workday Start, Daily Closeout, EOD Prompt, etc.)
+  and any pre-meeting reminders with past/upcoming tags. Pre-meeting times are read from
+  `~/.workmain/daemon/scheduled_jobs.json` which the daemon now writes after each
+  `_schedule_meeting_reminders` call.
+
 ## [1.11.3] - 2026-05-06
 
 ### Fixed
