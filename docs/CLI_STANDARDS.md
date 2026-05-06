@@ -1,6 +1,6 @@
 # WorkmAIn
-# CLI_STANDARDS.md v1.8
-# 20260406
+# CLI_STANDARDS.md v1.9
+# 20260506
 
 ---
 
@@ -35,6 +35,8 @@
   -L/--duration (time edit); Violation Register item 18 annotated for meetings edit.
 - v1.8 (20260406): §3.3 approved verbs table updated — `track` retroactively approved
   for `meetings track`; Violation Register item 15 resolved.
+- v1.9 (20260506): §5.3 `-l/--title` scope expanded to include `schedule holiday add` and
+  `schedule timeoff add`; Violation Register V19–V22 added and resolved (hotfix v1.11.3).
 
 ---
 
@@ -316,7 +318,7 @@ The following assignments are **reserved across all commands**. No flag may use 
 | `-P` | `--provider` | `providers costs` | Uppercase; `-p` reserved for `--project` |
 | `-M` | `--month` | `providers costs` | Uppercase; `-m` reserved for `--meeting` |
 | `-R` | `--type` | `reports list` | Uppercase; `-T` already taken by `--time`; less-common filter |
-| `-l` | `--title` | `meetings edit` | Lowercase; infrequent title edit option |
+| `-l` | `--title` | `meetings edit`, `schedule holiday add`, `schedule timeoff add` | Lowercase; infrequent title/label option |
 | `-L` | `--duration` | `time edit` | Uppercase pair of `-l`; duration edits less common than description |
 
 New short forms must be checked against this table **and** against all other flags in the same command before assignment. If no unambiguous short form is available, omit it rather than create a conflict.
@@ -457,6 +459,11 @@ The following existing commands were audited against this standard on 20260320 a
 | 16 | `templates register`, `unregister`, `validate`, `list-aliases`, `add-section` | Domain-specific verbs not in §3.2; `list-aliases` and `add-section` are hyphenated | §3.2, §3.1 | Low | **Resolved (20260406):** `register`/`unregister`/`validate` retroactively approved per §3.3; `list-aliases` removed — alias info now included inline in `templates list` output; `add-section` moved to `templates section add` subgroup |
 | 17 | `providers set-default` | Hyphenated compound; `set-default` not in §3.2 vocabulary | §3.2 | Low | **Resolved (20260406):** Refactored to `@providers.group('set')` → `providers set default <provider>`; extensible for Phase 12 additions (`providers set model`, etc.) |
 | 18 | `notes edit`, `notes delete`, `time edit`, `time delete`, `meetings delete`, `meetings rename`, `meetings edit`, `email recipients delete` | §4.3 name-or-ID rule — these commands accepted only integer ID, no name resolution or picker | §4.3 | Low | **Resolved (20260501):** All listed commands now accept ID or name string with fuzzy picker for ambiguous matches. Direction B violations also fixed (`notes log/add/edit -m`, `notes meeting`, `meetings condense/merge`). New `_resolve_note()`, `_resolve_meeting()`, `_resolve_time_entry()` helpers. 17 new tests. |
+
+| 19 | `schedule holiday add` | Date passed as positional argument, not `--date/-d` option | §5.3 | High | **Resolved (hotfix v1.11.3):** Converted to `--date/-d` required option |
+| 20 | `schedule timeoff add` | Start/end dates as positional arguments, not `--start/-b` / `--end/-e` options | §5.3 | High | **Resolved (hotfix v1.11.3):** Converted to `--start/-b` and `--end/-e` required options |
+| 21 | `schedule timeoff add --notes/-N` | Used `--notes/-N` instead of `--title/-l`; `-N` scoped to `time add` only | §5.3 | High | **Resolved (hotfix v1.11.3):** Replaced with `--title/-l` consistent with `holiday add` |
+| 22 | `schedule holiday remove`, `schedule timeoff remove` | `remove` is a banned synonym for `delete` per §3.2 | §3.2 | Medium | **Resolved (hotfix v1.11.3):** Renamed to `delete` |
 
 **Severity definitions:**
 - **High** — Affects discoverability, breaks the integration pattern, or creates naming confusion for users

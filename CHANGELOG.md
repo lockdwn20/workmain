@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.3] - 2026-05-06
+
+### Fixed
+- **`schedule holiday add`** — date was a positional argument; now `--date/-d` required option
+  per `CLI_STANDARDS.md §5.3` reserved flag table
+- **`schedule timeoff add`** — start/end dates were positional arguments; now `--start/-b` and
+  `--end/-e` required options per §5.3
+- **`schedule timeoff add --notes/-N`** — replaced with `--title/-l` consistent with
+  `holiday add`; `-N` is scoped to `time add` only
+- **`schedule holiday remove`, `schedule timeoff remove`** — renamed to `delete` per §3.2
+  standard CRUD vocabulary (`remove` is a banned synonym)
+- **`CLI_STANDARDS.md`** — §5.3 `-l/--title` scope expanded to include `schedule holiday add`
+  and `schedule timeoff add`; Violation Register V19–V22 added and resolved
+
 ## [1.11.2] - 2026-05-05
 
 ### Fixed
