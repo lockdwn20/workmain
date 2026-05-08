@@ -1,9 +1,18 @@
 """
 WorkmAIn Package Version
-Version v1.11.4
-20260506
+Version v1.12.0
+20260508
 
 Version History:
+- v1.12.0: Item 27 — recurring meeting reschedule, series edit, skip, and templates.
+           New commands: `meetings reschedule` (single occurrence, any recurring meeting),
+           `meetings series edit` (all future occurrences, bulk time update),
+           `meetings skip` (remove single occurrence, notes preserved),
+           `meetings template add/list/delete/use` (recurring creation patterns stored in
+           config/meeting_templates.json). New Meeting.is_manually_modified column:
+           ICS reimport skips flagged rows (Rule 1); RECURRENCE-ID exceptions on unflagged
+           rows set the flag (Rule 2). Migration script: scripts/migrate_add_is_manually_modified.py.
+           11 new tests; suite: 232 passed, 0 failed.
 - v1.11.4: Hotfix — fix pre-meeting reminders never firing: _scheduler moved to
            scheduler.py module level to avoid cross-module import ambiguity when
            daemon runs as __main__; add _write_scheduled_jobs() so `notifications
@@ -149,7 +158,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.11.4"
-__version_info__ = (1, 11, 4)
+__version__ = "1.12.0"
+__version_info__ = (1, 12, 0)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"

@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-05-08
+
+### Added
+- **`meetings reschedule <id_or_title>`** — adjust a single recurring occurrence's date and/or
+  time without affecting the rest of the series. Works on both ad-hoc and Outlook-managed
+  recurring meetings. Sets `is_manually_modified=True` so ICS reimport will not overwrite
+  the change. Prompts to update any linked time entry after rescheduling.
+- **`meetings series edit <id_or_title>`** — bulk-update the wall-clock start/end time for all
+  future occurrences in a recurring series from today (or `--from-date`) forward. Sets
+  `is_manually_modified=True` on each updated row.
+- **`meetings skip <id_or_title>`** — remove a single occurrence from a recurring series without
+  touching other occurrences. Notes on the skipped occurrence are unlinked and preserved.
+- **`meetings template add/list/delete/use`** — save recurring meeting creation patterns
+  (title, frequency, time, duration window) to `config/meeting_templates.json` and use them
+  to bulk-create meeting series in one command.
+- **`Meeting.is_manually_modified` column** — new boolean on the meetings table (migration:
+  `scripts/migrate_add_is_manually_modified.py`). Ground truth for ICS protection:
+  Rule 1 — flagged rows are always skipped by ICS reimport (local change wins).
+  Rule 2 — RECURRENCE-ID exceptions from Outlook applied to unflagged rows set the flag,
+  protecting Outlook-pushed reschedules from being overwritten by future imports.
+
 ## [1.11.4] - 2026-05-06
 
 ### Fixed
