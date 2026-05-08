@@ -1,9 +1,14 @@
 """
 WorkmAIn Package Version
-Version v1.12.0
+Version v1.12.1
 20260508
 
 Version History:
+- v1.12.1: Hotfix — notification em dash encoding + delivery logging: replace em/en
+           dashes in all scheduler job titles and sanitize body text before passing to
+           wsl-notify-send.exe (Windows codepage garbles UTF-8 multi-byte chars);
+           log subprocess stdout/stderr at WARNING in journal; log NOTIFY_CMD path at
+           INFO on each delivery for diagnostics.
 - v1.12.0: Item 27 — recurring meeting reschedule, series edit, skip, and templates.
            New commands: `meetings reschedule` (single occurrence, any recurring meeting),
            `meetings series edit` (all future occurrences, bulk time update),
@@ -158,7 +163,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.12.0"
-__version_info__ = (1, 12, 0)
+__version__ = "1.12.1"
+__version_info__ = (1, 12, 1)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"

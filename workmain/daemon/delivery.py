@@ -1,7 +1,7 @@
 """
 WorkmAIn Daemon Delivery Layer
-delivery.py v1.1
-20260505
+delivery.py v1.2
+20260508
 
 Handles notification delivery via three methods:
   - 'os'       → wsl-notify-send (WSL) or notify-send (native Linux)
@@ -17,8 +17,12 @@ Version History:
 - v1.0: Phase 10 Gate 2 initial implementation
 - v1.1: Fix wsl-notify-send invocation — use --category for title; binary only
         accepts one positional arg (body); two args triggers usage output, exit 0
+- v1.2: Add _sanitize_for_windows() to replace em/en dashes before passing strings
+        to wsl-notify-send.exe — Windows codepage garbles UTF-8 multi-byte chars;
+        log subprocess stdout/stderr at WARNING so failures are visible in journal
 """
 
+import logging
 import os
 import shutil
 import subprocess
@@ -29,6 +33,7 @@ from rich.console import Console
 from rich.panel import Panel
 
 console = Console()
+logger = logging.getLogger(__name__)
 
 
 def _detect_wsl() -> bool:
@@ -72,6 +77,16 @@ IS_WSL: bool = _detect_wsl()
 NOTIFY_CMD: Optional[str] = _detect_notify_send()
 
 
+def _sanitize_for_windows(text: str) -> str:
+    """Replace multi-byte Unicode punctuation that Windows codepage garbles.
+
+    wsl-notify-send.exe runs in the Windows codepage (typically CP1252), not
+    UTF-8. Em dash (U+2014) and en dash (U+2013) are 3-byte UTF-8 sequences
+    that do not round-trip through CP1252 cleanly.
+    """
+    return text.replace('—', ' - ').replace('–', ' - ')
+
+
 def deliver(title: str, body: str, method: str = 'terminal') -> None:
     """Deliver a notification using the specified method.
 
@@ -98,26 +113,33 @@ def deliver(title: str, body: str, method: str = 'terminal') -> None:
 
 def _deliver_os(title: str, body: str) -> None:
     if NOTIFY_CMD is None:
-        console.print(
-            "[yellow]⚠ OS notification tool not found "
-            "(wsl-notify-send / notify-send). Falling back to terminal.[/yellow]"
+        logger.warning(
+            "OS notification tool not found (wsl-notify-send / notify-send). "
+            "Falling back to terminal."
         )
         _deliver_terminal(title, body)
         return
+
+    safe_title = _sanitize_for_windows(title)
+    safe_body = _sanitize_for_windows(body)
+    logger.info("Delivering OS notification via %s", NOTIFY_CMD)
+
     try:
-        subprocess.run(
-            [NOTIFY_CMD, "--category", title, body],
+        result = subprocess.run(
+            [NOTIFY_CMD, "--category", safe_title, safe_body],
             timeout=5,
             check=True,
             capture_output=True,
+            text=True,
         )
+        if result.stdout.strip():
+            logger.warning("wsl-notify-send stdout: %s", result.stdout.strip())
+        if result.stderr.strip():
+            logger.warning("wsl-notify-send stderr: %s", result.stderr.strip())
         # Always echo to terminal as confirmation — OS toasts are ephemeral.
         _deliver_terminal(title, body)
     except (subprocess.SubprocessError, subprocess.TimeoutExpired) as e:
-        console.print(
-            f"[yellow]⚠ OS notification failed ({e}). "
-            f"Falling back to terminal.[/yellow]"
-        )
+        logger.warning("OS notification failed (%s). Falling back to terminal.", e)
         _deliver_terminal(title, body)
 
 

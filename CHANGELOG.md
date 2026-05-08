@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.1] - 2026-05-08
+
+### Fixed
+- **Notification em dash encoding** — Windows does not default to UTF-8 (codepage 65001),
+  causing em dash characters (`—`) in notification titles and AI-narrated body text to render
+  as garbage in Windows toast notifications. All hardcoded scheduler job titles now use ` - `
+  instead of `—`. A `_sanitize_for_windows()` helper in `delivery.py` also strips em/en dashes
+  from the body at delivery time, covering AI-generated narration text.
+- **Silent OS delivery failures** — `_deliver_os()` captured subprocess output but never logged
+  it, so `wsl-notify-send.exe` failures were invisible in the systemd journal. Subprocess stdout
+  and stderr are now logged at WARNING level. The resolved `NOTIFY_CMD` path is logged at INFO
+  on each delivery for diagnostics.
+
 ## [1.12.0] - 2026-05-08
 
 ### Added

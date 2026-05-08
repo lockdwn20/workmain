@@ -1,7 +1,7 @@
 """
 WorkmAIn Daemon Scheduler
-scheduler.py v1.1
-20260506
+scheduler.py v1.2
+20260508
 
 APScheduler job configuration. All trigger times are hardcoded in
 this file for Phase 10. Trigger time configuration is deferred to
@@ -16,6 +16,8 @@ Version History:
 - v1.1: Store _scheduler in this module to avoid cross-module import ambiguity
         when daemon runs as __main__. job_workday_start now accesses the
         module-level _scheduler directly instead of importing from daemon.py.
+- v1.2: Replace em dashes in job titles with ' - ' — Windows codepage garbles
+        UTF-8 multi-byte characters passed to wsl-notify-send.exe.
 """
 
 import logging
@@ -48,14 +50,14 @@ def job_workday_start() -> None:
         return
     if _scheduler is not None:
         _schedule_meeting_reminders(date.today(), _scheduler)
-    _enriched_notify("WorkmAIn — Good Morning")
+    _enriched_notify("WorkmAIn - Good Morning")
 
 
 def job_daily_closeout() -> None:
     """14:00 Mon–Thu — daily closeout enriched notification."""
     from workmain.daemon.daemon import _enriched_notify
     logger.info("job_daily_closeout firing")
-    _enriched_notify("WorkmAIn — Daily Closeout")
+    _enriched_notify("WorkmAIn - Daily Closeout")
 
 
 def job_weekly_draft() -> None:
@@ -63,7 +65,7 @@ def job_weekly_draft() -> None:
     from workmain.daemon.daemon import _enriched_notify
     logger.info("job_weekly_draft firing")
     _enriched_notify(
-        "WorkmAIn — Weekly Draft",
+        "WorkmAIn - Weekly Draft",
         extra_body="Time to draft your weekly Slack update.",
     )
 
@@ -73,7 +75,7 @@ def job_eow() -> None:
     from workmain.daemon.daemon import _enriched_notify
     logger.info("job_eow firing")
     _enriched_notify(
-        "WorkmAIn — End of Week",
+        "WorkmAIn - End of Week",
         extra_body="Wrap up the week — weekly report and email due.",
     )
 
@@ -83,7 +85,7 @@ def job_eod_prompt() -> None:
     from workmain.daemon.daemon import _enriched_notify
     logger.info("job_eod_prompt firing")
     _enriched_notify(
-        "WorkmAIn — EOD Reminder",
+        "WorkmAIn - EOD Reminder",
         extra_body="Time to run: workmain eod",
     )
 
