@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v5.3
-20260505
+Feature Backlog v5.4
+20260508
 
 # WorkmAIn Feature Backlog
 
@@ -24,6 +24,7 @@ Items deferred from various phases for future implementation.
 - v5.1 (20260504): Backlog Item Template added; Philosophy on Deferrals moved before register; Summary Statistics moved after register; Status column last in register, simplified to ✓ complete only; items in numerical order.
 - v5.2 (20260504): Collapsed Open Items / Conditional / Deferred Indefinitely / Completed into one flat ## Backlog Items section, all 29 items in numerical order. Status tracked in each item's fields and the register — no section moves needed when status changes.
 - v5.3 (20260505): Added Item 30 — System Service Promotion for workmain-notify (Phase 10 deferral); updated register and statistics.
+- v5.4 (20260508): Item 27 marked COMPLETE (v1.12.0).
 
 ---
 
@@ -97,7 +98,7 @@ Build first, refactor later. See the complete picture before abstracting.
 | 24 | tasks carryover Group Review | Low | Phase 11 | ~1 hr | |
 | 25 | reports costs + providers costs Audit | Low | Phase 14 | ~1 hr | |
 | 26 | Name-or-ID Rule (Edit/Delete) | — | Phase 14 | — | ✓ |
-| 27 | Recurring Meeting Advanced Features | Medium | Phase 15 | ~12–16 hrs | |
+| 27 | Recurring Meeting Advanced Features | Medium | Phase 15 | ~12–16 hrs | ✓ |
 | 28 | Placeholder Command Groups | Low | Phase 11+ | varies | |
 | 29 | clockify report Subcommand Refactor | Low | Phase 15 | ~30 min | |
 | 30 | System Service Promotion for workmain-notify | Low | Phase 18 | ~4 hours | |
@@ -107,21 +108,21 @@ Build first, refactor later. See the complete picture before abstracting.
 ## Summary Statistics
 
 **Total Items:** 30 (Item 22 is a redirect — no separate deferred work; see Item 20)
-**Completed:** 3 (Items 17, 18, 26)
-**Open:** 26
+**Completed:** 4 (Items 17, 18, 26, 27)
+**Open:** 25
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Open (targeted) | 21 | 1, 2, 3, 4, 7, 8, 10, 12, 13, 14, 15, 16, 19, 20, 23, 24, 25, 27, 28, 29, 30 |
+| Open (targeted) | 20 | 1, 2, 3, 4, 7, 8, 10, 12, 13, 14, 15, 16, 19, 20, 23, 24, 25, 28, 29, 30 |
 | Conditional | 1 | 9 |
 | Indefinitely | 4 | 5, 6, 11, 21 |
-| Complete | 3 | 17, 18, 26 |
+| Complete | 4 | 17, 18, 26, 27 |
 | Redirect | 1 | 22 → Item 20 |
 
 | Priority | Count | Items |
 |----------|-------|-------|
 | High | 0 | — |
-| Medium | 9 | 2, 3, 7, 10, 14, 15, 20, 23, 27 |
+| Medium | 8 | 2, 3, 7, 10, 14, 15, 20, 23 |
 | Low | 16 | 1, 4, 5, 6, 8, 11, 12, 13, 16, 19, 21, 24, 25, 28, 29, 30 |
 | Conditional | 1 | 9 |
 
@@ -131,7 +132,7 @@ Build first, refactor later. See the complete picture before abstracting.
 | Phase 11+ | 4, 20, 28 |
 | Phase 13+ | 19 |
 | Phase 14 | 25 |
-| Phase 15 | 1, 2, 3, 7, 8, 10, 12, 13, 14, 15, 16, 23, 27, 29 |
+| Phase 15 | 1, 2, 3, 7, 8, 10, 12, 13, 14, 15, 16, 23, 29 |
 | Phase 18 | 30 |
 | Conditional | 9 |
 | Indefinitely | 5, 6, 11, 21 |
@@ -745,7 +746,7 @@ Both commands exist and work correctly. No user-visible bug. Redundancy audit be
 
 #### Item 27 — Recurring Meeting Advanced Features
 
-**Status:** Open — Deferred to Phase 15
+**Status:** Complete — v1.12.0 (20260508)
 **Priority:** Medium (nice-to-have enhancements)
 **Effort:** ~12–16 hours
 **Added:** 20260127
@@ -770,11 +771,11 @@ workmain meetings reschedule 42 --date 2026-02-20 --start 14:00
 Core recurring functionality (create, view, delete) is complete and working. These are convenience features with known workarounds. Phase 5.1 focused on critical bugs preventing basic usage.
 
 **Acceptance Criteria:**
-- [ ] Can edit all future instances of recurring series
-- [ ] Can skip individual occurrences without deleting
-- [ ] Can reschedule single instance to different time/date
-- [ ] Changes properly tracked in database
-- [ ] UI clearly shows modified instances
+- [x] Can edit all future instances of recurring series
+- [x] Can skip individual occurrences without deleting
+- [x] Can reschedule single instance to different time/date
+- [x] Changes properly tracked in database
+- [x] UI clearly shows modified instances
 
 **Files Affected:**
 - `workmain/cli/commands/meetings.py`
