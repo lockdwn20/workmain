@@ -1,7 +1,7 @@
 """
 WorkmAIn Meetings Repository
-Meetings Repository v1.9
-20260415
+Meetings Repository v2.0
+20260508
 
 Data access layer for meetings with fuzzy matching and recurring detection.
 Handles all CRUD operations for the meetings table.
@@ -22,9 +22,11 @@ Version History:
         call sites can scope the count to a specific occurrence date
 - v1.9: Add get_series_note_count() — total user-authored notes across all
         occurrences of a recurring series, keyed by outlook_recurring_id
+- v2.0: Item 27 - Add is_manually_modified to update(); add get_future_occurrences()
+        and bulk_update_series_from_date() for series-wide reschedule
 """
 
-from datetime import datetime, date
+from datetime import datetime, date, time
 from typing import List, Optional, Tuple
 from difflib import SequenceMatcher
 
@@ -398,11 +400,12 @@ class MeetingsRepository:
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
         notes_captured: Optional[bool] = None,
-        reminder_sent: Optional[bool] = None
+        reminder_sent: Optional[bool] = None,
+        is_manually_modified: Optional[bool] = None
     ) -> Optional[Meeting]:
         """
         Update a meeting.
-        
+
         Args:
             meeting_id: Meeting ID to update
             title: New title (None to keep existing)
@@ -410,15 +413,16 @@ class MeetingsRepository:
             end_time: New end time (None to keep existing)
             notes_captured: Update notes captured flag
             reminder_sent: Update reminder sent flag
-            
+            is_manually_modified: Mark occurrence as manually modified (ICS will skip it)
+
         Returns:
             Updated Meeting object or None if not found
         """
         meeting = self.get_by_id(meeting_id)
-        
+
         if not meeting:
             return None
-        
+
         if title is not None:
             meeting.title = title
         if start_time is not None:
@@ -429,11 +433,85 @@ class MeetingsRepository:
             meeting.notes_captured = notes_captured
         if reminder_sent is not None:
             meeting.reminder_sent = reminder_sent
-        
+        if is_manually_modified is not None:
+            meeting.is_manually_modified = is_manually_modified
+
         self.session.commit()
         self.session.refresh(meeting)
-        
+
         return meeting
+
+    def get_future_occurrences(
+        self,
+        outlook_recurring_id: str,
+        from_date: date
+    ) -> List[Meeting]:
+        """
+        Get all series occurrences on or after a given date.
+
+        Args:
+            outlook_recurring_id: Outlook recurring series UID
+            from_date: Only return occurrences with start_time.date() >= from_date
+
+        Returns:
+            List of Meeting objects ordered by start_time
+        """
+        from datetime import datetime as dt
+        cutoff = dt.combine(from_date, dt.min.time())
+        return (
+            self.session.query(Meeting)
+            .filter(
+                Meeting.outlook_recurring_id == outlook_recurring_id,
+                Meeting.start_time >= cutoff
+            )
+            .order_by(Meeting.start_time)
+            .all()
+        )
+
+    def bulk_update_series_from_date(
+        self,
+        outlook_recurring_id: str,
+        from_date: date,
+        new_start_time: Optional[time] = None,
+        new_end_time: Optional[time] = None
+    ) -> int:
+        """
+        Update wall-clock start/end times for all series occurrences from a date forward.
+
+        Preserves each occurrence's own date; only the HH:MM portion is changed.
+        Sets is_manually_modified=True on every updated row.
+
+        Args:
+            outlook_recurring_id: Outlook recurring series UID
+            from_date: Only update occurrences with start_time.date() >= from_date
+            new_start_time: New wall-clock start time (None to keep existing)
+            new_end_time: New wall-clock end time (None to keep existing)
+
+        Returns:
+            Count of rows updated
+        """
+        occurrences = self.get_future_occurrences(outlook_recurring_id, from_date)
+        count = 0
+        for mtg in occurrences:
+            if new_start_time is not None:
+                mtg.start_time = mtg.start_time.replace(
+                    hour=new_start_time.hour,
+                    minute=new_start_time.minute,
+                    second=0,
+                    microsecond=0
+                )
+            if new_end_time is not None:
+                mtg.end_time = mtg.end_time.replace(
+                    hour=new_end_time.hour,
+                    minute=new_end_time.minute,
+                    second=0,
+                    microsecond=0
+                )
+            mtg.is_manually_modified = True
+            count += 1
+        if count:
+            self.session.commit()
+        return count
     
     def rename(self, meeting_id: int, new_title: str) -> Optional[Meeting]:
         """
