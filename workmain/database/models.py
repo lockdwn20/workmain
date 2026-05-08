@@ -1,7 +1,7 @@
 """
 WorkmAIn Database Models
-Database Models v1.8
-20260505
+Database Models v1.9
+20260508
 
 SQLAlchemy ORM models for WorkmAIn database.
 Models: Note, TimeEntry, Meeting, Project, Report, Recipient, ReportRecipient,
@@ -19,6 +19,7 @@ Version History:
 - v1.6: Gate 1 - Added GDriveUpload model for Drive archival tracking (Phase 7)
 - v1.7: Gate 1 - Added slack_channel, slack_workspace_name columns to Report (Phase 8)
 - v1.8: Gate 1 - Added ScheduleException and NotificationConfig models (Phase 10)
+- v1.9: Item 27 - Added is_manually_modified to Meeting for ICS reimport protection
 """
 
 from datetime import datetime, date, time
@@ -92,6 +93,7 @@ class Meeting(Base):
     end_time = Column(DateTime, nullable=False)
     attendees = Column(ARRAY(Text), nullable=True)
     is_recurring = Column(Boolean, default=False)
+    is_manually_modified = Column(Boolean, nullable=False, default=False)
     notes_captured = Column(Boolean, default=False)
     reminder_sent = Column(Boolean, default=False)
     

@@ -1,7 +1,7 @@
 """
 WorkmAIn ICS Parser
-ICS Parser v1.7
-20260415
+ICS Parser v1.8
+20260508
 
 Parses exported Outlook ICS files into ICSEvent dataclasses for database import.
 
@@ -72,6 +72,9 @@ Version History:
 - v1.7: Handle RECURRENCE-ID exceptions (RFC 5545 §3.8.4.4) — rescheduled or
         cancelled occurrences now correctly replace the original RRULE expansion
         date with the exception's new date (or skip entirely if cancelled)
+- v1.8: Item 27 - Add is_recurrence_id_exception to ICSEvent; apply is_manually_modified
+        rules in import_events_to_db: skip flagged rows (Rule 1), set flag on
+        RECURRENCE-ID exception imports (Rule 2)
 """
 
 from __future__ import annotations
@@ -100,6 +103,7 @@ class ICSEvent:
     is_recurring: bool
     is_cancelled: bool
     recurring_series_uid: str | None = None  # set when expanded from a recurring series
+    is_recurrence_id_exception: bool = False  # True when emitted from a RECURRENCE-ID override
 
 
 class ICSParseError(Exception):
@@ -250,6 +254,7 @@ def _expand_rrule_occurrences(
                 is_recurring=True,
                 is_cancelled=False,
                 recurring_series_uid=series_uid,
+                is_recurrence_id_exception=True,
             ))
         else:
             events.append(ICSEvent(
@@ -553,10 +558,19 @@ def import_events_to_db(session: Session, events: list[ICSEvent]) -> dict:
                 start_time=event.start_time,
                 end_time=event.end_time,
                 is_recurring=event.is_recurring,
+                # Rule 2: RECURRENCE-ID exceptions are modifications — protect on first import
+                is_manually_modified=event.is_recurrence_id_exception,
             )
             session.add(meeting)
             counts['new'] += 1
         else:
+            # --- Rule 1: Skip manually-modified occurrences ---
+            # is_manually_modified is the ground truth. If set, local change wins
+            # and ICS never overwrites — regardless of what the ICS says.
+            if existing.is_manually_modified:
+                counts['unchanged'] += 1
+                continue
+
             # --- Orphan cleanup ---
             # After a primary UID match, delete any stale-UID duplicates for this
             # title+date+time that have no notes. These accumulate when Outlook
@@ -582,6 +596,7 @@ def import_events_to_db(session: Session, events: list[ICSEvent]) -> dict:
                     start_time=event.start_time,
                     end_time=event.end_time,
                     is_recurring=event.is_recurring,
+                    is_manually_modified=event.is_recurrence_id_exception,
                 )
                 session.add(meeting)
                 counts['new'] += 1
@@ -602,6 +617,9 @@ def import_events_to_db(session: Session, events: list[ICSEvent]) -> dict:
                 existing.is_recurring = event.is_recurring
                 if existing.outlook_recurring_id is None and new_recurring_id:
                     existing.outlook_recurring_id = new_recurring_id
+                # Rule 2: RECURRENCE-ID exception applied to unflagged row — protect it
+                if event.is_recurrence_id_exception:
+                    existing.is_manually_modified = True
                 counts['updated'] += 1
             else:
                 counts['unchanged'] += 1

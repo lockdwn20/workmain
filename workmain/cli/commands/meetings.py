@@ -1,7 +1,7 @@
 """
 WorkmAIn Meeting CLI Commands
-Meeting Commands v3.8
-20260501
+Meeting Commands v3.9
+20260508
 
 CLI commands for meeting management.
 
@@ -41,6 +41,10 @@ Version History:
 - v3.8: Item 26 (CLI V18) — name-or-ID resolution on all resource-targeting commands.
         New _resolve_meeting() helper; delete/rename/edit/condense/merge all accept
         ID or title string with fuzzy picker for ambiguous matches.
+- v3.9: Item 27 — Add meetings reschedule (single occurrence, any recurring meeting);
+        meetings series edit (all future occurrences); meetings skip (remove single
+        occurrence); meetings template subgroup (add/list/delete/use for creation
+        patterns). All commands set is_manually_modified=True via repo.update().
 """
 
 import click
@@ -1139,6 +1143,566 @@ def meetings_edit(identifier: str, title: Optional[str], start: Optional[str],
     except Exception as e:
         console.print(f"[red]✗ Error: {e}[/red]")
 
+    finally:
+        session.close()
+
+
+# ---------------------------------------------------------------------------
+# meetings reschedule — adjust a single recurring occurrence
+# ---------------------------------------------------------------------------
+
+@meetings.command('reschedule')
+@click.argument('identifier')
+@click.option('--date', '-d', 'meeting_date', help='New date for this occurrence (YYYY-MM-DD)')
+@click.option('--start', '-b', help='New start time (HH:MM or HHMM)')
+@click.option('--end', '-e', help='New end time (HH:MM or HHMM)')
+def meetings_reschedule(identifier: str, meeting_date: Optional[str],
+                        start: Optional[str], end: Optional[str]):
+    """
+    Reschedule a single occurrence of a recurring meeting.
+
+    Works on both ad-hoc and Outlook-managed recurring meetings.
+    Marks the occurrence as manually modified so ICS reimport skips it.
+    At least one option must be provided.
+
+    \b
+    Examples:
+      workmain meetings reschedule "Daily Standup" --start 13:00
+      workmain meetings reschedule 42 --date 2026-05-20 --start 10:00 --end 11:00
+      workmain meetings reschedule "Weekly Review" --date 2026-05-22
+    """
+    if not any([meeting_date, start, end]):
+        console.print("[red]✗ No changes specified. Provide at least one of: --date, --start, --end[/red]")
+        return
+
+    db = get_db()
+    session = db.get_session()
+
+    try:
+        from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+        from workmain.database.models import TimeEntry
+
+        repo = MeetingsRepository(session)
+        time_repo = TimeEntriesRepository(session)
+
+        mtg = _resolve_meeting(identifier, repo)
+        if not mtg:
+            return
+
+        # Block single non-recurring Outlook meetings (allow recurring Outlook instances)
+        if mtg.outlook_id is not None and not mtg.is_recurring:
+            console.print(f"[red]✗ Meeting (ID: {mtg.id}) '{mtg.title}' is a non-recurring Outlook-managed meeting.[/red]")
+            console.print("[dim]To update it, reimport the updated ICS file:[/dim]")
+            console.print("[dim]  workmain calendar import <file.ics>[/dim]")
+            return
+
+        # Resolve new date (explicit --date or keep existing)
+        if meeting_date:
+            try:
+                new_date = datetime.strptime(meeting_date, '%Y-%m-%d').date()
+            except ValueError:
+                console.print(f"[red]✗ Invalid date format: {meeting_date}. Use YYYY-MM-DD[/red]")
+                return
+        else:
+            new_date = mtg.start_time.date()
+
+        # Parse new start time
+        new_start_dt = None
+        if start:
+            try:
+                new_start_dt = datetime.combine(new_date, time_repo.parse_time(start))
+            except ValueError as e:
+                console.print(f"[red]✗ Invalid start time: {e}[/red]")
+                return
+        elif meeting_date:
+            new_start_dt = datetime.combine(new_date, mtg.start_time.time())
+
+        # Parse new end time
+        new_end_dt = None
+        if end:
+            try:
+                end_date = new_start_dt.date() if new_start_dt else new_date
+                new_end_dt = datetime.combine(end_date, time_repo.parse_time(end))
+            except ValueError as e:
+                console.print(f"[red]✗ Invalid end time: {e}[/red]")
+                return
+        elif meeting_date:
+            new_end_dt = datetime.combine(new_date, mtg.end_time.time())
+
+        # Validate ordering
+        effective_start = new_start_dt or mtg.start_time
+        effective_end = new_end_dt or mtg.end_time
+        if effective_end <= effective_start:
+            console.print("[red]✗ End time must be after start time[/red]")
+            return
+
+        # Show before/after diff
+        console.print(f"\n[bold]Reschedule: (ID: {mtg.id}) \"{mtg.title}\"[/bold]")
+        console.print(f"  Old: {mtg.start_time.strftime('%Y-%m-%d %H:%M')} → {mtg.end_time.strftime('%H:%M')}")
+
+        updated = repo.update(
+            meeting_id=mtg.id,
+            start_time=new_start_dt,
+            end_time=new_end_dt,
+            is_manually_modified=True,
+        )
+        if not updated:
+            console.print("[red]✗ Update failed[/red]")
+            return
+
+        console.print(f"  New: {updated.start_time.strftime('%Y-%m-%d %H:%M')} → {updated.end_time.strftime('%H:%M')}")
+        console.print("[green]✓ Rescheduled. ICS reimport will preserve this change.[/green]")
+
+        # Prompt to update any linked time entry
+        linked = session.query(TimeEntry).filter(TimeEntry.meeting_id == mtg.id).all()
+        if linked:
+            for entry in linked:
+                time_str = entry.entry_time.strftime('%H:%M') if entry.entry_time else 'no time'
+                console.print(
+                    f"\n  Linked time entry found: "
+                    f"{entry.entry_date} {time_str} ({entry.duration_hours}h)"
+                )
+                if click.confirm("  Update it to match the new start time?", default=False):
+                    new_entry_time = updated.start_time.time() if updated.start_time else None
+                    time_repo.update(entry.id, entry_time=new_entry_time)
+                    console.print("  [green]✓ Time entry updated.[/green]")
+                    console.print("  [dim]Re-sync Clockify: workmain clockify sync push[/dim]")
+
+        console.print()
+
+    except Exception as e:
+        console.print(f"[red]✗ Error: {e}[/red]")
+    finally:
+        session.close()
+
+
+# ---------------------------------------------------------------------------
+# meetings series — series-wide operations
+# ---------------------------------------------------------------------------
+
+@meetings.group('series')
+def meetings_series():
+    """Series-wide operations on recurring meetings."""
+    pass
+
+
+@meetings_series.command('edit')
+@click.argument('identifier')
+@click.option('--start', '-b', help='New wall-clock start time for all occurrences (HH:MM or HHMM)')
+@click.option('--end', '-e', help='New wall-clock end time for all occurrences (HH:MM or HHMM)')
+@click.option('--from-date', 'from_date', default=None,
+              help='Update occurrences from this date forward (YYYY-MM-DD, default: today)')
+def meetings_series_edit(identifier: str, start: Optional[str], end: Optional[str],
+                         from_date: Optional[str]):
+    """
+    Update the wall-clock time for all future occurrences in a recurring series.
+
+    Only occurrences on or after --from-date (default: today) are changed.
+    Each updated occurrence is marked as manually modified.
+    At least one of --start or --end must be provided.
+
+    \b
+    Examples:
+      workmain meetings series edit "Daily Standup" --start 10:00 --end 10:15
+      workmain meetings series edit "Weekly Review" --start 15:00
+      workmain meetings series edit "Daily Standup" --start 10:00 --from-date 2026-06-01
+    """
+    if not start and not end:
+        console.print("[red]✗ Provide at least one of --start or --end[/red]")
+        return
+
+    db = get_db()
+    session = db.get_session()
+
+    try:
+        from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+        repo = MeetingsRepository(session)
+        time_repo = TimeEntriesRepository(session)
+
+        mtg = _resolve_meeting(identifier, repo)
+        if not mtg:
+            return
+
+        if not mtg.is_recurring or not mtg.outlook_recurring_id:
+            console.print(f"[red]✗ Meeting (ID: {mtg.id}) '{mtg.title}' is not part of a recurring series.[/red]")
+            return
+
+        # Parse from_date
+        if from_date:
+            try:
+                cutoff = datetime.strptime(from_date, '%Y-%m-%d').date()
+            except ValueError:
+                console.print(f"[red]✗ Invalid from-date format: {from_date}. Use YYYY-MM-DD[/red]")
+                return
+        else:
+            cutoff = date.today()
+
+        # Parse new times
+        new_start_time = None
+        new_end_time = None
+        if start:
+            try:
+                new_start_time = time_repo.parse_time(start)
+            except ValueError as e:
+                console.print(f"[red]✗ Invalid start time: {e}[/red]")
+                return
+        if end:
+            try:
+                new_end_time = time_repo.parse_time(end)
+            except ValueError as e:
+                console.print(f"[red]✗ Invalid end time: {e}[/red]")
+                return
+
+        # Count how many occurrences will be updated
+        future = repo.get_future_occurrences(mtg.outlook_recurring_id, cutoff)
+        if not future:
+            console.print(f"[yellow]No occurrences found from {cutoff} forward.[/yellow]")
+            return
+
+        last_date = future[-1].start_time.strftime('%Y-%m-%d')
+        changes = []
+        if new_start_time:
+            changes.append(f"start → {new_start_time.strftime('%H:%M')}")
+        if new_end_time:
+            changes.append(f"end → {new_end_time.strftime('%H:%M')}")
+
+        console.print(f"\n[bold]Series edit: \"{mtg.title}\"[/bold]")
+        console.print(f"  Occurrences: {len(future)} (from {cutoff} → {last_date})")
+        console.print(f"  Changes:     {', '.join(changes)}")
+
+        if not click.confirm("\nProceed?", default=True):
+            console.print("Cancelled.")
+            return
+
+        count = repo.bulk_update_series_from_date(
+            outlook_recurring_id=mtg.outlook_recurring_id,
+            from_date=cutoff,
+            new_start_time=new_start_time,
+            new_end_time=new_end_time,
+        )
+        console.print(f"[green]✓ Updated {count} occurrence(s) ({cutoff} → {last_date}).[/green]")
+        console.print("[dim]Each occurrence marked as manually modified — ICS reimport will preserve these changes.[/dim]\n")
+
+    except Exception as e:
+        console.print(f"[red]✗ Error: {e}[/red]")
+    finally:
+        session.close()
+
+
+# ---------------------------------------------------------------------------
+# meetings skip — remove a single occurrence without touching the series
+# ---------------------------------------------------------------------------
+
+@meetings.command('skip')
+@click.argument('identifier')
+@click.option('--date', '-d', 'meeting_date',
+              help='Date of the occurrence to skip (YYYY-MM-DD, defaults to today)')
+def meetings_skip(identifier: str, meeting_date: Optional[str]):
+    """
+    Remove a single occurrence from a recurring series.
+
+    Notes on the skipped occurrence are unlinked (not deleted).
+    The rest of the series is not affected.
+
+    \b
+    Examples:
+      workmain meetings skip "Daily Standup"
+      workmain meetings skip "Weekly Review" --date 2026-05-22
+      workmain meetings skip 42
+    """
+    db = get_db()
+    session = db.get_session()
+
+    try:
+        repo = MeetingsRepository(session)
+
+        mtg = _resolve_meeting(identifier, repo)
+        if not mtg:
+            return
+
+        if not mtg.is_recurring:
+            console.print(f"[red]✗ Meeting (ID: {mtg.id}) '{mtg.title}' is not a recurring meeting.[/red]")
+            console.print("[dim]To delete a one-off meeting, use: workmain meetings delete[/dim]")
+            return
+
+        # If --date was given, try to find the specific occurrence on that date
+        if meeting_date:
+            try:
+                target_date = datetime.strptime(meeting_date, '%Y-%m-%d').date()
+            except ValueError:
+                console.print(f"[red]✗ Invalid date format: {meeting_date}. Use YYYY-MM-DD[/red]")
+                return
+
+            if mtg.start_time.date() != target_date:
+                # Resolve to the occurrence on the requested date
+                day_meetings = repo.get_by_date(target_date)
+                candidates = [m for m in day_meetings
+                              if m.title.lower() == mtg.title.lower() and m.is_recurring]
+                if not candidates:
+                    console.print(f"[red]✗ No occurrence of \"{mtg.title}\" found on {target_date}[/red]")
+                    return
+                mtg = candidates[0]
+
+        time_str = mtg.start_time.strftime('%Y-%m-%d %H:%M')
+        end_str = mtg.end_time.strftime('%H:%M')
+        note_count = repo.get_note_count(mtg.id)
+
+        console.print(f"\n[bold]Skip occurrence: \"{mtg.title}\"[/bold]")
+        console.print(f"  Date/time: {time_str} → {end_str}")
+        if note_count:
+            console.print(f"  Notes: {note_count} note(s) will be unlinked and preserved")
+
+        if not click.confirm("\nSkip this occurrence? (removes it from the series)", default=False):
+            console.print("Cancelled.")
+            return
+
+        if repo.delete(mtg.id, delete_notes=False):
+            if note_count:
+                console.print(f"[green]✓ Occurrence removed. {note_count} note(s) unlinked and preserved.[/green]\n")
+            else:
+                console.print("[green]✓ Occurrence removed.[/green]\n")
+        else:
+            console.print("[red]✗ Delete failed[/red]")
+
+    except Exception as e:
+        console.print(f"[red]✗ Error: {e}[/red]")
+    finally:
+        session.close()
+
+
+# ---------------------------------------------------------------------------
+# meetings template — recurring meeting creation patterns
+# ---------------------------------------------------------------------------
+
+@meetings.group('template')
+def meetings_template():
+    """Recurring meeting template management."""
+    pass
+
+
+@meetings_template.command('add')
+@click.argument('name')
+@click.option('--start', '-b', required=True, help='Default start time (HH:MM)')
+@click.option('--end', '-e', required=True, help='Default end time (HH:MM)')
+@click.option('--frequency', '-r', required=True,
+              type=click.Choice(['daily', 'weekly', 'monthly']),
+              help='Recurrence frequency')
+@click.option('--until', '-u', type=int, default=90,
+              help='Days ahead to create occurrences when using this template (default: 90)')
+@click.option('--include-weekends', is_flag=True, default=False,
+              help='Include weekend occurrences for daily frequency')
+def meetings_template_add(name: str, start: str, end: str, frequency: str,
+                           until: int, include_weekends: bool):
+    """
+    Save a recurring meeting template.
+
+    Templates store default parameters for recurring meeting creation.
+    Use 'meetings template use <name>' to create meetings from a template.
+
+    \b
+    Examples:
+      workmain meetings template add "Daily Standup" --start 09:00 --end 09:15 --frequency daily
+      workmain meetings template add "Weekly Review" --start 14:00 --end 15:00 --frequency weekly
+    """
+    from workmain.utils.meeting_templates import get_meeting_template_config
+
+    # Validate HH:MM format
+    for label, t in [('start', start), ('end', end)]:
+        try:
+            datetime.strptime(t, '%H:%M')
+        except ValueError:
+            console.print(f"[red]✗ Invalid {label} time '{t}'. Use HH:MM format (e.g. 09:00)[/red]")
+            return
+
+    cfg = get_meeting_template_config()
+    if cfg.exists(name):
+        if not click.confirm(f"Template '{name}' already exists. Overwrite?", default=False):
+            console.print("Cancelled.")
+            return
+
+    cfg.add(
+        name=name,
+        start=start,
+        end=end,
+        frequency=frequency,
+        until_days=until,
+        include_weekends=include_weekends,
+    )
+    console.print(f"[green]✓ Template '{name}' saved.[/green]")
+    console.print(f"  Frequency: {frequency}  |  Time: {start}–{end}  |  Until: +{until} days")
+    console.print(f"  Use it: workmain meetings template use \"{name}\"\n")
+
+
+@meetings_template.command('list')
+def meetings_template_list():
+    """List all saved recurring meeting templates."""
+    from workmain.utils.meeting_templates import get_meeting_template_config
+
+    cfg = get_meeting_template_config()
+    templates = cfg.get_all()
+
+    if not templates:
+        console.print("[dim]No templates saved yet.[/dim]")
+        console.print("[dim]Add one: workmain meetings template add \"Name\" --start HH:MM --end HH:MM --frequency daily[/dim]")
+        return
+
+    table = Table(box=box.SIMPLE, show_header=True, header_style="bold")
+    table.add_column("Name")
+    table.add_column("Frequency")
+    table.add_column("Start")
+    table.add_column("End")
+    table.add_column("Until (days)")
+    table.add_column("Weekends")
+
+    for t in templates.values():
+        table.add_row(
+            t['name'],
+            t['frequency'],
+            t['start'],
+            t['end'],
+            str(t.get('until_days', 90)),
+            "yes" if t.get('include_weekends') else "no",
+        )
+
+    console.print()
+    console.print(table)
+
+
+@meetings_template.command('delete')
+@click.argument('name')
+def meetings_template_delete(name: str):
+    """Remove a recurring meeting template by name."""
+    from workmain.utils.meeting_templates import get_meeting_template_config
+
+    cfg = get_meeting_template_config()
+    if not cfg.exists(name):
+        console.print(f"[red]✗ Template '{name}' not found.[/red]")
+        return
+
+    if not click.confirm(f"Delete template '{name}'?", default=False):
+        console.print("Cancelled.")
+        return
+
+    cfg.delete(name)
+    console.print(f"[green]✓ Template '{name}' deleted.[/green]\n")
+
+
+@meetings_template.command('use')
+@click.argument('name')
+@click.option('--start-date', '-d', 'start_date_str', default=None,
+              help='First occurrence date (YYYY-MM-DD, default: today)')
+@click.option('--until', '-u', 'until_str', default=None,
+              help='Last occurrence date (YYYY-MM-DD, overrides template until_days)')
+def meetings_template_use(name: str, start_date_str: Optional[str], until_str: Optional[str]):
+    """
+    Create recurring meetings from a saved template.
+
+    \b
+    Examples:
+      workmain meetings template use "Daily Standup"
+      workmain meetings template use "Daily Standup" --start-date 2026-06-01
+      workmain meetings template use "Weekly Review" --start-date 2026-06-01 --until 2026-08-31
+    """
+    from workmain.utils.meeting_templates import get_meeting_template_config
+    from calendar import monthrange
+
+    cfg = get_meeting_template_config()
+    tmpl = cfg.get(name)
+    if not tmpl:
+        console.print(f"[red]✗ Template '{name}' not found.[/red]")
+        console.print("[dim]Available templates: workmain meetings template list[/dim]")
+        return
+
+    # Resolve start date
+    if start_date_str:
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            console.print(f"[red]✗ Invalid start-date: {start_date_str}. Use YYYY-MM-DD[/red]")
+            return
+    else:
+        start_date = date.today()
+
+    # Resolve until date
+    if until_str:
+        try:
+            until_date = datetime.strptime(until_str, '%Y-%m-%d').date()
+        except ValueError:
+            console.print(f"[red]✗ Invalid until date: {until_str}. Use YYYY-MM-DD[/red]")
+            return
+    else:
+        until_date = start_date + timedelta(days=tmpl.get('until_days', 90))
+
+    if until_date < start_date:
+        console.print("[red]✗ Until date must be after start date[/red]")
+        return
+
+    start_time_obj = datetime.strptime(tmpl['start'], '%H:%M').time()
+    end_time_obj = datetime.strptime(tmpl['end'], '%H:%M').time()
+    frequency = tmpl['frequency']
+    include_weekends = tmpl.get('include_weekends', False)
+    attendees = tmpl.get('attendees', [])
+
+    db = get_db()
+    session = db.get_session()
+
+    try:
+        repo = MeetingsRepository(session)
+        recurring_id = str(uuid.uuid4())
+        meetings_created = []
+        current_date = start_date
+
+        while current_date <= until_date:
+            occurrence_start = datetime.combine(current_date, start_time_obj)
+            occurrence_end = datetime.combine(current_date, end_time_obj)
+
+            mtg = repo.create(
+                title=name,
+                start_time=occurrence_start,
+                end_time=occurrence_end,
+                attendees=attendees or [],
+                is_recurring=True,
+                outlook_recurring_id=recurring_id,
+            )
+            meetings_created.append(mtg)
+
+            if frequency == 'daily':
+                current_date += timedelta(days=1)
+                if not include_weekends:
+                    while current_date.weekday() >= 5 and current_date <= until_date:
+                        current_date += timedelta(days=1)
+            elif frequency == 'weekly':
+                current_date += timedelta(weeks=1)
+            elif frequency == 'monthly':
+                if current_date.month == 12:
+                    current_date = current_date.replace(year=current_date.year + 1, month=1)
+                else:
+                    try:
+                        current_date = current_date.replace(month=current_date.month + 1)
+                    except ValueError:
+                        next_month = current_date.month + 1
+                        next_year = current_date.year
+                        if next_month > 12:
+                            next_month = 1
+                            next_year += 1
+                        last_day = monthrange(next_year, next_month)[1]
+                        current_date = date(next_year, next_month, min(current_date.day, last_day))
+
+        duration = (
+            datetime.combine(date.today(), end_time_obj) -
+            datetime.combine(date.today(), start_time_obj)
+        ).total_seconds() / 3600
+
+        console.print()
+        console.print(f"[green]✓ Created {len(meetings_created)} recurring meetings from template '{name}':[/green]")
+        console.print(f"  Frequency: {frequency}")
+        console.print(f"  From: {start_date}  |  Until: {until_date}")
+        console.print(f"  Time: {tmpl['start']} – {tmpl['end']}  ({duration:.1f}h each)")
+        console.print(f"  Series ID: {recurring_id[:8]}...")
+        console.print()
+
+    except Exception as e:
+        console.print(f"[red]✗ Failed to create meetings: {e}[/red]")
     finally:
         session.close()
 
