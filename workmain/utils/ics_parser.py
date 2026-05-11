@@ -1,7 +1,7 @@
 """
 WorkmAIn ICS Parser
-ICS Parser v1.8
-20260508
+ICS Parser v1.9
+20260511
 
 Parses exported Outlook ICS files into ICSEvent dataclasses for database import.
 
@@ -10,6 +10,13 @@ Pipeline (every run, automatic):
     Route RECURRENCE-ID exceptions to separate map → Deduplicate series masters
     by UID (prefer RRULE-bearing) → Inherit titles for SUMMARY-less events →
     Expand RRULE occurrences (applying exceptions) → Return ICSEvent list
+
+Import reconciliation (every import, automatic):
+    After processing all ICS events, detect_removed_meetings() computes the ICS
+    date window and identifies future DB meetings (outlook_id IS NOT NULL) that
+    fall within that window but are absent from the ICS UID set. These meetings
+    were cancelled by the organizer without emitting STATUS:CANCELLED — they are
+    soft-cancelled (is_cancelled = True) to reflect their actual status.
 
 Fields kept:
     UID, SUMMARY, DTSTART, DTEND, RRULE, EXDATE, RECURRENCE-ID,
@@ -75,13 +82,16 @@ Version History:
 - v1.8: Item 27 - Add is_recurrence_id_exception to ICSEvent; apply is_manually_modified
         rules in import_events_to_db: skip flagged rows (Rule 1), set flag on
         RECURRENCE-ID exception imports (Rule 2)
+- v1.9: Hotfix soft-cancel — replace hard-delete on STATUS:CANCELLED with soft-cancel
+        (is_cancelled = True); add detect_removed_meetings() reconciliation step that
+        soft-cancels future meetings absent from the ICS date window; notes stay linked
 """
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import datetime, time as dt_time, timedelta, timezone
+from datetime import date, datetime, time as dt_time, timedelta, timezone
 from pathlib import Path
 
 from dateutil.rrule import rrulestr
@@ -504,6 +514,56 @@ def _find_stale_duplicates(
     )
 
 
+def detect_removed_meetings(
+    session: Session,
+    events: list[ICSEvent],
+    today: date,
+) -> list[Meeting]:
+    """
+    Return DB meetings that were removed from Outlook without a STATUS:CANCELLED signal.
+
+    Computes the ICS date window (min/max start_time of non-cancelled events), then
+    queries for future meetings that:
+      - have outlook_id IS NOT NULL (were Outlook-imported)
+      - start_time >= today (future occurrences only)
+      - start_time falls within the ICS date window
+      - is_cancelled = False (not already soft-cancelled)
+      - outlook_id NOT in the ICS UID set
+
+    These meetings were scheduled in Outlook but are no longer in a subsequent export,
+    meaning the organizer cancelled the series or occurrence without the client emitting
+    STATUS:CANCELLED.
+
+    Args:
+        session: SQLAlchemy session
+        events: List of ICSEvent dataclasses from parse_ics_file()
+        today: Reference date for "future" cutoff (normally date.today())
+
+    Returns:
+        List of Meeting rows that should be soft-cancelled
+    """
+    active_events = [e for e in events if not e.is_cancelled]
+    if not active_events:
+        return []
+
+    ics_min = min(e.start_time.date() for e in active_events)
+    ics_max = max(e.start_time.date() for e in active_events)
+    ics_uids = {e.uid for e in events}
+
+    candidates = (
+        session.query(Meeting)
+        .filter(
+            Meeting.outlook_id.isnot(None),
+            Meeting.is_cancelled.is_(False),
+            sa_func.date(Meeting.start_time) >= today,
+            sa_func.date(Meeting.start_time) >= ics_min,
+            sa_func.date(Meeting.start_time) <= ics_max,
+        )
+        .all()
+    )
+    return [m for m in candidates if m.outlook_id not in ics_uids]
+
+
 def import_events_to_db(session: Session, events: list[ICSEvent]) -> dict:
     """
     Upsert parsed ICS events into the meetings table.
@@ -511,11 +571,15 @@ def import_events_to_db(session: Session, events: list[ICSEvent]) -> dict:
     Uses outlook_id (ICS UID) as the deduplication key.
 
     Behaviour per event:
-    - STATUS:CANCELLED + known UID  → delete meeting record
+    - STATUS:CANCELLED + known UID   → soft-cancel (is_cancelled = True); notes preserved
     - STATUS:CANCELLED + unknown UID → skip silently
-    - New UID                        → insert
-    - Existing UID, fields changed  → update
-    - Existing UID, unchanged       → skip
+    - New UID                         → insert
+    - Existing UID, fields changed   → update
+    - Existing UID, unchanged        → skip
+
+    After the event loop, detect_removed_meetings() identifies future DB meetings
+    within the ICS date window that are absent from the ICS UID set and soft-cancels
+    them. These represent series cancelled by the organizer without STATUS:CANCELLED.
 
     For recurring events, outlook_recurring_id is set to recurring_series_uid
     (the series master UID) on insert, and backfilled on update if currently NULL.
@@ -525,9 +589,9 @@ def import_events_to_db(session: Session, events: list[ICSEvent]) -> dict:
         events: List of ICSEvent dataclasses from parse_ics_file()
 
     Returns:
-        dict with keys: new, updated, unchanged, deleted
+        dict with keys: new, updated, unchanged, cancelled
     """
-    counts = {'new': 0, 'updated': 0, 'unchanged': 0, 'deleted': 0}
+    counts = {'new': 0, 'updated': 0, 'unchanged': 0, 'cancelled': 0}
 
     for event in events:
         existing = (
@@ -543,9 +607,9 @@ def import_events_to_db(session: Session, events: list[ICSEvent]) -> dict:
                     existing.outlook_recurring_id = event.recurring_series_uid or event.uid
 
         if event.is_cancelled:
-            if existing:
-                session.delete(existing)
-                counts['deleted'] += 1
+            if existing and not existing.is_cancelled:
+                existing.is_cancelled = True
+                counts['cancelled'] += 1
             continue
 
         new_recurring_id = event.recurring_series_uid or (event.uid if event.is_recurring else None)
@@ -623,6 +687,12 @@ def import_events_to_db(session: Session, events: list[ICSEvent]) -> dict:
                 counts['updated'] += 1
             else:
                 counts['unchanged'] += 1
+
+    # --- Reconciliation: soft-cancel meetings absent from the ICS date window ---
+    removed = detect_removed_meetings(session, events, date.today())
+    for m in removed:
+        m.is_cancelled = True
+        counts['cancelled'] += 1
 
     session.commit()
     return counts
