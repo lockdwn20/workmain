@@ -1,7 +1,7 @@
 """
 WorkmAIn Database Models
-Database Models v1.9
-20260508
+Database Models v2.0
+20260511
 
 SQLAlchemy ORM models for WorkmAIn database.
 Models: Note, TimeEntry, Meeting, Project, Report, Recipient, ReportRecipient,
@@ -20,6 +20,8 @@ Version History:
 - v1.7: Gate 1 - Added slack_channel, slack_workspace_name columns to Report (Phase 8)
 - v1.8: Gate 1 - Added ScheduleException and NotificationConfig models (Phase 10)
 - v1.9: Item 27 - Added is_manually_modified to Meeting for ICS reimport protection
+- v2.0: Hotfix soft-cancel — added is_cancelled to Meeting; cancelled meetings are preserved
+        (not deleted) and filtered from default list views
 """
 
 from datetime import datetime, date, time
@@ -94,6 +96,7 @@ class Meeting(Base):
     attendees = Column(ARRAY(Text), nullable=True)
     is_recurring = Column(Boolean, default=False)
     is_manually_modified = Column(Boolean, nullable=False, default=False)
+    is_cancelled = Column(Boolean, nullable=False, default=False)
     notes_captured = Column(Boolean, default=False)
     reminder_sent = Column(Boolean, default=False)
     

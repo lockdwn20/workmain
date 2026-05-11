@@ -1,7 +1,7 @@
 """
 WorkmAIn Meetings Repository
-Meetings Repository v2.0
-20260508
+Meetings Repository v2.1
+20260511
 
 Data access layer for meetings with fuzzy matching and recurring detection.
 Handles all CRUD operations for the meetings table.
@@ -24,6 +24,8 @@ Version History:
         occurrences of a recurring series, keyed by outlook_recurring_id
 - v2.0: Item 27 - Add is_manually_modified to update(); add get_future_occurrences()
         and bulk_update_series_from_date() for series-wide reschedule
+- v2.1: Hotfix soft-cancel — filter is_cancelled=False in get_all, search_by_title,
+        get_upcoming; get_by_date and fuzzy_match remain unfiltered for show/resolve
 """
 
 from datetime import datetime, date, time
@@ -147,7 +149,8 @@ class MeetingsRepository:
             List of Meeting objects
         """
         return self.session.query(Meeting).filter(
-            func.lower(Meeting.title).contains(func.lower(search_term))
+            func.lower(Meeting.title).contains(func.lower(search_term)),
+            Meeting.is_cancelled.is_(False),
         ).order_by(Meeting.start_time.desc()).limit(limit).all()
     
     def fuzzy_match(self, title: str, threshold: float = 0.6) -> List[Tuple[Meeting, float]]:
@@ -287,7 +290,8 @@ class MeetingsRepository:
         return self.session.query(Meeting).filter(
             and_(
                 Meeting.start_time >= now,
-                Meeting.start_time <= future
+                Meeting.start_time <= future,
+                Meeting.is_cancelled.is_(False),
             )
         ).order_by(Meeting.start_time).all()
     
@@ -315,11 +319,13 @@ class MeetingsRepository:
         Returns:
             List of Meeting objects
         """
-        query = self.session.query(Meeting).order_by(Meeting.start_time.desc())
-        
+        query = self.session.query(Meeting).filter(
+            Meeting.is_cancelled.is_(False)
+        ).order_by(Meeting.start_time.desc())
+
         if limit:
             query = query.limit(limit)
-        
+
         return query.all()
     
     def get_note_count(

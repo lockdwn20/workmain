@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.2] - 2026-05-11
+
+### Fixed
+- **Cancelled Outlook meetings now detected automatically** — when a recurring series (or
+  individual occurrence) is cancelled in Outlook and removed from subsequent ICS exports
+  without a `STATUS:CANCELLED` signal, the new reconciliation step in `calendar import`
+  detects the absence. Any future meeting within the ICS date window that is no longer
+  present is soft-cancelled (`is_cancelled = True`) and shown in the import preview as
+  `(cancelled — no longer in Outlook)`.
+- **`STATUS:CANCELLED` no longer hard-deletes** — previously, an explicit `STATUS:CANCELLED`
+  event in the ICS would hard-delete the meeting row, orphaning any attached notes
+  (`meeting_id` set to NULL). Both cancellation paths now use soft-cancel: the meeting
+  row is preserved with `is_cancelled = True` and notes remain linked.
+- **`meetings list` filters cancelled meetings** — cancelled meetings are excluded from
+  default list output. Use `workmain meetings list --cancelled` for historical lookup.
+  The `[CANCELLED]` badge appears when viewing a cancelled meeting via `meetings show`.
+
 ## [1.12.1] - 2026-05-08
 
 ### Fixed

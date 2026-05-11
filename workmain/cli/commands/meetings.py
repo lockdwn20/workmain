@@ -1,7 +1,7 @@
 """
 WorkmAIn Meeting CLI Commands
-Meeting Commands v3.9
-20260508
+Meeting Commands v4.0
+20260511
 
 CLI commands for meeting management.
 
@@ -45,6 +45,8 @@ Version History:
         meetings series edit (all future occurrences); meetings skip (remove single
         occurrence); meetings template subgroup (add/list/delete/use for creation
         patterns). All commands set is_manually_modified=True via repo.update().
+- v4.0: Hotfix soft-cancel — add --cancelled flag to meetings list; filter cancelled
+        meetings from default list output; show [CANCELLED] badge in meetings show
 """
 
 import click
@@ -57,6 +59,7 @@ from rich.table import Table
 from rich import box
 
 from workmain.database.connection import get_db
+from workmain.database.models import Meeting
 from workmain.database.repositories.meetings_repo import MeetingsRepository
 from workmain.ai.note_condenser import get_note_condenser
 
@@ -86,8 +89,9 @@ def format_meeting_display(meeting, meetings_repo: MeetingsRepository, show_note
     # Title with ID and type
     meeting_type = "Recurring (Outlook)" if meeting.outlook_recurring_id else \
                    "Outlook" if meeting.outlook_id else "Ad-hoc"
+    cancelled_badge = " [CANCELLED]" if meeting.is_cancelled else ""
     # Use (ID: N) format to avoid Rich markup interpretation of [#N]
-    lines.append(f"(ID: {meeting.id}) {meeting.title} [{meeting_type}]")
+    lines.append(f"(ID: {meeting.id}) {meeting.title} [{meeting_type}]{cancelled_badge}")
 
     # Time
     time_str = meeting.start_time.strftime('%Y-%m-%d %H:%M')
@@ -389,7 +393,9 @@ def create(title: str, start: str, end: str, meeting_date: Optional[str],
 @click.option('--limit', '-n', type=int, default=20, help='Maximum results')
 @click.option('--date', '-d', 'target_date', default=None, metavar='YYYY-MM-DD',
               help='Show meetings for a specific date')
-def list(search: Optional[str], limit: int, target_date: Optional[str]):
+@click.option('--cancelled', is_flag=True, default=False,
+              help='Show only cancelled meetings (historical lookup)')
+def list(search: Optional[str], limit: int, target_date: Optional[str], cancelled: bool):
     """
     List meetings.
 
@@ -399,6 +405,7 @@ def list(search: Optional[str], limit: int, target_date: Optional[str]):
       workmain meetings list -s "standup"
       workmain meetings list --date 2026-04-28
       workmain meetings list -d 2026-04-28 -s "standup"
+      workmain meetings list --cancelled
       workmain meetings today
       workmain meetings upcoming
     """
@@ -417,14 +424,36 @@ def list(search: Optional[str], limit: int, target_date: Optional[str]):
                 return
 
         # Get meetings based on filters
+        # get_all/search_by_title filter is_cancelled=False at query level;
+        # get_by_date is unfiltered (used by show for cancelled lookup), so filter here.
         if parsed_date:
-            meeting_list = repo.get_by_date(parsed_date)
+            raw_list = repo.get_by_date(parsed_date)
+            meeting_list = (
+                [m for m in raw_list if m.is_cancelled]
+                if cancelled
+                else [m for m in raw_list if not m.is_cancelled]
+            )
             date_label = parsed_date.strftime('%Y-%m-%d')
+            suffix = " (cancelled)" if cancelled else ""
             if search:
                 meeting_list = [m for m in meeting_list if search.lower() in m.title.lower()]
-                title_text = f"Meetings for {date_label} matching '{search}'"
+                title_text = f"Meetings for {date_label}{suffix} matching '{search}'"
             else:
-                title_text = f"Meetings for {date_label}"
+                title_text = f"Meetings for {date_label}{suffix}"
+        elif cancelled:
+            # Direct cancelled query — bypass repo (which filters them out)
+            meeting_list = (
+                session.query(Meeting)
+                .filter(Meeting.is_cancelled.is_(True))
+                .order_by(Meeting.start_time.desc())
+                .limit(limit)
+                .all()
+            )
+            if search:
+                meeting_list = [m for m in meeting_list if search.lower() in m.title.lower()]
+                title_text = f"Cancelled Meetings matching '{search}'"
+            else:
+                title_text = f"Cancelled Meetings (Last {limit})"
         elif search:
             meeting_list = repo.search_by_title(search, limit=limit)
             title_text = f"Search Results for '{search}'"

@@ -1,9 +1,13 @@
 """
 WorkmAIn Package Version
-Version v1.12.1
-20260508
+Version v1.12.2
+20260511
 
 Version History:
+- v1.12.2: Hotfix soft-cancel — detect recurring meetings cancelled by organizer without
+           STATUS:CANCELLED signal; reconciliation step in ICS import soft-cancels future
+           meetings absent from the ICS date window; STATUS:CANCELLED path also soft-cancels
+           (no hard-delete) so notes stay linked; meetings list --cancelled flag; 7 new tests
 - v1.12.1: Hotfix — notification em dash encoding + delivery logging: replace em/en
            dashes in all scheduler job titles and sanitize body text before passing to
            wsl-notify-send.exe (Windows codepage garbles UTF-8 multi-byte chars);
@@ -163,7 +167,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.12.1"
-__version_info__ = (1, 12, 1)
+__version__ = "1.12.2"
+__version_info__ = (1, 12, 2)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"

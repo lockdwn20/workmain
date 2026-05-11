@@ -1,7 +1,7 @@
 """
 WorkmAIn ICS Import Tests
-ICS Import Test v1.4
-20260415
+ICS Import Test v1.5
+20260511
 
 Tests for the ICS parser and database import pipeline (Phase 6 Gate 3).
 
@@ -21,16 +21,20 @@ Version History:
 - v1.3: Update test_01/03/12/13 for all-synthetic-UID RRULE expansion (no i==0 exception);
         add test_17/18/19 for migrate_series_uid_records()
 - v1.4: Add test_20 for RECURRENCE-ID exception handling (occurrence reschedule)
+- v1.5: Hotfix soft-cancel — update test_01 for renamed 'cancelled' key; update test_06
+        (soft-cancel replaces hard-delete); update test_07; add test_23–29 for soft-cancel
+        and detect_removed_meetings()
 """
 
 import pytest
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 from workmain.database.models import Meeting, Note
 from workmain.utils.ics_parser import (
     ICSEvent,
     ICSParseError,
+    detect_removed_meetings,
     import_events_to_db,
     migrate_series_uid_records,
     parse_ics_file,
@@ -59,7 +63,7 @@ class TestICSImport:
         assert counts['new'] == 3
         assert counts['updated'] == 0
         assert counts['unchanged'] == 0
-        assert counts['deleted'] == 0
+        assert counts['cancelled'] == 0
 
         # test-001 is recurring; outlook_id is the synthetic UID for 2026-03-09 09:00
         recurring_row = db_session.query(Meeting).filter(
@@ -89,7 +93,7 @@ class TestICSImport:
         assert counts['new'] == 0
         assert counts['updated'] == 0
         assert counts['unchanged'] == 3
-        assert counts['deleted'] == 0
+        assert counts['cancelled'] == 0
 
     # ------------------------------------------------------------------
     # Test 3 — Updated event on changed DTSTART
@@ -160,9 +164,12 @@ class TestICSImport:
     # Test 6 — Cancelled with known UID → deletion
     # ------------------------------------------------------------------
 
-    def test_06_cancelled_known_uid_deleted(self, db_session):
-        """STATUS:CANCELLED on a known UID deletes the meeting record."""
-        # First insert test-001 so there is something to delete
+    def test_06_cancelled_known_uid_soft_cancelled(self, db_session):
+        """STATUS:CANCELLED on a known UID soft-cancels the meeting (is_cancelled=True).
+
+        Row is preserved (not deleted) so historical records and attached notes survive.
+        """
+        # First insert test-001 so there is something to cancel
         seed = ICSEvent(
             uid="test-001@workmain",
             title="Team Standup",
@@ -180,12 +187,14 @@ class TestICSImport:
         events = parse_ics_file(FIXTURES / "week_with_cancelled.ics")
         counts = import_events_to_db(db_session, events)
 
-        assert counts['deleted'] == 1
+        assert counts['cancelled'] == 1
 
         row = db_session.query(Meeting).filter(
             Meeting.outlook_id == "test-001@workmain"
         ).first()
-        assert row is None
+        # Row must still exist — soft-cancel preserves the record
+        assert row is not None
+        assert row.is_cancelled is True
 
     # ------------------------------------------------------------------
     # Test 7 — Cancelled with unknown UID → no error
@@ -197,8 +206,8 @@ class TestICSImport:
         # test-unknown-cancel@workmain is not in DB — should not raise
         counts = import_events_to_db(db_session, events)
 
-        # Both events are cancelled; test-001 not in DB either, so deleted=0
-        assert counts['deleted'] == 0
+        # Both events are cancelled; test-001 not in DB either, so cancelled=0
+        assert counts['cancelled'] == 0
         assert counts['new'] == 0
 
     # ------------------------------------------------------------------
@@ -344,7 +353,7 @@ class TestICSImport:
         assert counts['unchanged'] == 1
         assert counts['new'] == 2
         assert counts['updated'] == 0
-        assert counts['deleted'] == 0
+        assert counts['cancelled'] == 0
 
         # Verify outlook_id was backfilled on the manual meeting with the synthetic UID
         db_session.expire(manual)
@@ -917,3 +926,243 @@ class TestICSImport:
         # Case C: non-recurring meeting → "Series Notes" line never appears
         display_c = format_meeting_display(non_recurring, repo)
         assert "Series Notes" not in display_c
+
+    # ------------------------------------------------------------------
+    # Tests 23–29 — Soft-cancel and detect_removed_meetings()
+    # ------------------------------------------------------------------
+
+    def test_23_status_cancelled_soft_cancels_note_preserved(self, db_session):
+        """STATUS:CANCELLED soft-cancels the meeting; attached note retains meeting_id."""
+        meeting = Meeting(
+            outlook_id="cancel-note-test@workmain",
+            title="Meeting With Notes",
+            start_time=datetime(2099, 6, 1, 10, 0),
+            end_time=datetime(2099, 6, 1, 10, 30),
+            is_recurring=False,
+        )
+        db_session.add(meeting)
+        db_session.flush()
+
+        note = Note(
+            meeting_id=meeting.id,
+            content="Important note",
+            tags=["internal-only"],
+            source="meeting",
+        )
+        db_session.add(note)
+        db_session.commit()
+        meeting_id = meeting.id
+        note_id = note.id
+
+        cancelled_event = ICSEvent(
+            uid="cancel-note-test@workmain",
+            title="Meeting With Notes",
+            start_time=datetime(2099, 6, 1, 10, 0),
+            end_time=datetime(2099, 6, 1, 10, 30),
+            is_recurring=False,
+            is_cancelled=True,
+        )
+        counts = import_events_to_db(db_session, [cancelled_event])
+
+        assert counts['cancelled'] == 1
+
+        db_session.expire_all()
+        row = db_session.query(Meeting).filter(Meeting.id == meeting_id).first()
+        assert row is not None, "Meeting row must not be deleted — soft-cancel preserves it"
+        assert row.is_cancelled is True
+
+        note_row = db_session.query(Note).filter(Note.id == note_id).first()
+        assert note_row is not None
+        assert note_row.meeting_id == meeting_id, "Note must remain linked to meeting"
+
+    def test_24_status_cancelled_idempotent(self, db_session):
+        """Re-importing a STATUS:CANCELLED event on an already-cancelled meeting does not
+        double-count the cancellation."""
+        meeting = Meeting(
+            outlook_id="idempotent-cancel@workmain",
+            title="Already Cancelled",
+            start_time=datetime(2099, 7, 1, 9, 0),
+            end_time=datetime(2099, 7, 1, 9, 30),
+            is_recurring=False,
+            is_cancelled=True,
+        )
+        db_session.add(meeting)
+        db_session.commit()
+
+        event = ICSEvent(
+            uid="idempotent-cancel@workmain",
+            title="Already Cancelled",
+            start_time=datetime(2099, 7, 1, 9, 0),
+            end_time=datetime(2099, 7, 1, 9, 30),
+            is_recurring=False,
+            is_cancelled=True,
+        )
+        counts = import_events_to_db(db_session, [event])
+        assert counts['cancelled'] == 0
+
+    def test_25_detect_removed_marks_absent_future_meeting(self, db_session):
+        """A future meeting within the ICS date window but absent from the ICS is returned
+        by detect_removed_meetings()."""
+        # Insert a future meeting that won't be in the ICS events list
+        absent = Meeting(
+            outlook_id="absent-future@workmain",
+            title="Cancelled Series Meeting",
+            start_time=datetime(2099, 8, 5, 9, 0),
+            end_time=datetime(2099, 8, 5, 9, 30),
+            is_recurring=True,
+        )
+        db_session.add(absent)
+        db_session.commit()
+
+        # ICS covers 2099-08-01 to 2099-08-10 — absent meeting falls within this window
+        ics_events = [
+            ICSEvent(
+                uid="present-event@workmain",
+                title="Other Meeting",
+                start_time=datetime(2099, 8, 1, 10, 0),
+                end_time=datetime(2099, 8, 1, 10, 30),
+                is_recurring=False,
+                is_cancelled=False,
+            ),
+            ICSEvent(
+                uid="present-event2@workmain",
+                title="Other Meeting 2",
+                start_time=datetime(2099, 8, 10, 10, 0),
+                end_time=datetime(2099, 8, 10, 10, 30),
+                is_recurring=False,
+                is_cancelled=False,
+            ),
+        ]
+
+        today = date(2026, 1, 1)  # sentinel past date so 2099 meetings count as "future"
+        removed = detect_removed_meetings(db_session, ics_events, today)
+
+        ids = [m.id for m in removed]
+        assert absent.id in ids
+
+    def test_26_detect_removed_preserves_past_meetings(self, db_session):
+        """Past-dated meetings absent from the ICS window are NOT returned — only future."""
+        past_meeting = Meeting(
+            outlook_id="past-absent@workmain",
+            title="Past Meeting",
+            start_time=datetime(2025, 1, 5, 9, 0),
+            end_time=datetime(2025, 1, 5, 9, 30),
+            is_recurring=False,
+        )
+        db_session.add(past_meeting)
+        db_session.commit()
+
+        # ICS covers 2099-08-01 to 2099-08-10 — past meeting is outside range entirely
+        ics_events = [
+            ICSEvent(
+                uid="some-event@workmain",
+                title="Unrelated",
+                start_time=datetime(2099, 8, 1, 10, 0),
+                end_time=datetime(2099, 8, 1, 10, 30),
+                is_recurring=False,
+                is_cancelled=False,
+            ),
+        ]
+
+        today = date(2026, 1, 1)
+        removed = detect_removed_meetings(db_session, ics_events, today)
+
+        assert past_meeting.id not in [m.id for m in removed]
+
+    def test_27_detect_removed_ignores_outside_window(self, db_session):
+        """A future meeting whose date exceeds the ICS max date is NOT returned."""
+        far_future = Meeting(
+            outlook_id="far-future@workmain",
+            title="Far Future Meeting",
+            start_time=datetime(2099, 12, 1, 9, 0),
+            end_time=datetime(2099, 12, 1, 9, 30),
+            is_recurring=False,
+        )
+        db_session.add(far_future)
+        db_session.commit()
+
+        # ICS covers only 2099-08-01 to 2099-08-10 — far_future (Dec) is outside
+        ics_events = [
+            ICSEvent(
+                uid="other@workmain",
+                title="Other",
+                start_time=datetime(2099, 8, 1, 10, 0),
+                end_time=datetime(2099, 8, 1, 10, 30),
+                is_recurring=False,
+                is_cancelled=False,
+            ),
+        ]
+
+        today = date(2026, 1, 1)
+        removed = detect_removed_meetings(db_session, ics_events, today)
+
+        assert far_future.id not in [m.id for m in removed]
+
+    def test_28_import_soft_cancels_removed_meeting_end_to_end(self, db_session):
+        """import_events_to_db() calls detect_removed_meetings() and soft-cancels absent
+        future meetings within the ICS date window."""
+        absent = Meeting(
+            outlook_id="removed-from-ics@workmain",
+            title="Removed Series",
+            start_time=datetime(2099, 9, 5, 14, 0),
+            end_time=datetime(2099, 9, 5, 14, 30),
+            is_recurring=True,
+        )
+        db_session.add(absent)
+        db_session.commit()
+        absent_id = absent.id
+
+        ics_events = [
+            ICSEvent(
+                uid="still-active@workmain",
+                title="Active Meeting",
+                start_time=datetime(2099, 9, 1, 9, 0),
+                end_time=datetime(2099, 9, 1, 9, 30),
+                is_recurring=False,
+                is_cancelled=False,
+            ),
+            ICSEvent(
+                uid="still-active2@workmain",
+                title="Active Meeting 2",
+                start_time=datetime(2099, 9, 10, 9, 0),
+                end_time=datetime(2099, 9, 10, 9, 30),
+                is_recurring=False,
+                is_cancelled=False,
+            ),
+        ]
+
+        counts = import_events_to_db(db_session, ics_events)
+
+        db_session.expire_all()
+        row = db_session.query(Meeting).filter(Meeting.id == absent_id).first()
+        assert row is not None
+        assert row.is_cancelled is True
+        assert counts['cancelled'] >= 1
+
+    def test_29_detect_removed_empty_ics_returns_nothing(self, db_session):
+        """If all ICS events are cancelled (no active events), detect_removed_meetings
+        returns an empty list — no window to compare against."""
+        future = Meeting(
+            outlook_id="future-present@workmain",
+            title="Future Meeting",
+            start_time=datetime(2099, 10, 1, 9, 0),
+            end_time=datetime(2099, 10, 1, 9, 30),
+            is_recurring=False,
+        )
+        db_session.add(future)
+        db_session.commit()
+
+        all_cancelled_ics = [
+            ICSEvent(
+                uid="only-cancelled@workmain",
+                title="Ghost Meeting",
+                start_time=datetime(2099, 10, 1, 10, 0),
+                end_time=datetime(2099, 10, 1, 10, 30),
+                is_recurring=False,
+                is_cancelled=True,
+            ),
+        ]
+
+        today = date(2026, 1, 1)
+        removed = detect_removed_meetings(db_session, all_cancelled_ics, today)
+        assert removed == []
