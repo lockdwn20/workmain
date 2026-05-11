@@ -1,6 +1,6 @@
 # WorkmAIn
-# CLI_STANDARDS.md v1.9
-# 20260506
+# CLI_STANDARDS.md v2.0
+# 20260511
 
 ---
 
@@ -37,6 +37,8 @@
   for `meetings track`; Violation Register item 15 resolved.
 - v1.9 (20260506): §5.3 `-l/--title` scope expanded to include `schedule holiday add` and
   `schedule timeoff add`; Violation Register V19–V22 added and resolved (hotfix v1.11.3).
+- v2.0 (20260511): §5.3 no-short-form table updated — `--cancelled` added (infrequent
+  filter for historical cancelled meeting lookup; hotfix soft-cancel).
 
 ---
 
@@ -337,6 +339,7 @@ The following flags intentionally have no short form. These are either infrequen
 | `--until` | Infrequent meeting setup option |
 | `--include-weekends` | Infrequent meeting setup option |
 | `--all` on `clockify sync push` | Infrequent bulk override — deliberate friction appropriate |
+| `--cancelled` | Infrequent filter — historical cancelled meeting lookup (`meetings list`) |
 
 Do not add short forms to these flags in future phases without explicit justification and user approval.
 

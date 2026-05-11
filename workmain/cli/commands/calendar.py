@@ -1,7 +1,7 @@
 """
 WorkmAIn Calendar Commands
-Calendar Commands v1.4
-20260401
+Calendar Commands v1.5
+20260511
 
 Calendar command group for Outlook calendar integration (Phase 6).
 
@@ -23,6 +23,8 @@ Version History:
 - v1.3: Surface date_shift_notes status in preview; import Note for note-count queries
 - v1.4: CLI Standardization Sprint Part 1 (WU-8) — remove 'sync' action positional from
         today/week/month; add dedicated 'calendar sync' subcommand (NotImplementedError stub)
+- v1.5: Hotfix soft-cancel — add _detect_removed_preview(); extend preview with 'removed'
+        status; extend summary + confirm prompt with removed count; import detect_removed_meetings
 """
 
 import click
@@ -40,6 +42,7 @@ from workmain.utils.ics_parser import (
     ICSParseError,
     _fallback_match,
     _find_stale_duplicates,
+    detect_removed_meetings,
     import_events_to_db,
     parse_ics_file,
 )
@@ -158,6 +161,19 @@ def _classify_events(session, events: list[ICSEvent]) -> list[dict]:
     return classified
 
 
+def _detect_removed_preview(session, events: list[ICSEvent]) -> list[dict]:
+    """
+    Return classified dicts for meetings that will be soft-cancelled by the
+    reconciliation step — future DB meetings within the ICS date window that
+    are absent from the ICS UID set.
+
+    Returns list of dicts: {event: None, status: 'removed', existing: Meeting}
+    """
+    from datetime import date
+    removed = detect_removed_meetings(session, events, date.today())
+    return [{'event': None, 'status': 'removed', 'existing': m} for m in removed]
+
+
 def _count_vevents(raw: bytes) -> int:
     """Count total VEVENT blocks in raw ICS bytes."""
     from icalendar import Calendar as ICSCalendar
@@ -172,13 +188,15 @@ def _display_import_preview(classified: list[dict]) -> None:
         'updated': 'yellow',
         'unchanged': 'dim',
         'cancelled': 'red',
+        'removed': 'red',
         'date_shift_notes': 'cyan',
     }
     _STATUS_LABEL = {
         'new': '(new)',
         'updated': '(updated)',
         'unchanged': '(unchanged)',
-        'cancelled': '(deleted)',
+        'cancelled': '(cancelled)',
+        'removed': '(cancelled — no longer in Outlook)',
         'date_shift_notes': '(notes kept on original date — new occurrence added)',
     }
 
@@ -190,10 +208,13 @@ def _display_import_preview(classified: list[dict]) -> None:
         label = _STATUS_LABEL[status]
         id_str = f"{existing.id:4d}" if existing else "    "
 
-        if status == 'cancelled':
+        if status in ('cancelled', 'removed'):
+            meeting = existing if status == 'removed' else None
+            dt = existing.start_time if status == 'removed' else event.start_time
+            title = existing.title if status == 'removed' else event.title
             console.print(
-                f"  \\[{id_str}] {_fmt_date(event.start_time)}  "
-                f"[{color}]{event.title}  {label}[/{color}]"
+                f"  \\[{id_str}] {_fmt_date(dt)}  "
+                f"[{color}]{title}  {label}[/{color}]"
             )
         else:
             console.print(
@@ -214,9 +235,9 @@ def _build_summary_str(counts: dict) -> str:
         parts.append(f"[yellow]{counts['updated']} updated[/yellow]")
     if counts.get('unchanged'):
         parts.append(f"[dim]{counts['unchanged']} unchanged[/dim]")
-    if counts.get('deleted') or counts.get('cancelled'):
-        n = counts.get('deleted') or counts.get('cancelled', 0)
-        parts.append(f"[red]{n} deleted[/red]")
+    total_cancelled = counts.get('cancelled', 0) + counts.get('removed', 0)
+    if total_cancelled:
+        parts.append(f"[red]{total_cancelled} cancelled[/red]")
     if counts.get('date_shift_notes'):
         parts.append(f"[cyan]{counts['date_shift_notes']} notes preserved on original date[/cyan]")
     return ", ".join(parts) if parts else "[dim]nothing to do[/dim]"
@@ -438,12 +459,14 @@ def calendar_import(file: str, dry_run: bool, silent: bool):
 
         # --- Classify events (no DB writes) ---
         classified = _classify_events(session, events)
+        removed_preview = _detect_removed_preview(session, events)
 
         counts_preview = {
             'new': sum(1 for c in classified if c['status'] == 'new'),
             'updated': sum(1 for c in classified if c['status'] == 'updated'),
             'unchanged': sum(1 for c in classified if c['status'] == 'unchanged'),
             'cancelled': sum(1 for c in classified if c['status'] == 'cancelled'),
+            'removed': len(removed_preview),
             'date_shift_notes': sum(1 for c in classified if c['status'] == 'date_shift_notes'),
         }
 
@@ -468,7 +491,7 @@ def calendar_import(file: str, dry_run: bool, silent: bool):
 
         # --- Preview table (non-dry-run, non-silent) ---
         if not silent:
-            _display_import_preview(classified)
+            _display_import_preview(classified + removed_preview)
 
         summary_str = _build_summary_str(counts_preview)
 
@@ -484,6 +507,7 @@ def calendar_import(file: str, dry_run: bool, silent: bool):
         if (counts_preview['new'] == 0
                 and counts_preview['updated'] == 0
                 and counts_preview['cancelled'] == 0
+                and counts_preview['removed'] == 0
                 and counts_preview['date_shift_notes'] == 0):
             console.print(f"Nothing to import: {summary_str}")
             console.print()
@@ -496,6 +520,9 @@ def calendar_import(file: str, dry_run: bool, silent: bool):
                 f"{counts_preview['updated']} updated",
                 f"{counts_preview['unchanged']} unchanged",
             ]
+            if counts_preview['cancelled'] + counts_preview['removed']:
+                total_cancelled = counts_preview['cancelled'] + counts_preview['removed']
+                parts.append(f"{total_cancelled} cancelled")
             if counts_preview['date_shift_notes']:
                 parts.append(
                     f"{counts_preview['date_shift_notes']} notes preserved on original date"
