@@ -1,7 +1,7 @@
 """
 WorkmAIn Time CLI Commands
-Time Commands v1.4
-20260501
+Time Commands v1.5
+20260512
 
 CLI commands for time tracking with 24-hour format support and Clockify sync.
 Replaces track.py — `track` and `time` groups merged into a single `time` group.
@@ -21,6 +21,7 @@ Version History:
         when entry_date is in the past so notes land on the correct date
 - v1.4: Item 26 (CLI V18) — name-or-ID resolution on time edit/delete. New
         _resolve_time_entry() helper; both commands accept ID or description substring.
+- v1.5: Phase 11 Gate 5 — stamp active_client_id on time_repo.create() in time add
 """
 
 import click
@@ -29,6 +30,7 @@ from typing import Optional
 
 from workmain.database.connection import get_db
 from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+from workmain.database.repositories.system_state_repository import SystemStateRepository
 from workmain.integrations.clockify.sync import ClockifySync
 
 
@@ -213,6 +215,7 @@ def time_add(description: Optional[str], duration: str, time: str,
     db = get_db()
     session = db.get_session()
     repo = TimeEntriesRepository(session)
+    active_client_id = SystemStateRepository(session).get_int('active_client_id')
 
     try:
         # Parse duration
@@ -291,7 +294,8 @@ def time_add(description: Optional[str], duration: str, time: str,
             entry_time=entry_time,
             category=category,
             project_id=project,
-            meeting_id=meeting_obj.id if meeting_obj else None
+            meeting_id=meeting_obj.id if meeting_obj else None,
+            client_id=active_client_id,
         )
 
         # Success message

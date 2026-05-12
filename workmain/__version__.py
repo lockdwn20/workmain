@@ -1,9 +1,20 @@
 """
 WorkmAIn Package Version
-Version v1.12.2
-20260511
+Version v1.13.0
+20260512
 
 Version History:
+- v1.13.0: Phase 11 complete — Client & Recipient Management foundation. New system_state
+           KV table replaces notification_config; NotificationConfigRepository migrated to
+           SystemStateRepository. New clients table with CRUD, CHECK constraint blocking
+           'internal' name, and is_active flag. client_id FK (nullable, ON DELETE SET NULL)
+           added to notes, meetings, time_entries, and reports. All data-creation commands
+           (notes add/log, meetings create, time add, reports save, slack post) read
+           active_client_id from system_state. Report generator reads template recipient_type
+           and applies client filter (client→filter by client_id; internal→no filter). EOD
+           weekly step skips if no active client is set. New `workmain clients` CLI group
+           with add/list/show/delete/set active/status subcommands. interface.py status()
+           and today() updated with active client display. 43 new tests; suite: 282 passed.
 - v1.12.2: Hotfix soft-cancel — detect recurring meetings cancelled by organizer without
            STATUS:CANCELLED signal; reconciliation step in ICS import soft-cancels future
            meetings absent from the ICS date window; STATUS:CANCELLED path also soft-cancels
@@ -167,7 +178,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.12.2"
-__version_info__ = (1, 12, 2)
+__version__ = "1.13.0"
+__version_info__ = (1, 13, 0)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
