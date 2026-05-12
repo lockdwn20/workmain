@@ -1,32 +1,37 @@
 """
 WorkmAIn Notifications Command Tests
-test_notifications_commands.py v1.0
-20260505
+test_notifications_commands.py v2.0
+20260512
 
 Tests for NotificationConfigRepository and the notifications CLI command group.
 CLI-level tests (notifications test, notifications status) use CliRunner with
 mocked delivery and filesystem — no actual notification dispatch occurs.
 
 Uses db_session fixture for full transaction isolation.
-The id=1 seed row (from migration 008_notification_config.sql) is committed
-to the database and visible within each test transaction.
+Repository now reads/writes system_state KV rows (keys: notify_method,
+notify_enabled) — no notification_config table (dropped in migration 010).
 
 Version History:
-- v1.0: Phase 10 Gate 10 initial implementation
+- v1.0: Phase 10 Gate 10 initial implementation (notification_config table)
+- v2.0: Phase 11 Gate 2 — updated for NotificationConfigData dataclass and
+        system_state-backed repository; removed NotificationConfig model
+        references and id=1 row assertions
 """
 
 import json
 import os
 from datetime import date
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 from click.testing import CliRunner
 
 from workmain.cli.commands.notifications import notifications
-from workmain.database.models import NotificationConfig
-from workmain.database.repositories.notification_repository import NotificationConfigRepository
+from workmain.database.models import SystemState
+from workmain.database.repositories.notification_repository import (
+    NotificationConfigData,
+    NotificationConfigRepository,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -34,7 +39,7 @@ from workmain.database.repositories.notification_repository import NotificationC
 # ---------------------------------------------------------------------------
 
 class TestNotificationConfig:
-    """notifications CLI set/enable/disable commands update notification_config."""
+    """notifications CLI set/enable/disable commands update system_state."""
 
     def _invoke(self, *args):
         """Invoke the notifications group with given args via CliRunner."""
@@ -42,10 +47,10 @@ class TestNotificationConfig:
         return runner.invoke(notifications, list(args))
 
     def test_default_config_row_exists(self, db_session):
-        """The seeded id=1 row exists and has expected defaults."""
+        """system_state keys exist and return valid defaults."""
         repo = NotificationConfigRepository(db_session)
         config = repo.get_config()
-        assert config.id == 1
+        assert isinstance(config, NotificationConfigData)
         assert config.method in ('terminal', 'os', 'email')
         assert isinstance(config.enabled, bool)
 
@@ -88,19 +93,22 @@ class TestNotificationConfig:
 class TestNotificationConfigRepository:
     """NotificationConfigRepository behaviour guarantees."""
 
-    def test_get_config_returns_single_row(self, db_session):
-        """get_config() returns exactly one row and raises on missing seed."""
+    def test_get_config_returns_config_data(self, db_session):
+        """get_config() returns a NotificationConfigData with expected fields."""
         repo = NotificationConfigRepository(db_session)
         config = repo.get_config()
         assert config is not None
-        assert config.id == 1
+        assert isinstance(config, NotificationConfigData)
+        assert hasattr(config, 'method')
+        assert hasattr(config, 'enabled')
+        assert hasattr(config, 'updated_at')
 
     def test_set_method_updates_not_inserts(self, db_session):
-        """Calling set_method() twice does not insert a second row."""
+        """Calling set_method() twice updates the value — only one key per method."""
         repo = NotificationConfigRepository(db_session)
         repo.set_method('terminal')
         repo.set_method('os')
-        count = db_session.query(NotificationConfig).count()
+        count = db_session.query(SystemState).filter_by(key='notify_method').count()
         assert count == 1
         assert repo.get_config().method == 'os'
 
