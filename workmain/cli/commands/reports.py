@@ -1,7 +1,7 @@
 """
 WorkmAIn Report Commands - Phase 4 Implementation
-Report Commands v2.5
-20260401
+Report Commands v2.6
+20260512
 
 Static action-first command structure — template is an argument.
 
@@ -43,6 +43,8 @@ Version History:
 - v2.5: CLI Standardization Sprint Part 1 (WU-6) — consolidated `reports view <id>` into
         `reports show`; show now accepts either int ID (DB lookup) or str filename (file read);
         `view` command removed
+- v2.6: Phase 11 Gate 5 — generate_report_impl reads active_client_id and passes to
+        generator.generate_report()
 """
 
 import subprocess
@@ -58,6 +60,7 @@ from rich import box
 
 from workmain.database.connection import get_db
 from workmain.database.models import Report
+from workmain.database.repositories.system_state_repository import SystemStateRepository
 from workmain.ai import get_report_generator, ReportFormat, ProviderType
 
 VALID_REPORT_TYPES = ['daily_internal', 'weekly_client']
@@ -89,6 +92,7 @@ def generate_report_impl(
 
     try:
         generator = get_report_generator(session)
+        active_client_id = SystemStateRepository(session).get_int('active_client_id')
         if report_date is None:
             report_date = datetime.today().date()
 
@@ -133,7 +137,8 @@ def generate_report_impl(
                 max_tokens=max_tokens,
                 temperature=temperature,
                 save_to_file=True,
-                output_format=ReportFormat.MARKDOWN
+                output_format=ReportFormat.MARKDOWN,
+                client_id=active_client_id,
             )
 
             console.print()

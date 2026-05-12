@@ -1,7 +1,7 @@
 """
 WorkmAIn Notes Repository
-Notes Repository v1.6
-20260501
+Notes Repository v1.7
+20260512
 
 Data access layer for notes with tag filtering and full-text search.
 Handles all CRUD operations for the notes table.
@@ -16,6 +16,7 @@ Version History:
         retroactively-entered notes land on the correct date for report generation
 - v1.6: Add find_by_content_like() for name-or-ID resolution on edit/delete commands
         (Item 26, CLI V18)
+- v1.7: Phase 11 Gate 5 — create() accepts client_id for attribution stamping
 """
 
 from datetime import date, datetime
@@ -57,6 +58,7 @@ class NotesRepository:
         meeting_id: Optional[int] = None,
         source: str = 'ad-hoc',
         created_at: Optional[datetime] = None,
+        client_id: Optional[int] = None,
     ) -> Note:
         """
         Create a new note.
@@ -69,6 +71,7 @@ class NotesRepository:
             source: Note source ('ad-hoc', 'meeting', 'task')
             created_at: Override creation timestamp (used when backdating entries
                         so note.created_date matches the intended entry date)
+            client_id: Optional client ID for attribution (None = internal mode)
 
         Returns:
             Created Note object
@@ -83,6 +86,7 @@ class NotesRepository:
             meeting_id=meeting_id,
             source=source,
             created_at=created_at or datetime.now(),
+            client_id=client_id,
         )
         
         self.session.add(note)

@@ -1,7 +1,7 @@
 """
 WorkmAIn Notes CLI Commands
-Notes Commands v3.4
-20260501
+Notes Commands v3.5
+20260512
 
 Unified notes command group. Consolidates note (write) and notes (read) groups
 from note.py into a single group with all subcommands.
@@ -32,6 +32,8 @@ Version History:
         Direction B: fuzzy_match_meeting() checks isdigit() first; notes log and
         notes meeting also resolve meeting by ID or title.
         New helper: _resolve_note().
+- v3.5: Phase 11 Gate 5 — stamp active_client_id on all notes_repo.create() and
+        time_repo.create() call sites (notes add, notes log condensation flow)
 """
 
 import click
@@ -44,6 +46,7 @@ from typing import Optional
 from workmain.database.connection import get_db
 from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.meetings_repo import MeetingsRepository
+from workmain.database.repositories.system_state_repository import SystemStateRepository
 from workmain.utils.tag_utils import parse_tags, get_tag_system
 
 
@@ -275,6 +278,7 @@ def notes_add(text: Optional[str], tags: Optional[str], meeting: Optional[str],
     session = db.get_session()
     notes_repo = NotesRepository(session)
     meetings_repo = MeetingsRepository(session)
+    active_client_id = SystemStateRepository(session).get_int('active_client_id')
 
     try:
         # Get meeting ID if specified
@@ -335,7 +339,8 @@ def notes_add(text: Optional[str], tags: Optional[str], meeting: Optional[str],
             tags=all_tags,
             meeting_id=meeting_id,
             project_id=project,
-            source=source
+            source=source,
+            client_id=active_client_id,
         )
 
         # Success message
@@ -367,7 +372,8 @@ def notes_add(text: Optional[str], tags: Optional[str], meeting: Optional[str],
                     entry_date=note.meeting.start_time.date(),
                     entry_time=note.meeting.start_time.time(),
                     category='meeting',
-                    meeting_id=note.meeting.id
+                    meeting_id=note.meeting.id,
+                    client_id=active_client_id,
                 )
 
                 click.echo(f"✓ Time entry created: {meeting_duration:.2f}h - {time_description}")
@@ -514,6 +520,7 @@ def notes_log(meeting: str):
     session = db.get_session()
     notes_repo = NotesRepository(session)
     meetings_repo = MeetingsRepository(session)
+    active_client_id = SystemStateRepository(session).get_int('active_client_id')
 
     try:
         # Resolve meeting by ID or fuzzy title match (Item 26 Direction B fix)
@@ -633,7 +640,8 @@ def notes_log(meeting: str):
                         content=clean_text,
                         tags=note_tags if note_tags else ['internal-only'],
                         meeting_id=meeting_obj.id,
-                        source='meeting'
+                        source='meeting',
+                        client_id=active_client_id,
                     )
                     created_count += 1
                     click.echo(f"  ✓ {note.display_tags} {clean_text[:60]}")
@@ -665,7 +673,8 @@ def notes_log(meeting: str):
                     content=summary,
                     tags=['both'],
                     meeting_id=meeting_obj.id,
-                    source='condensed'
+                    source='condensed',
+                    client_id=active_client_id,
                 )
                 click.echo(f"✓ Note created (ID: {condensed_note.id})")
 
@@ -691,7 +700,8 @@ def notes_log(meeting: str):
                         entry_date=meeting_obj.start_time.date(),
                         entry_time=meeting_obj.start_time.time(),
                         category='meeting',
-                        meeting_id=meeting_obj.id
+                        meeting_id=meeting_obj.id,
+                        client_id=active_client_id,
                     )
                     click.echo(f"✓ Time entry created (ID: {entry.id}, {duration_hours:.2f}h)")
 
