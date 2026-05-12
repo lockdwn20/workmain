@@ -1,7 +1,7 @@
 """
 WorkmAIn
-CLI Interface v2.8.0
-20260505
+CLI Interface v2.9.0
+20260512
 
 Main CLI interface using Click framework
 Updated for CLI Standardization Sprint Part 1
@@ -38,6 +38,7 @@ Version History:
 - v2.6.0: Phase 10 Gate 6 — register schedule command group
 - v2.7.0: Phase 10 Gate 7 — register notifications command group
 - v2.8.0: Phase 10 Gate 9 — status() Phase 10 rows + footer; today() hints
+- v2.9.0: Phase 11 Gate 4 — register clients command group
 
 """
 
@@ -53,6 +54,7 @@ except ImportError:
     __version__ = "1.1.0"
 
 # Import Phase 2 commands
+from workmain.cli.commands.clients import clients
 from workmain.cli.commands.notes import notes
 from workmain.cli.commands.meetings import meetings
 from workmain.cli.commands.time import time
@@ -270,6 +272,7 @@ def today():
 
 
 # Phase 2: Note and Meeting Commands
+cli.add_command(clients)
 cli.add_command(notes)
 cli.add_command(meetings)
 
