@@ -1,6 +1,6 @@
 """
 WorkmAIn Report Commands - Phase 4 Implementation
-Report Commands v2.6
+Report Commands v2.7
 20260512
 
 Static action-first command structure — template is an argument.
@@ -45,6 +45,8 @@ Version History:
         `view` command removed
 - v2.6: Phase 11 Gate 5 — generate_report_impl reads active_client_id and passes to
         generator.generate_report()
+- v2.7: Phase 11 Gate 6 — add get_client_filter(); apply client filter in generate_report_impl;
+        informational exit when client report requested with no active client
 """
 
 import subprocess
@@ -66,6 +68,26 @@ from workmain.ai import get_report_generator, ReportFormat, ProviderType
 VALID_REPORT_TYPES = ['daily_internal', 'weekly_client']
 
 console = Console()
+
+
+def get_client_filter(
+    recipient_type: str,
+    active_client_id: Optional[int],
+) -> tuple:
+    """
+    Returns (filter_client, client_id) based on template recipient_type.
+
+    internal_management: filter_client=False — pull ALL records regardless of
+        client_id. Daily internal reports must show all work across all clients.
+    client: filter_client=True — pull only records where client_id = active_client_id.
+    Unknown type: filter_client=False (safe default), no filtering applied.
+    """
+    if recipient_type == 'internal_management':
+        return False, None
+    elif recipient_type == 'client':
+        return True, active_client_id
+    else:
+        return False, None
 
 
 def generate_report_impl(
@@ -91,10 +113,27 @@ def generate_report_impl(
     session = db.get_session()
 
     try:
+        from workmain.templates_engine import get_template_loader
         generator = get_report_generator(session)
         active_client_id = SystemStateRepository(session).get_int('active_client_id')
         if report_date is None:
             report_date = datetime.today().date()
+
+        # Determine client filter based on template recipient_type
+        template_loader = get_template_loader()
+        template = template_loader.load(template_name)
+        recipient_type = template.get('recipient_type', 'internal_management')
+        filter_client, client_id_filter = get_client_filter(recipient_type, active_client_id)
+
+        # Informational exit: client report requested with no active client
+        if filter_client and client_id_filter is None:
+            console.print(
+                f"[yellow]Report skipped — no active client set.[/yellow]\n"
+                f"'{template_name}' requires a client context "
+                f"(recipient_type: {recipient_type}).\n"
+                "Run 'workmain clients set active <name>' then retry."
+            )
+            return
 
         if preview_only:
             console.print(f"\n[cyan]Previewing {template_name} report for {report_date}...[/cyan]\n")
@@ -139,6 +178,8 @@ def generate_report_impl(
                 save_to_file=True,
                 output_format=ReportFormat.MARKDOWN,
                 client_id=active_client_id,
+                filter_client=filter_client,
+                client_id_filter=client_id_filter,
             )
 
             console.print()

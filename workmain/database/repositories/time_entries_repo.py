@@ -1,6 +1,6 @@
 """
 WorkmAIn Time Entries Repository
-Time Entries Repository v1.5
+Time Entries Repository v1.6
 20260512
 
 Data access layer for time entries with 24-hour time format.
@@ -15,6 +15,7 @@ Version History:
 - v1.4: Add find_by_description_like() for name-or-ID resolution on time edit/delete
         commands (Item 26, CLI V18)
 - v1.5: Phase 11 Gate 5 — create() accepts client_id for attribution stamping
+- v1.6: Phase 11 Gate 6 — add get_for_date_client() for client-filtered report queries
 """
 
 from datetime import date, datetime, time, timedelta
@@ -206,6 +207,41 @@ class TimeEntriesRepository:
         
         return query.order_by(TimeEntry.entry_date, TimeEntry.entry_time).all()
     
+    def get_for_date_client(
+        self,
+        start_date: date,
+        end_date: date,
+        client_id: Optional[int] = None,
+        filter_client: bool = False,
+    ) -> List[TimeEntry]:
+        """
+        Get time entries within a date range with optional client filter.
+
+        Mirrors get_date_range() — same entry_date filter logic.
+        filter_client=False: all records for date range (internal reports).
+        filter_client=True: records where client_id = client_id (client reports).
+
+        Args:
+            start_date: Start date (inclusive)
+            end_date: End date (inclusive)
+            client_id: Client ID to filter by (only used when filter_client=True)
+            filter_client: Apply client_id WHERE clause when True
+
+        Returns:
+            List of TimeEntry objects
+        """
+        query = self.session.query(TimeEntry).filter(
+            and_(
+                TimeEntry.entry_date >= start_date,
+                TimeEntry.entry_date <= end_date
+            )
+        )
+
+        if filter_client:
+            query = query.filter(TimeEntry.client_id == client_id)
+
+        return query.order_by(TimeEntry.entry_date, TimeEntry.entry_time).all()
+
     def get_week(
         self,
         start_of_week: Optional[date] = None,
