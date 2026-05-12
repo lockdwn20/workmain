@@ -1,6 +1,6 @@
 # WorkmAIn
-# CLI_STANDARDS.md v2.0
-# 20260511
+# CLI_STANDARDS.md v2.1
+# 20260512
 
 ---
 
@@ -39,6 +39,8 @@
   `schedule timeoff add`; Violation Register V19–V22 added and resolved (hotfix v1.11.3).
 - v2.0 (20260511): §5.3 no-short-form table updated — `--cancelled` added (infrequent
   filter for historical cancelled meeting lookup; hotfix soft-cancel).
+- v2.1 (20260512): Violation Register V23 added — `clients set active` approved deviation
+  from §4.3 name-or-ID rule (name-only by design; Phase 11).
 
 ---
 
@@ -467,6 +469,7 @@ The following existing commands were audited against this standard on 20260320 a
 | 20 | `schedule timeoff add` | Start/end dates as positional arguments, not `--start/-b` / `--end/-e` options | §5.3 | High | **Resolved (hotfix v1.11.3):** Converted to `--start/-b` and `--end/-e` required options |
 | 21 | `schedule timeoff add --notes/-N` | Used `--notes/-N` instead of `--title/-l`; `-N` scoped to `time add` only | §5.3 | High | **Resolved (hotfix v1.11.3):** Replaced with `--title/-l` consistent with `holiday add` |
 | 22 | `schedule holiday remove`, `schedule timeoff remove` | `remove` is a banned synonym for `delete` per §3.2 | §3.2 | Medium | **Resolved (hotfix v1.11.3):** Renamed to `delete` |
+| 23 | `clients set active` | Accepts name only — intentionally deviates from §4.3 name-or-ID rule | §4.3 | Approved deviation | **By design (Phase 11, v1.13.0):** `clients set active` accepts client name only (not ID) to prevent accidental context switch via a mistyped integer. Name is the natural identifier for "which client am I working on." ID-resolution path deliberately omitted. |
 
 **Severity definitions:**
 - **High** — Affects discoverability, breaks the integration pattern, or creates naming confusion for users

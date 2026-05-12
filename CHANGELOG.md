@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-05-12
+
+### Added
+- **`workmain clients` CLI group** — full CRUD for client records: `clients add <name>`,
+  `clients list`, `clients show <name-or-id>`, `clients delete <name> [--force]`,
+  `clients set active <name>`, `clients status`. `set active internal` clears the active
+  context. The name `internal` (any case) is reserved and cannot be used as a client name.
+- **`system_state` table** — generic key-value store (`TEXT` key, `TEXT` value,
+  `updated_at TIMESTAMPTZ`). Replaces `notification_config` for all settings that were
+  previously stored there. New `SystemStateRepository` with typed helpers: `get_bool()`,
+  `set_bool()`, `get_int()`.
+- **`clients` table** — stores client records with `is_active` flag and a CHECK constraint
+  preventing `lower(name) = 'internal'`. New `ClientRepository` with atomic `set_active()`
+  that updates both `clients.is_active` and `system_state.active_client_id` in one
+  transaction, guaranteeing exactly one active client at all times.
+- **`client_id` FK on all data tables** — nullable `client_id` (ON DELETE SET NULL) added
+  to `notes`, `meetings`, `time_entries`, and `reports`. All data-creation commands now read
+  `active_client_id` from `system_state` and stamp it onto every new record.
+- **`get_client_filter()` in `reports.py`** — reads `recipient_type` from the active
+  template JSON (`client` → filter by active client_id; `internal_management` → no filter)
+  and returns `(filter_client, client_id_filter)` for the report generator.
+- **43 new tests** — `test_system_state_repository.py` (11), `test_client_repository.py`
+  (15), `test_clients_commands.py` (17). Suite: 282 passed.
+
+### Changed
+- **`NotificationConfigRepository` replaced by `SystemStateRepository`** — all Phase 10
+  notification settings previously stored in `notification_config` are now stored in
+  `system_state`. `NotificationConfigRepository` removed; callers migrated to
+  `SystemStateRepository`.
+- **Data-creation commands stamp active client** — `notes add`, `notes log`,
+  `meetings create`, `time add`, `reports save`, and `slack post` each read
+  `active_client_id` from `system_state` at call time and pass `client_id` to the
+  underlying repository `create()` call.
+- **`prompt_builder.py` supports client filtering** — `build_prompt()` accepts
+  `filter_client` and `client_id` params; private fetch methods call
+  `get_for_date_client()` variants on notes, time, and meetings repositories so reports
+  only include the active client's data when `recipient_type = 'client'`.
+- **`eod.py` weekly step skips without active client** — `_run_weekly_report_step()`
+  checks `system_state.active_client_id` before spawning the weekly report subprocess;
+  skips gracefully (non-fatal) if no client is set.
+- **`interface.py` updated for Phase 11** — `status()` shows `Active Client` line and
+  `Clients Configured` count; `today()` includes a CLIENT CONTEXT section with four
+  command hints.
+
+### Removed
+- **`notification_config` table** — superseded by `system_state`. Migration
+  `010_add_system_state.sql` creates `system_state`; `011_add_clients.sql` creates
+  `clients`; `012_add_client_id_attribution.sql` adds `client_id` FKs and drops
+  `notification_config`.
+
 ## [1.12.2] - 2026-05-11
 
 ### Fixed
