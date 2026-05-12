@@ -1,7 +1,7 @@
 """
 WorkmAIn AI Prompt Builder
-Prompt Builder v1.6
-20260430
+Prompt Builder v1.7
+20260512
 
 Dynamic prompt construction for AI report generation.
 
@@ -26,6 +26,8 @@ Version History:
 - v1.6: Hotfix eod-backdate-bugs-2 — always include individual time entry descriptions
         in every section's context (not just time_tracking/summary); project-level
         summary still gated; fixes backdated reports missing non-meeting work entries
+- v1.7: Phase 11 Gate 6 — build_prompt() accepts filter_client and client_id;
+        stores on instance; private data-fetch methods use get_for_date_client()
 
 Workflow:
 1. Load template structure
@@ -82,27 +84,39 @@ class PromptBuilder:
         self.notes_repo = NotesRepository(session)
         self.time_repo = TimeEntriesRepository(session)
         self.meetings_repo = MeetingsRepository(session)
+
+        # Client filter state — set by build_prompt() before each report
+        self._filter_client: bool = False
+        self._client_id: Optional[int] = None
     
     def build_prompt(
         self,
         template_name: str,
         report_date: date,
-        section_name: Optional[str] = None
+        section_name: Optional[str] = None,
+        filter_client: bool = False,
+        client_id: Optional[int] = None,
     ) -> Tuple[str, str]:
         """
         Build complete prompt for report generation.
-        
+
         Args:
             template_name: Name of template to use
             report_date: Date for the report
             section_name: Optional - generate only this section
-            
+            filter_client: When True, restrict data queries to client_id records only
+            client_id: Client ID for filtering (only applied when filter_client=True)
+
         Returns:
             Tuple of (system_prompt, user_prompt)
-            
+
         Raises:
             ValueError: If template not found or invalid
         """
+        # Store filter context for private helper methods
+        self._filter_client = filter_client
+        self._client_id = client_id
+
         # Load template
         template = self.template_loader.load(template_name)
         
@@ -384,12 +398,14 @@ class PromptBuilder:
         Returns:
             List of note dictionaries
         """
-        # Database-level filtering handles tag inclusion/exclusion
-        notes = self.notes_repo.get_date_range(
+        # Database-level filtering handles tag inclusion/exclusion and client filter
+        notes = self.notes_repo.get_for_date_client(
             start_date=start_date,
             end_date=end_date,
             include_tags=tags_include if tags_include else None,
-            exclude_tags=tags_exclude if tags_exclude else None
+            exclude_tags=tags_exclude if tags_exclude else None,
+            client_id=self._client_id,
+            filter_client=self._filter_client,
         )
 
         # Convert to dictionaries (filtering already done by repository)
@@ -414,9 +430,11 @@ class PromptBuilder:
         Returns:
             List of time entry dictionaries
         """
-        entries = self.time_repo.get_date_range(  # ← Fixed: get_date_range not get_by_date_range
+        entries = self.time_repo.get_for_date_client(
             start_date=start_date,
-            end_date=end_date
+            end_date=end_date,
+            client_id=self._client_id,
+            filter_client=self._filter_client,
         )
         
         return [{
@@ -441,21 +459,13 @@ class PromptBuilder:
         Returns:
             List of meeting dictionaries
         """
-        from workmain.database.models import Meeting
-        from sqlalchemy import and_
-        
-        # Convert dates to datetimes for query
-        start_dt = datetime.combine(start_date, datetime.min.time())
-        end_dt = datetime.combine(end_date, datetime.max.time())
-        
-        # Query meetings directly (MeetingsRepository doesn't have get_date_range)
-        meetings = self.session.query(Meeting).filter(
-            and_(
-                Meeting.start_time >= start_dt,
-                Meeting.start_time <= end_dt
-            )
-        ).order_by(Meeting.start_time).all()
-        
+        meetings = self.meetings_repo.get_for_date_client(
+            start_date=start_date,
+            end_date=end_date,
+            client_id=self._client_id,
+            filter_client=self._filter_client,
+        )
+
         return [{
             "title": meeting.title,
             "start_time": meeting.start_time.strftime("%H:%M"),

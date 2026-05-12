@@ -1,7 +1,7 @@
 """
 WorkmAIn Meeting CLI Commands
-Meeting Commands v4.0
-20260511
+Meeting Commands v4.1
+20260512
 
 CLI commands for meeting management.
 
@@ -47,6 +47,8 @@ Version History:
         patterns). All commands set is_manually_modified=True via repo.update().
 - v4.0: Hotfix soft-cancel — add --cancelled flag to meetings list; filter cancelled
         meetings from default list output; show [CANCELLED] badge in meetings show
+- v4.1: Phase 11 Gate 5 — stamp active_client_id on both meetings_repo.create() call
+        sites (recurring occurrences loop and single meeting creation)
 """
 
 import click
@@ -61,6 +63,7 @@ from rich import box
 from workmain.database.connection import get_db
 from workmain.database.models import Meeting
 from workmain.database.repositories.meetings_repo import MeetingsRepository
+from workmain.database.repositories.system_state_repository import SystemStateRepository
 from workmain.ai.note_condenser import get_note_condenser
 
 
@@ -225,7 +228,8 @@ def create(title: str, start: str, end: str, meeting_date: Optional[str],
     db = get_db()
     session = db.get_session()
     repo = MeetingsRepository(session)
-    
+    active_client_id = SystemStateRepository(session).get_int('active_client_id')
+
     try:
         # Validate recurring parameters and set default --until
         if recurring and not until:
@@ -306,7 +310,8 @@ def create(title: str, start: str, end: str, meeting_date: Optional[str],
                     end_time=occurrence_end,
                     attendees=list(attendees) if attendees else [],
                     is_recurring=True,
-                    outlook_recurring_id=recurring_id
+                    outlook_recurring_id=recurring_id,
+                    client_id=active_client_id,
                 )
                 meetings_created.append(meeting)
                 
@@ -365,7 +370,8 @@ def create(title: str, start: str, end: str, meeting_date: Optional[str],
                 start_time=start_dt,
                 end_time=end_dt,
                 attendees=list(attendees) if attendees else [],
-                is_recurring=False
+                is_recurring=False,
+                client_id=active_client_id,
             )
             
             duration = (end_dt - start_dt).total_seconds() / 3600

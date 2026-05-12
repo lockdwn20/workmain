@@ -1,7 +1,7 @@
 """
 WorkmAIn
-CLI Interface v2.8.0
-20260505
+CLI Interface v3.0.0
+20260512
 
 Main CLI interface using Click framework
 Updated for CLI Standardization Sprint Part 1
@@ -38,6 +38,9 @@ Version History:
 - v2.6.0: Phase 10 Gate 6 — register schedule command group
 - v2.7.0: Phase 10 Gate 7 — register notifications command group
 - v2.8.0: Phase 10 Gate 9 — status() Phase 10 rows + footer; today() hints
+- v2.9.0: Phase 11 Gate 4 — register clients command group
+- v3.0.0: Phase 11 Gate 7 — status() shows active client context + Phase 11 rows;
+          today() adds Phase 11 client command hints
 
 """
 
@@ -46,6 +49,10 @@ from rich.console import Console
 from rich.table import Table
 from datetime import date
 
+from workmain.database.connection import get_db
+from workmain.database.repositories.client_repository import ClientRepository
+from workmain.database.repositories.system_state_repository import SystemStateRepository
+
 # Import version
 try:
     from workmain.__version__ import __version__
@@ -53,6 +60,7 @@ except ImportError:
     __version__ = "1.1.0"
 
 # Import Phase 2 commands
+from workmain.cli.commands.clients import clients
 from workmain.cli.commands.notes import notes
 from workmain.cli.commands.meetings import meetings
 from workmain.cli.commands.time import time
@@ -149,11 +157,28 @@ def init():
 def status():
     """Show current status and today's overview."""
     console.print(f"\n[bold cyan]WorkmAIn Status - {date.today().strftime('%A, %B %d, %Y')}[/bold cyan]")
-    
+
+    # Active client context
+    db = get_db()
+    session = db.get_session()
+    try:
+        state_repo = SystemStateRepository(session)
+        client_repo = ClientRepository(session)
+        active_client_id = state_repo.get_int('active_client_id')
+        active_client = client_repo.get_by_id(active_client_id) if active_client_id else None
+        client_count = len(client_repo.list_all())
+    finally:
+        session.close()
+
+    if active_client:
+        console.print(f"Active Client: [bold green]{active_client.name}[/bold green] (ID: {active_client.id})")
+    else:
+        console.print("Active Client: [dim]Internal (no client set)[/dim]")
+
     table = Table(show_header=True, header_style="bold magenta")
     table.add_column("Component", style="cyan")
     table.add_column("Status", style="green")
-    
+
     table.add_row("Database", "✓ Connected")
     table.add_row("CLI", "✓ Active")
     table.add_row("Notes", "✓ Phase 2 Complete")
@@ -194,8 +219,17 @@ def status():
     table.add_row("├─ Schedule Exceptions", "✓ schedule holiday/timeoff")
     table.add_row("└─ Delivery Config", "✓ notifications set/test/status")
 
+    active_client_str = active_client.name if active_client else "Internal"
+    table.add_row("Client Management", "⚙ Phase 11 In Progress")
+    table.add_row("├─ Client CRUD", "✓ clients add/list/show/delete")
+    table.add_row("├─ Active Context", f"✓ clients set active ({active_client_str})")
+    table.add_row("├─ Write-Path Attribution", "✓ notes/meetings/time/reports stamped")
+    table.add_row("├─ Report Filtering", "✓ client filter in prompt builder")
+    table.add_row(f"└─ Clients Configured", f"{client_count} client(s)")
+
     console.print(table)
-    console.print("\n[bold green]Phase 10 Complete![/bold green] Ready for Phase 11 (Client & Recipient Management)")
+    console.print("\n[bold yellow]Phase 11 In Progress[/bold yellow] — Client & Recipient Management")
+    console.print(f"  Active client: [bold]{active_client_str}[/bold]")
     console.print("\n[yellow]Tip:[/yellow] Use 'workmain --help' to see all available commands")
 
 
@@ -247,6 +281,12 @@ def today():
     console.print("  workmain eod --skip weekly           # Skip Thu/Fri weekly steps")
     console.print("  workmain eod --dry-run               # Preview without executing")
 
+    console.print("\n[bold yellow]CLIENT CONTEXT[/bold yellow]  [dim](Phase 11)[/dim]")
+    console.print("  workmain clients status              # Show active client context")
+    console.print("  workmain clients set active GMF      # Switch to a client context")
+    console.print("  workmain clients set active internal # Clear client → internal mode")
+    console.print("  workmain clients list                # List all configured clients")
+
     console.print("\n[bold yellow]OTHER USEFUL COMMANDS[/bold yellow]")
     console.print("  workmain notifications status       # Today's inspection observations")
     console.print("  workmain schedule holiday list      # Upcoming holidays (daemon suppression)")
@@ -270,6 +310,7 @@ def today():
 
 
 # Phase 2: Note and Meeting Commands
+cli.add_command(clients)
 cli.add_command(notes)
 cli.add_command(meetings)
 

@@ -1,7 +1,7 @@
 """
 WorkmAIn Meetings Repository
-Meetings Repository v2.1
-20260511
+Meetings Repository v2.3
+20260512
 
 Data access layer for meetings with fuzzy matching and recurring detection.
 Handles all CRUD operations for the meetings table.
@@ -26,6 +26,8 @@ Version History:
         and bulk_update_series_from_date() for series-wide reschedule
 - v2.1: Hotfix soft-cancel — filter is_cancelled=False in get_all, search_by_title,
         get_upcoming; get_by_date and fuzzy_match remain unfiltered for show/resolve
+- v2.2: Phase 11 Gate 5 — create() accepts client_id for attribution stamping
+- v2.3: Phase 11 Gate 6 — add get_for_date_client() for client-filtered report queries
 """
 
 from datetime import datetime, date, time
@@ -67,11 +69,12 @@ class MeetingsRepository:
         outlook_id: Optional[str] = None,
         outlook_recurring_id: Optional[str] = None,
         attendees: Optional[List[str]] = None,
-        is_recurring: bool = False
+        is_recurring: bool = False,
+        client_id: Optional[int] = None,
     ) -> Meeting:
         """
         Create a new meeting.
-        
+
         Args:
             title: Meeting title
             start_time: Meeting start time
@@ -80,7 +83,8 @@ class MeetingsRepository:
             outlook_recurring_id: Outlook recurring series ID (optional)
             attendees: List of attendee emails (optional)
             is_recurring: Whether meeting is recurring
-            
+            client_id: Optional client ID for attribution (None = internal mode)
+
         Returns:
             Created Meeting object
         """
@@ -88,7 +92,7 @@ class MeetingsRepository:
         if end_time is None:
             from datetime import timedelta
             end_time = start_time + timedelta(hours=1)
-        
+
         meeting = Meeting(
             title=title,
             start_time=start_time,
@@ -96,7 +100,8 @@ class MeetingsRepository:
             outlook_id=outlook_id,
             outlook_recurring_id=outlook_recurring_id,
             attendees=attendees,
-            is_recurring=is_recurring
+            is_recurring=is_recurring,
+            client_id=client_id,
         )
         
         self.session.add(meeting)
@@ -105,13 +110,51 @@ class MeetingsRepository:
         
         return meeting
     
+    def get_for_date_client(
+        self,
+        start_date: date,
+        end_date: date,
+        client_id: Optional[int] = None,
+        filter_client: bool = False,
+    ) -> List[Meeting]:
+        """
+        Get meetings within a date range with optional client filter.
+
+        Mirrors the start_time range query used in prompt_builder.
+        filter_client=False: all meetings for date range (internal reports).
+        filter_client=True: meetings where client_id = client_id (client reports).
+
+        Args:
+            start_date: Start date (inclusive)
+            end_date: End date (inclusive)
+            client_id: Client ID to filter by (only used when filter_client=True)
+            filter_client: Apply client_id WHERE clause when True
+
+        Returns:
+            List of Meeting objects ordered by start_time
+        """
+        start_dt = datetime.combine(start_date, time.min)
+        end_dt = datetime.combine(end_date, time.max)
+
+        query = self.session.query(Meeting).filter(
+            and_(
+                Meeting.start_time >= start_dt,
+                Meeting.start_time <= end_dt
+            )
+        )
+
+        if filter_client:
+            query = query.filter(Meeting.client_id == client_id)
+
+        return query.order_by(Meeting.start_time).all()
+
     def get_by_id(self, meeting_id: int) -> Optional[Meeting]:
         """
         Get meeting by ID.
-        
+
         Args:
             meeting_id: Meeting ID
-            
+
         Returns:
             Meeting object or None if not found
         """

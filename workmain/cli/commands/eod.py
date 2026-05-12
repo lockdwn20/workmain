@@ -1,7 +1,7 @@
 """
 WorkmAIn End-of-Day Workflow
-EOD v2.7
-20260505
+EOD v2.8
+20260512
 
 Guided end-of-day workflow for daily work wrap-up.
 
@@ -60,6 +60,9 @@ Version History:
 - v2.7: Phase 10 Gate 5 — pre_flight_inspection step added between review and report;
         _write_last_inspection() helper writes daemon state file; _run_pre_flight_inspection_step()
         runs InspectionEngine + narrate(); results persisted to last_inspection.json
+- v2.8: Phase 11 Gate 6 — weekly skip guard: check active_client_id before spawning
+        workmain reports save weekly_client subprocess; print informational message and
+        skip when no active client is set
 """
 
 import json
@@ -76,6 +79,7 @@ from rich import box
 
 from workmain.database.connection import get_db
 from workmain.database.repositories.meetings_repo import MeetingsRepository
+from workmain.database.repositories.system_state_repository import SystemStateRepository
 
 
 console = Console()
@@ -465,6 +469,22 @@ def _run_weekly_report_step(dry_run: bool, target_date: date) -> bool:
         console.print("  [dim]Would run: workmain reports save weekly_client[/dim]")
         console.print("  [dim]Output: staging/reports/weekly_client_YYYY-MM-DD.md[/dim]")
         return True
+
+    # Skip guard: weekly client report requires an active client context
+    db = get_db()
+    session = db.get_session()
+    try:
+        active_client_id = SystemStateRepository(session).get_int('active_client_id')
+    finally:
+        session.close()
+
+    if active_client_id is None:
+        console.print(
+            "  [yellow]Weekly client report skipped — no active client set.[/yellow]\n"
+            "  Run 'workmain clients set active <name>' to switch client context,\n"
+            "  then 'workmain reports save weekly_client' to generate the report."
+        )
+        return True  # Non-fatal — continue EOD pipeline
 
     try:
         result = subprocess.run(['workmain', 'reports', 'save', 'weekly_client'])

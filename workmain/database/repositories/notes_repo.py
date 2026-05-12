@@ -1,7 +1,7 @@
 """
 WorkmAIn Notes Repository
-Notes Repository v1.6
-20260501
+Notes Repository v1.8
+20260512
 
 Data access layer for notes with tag filtering and full-text search.
 Handles all CRUD operations for the notes table.
@@ -16,6 +16,8 @@ Version History:
         retroactively-entered notes land on the correct date for report generation
 - v1.6: Add find_by_content_like() for name-or-ID resolution on edit/delete commands
         (Item 26, CLI V18)
+- v1.7: Phase 11 Gate 5 — create() accepts client_id for attribution stamping
+- v1.8: Phase 11 Gate 6 — add get_for_date_client() for client-filtered report queries
 """
 
 from datetime import date, datetime
@@ -57,6 +59,7 @@ class NotesRepository:
         meeting_id: Optional[int] = None,
         source: str = 'ad-hoc',
         created_at: Optional[datetime] = None,
+        client_id: Optional[int] = None,
     ) -> Note:
         """
         Create a new note.
@@ -69,6 +72,7 @@ class NotesRepository:
             source: Note source ('ad-hoc', 'meeting', 'task')
             created_at: Override creation timestamp (used when backdating entries
                         so note.created_date matches the intended entry date)
+            client_id: Optional client ID for attribution (None = internal mode)
 
         Returns:
             Created Note object
@@ -83,6 +87,7 @@ class NotesRepository:
             meeting_id=meeting_id,
             source=source,
             created_at=created_at or datetime.now(),
+            client_id=client_id,
         )
         
         self.session.add(note)
@@ -187,6 +192,52 @@ class NotesRepository:
         
         return query.order_by(Note.created_at).all()
     
+    def get_for_date_client(
+        self,
+        start_date: date,
+        end_date: date,
+        include_tags: Optional[List[str]] = None,
+        exclude_tags: Optional[List[str]] = None,
+        client_id: Optional[int] = None,
+        filter_client: bool = False,
+    ) -> List[Note]:
+        """
+        Get notes within a date range with optional client filter.
+
+        Mirrors get_date_range() — same date column and tag filter logic.
+        filter_client=False: all records for date range (internal reports).
+        filter_client=True: records where client_id = client_id (client reports).
+
+        Args:
+            start_date: Start date (inclusive)
+            end_date: End date (inclusive)
+            include_tags: Tags that must be present
+            exclude_tags: Tags that must not be present
+            client_id: Client ID to filter by (only used when filter_client=True)
+            filter_client: Apply client_id WHERE clause when True
+
+        Returns:
+            List of Note objects
+        """
+        query = self.session.query(Note).filter(
+            and_(
+                Note.created_date >= start_date,
+                Note.created_date <= end_date
+            )
+        )
+
+        if include_tags:
+            query = query.filter(Note.tags.op('&&')(include_tags))
+
+        if exclude_tags:
+            for tag in exclude_tags:
+                query = query.filter(~Note.tags.op('@>')([tag]))
+
+        if filter_client:
+            query = query.filter(Note.client_id == client_id)
+
+        return query.order_by(Note.created_at).all()
+
     def search(
         self,
         keyword: str,

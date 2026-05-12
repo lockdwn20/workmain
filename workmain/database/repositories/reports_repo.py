@@ -1,7 +1,7 @@
 """
 WorkmAIn Reports Repository
-Reports Repository v1.1
-20251231
+Reports Repository v1.2
+20260512
 
 Repository for managing generated reports in the database.
 
@@ -14,6 +14,7 @@ Provides methods to:
 Version History:
 - v1.0: Initial implementation
 - v1.1: Fixed metadata column name (metadata → report_metadata) to avoid SQLAlchemy conflict
+- v1.2: Phase 11 Gate 5 — create() accepts client_id for attribution stamping
 """
 
 from datetime import date, datetime
@@ -53,11 +54,12 @@ class ReportsRepository:
         total_tokens: int,
         cost: float,
         generation_time: float,
-        file_path: Optional[str] = None
+        file_path: Optional[str] = None,
+        client_id: Optional[int] = None,
     ) -> Report:
         """
         Create a new report record.
-        
+
         Args:
             report_type: Type of report (daily_internal, weekly_client, etc.)
             report_date: Date of the report
@@ -70,7 +72,8 @@ class ReportsRepository:
             cost: Generation cost in USD
             generation_time: Time taken to generate (seconds)
             file_path: Optional path to saved file
-            
+            client_id: Optional client ID for attribution (None = internal mode)
+
         Returns:
             Created Report object
         """
@@ -94,7 +97,8 @@ class ReportsRepository:
             report_date=report_date,
             content=content,
             report_metadata=metadata,  # Use report_metadata attribute
-            created_at=datetime.now()
+            created_at=datetime.now(),
+            client_id=client_id,
         )
         
         self.session.add(report)

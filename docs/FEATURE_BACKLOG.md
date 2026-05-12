@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v5.4
-20260508
+Feature Backlog v5.5
+20260512
 
 # WorkmAIn Feature Backlog
 
@@ -25,6 +25,7 @@ Items deferred from various phases for future implementation.
 - v5.2 (20260504): Collapsed Open Items / Conditional / Deferred Indefinitely / Completed into one flat ## Backlog Items section, all 29 items in numerical order. Status tracked in each item's fields and the register — no section moves needed when status changes.
 - v5.3 (20260505): Added Item 30 — System Service Promotion for workmain-notify (Phase 10 deferral); updated register and statistics.
 - v5.4 (20260508): Item 27 marked COMPLETE (v1.12.0).
+- v5.5 (20260512): Item 20 marked COMPLETE (v1.13.0); Item 24 re-targeted to Phase 15 (Phase 11 did not expand tasks scope); Item 28 updated (clients delivered, config/provider remain).
 
 ---
 
@@ -91,11 +92,11 @@ Build first, refactor later. See the complete picture before abstracting.
 | 17 | eod Day-Aware Thu/Fri Steps | — | Phase 9 | — | ✓ |
 | 18 | templates preview get_session ImportError | — | Phase 9 | — | ✓ |
 | 19 | Ollama / Mistral 7B GPU Offloading | Low | Phase 13+ | ~2–3 hrs | |
-| 20 | Multi-Client Data Attribution | Medium | Phase 11+ | ~8–12 hrs | |
+| 20 | Multi-Client Data Attribution | — | Phase 11 | — | ✓ |
 | 21 | Cloudflare Tunnel / Slack Events API | Low | — | ~3–4 hrs | |
 | 22 | Active Client Context Data Model | — | → Item 20 | — | |
 | 23 | Meeting Visibility / Tagging | Medium | Phase 15 | ~3–5 hrs | |
-| 24 | tasks carryover Group Review | Low | Phase 11 | ~1 hr | |
+| 24 | tasks carryover Group Review | Low | Phase 15 | ~1 hr | |
 | 25 | reports costs + providers costs Audit | Low | Phase 14 | ~1 hr | |
 | 26 | Name-or-ID Rule (Edit/Delete) | — | Phase 14 | — | ✓ |
 | 27 | Recurring Meeting Advanced Features | Medium | Phase 15 | ~12–16 hrs | ✓ |
@@ -108,36 +109,35 @@ Build first, refactor later. See the complete picture before abstracting.
 ## Summary Statistics
 
 **Total Items:** 30 (Item 22 is a redirect — no separate deferred work; see Item 20)
-**Completed:** 4 (Items 17, 18, 26, 27)
-**Open:** 25
+**Completed:** 5 (Items 17, 18, 20, 26, 27)
+**Open:** 24
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Open (targeted) | 20 | 1, 2, 3, 4, 7, 8, 10, 12, 13, 14, 15, 16, 19, 20, 23, 24, 25, 28, 29, 30 |
+| Open (targeted) | 19 | 1, 2, 3, 4, 7, 8, 10, 12, 13, 14, 15, 16, 19, 23, 24, 25, 28, 29, 30 |
 | Conditional | 1 | 9 |
 | Indefinitely | 4 | 5, 6, 11, 21 |
-| Complete | 4 | 17, 18, 26, 27 |
+| Complete | 5 | 17, 18, 20, 26, 27 |
 | Redirect | 1 | 22 → Item 20 |
 
 | Priority | Count | Items |
 |----------|-------|-------|
 | High | 0 | — |
-| Medium | 8 | 2, 3, 7, 10, 14, 15, 20, 23 |
+| Medium | 7 | 2, 3, 7, 10, 14, 15, 23 |
 | Low | 16 | 1, 4, 5, 6, 8, 11, 12, 13, 16, 19, 21, 24, 25, 28, 29, 30 |
 | Conditional | 1 | 9 |
 
 | Target Phase | Items |
 |-------------|-------|
-| Phase 11 | 24 |
-| Phase 11+ | 4, 20, 28 |
+| Phase 11+ | 4, 28 |
 | Phase 13+ | 19 |
 | Phase 14 | 25 |
-| Phase 15 | 1, 2, 3, 7, 8, 10, 12, 13, 14, 15, 16, 23, 29 |
+| Phase 15 | 1, 2, 3, 7, 8, 10, 12, 13, 14, 15, 16, 23, 24, 29 |
 | Phase 18 | 30 |
 | Conditional | 9 |
 | Indefinitely | 5, 6, 11, 21 |
 
-**Total Deferred Effort (open items):** ~89 hours
+**Total Deferred Effort (open items):** ~81 hours
 
 ---
 
@@ -578,38 +578,20 @@ Phase 13 primary path (Proxmox CPU) is sufficient. GPU offloading is a latency i
 
 #### Item 20 — Multi-Client Data Attribution
 
-**Status:** Open — Design decision Phase 11, full implementation deferred
-**Priority:** Medium (needed before multi-client use is viable)
-**Effort:** ~8–12 hours (data model + migration + CLI updates)
+**Status:** ✓ Complete — Phase 11, v1.13.0 (20260512)
+**Priority:** —
+**Effort:** —
 **Added:** 20260421
-**Target Phase:** Post-Phase 11 design decision; implementation phase TBD
+**Target Phase:** Phase 11
 
-**Description:**
-Currently all notes, meetings, and time entries go into one undifferentiated pool. This works with a single client but breaks when multiple clients are active simultaneously.
-
-**Design decision (approved 20260421):**
-Option A — Active client context switch: `workmain client set active <name>`. All subsequent notes, meetings, and time entries are attributed to the active client until switched. Low friction, matches CLI work model.
-
-**Phase 11 delivers:** Active client context switch UI (`workmain client set active`, `workmain client current`) and documents the data model changes needed.
-
-**This item tracks:** The actual data model changes required for full attribution.
-
-**Data model changes needed:**
-- `client_id` foreign key on `notes`, `meetings`, `time_entries` tables
-- Migration to backfill existing rows to a default client
-- Repository queries scoped by active client
-- `workmain notes today`, `workmain time today`, report generation all respect active client
-- CLI commands updated to pass active client context through to queries
-
-**Why Deferred:**
-Data model change touches every table and query in the system. Requires careful migration planning. Phase 11 makes the design decision and delivers the UI; the data model work follows once the design is locked.
-
-**Acceptance Criteria:**
-- [ ] `notes`, `meetings`, `time_entries` tables have `client_id` column
-- [ ] All note/meeting/time queries respect active client context
-- [ ] Report generation pulls only active client's data
-- [ ] Existing data migrated cleanly to default client
-- [ ] `workmain client set active <n>` propagates to all downstream queries
+Full client attribution delivered in Phase 11: `client_id` FK (nullable, ON DELETE SET NULL)
+on `notes`, `meetings`, `time_entries`, and `reports`. All data-creation commands
+(`notes add/log`, `meetings create`, `time add`, `reports save`, `slack post`) read
+`active_client_id` from `system_state` and stamp it on every new record. Report generator
+reads `recipient_type` from the active template and applies `get_client_filter()` — client
+reports filter to active client's data; internal reports are unfiltered. Active client
+context managed via `workmain clients set active <name>` / `workmain clients status`.
+`system_state` KV store is the single source of truth for `active_client_id`.
 
 **Note:** Item 22 pointed to this item — there is no separate deferred work for Item 22; it is fully subsumed here.
 
@@ -692,22 +674,22 @@ Workaround exists (internal meetings captured as internal-only notes). Requires 
 
 #### Item 24 — tasks carryover Single-Command Group Review
 
-**Status:** Open
+**Status:** Open — Re-targeted to Phase 15
 **Priority:** Low (structural inconsistency, no user impact)
 **Effort:** ~1 hour
 **Added:** 20260331
-**Target Phase:** Phase 11
+**Target Phase:** Phase 15
 
 **Description:**
-The `tasks` group currently has only one command (`carryover`). §2.2 of `CLI_STANDARDS.md` states that a group with only one command barely qualifies. When the `tasks` group scope expands in Phase 11, the full group structure should be reviewed and additional commands added so the group has sufficient breadth to justify its existence.
+The `tasks` group currently has only one command (`carryover`). §2.2 of `CLI_STANDARDS.md` states that a group with only one command barely qualifies. Phase 11 focused on client/recipient management and did not expand the `tasks` scope. The review is deferred to Phase 15 when a full CLI polish pass is planned.
 
 **Why Deferred:**
-Phase 11 is the natural point to expand `tasks` scope. Reviewing the group before that expansion would be premature.
+Phase 11 did not expand tasks scope — `clients` was the Phase 11 focus. Reviewing the group in isolation before tasks functionality is needed would be premature.
 
 **Acceptance Criteria:**
-- [ ] Phase 11 `tasks` group review complete
-- [ ] At minimum 2–3 commands under `tasks` group after Phase 11
-- [ ] If `carryover` remains the only command after Phase 11 design, consider folding into a different group
+- [ ] Phase 15 `tasks` group review complete
+- [ ] At minimum 2–3 commands under `tasks` group, OR `carryover` folded into a different group
+- [ ] Decision documented in Phase 15 handoff
 
 ---
 
@@ -785,20 +767,22 @@ Core recurring functionality (create, view, delete) is complete and working. The
 
 #### Item 28 — Placeholder Command Groups
 
-**Status:** Open — partially addressed (clients/notifications in Phase 10/11)
+**Status:** Open — clients delivered (Phase 11); config/provider remain
 **Priority:** Low
 **Effort:** Varies
 **Added:** 20260127
 **Target Phase:** Phase 11+ for config; audit for provider
 
 **Description:**
-Command groups that were placeholders in `interface.py`, removed in v1.1.0. `clients` and `notifications` are now scoped in Phases 10/11. Remaining unresolved:
+Command groups that were placeholders in `interface.py`, removed in v1.1.0. Current status:
 
+- **clients** — ✓ Complete. Full `workmain clients` group delivered in Phase 11 (v1.13.0).
+- **notifications** — ✓ Complete. `workmain notifications` group delivered in Phase 10 (v1.11.0).
 - **config** (Phase 14) — Settings like default tags, trigger times, Ollama host. Phase 14 setup wizard is the intended home.
 - **provider** (Low) — Overlaps with existing `providers` command. Likely redundant; needs audit.
 
 **Why Deferred:**
-The active placeholder groups (`clients`, `notifications`) have phase homes. `config` deferred to Phase 14. `provider` redundancy should be confirmed before any work is done.
+`config` deferred to Phase 14. `provider` redundancy should be confirmed before any work is done.
 
 **Acceptance Criteria:**
 - [ ] Phase 14 setup wizard covers `config` use case — or `config` group re-added at that time

@@ -1,7 +1,7 @@
 """
 WorkmAIn AI Report Generator
-Report Generator v1.8
-20260306
+Report Generator v1.10
+20260512
 
 High-level orchestrator for AI report generation with database integration.
 
@@ -34,6 +34,9 @@ Version History:
 - v1.7: Gate 0.1 - Updated default output_dir from reports/ to output/reports/
         for output directory restructure (Phase 6)
 - v1.8: Hotfix staging-eod — renamed output/reports/ to staging/reports/
+- v1.9: Phase 11 Gate 5 — generate_report() accepts client_id; passes to reports_repo.create()
+- v1.10: Phase 11 Gate 6 — generate_report() accepts filter_client and client_id_filter;
+         passes both to prompt_builder.build_prompt()
 
 Workflow:
 1. Load template and validate
@@ -135,11 +138,14 @@ class ReportGenerator:
         temperature: float = 0.7,
         save_to_file: bool = True,
         output_format: ReportFormat = ReportFormat.MARKDOWN,
-        filename: Optional[str] = None
+        filename: Optional[str] = None,
+        client_id: Optional[int] = None,
+        filter_client: bool = False,
+        client_id_filter: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         Generate a complete report.
-        
+
         Args:
             template_name: Name of template to use
             report_date: Date for the report
@@ -149,10 +155,13 @@ class ReportGenerator:
             save_to_file: Whether to save report to file
             output_format: Output format
             filename: Custom filename (optional)
-            
+            client_id: Optional client ID for DB attribution (None = internal mode)
+            filter_client: When True, prompt_builder restricts data to client_id_filter records
+            client_id_filter: Client ID for data filtering in prompt_builder
+
         Returns:
             Dictionary with report content, metadata, and file path
-            
+
         Raises:
             ValueError: If template not found or invalid
             GenerationError: If AI generation fails
@@ -177,9 +186,11 @@ class ReportGenerator:
             # Build prompts
             system_prompt, user_prompt = self.prompt_builder.build_prompt(
                 template_name=template_name,
-                report_date=report_date
+                report_date=report_date,
+                filter_client=filter_client,
+                client_id=client_id_filter,
             )
-            
+
             # Create generation request
             request = GenerationRequest(
                 prompt=user_prompt,
@@ -239,7 +250,8 @@ class ReportGenerator:
                 total_tokens=response.tokens_used,
                 cost=response.cost,
                 generation_time=generation_time,
-                file_path=str(file_path) if file_path else None
+                file_path=str(file_path) if file_path else None,
+                client_id=client_id,
             )
             
             # End cost tracking with generation time

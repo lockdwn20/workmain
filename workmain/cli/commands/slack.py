@@ -1,8 +1,8 @@
 """
 WorkmAIn CLI
 Slack Command Group
-slack.py v1.3
-20260401
+slack.py v1.4
+20260512
 
 CLI commands for posting reports to Slack.
 
@@ -21,6 +21,7 @@ Version History:
 - v1.3: CLI Standardization Sprint Part 1 (WU-2) — renamed command `post-weekly` → `post`;
         added required PERIOD argument (weekly|daily|monthly); guards non-weekly with
         NotImplementedError; renamed function slack_post_weekly → slack_post
+- v1.4: Phase 11 Gate 5 — stamp active_client_id on Report INSERT in slack post weekly
 """
 
 import os
@@ -643,6 +644,9 @@ def slack_post(
     db = get_db()
     session = db.get_session()
     try:
+        from workmain.database.repositories.system_state_repository import SystemStateRepository
+        active_client_id = SystemStateRepository(session).get_int('active_client_id')
+
         existing = session.query(Report).filter(
             Report.report_type == "weekly_client",
             Report.report_date == anchor,
@@ -660,6 +664,7 @@ def slack_post(
                 slack_message_ts=message_ts,
                 slack_channel=target_channel,
                 slack_workspace_name=workspace_name,
+                client_id=active_client_id,
             )
             session.add(new_row)
 
