@@ -1,9 +1,18 @@
 """
 WorkmAIn Package Version
-Version v1.13.0
-20260512
+Version v1.14.0
+20260522
 
 Version History:
+- v1.14.0: Phase 11.5 complete — Client Distribution. Per-client Slack channel
+           routing: new `clients.slack_channel` column; `slack set channel` writes it;
+           `slack post` resolves clients.slack_channel first, falls back to config.json.
+           Per-client email recipient scoping: `report_recipients.client_id` FK wired;
+           `EmailRepository.list_for_client()` merges global + client-scoped recipients;
+           `email assign/unassign` ambient client context; `_get_draft_recipients()`
+           deduplicates (client-scoped wins). Retired `slack channel set` command.
+           `config.json` default_channel migrated to GMF.slack_channel. CLI_STANDARDS
+           v2.2: set subgroup carve-out added (V24). 26 new tests; suite: 308 passed.
 - v1.13.0: Phase 11 complete — Client & Recipient Management foundation. New system_state
            KV table replaces notification_config; NotificationConfigRepository migrated to
            SystemStateRepository. New clients table with CRUD, CHECK constraint blocking
@@ -178,7 +187,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.13.0"
-__version_info__ = (1, 13, 0)
+__version__ = "1.14.0"
+__version_info__ = (1, 14, 0)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"

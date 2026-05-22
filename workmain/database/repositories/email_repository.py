@@ -1,16 +1,19 @@
 """
 WorkmAIn Email Repository
-Email Repository v1.0
-20260305
+Email Repository v1.1
+20260522
 
 Data access layer for recipient management and report-template assignments.
 Handles all CRUD operations for the recipients and report_recipients tables.
 
 Version History:
 - v1.0: Initial implementation (Phase 6 Gate 1)
+- v1.1: Phase 11.5 Gate 3 — assign_recipient() and unassign_recipient() accept
+        client_id for ambient client scoping; list_for_client() added for
+        client-aware recipient resolution (global + client-scoped merged)
 """
 
-from typing import Optional
+from typing import Optional, List
 
 from sqlalchemy.orm import Session
 
@@ -103,17 +106,60 @@ class EmailRepository:
             .all()
         )
 
+    def list_for_client(
+        self,
+        template_name: str,
+        client_id: Optional[int],
+    ) -> List[ReportRecipient]:
+        """
+        Return recipients for template in client-aware priority order.
+
+        Returns ALL of:
+        - Global recipients (client_id IS NULL) for this template
+        - Client-scoped recipients (client_id = client_id) for this template
+
+        If client_id is None (internal mode): global recipients only.
+
+        Caller deduplicates by email address if the same address appears
+        in both global and client-scoped sets.
+
+        Args:
+            template_name: Report template name (maps to report_type column).
+            client_id: Active client ID, or None for internal/global mode.
+
+        Returns:
+            List of ReportRecipient records.
+        """
+        query = self.session.query(ReportRecipient).filter(
+            ReportRecipient.report_type == template_name
+        )
+        if client_id is not None:
+            query = query.filter(
+                (ReportRecipient.client_id == None) |  # noqa: E711
+                (ReportRecipient.client_id == client_id)
+            )
+        else:
+            query = query.filter(ReportRecipient.client_id == None)  # noqa: E711
+        return query.all()
+
     def assign_recipient(
-        self, recipient_id: int, report_type: str, role: str
+        self,
+        recipient_id: int,
+        report_type: str,
+        role: str,
+        client_id: Optional[int] = None,
     ) -> ReportRecipient:
         """
         Assign a recipient to a report template with a role (to/cc).
-        Idempotent — returns existing assignment if already present.
+
+        Idempotent for the (recipient_id, report_type, client_id) combination —
+        updates role if the assignment already exists at the same scope.
 
         Args:
             recipient_id: Recipient primary key
             report_type: Template name
             role: 'to' or 'cc'
+            client_id: Active client ID (None = global assignment)
 
         Returns:
             ReportRecipient record (new or existing)
@@ -127,6 +173,7 @@ class EmailRepository:
             .filter(
                 ReportRecipient.recipient_id == recipient_id,
                 ReportRecipient.report_type == report_type,
+                ReportRecipient.client_id == client_id,
             )
             .first()
         )
@@ -141,26 +188,38 @@ class EmailRepository:
             report_type=report_type,
             email=recipient.email,
             recipient_type=role,
+            client_id=client_id,
         )
         self.session.add(assignment)
         self.session.commit()
         self.session.refresh(assignment)
         return assignment
 
-    def unassign_recipient(self, recipient_id: int, report_type: str) -> None:
+    def unassign_recipient(
+        self,
+        recipient_id: int,
+        report_type: str,
+        client_id: Optional[int] = None,
+    ) -> None:
         """
-        Remove a recipient's assignment from a specific report template.
-        The recipient identity record is not affected.
+        Remove a recipient's assignment from a specific report template at the
+        specified client scope.
+
+        Filters by client_id to ensure only the correct record is removed —
+        prevents accidentally deleting a global record when a client-scoped
+        one was intended, and vice versa.
 
         Args:
             recipient_id: Recipient primary key
             report_type: Template name
+            client_id: Client scope to target (None = global assignment)
         """
         assignment = (
             self.session.query(ReportRecipient)
             .filter(
                 ReportRecipient.recipient_id == recipient_id,
                 ReportRecipient.report_type == report_type,
+                ReportRecipient.client_id == client_id,
             )
             .first()
         )

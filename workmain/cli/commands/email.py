@@ -1,16 +1,16 @@
 """
 WorkmAIn Email Commands
-Email Commands v1.5
-20260501
+Email Commands v1.6
+20260522
 
 Email command group for Outlook email draft pipeline (Phase 6).
 
-Action-first command structure — template is an argument.
+Action-first command structure -- template is an argument.
 
 Commands:
   workmain email preview <template>          # display draft in terminal
   workmain email save <template>             # save draft to staging/email/
-  workmain email send <template>             # OAuth stub → push to Outlook drafts
+  workmain email send <template>             # OAuth stub -> push to Outlook drafts
   workmain email list                        # list saved local drafts
   workmain email show <n>                    # display saved draft #n
   workmain email recipients list             # recipients with template assignments
@@ -20,17 +20,22 @@ Commands:
   workmain email unassign <id> <template>         # remove from template
 
 Draft files stored in staging/email/ (covered by .gitignore staging/ rule).
-Send command requires Azure AD OAuth — see docs/OAUTH_SETUP.md
+Send command requires Azure AD OAuth -- see docs/OAUTH_SETUP.md
 
 Version History:
 - v1.0: Initial implementation (Phase 6 Gate 5)
-- v1.1: Hotfix staging-eod — renamed output/ to staging/ across all path references
-- v1.2: Phase 9 Gate 1 — updated hint text from 'report save' to 'reports save'
+- v1.1: Hotfix staging-eod -- renamed output/ to staging/ across all path references
+- v1.2: Phase 9 Gate 1 -- updated hint text from 'report save' to 'reports save'
 - v1.3: Add optional session param to _get_draft_recipients/_generate_draft for test isolation
-- v1.4: CLI Standardization Sprint Part 1 (WU-5) — `recipients remove` → `recipients delete`;
-        avoids banned synonym `remove` (§3.2); function renamed recipients_remove → recipients_delete
-- v1.5: Item 26 (CLI V18) — name-or-ID resolution on recipients delete; accepts ID or
+- v1.4: CLI Standardization Sprint Part 1 (WU-5) -- `recipients remove` -> `recipients delete`;
+        avoids banned synonym `remove` (section 3.2); function renamed recipients_remove -> recipients_delete
+- v1.5: Item 26 (CLI V18) -- name-or-ID resolution on recipients delete; accepts ID or
         email substring with picker for multiple matches.
+- v1.6: Phase 11.5 Gate 3/4 -- email assign/unassign read active_client_id from
+        system_state for ambient client scoping; email group help updated with
+        global vs client-scoped note; email assign help updated with scoping docs;
+        _get_draft_recipients() updated to use list_for_client() for client-aware
+        resolution
 """
 
 import re
@@ -48,7 +53,7 @@ from workmain.database.repositories.email_repository import get_email_repository
 
 console = Console()
 
-# Project root: workmain/cli/commands/email.py → 4 parents up
+# Project root: workmain/cli/commands/email.py -> 4 parents up
 _PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 _REPORTS_DIR = _PROJECT_ROOT / "staging" / "reports"
 _EMAIL_DIR = _PROJECT_ROOT / "staging" / "email"
@@ -78,15 +83,15 @@ def _build_subject(template: str, report_date: date) -> str:
     """Build email subject line from template name and report date."""
     name = template.lower()
     if 'daily' in name:
-        return f"Daily Report \u2014 {report_date.strftime('%d %b %Y')}"
+        return f"Daily Report — {report_date.strftime('%d %b %Y')}"
     elif 'weekly' in name:
         week_start = report_date - timedelta(days=report_date.weekday())
-        return f"Weekly Report \u2014 Week of {week_start.strftime('%d %b %Y')}"
+        return f"Weekly Report — Week of {week_start.strftime('%d %b %Y')}"
     elif 'monthly' in name:
-        return f"Monthly Report \u2014 {report_date.strftime('%B %Y')}"
+        return f"Monthly Report — {report_date.strftime('%B %Y')}"
     else:
         title = template.replace('_', ' ').title()
-        return f"{title} \u2014 {report_date.strftime('%d %b %Y')}"
+        return f"{title} — {report_date.strftime('%d %b %Y')}"
 
 
 def _build_draft_content(
@@ -116,7 +121,11 @@ def _get_draft_recipients(
     session=None,
 ) -> tuple[list[str], list[str]]:
     """
-    Look up recipients for a template from report_recipients table.
+    Look up recipients for a template using client-aware resolution.
+
+    Merges global recipients (NULL client_id) with client-scoped recipients
+    for the active client. Deduplicates by email address (client-scoped role
+    wins on conflict).
 
     Returns (to_list, cc_list) of email addresses.
 
@@ -125,21 +134,34 @@ def _get_draft_recipients(
         session: Optional existing session (used by tests for transaction isolation).
                  When None a fresh session is opened and closed internally.
     """
-    if session is not None:
-        repo = get_email_repository(session)
-        assignments = repo.get_assignments_for_template(template)
-        to_list = [a.email for a in assignments if a.recipient_type == 'to']
-        cc_list = [a.email for a in assignments if a.recipient_type == 'cc']
+    from workmain.database.repositories.system_state_repository import SystemStateRepository
+
+    def _build_lists(repo, active_client_id):
+        assignments = repo.list_for_client(template, active_client_id)
+        # Deduplicate by email: client-scoped record wins over global on conflict.
+        seen: dict[str, str] = {}  # email -> role
+        for a in assignments:
+            email = a.email
+            if email not in seen:
+                seen[email] = a.recipient_type
+            elif a.client_id is not None:
+                # Client-scoped record overrides global
+                seen[email] = a.recipient_type
+        to_list = [e for e, r in seen.items() if r == 'to']
+        cc_list = [e for e, r in seen.items() if r == 'cc']
         return to_list, cc_list
+
+    if session is not None:
+        active_client_id = SystemStateRepository(session).get_int('active_client_id')
+        repo = get_email_repository(session)
+        return _build_lists(repo, active_client_id)
 
     db = get_db()
     _session = db.get_session()
     try:
+        active_client_id = SystemStateRepository(_session).get_int('active_client_id')
         repo = get_email_repository(_session)
-        assignments = repo.get_assignments_for_template(template)
-        to_list = [a.email for a in assignments if a.recipient_type == 'to']
-        cc_list = [a.email for a in assignments if a.recipient_type == 'cc']
-        return to_list, cc_list
+        return _build_lists(repo, active_client_id)
     finally:
         _session.close()
 
@@ -197,6 +219,14 @@ def _generate_draft(
     subject = _build_subject(template, report_date)
     to_list, cc_list = _get_draft_recipients(template, session=session)
 
+    if not to_list and not cc_list:
+        console.print(
+            "[yellow]⚠ No recipients configured for this template.[/yellow]"
+        )
+        console.print(
+            "[dim]  Use 'workmain email assign' to add recipients.[/dim]"
+        )
+
     draft_date = datetime.now()
     content = _build_draft_content(subject, to_list, cc_list, body, draft_date)
     return subject, content, to_list, cc_list, report_date
@@ -209,7 +239,7 @@ def _generate_draft(
 @click.group()
 def email():
     """
-    Email draft pipeline — build and manage Outlook email drafts.
+    Email draft pipeline -- build and manage Outlook email drafts.
 
     \b
     Draft commands (no OAuth required):
@@ -219,7 +249,7 @@ def email():
       workmain email show <n>
 
     \b
-    Send to Outlook (OAuth required — see docs/OAUTH_SETUP.md):
+    Send to Outlook (OAuth required -- see docs/OAUTH_SETUP.md):
       workmain email send <template>
 
     \b
@@ -229,6 +259,14 @@ def email():
       workmain email recipients delete <id>
       workmain email assign <id> <template> <to|cc>
       workmain email unassign <id> <template>
+
+    \b
+    Recipient scoping (global vs client-scoped):
+      Recipients can be global (NULL client) or scoped to a specific client.
+      Global recipients appear in all client email drafts.
+      Client-scoped recipients appear only in that client's drafts.
+      email assign uses the active client context to determine scope.
+      Use 'workmain clients status' to confirm current context.
     """
     pass
 
@@ -258,7 +296,7 @@ def email_preview(template: str):
 
     subject, content, to_list, cc_list, report_date = result
 
-    console.print(f"\n[bold cyan]Email Draft Preview — {template}[/bold cyan]\n")
+    console.print(f"\n[bold cyan]Email Draft Preview -- {template}[/bold cyan]\n")
     console.print(f"  [dim]Subject:[/dim]  {subject}")
     console.print(f"  [dim]To:[/dim]       {', '.join(to_list) if to_list else '[yellow](no recipients assigned)[/yellow]'}")
     if cc_list:
@@ -314,7 +352,7 @@ def email_send(template: str):
     """
     Send email draft to Outlook via Microsoft Graph API.
 
-    Requires OAuth authentication — see docs/OAUTH_SETUP.md
+    Requires OAuth authentication -- see docs/OAUTH_SETUP.md
     Use 'workmain email save <template>' to save draft locally.
     """
     raise NotImplementedError(
@@ -549,7 +587,7 @@ def recipients_delete(identifier: str):
                 for i, r in enumerate(matches, 1):
                     assignment_strs = [f"{a.report_type} ({a.recipient_type})" for a in r.assignments]
                     assign_text = ", ".join(assignment_strs) if assignment_strs else "no assignments"
-                    console.print(f"  {i}. [ID: {r.id}] {r.email} — {assign_text}")
+                    console.print(f"  {i}. [ID: {r.id}] {r.email} -- {assign_text}")
 
                 choice = click.prompt("\nSelect [number, or q to cancel]", default="1")
                 if choice.lower() == 'q':
@@ -584,7 +622,7 @@ def recipients_delete(identifier: str):
             console.print("[dim]Cancelled.[/dim]\n")
             return
 
-        repo.remove_recipient(recipient_id)
+        repo.remove_recipient(recipient.id)
         console.print(f"[green]✓ Removed: {recipient.email}[/green]\n")
 
     finally:
@@ -603,25 +641,34 @@ def email_assign(recipient_id: int, template: str, role: str):
     """
     Assign a recipient to a report template as 'to' or 'cc'.
 
-    Idempotent — updates role if already assigned.
+    Idempotent -- updates role if already assigned at the same client scope.
+
+    \b
+    Recipient scoping is determined by the active client context.
+      Active client set -> recipient scoped to that client only.
+      No active client (internal mode) -> recipient is global (all clients).
+    Use 'workmain clients status' to confirm current context before assigning.
 
     \b
     Examples:
       workmain email assign 1 daily_internal to
       workmain email assign 2 weekly_client cc
     """
+    from workmain.database.repositories.system_state_repository import SystemStateRepository
     db = get_db()
     session = db.get_session()
     try:
+        active_client_id = SystemStateRepository(session).get_int('active_client_id')
         repo = get_email_repository(session)
         recipient = repo.get_recipient_by_id(recipient_id)
         if not recipient:
             console.print(f"\n[red]✗ Recipient ID {recipient_id} not found.[/red]\n")
             return
 
-        repo.assign_recipient(recipient_id, template, role.lower())
+        repo.assign_recipient(recipient_id, template, role.lower(), client_id=active_client_id)
+        scope = f"client_id={active_client_id}" if active_client_id else "global"
         console.print(
-            f"\nAssigned: {recipient.email} \u2192 {template} ({role.lower()})\n"
+            f"\nAssigned: {recipient.email} -> {template} ({role.lower()}) [{scope}]\n"
         )
     finally:
         session.close()
@@ -634,23 +681,26 @@ def email_unassign(recipient_id: int, template: str):
     """
     Remove a recipient's assignment from a specific template.
 
-    The recipient identity record is not deleted.
+    The recipient identity record is not deleted. Removes only the
+    assignment at the current active client scope.
 
     \b
     Examples:
       workmain email unassign 1 daily_internal
       workmain email unassign 2 weekly_client
     """
+    from workmain.database.repositories.system_state_repository import SystemStateRepository
     db = get_db()
     session = db.get_session()
     try:
+        active_client_id = SystemStateRepository(session).get_int('active_client_id')
         repo = get_email_repository(session)
         recipient = repo.get_recipient_by_id(recipient_id)
         if not recipient:
             console.print(f"\n[red]✗ Recipient ID {recipient_id} not found.[/red]\n")
             return
 
-        repo.unassign_recipient(recipient_id, template)
+        repo.unassign_recipient(recipient_id, template, client_id=active_client_id)
         console.print(
             f"\nUnassigned: {recipient.email} from {template}\n"
         )

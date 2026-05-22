@@ -1,8 +1,8 @@
 """
 WorkmAIn CLI
 Slack Command Group
-slack.py v1.4
-20260512
+slack.py v1.5
+20260522
 
 CLI commands for posting reports to Slack.
 
@@ -10,7 +10,8 @@ Commands:
 - slack setup                           # Interactive setup checklist
 - slack auth [--reauth]                 # Validate Bot Token, cache workspace name
 - slack status                          # Auth state + recent Slack posts
-- slack channel set <channel>           # Set default posting channel
+- slack set channel <channel>           # Set Slack channel for the active client
+- slack set workspace                   # Show workspace config file path (informational)
 - slack post PERIOD [flags]             # Generate → preview → post; PERIOD=weekly|daily|monthly
 
 Version History:
@@ -22,6 +23,11 @@ Version History:
         added required PERIOD argument (weekly|daily|monthly); guards non-weekly with
         NotImplementedError; renamed function slack_post_weekly → slack_post
 - v1.4: Phase 11 Gate 5 — stamp active_client_id on Report INSERT in slack post weekly
+- v1.5: Phase 11.5 Gate 2 — retire `slack channel set` (wrote to config.json);
+        add `slack set` subgroup with `channel` (writes to clients.slack_channel) and
+        `workspace` (informational, no writes); update post-weekly channel resolution
+        to read clients.slack_channel first, config.json fallback second;
+        update slack status/auth/setup channel display to use same resolution order
 """
 
 import os
@@ -131,6 +137,49 @@ def _run_generation(anchor: date) -> tuple:
         session.close()
 
 
+def _resolve_client_channel(session) -> Optional[str]:
+    """
+    Return the active client's slack_channel, or None if not set.
+
+    Does not fall back to config.json — caller decides fallback behavior.
+    """
+    from workmain.database.repositories.system_state_repository import SystemStateRepository
+    from workmain.database.repositories.client_repository import ClientRepository
+    state_repo = SystemStateRepository(session)
+    active_client_id = state_repo.get_int('active_client_id')
+    if active_client_id:
+        client = ClientRepository(session).get_by_id(active_client_id)
+        if client and client.slack_channel:
+            return client.slack_channel
+    return None
+
+
+def _resolve_slack_channel(session) -> Optional[str]:
+    """
+    Resolve the Slack channel for post-weekly.
+
+    Priority:
+      1. clients.slack_channel for active client (if set)
+      2. config.json default_channel (fallback — may be absent post-migration)
+      3. None (caller raises error)
+    """
+    channel = _resolve_client_channel(session)
+    if channel:
+        return channel
+    # Fallback: get_default_channel() returns None silently if key absent.
+    return get_default_channel()
+
+
+def _get_display_channel(session) -> Optional[str]:
+    """
+    Return the channel string for status/auth/setup display purposes.
+
+    Same resolution order as _resolve_slack_channel() but returns None
+    silently rather than raising — display callers decide how to show absence.
+    """
+    return _resolve_slack_channel(session)
+
+
 # ---------------------------------------------------------------------------
 # Command group
 # ---------------------------------------------------------------------------
@@ -184,11 +233,17 @@ def slack_auth(reauth: bool):
     cfg["workspace_name"] = info["team"]
     save_slack_config(cfg)
 
-    channel = get_default_channel() or "(not set)"
+    db = get_db()
+    session = db.get_session()
+    try:
+        channel = _get_display_channel(session) or "(not set)"
+    finally:
+        session.close()
+
     console.print(f"\n[green]✓ Slack authenticated[/green]")
     console.print(f"  Workspace:       {info['team']}")
     console.print(f"  Bot user:        {info['user']}")
-    console.print(f"  Default channel: {channel}")
+    console.print(f"  Channel:         {channel}")
     console.print(f"  Config saved to: ~/.workmain/integrations/slack/config.json")
 
 
@@ -213,14 +268,26 @@ def slack_status():
         console.print("  Auth:            [red]✗ SLACK_BOT_TOKEN not set[/red]")
         console.print("  Run: [bold]workmain slack setup[/bold]")
 
-    channel = get_default_channel()
-    console.print(f"  Default channel: {channel or '(not configured)'}")
-    console.print()
-
-    # Recent posts from DB
     db = get_db()
     session = db.get_session()
     try:
+        channel = _get_display_channel(session)
+
+        from workmain.database.repositories.system_state_repository import SystemStateRepository
+        from workmain.database.repositories.client_repository import ClientRepository
+        active_client_id = SystemStateRepository(session).get_int('active_client_id')
+        if active_client_id:
+            client = ClientRepository(session).get_by_id(active_client_id)
+            client_name = client.name if client else "(unknown)"
+            if channel:
+                console.print(f"  Channel:         {channel} (Client: {client_name})")
+            else:
+                console.print(f"  Channel:         (not configured for {client_name})")
+        else:
+            console.print(f"  Channel:         {channel or '(not configured)'}")
+
+        console.print()
+
         rows = (
             session.query(Report)
             .filter(Report.slack_message_ts.isnot(None))
@@ -252,24 +319,83 @@ def slack_status():
 
 
 # ---------------------------------------------------------------------------
-# slack channel set
+# slack set subgroup
 # ---------------------------------------------------------------------------
 
-@slack.group("channel")
-def slack_channel():
-    """Manage the default Slack channel."""
+@slack.group("set")
+def slack_set():
+    """Configure Slack settings for the active client."""
 
 
-@slack_channel.command("set")
+@slack_set.command("channel")
 @click.argument("channel")
-def slack_channel_set(channel: str):
-    """Set the default Slack channel for post-weekly."""
+def slack_set_channel(channel: str):
+    """Set the Slack channel for the currently active client.
+
+    Normalizes the channel name (adds # if absent).
+
+    Sets the Slack channel for the currently active client.
+    Use 'workmain clients set active' to switch clients.
+
+    \b
+    Examples:
+      workmain slack set channel "#int-gmf-csirt"
+      workmain slack set channel int-gmf-csirt
+    """
     channel = _normalize_channel(channel)
+
+    db = get_db()
+    session = db.get_session()
+    try:
+        from workmain.database.repositories.system_state_repository import SystemStateRepository
+        from workmain.database.repositories.client_repository import ClientRepository
+        active_client_id = SystemStateRepository(session).get_int('active_client_id')
+        if not active_client_id:
+            console.print(
+                "\n[red]✗ No active client set.[/red]"
+                "\n  Run 'workmain clients set active <name>' first."
+            )
+            return
+
+        client_repo = ClientRepository(session)
+        client = client_repo.update(active_client_id, slack_channel=channel)
+        console.print(
+            f"\n[green]✓[/green] Slack channel for '[bold]{client.name}[/bold]' "
+            f"set to '[bold]{channel}[/bold]'."
+        )
+    finally:
+        session.close()
+
+
+@slack_set.command("workspace")
+def slack_set_workspace():
+    """Show current workspace name and config file path (informational, no writes).
+
+    Workspace configuration is managed via the Slack config file.
+    To change the workspace, edit the "workspace_name" field in that file.
+
+    \b
+    Example:
+      workmain slack set workspace
+    """
     cfg = load_slack_config()
-    cfg["default_channel"] = channel
-    save_slack_config(cfg)
-    console.print(f"\nDefault channel set to [bold]{channel}[/bold]")
-    console.print("Config: ~/.workmain/integrations/slack/config.json")
+    workspace = cfg.get("workspace_name")
+    config_path = Path.home() / ".workmain" / "integrations" / "slack" / "config.json"
+
+    console.print()
+    if workspace:
+        console.print("Workspace configuration is managed via the Slack config file.")
+        console.print()
+        console.print(f"  Current workspace: {workspace}")
+        console.print(f"  Config file:       {config_path}")
+        console.print()
+        console.print('  To change the workspace, edit the "workspace_name" field in that file.')
+    else:
+        console.print("[yellow]Workspace name not yet cached.[/yellow]")
+        console.print(f"  Config file: {config_path}")
+        console.print()
+        console.print("  Run [bold]workmain slack auth[/bold] to authenticate and cache the workspace name.")
+    console.print()
 
 
 # ---------------------------------------------------------------------------
@@ -305,7 +431,13 @@ def slack_setup():
             token_valid = False
             api_error = str(e)
 
-    channel = get_default_channel()
+    # Resolve channel via DB
+    db = get_db()
+    session = db.get_session()
+    try:
+        channel = _get_display_channel(session)
+    finally:
+        session.close()
 
     if not token_present:
         # Nothing configured — show full instructions
@@ -353,11 +485,11 @@ def slack_setup():
         return
 
     if not channel:
-        console.print("[red][✗][/red] Step 6: Default channel not configured")
+        console.print("[red][✗][/red] Step 6: Channel not configured for active client")
         console.print("[dim][ ][/dim] Step 7: Invite bot to channel   [dim](waiting on Step 6)[/dim]")
         console.print()
         console.print("To complete Step 6:")
-        console.print("  [bold]workmain slack channel set <channel>[/bold]")
+        console.print("  [bold]workmain slack set channel <channel>[/bold]")
         console.print()
         console.print("Then invite the bot in Slack:")
         console.print("  [bold]/invite @WorkmAIn[/bold]")
@@ -365,7 +497,7 @@ def slack_setup():
         console.print()
         console.print("Run [bold]workmain slack setup[/bold] again to verify.")
     else:
-        console.print(f"[green][✓][/green] Step 6: Default channel: {channel}")
+        console.print(f"[green][✓][/green] Step 6: Channel: {channel}")
         console.print(f"[dim][?][/dim] Step 7: Bot invited to {channel}?")
         console.print(
             f"  If not yet done: [bold]/invite @WorkmAIn[/bold]  "
@@ -419,18 +551,27 @@ def slack_post(
         raise NotImplementedError(
             f"slack post {period} is not yet implemented."
         )
+
     # -----------------------------------------------------------------------
-    # Channel resolution
+    # Channel resolution (Option B: dedicated mini-session before generation)
     # -----------------------------------------------------------------------
     if channel:
         target_channel = _normalize_channel(channel)
     else:
-        target_channel = get_default_channel()
+        db = get_db()
+        _ch_session = db.get_session()
+        try:
+            target_channel = _resolve_slack_channel(_ch_session)
+        finally:
+            _ch_session.close()
+
         if not target_channel:
             console.print(
-                "\n[red]✗ No default channel configured.[/red]"
+                "\n[red]✗ No Slack channel configured.[/red]"
             )
-            console.print("  Run: [bold]workmain slack channel set <channel>[/bold]")
+            console.print("  Run:")
+            console.print("    [bold]workmain slack set channel <channel>[/bold]")
+            console.print("  or set a default in ~/.workmain/integrations/slack/config.json")
             return
 
     # -----------------------------------------------------------------------

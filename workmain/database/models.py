@@ -1,7 +1,7 @@
 """
 WorkmAIn Database Models
-Database Models v2.1
-20260512
+Database Models v2.2
+20260522
 
 SQLAlchemy ORM models for WorkmAIn database.
 Models: Note, TimeEntry, Meeting, Project, Report, Recipient, ReportRecipient,
@@ -25,6 +25,8 @@ Version History:
 - v2.1: Phase 11 Gate 2 — added SystemState and Client models; added client_id FK to
         Note, Meeting, TimeEntry, Report; removed NotificationConfig (table dropped
         in migration 010, values migrated to system_state)
+- v2.2: Phase 11.5 Gate 2/3 — added slack_channel to Client; upgraded ReportRecipient
+        client_id from bare Integer stub to proper FK + relationship
 """
 
 from datetime import datetime, date, time
@@ -59,14 +61,15 @@ class Client(Base):
     """Client records. Active client drives data attribution context."""
     __tablename__ = 'clients'
 
-    id         = Column(Integer, primary_key=True)
-    name       = Column(Text, nullable=False)  # uniqueness via idx_clients_name_ci_unique on lower(name)
-    is_active  = Column(Boolean, nullable=False, default=False)
-    created_at = Column(DateTime(timezone=True),
-                        default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime(timezone=True),
-                        default=lambda: datetime.now(timezone.utc),
-                        onupdate=lambda: datetime.now(timezone.utc))
+    id            = Column(Integer, primary_key=True)
+    name          = Column(Text, nullable=False)  # uniqueness via idx_clients_name_ci_unique on lower(name)
+    is_active     = Column(Boolean, nullable=False, default=False)
+    slack_channel = Column(Text, nullable=True)
+    created_at    = Column(DateTime(timezone=True),
+                           default=lambda: datetime.now(timezone.utc))
+    updated_at    = Column(DateTime(timezone=True),
+                           default=lambda: datetime.now(timezone.utc),
+                           onupdate=lambda: datetime.now(timezone.utc))
 
 
 class Project(Base):
@@ -413,15 +416,17 @@ class ReportRecipient(Base):
     """
     __tablename__ = 'report_recipients'
 
-    id = Column(Integer, primary_key=True)
-    report_type = Column(String(50), nullable=False)
-    email = Column(String(255), nullable=False)
+    id             = Column(Integer, primary_key=True)
+    report_type    = Column(String(50), nullable=False)
+    email          = Column(String(255), nullable=False)
     recipient_type = Column(String(10), nullable=False)  # 'to' or 'cc'
-    client_id = Column(Integer, nullable=True)  # References clients.id (Client model Phase 6+)
-    recipient_id = Column(Integer, ForeignKey('recipients.id', ondelete='CASCADE'), nullable=True)
-    created_at = Column(DateTime, default=datetime.now)
+    client_id      = Column(Integer, ForeignKey('clients.id', ondelete='SET NULL'),
+                            nullable=True, index=True)
+    recipient_id   = Column(Integer, ForeignKey('recipients.id', ondelete='CASCADE'), nullable=True)
+    created_at     = Column(DateTime, default=datetime.now)
 
     recipient = relationship('Recipient', back_populates='assignments')
+    client    = relationship('Client', lazy='select')
 
     def __repr__(self):
         return (f"<ReportRecipient(id={self.id}, report_type='{self.report_type}', "
