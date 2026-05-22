@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v5.5
-20260512
+Feature Backlog v5.6
+20260522
 
 # WorkmAIn Feature Backlog
 
@@ -26,6 +26,7 @@ Items deferred from various phases for future implementation.
 - v5.3 (20260505): Added Item 30 — System Service Promotion for workmain-notify (Phase 10 deferral); updated register and statistics.
 - v5.4 (20260508): Item 27 marked COMPLETE (v1.12.0).
 - v5.5 (20260512): Item 20 marked COMPLETE (v1.13.0); Item 24 re-targeted to Phase 15 (Phase 11 did not expand tasks scope); Item 28 updated (clients delivered, config/provider remain).
+- v5.6 (20260522): Item 28 updated — Phase 11.5 wired client distribution (slack_channel, recipient scoping); config/provider still deferred to Phase 14.
 
 ---
 
@@ -767,7 +768,7 @@ Core recurring functionality (create, view, delete) is complete and working. The
 
 #### Item 28 — Placeholder Command Groups
 
-**Status:** Open — clients delivered (Phase 11); config/provider remain
+**Status:** Open — clients delivered (Phase 11); distribution wired (Phase 11.5); config/provider remain
 **Priority:** Low
 **Effort:** Varies
 **Added:** 20260127
@@ -776,7 +777,7 @@ Core recurring functionality (create, view, delete) is complete and working. The
 **Description:**
 Command groups that were placeholders in `interface.py`, removed in v1.1.0. Current status:
 
-- **clients** — ✓ Complete. Full `workmain clients` group delivered in Phase 11 (v1.13.0).
+- **clients** — ✓ Complete. Full `workmain clients` group delivered in Phase 11 (v1.13.0). Per-client distribution (Slack channel + email recipient scoping) wired in Phase 11.5 (v1.14.0).
 - **notifications** — ✓ Complete. `workmain notifications` group delivered in Phase 10 (v1.11.0).
 - **config** (Phase 14) — Settings like default tags, trigger times, Ollama host. Phase 14 setup wizard is the intended home.
 - **provider** (Low) — Overlaps with existing `providers` command. Likely redundant; needs audit.

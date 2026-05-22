@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-05-22
+
+### Added
+- `workmain slack set channel <channel>` — set Slack channel for the active client;
+  normalizes channel name (adds `#` if absent)
+- `workmain slack set workspace` — informational command showing current workspace name
+  and config file path for manual editing
+- `clients.slack_channel` — per-client Slack channel column (nullable TEXT)
+- `report_recipients.client_id` FK wired — previously a bare stub column; now has a
+  foreign key to `clients(id)` with `ON DELETE SET NULL` and an index
+- `EmailRepository.list_for_client()` — merges global (client_id IS NULL) and
+  client-scoped recipients for email draft generation; no-op client_id returns global only
+
+### Changed
+- `slack post` — reads `clients.slack_channel` for active client first; falls back to
+  `config.json` default_channel; channel resolution uses a dedicated mini-session
+- `email assign` / `email unassign` — ambient active client context drives recipient
+  scoping; no explicit flag required; output shows `[global]` or `[client: Name]` scope
+- `email save` — uses `list_for_client()` for recipient resolution; global + active
+  client-scoped recipients merged; deduplication: client-scoped role wins over global
+- `slack status` — shows `Channel: #x (Client: Y)` with per-client resolution
+- `config.json` — `default_channel` key migrated to active client's `slack_channel`;
+  file now contains `workspace_name` only
+
+### Removed
+- `workmain slack channel set` — retired; replaced by `workmain slack set channel`
+  (different backing store, different semantics — not an alias)
+
+### Standards
+- `CLI_STANDARDS.md` bumped to v2.2 — §2.4 `set` subgroup carve-out documented;
+  V23 updated to resolved; V24 added (`slack channel set` retirement)
+
 ## [1.13.0] - 2026-05-12
 
 ### Added
