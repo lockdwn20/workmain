@@ -416,15 +416,17 @@ class ReportRecipient(Base):
     """
     __tablename__ = 'report_recipients'
 
-    id = Column(Integer, primary_key=True)
-    report_type = Column(String(50), nullable=False)
-    email = Column(String(255), nullable=False)
+    id             = Column(Integer, primary_key=True)
+    report_type    = Column(String(50), nullable=False)
+    email          = Column(String(255), nullable=False)
     recipient_type = Column(String(10), nullable=False)  # 'to' or 'cc'
-    client_id = Column(Integer, nullable=True)  # References clients.id (Client model Phase 6+)
-    recipient_id = Column(Integer, ForeignKey('recipients.id', ondelete='CASCADE'), nullable=True)
-    created_at = Column(DateTime, default=datetime.now)
+    client_id      = Column(Integer, ForeignKey('clients.id', ondelete='SET NULL'),
+                            nullable=True, index=True)
+    recipient_id   = Column(Integer, ForeignKey('recipients.id', ondelete='CASCADE'), nullable=True)
+    created_at     = Column(DateTime, default=datetime.now)
 
     recipient = relationship('Recipient', back_populates='assignments')
+    client    = relationship('Client', lazy='select')
 
     def __repr__(self):
         return (f"<ReportRecipient(id={self.id}, report_type='{self.report_type}', "
