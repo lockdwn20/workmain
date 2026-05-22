@@ -1,7 +1,7 @@
 """
 WorkmAIn
-Client Repository v1.0
-20260512
+Client Repository v1.1
+20260522
 
 Data access layer for the clients table. set_active() is atomic —
 updates clients.is_active and system_state.active_client_id in one
@@ -9,6 +9,7 @@ transaction.
 
 Version History:
 - v1.0: Phase 11 Gate 3 — CRUD, set_active (atomic), get_active, name validation
+- v1.1: Phase 11.5 Gate 2 — update() accepts slack_channel kwarg
 """
 
 from __future__ import annotations
@@ -100,7 +101,7 @@ class ClientRepository:
         return True
 
     def update(self, client_id: int, **kwargs) -> Optional[Client]:
-        """Update client fields. Accepted kwargs: name.
+        """Update client fields. Accepted kwargs: name, slack_channel.
 
         Raises:
             ValueError: If new name is reserved.
@@ -111,6 +112,8 @@ class ClientRepository:
         if 'name' in kwargs:
             self._validate_name(kwargs['name'])
             client.name = kwargs['name']
+        if 'slack_channel' in kwargs:
+            client.slack_channel = kwargs['slack_channel']
         self.session.commit()
         self.session.refresh(client)
         return client
