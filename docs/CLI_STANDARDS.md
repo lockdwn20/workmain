@@ -1,6 +1,6 @@
 # WorkmAIn
-# CLI_STANDARDS.md v2.1
-# 20260512
+# CLI_STANDARDS.md v2.2
+# 20260522
 
 ---
 
@@ -41,6 +41,9 @@
   filter for historical cancelled meeting lookup; hotfix soft-cancel).
 - v2.1 (20260512): Violation Register V23 added — `clients set active` approved deviation
   from §4.3 name-or-ID rule (name-only by design; Phase 11).
+- v2.2 (20260522): §2.4 — add `set` configuration subgroup carve-out; V23 updated to
+  resolved (compliant under §2.4 carve-out); V24 added (`slack channel set` retirement,
+  Phase 11.5).
 
 ---
 
@@ -112,6 +115,20 @@ workmain clockify sync push
 ```
 
 Subgroups follow the same noun rule as top-level groups.
+
+**`set` subgroup exception:** The verb `set` is permitted as a subgroup name
+when a group has multiple configurable properties that share a common
+"configure this value" semantics. In this pattern, `set` acts as a
+configuration namespace and its subcommands are the property names (nouns).
+
+> ✓  `workmain clients set active <name>`   ← set as config namespace  
+> ✓  `workmain providers set default <p>`   ← set as config namespace  
+> ✓  `workmain slack set channel <c>`        ← set as config namespace  
+> ✗  `workmain slack post set`              ← set as leaf verb on unrelated group  
+
+`set` subgroups are only valid when: (a) the parent group has more than
+one configurable property that could be set, or is designed to gain them;
+and (b) the subcommand names are nouns (the properties being configured).
 
 ---
 
@@ -469,7 +486,8 @@ The following existing commands were audited against this standard on 20260320 a
 | 20 | `schedule timeoff add` | Start/end dates as positional arguments, not `--start/-b` / `--end/-e` options | §5.3 | High | **Resolved (hotfix v1.11.3):** Converted to `--start/-b` and `--end/-e` required options |
 | 21 | `schedule timeoff add --notes/-N` | Used `--notes/-N` instead of `--title/-l`; `-N` scoped to `time add` only | §5.3 | High | **Resolved (hotfix v1.11.3):** Replaced with `--title/-l` consistent with `holiday add` |
 | 22 | `schedule holiday remove`, `schedule timeoff remove` | `remove` is a banned synonym for `delete` per §3.2 | §3.2 | Medium | **Resolved (hotfix v1.11.3):** Renamed to `delete` |
-| 23 | `clients set active` | Accepts name only — intentionally deviates from §4.3 name-or-ID rule | §4.3 | Approved deviation | **By design (Phase 11, v1.13.0):** `clients set active` accepts client name only (not ID) to prevent accidental context switch via a mistyped integer. Name is the natural identifier for "which client am I working on." ID-resolution path deliberately omitted. |
+| 23 | `clients set active` | Accepts name only — intentionally deviates from §4.3 name-or-ID rule | §4.3 | Resolved (v2.2) | **Resolved (v2.2):** `clients set active` is fully compliant under the §2.4 set subgroup carve-out added in v2.2. The name-only targeting remains a deliberate design choice but is no longer a standards deviation. |
+| 24 | `slack channel set` | Noun-subgroup-first structure (`channel` group, `set` leaf) replaced in Phase 11.5 by `slack set channel` (config namespace pattern). The old command wrote to `config.json`; the new command writes to `clients.slack_channel` — functionally distinct, not a rename. | §2.4 carve-out | Resolved in Phase 11.5 | **Resolved (Phase 11.5, v1.14.0):** `slack channel set` retired; `slack set channel` compliant under §2.4 set carve-out. |
 
 **Severity definitions:**
 - **High** — Affects discoverability, breaks the integration pattern, or creates naming confusion for users
