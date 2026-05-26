@@ -1,6 +1,6 @@
 # WorkmAIn
-# CLI_STANDARDS.md v2.2
-# 20260522
+# CLI_STANDARDS.md v2.3
+# 20260526
 
 ---
 
@@ -44,6 +44,9 @@
 - v2.2 (20260522): §2.4 — add `set` configuration subgroup carve-out; V23 updated to
   resolved (compliant under §2.4 carve-out); V24 added (`slack channel set` retirement,
   Phase 11.5).
+- v2.3 (20260526): Added `log`, `complete`, `dismiss`, `confirm`, `correct` to §3.3.
+  Updated `carryover` retirement note. Updated `-H/--history` scope in §5.3. Resolved
+  M1, M2, M3 in violation register. Updated V6 and V7 target phases to Phase 12.
 
 ---
 
@@ -201,8 +204,13 @@ Standard verbs in §3.2 cover the majority of operations. When no standard verb 
 | `register` | `templates register` | Template lifecycle — bind alias to template |
 | `unregister` | `templates unregister` | Template lifecycle — unbind alias |
 | `validate` | `templates validate` | Schema/content validation — no standard verb equivalent |
-| `carryover` | `tasks carryover` | Day-boundary workflow operation — no standard verb equivalent |
+| `carryover` | `tasks carryover` | Day-boundary workflow operation — no standard verb equivalent. Retirement pending Phase 12 — a deprecated alias will be introduced at that time and full retirement is Phase 15. |
 | `track` | `meetings track` | Create a time entry from a meeting — semantically distinct from `add`; `track` as a *subcommand verb* (not a group name) is acceptable |
+| `log` | `notes log` | Multi-step meeting documentation workflow — bulk note entry via editor where each line becomes a separate linked note, followed by condensation and time entry prompts. Semantically distinct from `add` (single note creation). |
+| `complete` | `tasks complete` (Phase 12) | Task lifecycle closure — deliberate workflow termination. `edit` is too generic and does not imply finality. Same pattern as `carryover` (workflow operation, no standard verb equivalent). |
+| `dismiss` | `tasks dismiss` (Phase 12) | Deliberate non-completion — task completed by others or no longer relevant. Semantically distinct from both `edit` and `complete`. |
+| `confirm` | `reports confirm` (Phase 12) | User attestation that a generated report is accurate. No standard verb carries attestation-without-modification semantics. |
+| `correct` | `reports correct` (Phase 12) | Targeted correction with audit trail — writes to a separate corrected_content field, not the original. Distinct write target and status change make `edit` inappropriate. |
 
 Any verb not in §3.2 and not in this table is not approved. Adding a new domain-specific verb requires user confirmation before implementation begins.
 
@@ -305,7 +313,7 @@ Lowercase short forms are reserved for **common, frequently used** flags. Upperc
 -n  → --limit     (frequent)      -N  → --notes      (track add only)
 -d  → --date      (frequent)      -D  → --description (track edit only)
 -c  → --content   (frequent)      -C  → --category   (time add, time edit)
-                                  -H  → --history    (notes meeting only)
+                                  -H  → --history    (notes list, when --meeting provided)
 ```
 
 This convention must be followed for all future flag assignments. Do not assign an uppercase short form to a high-frequency flag, and do not assign a lowercase short form to a low-frequency variant when a paired uppercase exists.
@@ -333,7 +341,7 @@ The following assignments are **reserved across all commands**. No flag may use 
 | `-f` | `--source` | `notes add` | Note/entry source field |
 | `-b` | `--start` | `time add`, `meetings create`, `clockify sync pull` | "Begin" mnemonic; avoids `-s` conflict |
 | `-e` | `--end` | `time add`, `meetings create` | Consistent with `--start` |
-| `-H` | `--history` | `notes meeting` only | Uppercase; Click reserves `-h` for help |
+| `-H` | `--history` | `notes list` (when `--meeting` is also provided) | Uppercase; Click reserves `-h` for help |
 | `-S` | `--skip` | `eod` | Uppercase; less-common behavioural modifier |
 | `-C` | `--category` | `time add`, `time edit` | Uppercase pair of `-c`; expanded from `time add` only |
 | `-P` | `--provider` | `providers costs` | Uppercase; `-p` reserved for `--project` |
@@ -468,7 +476,7 @@ The following existing commands were audited against this standard on 20260320 a
 | 3 | `track sync push/pull/both` | Clockify sync lives under `track`, not `clockify` | §2.3 | High | Move `sync` subgroup to `clockify sync push/pull/both` |
 | 4 | `slack post-weekly` | Hyphenated period baked into command name; prevents future `post daily`, `post monthly` | §3.2 | High | Rename to `slack post` with required `PERIOD` argument (`weekly`, `daily`, `monthly`) |
 | 5 | `track add` | No interactive prompt fallback when run with no arguments | §4.4 | Medium | Add `click.prompt()` fallback for `DESCRIPTION` during `track`/`time` merge sprint |
-| 6 | `tasks carryover` | Group has one command — barely qualifies as a group | §2.2 | Low | Defer to Phase 11 when `tasks` scope expands |
+| 6 | `tasks carryover` | Group has one command — barely qualifies as a group | §2.2 | Low | Defer to Phase 12 when `tasks` scope expands |
 | 7 | `reports costs` + `providers costs` | Potentially duplicate cost reporting surface | §2.3 | Low | Audit and confirm distinct purpose during Phase 12; remove one if redundant |
 | 8 | `workmain add-holiday` (checklist) | Top-level placement violates hierarchy | §2.1 | Pre-emptive | Place under `schedule` group per Phase 10 decision |
 | 9 | `workmain add-timeoff` (checklist) | Top-level placement violates hierarchy | §2.1 | Pre-emptive | Place under `schedule` group per Phase 10 decision |
@@ -488,6 +496,9 @@ The following existing commands were audited against this standard on 20260320 a
 | 22 | `schedule holiday remove`, `schedule timeoff remove` | `remove` is a banned synonym for `delete` per §3.2 | §3.2 | Medium | **Resolved (hotfix v1.11.3):** Renamed to `delete` |
 | 23 | `clients set active` | Accepts name only — intentionally deviates from §4.3 name-or-ID rule | §4.3 | Resolved (v2.2) | **Resolved (v2.2):** `clients set active` is fully compliant under the §2.4 set subgroup carve-out added in v2.2. The name-only targeting remains a deliberate design choice but is no longer a standards deviation. |
 | 24 | `slack channel set` | Noun-subgroup-first structure (`channel` group, `set` leaf) replaced in Phase 11.5 by `slack set channel` (config namespace pattern). The old command wrote to `config.json`; the new command writes to `clients.slack_channel` — functionally distinct, not a rename. | §2.4 carve-out | Resolved in Phase 11.5 | **Resolved (Phase 11.5, v1.14.0):** `slack channel set` retired; `slack set channel` compliant under §2.4 set carve-out. |
+| M1 | `meetings template use` | `--start-date/-d` and `--until/-u` flags non-standard — `--start` must use `-b` per §5.3 reserved table; `-d` is reserved for `--date` | §5.3 | Minor | **Resolved (Gate 2, v1.15.0):** Flags renamed to `--start/-b` and `--end/-e`. |
+| M2 | `meetings create` | `-a/--attendees` flag used `-a` short form (conflicts with `--all` in other commands); never wired to real functionality | §5.3 | Minor | **Resolved (Gate 2, v1.15.0):** `--attendees` CLI option removed. Meeting model and `meetings_repo.create()` attendees parameter preserved intact for Phase 14+. |
+| M3 | `meetings rename` | `NEW_TITLE` passed as positional argument violates §4.1 — a secondary modifier should be a named option, not a positional | §4.1 | Minor | **Resolved (Gate 2, v1.15.0):** Converted to `--title/-l` named option. Hard break — no deprecation alias; Click's error output is explicit. |
 
 **Severity definitions:**
 - **High** — Affects discoverability, breaks the integration pattern, or creates naming confusion for users
