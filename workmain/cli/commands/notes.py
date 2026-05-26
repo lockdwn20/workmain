@@ -1,7 +1,7 @@
 """
 WorkmAIn Notes CLI Commands
-Notes Commands v3.5
-20260512
+Notes Commands v3.6
+20260526
 
 Unified notes command group. Consolidates note (write) and notes (read) groups
 from note.py into a single group with all subcommands.
@@ -34,6 +34,10 @@ Version History:
         New helper: _resolve_note().
 - v3.5: Phase 11 Gate 5 — stamp active_client_id on all notes_repo.create() and
         time_repo.create() call sites (notes add, notes log condensation flow)
+- v3.6: Notes & Tasks Foundation Sprint — add notes list (unified filter command),
+        notes show (single record detail); add --search/-s to notes today; retire
+        notes date, notes meeting, notes search as deprecated aliases delegating
+        to notes list.
 """
 
 import click
@@ -43,11 +47,15 @@ import subprocess
 from datetime import datetime, timedelta
 from typing import Optional
 
+from rich.console import Console
+
 from workmain.database.connection import get_db
 from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.meetings_repo import MeetingsRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
 from workmain.utils.tag_utils import parse_tags, get_tag_system
+
+console = Console()
 
 
 def format_note_display(note, show_id: bool = True) -> str:
@@ -721,9 +729,182 @@ def notes_log(meeting: str):
         session.close()
 
 
+@notes.command('list')
+@click.option('--date', '-d', 'date_str', help="Date filter (YYYY-MM-DD, 'today', 'yesterday')")
+@click.option('--meeting', '-m', 'meeting_str', help='Filter by meeting title or ID (fuzzy match)')
+@click.option('--search', '-s', help='Full-text search keyword')
+@click.option('--tags', '-t', help='Filter by tags (comma-separated: ilo,cf)')
+@click.option('--limit', '-n', type=int, default=20, help='Maximum results [default: 20]')
+@click.option('--history', '-H', is_flag=True, default=False,
+              help='Show all instances of recurring meeting (only meaningful with --meeting)')
+@click.option('--show-ids', is_flag=True, default=False, help='Show note IDs')
+def notes_list(date_str: Optional[str], meeting_str: Optional[str], search: Optional[str],
+               tags: Optional[str], limit: int, history: bool, show_ids: bool):
+    """
+    List notes with optional filters.
+
+    Default behavior (no flags): last 7 days, limit 20, most recent first.
+    When --meeting or --search is provided without --date, no date constraint
+    is applied so the full history is searchable.
+
+    \b
+    Examples:
+      workmain notes list
+      workmain notes list --date today
+      workmain notes list --date 2026-05-01
+      workmain notes list --meeting "Team Standup"
+      workmain notes list --meeting "Standup" --history
+      workmain notes list --search "security review"
+      workmain notes list --tags cf
+      workmain notes list --tags ilo,cf
+      workmain notes list --date today --tags ilo
+      workmain notes list --limit 50
+    """
+    if history and not meeting_str:
+        console.print("[yellow]⚠ --history has no effect without --meeting[/yellow]")
+        history = False
+
+    db = get_db()
+    session = db.get_session()
+    notes_repo = NotesRepository(session)
+    meetings_repo = MeetingsRepository(session)
+
+    try:
+        # Parse date filter
+        date_filter = None
+        if date_str:
+            if date_str == 'today':
+                date_filter = datetime.now().date()
+            elif date_str == 'yesterday':
+                date_filter = datetime.now().date() - timedelta(days=1)
+            else:
+                try:
+                    date_filter = datetime.strptime(date_str, '%Y-%m-%d').date()
+                except ValueError:
+                    click.echo("Invalid date format. Use YYYY-MM-DD, 'today', or 'yesterday'")
+                    return
+
+        # Resolve meeting filter
+        meeting_ids = None
+        resolved_meeting = None
+        if meeting_str:
+            meeting_id = fuzzy_match_meeting(meetings_repo, meeting_str)
+            if meeting_id is None:
+                return
+            resolved_meeting = meetings_repo.get_by_id(meeting_id)
+            if history and resolved_meeting and resolved_meeting.outlook_recurring_id:
+                series = meetings_repo.get_recurring_series(resolved_meeting.outlook_recurring_id)
+                meeting_ids = [m.id for m in series]
+            else:
+                meeting_ids = [meeting_id]
+
+        # Parse tags (OR logic)
+        include_tags = None
+        if tags:
+            tag_parts = [t.strip() for t in tags.split(',')]
+            tag_string = ' '.join(f'#{t}' for t in tag_parts)
+            _, include_tags, _ = parse_tags(tag_string, apply_default=False)
+
+        # Default 7-day window when no meeting/search filter and no explicit date
+        date_range_start = None
+        date_range_end = None
+        if date_filter is None and meeting_ids is None and not search:
+            date_range_end = datetime.now().date()
+            date_range_start = date_range_end - timedelta(days=7)
+
+        note_list = notes_repo.get_filtered(
+            date_filter=date_filter,
+            date_range_start=date_range_start,
+            date_range_end=date_range_end,
+            meeting_ids=meeting_ids,
+            search=search,
+            include_tags=include_tags,
+            limit=limit,
+        )
+
+        if not note_list:
+            click.echo("No notes found.")
+            return
+
+        # Build header
+        if meeting_str and resolved_meeting:
+            header = f"Notes for '{resolved_meeting.title}'"
+            if history:
+                header += " (all instances)"
+        elif date_filter is not None:
+            header = f"Notes for {date_filter}"
+        elif search:
+            header = f"Notes matching '{search}'"
+        elif tags:
+            header = f"Notes with tags [{tags}]"
+        else:
+            header = f"Notes — last 7 days"
+
+        click.echo(f"\n{header} ({len(note_list)}):\n")
+        click.echo("=" * 60)
+
+        current_date = None
+        for note in note_list:
+            if note.created_date != current_date:
+                if current_date is not None:
+                    click.echo("=" * 60)
+                click.echo(f"\n[{note.created_date}]")
+                click.echo("-" * 60)
+                current_date = note.created_date
+            click.echo(format_note_display(note, show_id=show_ids))
+            click.echo("-" * 60)
+
+    finally:
+        session.close()
+
+
+@notes.command('show')
+@click.argument('identifier')
+def notes_show(identifier: str):
+    """
+    Show full detail for a single note by ID or content substring.
+
+    \b
+    Examples:
+      workmain notes show 42
+      workmain notes show "security review"
+    """
+    db = get_db()
+    session = db.get_session()
+    notes_repo = NotesRepository(session)
+
+    try:
+        note = _resolve_note(identifier, notes_repo)
+        if not note:
+            return
+
+        console.print(f"\n[bold]Note Details:[/bold]\n")
+        console.print("=" * 60)
+        console.print(f"[bold]Note #{note.id}[/bold]")
+        console.print(f"\nContent:    {note.content}")
+        console.print(f"Tags:       {note.display_tags if note.tags else '(none)'}")
+
+        created_str = note.created_at.strftime('%Y-%m-%d %H:%M') if note.created_at else '(unknown)'
+        console.print(f"Created:    {created_str}")
+
+        if note.meeting:
+            console.print(f"Meeting:    {note.meeting.title} (ID: {note.meeting.id})")
+
+        if note.project:
+            console.print(f"Project:    {note.project.name}")
+
+        source = note.source or 'ad-hoc'
+        console.print(f"Source:     {source}")
+        console.print()
+
+    finally:
+        session.close()
+
+
 @notes.command('today')
 @click.option('--tags', '-t', help='Filter by tags (comma-separated: ilo,cf or "#ilo #cf")')
-def notes_today(tags: Optional[str]):
+@click.option('--search', '-s', help='Filter today\'s notes by keyword')
+def notes_today(tags: Optional[str], search: Optional[str]):
     """
     Show today's notes.
 
@@ -732,6 +913,7 @@ def notes_today(tags: Optional[str]):
       workmain notes today
       workmain notes today -t ilo
       workmain notes today -t ilo,cf
+      workmain notes today -s "security"
     """
     db = get_db()
     session = db.get_session()
@@ -748,6 +930,10 @@ def notes_today(tags: Optional[str]):
                 _, include_tags, _ = parse_tags(tags, apply_default=False)
 
         note_list = notes_repo.get_today(include_tags=include_tags)
+
+        if search:
+            keyword = search.lower()
+            note_list = [n for n in note_list if keyword in n.content.lower()]
 
         if not note_list:
             click.echo("No notes for today.")
@@ -766,9 +952,12 @@ def notes_today(tags: Optional[str]):
 
 @notes.command('date')
 @click.argument('target_date', required=False)
-def notes_date(target_date: Optional[str]):
+@click.pass_context
+def notes_date(ctx: click.Context, target_date: Optional[str]):
     """
-    Show notes for a specific date.
+    Show notes for a specific date. [DEPRECATED]
+
+    Use 'workmain notes list --date <date>' instead.
 
     \b
     Examples:
@@ -776,79 +965,38 @@ def notes_date(target_date: Optional[str]):
       workmain notes date yesterday
       workmain notes date today
     """
-    db = get_db()
-    session = db.get_session()
-    notes_repo = NotesRepository(session)
-
-    try:
-        if not target_date or target_date == 'today':
-            query_date = datetime.now().date()
-        elif target_date == 'yesterday':
-            query_date = datetime.now().date() - timedelta(days=1)
-        else:
-            try:
-                query_date = datetime.strptime(target_date, '%Y-%m-%d').date()
-            except ValueError:
-                click.echo(f"Invalid date format. Use YYYY-MM-DD, 'today', or 'yesterday'")
-                return
-
-        note_list = notes_repo.get_by_date(query_date)
-
-        if not note_list:
-            click.echo(f"No notes for {query_date}.")
-            return
-
-        click.echo(f"\nNotes for {query_date} ({len(note_list)}):\n")
-        click.echo("=" * 60)
-
-        for note in note_list:
-            click.echo(format_note_display(note))
-            click.echo("-" * 60)
-
-    finally:
-        session.close()
+    console.print("[yellow]⚠ Deprecated: 'notes date' — use: workmain notes list --date <date>[/yellow]")
+    ctx.invoke(notes_list, date_str=target_date or 'today')
 
 
 @notes.command('search')
 @click.argument('keyword')
 @click.option('--limit', '-n', type=int, default=10, help='Maximum results')
-def notes_search(keyword: str, limit: int):
+@click.pass_context
+def notes_search(ctx: click.Context, keyword: str, limit: int):
     """
-    Search notes by keyword (full-text search).
+    Search notes by keyword. [DEPRECATED]
+
+    Use 'workmain notes list --search <keyword>' instead.
 
     \b
     Examples:
       workmain notes search "bug fix"
       workmain notes search security -n 5
     """
-    db = get_db()
-    session = db.get_session()
-    notes_repo = NotesRepository(session)
-
-    try:
-        results = notes_repo.search(keyword, limit=limit)
-
-        if not results:
-            click.echo(f"No notes found matching '{keyword}'.")
-            return
-
-        click.echo(f"\nSearch results for '{keyword}' ({len(results)}):\n")
-        click.echo("=" * 60)
-
-        for note in results:
-            click.echo(format_note_display(note))
-            click.echo("-" * 60)
-
-    finally:
-        session.close()
+    console.print("[yellow]⚠ Deprecated: 'notes search' — use: workmain notes list --search <keyword>[/yellow]")
+    ctx.invoke(notes_list, search=keyword, limit=limit)
 
 
 @notes.command('meeting')
 @click.argument('meeting_title')
 @click.option('--history', '-H', is_flag=True, help='Show all instances of recurring meeting')
-def notes_meeting(meeting_title: str, history: bool):
+@click.pass_context
+def notes_meeting(ctx: click.Context, meeting_title: str, history: bool):
     """
-    Show notes for a specific meeting (by title or ID).
+    Show notes for a specific meeting. [DEPRECATED]
+
+    Use 'workmain notes list --meeting <title>' instead.
 
     \b
     Examples:
@@ -856,62 +1004,8 @@ def notes_meeting(meeting_title: str, history: bool):
       workmain notes meeting 42
       workmain notes meeting "Team Standup" -H
     """
-    db = get_db()
-    session = db.get_session()
-    notes_repo = NotesRepository(session)
-    meetings_repo = MeetingsRepository(session)
-
-    try:
-        # Resolve meeting by ID or title (Item 26 Direction B fix)
-        if meeting_title.isdigit():
-            mtg = meetings_repo.get_by_id(int(meeting_title))
-            if not mtg:
-                click.echo(f"✗ No meeting found with ID {meeting_title}")
-                return
-            title_for_lookup = mtg.title
-        else:
-            mtg = meetings_repo.get_by_title(meeting_title, exact=False)
-            title_for_lookup = meeting_title
-
-            if not mtg:
-                click.echo(f"✗ Meeting '{meeting_title}' not found")
-
-                matches = meetings_repo.fuzzy_match(meeting_title, threshold=0.6)
-                if matches:
-                    click.echo("\nDid you mean:")
-                    for m, score in matches[:3]:
-                        click.echo(f"  - {m.title}")
-
-                return
-
-        note_list = notes_repo.get_by_meeting_title(title_for_lookup, most_recent_only=not history)
-
-        if not note_list:
-            click.echo(f"No notes for meeting '{mtg.title}'.")
-            return
-
-        title = f"Notes for '{mtg.title}' (ID: {mtg.id})"
-        if history and mtg.is_recurring:
-            title += " (all instances)"
-
-        click.echo(f"\n{title} ({len(note_list)}):\n")
-        click.echo("=" * 60)
-
-        current_date = None
-        for note in note_list:
-            if history and note.created_date != current_date:
-                if current_date is not None:
-                    click.echo("=" * 60)
-                click.echo(f"\n{note.created_date}")
-                click.echo("-" * 60)
-                current_date = note.created_date
-
-            click.echo(format_note_display(note))
-            if not history:
-                click.echo("-" * 60)
-
-    finally:
-        session.close()
+    console.print("[yellow]⚠ Deprecated: 'notes meeting' — use: workmain notes list --meeting <title>[/yellow]")
+    ctx.invoke(notes_list, meeting_str=meeting_title, history=history)
 
 
 # Export command group

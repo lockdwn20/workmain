@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-05-26
+
+### Added
+- `workmain notes list` — unified filter command: `--date/-d`, `--meeting/-m`,
+  `--search/-s`, `--tags/-t`, `--limit/-n`, `--history/-H`, `--show-ids`; default
+  7-day window when no filter is provided; date range disabled when `--meeting` or
+  `--search` is active so all-time history is searchable
+- `workmain notes show <id-or-keyword>` — single record detail view with full field
+  display (content, tags, created, meeting, project, source)
+- `--search/-s` option on `workmain notes today` — Python-level substring filter
+  applied after the daily fetch
+- `get_filtered()` method on `NotesRepository` — combined AND filter supporting
+  date_filter, date range, meeting_ids, FTS search, tag OR logic, and limit
+
+### Changed
+- `workmain meetings template use` — flags renamed: `--start-date/-d` → `--start/-b`
+  and `--until/-u` → `--end/-e` (compliant with §5.3 reserved table)
+- `workmain meetings rename` — `NEW_TITLE` positional argument converted to
+  `--title/-l` named option; hard break (no deprecation alias); Click surfaces an
+  explicit error for old positional usage
+
+### Removed
+- `workmain meetings create --attendees/-a` — CLI option removed; `Meeting.attendees`
+  model field and `meetings_repo.create()` parameter preserved intact for Phase 14+
+
+### Deprecated
+- `workmain notes date` — delegates to `notes list --date` with yellow warning
+- `workmain notes search` — delegates to `notes list --search` with yellow warning
+- `workmain notes meeting` — delegates to `notes list --meeting` with yellow warning
+
+### Standards
+- `CLI_STANDARDS.md` bumped to v2.3 — §3.3 approved verbs: `log`, `complete`,
+  `dismiss`, `confirm`, `correct` added; `carryover` retirement note updated to
+  Phase 12; §5.3 `-H/--history` scope updated from `notes meeting only` to
+  `notes list (when --meeting provided)`; violation register: M1/M2/M3 added and
+  resolved; V6 target updated Phase 11 → Phase 12
+
+### Tests
+- 31 new tests: `test_notes_list.py` (24) + `test_notes_show.py` (7)
+- Suite: 339 passed, 0 failed
+
 ## [1.14.0] - 2026-05-22
 
 ### Added
