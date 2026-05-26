@@ -1,7 +1,7 @@
 """
 WorkmAIn Notes Repository
-Notes Repository v1.8
-20260512
+Notes Repository v1.9
+20260526
 
 Data access layer for notes with tag filtering and full-text search.
 Handles all CRUD operations for the notes table.
@@ -18,6 +18,8 @@ Version History:
         (Item 26, CLI V18)
 - v1.7: Phase 11 Gate 5 — create() accepts client_id for attribution stamping
 - v1.8: Phase 11 Gate 6 — add get_for_date_client() for client-filtered report queries
+- v1.9: Notes & Tasks Foundation Sprint — add get_filtered() combined filter method
+        supporting date, meeting, search, tags, and limit parameters simultaneously
 """
 
 from datetime import date, datetime
@@ -500,6 +502,68 @@ class NotesRepository:
             .limit(limit)
             .all()
         )
+
+    def get_filtered(
+        self,
+        date_filter: Optional[date] = None,
+        date_range_start: Optional[date] = None,
+        date_range_end: Optional[date] = None,
+        meeting_ids: Optional[List[int]] = None,
+        search: Optional[str] = None,
+        include_tags: Optional[List[str]] = None,
+        limit: int = 20,
+    ) -> List['Note']:
+        """
+        Filter notes by any combination of date, meeting, search, and tags.
+
+        All active filters are combined with AND logic. Tag filter uses OR
+        logic (note must have at least one of the listed tags).
+
+        Date range logic:
+        - date_filter set → exact date match (overrides range params)
+        - meeting_ids or search set without date_filter → caller leaves range
+          params None to skip date constraint
+        - neither → caller provides range for the default 7-day window
+
+        Args:
+            date_filter: Exact date to match (overrides date_range_*).
+            date_range_start: Start of date range (inclusive).
+            date_range_end: End of date range (inclusive).
+            meeting_ids: Filter to notes linked to any of these meeting IDs.
+            search: Full-text search keyword (PostgreSQL FTS).
+            include_tags: OR tag filter — note must have at least one listed tag.
+            limit: Maximum results returned (default 20).
+
+        Returns:
+            List of Note objects ordered by created_at descending.
+        """
+        query = self.session.query(Note)
+
+        if date_filter is not None:
+            query = query.filter(Note.created_date == date_filter)
+        else:
+            if date_range_start is not None:
+                query = query.filter(Note.created_date >= date_range_start)
+            if date_range_end is not None:
+                query = query.filter(Note.created_date <= date_range_end)
+
+        if meeting_ids is not None:
+            query = query.filter(Note.meeting_id.in_(meeting_ids))
+
+        if search:
+            query = query.filter(
+                Note.searchable.op('@@')(func.plainto_tsquery('english', search))
+            )
+
+        if include_tags:
+            query = query.filter(Note.tags.op('&&')(include_tags))
+
+        query = query.order_by(Note.created_at.desc())
+
+        if limit:
+            query = query.limit(limit)
+
+        return query.all()
 
     def get_note_age_warning(self, note_id: int) -> Optional[Tuple[int, bool]]:
         """

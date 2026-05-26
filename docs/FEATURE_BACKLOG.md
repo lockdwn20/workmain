@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v5.6
-20260522
+Feature Backlog v5.7
+20260526
 
 # WorkmAIn Feature Backlog
 
@@ -27,6 +27,7 @@ Items deferred from various phases for future implementation.
 - v5.4 (20260508): Item 27 marked COMPLETE (v1.12.0).
 - v5.5 (20260512): Item 20 marked COMPLETE (v1.13.0); Item 24 re-targeted to Phase 15 (Phase 11 did not expand tasks scope); Item 28 updated (clients delivered, config/provider remain).
 - v5.6 (20260522): Item 28 updated — Phase 11.5 wired client distribution (slack_channel, recipient scoping); config/provider still deferred to Phase 14.
+- v5.7 (20260526): Added Item 31 — meetings create attendees CLI option removed; model/repo storage preserved for Phase 14+. Items 24 and 25 re-targeted from Phase 15/14 to Phase 12 (Notes & Tasks Foundation Sprint per CLI_STANDARDS.md V6/V7 update).
 
 ---
 
@@ -97,25 +98,26 @@ Build first, refactor later. See the complete picture before abstracting.
 | 21 | Cloudflare Tunnel / Slack Events API | Low | — | ~3–4 hrs | |
 | 22 | Active Client Context Data Model | — | → Item 20 | — | |
 | 23 | Meeting Visibility / Tagging | Medium | Phase 15 | ~3–5 hrs | |
-| 24 | tasks carryover Group Review | Low | Phase 15 | ~1 hr | |
-| 25 | reports costs + providers costs Audit | Low | Phase 14 | ~1 hr | |
+| 24 | tasks carryover Group Review | Low | Phase 12 | ~1 hr | |
+| 25 | reports costs + providers costs Audit | Low | Phase 12 | ~1 hr | |
 | 26 | Name-or-ID Rule (Edit/Delete) | — | Phase 14 | — | ✓ |
 | 27 | Recurring Meeting Advanced Features | Medium | Phase 15 | ~12–16 hrs | ✓ |
 | 28 | Placeholder Command Groups | Low | Phase 11+ | varies | |
 | 29 | clockify report Subcommand Refactor | Low | Phase 15 | ~30 min | |
 | 30 | System Service Promotion for workmain-notify | Low | Phase 18 | ~4 hours | |
+| 31 | meetings create --attendees Restoration | Low | Phase 14 | ~30 min | |
 
 ---
 
 ## Summary Statistics
 
-**Total Items:** 30 (Item 22 is a redirect — no separate deferred work; see Item 20)
+**Total Items:** 31 (Item 22 is a redirect — no separate deferred work; see Item 20)
 **Completed:** 5 (Items 17, 18, 20, 26, 27)
-**Open:** 24
+**Open:** 25
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Open (targeted) | 19 | 1, 2, 3, 4, 7, 8, 10, 12, 13, 14, 15, 16, 19, 23, 24, 25, 28, 29, 30 |
+| Open (targeted) | 20 | 1, 2, 3, 4, 7, 8, 10, 12, 13, 14, 15, 16, 19, 23, 24, 25, 28, 29, 30, 31 |
 | Conditional | 1 | 9 |
 | Indefinitely | 4 | 5, 6, 11, 21 |
 | Complete | 5 | 17, 18, 20, 26, 27 |
@@ -125,20 +127,21 @@ Build first, refactor later. See the complete picture before abstracting.
 |----------|-------|-------|
 | High | 0 | — |
 | Medium | 7 | 2, 3, 7, 10, 14, 15, 23 |
-| Low | 16 | 1, 4, 5, 6, 8, 11, 12, 13, 16, 19, 21, 24, 25, 28, 29, 30 |
+| Low | 17 | 1, 4, 5, 6, 8, 11, 12, 13, 16, 19, 21, 24, 25, 28, 29, 30, 31 |
 | Conditional | 1 | 9 |
 
 | Target Phase | Items |
 |-------------|-------|
 | Phase 11+ | 4, 28 |
+| Phase 12 | 24, 25 |
 | Phase 13+ | 19 |
-| Phase 14 | 25 |
-| Phase 15 | 1, 2, 3, 7, 8, 10, 12, 13, 14, 15, 16, 23, 24, 29 |
+| Phase 14 | 31 |
+| Phase 15 | 1, 2, 3, 7, 8, 10, 12, 13, 14, 15, 16, 23, 29 |
 | Phase 18 | 30 |
 | Conditional | 9 |
 | Indefinitely | 5, 6, 11, 21 |
 
-**Total Deferred Effort (open items):** ~81 hours
+**Total Deferred Effort (open items):** ~82.5 hours
 
 ---
 
@@ -675,43 +678,43 @@ Workaround exists (internal meetings captured as internal-only notes). Requires 
 
 #### Item 24 — tasks carryover Single-Command Group Review
 
-**Status:** Open — Re-targeted to Phase 15
+**Status:** Open — Re-targeted to Phase 12
 **Priority:** Low (structural inconsistency, no user impact)
 **Effort:** ~1 hour
 **Added:** 20260331
-**Target Phase:** Phase 15
+**Target Phase:** Phase 12
 
 **Description:**
-The `tasks` group currently has only one command (`carryover`). §2.2 of `CLI_STANDARDS.md` states that a group with only one command barely qualifies. Phase 11 focused on client/recipient management and did not expand the `tasks` scope. The review is deferred to Phase 15 when a full CLI polish pass is planned.
+The `tasks` group currently has only one command (`carryover`). §2.2 of `CLI_STANDARDS.md` states that a group with only one command barely qualifies. Phase 12 is the CLI polish sprint; reviewing the tasks group structure at that point, when the full scope of Phase 12 additions is known, is the appropriate time.
 
 **Why Deferred:**
-Phase 11 did not expand tasks scope — `clients` was the Phase 11 focus. Reviewing the group in isolation before tasks functionality is needed would be premature.
+The Notes & Tasks Foundation Sprint added `log`, `complete`, `dismiss` as Phase 12 target verbs (§3.3). Phase 12 may expand the `tasks` group — reviewing the single-command status before then would be premature.
 
 **Acceptance Criteria:**
-- [ ] Phase 15 `tasks` group review complete
+- [ ] Phase 12 `tasks` group review complete
 - [ ] At minimum 2–3 commands under `tasks` group, OR `carryover` folded into a different group
-- [ ] Decision documented in Phase 15 handoff
+- [ ] Decision documented in Phase 12 handoff
 
 ---
 
 #### Item 25 — reports costs + providers costs Duplicate Surface Audit
 
-**Status:** Open
+**Status:** Open — Re-targeted to Phase 12
 **Priority:** Low (possible redundancy, no immediate user impact)
 **Effort:** ~1 hour
 **Added:** 20260331
-**Target Phase:** Phase 14
+**Target Phase:** Phase 12
 
 **Description:**
-Both `reports costs` and `providers costs` may expose overlapping cost-reporting functionality. Audit during Phase 14 to confirm whether each command has a distinct purpose or if one is redundant. Remove the redundant surface if found.
+Both `reports costs` and `providers costs` may expose overlapping cost-reporting functionality. Audit during Phase 12 to confirm whether each command has a distinct purpose or if one is redundant. Remove the redundant surface if found.
 
 **Why Deferred:**
-Both commands exist and work correctly. No user-visible bug. Redundancy audit belongs in a CLI polish pass, not mid-feature work.
+Both commands exist and work correctly. No user-visible bug. Redundancy audit belongs in the Phase 12 CLI polish sprint, not mid-feature work.
 
 **Acceptance Criteria:**
 - [ ] Audit both commands — confirm distinct purposes or identify overlap
 - [ ] If redundant: remove one, update help text for retained command, update any `eod.py` or `interface.py` references
-- [ ] Decision documented in Phase 14 handoff
+- [ ] Decision documented in Phase 12 handoff
 
 ---
 
@@ -873,3 +876,40 @@ environment file changes rather than a code rewrite.
 - `deploy/workmain-notify.service`
 - `workmain/daemon/daemon.py` (path config, if Option A changes state dir)
 - `workmain/__version__.py` (packaging phase)
+
+---
+
+#### Item 31 — meetings create --attendees CLI Option Restoration
+
+**Status:** Open — Deferred to Phase 14
+**Priority:** Low (feature-complete for current use case; CLI option removed as dead code)
+**Effort:** ~30 min
+**Added:** 20260526
+**Target Phase:** Phase 14
+
+**Description:**
+The `--attendees/-a` CLI option was removed from `workmain meetings create` during the
+Notes & Tasks Foundation Sprint (v1.15.0, Gate 2). The option accepted a list of email
+addresses but was never surfaced in any output, report, or downstream workflow. The option
+was dead CLI weight.
+
+The `Meeting.attendees` model column and `meetings_repo.create(attendees=...)` parameter
+are **fully intact** — no data layer was changed. Restoration is a CLI-only task.
+
+When the meetings display or export surface is built (Phase 14+ UI or reporting), restore
+the `--attendees` option with a proper short form that does not conflict with §5.3 reserved
+flags (note: `-a` conflicts with the `--all` pattern; a new assignment is needed).
+
+**Why Deferred:**
+The CLI option had no wired functionality. Restoring it has zero value until attendees are
+surfaced in output, reports, or notifications. Phase 14 (Setup Wizard and Configuration)
+is the earliest point where attendee management becomes user-facing.
+
+**Acceptance Criteria:**
+- [ ] Attendees surfaced in at least one user-facing output (meetings show, weekly report, etc.)
+- [ ] `--attendees` restored to `meetings create` with a compliant short form
+- [ ] Short form assigned in CLI_STANDARDS.md §5.3 reserved table
+
+**Files Affected:**
+- `workmain/cli/commands/meetings.py`
+- `docs/CLI_STANDARDS.md` (§5.3 reserved table — new short form assignment)

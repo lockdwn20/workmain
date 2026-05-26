@@ -1,9 +1,21 @@
 """
 WorkmAIn Package Version
-Version v1.14.0
-20260522
+Version v1.15.0
+20260526
 
 Version History:
+- v1.15.0: Notes & Tasks Foundation Sprint — pre-Phase 12 compliance sprint.
+           New: `notes list` unified filter command (date, meeting, search,
+           tags, limit, history); `notes show` single record detail; `--search/-s`
+           on `notes today`. Deprecated aliases: `notes date`, `notes meeting`,
+           `notes search` delegate to `notes list` with yellow warning. Repo:
+           `get_filtered()` added to NotesRepository. Meetings fixes: `template
+           use` flags renamed to `--start/-b` / `--end/-e`; `--attendees` CLI
+           option removed (model/repo storage intact for Phase 14+); `rename`
+           NEW_TITLE positional converted to `--title/-l` option. CLI_STANDARDS
+           v2.3: §3.3 verbs added (log/complete/dismiss/confirm/correct); §5.3
+           -H/--history scope updated; M1/M2/M3 resolved in violation register.
+           31 new tests; suite: 339 passed.
 - v1.14.0: Phase 11.5 complete — Client Distribution. Per-client Slack channel
            routing: new `clients.slack_channel` column; `slack set channel` writes it;
            `slack post` resolves clients.slack_channel first, falls back to config.json.
@@ -187,7 +199,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.14.0"
-__version_info__ = (1, 14, 0)
+__version__ = "1.15.0"
+__version_info__ = (1, 15, 0)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"

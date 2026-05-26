@@ -1,7 +1,7 @@
 """
 WorkmAIn Meeting CLI Commands
-Meeting Commands v4.1
-20260512
+Meeting Commands v4.2
+20260526
 
 CLI commands for meeting management.
 
@@ -49,6 +49,10 @@ Version History:
         meetings from default list output; show [CANCELLED] badge in meetings show
 - v4.1: Phase 11 Gate 5 — stamp active_client_id on both meetings_repo.create() call
         sites (recurring occurrences loop and single meeting creation)
+- v4.2: Notes & Tasks Foundation Sprint — fix meetings template use flags
+        (--start-date/-d → --start/-b, --until/-u → --end/-e with explicit YYYY-MM-DD
+        help text); remove -a/--attendees from meetings create CLI (model/repo intact);
+        change meetings rename NEW_TITLE positional to required -l/--title option.
 """
 
 import click
@@ -210,10 +214,8 @@ def meetings():
               help='End date for recurring series (optional, defaults to +90 days)')
 @click.option('--include-weekends', is_flag=True, default=False,
               help='Include weekends for daily recurring meetings (Sat/Sun)')
-@click.option('--attendees', '-a', multiple=True,
-              help='Meeting attendees (can specify multiple times)')
 def create(title: str, start: str, end: str, meeting_date: Optional[str],
-           recurring: Optional[str], until: Optional[datetime], include_weekends: bool, attendees: tuple):
+           recurring: Optional[str], until: Optional[datetime], include_weekends: bool):
     """
     Create a new meeting.
 
@@ -223,7 +225,6 @@ def create(title: str, start: str, end: str, meeting_date: Optional[str],
       workmain meetings create "Planning" -b 09:00 -e 10:30 --date 2026-01-20
       workmain meetings create "Daily Sync" -b 09:00 -e 09:15 -r daily -u 2026-01-31
       workmain meetings create "Weekly Review" -b 10:00 -e 11:00 -r weekly
-      workmain meetings create "Client Call" -b 14:00 -e 15:00 -a user@example.com
     """
     db = get_db()
     session = db.get_session()
@@ -308,7 +309,7 @@ def create(title: str, start: str, end: str, meeting_date: Optional[str],
                     title=title,
                     start_time=occurrence_start,
                     end_time=occurrence_end,
-                    attendees=list(attendees) if attendees else [],
+                    attendees=[],
                     is_recurring=True,
                     outlook_recurring_id=recurring_id,
                     client_id=active_client_id,
@@ -359,23 +360,21 @@ def create(title: str, start: str, end: str, meeting_date: Optional[str],
             console.print(f"  Time: {start_dt.strftime('%H:%M')} - {end_dt.strftime('%H:%M')}")
             console.print(f"  Duration: {duration:.1f} hours each")
             console.print(f"  Series ID: {recurring_id[:8]}...")
-            if attendees:
-                console.print(f"  Attendees: {', '.join(attendees)}")
             console.print()
-        
+
         else:
             # Create single meeting
             meeting = repo.create(
                 title=title,
                 start_time=start_dt,
                 end_time=end_dt,
-                attendees=list(attendees) if attendees else [],
+                attendees=[],
                 is_recurring=False,
                 client_id=active_client_id,
             )
-            
+
             duration = (end_dt - start_dt).total_seconds() / 3600
-            
+
             console.print()
             console.print(f"[green]✓ Meeting created:[/green]")
             console.print(f"  Title: {meeting.title}")
@@ -383,8 +382,6 @@ def create(title: str, start: str, end: str, meeting_date: Optional[str],
             console.print(f"  Date: {start_dt.strftime('%Y-%m-%d')}")
             console.print(f"  Time: {start_dt.strftime('%H:%M')} - {end_dt.strftime('%H:%M')}")
             console.print(f"  Duration: {duration:.1f} hours")
-            if attendees:
-                console.print(f"  Attendees: {', '.join(attendees)}")
             console.print()
         
     except Exception as e:
@@ -975,15 +972,15 @@ def meetings_condense(meeting_title: str):
 
 @meetings.command('rename')
 @click.argument('identifier')
-@click.argument('new_title')
-def meetings_rename(identifier: str, new_title: str):
+@click.option('--title', '-l', required=True, help='New title for the meeting')
+def meetings_rename(identifier: str, title: str):
     """
     Rename a meeting by ID or title.
 
     \b
     Examples:
-      workmain meetings rename 5 "Daily Standup"
-      workmain meetings rename "Old Standup" "Daily Standup"
+      workmain meetings rename 5 -l "Daily Standup"
+      workmain meetings rename "Old Standup" -l "Daily Standup"
     """
     db = get_db()
     session = db.get_session()
@@ -996,8 +993,8 @@ def meetings_rename(identifier: str, new_title: str):
 
         old_title = mtg.title
 
-        if repo.rename(mtg.id, new_title):
-            console.print(f"[green]✓ Renamed:[/green] '{old_title}' → '{new_title}'")
+        if repo.rename(mtg.id, title):
+            console.print(f"[green]✓ Renamed:[/green] '{old_title}' → '{title}'")
         else:
             console.print(f"[red]✗ Rename failed[/red]")
 
@@ -1624,19 +1621,19 @@ def meetings_template_delete(name: str):
 
 @meetings_template.command('use')
 @click.argument('name')
-@click.option('--start-date', '-d', 'start_date_str', default=None,
-              help='First occurrence date (YYYY-MM-DD, default: today)')
-@click.option('--until', '-u', 'until_str', default=None,
+@click.option('--start', '-b', 'start_str', default=None,
+              help='First occurrence date (YYYY-MM-DD) [default: today]')
+@click.option('--end', '-e', 'end_str', default=None,
               help='Last occurrence date (YYYY-MM-DD, overrides template until_days)')
-def meetings_template_use(name: str, start_date_str: Optional[str], until_str: Optional[str]):
+def meetings_template_use(name: str, start_str: Optional[str], end_str: Optional[str]):
     """
     Create recurring meetings from a saved template.
 
     \b
     Examples:
       workmain meetings template use "Daily Standup"
-      workmain meetings template use "Daily Standup" --start-date 2026-06-01
-      workmain meetings template use "Weekly Review" --start-date 2026-06-01 --until 2026-08-31
+      workmain meetings template use "Daily Standup" -b 2026-06-01
+      workmain meetings template use "Weekly Review" -b 2026-06-01 -e 2026-08-31
     """
     from workmain.utils.meeting_templates import get_meeting_template_config
     from calendar import monthrange
@@ -1649,21 +1646,21 @@ def meetings_template_use(name: str, start_date_str: Optional[str], until_str: O
         return
 
     # Resolve start date
-    if start_date_str:
+    if start_str:
         try:
-            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            start_date = datetime.strptime(start_str, '%Y-%m-%d').date()
         except ValueError:
-            console.print(f"[red]✗ Invalid start-date: {start_date_str}. Use YYYY-MM-DD[/red]")
+            console.print(f"[red]✗ Invalid start date: {start_str}. Use YYYY-MM-DD[/red]")
             return
     else:
         start_date = date.today()
 
-    # Resolve until date
-    if until_str:
+    # Resolve end date
+    if end_str:
         try:
-            until_date = datetime.strptime(until_str, '%Y-%m-%d').date()
+            until_date = datetime.strptime(end_str, '%Y-%m-%d').date()
         except ValueError:
-            console.print(f"[red]✗ Invalid until date: {until_str}. Use YYYY-MM-DD[/red]")
+            console.print(f"[red]✗ Invalid end date: {end_str}. Use YYYY-MM-DD[/red]")
             return
     else:
         until_date = start_date + timedelta(days=tmpl.get('until_days', 90))
