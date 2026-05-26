@@ -1,12 +1,13 @@
 WorkmAIn
-Implementation Checklist v2.2
-20260421
+Implementation Checklist v2.3
+20260522
 
 Version History:
 - v1.0: Original checklist through Phase 8 (maintained by Claude Code)
 - v2.0 (20260311): Swapped Phase 9/10 — pipeline before scheduler. Added EOD Day-Aware Pipeline section to Phase 9.
 - v2.1 (20260311): Restored Phase 2 completion status (regression fix); restored Phase 4 Provider CLI completed commands (regression fix); restored Phase 3 templates show [x] and templates preview [ ] with bug note; added DB auth config note to Phase 16 (moved from Phase 12); confirmed Phase 13 Code Quality Refactoring intentionally omitted (tracked in FEATURE_BACKLOG.md Item 7); updated Phase 6/7/8 headers to reflect completion.
 - v2.2 (20260421): Phase restructure following bidirectional Slack scoping session. Phase 10 scope narrowed (daemon + rules-based inspection + schedule/notifications commands only; trigger time config deferred to Phase 14). Phase 11 scope clarified (recipient management + active client context switch design decision). New Phase 12 inserted — Data Integrity & Correction Loop (PC-1/2/3). New Phase 13 inserted — Bidirectional Slack Interface (Ollama, intent parsing, conversational workflow). Old Phases 12-16 renumbered to 14-18. Timeline header updated.
+- v2.3 (20260522): Phase 11 marked ✓ COMPLETED (v1.13.0, 2026-05-12); Phase 11.5 delivery noted inline (v1.14.0, 2026-05-22) — all Phase 11 checklist items checked off.
 
 ---
 
@@ -478,7 +479,7 @@ Owns delivery method configuration — how the user receives notifications.
 
 ---
 
-## PHASE 11: Client & Recipient Management (Week 11)
+## PHASE 11: Client & Recipient Management ✓ COMPLETED (v1.13.0, 2026-05-12) + Phase 11.5 ✓ COMPLETED (v1.14.0, 2026-05-22)
 
 **Goal**: Recipient management for report distribution; active client context switch design
 
@@ -490,38 +491,38 @@ the design decision is made here.
 
 ### Recipient Management
 
-- [ ] `workmain clients add <name>` — add client record
-- [ ] `workmain clients list`
-- [ ] `workmain clients show <id-or-name>`
-- [ ] `workmain clients delete <id-or-name>`
-- [ ] Per-client recipient assignment (To/CC per report type)
-- [ ] Wire `system_state.active_client` to email draft generation
-- [ ] Replace `~/.workmain/integrations/slack/config.json` with `clients.slack_channel`
-  (Phase 8 scaffolding removal — see FEATURE_BACKLOG.md)
+- [x] `workmain clients add <name>` — add client record
+- [x] `workmain clients list`
+- [x] `workmain clients show <id-or-name>`
+- [x] `workmain clients delete <id-or-name>`
+- [x] Per-client recipient assignment (To/CC per report type) — `email assign/unassign` with ambient client_id; `report_recipients.client_id` FK; `EmailRepository.list_for_client()` (Phase 11.5)
+- [x] Wire `system_state.active_client` to email draft generation — `_get_draft_recipients()` uses `list_for_client()` with client-scoped deduplication (Phase 11.5)
+- [x] Replace `~/.workmain/integrations/slack/config.json` with `clients.slack_channel`
+  (Phase 8 scaffolding removal — `clients.slack_channel` column + `slack set channel` + config.json migration, Phase 11.5)
 
 ### Active Client Context Switch (Design Decision)
 
-Option A approved (20260421): `workmain client set active <name>` — all subsequent notes,
+Option A approved (20260421): `workmain clients set active <name>` — all subsequent notes,
 meetings, and time entries attributed to active client until switched. Low friction,
 matches CLI work model.
 
-- [ ] `workmain client set active <name>` — switch active client context
-- [ ] `workmain client current` — show active client
-- [ ] Active client shown in `workmain status` output
-- [ ] Design decision documented: data model changes required for full attribution
+- [x] `workmain clients set active <name>` — switch active client context
+- [x] `workmain clients status` — show active client
+- [x] Active client shown in `workmain status` output
+- [x] Design decision documented: data model changes required for full attribution
   (see FEATURE_BACKLOG.md) — data model work deferred, context switch UI delivered here
 
 ### Database
 
-- [ ] `clients` table (name, slack_channel, active flag, created_at)
-- [ ] `system_state` table or config entry for active_client
-- [ ] Migration for Phase 11 schema changes
+- [x] `clients` table (name, slack_channel, active flag, created_at) — `slack_channel` added Phase 11.5
+- [x] `system_state` table for active_client_id and notification settings
+- [x] Migrations applied: 010_system_state, 011_clients, 012_client_attribution (Phase 11); 013_clients_slack_channel, 014_report_recipients_client (Phase 11.5)
 
 **Deliverables**:
 
-- Client records with recipient configuration
-- Active client context switch (UI only — full data attribution in backlog)
-- Slack config.json retired (Phase 8 scaffolding removed)
+- [x] Client records with recipient configuration
+- [x] Active client context switch with full data attribution (notes, meetings, time entries, reports)
+- [x] Slack config.json retired (Phase 8 scaffolding removed — Phase 11.5)
 
 ---
 
