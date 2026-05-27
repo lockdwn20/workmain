@@ -1,6 +1,6 @@
 """
 WorkmAIn Database Models
-Database Models v2.3
+Database Models v2.4
 20260527
 
 SQLAlchemy ORM models for WorkmAIn database.
@@ -30,6 +30,8 @@ Version History:
 - v2.3: Phase 12 Gate 1 — added TaskStatus model (lifecycle layer for carry-forward notes);
         added task_status backref to Note; added status/corrected_content/correction_note
         to Report
+- v2.4: Phase 12 Gate 3 — passive_deletes=True on Note.task_status relationship so that
+        ON DELETE CASCADE handles task_status rows when a note is deleted
 """
 
 from datetime import datetime, date, time
@@ -218,7 +220,8 @@ class Note(Base):
     project = relationship("Project", back_populates="notes")
     meeting = relationship("Meeting", back_populates="notes")
     task_status = relationship("TaskStatus", uselist=False, back_populates="note",
-                               foreign_keys="TaskStatus.note_id")
+                               foreign_keys="TaskStatus.note_id",
+                               passive_deletes=True)
 
     def __repr__(self):
         tags_str = ', '.join(self.tags) if self.tags else 'no tags'
