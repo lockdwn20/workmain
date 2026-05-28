@@ -1,7 +1,7 @@
 """
 WorkmAIn Report Commands - Phase 4 Implementation
-Report Commands v2.7
-20260512
+Report Commands v2.8
+20260528
 
 Static action-first command structure — template is an argument.
 
@@ -47,11 +47,16 @@ Version History:
         generator.generate_report()
 - v2.7: Phase 11 Gate 6 — add get_client_filter(); apply client filter in generate_report_impl;
         informational exit when client report requested with no active client
+- v2.8: Phase 12 Gate 4 — reports confirm, reports correct; --status filter on reports list
+        and history; _resolve_report() and _edit_in_editor() helpers; V7 help clarification
+        on reports costs vs providers costs
 """
 
+import os
 import subprocess
+import tempfile
 import click
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
@@ -66,8 +71,92 @@ from workmain.database.repositories.system_state_repository import SystemStateRe
 from workmain.ai import get_report_generator, ReportFormat, ProviderType
 
 VALID_REPORT_TYPES = ['daily_internal', 'weekly_client']
+VALID_REPORT_STATUSES = ('unconfirmed', 'confirmed', 'corrected', 'all')
 
 console = Console()
+
+
+def _resolve_report(session, identifier: str):
+    """Resolve a report by ID or date string.
+
+    Args:
+        session: Active SQLAlchemy session.
+        identifier: Integer ID string or date ('today', 'yesterday', 'YYYY-MM-DD').
+
+    Returns:
+        Report object.
+    """
+    if identifier.isdigit():
+        report = session.query(Report).filter(Report.id == int(identifier)).first()
+        if not report:
+            console.print(f"[red]✗ No report found with ID {identifier}[/red]")
+            raise SystemExit(1)
+        return report
+
+    if identifier == 'today':
+        target_date = datetime.now().date()
+    elif identifier == 'yesterday':
+        target_date = datetime.now().date() - timedelta(days=1)
+    else:
+        try:
+            target_date = datetime.strptime(identifier, '%Y-%m-%d').date()
+        except ValueError:
+            console.print(
+                f"[red]✗ Invalid identifier '{identifier}'. "
+                "Use a report ID or date (YYYY-MM-DD, today, yesterday).[/red]"
+            )
+            raise SystemExit(1)
+
+    report = (
+        session.query(Report)
+        .filter(Report.report_date == target_date)
+        .filter(Report.report_type == 'daily_internal')
+        .order_by(Report.id.desc())
+        .first()
+    )
+    if not report:
+        report = (
+            session.query(Report)
+            .filter(Report.report_date == target_date)
+            .order_by(Report.id.desc())
+            .first()
+        )
+    if not report:
+        console.print(f"[red]✗ No report found for {target_date}[/red]")
+        raise SystemExit(1)
+    return report
+
+
+def _edit_in_editor(content: str) -> Optional[str]:
+    """Open content in $EDITOR and return edited text, or None on failure.
+
+    Args:
+        content: Text to pre-populate in the editor.
+
+    Returns:
+        Edited string, or None if $EDITOR unset or editor call failed.
+    """
+    editor = os.environ.get('EDITOR')
+    if not editor:
+        console.print(
+            "[red]✗ $EDITOR is not set. "
+            "Export EDITOR=vim (or nano, etc.) and retry.[/red]"
+        )
+        return None
+
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+            tmp_path = f.name
+            f.write(content)
+        subprocess.run([editor, tmp_path], check=True)
+        return Path(tmp_path).read_text()
+    except subprocess.CalledProcessError as e:
+        console.print(f"[red]✗ Editor failed: {e}[/red]")
+        return None
+    finally:
+        if tmp_path:
+            Path(tmp_path).unlink(missing_ok=True)
 
 
 def get_client_filter(
@@ -276,23 +365,36 @@ def report_send(template: str):
     )
 
 
-def _report_list_impl(limit: int, report_type: Optional[str]) -> None:
+def _report_list_impl(
+    limit: int,
+    report_type: Optional[str],
+    status_filter: Optional[str] = None,
+) -> None:
     """Shared implementation for 'list' and 'history' commands."""
     if report_type and report_type not in VALID_REPORT_TYPES:
         console.print(f"[red]Error: Unknown report type '{report_type}'. Valid types: {', '.join(VALID_REPORT_TYPES)}[/red]")
+        raise SystemExit(1)
+
+    if status_filter and status_filter not in VALID_REPORT_STATUSES:
+        console.print(
+            f"[red]✗ Invalid status '{status_filter}'. "
+            f"Valid options: {', '.join(VALID_REPORT_STATUSES)}[/red]"
+        )
         raise SystemExit(1)
 
     db = get_db()
     session = db.get_session()
 
     try:
-        rows = (
-            session.query(Report)
-            .filter(Report.report_type == report_type if report_type else True)
-            .order_by(Report.report_date.desc(), Report.id.desc())
-            .limit(limit)
-            .all()
-        )
+        q = session.query(Report)
+
+        if report_type:
+            q = q.filter(Report.report_type == report_type)
+
+        if status_filter and status_filter != 'all':
+            q = q.filter(Report.status == status_filter)
+
+        rows = q.order_by(Report.report_date.desc(), Report.id.desc()).limit(limit).all()
 
         if not rows:
             console.print("\n[yellow]No reports found.[/yellow]")
@@ -302,6 +404,8 @@ def _report_list_impl(limit: int, report_type: Optional[str]) -> None:
         title = f"Report History (last {len(rows)})"
         if report_type:
             title += f" — {report_type}"
+        if status_filter and status_filter != 'all':
+            title += f" — status={status_filter}"
 
         table = Table(
             title=f"\n{title}",
@@ -313,19 +417,28 @@ def _report_list_impl(limit: int, report_type: Optional[str]) -> None:
         table.add_column("ID", style="dim", justify="right")
         table.add_column("Type", style="cyan")
         table.add_column("Date", style="green")
+        table.add_column("Status", no_wrap=True)
         table.add_column("Created", style="dim")
         table.add_column("Slack", justify="center")
         table.add_column("Preview", style="dim")
+
+        status_style = {
+            'unconfirmed': '[yellow]unconfirmed[/yellow]',
+            'confirmed': '[green]confirmed[/green]',
+            'corrected': '[cyan]corrected[/cyan]',
+        }
 
         for r in rows:
             created_str = r.created_at.strftime('%H:%M') if r.created_at else "—"
             slack_str = "✓" if r.slack_message_ts else "—"
             preview = r.content.lstrip('# \n')[:50] if r.content else ""
+            st = status_style.get(r.status, r.status or "—")
 
             table.add_row(
                 str(r.id),
                 r.report_type or "—",
                 str(r.report_date) if r.report_date else "—",
+                st,
                 created_str,
                 slack_str,
                 preview
@@ -347,7 +460,9 @@ def _report_list_impl(limit: int, report_type: Optional[str]) -> None:
 @click.option('--limit', '-n', type=int, default=10, help='Number of reports to show')
 @click.option('--type', '-R', 'report_type', default=None,
               help='Filter by report type (daily_internal, weekly_client)')
-def report_list(limit: int, report_type: Optional[str]):
+@click.option('--status', 'status_filter', default=None,
+              help='Filter by status: unconfirmed, confirmed, corrected, all [default: all]')
+def report_list(limit: int, report_type: Optional[str], status_filter: Optional[str]):
     """
     List generated reports (DB-backed).
 
@@ -356,15 +471,19 @@ def report_list(limit: int, report_type: Optional[str]):
       workmain reports list
       workmain reports list -n 20
       workmain reports list --type daily_internal
+      workmain reports list --status unconfirmed
+      workmain reports list --status confirmed --type daily_internal
     """
-    _report_list_impl(limit, report_type)
+    _report_list_impl(limit, report_type, status_filter)
 
 
 @reports.command('history')
 @click.option('--limit', '-n', type=int, default=10, help='Number of rows to show')
 @click.option('--type', '-R', 'report_type', default=None,
               help='Filter by report type (daily_internal, weekly_client)')
-def report_history(limit: int, report_type: Optional[str]):
+@click.option('--status', 'status_filter', default=None,
+              help='Filter by status: unconfirmed, confirmed, corrected, all [default: all]')
+def report_history(limit: int, report_type: Optional[str], status_filter: Optional[str]):
     """
     List past generated reports (alias for 'list').
 
@@ -373,9 +492,80 @@ def report_history(limit: int, report_type: Optional[str]):
       workmain reports history
       workmain reports history --limit 3
       workmain reports history --type daily_internal
-      workmain reports history --type weekly_client
+      workmain reports history --status confirmed
     """
-    _report_list_impl(limit, report_type)
+    _report_list_impl(limit, report_type, status_filter)
+
+
+@reports.command('confirm')
+@click.argument('identifier')
+def report_confirm(identifier: str):
+    """
+    Mark a report as confirmed (attest accuracy).
+
+    IDENTIFIER is a report ID or date string (YYYY-MM-DD, today, yesterday).
+    Looks up the most recent daily_internal for the given date.
+
+    \b
+    Examples:
+      workmain reports confirm 42
+      workmain reports confirm today
+      workmain reports confirm 2026-05-27
+    """
+    db = get_db()
+    session = db.get_session()
+    try:
+        report = _resolve_report(session, identifier)
+        if report.status in ('confirmed', 'corrected'):
+            console.print(
+                f"[yellow]Report is already {report.status} — no change made.[/yellow]"
+            )
+            return
+        report.status = 'confirmed'
+        report.updated_at = datetime.now()
+        session.commit()
+        console.print(
+            f"[green]✓ Report confirmed:[/green] {report.report_type} {report.report_date}"
+        )
+    finally:
+        session.close()
+
+
+@reports.command('correct')
+@click.argument('identifier')
+def report_correct(identifier: str):
+    """
+    Open editor to correct a report's content.
+    Original content is preserved; correction stored in corrected_content field.
+
+    IDENTIFIER is a report ID or date string (YYYY-MM-DD, today, yesterday).
+
+    \b
+    Examples:
+      workmain reports correct 42
+      workmain reports correct today
+      workmain reports correct 2026-05-27
+    """
+    db = get_db()
+    session = db.get_session()
+    try:
+        report = _resolve_report(session, identifier)
+        current = report.corrected_content if report.corrected_content else report.content
+        edited = _edit_in_editor(current or '')
+        if edited is None:
+            return
+        if edited == current:
+            console.print("[yellow]No changes detected — report status unchanged.[/yellow]")
+            return
+        report.corrected_content = edited
+        report.status = 'corrected'
+        report.updated_at = datetime.now()
+        session.commit()
+        console.print(
+            f"[green]✓ Report correction saved:[/green] {report.report_type} {report.report_date}"
+        )
+    finally:
+        session.close()
 
 
 @reports.command('show')
@@ -508,9 +698,11 @@ def report_resend(id: int):
 @reports.command('costs')
 def report_costs():
     """
-    Show cost summary for generated reports from database.
+    Show aggregate cost summary for generated reports.
 
-    Queries reports.metadata JSONB field for cost information.
+    Groups totals by report type and AI provider.
+    For per-report cost detail with provider/month filters, use
+    'workmain providers costs'.
 
     \b
     Example:

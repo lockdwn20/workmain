@@ -1,7 +1,7 @@
 """
 WorkmAIn Provider CLI Commands
-Provider Commands v1.9
-20260406
+Provider Commands v1.10
+20260528
 
 CLI commands for managing AI providers (Claude and Gemini).
 
@@ -24,6 +24,8 @@ Version History:
         --month/-m → -M; avoids conflicts with reserved -p (--project) and -m (--meeting)
 - v1.9: CLI Standardization Sprint Part 2 (WU-P2-4) — set-default → providers set group;
         providers set default <provider> --for <type> (Phase 12 extensibility)
+- v1.10: Phase 12 Gate 4 — V7 resolution: add --help clarification to providers costs
+         distinguishing it from reports costs (per-report detail vs aggregate totals)
 """
 
 from typing import Optional
@@ -218,12 +220,11 @@ def test_provider(provider: str):
 @click.option('--limit', '-n', type=int, default=20, help='Limit number of reports shown')
 def show_costs(provider: Optional[str], month: Optional[str], limit: int):
     """
-    Show cost breakdown by provider from database.
+    Show per-report cost breakdown, filterable by provider and month.
 
-    Options:
-        --provider, -p: Filter by specific provider (claude or gemini)
-        --month, -m: Filter by month (YYYY-MM format)
-        --limit, -n: Limit number of reports (default: 20)
+    Shows each individual report's cost with provider and token details.
+    For aggregate totals grouped by type and provider, use
+    'workmain reports costs'.
 
     \b
     Examples:

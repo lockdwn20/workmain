@@ -1,13 +1,13 @@
 """
 WorkmAIn Reports Repository
-Reports Repository v1.2
-20260512
+Reports Repository v1.3
+20260528
 
 Repository for managing generated reports in the database.
 
 Provides methods to:
 - Create report records with metadata
-- Query reports by type, date, or cost
+- Query reports by type, date, or status
 - Get cost summaries and analytics
 - Link reports to files on disk
 
@@ -15,6 +15,8 @@ Version History:
 - v1.0: Initial implementation
 - v1.1: Fixed metadata column name (metadata → report_metadata) to avoid SQLAlchemy conflict
 - v1.2: Phase 11 Gate 5 — create() accepts client_id for attribution stamping
+- v1.3: Phase 12 Gate 4 — list_reports() gains status parameter; get_confirmed_dailies()
+        added as Phase 13 weekly aggregation infrastructure (PC-3)
 """
 
 from datetime import date, datetime
@@ -124,34 +126,68 @@ class ReportsRepository:
         report_type: Optional[str] = None,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
-        limit: int = 10
+        limit: int = 10,
+        status: Optional[str] = None,
     ) -> List[Report]:
         """
         List reports with optional filters.
-        
+
         Args:
             report_type: Filter by report type
             start_date: Filter by start date
             end_date: Filter by end date
             limit: Maximum number of reports
-            
+            status: Filter by report status (unconfirmed/confirmed/corrected).
+                    None means no status filter (returns all).
+
         Returns:
             List of Report objects
         """
         query = self.session.query(Report)
-        
+
         if report_type:
             query = query.filter(Report.report_type == report_type)
-        
+
         if start_date:
             query = query.filter(Report.report_date >= start_date)
-        
+
         if end_date:
             query = query.filter(Report.report_date <= end_date)
-        
+
+        if status:
+            query = query.filter(Report.status == status)
+
         query = query.order_by(desc(Report.created_at)).limit(limit)
-        
+
         return query.all()
+
+    def get_confirmed_dailies(
+        self,
+        start_date: date,
+        end_date: date,
+    ) -> List[Report]:
+        """Return confirmed or corrected daily_internal reports for a date range.
+
+        PC-3 Phase 12: weekly aggregation should only draw from confirmed/corrected
+        daily reports. Phase 13 weekly context builder should call this method
+        instead of querying raw notes/time_entries for the week.
+
+        Args:
+            start_date: Start of date range (inclusive).
+            end_date: End of date range (inclusive).
+
+        Returns:
+            List of Report objects ordered by report_date ASC.
+        """
+        return (
+            self.session.query(Report)
+            .filter(Report.report_type == 'daily_internal')
+            .filter(Report.status.in_(['confirmed', 'corrected']))
+            .filter(Report.report_date >= start_date)
+            .filter(Report.report_date <= end_date)
+            .order_by(Report.report_date.asc())
+            .all()
+        )
     
     def get_cost_summary(
         self,
