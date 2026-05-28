@@ -1,5 +1,5 @@
 WorkmAIn
-Feature Backlog v5.8
+Feature Backlog v5.9
 20260528
 
 # WorkmAIn Feature Backlog
@@ -29,6 +29,7 @@ Items deferred from various phases for future implementation.
 - v5.6 (20260522): Item 28 updated — Phase 11.5 wired client distribution (slack_channel, recipient scoping); config/provider still deferred to Phase 14.
 - v5.7 (20260526): Added Item 31 — meetings create attendees CLI option removed; model/repo storage preserved for Phase 14+. Items 24 and 25 re-targeted from Phase 15/14 to Phase 12 (Notes & Tasks Foundation Sprint per CLI_STANDARDS.md V6/V7 update).
 - v5.8 (20260528): Items 24 and 25 marked RESOLVED (Phase 12, v1.16.0). Added Items 32 and 33 (Phase 13 targets deferred from Phase 12).
+- v5.9 (20260528): Added Item 34 — weekly report prompt using confirmed daily summaries as context instead of raw data re-query (token cost reduction, Phase 13).
 
 ---
 
@@ -109,18 +110,19 @@ Build first, refactor later. See the complete picture before abstracting.
 | 31 | meetings create --attendees Restoration | Low | Phase 14 | ~30 min | |
 | 32 | Task Deduplication and Forwarding | Low | Phase 13 | ~2–3 hrs | |
 | 33 | correction_note Field Population | Low | Phase 13 | ~2 hrs | |
+| 34 | Weekly Report Prompt — Confirmed Daily Summaries as Context | Medium | Phase 13 | ~3–4 hrs | |
 
 ---
 
 ## Summary Statistics
 
-**Total Items:** 33 (Item 22 is a redirect — no separate deferred work; see Item 20)
+**Total Items:** 34 (Item 22 is a redirect — no separate deferred work; see Item 20)
 **Completed:** 7 (Items 17, 18, 20, 24, 25, 26, 27)
-**Open:** 25
+**Open:** 26
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Open (targeted) | 20 | 1, 2, 3, 4, 7, 8, 10, 12, 13, 14, 15, 16, 19, 23, 28, 29, 30, 31, 32, 33 |
+| Open (targeted) | 21 | 1, 2, 3, 4, 7, 8, 10, 12, 13, 14, 15, 16, 19, 23, 28, 29, 30, 31, 32, 33, 34 |
 | Conditional | 1 | 9 |
 | Indefinitely | 4 | 5, 6, 11, 21 |
 | Complete | 7 | 17, 18, 20, 24, 25, 26, 27 |
@@ -129,21 +131,21 @@ Build first, refactor later. See the complete picture before abstracting.
 | Priority | Count | Items |
 |----------|-------|-------|
 | High | 0 | — |
-| Medium | 7 | 2, 3, 7, 10, 14, 15, 23 |
+| Medium | 8 | 2, 3, 7, 10, 14, 15, 23, 34 |
 | Low | 17 | 1, 4, 5, 6, 8, 11, 12, 13, 16, 19, 21, 28, 29, 30, 31, 32, 33 |
 | Conditional | 1 | 9 |
 
 | Target Phase | Items |
 |-------------|-------|
 | Phase 11+ | 4, 28 |
-| Phase 13 | 19, 32, 33 |
+| Phase 13 | 19, 32, 33, 34 |
 | Phase 14 | 31 |
 | Phase 15 | 1, 2, 3, 7, 8, 10, 12, 13, 14, 15, 16, 23, 29 |
 | Phase 18 | 30 |
 | Conditional | 9 |
 | Indefinitely | 5, 6, 11, 21 |
 
-**Total Deferred Effort (open items):** ~87 hours
+**Total Deferred Effort (open items):** ~91 hours
 
 ---
 
@@ -951,3 +953,61 @@ column exists as a Phase 12 schema placeholder only.
 - [ ] Ollama/Mistral parses Slack DM correction intent and extracts reason
 - [ ] `reports correct` (or Slack handler) writes structured reason to `correction_note`
 - [ ] `reports show` displays `correction_note` when populated
+
+---
+
+#### Item 34 — Weekly Report Prompt — Confirmed Daily Summaries as Context
+
+**Status:** Open — Deferred to Phase 13
+**Priority:** Medium (token cost reduction + accuracy improvement)
+**Effort:** ~3–4 hours
+**Added:** 20260528
+**Target Phase:** Phase 13
+
+**Description:**
+The weekly report (`weekly_client`) currently assembles its AI prompt by re-querying all
+`notes`, `time_entries`, and `meetings` for the Mon–Fri date range directly via
+`prompt_builder.py`. This means every Friday's weekly report re-ingests 5 days of raw rows,
+even though the user has already reviewed and confirmed (or corrected) each day's daily
+report via the EOD Step 4a workflow added in v1.16.0.
+
+Phase 13 should wire `ReportsRepository.get_confirmed_dailies(start_date, end_date)` into
+the weekly prompt-building path so that the prompt uses confirmed/corrected daily report
+content as its source instead of raw data. The confirmed `content` field (or
+`corrected_content` when set) represents the user-reviewed, accurate version of each day.
+
+**Benefits:**
+- **Token cost reduction** — a week of 5 compact daily summaries is significantly smaller
+  than 5 days of raw notes + time entries + meetings joined together
+- **Accuracy** — the weekly prompt reflects the user's reviewed and corrected account of
+  events rather than raw unfiltered data
+- **Consistency** — corrections made via `reports correct` (e.g., fixing a wrong client
+  attribution) automatically flow into the weekly report without manual re-editing
+
+**Implementation notes:**
+- `get_confirmed_dailies(start_date, end_date)` already exists in `ReportsRepository`
+  (added v1.16.0); it returns confirmed/corrected `daily_internal` reports ordered ASC
+- `prompt_builder.py` needs a new code path: if confirmed dailies exist for the full
+  week, use their content fields; fall back to raw data query if any day is missing
+- Use `corrected_content` when set (non-None); otherwise use `content`
+- The fallback path ensures backward compatibility for weeks where EOD wasn't run or
+  reports were left unconfirmed
+
+**Why Deferred:**
+Requires Phase 13's Ollama integration work to be scoped alongside this — changing the
+prompt-building path for the weekly report is a meaningful refactor of `prompt_builder.py`
+that should be done with full Phase 13 context rather than bolted on mid-phase.
+
+**Files Affected:**
+- `workmain/ai/prompt_builder.py` — new `_get_confirmed_daily_summaries()` method; wire
+  into `build_prompt()` when template frequency is `weekly`
+- `workmain/database/repositories/reports_repo.py` — `get_confirmed_dailies()` already
+  present; no changes needed unless signature needs extension
+
+**Acceptance Criteria:**
+- [ ] Weekly prompt uses confirmed/corrected daily content when all 5 weekdays have a
+  confirmed or corrected daily report
+- [ ] Falls back to raw notes/time_entries/meetings query when any weekday lacks a
+  confirmed daily (same behavior as today)
+- [ ] `corrected_content` preferred over `content` when set on a given day's report
+- [ ] Token count of weekly prompt measurably reduced versus baseline (raw data path)
