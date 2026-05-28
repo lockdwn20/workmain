@@ -1,9 +1,13 @@
 """
 WorkmAIn Package Version
-Version v1.16.0
+Version v1.16.1
 20260528
 
 Version History:
+- v1.16.1: Hotfix tasks-list-display — always show ID column in tasks list; fix empty
+           Tags column caused by Rich markup stripping [tag-name] bracket format;
+           replaced with short-form aliases (cf, ilo) via new TagSystem.format_short()
+           and format_tags_short() convenience function in tag_utils.py
 - v1.16.0: Phase 12 complete — Data Integrity & Task Lifecycle. New task_status
            table tracks carry-forward note lifecycle (active | completed |
            dismissed) with backfill migration. New commands: tasks list (--status,
@@ -214,7 +218,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.16.0"
-__version_info__ = (1, 16, 0)
+__version__ = "1.16.1"
+__version_info__ = (1, 16, 1)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
