@@ -1,7 +1,7 @@
 """
 WorkmAIn Tasks CLI Commands
-Tasks Commands v2.0
-20260527
+Tasks Commands v2.1
+20260528
 
 CLI commands for task lifecycle management (carry-forward notes).
 Replaces the single 'carryover' command with a full lifecycle group:
@@ -15,6 +15,8 @@ Version History:
 - v2.0: Phase 12 Gate 3 — full lifecycle group: list, today, show, complete,
         dismiss; carryover converted to deprecated alias; _resolve_task() helper;
         task_status integration via TaskStatusRepository
+- v2.1: Hotfix — always show ID column in tasks list; use short-form tags to fix
+        Rich markup stripping of [tag-name] bracket format
 """
 
 import click
@@ -28,6 +30,7 @@ from rich import box
 from workmain.database.connection import get_db
 from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.task_status_repo import TaskStatusRepository
+from workmain.utils.tag_utils import format_tags_short
 
 console = Console()
 
@@ -115,13 +118,13 @@ def _parse_date_filter(date_str: Optional[str]) -> Optional[date]:
         raise SystemExit(1)
 
 
-def _format_task_row(ts, show_ids: bool) -> str:
+def _format_task_row(ts) -> str:
     """Format a single task for list output."""
     note = ts.note
     content = note.content if note.content else ""
     preview = content[:80] + "…" if len(content) > 80 else content
     date_str = note.created_date.strftime('%Y-%m-%d') if note.created_date else "—"
-    tags_str = note.display_tags if note.tags else ""
+    tags_str = format_tags_short(note.tags) if note.tags else ""
 
     status_color = {
         'active': 'green',
@@ -129,9 +132,7 @@ def _format_task_row(ts, show_ids: bool) -> str:
         'dismissed': 'yellow',
     }.get(ts.status, 'white')
 
-    parts = []
-    if show_ids:
-        parts.append(f"[dim][#{note.id}][/dim]")
+    parts = [f"[dim][#{note.id}][/dim]"]
     parts.append(f"[{status_color}]{ts.status}[/{status_color}]")
     parts.append(f"[dim]{date_str}[/dim]")
     if tags_str:
@@ -163,9 +164,8 @@ def tasks():
 @click.option('--date', '-d', 'date_str', default=None,
               help="Filter by created date (YYYY-MM-DD, 'today', 'yesterday')")
 @click.option('--limit', '-n', type=int, default=20, help='Maximum results [default: 20]')
-@click.option('--show-ids', is_flag=True, default=False, help='Show note IDs')
 def task_list(status_filter: str, show_all: bool, search: Optional[str],
-              date_str: Optional[str], limit: int, show_ids: bool):
+              date_str: Optional[str], limit: int):
     """
     List tasks with optional filters.
 
@@ -226,8 +226,7 @@ def task_list(status_filter: str, show_all: bool, search: Optional[str],
             header_style="bold cyan",
             box=box.ROUNDED,
         )
-        if show_ids:
-            table.add_column("ID", style="dim", justify="right", no_wrap=True)
+        table.add_column("ID", style="dim", justify="right", no_wrap=True)
         table.add_column("Status", no_wrap=True)
         table.add_column("Created", style="dim", no_wrap=True)
         table.add_column("Tags", style="dim")
@@ -238,7 +237,7 @@ def task_list(status_filter: str, show_all: bool, search: Optional[str],
             content = note.content or ""
             preview = content[:80] + "…" if len(content) > 80 else content
             date_display = note.created_date.strftime('%Y-%m-%d') if note.created_date else "—"
-            tags_display = note.display_tags if note.tags else ""
+            tags_display = format_tags_short(note.tags) if note.tags else ""
 
             status_style = {
                 'active': '[green]active[/green]',
@@ -246,11 +245,7 @@ def task_list(status_filter: str, show_all: bool, search: Optional[str],
                 'dismissed': '[yellow]dismissed[/yellow]',
             }.get(ts.status, ts.status)
 
-            row = []
-            if show_ids:
-                row.append(str(note.id))
-            row += [status_style, date_display, tags_display, preview]
-            table.add_row(*row)
+            table.add_row(str(note.id), status_style, date_display, tags_display, preview)
 
         console.print(table)
         console.print()
@@ -296,7 +291,7 @@ def task_today(search: Optional[str]):
             note = ts.note
             console.print(f"  [dim][#{note.id}][/dim] {note.content}")
             if note.tags:
-                console.print(f"  Tags: {note.display_tags}")
+                console.print(f"  Tags: {format_tags_short(note.tags)}")
             console.print()
 
     finally:
@@ -414,12 +409,11 @@ def task_dismiss(identifier: str):
 # ---------------------------------------------------------------------------
 
 @tasks.command('carryover')
-@click.option('--show-ids', is_flag=True, default=False, help='Show note IDs')
 @click.option('--all', 'show_all', is_flag=True, default=False,
               help='Show all carry-forward items (deprecated flag — behavior unchanged)')
 @click.option('--limit', '-n', type=int, default=None, help='Limit number of results')
 @click.pass_context
-def task_carryover(ctx, show_ids: bool, show_all: bool, limit: Optional[int]):
+def task_carryover(ctx, show_all: bool, limit: Optional[int]):
     """
     Show tasks marked for carry-forward.
 
@@ -428,7 +422,6 @@ def task_carryover(ctx, show_ids: bool, show_all: bool, limit: Optional[int]):
     \b
     Examples:
       workmain tasks carryover
-      workmain tasks carryover --show-ids
       workmain tasks carryover -n 5
     """
     console.print(
@@ -446,7 +439,6 @@ def task_carryover(ctx, show_ids: bool, show_all: bool, limit: Optional[int]):
         search=None,
         date_str=None,
         limit=effective_limit,
-        show_ids=show_ids,
     )
 
 

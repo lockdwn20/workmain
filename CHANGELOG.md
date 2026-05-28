@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.1] - 2026-05-28
+
+### Fixed
+- `workmain tasks list` now always shows the ID column — previously hidden behind
+  `--show-ids` flag, making `tasks complete <id>` impractical to use
+- `workmain tasks list` Tags column now displays short-form aliases (e.g. `cf ilo`)
+  instead of appearing empty — root cause was Rich markup stripping the `[tag-name]`
+  bracket format produced by `note.display_tags`; fixed via new `format_tags_short()`
+  helper in `tag_utils.py` using `TagSystem.reverse_mappings`
+- Same tags fix applied to `workmain tasks today` output
+
 ## [1.16.0] - 2026-05-28
 
 ### Added

@@ -1,10 +1,14 @@
 """
 WorkmAIn Tag Utilities
-Tag Parser v1.0
-20251222
+Tag Parser v1.1
+20260528
 
 Provides tag parsing, validation, conversion, and display formatting.
 Tags are case-insensitive, normalized, and validated against config/tags.json.
+
+Version History:
+- v1.0: Initial implementation
+- v1.1: Add format_short() and format_tags_short() for Rich-safe compact display
 """
 
 import re
@@ -180,7 +184,22 @@ class TagSystem:
             formatted = tags
         
         return separator.join(formatted)
-    
+
+    def format_short(self, tags: List[str]) -> str:
+        """Format full tag names as space-separated short aliases (e.g. 'cf ilo').
+
+        Safe for Rich markup contexts — no square brackets.
+
+        Args:
+            tags: List of full tag names (e.g., ["carry-forward", "internal-only"])
+
+        Returns:
+            Space-separated short aliases (e.g., "cf ilo"), or "" if empty.
+        """
+        if not tags:
+            return ""
+        return " ".join(self.reverse_mappings.get(t, t) for t in tags)
+
     def get_valid_tags_list(self) -> List[str]:
         """
         Get list of all valid tag shortcuts.
@@ -362,6 +381,12 @@ def format_tags(tags: List[str]) -> str:
     """
     ts = get_tag_system()
     return ts.format_display(tags)
+
+
+def format_tags_short(tags: List[str]) -> str:
+    """Convenience function: Format tags as short aliases for compact Rich-safe display."""
+    ts = get_tag_system()
+    return ts.format_short(tags)
 
 
 def get_valid_tags() -> List[str]:
