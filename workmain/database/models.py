@@ -1,7 +1,7 @@
 """
 WorkmAIn Database Models
-Database Models v2.4
-20260527
+Database Models v2.5
+20260528
 
 SQLAlchemy ORM models for WorkmAIn database.
 Models: Note, TimeEntry, Meeting, Project, Report, Recipient, ReportRecipient,
@@ -32,6 +32,8 @@ Version History:
         to Report
 - v2.4: Phase 12 Gate 3 — passive_deletes=True on Note.task_status relationship so that
         ON DELETE CASCADE handles task_status rows when a note is deleted
+- v2.5: Cost tracking sprint — added AiCost model; fixed datetime.utcnow → datetime.now(timezone.utc)
+        on GDriveUpload.created_at (Item 13)
 """
 
 from datetime import datetime, date, time
@@ -39,8 +41,8 @@ from datetime import timezone
 from typing import List, Optional
 
 from sqlalchemy import (
-    Column, Integer, String, Text, Boolean, DateTime, Date, Time,
-    DECIMAL, ForeignKey, ARRAY, Computed, JSON, func
+    Column, Integer, String, Text, Boolean, DateTime, Date, Time, Float,
+    DECIMAL, Numeric, ForeignKey, ARRAY, Computed, JSON, func, CheckConstraint
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -431,6 +433,45 @@ class Report(Base):
         return 0
 
 
+class AiCost(Base):
+    """
+    AiCost model — persists every AI API call for cost tracking.
+
+    One row per API interaction. Only one FK (report_id or meeting_id) is
+    populated per row depending on the interaction type.
+    Phase 13-1 extends interaction_type to include 'intent_parse'.
+    """
+    __tablename__ = 'ai_costs'
+    __table_args__ = (
+        CheckConstraint(
+            "interaction_type IN ('report', 'condensation')",
+            name='ai_costs_interaction_type_check'
+        ),
+    )
+
+    id                = Column(Integer, primary_key=True)
+    interaction_type  = Column(String(50), nullable=False)
+    provider          = Column(String(50), nullable=False)
+    model             = Column(String(100))
+    prompt_tokens     = Column(Integer, nullable=False, default=0)
+    completion_tokens = Column(Integer, nullable=False, default=0)
+    total_tokens      = Column(Integer, nullable=False, default=0)
+    cost_usd          = Column(Numeric(12, 8), nullable=False, default=0)
+    generation_time_s = Column(Float)
+    report_id         = Column(Integer, ForeignKey('reports.id', ondelete='SET NULL'), nullable=True)
+    meeting_id        = Column(Integer, ForeignKey('meetings.id', ondelete='SET NULL'), nullable=True)
+    context_label     = Column(String(255))
+    created_at        = Column(DateTime, nullable=False,
+                               default=lambda: datetime.now(timezone.utc))
+
+    report  = relationship("Report", backref="ai_costs", passive_deletes=True)
+    meeting = relationship("Meeting", backref="ai_costs", passive_deletes=True)
+
+    def __repr__(self):
+        return (f"<AiCost(id={self.id}, type='{self.interaction_type}', "
+                f"provider='{self.provider}', cost={self.cost_usd})>")
+
+
 class Recipient(Base):
     """
     Recipient model - represents a single email recipient identity.
@@ -493,7 +534,7 @@ class GDriveUpload(Base):
     filename        = Column(Text, nullable=False)
     upload_type     = Column(Text, nullable=False)  # 'notes', 'report', 'clockify'
     upload_date     = Column(Date, nullable=False)
-    created_at      = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at      = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     def __repr__(self):
         return (f"<GDriveUpload(id={self.id}, type='{self.upload_type}', "
@@ -517,6 +558,7 @@ def get_model_by_name(model_name: str):
         'Meeting': Meeting,
         'Project': Project,
         'Report': Report,
+        'AiCost': AiCost,
         'Recipient': Recipient,
         'ReportRecipient': ReportRecipient,
         'GDriveUpload': GDriveUpload,
@@ -531,8 +573,8 @@ def get_all_models():
     Returns:
         List of model classes
     """
-    return [Note, TimeEntry, Meeting, Project, Report, Recipient, ReportRecipient, GDriveUpload,
-            ScheduleException, SystemState, Client]
+    return [Note, TimeEntry, Meeting, Project, Report, AiCost, Recipient, ReportRecipient,
+            GDriveUpload, ScheduleException, SystemState, Client]
 
 
 class ScheduleException(Base):
