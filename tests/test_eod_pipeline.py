@@ -33,51 +33,52 @@ class TestEodDayDetection(unittest.TestCase):
     """Tests that _build_step_sequence returns correct steps per weekday."""
 
     def test_mon_step_sequence_count(self):
-        """Monday: no weekly steps added — 8 base steps returned (includes pre_flight)."""
+        """Monday: no weekly steps added — 9 base steps returned (includes pre_flight, task_match)."""
         steps = _build_step_sequence(MONDAY, skip=[])
         keys = [s['key'] for s in steps]
         self.assertNotIn('weekly', keys)
         self.assertNotIn('weekly_report', keys)
         self.assertNotIn('weekly_email', keys)
         self.assertIn('pre_flight_inspection', keys)
-        self.assertEqual(len(steps), 8)
+        self.assertIn('task_match', keys)
+        self.assertEqual(len(steps), 9)
 
     def test_thu_includes_slack_step(self):
-        """Thursday: slack post weekly step added — 9 steps total."""
+        """Thursday: slack post weekly step added — 10 steps total."""
         steps = _build_step_sequence(THURSDAY, skip=[])
         keys = [s['key'] for s in steps]
         self.assertIn('weekly', keys)
-        self.assertEqual(len(steps), 9)
+        self.assertEqual(len(steps), 10)
 
     def test_fri_includes_weekly_report_and_email(self):
-        """Friday: weekly_report and weekly_email steps added — 10 steps total."""
+        """Friday: weekly_report and weekly_email steps added — 11 steps total."""
         steps = _build_step_sequence(FRIDAY, skip=[])
         keys = [s['key'] for s in steps]
         self.assertIn('weekly_report', keys)
         self.assertIn('weekly_email', keys)
-        self.assertEqual(len(steps), 10)
+        self.assertEqual(len(steps), 11)
 
 
 class TestEodSkipWeekly(unittest.TestCase):
     """Tests that --skip weekly removes day-specific steps."""
 
     def test_skip_weekly_thu_removes_slack(self):
-        """Thursday + skip=weekly: slack step absent, 8 base steps remain."""
+        """Thursday + skip=weekly: slack step absent, 9 base steps remain."""
         steps = _build_step_sequence(THURSDAY, skip=['weekly'])
         keys = [s['key'] for s in steps]
         self.assertNotIn('weekly', keys)
-        self.assertEqual(len(steps), 8)
+        self.assertEqual(len(steps), 9)
 
     def test_skip_weekly_fri_removes_both(self):
-        """Friday + skip=weekly: weekly_report and weekly_email both absent, 8 base steps remain."""
+        """Friday + skip=weekly: weekly_report and weekly_email both absent, 9 base steps remain."""
         steps = _build_step_sequence(FRIDAY, skip=['weekly'])
         keys = [s['key'] for s in steps]
         self.assertNotIn('weekly_report', keys)
         self.assertNotIn('weekly_email', keys)
-        self.assertEqual(len(steps), 8)
+        self.assertEqual(len(steps), 9)
 
     def test_skip_weekly_mon_is_noop(self):
-        """Monday + skip=weekly: sequence unchanged (still 6 steps)."""
+        """Monday + skip=weekly: sequence unchanged (still 9 steps)."""
         steps_normal = _build_step_sequence(MONDAY, skip=[])
         steps_skip   = _build_step_sequence(MONDAY, skip=['weekly'])
         self.assertEqual(

@@ -1,7 +1,7 @@
 """
 WorkmAIn End-of-Day Workflow
-EOD v2.8
-20260512
+EOD v2.9
+20260528
 
 Guided end-of-day workflow for daily work wrap-up.
 
@@ -10,7 +10,8 @@ Base sequence (Mon–Wed):
   2.  Sync time entries to Clockify (clockify sync push)
   3.  Review time entries (loop until confirmed; uses target date when --date is set)
   3b. Run pre-flight inspection (rules-based gap detection + AI narration)
-  4a. Generate daily report (reports save daily_internal)
+  3c. Resolve carry-forward tasks (keyword match against time entries)
+  4a. Generate daily report (reports save daily_internal) + review menu
   4b. Create email draft (email save daily_internal)
   5.  Pull Clockify PDF (clockify report save daily → staging/clockify/)
   6.  Upload to Google Drive (gdocs upload all)
@@ -63,13 +64,20 @@ Version History:
 - v2.8: Phase 11 Gate 6 — weekly skip guard: check active_client_id before spawning
         workmain reports save weekly_client subprocess; print informational message and
         skip when no active client is set
+- v2.9: Phase 12 Gate 5 — Step 3b now prints per-observation text (not just count);
+        Step 3c (task_match) added: keyword scoring against time entries, [c/d/s] prompt;
+        Step 4a gains pre-check for confirmed/corrected report, review menu with
+        $EDITOR support, and status writes (confirmed/corrected/unconfirmed)
 """
 
 import json
 import os
+import re
 import subprocess
+import tempfile
 from datetime import date, datetime
 from pathlib import Path
+from typing import Optional
 
 import click
 from rich.console import Console
@@ -88,7 +96,7 @@ THURSDAY = 3
 FRIDAY = 4
 
 VALID_STEPS = ['condense', 'sync', 'review', 'pre_flight_inspection',
-               'report', 'email', 'clockify', 'gdocs', 'weekly']
+               'task_match', 'report', 'email', 'clockify', 'gdocs', 'weekly']
 
 # Fixed position labels for the 8 base steps.
 # Day-specific steps are assigned sequential positions starting at 7.
@@ -97,6 +105,7 @@ _BASE_POSITIONS = {
     'sync':                  '2',
     'review':                '3',
     'pre_flight_inspection': '3b',
+    'task_match':            '3c',
     'report':                '4a',
     'email':                 '4b',
     'clockify':              '5',
@@ -284,6 +293,10 @@ def _run_pre_flight_inspection_step(dry_run: bool, target_date: date) -> bool:
             console.print(
                 f"  [yellow]Pre-flight: {len(observations)} item(s) flagged[/yellow]"
             )
+            console.print()
+            for obs in observations:
+                msg = obs.message if len(obs.message) <= 80 else obs.message[:79] + '…'
+                console.print(f"  [dim]  • {msg}[/dim]")
         else:
             console.print("  [green]Pre-flight: all clear[/green]")
         return True
@@ -298,38 +311,345 @@ def _run_pre_flight_inspection_step(dry_run: bool, target_date: date) -> bool:
         session.close()
 
 
-def _run_report_step(dry_run: bool, target_date: date) -> bool:
-    """Step 4a: Generate daily report."""
-    date_str = target_date.isoformat()
-    cmd = ['workmain', 'reports', 'save', 'daily_internal', '--date', date_str]
+# ---------------------------------------------------------------------------
+# Task matching helpers (Step 3c)
+# ---------------------------------------------------------------------------
+
+_STOP_WORDS = {
+    'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
+    'of', 'with', 'by', 'from', 'is', 'was', 'will', 'have', 'has', 'had',
+    'been', 'be', 'are', 'were', 'that', 'this', 'it', 'its', 'i', 'my',
+    'me', 'we', 'our', 'you', 'they', 'their', 'he', 'she', 'him', 'her',
+    'do', 'did', 'get', 'got',
+}
+
+
+def _tokenize(text: str) -> set:
+    """Lowercase, strip punctuation, split on whitespace, remove stop words."""
+    text = re.sub(r'[^\w\s]', ' ', text.lower())
+    return {t for t in text.split() if t not in _STOP_WORDS}
+
+
+def _score_match(task_tokens: set, entry_tokens: set) -> float:
+    """Score = overlap / task token count. Returns 0.0 if task_tokens is empty."""
+    if not task_tokens:
+        return 0.0
+    return len(task_tokens & entry_tokens) / len(task_tokens)
+
+
+def _eod_edit_in_editor(content: str) -> Optional[str]:
+    """Open $EDITOR with content. Returns edited text, or None if EDITOR not set or error.
+
+    Duplication of reports.py _edit_in_editor is intentional for Phase 12 —
+    extraction to shared utility is backlogged to Phase 15.
+    """
+    editor = os.environ.get('EDITOR', '').strip()
+    if not editor:
+        console.print(
+            '  [yellow]⚠ $EDITOR not set — cannot open editor. '
+            'Set EDITOR in your shell profile.[/yellow]'
+        )
+        return None
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as tmp:
+            tmp.write(content)
+            tmp_path = tmp.name
+        subprocess.run([editor, tmp_path], check=True)
+        return Path(tmp_path).read_text()
+    except Exception as e:
+        console.print(f'  [yellow]⚠ Editor error: {e}[/yellow]')
+        return None
+    finally:
+        if tmp_path:
+            Path(tmp_path).unlink(missing_ok=True)
+
+
+def _run_task_match_step(dry_run: bool, target_date: date) -> bool:
+    """Step 3c: Match active carry-forward tasks against today's time entries.
+
+    Entry conditions (either causes immediate True return):
+    - Step 3b did not flag any carry-forward observations for target_date
+    - No active task_status records exist
+
+    Never blocks EOD — always returns True.
+    """
     if dry_run:
-        console.print(f"  [dim]Would run: workmain reports save daily_internal --date {date_str}[/dim]")
-        console.print(f"  [dim]Output: staging/reports/daily_internal_{date_str}.md[/dim]")
+        console.print(
+            f"  [dim]Would match active carry-forward tasks against "
+            f"time entries for {target_date}[/dim]"
+        )
         return True
 
+    # Check if Step 3b flagged any CF observations for this date
+    state_dir = Path(os.environ.get('WORKMAIN_STATE_DIR', '~/.workmain')).expanduser()
+    state_path = state_dir / 'daemon' / 'last_inspection.json'
+
+    has_cf_observations = False
+    if state_path.exists():
+        try:
+            payload = json.loads(state_path.read_text())
+            if payload.get('target_date') == str(target_date):
+                for obs in payload.get('observations', []):
+                    if obs.get('type') == 'carry_forward':
+                        has_cf_observations = True
+                        break
+        except Exception:
+            pass
+
+    if not has_cf_observations:
+        console.print("  [dim]No carry-forward items flagged — skipping task match[/dim]")
+        return True
+
+    db = get_db()
+    session = db.get_session()
+    try:
+        from workmain.database.repositories.task_status_repo import TaskStatusRepository
+        from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+
+        task_repo = TaskStatusRepository(session)
+        active_tasks = task_repo.get_filtered(status='active')
+
+        if not active_tasks:
+            console.print("  [dim]No active tasks — skipping task match[/dim]")
+            return True
+
+        time_repo = TimeEntriesRepository(session)
+        entries = time_repo.get_by_date(target_date)
+
+        if not entries:
+            console.print("  [dim]No time entries for today — skipping task match[/dim]")
+            return True
+
+        # Score every active task against every time entry; keep best per task
+        candidates = []
+        for ts in active_tasks:
+            note = ts.note
+            if not note or not note.content:
+                continue
+            task_tokens = _tokenize(note.content)
+            best_score = 0.0
+            best_entry = None
+            for entry in entries:
+                if not entry.description:
+                    continue
+                score = _score_match(task_tokens, _tokenize(entry.description))
+                if score > best_score:
+                    best_score = score
+                    best_entry = entry
+            if best_score >= 0.2 and best_entry:
+                candidates.append((best_score, ts, best_entry))
+
+        candidates.sort(key=lambda x: x[0], reverse=True)
+
+        if not candidates:
+            console.print("  [dim]No matches found above threshold[/dim]")
+            return True
+
+        console.print(
+            f"  [yellow]Found {len(candidates)} candidate match(es) to review:[/yellow]"
+        )
+        console.print()
+
+        n_completed = 0
+        n_dismissed = 0
+        n_skipped = 0
+
+        for score, ts, entry in candidates:
+            confidence = "high" if score >= 0.5 else "medium"
+            note_content = ts.note.content or ''
+            entry_desc = entry.description or ''
+            note_preview = note_content[:80] + ('…' if len(note_content) > 80 else '')
+            entry_preview = entry_desc[:80] + ('…' if len(entry_desc) > 80 else '')
+
+            console.print("─" * 57)
+            console.print(
+                f"  [bold]Match found ({confidence} confidence — {score:.2f}):[/bold]"
+            )
+            console.print(f"  Task:       {note_preview}")
+            console.print(f"  Time entry: {entry_preview}")
+            console.print()
+
+            try:
+                raw = click.prompt(
+                    "  [c]omplete   [d]ismiss   [s]kip (Enter)",
+                    default='s',
+                    show_choices=False,
+                    show_default=False,
+                ).strip().lower()
+            except (click.exceptions.Abort, EOFError):
+                n_skipped += 1
+                continue
+
+            if raw in ('c', 'complete'):
+                task_repo.set_completed(ts.note_id)
+                session.commit()
+                console.print("  [green]✓ Marked complete[/green]")
+                n_completed += 1
+            elif raw in ('d', 'dismiss'):
+                task_repo.set_dismissed(ts.note_id)
+                session.commit()
+                console.print("  [green]✓ Dismissed[/green]")
+                n_dismissed += 1
+            else:
+                n_skipped += 1
+
+        console.print("─" * 57)
+        console.print()
+
+        remaining = task_repo.get_filtered(status='active')
+        console.print(
+            f"  Task review complete. {n_completed} completed, "
+            f"{n_dismissed} dismissed, {n_skipped} skipped. "
+            f"{len(remaining)} active tasks remaining."
+        )
+        return True
+
+    except Exception as e:
+        console.print(
+            f"  [yellow]⚠ Task match step failed ({e}) — continuing[/yellow]"
+        )
+        return True
+
+    finally:
+        session.close()
+
+
+def _run_report_step(dry_run: bool, target_date: date) -> bool:
+    """Step 4a: Generate daily report with pre-check and interactive review menu."""
+    date_str = target_date.isoformat()
+    cmd = ['workmain', 'reports', 'save', 'daily_internal', '--date', date_str]
+
+    if dry_run:
+        console.print(f"  [dim]Would run: workmain reports save daily_internal --date {date_str}[/dim]")
+        console.print("  [dim]Would present: [v]iew / [e]dit / [c]onfirm / [s]kip menu[/dim]")
+        return True
+
+    # Pre-check: skip generation if a confirmed/corrected report already exists
+    db = get_db()
+    session = db.get_session()
+    try:
+        from workmain.database.repositories.reports_repo import get_reports_repository
+        repo = get_reports_repository(session)
+        existing = repo.list_reports(
+            report_type='daily_internal',
+            start_date=target_date,
+            end_date=target_date,
+        )
+        for r in existing:
+            if r.status in ('confirmed', 'corrected'):
+                console.print(
+                    f"  [dim]Daily report already confirmed for {date_str} — "
+                    f"skipping generation[/dim]"
+                )
+                return True
+    finally:
+        session.close()
+
+    # Generate report
     try:
         result = subprocess.run(cmd)
-
         if result.returncode != 0:
             console.print()
-            console.print(f"  [yellow]⚠ Report generation returned exit code {result.returncode}[/yellow]")
+            console.print(
+                f"  [yellow]⚠ Report generation returned exit code {result.returncode}[/yellow]"
+            )
             action = click.prompt(
                 "  Continue? [r]etry / [s]kip",
                 default='s',
-                show_choices=False
+                show_choices=False,
             ).strip().lower()
-
             if action == 'r':
                 result = subprocess.run(cmd)
                 if result.returncode != 0:
                     console.print("  [red]✗ Retry failed[/red]")
                     return False
+    except Exception as e:
+        console.print(f"  [red]✗ Report step error: {e}[/red]")
+        return False
+
+    # Load the new report for review
+    db = get_db()
+    session = db.get_session()
+    try:
+        from workmain.database.repositories.reports_repo import get_reports_repository
+        repo = get_reports_repository(session)
+        reports = repo.list_reports(
+            report_type='daily_internal',
+            start_date=target_date,
+            end_date=target_date,
+            limit=1,
+        )
+
+        if not reports:
+            console.print(
+                "  [yellow]⚠ Could not load report for review — "
+                "report saved as unconfirmed[/yellow]"
+            )
+            return True
+
+        report = reports[0]
+        content = report.content or ''
+        preview = content[:200] + '…' if len(content) > 200 else content
+
+        console.print()
+        console.print(Panel(preview, title="Daily Report Preview", border_style="dim"))
+        console.print()
+
+        while True:
+            choice = click.prompt(
+                "  Review: [v]iew / [e]dit / [c]onfirm / [s]kip",
+                default='s',
+                show_choices=False,
+                show_default=False,
+            ).strip().lower()
+
+            if choice == 'v':
+                console.print()
+                console.print(
+                    Panel(content, title="Daily Report — Full View", border_style="cyan")
+                )
+                console.print()
+                continue
+
+            elif choice == 'e':
+                source = report.corrected_content if report.corrected_content else content
+                edited = _eod_edit_in_editor(source)
+                if edited is not None and edited != source:
+                    report.corrected_content = edited
+                    report.status = 'corrected'
+                    report.updated_at = datetime.now()
+                    session.commit()
+                    console.print("  [green]✓ Daily report saved with corrections.[/green]")
+                else:
+                    console.print("  [dim]No changes detected.[/dim]")
+                break
+
+            elif choice == 'c':
+                report.status = 'confirmed'
+                report.updated_at = datetime.now()
+                session.commit()
+                console.print("  [green]✓ Daily report confirmed.[/green]")
+                break
+
+            else:  # s or any other input
+                console.print()
+                console.print(
+                    "  [yellow]⚠ Daily report left unconfirmed — it will not appear "
+                    "in the weekly draft until confirmed.[/yellow]"
+                )
+                break
 
         return True
 
     except Exception as e:
-        console.print(f"  [red]✗ Report step error: {e}[/red]")
-        return False
+        console.print(
+            f"  [yellow]⚠ Report review failed ({e}) — report saved but review skipped[/yellow]"
+        )
+        return True
+
+    finally:
+        session.close()
 
 
 def _run_email_step(dry_run: bool, target_date: date) -> bool:
@@ -546,14 +866,15 @@ def _build_step_sequence(weekday: int, skip: list) -> list:
     """
     # Build ordered list of (key, position_label, description, runner)
     raw = [
-        ('condense',              '1',  'Condense pending meeting notes',                _run_condense_step),
-        ('sync',                  '2',  'Sync time entries to Clockify',                  _run_sync_step),
-        ('review',                '3',  'Review time entries',                            _run_review_step),
-        ('pre_flight_inspection', '3b', 'Run pre-flight inspection',                     _run_pre_flight_inspection_step),
-        ('report',                '4a', 'Generate report (reports save daily_internal)',  _run_report_step),
-        ('email',                 '4b', 'Create email draft (email save daily_internal)', _run_email_step),
-        ('clockify',              '5',  'Pull Clockify PDF (clockify report save daily)', _run_clockify_step),
-        ('gdocs',                 '6',  'Upload to Google Drive (gdocs upload all)',       _run_gdocs_step),
+        ('condense',              '1',  'Condense pending meeting notes',                  _run_condense_step),
+        ('sync',                  '2',  'Sync time entries to Clockify',                   _run_sync_step),
+        ('review',                '3',  'Review time entries',                             _run_review_step),
+        ('pre_flight_inspection', '3b', 'Run pre-flight inspection',                       _run_pre_flight_inspection_step),
+        ('task_match',            '3c', 'Resolve carry-forward tasks',                     _run_task_match_step),
+        ('report',                '4a', 'Generate report (reports save daily_internal)',   _run_report_step),
+        ('email',                 '4b', 'Create email draft (email save daily_internal)',  _run_email_step),
+        ('clockify',              '5',  'Pull Clockify PDF (clockify report save daily)',  _run_clockify_step),
+        ('gdocs',                 '6',  'Upload to Google Drive (gdocs upload all)',        _run_gdocs_step),
     ]
 
     # Add day-specific steps unless 'weekly' is skipped
@@ -580,7 +901,8 @@ def _build_step_sequence(weekday: int, skip: list) -> list:
 @click.command()
 @click.option('--skip', '-S', default='',
               help='Comma-separated steps to skip '
-                   '(condense, sync, review, report, email, clockify, gdocs, weekly). '
+                   '(condense, sync, review, pre_flight_inspection, task_match, '
+                   'report, email, clockify, gdocs, weekly). '
                    'Skipping report also skips email. '
                    'Skipping weekly skips Thu/Fri day-specific steps.')
 @click.option('--dry-run', is_flag=True,
@@ -597,6 +919,7 @@ def eod(skip: str, dry_run: bool, eod_date_str: str):
       2.   Sync time entries to Clockify
       3.   Review time entries
       3b.  Run pre-flight inspection
+      3c.  Resolve carry-forward tasks (keyword match vs time entries)
       4a.  Generate daily report (reports save daily_internal)
       4b.  Create email draft (email save daily_internal)
       5.   Pull Clockify PDF (clockify report save daily)
