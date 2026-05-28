@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v5.7
-20260526
+Feature Backlog v5.8
+20260528
 
 # WorkmAIn Feature Backlog
 
@@ -28,6 +28,7 @@ Items deferred from various phases for future implementation.
 - v5.5 (20260512): Item 20 marked COMPLETE (v1.13.0); Item 24 re-targeted to Phase 15 (Phase 11 did not expand tasks scope); Item 28 updated (clients delivered, config/provider remain).
 - v5.6 (20260522): Item 28 updated — Phase 11.5 wired client distribution (slack_channel, recipient scoping); config/provider still deferred to Phase 14.
 - v5.7 (20260526): Added Item 31 — meetings create attendees CLI option removed; model/repo storage preserved for Phase 14+. Items 24 and 25 re-targeted from Phase 15/14 to Phase 12 (Notes & Tasks Foundation Sprint per CLI_STANDARDS.md V6/V7 update).
+- v5.8 (20260528): Items 24 and 25 marked RESOLVED (Phase 12, v1.16.0). Added Items 32 and 33 (Phase 13 targets deferred from Phase 12).
 
 ---
 
@@ -98,50 +99,51 @@ Build first, refactor later. See the complete picture before abstracting.
 | 21 | Cloudflare Tunnel / Slack Events API | Low | — | ~3–4 hrs | |
 | 22 | Active Client Context Data Model | — | → Item 20 | — | |
 | 23 | Meeting Visibility / Tagging | Medium | Phase 15 | ~3–5 hrs | |
-| 24 | tasks carryover Group Review | Low | Phase 12 | ~1 hr | |
-| 25 | reports costs + providers costs Audit | Low | Phase 12 | ~1 hr | |
+| 24 | tasks carryover Group Review | — | Phase 12 | — | ✓ |
+| 25 | reports costs + providers costs Audit | — | Phase 12 | — | ✓ |
 | 26 | Name-or-ID Rule (Edit/Delete) | — | Phase 14 | — | ✓ |
 | 27 | Recurring Meeting Advanced Features | Medium | Phase 15 | ~12–16 hrs | ✓ |
 | 28 | Placeholder Command Groups | Low | Phase 11+ | varies | |
 | 29 | clockify report Subcommand Refactor | Low | Phase 15 | ~30 min | |
 | 30 | System Service Promotion for workmain-notify | Low | Phase 18 | ~4 hours | |
 | 31 | meetings create --attendees Restoration | Low | Phase 14 | ~30 min | |
+| 32 | Task Deduplication and Forwarding | Low | Phase 13 | ~2–3 hrs | |
+| 33 | correction_note Field Population | Low | Phase 13 | ~2 hrs | |
 
 ---
 
 ## Summary Statistics
 
-**Total Items:** 31 (Item 22 is a redirect — no separate deferred work; see Item 20)
-**Completed:** 5 (Items 17, 18, 20, 26, 27)
+**Total Items:** 33 (Item 22 is a redirect — no separate deferred work; see Item 20)
+**Completed:** 7 (Items 17, 18, 20, 24, 25, 26, 27)
 **Open:** 25
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Open (targeted) | 20 | 1, 2, 3, 4, 7, 8, 10, 12, 13, 14, 15, 16, 19, 23, 24, 25, 28, 29, 30, 31 |
+| Open (targeted) | 20 | 1, 2, 3, 4, 7, 8, 10, 12, 13, 14, 15, 16, 19, 23, 28, 29, 30, 31, 32, 33 |
 | Conditional | 1 | 9 |
 | Indefinitely | 4 | 5, 6, 11, 21 |
-| Complete | 5 | 17, 18, 20, 26, 27 |
+| Complete | 7 | 17, 18, 20, 24, 25, 26, 27 |
 | Redirect | 1 | 22 → Item 20 |
 
 | Priority | Count | Items |
 |----------|-------|-------|
 | High | 0 | — |
 | Medium | 7 | 2, 3, 7, 10, 14, 15, 23 |
-| Low | 17 | 1, 4, 5, 6, 8, 11, 12, 13, 16, 19, 21, 24, 25, 28, 29, 30, 31 |
+| Low | 17 | 1, 4, 5, 6, 8, 11, 12, 13, 16, 19, 21, 28, 29, 30, 31, 32, 33 |
 | Conditional | 1 | 9 |
 
 | Target Phase | Items |
 |-------------|-------|
 | Phase 11+ | 4, 28 |
-| Phase 12 | 24, 25 |
-| Phase 13+ | 19 |
+| Phase 13 | 19, 32, 33 |
 | Phase 14 | 31 |
 | Phase 15 | 1, 2, 3, 7, 8, 10, 12, 13, 14, 15, 16, 23, 29 |
 | Phase 18 | 30 |
 | Conditional | 9 |
 | Indefinitely | 5, 6, 11, 21 |
 
-**Total Deferred Effort (open items):** ~82.5 hours
+**Total Deferred Effort (open items):** ~87 hours
 
 ---
 
@@ -678,43 +680,25 @@ Workaround exists (internal meetings captured as internal-only notes). Requires 
 
 #### Item 24 — tasks carryover Single-Command Group Review
 
-**Status:** Open — Re-targeted to Phase 12
+**Status:** ✓ Resolved — Phase 12, v1.16.0 (20260528)
 **Priority:** Low (structural inconsistency, no user impact)
 **Effort:** ~1 hour
 **Added:** 20260331
 **Target Phase:** Phase 12
 
-**Description:**
-The `tasks` group currently has only one command (`carryover`). §2.2 of `CLI_STANDARDS.md` states that a group with only one command barely qualifies. Phase 12 is the CLI polish sprint; reviewing the tasks group structure at that point, when the full scope of Phase 12 additions is known, is the appropriate time.
-
-**Why Deferred:**
-The Notes & Tasks Foundation Sprint added `log`, `complete`, `dismiss` as Phase 12 target verbs (§3.3). Phase 12 may expand the `tasks` group — reviewing the single-command status before then would be premature.
-
-**Acceptance Criteria:**
-- [ ] Phase 12 `tasks` group review complete
-- [ ] At minimum 2–3 commands under `tasks` group, OR `carryover` folded into a different group
-- [ ] Decision documented in Phase 12 handoff
+`tasks carryover` single-command group expanded to full lifecycle group in v1.16.0: `tasks list`, `tasks today`, `tasks show`, `tasks complete`, `tasks dismiss`. Deprecated alias `tasks carryover` introduced with yellow warning; full retirement Phase 15. V6 resolved in CLI_STANDARDS.md v2.4.
 
 ---
 
 #### Item 25 — reports costs + providers costs Duplicate Surface Audit
 
-**Status:** Open — Re-targeted to Phase 12
+**Status:** ✓ Resolved — Phase 12, v1.16.0 (20260528)
 **Priority:** Low (possible redundancy, no immediate user impact)
 **Effort:** ~1 hour
 **Added:** 20260331
 **Target Phase:** Phase 12
 
-**Description:**
-Both `reports costs` and `providers costs` may expose overlapping cost-reporting functionality. Audit during Phase 12 to confirm whether each command has a distinct purpose or if one is redundant. Remove the redundant surface if found.
-
-**Why Deferred:**
-Both commands exist and work correctly. No user-visible bug. Redundancy audit belongs in the Phase 12 CLI polish sprint, not mid-feature work.
-
-**Acceptance Criteria:**
-- [ ] Audit both commands — confirm distinct purposes or identify overlap
-- [ ] If redundant: remove one, update help text for retained command, update any `eod.py` or `interface.py` references
-- [ ] Decision documented in Phase 12 handoff
+Gate 4 audit confirmed genuinely distinct purposes: `reports costs` = aggregate AI cost totals across all reports (summary view); `providers costs` = per-report cost breakdown by provider. No redundancy — both surfaces retained. V7 resolved in CLI_STANDARDS.md v2.4.
 
 ---
 
@@ -913,3 +897,57 @@ is the earliest point where attendee management becomes user-facing.
 **Files Affected:**
 - `workmain/cli/commands/meetings.py`
 - `docs/CLI_STANDARDS.md` (§5.3 reserved table — new short form assignment)
+
+---
+
+#### Item 32 — Task Deduplication and Forwarding (Phase 13)
+
+**Status:** Open — Deferred to Phase 13
+**Priority:** Low
+**Effort:** ~2–3 hours
+**Added:** 20260528
+**Target Phase:** Phase 13
+
+**Description:**
+When multiple active carry-forward notes appear to cover the same work item, Phase 13's
+Mistral 7B intent parser should identify them during Step 3c matching and propose a merge.
+The surviving note keeps its `task_status` record (re-confirmed active); the deprecated
+note's record is set to dismissed with `forwarding_note_id` pointing to the surviving note.
+
+The `forwarding_note_id` column is already present in `task_status` as of v1.16.0 — no
+additional migration needed.
+
+**Why Deferred:**
+Requires the Mistral 7B intent parser (Phase 13 Item 19). The `forwarding_note_id` column
+is a Phase 12 placeholder; no Phase 12 business logic uses it.
+
+**Acceptance Criteria:**
+- [ ] Mistral 7B intent parser detects semantically duplicate active CF tasks
+- [ ] Step 3c surfaces merge candidates with [m]erge / [s]kip prompt
+- [ ] Dismissed note's task_status.forwarding_note_id set to surviving note ID
+- [ ] `tasks show` displays forwarding_note_id when set
+
+---
+
+#### Item 33 — correction_note Field Population (Phase 13)
+
+**Status:** Open — Deferred to Phase 13
+**Priority:** Low
+**Effort:** ~2 hours
+**Added:** 20260528
+**Target Phase:** Phase 13
+
+**Description:**
+The `correction_note` column on the `reports` table (added v1.16.0) has no CLI write path
+in Phase 12. Phase 13's Ollama intent parser should populate this field when corrections
+arrive via Slack DM, providing structured context about why the correction was made. This
+enables correction audit trails in the weekly aggregation context.
+
+**Why Deferred:**
+No CLI write path is needed until Slack DM intent parsing is implemented (Phase 13). The
+column exists as a Phase 12 schema placeholder only.
+
+**Acceptance Criteria:**
+- [ ] Ollama/Mistral parses Slack DM correction intent and extracts reason
+- [ ] `reports correct` (or Slack handler) writes structured reason to `correction_note`
+- [ ] `reports show` displays `correction_note` when populated

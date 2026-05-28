@@ -1,11 +1,11 @@
 """
 WorkmAIn Database Models
-Database Models v2.2
-20260522
+Database Models v2.4
+20260527
 
 SQLAlchemy ORM models for WorkmAIn database.
 Models: Note, TimeEntry, Meeting, Project, Report, Recipient, ReportRecipient,
-        GDriveUpload, ScheduleException, SystemState, Client
+        GDriveUpload, ScheduleException, SystemState, Client, TaskStatus
 
 These map to the PostgreSQL tables created by schema migrations.
 
@@ -27,6 +27,11 @@ Version History:
         in migration 010, values migrated to system_state)
 - v2.2: Phase 11.5 Gate 2/3 — added slack_channel to Client; upgraded ReportRecipient
         client_id from bare Integer stub to proper FK + relationship
+- v2.3: Phase 12 Gate 1 — added TaskStatus model (lifecycle layer for carry-forward notes);
+        added task_status backref to Note; added status/corrected_content/correction_note
+        to Report
+- v2.4: Phase 12 Gate 3 — passive_deletes=True on Note.task_status relationship so that
+        ON DELETE CASCADE handles task_status rows when a note is deleted
 """
 
 from datetime import datetime, date, time
@@ -214,7 +219,10 @@ class Note(Base):
     # Relationships
     project = relationship("Project", back_populates="notes")
     meeting = relationship("Meeting", back_populates="notes")
-    
+    task_status = relationship("TaskStatus", uselist=False, back_populates="note",
+                               foreign_keys="TaskStatus.note_id",
+                               passive_deletes=True)
+
     def __repr__(self):
         tags_str = ', '.join(self.tags) if self.tags else 'no tags'
         content_preview = self.content[:50] + '...' if len(self.content) > 50 else self.content
@@ -322,10 +330,40 @@ class TimeEntry(Base):
         return self.clockify_id is not None and self.synced_at is not None
 
 
+class TaskStatus(Base):
+    """
+    Task lifecycle tracking for carry-forward notes.
+
+    One record per note — created eagerly when a note gains the carry-forward
+    tag, updated when the task is completed or dismissed.
+
+    forwarding_note_id is a Phase 13 placeholder: when Mistral 7B identifies
+    duplicate CF notes covering the same work, the deprecated note's record
+    is dismissed and forwarding_note_id points to the surviving note.
+    """
+    __tablename__ = 'task_status'
+
+    id                 = Column(Integer, primary_key=True)
+    note_id            = Column(Integer, ForeignKey('notes.id', ondelete='CASCADE'),
+                                nullable=False, unique=True)
+    status             = Column(String(20), nullable=False, default='active')
+    created_at         = Column(DateTime, nullable=False, default=datetime.now)
+    updated_at         = Column(DateTime, nullable=False, default=datetime.now,
+                                onupdate=datetime.now)
+    completed_at       = Column(DateTime, nullable=True)
+    forwarding_note_id = Column(Integer, ForeignKey('notes.id'), nullable=True)
+
+    # Relationship to the note this task tracks
+    note = relationship("Note", foreign_keys=[note_id], back_populates="task_status")
+
+    def __repr__(self):
+        return f"<TaskStatus(id={self.id}, note_id={self.note_id}, status='{self.status}')>"
+
+
 class Report(Base):
     """
     Report model - represents AI-generated reports.
-    
+
     Stores generated report metadata including AI costs, tokens, and provider info.
     Links to file system for actual report content.
     """
@@ -359,8 +397,14 @@ class Report(Base):
                        nullable=True, index=True)
     client    = relationship('Client', lazy='select')
 
+    # Status tracking and correction (Phase 12)
+    status            = Column(String(20), nullable=False, default='unconfirmed')
+    corrected_content = Column(Text, nullable=True)
+    correction_note   = Column(Text, nullable=True)  # Phase 13 placeholder — Ollama intent parser
+
     # Timestamps
     created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     def __repr__(self):
         return f"<Report(id={self.id}, type='{self.report_type}', date={self.report_date})>"

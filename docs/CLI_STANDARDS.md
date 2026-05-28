@@ -1,6 +1,6 @@
 # WorkmAIn
-# CLI_STANDARDS.md v2.3
-# 20260526
+# CLI_STANDARDS.md v2.4
+# 20260528
 
 ---
 
@@ -47,6 +47,10 @@
 - v2.3 (20260526): Added `log`, `complete`, `dismiss`, `confirm`, `correct` to §3.3.
   Updated `carryover` retirement note. Updated `-H/--history` scope in §5.3. Resolved
   M1, M2, M3 in violation register. Updated V6 and V7 target phases to Phase 12.
+- v2.4 (20260528): §3.3 `carryover` entry marked DEPRECATED as of v1.16.0. §5.3
+  no-short-form table: `--status` added (reserved globally for list commands; no short
+  form assigned; valid values vary by resource). Violation Register V6 resolved (Gate 3,
+  Phase 12, v1.16.0). V7 resolved (Gate 4, Phase 12, v1.16.0).
 
 ---
 
@@ -204,7 +208,7 @@ Standard verbs in §3.2 cover the majority of operations. When no standard verb 
 | `register` | `templates register` | Template lifecycle — bind alias to template |
 | `unregister` | `templates unregister` | Template lifecycle — unbind alias |
 | `validate` | `templates validate` | Schema/content validation — no standard verb equivalent |
-| `carryover` | `tasks carryover` | Day-boundary workflow operation — no standard verb equivalent. Retirement pending Phase 12 — a deprecated alias will be introduced at that time and full retirement is Phase 15. |
+| `carryover` | `tasks carryover` | Day-boundary workflow operation — no standard verb equivalent. **DEPRECATED as of v1.16.0** — `tasks carryover` is now a deprecated alias for `tasks list`. Full retirement Phase 15. |
 | `track` | `meetings track` | Create a time entry from a meeting — semantically distinct from `add`; `track` as a *subcommand verb* (not a group name) is acceptable |
 | `log` | `notes log` | Multi-step meeting documentation workflow — bulk note entry via editor where each line becomes a separate linked note, followed by condensation and time entry prompts. Semantically distinct from `add` (single note creation). |
 | `complete` | `tasks complete` (Phase 12) | Task lifecycle closure — deliberate workflow termination. `edit` is too generic and does not imply finality. Same pattern as `carryover` (workflow operation, no standard verb equivalent). |
@@ -367,6 +371,7 @@ The following flags intentionally have no short form. These are either infrequen
 | `--include-weekends` | Infrequent meeting setup option |
 | `--all` on `clockify sync push` | Infrequent bulk override — deliberate friction appropriate |
 | `--cancelled` | Infrequent filter — historical cancelled meeting lookup (`meetings list`) |
+| `--status` | Reserved globally for list commands; valid values vary by resource (see individual command `--help`). No short form — prevents conflicting assignment across future phases. |
 
 Do not add short forms to these flags in future phases without explicit justification and user approval.
 
@@ -476,8 +481,8 @@ The following existing commands were audited against this standard on 20260320 a
 | 3 | `track sync push/pull/both` | Clockify sync lives under `track`, not `clockify` | §2.3 | High | Move `sync` subgroup to `clockify sync push/pull/both` |
 | 4 | `slack post-weekly` | Hyphenated period baked into command name; prevents future `post daily`, `post monthly` | §3.2 | High | Rename to `slack post` with required `PERIOD` argument (`weekly`, `daily`, `monthly`) |
 | 5 | `track add` | No interactive prompt fallback when run with no arguments | §4.4 | Medium | Add `click.prompt()` fallback for `DESCRIPTION` during `track`/`time` merge sprint |
-| 6 | `tasks carryover` | Group has one command — barely qualifies as a group | §2.2 | Low | Defer to Phase 12 when `tasks` scope expands |
-| 7 | `reports costs` + `providers costs` | Potentially duplicate cost reporting surface | §2.3 | Low | Audit and confirm distinct purpose during Phase 12; remove one if redundant |
+| 6 | `tasks carryover` | Group has one command — barely qualifies as a group | §2.2 | Low | **Resolved (Gate 3, Phase 12, v1.16.0):** `tasks carryover` single-command group expanded to full lifecycle group (`list`, `today`, `show`, `complete`, `dismiss`). `carryover` verb deprecated with alias that delegates to `tasks list`; full retirement Phase 15. |
+| 7 | `reports costs` + `providers costs` | Potentially duplicate cost reporting surface | §2.3 | Low | **Resolved (Gate 4, Phase 12, v1.16.0):** Audit confirmed genuinely distinct purposes. `reports costs` = aggregate cost totals grouped by report type and provider. `providers costs` = per-report breakdown filterable by `-P` (provider), `-M` (month), `-n` (limit). Resolution: `--help` clarification added to each command documenting the distinction. |
 | 8 | `workmain add-holiday` (checklist) | Top-level placement violates hierarchy | §2.1 | Pre-emptive | Place under `schedule` group per Phase 10 decision |
 | 9 | `workmain add-timeoff` (checklist) | Top-level placement violates hierarchy | §2.1 | Pre-emptive | Place under `schedule` group per Phase 10 decision |
 | 10 | Multiple commands | 7 short form conflicts: `track sync pull --start/-s` (`-s` = `--search`); `eod --skip/-s` (`-s` = `--search`); `track edit --category/-c` (`-c` = `--content`); `providers costs --provider/-p` (`-p` = `--project`); `providers costs --month/-m` (`-m` = `--meeting`); `track sync push --all/-a` (unregistered — remove short form); `reports list --type/-t` (`-t` = `--tags`). Note: `meetings upcoming --days/-d` was listed as a conflict but live code uses `--days/-n` — already compliant. | §5.3 | High | Reassign all conflicting short forms; remove `-a` from `clockify sync push`; address during CLI standardization sprint (WU-4) |

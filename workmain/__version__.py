@@ -1,9 +1,24 @@
 """
 WorkmAIn Package Version
-Version v1.15.0
-20260526
+Version v1.16.0
+20260528
 
 Version History:
+- v1.16.0: Phase 12 complete — Data Integrity & Task Lifecycle. New task_status
+           table tracks carry-forward note lifecycle (active | completed |
+           dismissed) with backfill migration. New commands: tasks list (--status,
+           --search, --limit, --show-ids), tasks today, tasks show, tasks complete,
+           tasks dismiss. tasks carryover deprecated alias with warning. New reports
+           commands: confirm (attest accuracy), correct (open $EDITOR; original
+           content preserved, correction in corrected_content). --status filter
+           added to reports list. EOD Step 3c: carry-forward task matching against
+           time entries via keyword scoring; Step 3b: observation text displayed
+           (not just count); Step 4a: interactive review menu (view/edit/confirm/
+           skip) after daily report generation; pre-check skips if
+           confirmed/corrected report already exists. get_confirmed_dailies() for
+           weekly aggregation. Notes add/edit carry-forward hook creates/updates
+           task_status records. CLI_STANDARDS v2.4: carryover deprecated, --status
+           reserved globally, V6/V7 resolved. 74 new tests; suite: 413 passed.
 - v1.15.0: Notes & Tasks Foundation Sprint — pre-Phase 12 compliance sprint.
            New: `notes list` unified filter command (date, meeting, search,
            tags, limit, history); `notes show` single record detail; `--search/-s`
@@ -199,7 +214,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.15.0"
-__version_info__ = (1, 15, 0)
+__version__ = "1.16.0"
+__version_info__ = (1, 16, 0)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"

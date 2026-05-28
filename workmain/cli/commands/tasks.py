@@ -1,162 +1,453 @@
 """
 WorkmAIn Tasks CLI Commands
-Tasks Commands v1.3
-20260127
+Tasks Commands v2.0
+20260527
 
-CLI commands for task management (carry-forward tasks).
+CLI commands for task lifecycle management (carry-forward notes).
+Replaces the single 'carryover' command with a full lifecycle group:
+list, today, show, complete, dismiss. carryover retained as deprecated alias.
 
 Version History:
 - v1.0: Initial implementation with carryover command
 - v1.1: Phase 5.1 - Migrated to get_db() session management pattern
-- v1.2: Phase 5.1 - Fixed help text formatting with \b escape sequence
+- v1.2: Phase 5.1 - Fixed help text formatting with \\b escape sequence
 - v1.3: Post-sprint cleanup - updated note add reference to notes add
+- v2.0: Phase 12 Gate 3 — full lifecycle group: list, today, show, complete,
+        dismiss; carryover converted to deprecated alias; _resolve_task() helper;
+        task_status integration via TaskStatusRepository
 """
 
 import click
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Optional
+
+from rich.console import Console
+from rich.table import Table
+from rich import box
 
 from workmain.database.connection import get_db
 from workmain.database.repositories.notes_repo import NotesRepository
+from workmain.database.repositories.task_status_repo import TaskStatusRepository
+
+console = Console()
+
+VALID_STATUSES = ('active', 'completed', 'dismissed', 'all')
 
 
-def calculate_age_in_days(note_date: date) -> int:
-    """Calculate how many days old a note is."""
-    return (date.today() - note_date).days
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
+def _resolve_task(session, identifier: str):
+    """Resolve a task by note ID or content substring.
 
-def format_age(days: int) -> str:
-    """Format age in a human-readable way."""
-    if days == 0:
-        return "today"
-    elif days == 1:
-        return "1 day old"
+    Returns the TaskStatus record if found and tracked as a task.
+    Calls sys.exit (via click.echo + raise SystemExit) if not found or
+    no task_status record exists for the resolved note.
+
+    # Reference implementation: _resolve_note() in notes.py.
+    # Keep in sync if fuzzy matching logic changes in a future phase.
+    # Do not import from notes.py — keep this self-contained.
+
+    Args:
+        session: Active SQLAlchemy session.
+        identifier: Note ID (digit string) or content substring.
+
+    Returns:
+        TaskStatus object.
+    """
+    notes_repo = NotesRepository(session)
+    task_repo = TaskStatusRepository(session)
+
+    if identifier.isdigit():
+        note = notes_repo.get_by_id(int(identifier))
+        if not note:
+            console.print(f"[red]✗ No note found with ID {identifier}[/red]")
+            raise SystemExit(1)
     else:
-        return f"{days} days old"
+        matches = notes_repo.find_by_content_like(identifier)
+        if not matches:
+            console.print(f"[red]✗ No notes found matching '{identifier}'[/red]")
+            console.print("  Try: workmain tasks list --search \"keyword\" to browse tasks")
+            raise SystemExit(1)
 
+        if len(matches) == 1:
+            note = matches[0]
+        else:
+            console.print(f"\nMultiple notes found for '{identifier}':")
+            for i, m in enumerate(matches, 1):
+                date_str = m.created_date.strftime('%Y-%m-%d') if m.created_date else "no date"
+                tags_str = f"[{m.display_tags}]" if m.tags else ""
+                preview = m.content[:70] + "..." if len(m.content) > 70 else m.content
+                click.echo(f"  {i}. [#{m.id}] {date_str} {tags_str} {preview}")
+
+            choice = click.prompt("\nSelect note number (or 0 to cancel)", default=0)
+            if choice == 0 or choice > len(matches):
+                console.print("Cancelled.")
+                raise SystemExit(0)
+            note = matches[choice - 1]
+
+    ts = task_repo.get_by_note_id(note.id)
+    if ts is None:
+        console.print(
+            f"[red]✗ Note {note.id} exists but is not tracked as a task.[/red]"
+        )
+        console.print(
+            "  Use 'workmain notes edit' to add the carry-forward tag first."
+        )
+        raise SystemExit(1)
+
+    return ts
+
+
+def _parse_date_filter(date_str: Optional[str]) -> Optional[date]:
+    """Parse a date string into a date object, or None."""
+    if not date_str:
+        return None
+    if date_str == 'today':
+        return datetime.now().date()
+    if date_str == 'yesterday':
+        return datetime.now().date() - timedelta(days=1)
+    try:
+        return datetime.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError:
+        console.print(f"[red]✗ Invalid date '{date_str}'. Use YYYY-MM-DD, 'today', or 'yesterday'.[/red]")
+        raise SystemExit(1)
+
+
+def _format_task_row(ts, show_ids: bool) -> str:
+    """Format a single task for list output."""
+    note = ts.note
+    content = note.content if note.content else ""
+    preview = content[:80] + "…" if len(content) > 80 else content
+    date_str = note.created_date.strftime('%Y-%m-%d') if note.created_date else "—"
+    tags_str = note.display_tags if note.tags else ""
+
+    status_color = {
+        'active': 'green',
+        'completed': 'dim',
+        'dismissed': 'yellow',
+    }.get(ts.status, 'white')
+
+    parts = []
+    if show_ids:
+        parts.append(f"[dim][#{note.id}][/dim]")
+    parts.append(f"[{status_color}]{ts.status}[/{status_color}]")
+    parts.append(f"[dim]{date_str}[/dim]")
+    if tags_str:
+        parts.append(f"[dim]{tags_str}[/dim]")
+    parts.append(preview)
+    return "  ".join(parts)
+
+
+# ---------------------------------------------------------------------------
+# Command group
+# ---------------------------------------------------------------------------
 
 @click.group()
 def tasks():
-    """Task management commands."""
+    """Task lifecycle management commands."""
     pass
 
 
-@tasks.command()
-@click.option('--show-ids', is_flag=True, help='Show note IDs')
-@click.option('--all', 'show_all', is_flag=True, help='Show all carry-forward items (including old)')
-@click.option('--limit', '-n', type=int, help='Limit number of results')
-def carryover(show_ids: bool, show_all: bool, limit: Optional[int]):
+# ---------------------------------------------------------------------------
+# tasks list
+# ---------------------------------------------------------------------------
+
+@tasks.command('list')
+@click.option('--status', 'status_filter', default='active',
+              help='Filter by status: active, completed, dismissed, all [default: active]')
+@click.option('--all', 'show_all', is_flag=True, default=False,
+              help='Shorthand for --status all')
+@click.option('--search', '-s', default=None, help='Filter by keyword (matches note content)')
+@click.option('--date', '-d', 'date_str', default=None,
+              help="Filter by created date (YYYY-MM-DD, 'today', 'yesterday')")
+@click.option('--limit', '-n', type=int, default=20, help='Maximum results [default: 20]')
+@click.option('--show-ids', is_flag=True, default=False, help='Show note IDs')
+def task_list(status_filter: str, show_all: bool, search: Optional[str],
+              date_str: Optional[str], limit: int, show_ids: bool):
+    """
+    List tasks with optional filters.
+
+    Default (no options): all active tasks, no age limit.
+    --all is shorthand for --status all (shows all lifecycle states).
+
+    \b
+    Examples:
+      workmain tasks list
+      workmain tasks list --status all
+      workmain tasks list --status completed
+      workmain tasks list --search "case template"
+      workmain tasks list --status completed --limit 10
+      workmain tasks list --all --date 2026-04-30
+    """
+    effective_status = 'all' if show_all else status_filter
+
+    if effective_status not in VALID_STATUSES:
+        console.print(
+            f"[red]✗ Invalid status '{effective_status}'. "
+            f"Valid options: {', '.join(VALID_STATUSES)}[/red]"
+        )
+        raise SystemExit(1)
+
+    date_filter = _parse_date_filter(date_str)
+
+    db = get_db()
+    session = db.get_session()
+    try:
+        repo = TaskStatusRepository(session)
+        tasks_result = repo.get_filtered(
+            status=effective_status,
+            search=search,
+            date_filter=date_filter,
+            limit=limit,
+        )
+
+        if not tasks_result:
+            label = effective_status if effective_status != 'all' else 'any'
+            console.print(f"\n[yellow]No {label} tasks found.[/yellow]")
+            if effective_status == 'active':
+                console.print(
+                    "[dim]Add carry-forward tasks with: "
+                    "workmain notes add 'Task text' --tags cf[/dim]\n"
+                )
+            return
+
+        title_parts = [f"Tasks ({len(tasks_result)} found"]
+        if effective_status != 'all':
+            title_parts.append(f", status={effective_status}")
+        if search:
+            title_parts.append(f", search='{search}'")
+        title = "".join(title_parts) + ")"
+
+        table = Table(
+            title=f"\n{title}",
+            show_header=True,
+            header_style="bold cyan",
+            box=box.ROUNDED,
+        )
+        if show_ids:
+            table.add_column("ID", style="dim", justify="right", no_wrap=True)
+        table.add_column("Status", no_wrap=True)
+        table.add_column("Created", style="dim", no_wrap=True)
+        table.add_column("Tags", style="dim")
+        table.add_column("Content")
+
+        for ts in tasks_result:
+            note = ts.note
+            content = note.content or ""
+            preview = content[:80] + "…" if len(content) > 80 else content
+            date_display = note.created_date.strftime('%Y-%m-%d') if note.created_date else "—"
+            tags_display = note.display_tags if note.tags else ""
+
+            status_style = {
+                'active': '[green]active[/green]',
+                'completed': '[dim]completed[/dim]',
+                'dismissed': '[yellow]dismissed[/yellow]',
+            }.get(ts.status, ts.status)
+
+            row = []
+            if show_ids:
+                row.append(str(note.id))
+            row += [status_style, date_display, tags_display, preview]
+            table.add_row(*row)
+
+        console.print(table)
+        console.print()
+
+    finally:
+        session.close()
+
+
+# ---------------------------------------------------------------------------
+# tasks today
+# ---------------------------------------------------------------------------
+
+@tasks.command('today')
+@click.option('--search', '-s', default=None, help='Filter by keyword')
+def task_today(search: Optional[str]):
+    """
+    Show active tasks created today.
+
+    \b
+    Examples:
+      workmain tasks today
+      workmain tasks today --search "splunk"
+    """
+    db = get_db()
+    session = db.get_session()
+    try:
+        repo = TaskStatusRepository(session)
+        today = datetime.now().date()
+        tasks_result = repo.get_filtered(
+            status='active',
+            search=search,
+            date_filter=today,
+            limit=0,
+        )
+
+        if not tasks_result:
+            console.print("\n[yellow]No active tasks created today.[/yellow]\n")
+            return
+
+        console.print(f"\n[bold]Active tasks created today ({len(tasks_result)} found):[/bold]\n")
+        console.print("=" * 70)
+        for ts in tasks_result:
+            note = ts.note
+            console.print(f"  [dim][#{note.id}][/dim] {note.content}")
+            if note.tags:
+                console.print(f"  Tags: {note.display_tags}")
+            console.print()
+
+    finally:
+        session.close()
+
+
+# ---------------------------------------------------------------------------
+# tasks show
+# ---------------------------------------------------------------------------
+
+@tasks.command('show')
+@click.argument('identifier')
+def task_show(identifier: str):
+    """
+    Show full detail for a single task.
+
+    IDENTIFIER is a note ID or content substring.
+
+    \b
+    Examples:
+      workmain tasks show 42
+      workmain tasks show "TheHive RQ"
+    """
+    db = get_db()
+    session = db.get_session()
+    try:
+        ts = _resolve_task(session, identifier)
+        note = ts.note
+
+        console.print()
+        console.print(f"[bold cyan]Task #{note.id}[/bold cyan]")
+        console.print(f"  Status:    {ts.status}")
+        console.print(f"  Created:   {note.created_at.strftime('%Y-%m-%d %H:%M') if note.created_at else '—'}")
+        if ts.completed_at:
+            label = 'Completed' if ts.status == 'completed' else 'Dismissed'
+            console.print(f"  {label}:  {ts.completed_at.strftime('%Y-%m-%d %H:%M')}")
+        if note.tags:
+            console.print(f"  Tags:      {note.display_tags}")
+        if note.meeting:
+            console.print(f"  Meeting:   [#{note.meeting.id}] {note.meeting.title}")
+        console.print()
+        console.print(f"  {note.content}")
+        console.print()
+
+    finally:
+        session.close()
+
+
+# ---------------------------------------------------------------------------
+# tasks complete
+# ---------------------------------------------------------------------------
+
+@tasks.command('complete')
+@click.argument('identifier')
+def task_complete(identifier: str):
+    """
+    Mark a task as complete.
+
+    IDENTIFIER is a note ID or content substring.
+
+    \b
+    Examples:
+      workmain tasks complete 42
+      workmain tasks complete "TheHive RQ"
+    """
+    db = get_db()
+    session = db.get_session()
+    try:
+        ts = _resolve_task(session, identifier)
+        note = ts.note
+        repo = TaskStatusRepository(session)
+        repo.set_completed(note.id)
+        session.commit()
+        preview = note.content[:60] + "…" if len(note.content) > 60 else note.content
+        console.print(f"[green]✓ Task marked complete:[/green] {preview}")
+
+    finally:
+        session.close()
+
+
+# ---------------------------------------------------------------------------
+# tasks dismiss
+# ---------------------------------------------------------------------------
+
+@tasks.command('dismiss')
+@click.argument('identifier')
+def task_dismiss(identifier: str):
+    """
+    Mark a task as dismissed (completed by others or no longer relevant).
+
+    IDENTIFIER is a note ID or content substring.
+
+    \b
+    Examples:
+      workmain tasks dismiss 42
+      workmain tasks dismiss "ServiceNow ticket"
+    """
+    db = get_db()
+    session = db.get_session()
+    try:
+        ts = _resolve_task(session, identifier)
+        note = ts.note
+        repo = TaskStatusRepository(session)
+        repo.set_dismissed(note.id)
+        session.commit()
+        preview = note.content[:60] + "…" if len(note.content) > 60 else note.content
+        console.print(f"[yellow]✓ Task dismissed:[/yellow] {preview}")
+
+    finally:
+        session.close()
+
+
+# ---------------------------------------------------------------------------
+# tasks carryover (deprecated alias)
+# ---------------------------------------------------------------------------
+
+@tasks.command('carryover')
+@click.option('--show-ids', is_flag=True, default=False, help='Show note IDs')
+@click.option('--all', 'show_all', is_flag=True, default=False,
+              help='Show all carry-forward items (deprecated flag — behavior unchanged)')
+@click.option('--limit', '-n', type=int, default=None, help='Limit number of results')
+@click.pass_context
+def task_carryover(ctx, show_ids: bool, show_all: bool, limit: Optional[int]):
     """
     Show tasks marked for carry-forward.
 
-    Displays notes tagged with [carry-forward] that need attention.
-    By default, shows recent items (last 7 days).
+    DEPRECATED — use: workmain tasks list
 
     \b
     Examples:
       workmain tasks carryover
       workmain tasks carryover --show-ids
-      workmain tasks carryover --all
       workmain tasks carryover -n 5
     """
-    db = get_db()
-    session = db.get_session()
-    repo = NotesRepository(session)
-    
-    try:
-        # Get all carry-forward notes
-        all_cf_notes = repo.get_by_tag('carry-forward')
-        
-        if not all_cf_notes:
-            click.echo("No carry-forward tasks found.")
-            click.echo("\nTip: Tag tasks with --tags cf to track them:")
-            click.echo("  workmain notes add 'Task to complete later' --tags cf")
-            return
-        
-        # Filter by age unless --all flag is used
-        if not show_all:
-            # Default: show items from last 7 days
-            cutoff_date = date.today() - timedelta(days=7)
-            notes = [n for n in all_cf_notes if n.created_date >= cutoff_date]
-            
-            if not notes and all_cf_notes:
-                click.echo(f"No carry-forward tasks from the last 7 days.")
-                click.echo(f"Found {len(all_cf_notes)} older task(s). Use --all to see them.")
-                return
-        else:
-            notes = all_cf_notes
-        
-        # Apply limit if specified
-        if limit:
-            notes = notes[:limit]
-        
-        # Sort by date (oldest first - these need attention!)
-        notes = sorted(notes, key=lambda n: n.created_date)
-        
-        # Display header
-        if show_all:
-            click.echo(f"\nCarry-Forward Tasks ({len(notes)} total):\n")
-        else:
-            click.echo(f"\nCarry-Forward Tasks (last 7 days, {len(notes)} found):\n")
-        
-        click.echo("=" * 70)
-        
-        # Display each task
-        for note in notes:
-            age_days = calculate_age_in_days(note.created_date)
-            age_str = format_age(age_days)
-            
-            # Build output lines
-            lines = []
-            
-            # First line: ID (optional), date, age
-            if show_ids:
-                lines.append(f"[ID: {note.id}] {note.created_date} ({age_str})")
-            else:
-                lines.append(f"{note.created_date} ({age_str})")
-            
-            # Content
-            lines.append(f"  {note.content}")
-            
-            # Additional tags (besides carry-forward)
-            other_tags = [t for t in note.tags if t != 'carry-forward']
-            if other_tags:
-                tag_display = ' '.join(f"[{t}]" for t in sorted(other_tags))
-                lines.append(f"  Tags: [carry-forward] {tag_display}")
-            
-            # Meeting link
-            if note.meeting:
-                lines.append(f"  Meeting: {note.meeting.title}")
-            
-            # Project link
-            if note.project:
-                lines.append(f"  Project: {note.project.name}")
-            
-            # Print the task
-            for line in lines:
-                click.echo(line)
-            
-            click.echo("-" * 70)
-        
-        # Summary footer
-        click.echo()
-        if show_all:
-            click.echo(f"Total: {len(notes)} carry-forward task(s)")
-        else:
-            total_old = len(all_cf_notes) - len(notes)
-            if total_old > 0:
-                click.echo(f"Shown: {len(notes)} task(s) from last 7 days")
-                click.echo(f"Older: {total_old} task(s) (use --all to see them)")
-            else:
-                click.echo(f"Total: {len(notes)} carry-forward task(s)")
-        
-        # Age warnings
-        old_tasks = [n for n in notes if calculate_age_in_days(n.created_date) > 3]
-        if old_tasks and not show_all:
-            click.echo(f"\n⚠️  {len(old_tasks)} task(s) are more than 3 days old")
-    
-    finally:
-        session.close()
+    console.print(
+        "[yellow]⚠ Deprecated: 'tasks carryover' — use: workmain tasks list[/yellow]"
+    )
+    # --all in old carryover meant "bypass 7-day age filter" — tasks list
+    # already shows all active tasks with no age filter, so --all is redundant.
+    # Map --limit if provided; otherwise pass limit=0 (no cap) to match old
+    # carryover default of showing all items when --all was used.
+    effective_limit = limit if limit is not None else 0
+    ctx.invoke(
+        task_list,
+        status_filter='active',
+        show_all=False,
+        search=None,
+        date_str=None,
+        limit=effective_limit,
+        show_ids=show_ids,
+    )
 
 
 # Export command group

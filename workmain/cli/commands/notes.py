@@ -1,7 +1,7 @@
 """
 WorkmAIn Notes CLI Commands
-Notes Commands v3.6
-20260526
+Notes Commands v3.7
+20260527
 
 Unified notes command group. Consolidates note (write) and notes (read) groups
 from note.py into a single group with all subcommands.
@@ -38,6 +38,9 @@ Version History:
         notes show (single record detail); add --search/-s to notes today; retire
         notes date, notes meeting, notes search as deprecated aliases delegating
         to notes list.
+- v3.7: Phase 12 Gate 3 — carry-forward hooks in notes_add and notes_edit:
+        ensure_active on CF tag add; set_dismissed_by_tag_removal on CF tag
+        removal.
 """
 
 import click
@@ -53,6 +56,7 @@ from workmain.database.connection import get_db
 from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.meetings_repo import MeetingsRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
+from workmain.database.repositories.task_status_repo import TaskStatusRepository
 from workmain.utils.tag_utils import parse_tags, get_tag_system
 
 console = Console()
@@ -351,6 +355,10 @@ def notes_add(text: Optional[str], tags: Optional[str], meeting: Optional[str],
             client_id=active_client_id,
         )
 
+        if 'carry-forward' in (note.tags or []):
+            TaskStatusRepository(session).ensure_active(note.id)
+            session.commit()
+
         # Success message
         click.echo(f"✓ Note added (ID: {note.id})")
         click.echo(f"  Tags: {note.display_tags}")
@@ -419,6 +427,7 @@ def notes_edit(identifier: str, content: Optional[str], tags: Optional[str],
         if not note:
             return
         note_id = note.id
+        old_tags = list(note.tags or [])
 
         # Check age and warn
         age_info = notes_repo.get_note_age_warning(note_id)
@@ -464,6 +473,14 @@ def notes_edit(identifier: str, content: Optional[str], tags: Optional[str],
             click.echo(f"✓ Note {note_id} updated")
             if new_tags:
                 click.echo(f"  Tags: {updated.display_tags}")
+            if new_tags is not None:
+                task_repo = TaskStatusRepository(session)
+                if 'carry-forward' in new_tags and 'carry-forward' not in old_tags:
+                    task_repo.ensure_active(note_id)
+                    session.commit()
+                elif 'carry-forward' not in new_tags and 'carry-forward' in old_tags:
+                    task_repo.set_dismissed_by_tag_removal(note_id)
+                    session.commit()
         else:
             click.echo(f"✗ Update failed")
 
