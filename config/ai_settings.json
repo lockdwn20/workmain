@@ -1,7 +1,7 @@
 {
   "version": "1.1",
   "description": "WorkmAIn AI Provider Configuration",
-  "last_updated": "20251229",
+  "last_updated": "20260528",
   "providers": {
     "claude": {
       "enabled": true,
@@ -19,7 +19,7 @@
     },
     "gemini": {
       "enabled": true,
-      "model": "gemini-2.5-flash",
+      "model": "gemini-3.5-flash",
       "api_key_env": "GOOGLE_API_KEY",
       "default_max_tokens": 8192,
       "default_temperature": 0.7,
@@ -29,13 +29,13 @@
       "timeout_seconds": 60,
       "retry_attempts": 3,
       "retry_delay_seconds": 1.0,
-      "notes": "Gemini 2.5 Flash - $0.15/MTok input, $0.60/MTok output"
+      "notes": "Gemini 3.5 Flash - $0.15/MTok input, $0.60/MTok output"
     }
   },
   "report_types": {
     "daily_internal": {
-      "primary_provider": "claude",
-      "fallback_provider": "gemini",
+      "primary_provider": "gemini",
+      "fallback_provider": "claude",
       "fallback_mode": "auto",
       "max_cost_per_report": 1.0,
       "description": "Daily internal status report",
@@ -67,8 +67,8 @@
       ]
     },
     "note_condensation": {
-      "primary_provider": "claude",
-      "fallback_provider": "gemini",
+      "primary_provider": "gemini",
+      "fallback_provider": "claude",
       "fallback_mode": "auto",
       "max_cost_per_report": 0.1,
       "description": "Condense meeting notes for Clockify",

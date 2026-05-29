@@ -1,9 +1,23 @@
 """
 WorkmAIn Package Version
-Version v1.16.1
-20260528
+Version v1.17.0
+20260529
 
 Version History:
+- v1.17.0: Cost tracking persistence sprint — new ai_costs table persists every AI API
+           interaction. AiCostRepository with create/get_filtered/get_summary.
+           Migration 017_ai_costs.sql. Backfill script for historical reports.
+           Provider wiring fixed: ProviderManager._load_config() now reads
+           ai_settings.json (was a stub since Phase 4); note_condenser routes through
+           provider_manager; report_generator template-metadata override removed.
+           providers costs: redesigned as aggregate view (ai_costs); full date filter set.
+           reports costs: redesigned as per-report detail; full date filter set + --type/-R.
+           notes costs: new subcommand, condensation costs.
+           meetings costs: new subcommand, condensation costs.
+           date_utils: resolve_date_window + format_date_window_label shared helpers.
+           Item 13 complete: all datetime.utcnow() → datetime.now(timezone.utc).
+           CLI_STANDARDS v2.5: -b/-e scope expanded; -P/-M scope expanded to all costs commands.
+           30 new tests; suite: 443 passed.
 - v1.16.1: Hotfix tasks-list-display — always show ID column in tasks list; fix empty
            Tags column caused by Rich markup stripping [tag-name] bracket format;
            replaced with short-form aliases (cf, ilo) via new TagSystem.format_short()
@@ -218,7 +232,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.16.1"
-__version_info__ = (1, 16, 1)
+__version__ = "1.17.0"
+__version_info__ = (1, 17, 0)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"

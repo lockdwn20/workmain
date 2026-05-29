@@ -1,7 +1,7 @@
 """
 WorkmAIn AI Report Generator
-Report Generator v1.10
-20260512
+Report Generator v1.11
+20260528
 
 High-level orchestrator for AI report generation with database integration.
 
@@ -37,6 +37,9 @@ Version History:
 - v1.9: Phase 11 Gate 5 — generate_report() accepts client_id; passes to reports_repo.create()
 - v1.10: Phase 11 Gate 6 — generate_report() accepts filter_client and client_id_filter;
          passes both to prompt_builder.build_prompt()
+- v1.11: Gate 2 cost tracking sprint — persist ai_costs row after report creation;
+         remove template-metadata provider override so provider_manager config
+         (ai_settings.json) governs provider selection when no --provider flag given
 
 Workflow:
 1. Load template and validate
@@ -176,14 +179,9 @@ class ReportGenerator:
             # Load template
             template = self.template_loader.load(template_name)
             
-            # Determine provider
-            if provider is None:
-                # Get from template metadata
-                metadata = template.get("metadata", {})
-                provider_name = metadata.get("ai_provider", "claude")
-                provider = ProviderType.CLAUDE if provider_name == "claude" else ProviderType.GEMINI
-            
             # Build prompts
+            # provider stays None unless --provider flag was passed by caller;
+            # provider_manager.generate() resolves from ai_settings.json config.
             system_prompt, user_prompt = self.prompt_builder.build_prompt(
                 template_name=template_name,
                 report_date=report_date,
@@ -256,7 +254,21 @@ class ReportGenerator:
             
             # End cost tracking with generation time
             self.cost_tracker.end_report(generation_time)
-            
+
+            # Persist ai_costs row (dual-write alongside report_metadata)
+            from workmain.database.repositories.ai_costs_repo import AiCostRepository
+            AiCostRepository(self.session).create(
+                interaction_type='report',
+                provider=response.provider.value,
+                model=response.model,
+                prompt_tokens=response.prompt_tokens,
+                completion_tokens=response.completion_tokens,
+                cost_usd=response.cost,
+                generation_time_s=generation_time,
+                report_id=db_report.id,
+                context_label=template_name,
+            )
+
             # Return result
             return {
                 "content": content,
@@ -315,13 +327,9 @@ class ReportGenerator:
                 section_name=section_name
             )
             
-            # Determine provider
-            if provider is None:
-                template = self.template_loader.load(template_name)
-                metadata = template.get("metadata", {})
-                provider_name = metadata.get("ai_provider", "claude")
-                provider = ProviderType.CLAUDE if provider_name == "claude" else ProviderType.GEMINI
-            
+            # provider stays None unless --provider flag was passed by caller;
+            # provider_manager.generate() resolves from ai_settings.json config.
+
             # Create request
             request = GenerationRequest(
                 prompt=user_prompt,

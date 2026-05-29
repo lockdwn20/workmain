@@ -1,16 +1,17 @@
 """
 WorkmAIn GDrive Repository
-GDrive Repository v1.0
-20260309
+GDrive Repository v1.1
+20260528
 
 Data access layer for gdrive_uploads table.
 Tracks every file uploaded to Google Drive and provides duplicate detection.
 
 Version History:
 - v1.0: Initial implementation (Phase 7 Gate 1)
+- v1.1: datetime.utcnow → datetime.now(timezone.utc) (Item 13)
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import List
 
 from sqlalchemy.orm import Session
@@ -60,7 +61,7 @@ class GDriveRepository:
             filename=filename,
             upload_type=upload_type,
             upload_date=upload_date,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
         self.session.add(record)
         self.session.commit()
