@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.0] - 2026-05-29
+
+### Added
+- `ai_costs` table — persists every AI API interaction (reports + condensations)
+  with provider, model, token counts, cost, generation time, and FK links to
+  reports/meetings; migration `017_ai_costs.sql`; backfill script populates
+  102 historical report rows from `report_metadata`
+- `AiCostRepository` — `create()`, `get_filtered()`, `get_summary(provider=)`;
+  sentinel-date-safe aggregate queries via `_date_start_bound`/`_date_end_bound`
+- `workmain/utils/date_utils.py` — `resolve_date_window()` and
+  `format_date_window_label()` shared by all four costs commands
+- `workmain notes costs` — condensation costs from `ai_costs`; full date filter
+  set (`--date/-d`, `--start/-b`, `--end/-e`, `--month/-M`, `--all`) + `--provider/-P`
+- `workmain meetings costs` — same scope, per-meeting context_label detail
+- 30 new tests (`test_ai_costs.py`); suite: 443 passed
+
+### Changed
+- `workmain providers costs` — redesigned as aggregate view from `ai_costs` table;
+  totals by provider and interaction type; full date filter set; defaults to
+  current month
+- `workmain reports costs` — redesigned as per-report detail view from
+  `report_metadata`; `--type/-R`, `--provider/-P`, `--limit/-n` + full date
+  filter set; defaults to current month
+- `ProviderManager._load_config()` — fully implemented (was a stub since Phase 4);
+  reads `config/ai_settings.json` on every instantiation; fixes Claude being
+  hardcoded regardless of config
+- `note_condenser.py` — generation routed through `provider_manager` using
+  `note_condensation` config entry; persists `ai_costs` row after condensation
+- `report_generator.py` — template-metadata provider override block removed;
+  config-driven selection via `provider_manager` now respected end-to-end
+
+### Fixed
+- All `datetime.utcnow()` calls replaced with `datetime.now(timezone.utc)`
+  (`models.py` GDriveUpload default, `gdrive_repository.py`) — Item 13 complete
+
 ## [1.16.1] - 2026-05-28
 
 ### Fixed

@@ -1,5 +1,5 @@
 WorkmAIn
-Feature Backlog v5.10
+Feature Backlog v5.11
 20260529
 
 # WorkmAIn Feature Backlog
@@ -31,6 +31,7 @@ Items deferred from various phases for future implementation.
 - v5.8 (20260528): Items 24 and 25 marked RESOLVED (Phase 12, v1.16.0). Added Items 32 and 33 (Phase 13 targets deferred from Phase 12).
 - v5.9 (20260528): Added Item 34 — weekly report prompt using confirmed daily summaries as context instead of raw data re-query (token cost reduction, Phase 13).
 - v5.10 (20260529): Added Item 35 — AI model config-driven selection; model strings currently hardcoded in claude_client.py and gemini_client.py; ai_settings.json already has model fields that are not read.
+- v5.11 (20260529): Item 13 marked COMPLETE (v1.17.0 cost tracking sprint).
 
 ---
 
@@ -90,7 +91,7 @@ Build first, refactor later. See the complete picture before abstracting.
 | 10 | Streamlined Model Update Process | Medium | Phase 15 | ~4–6 hrs | |
 | 11 | Add New AI Provider | Low | — | ~8–12 hrs | |
 | 12 | email.py Internal Session Refactor | Low | Phase 15 | ~30 min | |
-| 13 | datetime.utcnow() Deprecation | Low | Phase 15 | ~30 min | |
+| 13 | datetime.utcnow() Deprecation | Low | Phase 15 | ~30 min | ✓ |
 | 14 | test_database.py Engine Fixture | Medium | Phase 15 | ~1–2 hrs | |
 | 15 | test_templates.py Stale Import | Medium | Phase 15 | ~1 hr | |
 | 16 | auth.py RefreshError → GDriveAuthError | Low | Phase 15 | ~30 min | |
@@ -438,10 +439,11 @@ No functional bug. Internal session is self-contained and works correctly. Techn
 
 #### Item 13 — datetime.utcnow() Deprecation
 
-**Status:** Open — Deferred to Phase 15
+**Status:** ✓ COMPLETE — v1.17.0 (cost tracking sprint)
 **Priority:** Low
 **Effort:** ~30 min
 **Added:** 20260309
+**Completed:** 20260529
 **Target Phase:** Phase 15
 
 **Description:**
@@ -452,9 +454,14 @@ No functional bug. Internal session is self-contained and works correctly. Techn
 **Why Deferred:**
 No functional impact. Warning only. Phase 15 cleanup pass.
 
+**Resolution:**
+Fixed as part of the Gate 1 cost tracking sprint (v1.17.0). Both affected call sites replaced:
+- `workmain/database/models.py` — `GDriveUpload.created_at` default
+- `workmain/integrations/gdrive/gdrive_repository.py` — inline `created_at=` assignment
+
 **Acceptance Criteria:**
-- [ ] All `datetime.utcnow()` calls replaced with `datetime.now(timezone.utc)`
-- [ ] No `DeprecationWarning` on `workmain gdocs` operations
+- [x] All `datetime.utcnow()` calls replaced with `datetime.now(timezone.utc)`
+- [x] No `DeprecationWarning` on `workmain gdocs` operations
 
 **Files Affected:**
 - `workmain/integrations/gdrive/gdrive_repository.py`

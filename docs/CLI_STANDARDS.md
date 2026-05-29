@@ -1,6 +1,6 @@
 # WorkmAIn
-# CLI_STANDARDS.md v2.4
-# 20260528
+# CLI_STANDARDS.md v2.5
+# 20260529
 
 ---
 
@@ -51,6 +51,11 @@
   no-short-form table: `--status` added (reserved globally for list commands; no short
   form assigned; valid values vary by resource). Violation Register V6 resolved (Gate 3,
   Phase 12, v1.16.0). V7 resolved (Gate 4, Phase 12, v1.16.0).
+- v2.5 (20260529): §5.3 reserved table — `-b`/`--start` and `-e`/`--end` scope expanded
+  to all four costs commands (`providers costs`, `reports costs`, `notes costs`,
+  `meetings costs`); `-P`/`--provider` and `-M`/`--month` scope expanded to all four
+  costs commands (was `providers costs` only). No-short-form table: `--all` added
+  (infrequent override to disable default month filter on costs commands).
 
 ---
 
@@ -343,13 +348,13 @@ The following assignments are **reserved across all commands**. No flag may use 
 | `-q` | `--silent` | Silent/quiet-mode commands | Unix quiet convention; currently `clockify sync push`, `calendar import` |
 | `-i` | `--show-ids` | Group level only | On `time`, `notes`, `meetings` groups |
 | `-f` | `--source` | `notes add` | Note/entry source field |
-| `-b` | `--start` | `time add`, `meetings create`, `clockify sync pull` | "Begin" mnemonic; avoids `-s` conflict |
-| `-e` | `--end` | `time add`, `meetings create` | Consistent with `--start` |
+| `-b` | `--start` | `time add`, `meetings create`, `clockify sync pull`, `providers costs`, `reports costs`, `notes costs`, `meetings costs` | "Begin" mnemonic; avoids `-s` conflict |
+| `-e` | `--end` | `time add`, `meetings create`, `providers costs`, `reports costs`, `notes costs`, `meetings costs` | Consistent with `--start` |
 | `-H` | `--history` | `notes list` (when `--meeting` is also provided) | Uppercase; Click reserves `-h` for help |
 | `-S` | `--skip` | `eod` | Uppercase; less-common behavioural modifier |
 | `-C` | `--category` | `time add`, `time edit` | Uppercase pair of `-c`; expanded from `time add` only |
-| `-P` | `--provider` | `providers costs` | Uppercase; `-p` reserved for `--project` |
-| `-M` | `--month` | `providers costs` | Uppercase; `-m` reserved for `--meeting` |
+| `-P` | `--provider` | `providers costs`, `reports costs`, `notes costs`, `meetings costs` | Uppercase; `-p` reserved for `--project` |
+| `-M` | `--month` | `providers costs`, `reports costs`, `notes costs`, `meetings costs` | Uppercase; `-m` reserved for `--meeting` |
 | `-R` | `--type` | `reports list` | Uppercase; `-T` already taken by `--time`; less-common filter |
 | `-l` | `--title` | `meetings edit`, `schedule holiday add`, `schedule timeoff add` | Lowercase; infrequent title/label option |
 | `-L` | `--duration` | `time edit` | Uppercase pair of `-l`; duration edits less common than description |
@@ -372,6 +377,7 @@ The following flags intentionally have no short form. These are either infrequen
 | `--all` on `clockify sync push` | Infrequent bulk override — deliberate friction appropriate |
 | `--cancelled` | Infrequent filter — historical cancelled meeting lookup (`meetings list`) |
 | `--status` | Reserved globally for list commands; valid values vary by resource (see individual command `--help`). No short form — prevents conflicting assignment across future phases. |
+| `--all` | Costs commands — disables the default current-month filter to show full history. Infrequent; deliberate omission keeps default behaviour safe. |
 
 Do not add short forms to these flags in future phases without explicit justification and user approval.
 
