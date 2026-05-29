@@ -1,7 +1,7 @@
 """
 WorkmAIn AI Foundation Tests
-Test Suite v1.1
-20251229
+Test Suite v1.2
+20260528
 
 Tests for AI provider foundation:
 - Base provider abstract class
@@ -12,6 +12,8 @@ Tests for AI provider foundation:
 Version History:
 - v1.0: Initial test suite
 - v1.1: Fixed imports to prioritize installed modules over standalone
+- v1.2: Removed hard-coded provider assignment assertions — provider choices are
+        user-configurable; validate structure only (fields exist, valid provider names)
 
 Run with: python3 test_ai_foundation.py
 """
@@ -430,16 +432,23 @@ def test_config_structure():
     assert 'daily_internal' in config['report_types']
     assert 'weekly_client' in config['report_types']
     
-    # Verify daily_internal uses claude
+    # Verify daily_internal has required structure (provider choices are user-configurable)
+    valid_providers = {'claude', 'gemini'}
     daily = config['report_types']['daily_internal']
-    assert daily['primary_provider'] == 'claude'
-    assert daily['fallback_provider'] == 'gemini'
+    assert 'primary_provider' in daily
+    assert 'fallback_provider' in daily
+    assert daily['primary_provider'] in valid_providers
+    assert daily['fallback_provider'] in valid_providers
+    assert daily['primary_provider'] != daily['fallback_provider']
     assert daily['fallback_mode'] == 'auto'
-    
-    # Verify weekly_client uses gemini
+
+    # Verify weekly_client has required structure
     weekly = config['report_types']['weekly_client']
-    assert weekly['primary_provider'] == 'gemini'
-    assert weekly['fallback_provider'] == 'claude'
+    assert 'primary_provider' in weekly
+    assert 'fallback_provider' in weekly
+    assert weekly['primary_provider'] in valid_providers
+    assert weekly['fallback_provider'] in valid_providers
+    assert weekly['primary_provider'] != weekly['fallback_provider']
     
     print("✓ Configuration structure valid")
 
