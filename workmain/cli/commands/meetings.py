@@ -1,7 +1,7 @@
 """
 WorkmAIn Meeting CLI Commands
-Meeting Commands v4.2
-20260526
+Meeting Commands v4.3
+20260529
 
 CLI commands for meeting management.
 
@@ -53,6 +53,8 @@ Version History:
         (--start-date/-d → --start/-b, --until/-u → --end/-e with explicit YYYY-MM-DD
         help text); remove -a/--attendees from meetings create CLI (model/repo intact);
         change meetings rename NEW_TITLE positional to required -l/--title option.
+- v4.3: Gate 4 cost tracking sprint — add meetings costs subcommand showing meeting
+        condensation costs from ai_costs table; full date filter set + --provider/-P
 """
 
 import click
@@ -68,7 +70,9 @@ from workmain.database.connection import get_db
 from workmain.database.models import Meeting
 from workmain.database.repositories.meetings_repo import MeetingsRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
+from workmain.database.repositories.ai_costs_repo import get_ai_cost_repository
 from workmain.ai.note_condenser import get_note_condenser
+from workmain.utils.date_utils import resolve_date_window, format_date_window_label
 
 
 console = Console()
@@ -1735,6 +1739,141 @@ def meetings_template_use(name: str, start_str: Optional[str], end_str: Optional
 
     except Exception as e:
         console.print(f"[red]✗ Failed to create meetings: {e}[/red]")
+    finally:
+        session.close()
+
+
+@meetings.command('costs')
+@click.option('--provider', '-P', type=click.Choice(['claude', 'gemini'], case_sensitive=False),
+              help='Filter by AI provider')
+@click.option('--limit', '-n', type=int, default=20, help='Max rows to display')
+@click.option('--date', '-d', 'date_str', metavar='YYYY-MM-DD', default=None,
+              help='Show costs for a single day')
+@click.option('--start', '-b', 'start_str', metavar='YYYY-MM-DD', default=None,
+              help='Range start date (inclusive)')
+@click.option('--end', '-e', 'end_str', metavar='YYYY-MM-DD', default=None,
+              help='Range end date (requires --start)')
+@click.option('--month', '-M', 'month_str', metavar='YYYY-MM', default=None,
+              help='Filter by calendar month')
+@click.option('--all', 'show_all', is_flag=True, default=False,
+              help='Show all history (no date filter)')
+def meetings_costs(
+    provider: Optional[str],
+    limit: int,
+    date_str: Optional[str],
+    start_str: Optional[str],
+    end_str: Optional[str],
+    month_str: Optional[str],
+    show_all: bool,
+):
+    """
+    Show AI costs incurred by meeting condensations.
+
+    Reads from the ai_costs table (interaction_type=condensation).
+    Defaults to the current calendar month.
+
+    \b
+    Examples:
+      workmain meetings costs
+      workmain meetings costs -P claude
+      workmain meetings costs -M 2026-05
+      workmain meetings costs -b 2026-05-01 -e 2026-05-15
+      workmain meetings costs --all
+    """
+    try:
+        start_date, end_date = resolve_date_window(date_str, start_str, end_str, month_str, show_all)
+    except click.UsageError as e:
+        console.print(f"[red]✗ {e}[/red]")
+        console.print()
+        return
+
+    db = get_db()
+    session = db.get_session()
+
+    try:
+        repo = get_ai_cost_repository(session)
+        summary = repo.get_summary(
+            interaction_type='condensation',
+            provider=provider.lower() if provider else None,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        rows = repo.get_filtered(
+            interaction_type='condensation',
+            provider=provider.lower() if provider else None,
+            start_date=start_date,
+            end_date=end_date,
+            limit=limit,
+        )
+
+        label = format_date_window_label(start_date, end_date)
+        console.print()
+        console.print(f"[bold cyan]Meeting Condensation Costs — {label}[/bold cyan]")
+        console.print()
+
+        if summary['total_calls'] == 0:
+            console.print("[yellow]No condensation costs found for this period.[/yellow]")
+            console.print()
+            console.print("[dim]Condense a meeting with: workmain meetings condense <title>[/dim]")
+            console.print()
+            return
+
+        console.print(f"  Condensations: {summary['total_calls']}")
+        console.print(f"  Total Cost:    [green]${summary['total_cost']:.6f}[/green]")
+        console.print(f"  Total Tokens:  {summary['total_tokens']:,}")
+        console.print()
+
+        if summary['by_provider']:
+            console.print("[bold]By Provider:[/bold]")
+            table = Table(show_header=True, header_style="bold cyan", box=box.SIMPLE)
+            table.add_column("Provider", style="cyan")
+            table.add_column("Calls", justify="right", style="dim")
+            table.add_column("Cost", justify="right", style="green")
+            table.add_column("Tokens", justify="right", style="dim")
+            table.add_column("Avg Cost", justify="right", style="dim")
+
+            for prov, stats in sorted(summary['by_provider'].items()):
+                avg = stats['cost'] / stats['calls'] if stats['calls'] > 0 else 0.0
+                table.add_row(
+                    prov.title(),
+                    str(stats['calls']),
+                    f"${stats['cost']:.6f}",
+                    f"{stats['tokens']:,}",
+                    f"${avg:.6f}",
+                )
+            console.print(table)
+            console.print()
+
+        if rows:
+            console.print(f"[bold]Meeting Detail:[/bold] (showing {len(rows)})")
+            table = Table(show_header=True, header_style="bold cyan", box=box.SIMPLE)
+            table.add_column("Date", style="cyan", width=12)
+            table.add_column("Meeting", width=28)
+            table.add_column("Provider", width=10)
+            table.add_column("Tokens", justify="right", width=10)
+            table.add_column("Cost", justify="right", style="green", width=12)
+
+            for r in rows:
+                table.add_row(
+                    r.created_at.strftime('%Y-%m-%d'),
+                    (r.context_label or '')[:27],
+                    r.provider,
+                    f"{r.total_tokens:,}",
+                    f"${float(r.cost_usd):.6f}",
+                )
+            console.print(table)
+            console.print()
+
+        active_filters = [f"Period: {label}"]
+        if provider:
+            active_filters.append(f"Provider: {provider}")
+        console.print("[dim]" + "  |  ".join(active_filters) + "[/dim]")
+        console.print()
+
+    except Exception as e:
+        console.print(f"[red]✗ Failed to get costs: {e}[/red]")
+        console.print()
+
     finally:
         session.close()
 
