@@ -1,7 +1,7 @@
 """
 WorkmAIn Note Condenser
-Note Condenser v1.7
-20260327
+Note Condenser v1.8
+20260528
 
 AI-powered condensation of meeting notes into one-line summaries for Clockify.
 
@@ -21,6 +21,9 @@ Version History:
 - v1.7: Hotfix - scope notes query to meeting date (Note.created_date == meeting_date)
         so notes from previous recurring occurrences sharing the same meeting_id are
         not included; fixes stale content reappearing after user deletes today's notes
+- v1.8: Gate 2 cost tracking sprint — replace hardcoded self.claude with provider_manager
+        routing through 'note_condensation' config entry; persist ai_costs row after
+        each condensation; honours provider parameter as provider_override
 """
 
 import json
@@ -32,8 +35,10 @@ from sqlalchemy.orm import Session
 
 from workmain.database.models import Meeting, Note
 from workmain.ai.base_provider import GenerationRequest, ProviderType
-from workmain.ai.claude_client import get_claude_client
+from workmain.ai import get_claude_client, get_gemini_client
 from workmain.ai.cost_tracker import get_cost_tracker
+from workmain.ai.provider_manager import get_provider_manager
+from workmain.database.repositories.ai_costs_repo import AiCostRepository
 
 
 class NoteCondenser:
@@ -55,9 +60,11 @@ class NoteCondenser:
             session: Database session for queries and updates
         """
         self.session = session
-        self.claude = get_claude_client()
         self.cost_tracker = get_cost_tracker()
         self.writing_style = self._load_writing_style()
+        self.provider_manager = get_provider_manager()
+        self.provider_manager.register_provider(ProviderType.CLAUDE, get_claude_client())
+        self.provider_manager.register_provider(ProviderType.GEMINI, get_gemini_client())
     
     def _load_writing_style(self) -> dict:
         """
@@ -140,9 +147,13 @@ class NoteCondenser:
         self.cost_tracker.start_report(f"condense_{db_meeting.title}", datetime.now().date())
         
         try:
-            # Generate with Claude (or specified provider)
-            response = self.claude.generate(request)
-            
+            # Generate using config-driven provider ('note_condensation' entry in ai_settings.json)
+            response, _ = self.provider_manager.generate(
+                request,
+                report_type='note_condensation',
+                provider_override=provider if provider else None,
+            )
+
             # Track cost
             self.cost_tracker.track_section(
                 section_name="condensation",
@@ -152,14 +163,26 @@ class NoteCondenser:
                 completion_tokens=response.completion_tokens,
                 cost=response.cost
             )
-            
+
             # Update meeting with condensed summary
             db_meeting.condensed_summary = response.content.strip()
             db_meeting.condensed_at = datetime.now()
             self.session.commit()
-            
+
+            # Persist ai_costs row
+            AiCostRepository(self.session).create(
+                interaction_type='condensation',
+                provider=response.provider.value,
+                model=response.model,
+                prompt_tokens=response.prompt_tokens,
+                completion_tokens=response.completion_tokens,
+                cost_usd=response.cost,
+                meeting_id=db_meeting.id,
+                context_label=db_meeting.title,
+            )
+
             return db_meeting.condensed_summary
-            
+
         finally:
             self.cost_tracker.end_report(0.0)  # No generation time tracking needed
     

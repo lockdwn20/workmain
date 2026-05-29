@@ -1,6 +1,6 @@
 """
 WorkmAIn Provider CLI Commands
-Provider Commands v1.10
+Provider Commands v1.11
 20260528
 
 CLI commands for managing AI providers (Claude and Gemini).
@@ -26,6 +26,9 @@ Version History:
         providers set default <provider> --for <type> (Phase 12 extensibility)
 - v1.10: Phase 12 Gate 4 — V7 resolution: add --help clarification to providers costs
          distinguishing it from reports costs (per-report detail vs aggregate totals)
+- v1.11: Gate 2 cost tracking sprint — fix providers list display to read provider
+         assignments dynamically from provider_manager config (ai_settings.json) instead
+         of hardcoded text; also registers providers so singleton is ready for sub-commands
 """
 
 from typing import Optional
@@ -127,16 +130,30 @@ def list_providers():
             f"[dim]{str(e)[:40]}...[/dim]"
         )
     
+    # Register providers so singleton is fully ready
+    manager.register_provider(ProviderType.CLAUDE, get_claude_client())
+    manager.register_provider(ProviderType.GEMINI, get_gemini_client())
+
     console.print(table)
     console.print()
-    
-    # Show default assignments
-    console.print("[bold]Default Provider Assignments:[/bold]")
-    console.print("  Daily Internal Report  → Claude")
-    console.print("  Weekly Client Report   → Gemini")
-    console.print("  Note Condensation      → Claude")
+
+    # Show provider assignments read from ai_settings.json via provider_manager
+    report_type_labels = [
+        ('Daily Internal Report', 'daily_internal'),
+        ('Weekly Client Report',  'weekly_client'),
+        ('Note Condensation',     'note_condensation'),
+    ]
+    console.print("[bold]Provider Assignments (ai_settings.json):[/bold]")
+    for label, rt in report_type_labels:
+        cfg = manager.get_report_config(rt)
+        if cfg:
+            primary = cfg.primary_provider.value.title()
+            fallback = cfg.fallback_provider.value.title() if cfg.fallback_provider else "none"
+            console.print(f"  {label:<26} → {primary} (fallback: {fallback})")
+        else:
+            console.print(f"  {label:<26} → [dim]not configured[/dim]")
     console.print()
-    
+
     console.print("[dim]Use 'workmain providers test <provider>' to verify API connection[/dim]")
     console.print()
 

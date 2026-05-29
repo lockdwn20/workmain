@@ -1,7 +1,7 @@
 """
 WorkmAIn AI Provider Manager
-Provider Manager v1.0
-20251229
+Provider Manager v1.1
+20260528
 
 Manages AI providers with intelligent fallback and selection.
 
@@ -16,6 +16,12 @@ Features:
 Fallback Modes:
 - AUTO: Automatic fallback with notification
 - MANUAL: Prompt user before fallback
+
+Version History:
+- v1.0: Initial implementation
+- v1.1: Implement _load_config() — reads ai_settings.json on every instantiation;
+        removes if config_path: guard so config is always loaded (file-not-found
+        is handled gracefully). Fixes provider selection being hardcoded to Claude.
 """
 
 import os
@@ -97,8 +103,7 @@ class ProviderManager:
         self._report_configs: Dict[str, ReportTypeConfig] = {}
         self._fallback_notifications: List[str] = []
         
-        if config_path:
-            self._load_config()
+        self._load_config()
     
     def register_provider(
         self,
@@ -348,36 +353,42 @@ class ProviderManager:
         return self._providers[provider_type]
     
     def _load_config(self):
-        """
-        Load configuration from ai_settings.json.
-        
-        This will be implemented once the config file format is finalized.
-        For now, providers should be registered and configured manually.
-        """
-        # TODO: Implement config loading in Phase 4
-        # Will load from config/ai_settings.json
-        # Format:
-        # {
-        #   "report_types": {
-        #     "daily_internal": {
-        #       "primary_provider": "claude",
-        #       "fallback_provider": "gemini",
-        #       "fallback_mode": "auto",
-        #       "max_cost_per_report": 1.0
-        #     },
-        #     "weekly_client": {
-        #       "primary_provider": "gemini",
-        #       "fallback_provider": "claude",
-        #       "fallback_mode": "auto",
-        #       "max_cost_per_report": 2.0
-        #     }
-        #   },
-        #   "providers": {
-        #     "claude": {...},
-        #     "gemini": {...}
-        #   }
-        # }
-        pass
+        """Load provider and report-type configuration from ai_settings.json."""
+        import json
+        from pathlib import Path
+
+        config_file = self.config_path or str(
+            Path(__file__).parent.parent.parent / 'config' / 'ai_settings.json'
+        )
+
+        if not Path(config_file).exists():
+            return
+
+        with open(config_file, 'r') as f:
+            config = json.load(f)
+
+        provider_map = {
+            'claude': ProviderType.CLAUDE,
+            'gemini': ProviderType.GEMINI,
+        }
+        fallback_mode_map = {
+            'auto':   FallbackMode.AUTO,
+            'manual': FallbackMode.MANUAL,
+        }
+
+        for report_type, cfg in config.get('report_types', {}).items():
+            primary  = provider_map.get(cfg.get('primary_provider',  'claude'), ProviderType.CLAUDE)
+            fallback = provider_map.get(cfg.get('fallback_provider', 'gemini'), ProviderType.GEMINI)
+            fb_mode  = fallback_mode_map.get(cfg.get('fallback_mode', 'auto'), FallbackMode.AUTO)
+            max_cost = cfg.get('max_cost_per_report', 1.0)
+
+            self.configure_report_type(
+                report_type=report_type,
+                primary_provider=primary,
+                fallback_provider=fallback,
+                fallback_mode=fb_mode,
+                max_cost=max_cost,
+            )
 
 
 # Singleton instance
