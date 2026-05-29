@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v5.9
-20260528
+Feature Backlog v5.10
+20260529
 
 # WorkmAIn Feature Backlog
 
@@ -30,6 +30,7 @@ Items deferred from various phases for future implementation.
 - v5.7 (20260526): Added Item 31 — meetings create attendees CLI option removed; model/repo storage preserved for Phase 14+. Items 24 and 25 re-targeted from Phase 15/14 to Phase 12 (Notes & Tasks Foundation Sprint per CLI_STANDARDS.md V6/V7 update).
 - v5.8 (20260528): Items 24 and 25 marked RESOLVED (Phase 12, v1.16.0). Added Items 32 and 33 (Phase 13 targets deferred from Phase 12).
 - v5.9 (20260528): Added Item 34 — weekly report prompt using confirmed daily summaries as context instead of raw data re-query (token cost reduction, Phase 13).
+- v5.10 (20260529): Added Item 35 — AI model config-driven selection; model strings currently hardcoded in claude_client.py and gemini_client.py; ai_settings.json already has model fields that are not read.
 
 ---
 
@@ -111,18 +112,19 @@ Build first, refactor later. See the complete picture before abstracting.
 | 32 | Task Deduplication and Forwarding | Low | Phase 13 | ~2–3 hrs | |
 | 33 | correction_note Field Population | Low | Phase 13 | ~2 hrs | |
 | 34 | Weekly Report Prompt — Confirmed Daily Summaries as Context | Medium | Phase 13 | ~3–4 hrs | |
+| 35 | AI Model Config-Driven Selection | Medium | Phase 14 | ~2–3 hrs | |
 
 ---
 
 ## Summary Statistics
 
-**Total Items:** 34 (Item 22 is a redirect — no separate deferred work; see Item 20)
+**Total Items:** 35 (Item 22 is a redirect — no separate deferred work; see Item 20)
 **Completed:** 7 (Items 17, 18, 20, 24, 25, 26, 27)
-**Open:** 26
+**Open:** 27
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Open (targeted) | 21 | 1, 2, 3, 4, 7, 8, 10, 12, 13, 14, 15, 16, 19, 23, 28, 29, 30, 31, 32, 33, 34 |
+| Open (targeted) | 22 | 1, 2, 3, 4, 7, 8, 10, 12, 13, 14, 15, 16, 19, 23, 28, 29, 30, 31, 32, 33, 34, 35 |
 | Conditional | 1 | 9 |
 | Indefinitely | 4 | 5, 6, 11, 21 |
 | Complete | 7 | 17, 18, 20, 24, 25, 26, 27 |
@@ -131,7 +133,7 @@ Build first, refactor later. See the complete picture before abstracting.
 | Priority | Count | Items |
 |----------|-------|-------|
 | High | 0 | — |
-| Medium | 8 | 2, 3, 7, 10, 14, 15, 23, 34 |
+| Medium | 9 | 2, 3, 7, 10, 14, 15, 23, 34, 35 |
 | Low | 17 | 1, 4, 5, 6, 8, 11, 12, 13, 16, 19, 21, 28, 29, 30, 31, 32, 33 |
 | Conditional | 1 | 9 |
 
@@ -139,13 +141,13 @@ Build first, refactor later. See the complete picture before abstracting.
 |-------------|-------|
 | Phase 11+ | 4, 28 |
 | Phase 13 | 19, 32, 33, 34 |
-| Phase 14 | 31 |
+| Phase 14 | 31, 35 |
 | Phase 15 | 1, 2, 3, 7, 8, 10, 12, 13, 14, 15, 16, 23, 29 |
 | Phase 18 | 30 |
 | Conditional | 9 |
 | Indefinitely | 5, 6, 11, 21 |
 
-**Total Deferred Effort (open items):** ~91 hours
+**Total Deferred Effort (open items):** ~93–94 hours
 
 ---
 
@@ -1011,3 +1013,53 @@ that should be done with full Phase 13 context rather than bolted on mid-phase.
   confirmed daily (same behavior as today)
 - [ ] `corrected_content` preferred over `content` when set on a given day's report
 - [ ] Token count of weekly prompt measurably reduced versus baseline (raw data path)
+
+---
+
+#### Item 35 — AI Model Config-Driven Selection
+
+**Status:** Open — Deferred to Phase 14
+**Priority:** Medium
+**Effort:** ~2–3 hours
+**Added:** 20260529
+**Target Phase:** Phase 14 (Setup Wizard)
+
+**Description:**
+The model string for each AI provider is currently hardcoded in the Python client files
+(`claude_client.py` default: `claude-sonnet-4-5-20250929`; `gemini_client.py` default:
+`gemini-2.5-flash`). Updating the model requires editing Python source and committing a
+code change, even though `config/ai_settings.json` already contains a `model` field under
+each provider entry — that field is currently ignored by the clients.
+
+The fix is to make `get_claude_client()` and `get_gemini_client()` read their `model`
+value from `ai_settings.json` at instantiation, falling back to the current hardcoded
+default only when the config file is absent or the field is missing. This would allow
+model updates entirely through config, matching the provider routing behaviour implemented
+in Gate 2 of the cost tracking sprint (provider_manager v1.1).
+
+**Relationship to Item 10:** Item 10 (Streamlined Model Update Process, Phase 15) covers
+the *documentation* side — a written process + checklist. This item covers the *code
+mechanism* that eliminates the need to touch Python to change the model. Both are needed;
+implement this item first so the documented process reflects the config-driven approach.
+
+**Why Deferred:**
+The current hardcoded defaults work correctly. The urgency was removed in the cost
+tracking sprint (Phase 14 precursor) which fixed provider routing — model selection is
+a lower-risk follow-on. Deferring alongside `providers set default` (Phase 14 Setup
+Wizard) so all provider/model config UI is delivered together.
+
+**Acceptance Criteria:**
+- [ ] `get_claude_client()` reads `config/ai_settings.json providers.claude.model`; falls
+  back to hardcoded default if file absent or field missing
+- [ ] `get_gemini_client()` reads `config/ai_settings.json providers.gemini.model`; falls
+  back to hardcoded default if file absent or field missing
+- [ ] `workmain providers list` model column reflects the value from config, not the
+  hardcoded string
+- [ ] Changing the model in `ai_settings.json` takes effect on next CLI invocation
+  without any Python file edits
+- [ ] Item 10 (Model Update Process doc) updated to reflect config-driven approach
+
+**Files Affected:**
+- `workmain/ai/claude_client.py` — read model from config in `get_claude_client()`
+- `workmain/ai/gemini_client.py` — read model from config in `get_gemini_client()`
+- `config/ai_settings.json` — no schema changes; `model` field already present

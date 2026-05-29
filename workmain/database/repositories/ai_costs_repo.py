@@ -1,13 +1,14 @@
 """
 WorkmAIn AI Cost Repository
-AI Cost Repository v1.0
-20260528
+AI Cost Repository v1.1
+20260529
 
 Data access layer for ai_costs table.
 Persists every AI API interaction for cost tracking and reporting.
 
 Version History:
 - v1.0: Initial implementation (cost tracking sprint)
+- v1.1: Gate 3 — add provider filter to get_summary()
 """
 
 from datetime import date, datetime, timezone
@@ -115,6 +116,7 @@ class AiCostRepository:
     def get_summary(
         self,
         interaction_type: Optional[str] = None,
+        provider: Optional[str] = None,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
     ) -> Dict:
@@ -125,6 +127,7 @@ class AiCostRepository:
 
         Args:
             interaction_type: Filter by interaction type
+            provider: Filter by provider name (e.g. 'claude', 'gemini')
             start_date: Inclusive range start (filters on created_at)
             end_date: Inclusive range end (filters on created_at)
 
@@ -137,6 +140,8 @@ class AiCostRepository:
 
         if interaction_type:
             query = query.filter(AiCost.interaction_type == interaction_type)
+        if provider:
+            query = query.filter(AiCost.provider == provider)
         if start_date:
             query = query.filter(AiCost.created_at >= _date_start_bound(start_date))
         if end_date:

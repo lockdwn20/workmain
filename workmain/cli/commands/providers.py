@@ -1,7 +1,7 @@
 """
 WorkmAIn Provider CLI Commands
-Provider Commands v1.11
-20260528
+Provider Commands v1.12
+20260529
 
 CLI commands for managing AI providers (Claude and Gemini).
 
@@ -29,21 +29,24 @@ Version History:
 - v1.11: Gate 2 cost tracking sprint — fix providers list display to read provider
          assignments dynamically from provider_manager config (ai_settings.json) instead
          of hardcoded text; also registers providers so singleton is ready for sub-commands
+- v1.12: Gate 3 — providers costs redesigned as aggregate view from ai_costs table;
+         full date filter set (--date/-d, --start/-b, --end/-e, --month/-M, --all);
+         reads from AiCostRepository instead of report_metadata
 """
 
 from typing import Optional
-from datetime import datetime, date
 import click
 from rich.console import Console
 from rich.table import Table
 from rich import box
 
 from workmain.database.connection import get_db
-from workmain.database.repositories.reports_repo import get_reports_repository
+from workmain.database.repositories.ai_costs_repo import get_ai_cost_repository
 from workmain.ai.provider_manager import get_provider_manager
 from workmain.ai.base_provider import ProviderType, ProviderStatus, GenerationRequest
 from workmain.ai.claude_client import get_claude_client
 from workmain.ai.gemini_client import get_gemini_client
+from workmain.utils.date_utils import resolve_date_window, format_date_window_label
 
 
 console = Console()
@@ -233,173 +236,126 @@ def test_provider(provider: str):
 @providers.command('costs')
 @click.option('--provider', '-P', type=click.Choice(['claude', 'gemini'], case_sensitive=False),
               help='Filter by specific provider')
-@click.option('--month', '-M', help='Filter by month (YYYY-MM)')
-@click.option('--limit', '-n', type=int, default=20, help='Limit number of reports shown')
-def show_costs(provider: Optional[str], month: Optional[str], limit: int):
+@click.option('--date', '-d', 'date_str', metavar='YYYY-MM-DD', default=None,
+              help='Show costs for a single day')
+@click.option('--start', '-b', 'start_str', metavar='YYYY-MM-DD', default=None,
+              help='Range start date (inclusive)')
+@click.option('--end', '-e', 'end_str', metavar='YYYY-MM-DD', default=None,
+              help='Range end date (requires --start)')
+@click.option('--month', '-M', 'month_str', metavar='YYYY-MM', default=None,
+              help='Filter by calendar month')
+@click.option('--all', 'show_all', is_flag=True, default=False,
+              help='Show all history (no date filter)')
+def show_costs(
+    provider: Optional[str],
+    date_str: Optional[str],
+    start_str: Optional[str],
+    end_str: Optional[str],
+    month_str: Optional[str],
+    show_all: bool,
+):
     """
-    Show per-report cost breakdown, filterable by provider and month.
+    Show aggregate AI cost totals from all interactions.
 
-    Shows each individual report's cost with provider and token details.
-    For aggregate totals grouped by type and provider, use
-    'workmain reports costs'.
+    Groups totals by provider and interaction type (reports + condensations).
+    Defaults to the current calendar month.
+    For per-report cost detail, use 'workmain reports costs'.
 
     \b
     Examples:
       workmain providers costs
       workmain providers costs -P claude
-      workmain providers costs -M 2025-12
-      workmain providers costs -P gemini -n 10
+      workmain providers costs -M 2026-05
+      workmain providers costs -b 2026-05-01 -e 2026-05-15
+      workmain providers costs --all
     """
-    # Get database session
+    try:
+        start_date, end_date = resolve_date_window(date_str, start_str, end_str, month_str, show_all)
+    except click.UsageError as e:
+        console.print(f"[red]✗ {e}[/red]")
+        console.print()
+        return
+
     db = get_db()
     session = db.get_session()
-    
+
     try:
-        repo = get_reports_repository(session)
-        
-        # Parse month filter if provided
-        start_date = None
-        end_date = None
-        if month:
-            try:
-                year, month_num = map(int, month.split('-'))
-                start_date = date(year, month_num, 1)
-                # Get last day of month
-                if month_num == 12:
-                    end_date = date(year + 1, 1, 1)
-                else:
-                    end_date = date(year, month_num + 1, 1)
-            except ValueError:
-                console.print(f"[red]✗ Invalid month format: {month}. Use YYYY-MM[/red]")
-                console.print()
-                return
-        
-        # Get reports
-        reports = repo.list_reports(limit=limit)
-        
-        if not reports:
+        repo = get_ai_cost_repository(session)
+        summary = repo.get_summary(
+            provider=provider.lower() if provider else None,
+            start_date=start_date,
+            end_date=end_date,
+        )
+
+        label = format_date_window_label(start_date, end_date)
+        console.print()
+        console.print(f"[bold cyan]AI Cost Summary — {label}[/bold cyan]")
+        console.print()
+
+        if summary['total_calls'] == 0:
+            console.print("[yellow]No AI interactions found for this period.[/yellow]")
             console.print()
-            console.print("[yellow]No reports found in database[/yellow]")
-            console.print()
-            console.print("[dim]Generate a report first with: workmain reports save daily_internal[/dim]")
+            console.print("[dim]Generate a report with: workmain reports save daily_internal[/dim]")
             console.print()
             return
-        
-        # Filter by provider and date if specified
-        filtered_reports = []
-        for report in reports:
-            # Check date filter
-            if start_date and report.report_date < start_date:
-                continue
-            if end_date and report.report_date >= end_date:
-                continue
-            
-            # Check provider filter
-            if provider:
-                report_provider = report.report_metadata.get('ai_provider', '').lower()
-                if report_provider != provider.lower():
-                    continue
-            
-            filtered_reports.append(report)
-        
-        if not filtered_reports:
-            console.print()
-            console.print(f"[yellow]No reports found matching filters[/yellow]")
-            console.print()
-            return
-        
-        # Calculate totals
-        total_cost = 0.0
-        total_tokens = 0
-        provider_stats = {}
-        
-        for report in filtered_reports:
-            metadata = report.report_metadata or {}
-            cost = float(metadata.get('cost', 0))
-            tokens = int(metadata.get('total_tokens', 0))
-            report_provider = metadata.get('ai_provider', 'unknown')
-            
-            total_cost += cost
-            total_tokens += tokens
-            
-            if report_provider not in provider_stats:
-                provider_stats[report_provider] = {'cost': 0.0, 'tokens': 0, 'count': 0}
-            
-            provider_stats[report_provider]['cost'] += cost
-            provider_stats[report_provider]['tokens'] += tokens
-            provider_stats[report_provider]['count'] += 1
-        
-        # Display summary
+
+        console.print(f"  Total Calls:  {summary['total_calls']}")
+        console.print(f"  Total Cost:   [green]${summary['total_cost']:.6f}[/green]")
+        console.print(f"  Total Tokens: {summary['total_tokens']:,}")
         console.print()
-        console.print("[bold cyan]Cost Summary:[/bold cyan]")
-        console.print()
-        
-        # Overall stats
-        console.print(f"  Total Reports: {len(filtered_reports)}")
-        console.print(f"  Total Cost: [green]${total_cost:.6f}[/green]")
-        console.print(f"  Total Tokens: {total_tokens:,}")
-        console.print()
-        
-        # Provider breakdown
-        if len(provider_stats) > 1 or not provider:
+
+        if summary['by_provider']:
             console.print("[bold]By Provider:[/bold]")
-            
-            provider_table = Table(show_header=True, header_style="bold cyan", box=box.SIMPLE)
-            provider_table.add_column("Provider", style="cyan")
-            provider_table.add_column("Reports", justify="right")
-            provider_table.add_column("Cost", justify="right", style="green")
-            provider_table.add_column("Tokens", justify="right", style="dim")
-            provider_table.add_column("Avg Cost", justify="right", style="dim")
-            
-            for prov, stats in sorted(provider_stats.items()):
-                avg_cost = stats['cost'] / stats['count'] if stats['count'] > 0 else 0
-                provider_table.add_row(
+            table = Table(show_header=True, header_style="bold cyan", box=box.SIMPLE)
+            table.add_column("Provider", style="cyan")
+            table.add_column("Calls", justify="right", style="dim")
+            table.add_column("Cost", justify="right", style="green")
+            table.add_column("Tokens", justify="right", style="dim")
+            table.add_column("Avg Cost", justify="right", style="dim")
+
+            for prov, stats in sorted(summary['by_provider'].items()):
+                avg = stats['cost'] / stats['calls'] if stats['calls'] > 0 else 0.0
+                table.add_row(
                     prov.title(),
-                    str(stats['count']),
+                    str(stats['calls']),
                     f"${stats['cost']:.6f}",
                     f"{stats['tokens']:,}",
-                    f"${avg_cost:.6f}"
+                    f"${avg:.6f}",
                 )
-            
-            console.print(provider_table)
+            console.print(table)
             console.print()
-        
-        # Recent reports table
-        console.print(f"[bold]Recent Reports:[/bold] (showing {min(10, len(filtered_reports))} of {len(filtered_reports)})")
-        
-        reports_table = Table(show_header=True, header_style="bold cyan", box=box.SIMPLE)
-        reports_table.add_column("Date", style="cyan", width=12)
-        reports_table.add_column("Type", width=20)
-        reports_table.add_column("Provider", width=10)
-        reports_table.add_column("Tokens", justify="right", width=10)
-        reports_table.add_column("Cost", justify="right", style="green", width=12)
-        
-        for report in filtered_reports[:10]:
-            metadata = report.report_metadata or {}
-            reports_table.add_row(
-                str(report.report_date),
-                report.report_type,
-                metadata.get('ai_provider', 'unknown'),
-                f"{metadata.get('total_tokens', 0):,}",
-                f"${float(metadata.get('cost', 0)):.6f}"
-            )
-        
-        console.print(reports_table)
+
+        if summary['by_type']:
+            console.print("[bold]By Interaction Type:[/bold]")
+            table = Table(show_header=True, header_style="bold cyan", box=box.SIMPLE)
+            table.add_column("Type", style="cyan")
+            table.add_column("Calls", justify="right", style="dim")
+            table.add_column("Cost", justify="right", style="green")
+            table.add_column("Tokens", justify="right", style="dim")
+            table.add_column("Avg Cost", justify="right", style="dim")
+
+            for itype, stats in sorted(summary['by_type'].items()):
+                avg = stats['cost'] / stats['calls'] if stats['calls'] > 0 else 0.0
+                table.add_row(
+                    itype.title(),
+                    str(stats['calls']),
+                    f"${stats['cost']:.6f}",
+                    f"{stats['tokens']:,}",
+                    f"${avg:.6f}",
+                )
+            console.print(table)
+            console.print()
+
+        active_filters = [f"Period: {label}"]
+        if provider:
+            active_filters.append(f"Provider: {provider}")
+        console.print("[dim]" + "  |  ".join(active_filters) + "[/dim]")
         console.print()
-        
-        # Show filters if applied
-        if provider or month:
-            console.print("[dim]Filters applied:[/dim]")
-            if provider:
-                console.print(f"  Provider: {provider}")
-            if month:
-                console.print(f"  Month: {month}")
-            console.print()
-        
+
     except Exception as e:
         console.print(f"[red]✗ Failed to get costs: {e}[/red]")
         console.print()
-    
+
     finally:
         session.close()
 
