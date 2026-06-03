@@ -38,7 +38,7 @@
       "model": "mistral-7b",
       "host": "localhost",
       "port": 11434,
-      "cost_structure": "Local — no API cost"
+      "cost_structure": "Local \u2014 no API cost"
     }
   },
   "report_types": {
