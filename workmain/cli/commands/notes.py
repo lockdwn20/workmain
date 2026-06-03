@@ -1,7 +1,7 @@
 """
 WorkmAIn Notes CLI Commands
-Notes Commands v3.8
-20260529
+Notes Commands v3.9
+20260603
 
 Unified notes command group. Consolidates note (write) and notes (read) groups
 from note.py into a single group with all subcommands.
@@ -43,6 +43,8 @@ Version History:
         removal.
 - v3.8: Gate 4 cost tracking sprint — add notes costs subcommand showing note
         condensation costs from ai_costs table; full date filter set + --provider/-P
+- v3.9: Provider Foundation Sprint Gate 3 — "Sending to Claude..." made dynamic;
+        reads active provider from note_condensation config via get_provider_manager()
 """
 
 import click
@@ -694,7 +696,10 @@ def notes_log(meeting: str):
                 from workmain.ai.note_condenser import get_note_condenser
                 from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
 
-                click.echo("\nSending to Claude...")
+                from workmain.ai.provider_manager import get_provider_manager
+                _rc = get_provider_manager().get_report_config('note_condensation')
+                _provider_display = _rc.primary_provider.value.capitalize() if _rc else 'AI'
+                click.echo(f"\nSending to {_provider_display}...")
                 condenser = get_note_condenser(session)
                 summary = condenser.condense_meeting(meeting_obj)
                 click.echo(f"✓ Condensed: \"{summary}\"")

@@ -1,7 +1,7 @@
 """
 WorkmAIn Meeting CLI Commands
-Meeting Commands v4.3
-20260529
+Meeting Commands v4.4
+20260603
 
 CLI commands for meeting management.
 
@@ -55,6 +55,8 @@ Version History:
         change meetings rename NEW_TITLE positional to required -l/--title option.
 - v4.3: Gate 4 cost tracking sprint — add meetings costs subcommand showing meeting
         condensation costs from ai_costs table; full date filter set + --provider/-P
+- v4.4: Provider Foundation Sprint Gate 3 — "Sending to Claude..." made dynamic;
+        reads active provider from note_condensation config via get_provider_manager()
 """
 
 import click
@@ -894,7 +896,10 @@ def meetings_condense(meeting_title: str):
         else:
             console.print()
             console.print(f"[bold]Condensing {non_ifo_count} note(s) for:[/bold] {meeting.title}")
-        console.print("[dim]Sending to Claude...[/dim]")
+        from workmain.ai.provider_manager import get_provider_manager
+        _rc = get_provider_manager().get_report_config('note_condensation')
+        _provider_display = _rc.primary_provider.value.capitalize() if _rc else 'AI'
+        console.print(f"[dim]Sending to {_provider_display}...[/dim]")
         console.print()
 
         # Condense using AI
