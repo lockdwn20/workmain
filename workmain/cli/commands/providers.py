@@ -1,7 +1,7 @@
 """
 WorkmAIn Provider CLI Commands
-Provider Commands v1.12
-20260529
+Provider Commands v1.13
+20260603
 
 CLI commands for managing AI providers (Claude and Gemini).
 
@@ -32,6 +32,8 @@ Version History:
 - v1.12: Gate 3 — providers costs redesigned as aggregate view from ai_costs table;
          full date filter set (--date/-d, --start/-b, --end/-e, --month/-M, --all);
          reads from AiCostRepository instead of report_metadata
+- v1.13: Provider Foundation Sprint — remove direct claude_client/gemini_client imports;
+         providers list and test use manager.get_provider(); remove register_provider() calls
 """
 
 from typing import Optional
@@ -43,9 +45,7 @@ from rich import box
 from workmain.database.connection import get_db
 from workmain.database.repositories.ai_costs_repo import get_ai_cost_repository
 from workmain.ai.provider_manager import get_provider_manager
-from workmain.ai.base_provider import ProviderType, ProviderStatus, GenerationRequest
-from workmain.ai.claude_client import get_claude_client
-from workmain.ai.gemini_client import get_gemini_client
+from workmain.ai.base_provider import ProviderType, ProviderStatus, ProviderUnavailableError, GenerationRequest
 from workmain.utils.date_utils import resolve_date_window, format_date_window_label
 
 
@@ -78,64 +78,31 @@ def list_providers():
     table.add_column("Status", width=12)
     table.add_column("Cost Structure", style="dim")
     
-    # Get provider manager
+    # Get provider manager — providers instantiated from registry in _load_config()
     manager = get_provider_manager()
-    
-    # Check Claude
-    try:
-        claude = get_claude_client()
-        claude_status = claude.check_availability()
-        
-        status_color = {
-            ProviderStatus.AVAILABLE: "green",
-            ProviderStatus.UNAVAILABLE: "yellow",
-            ProviderStatus.ERROR: "red",
-            ProviderStatus.RATE_LIMITED: "orange"
-        }.get(claude_status, "dim")
-        
-        table.add_row(
-            "Claude",
-            claude.model,
-            f"[{status_color}]{claude_status.value}[/{status_color}]",
-            "$3/MTok prompt, $15/MTok completion"
-        )
-    except Exception as e:
-        table.add_row(
-            "Claude",
-            "claude-sonnet-4-5-20250929",
-            "[red]error[/red]",
-            f"[dim]{str(e)[:40]}...[/dim]"
-        )
-    
-    # Check Gemini
-    try:
-        gemini = get_gemini_client()
-        gemini_status = gemini.check_availability()
-        
-        status_color = {
-            ProviderStatus.AVAILABLE: "green",
-            ProviderStatus.UNAVAILABLE: "yellow",
-            ProviderStatus.ERROR: "red",
-            ProviderStatus.RATE_LIMITED: "orange"
-        }.get(gemini_status, "dim")
-        
-        table.add_row(
-            "Gemini",
-            gemini.model,
-            f"[{status_color}]{gemini_status.value}[/{status_color}]",
-            "$0.15/MTok prompt, $0.60/MTok completion"
-        )
-    except Exception as e:
-        table.add_row(
-            "Gemini",
-            "gemini-2.5-flash",
-            "[red]error[/red]",
-            f"[dim]{str(e)[:40]}...[/dim]"
-        )
-    
-    # Register providers so singleton is fully ready
-    manager.register_provider(ProviderType.CLAUDE, get_claude_client())
-    manager.register_provider(ProviderType.GEMINI, get_gemini_client())
+
+    status_color_map = {
+        ProviderStatus.AVAILABLE: "green",
+        ProviderStatus.UNAVAILABLE: "yellow",
+        ProviderStatus.ERROR: "red",
+        ProviderStatus.RATE_LIMITED: "orange"
+    }
+
+    for name, cfg in manager.get_all_provider_configs().items():
+        model = cfg.get('model', '—')
+        cost = cfg.get('cost_structure', '—')
+        display = name.title()
+
+        if manager.is_disabled(name):
+            table.add_row(display, model, "[dim]disabled[/dim]", cost)
+        else:
+            try:
+                provider = manager.get_provider(name)
+                pstatus = provider.check_availability()
+                color = status_color_map.get(pstatus, "dim")
+                table.add_row(display, model, f"[{color}]{pstatus.value}[/{color}]", cost)
+            except Exception as e:
+                table.add_row(display, model, "[red]error[/red]", f"[dim]{str(e)[:40]}[/dim]")
 
     console.print(table)
     console.print()
@@ -182,11 +149,8 @@ def test_provider(provider: str):
     console.print()
     
     try:
-        # Get appropriate client
-        if provider_lower == 'claude':
-            client = get_claude_client()
-        else:
-            client = get_gemini_client()
+        manager = get_provider_manager()
+        client = manager.get_provider(provider_lower)
         
         # Check availability first
         console.print("[dim]Checking availability...[/dim]")
