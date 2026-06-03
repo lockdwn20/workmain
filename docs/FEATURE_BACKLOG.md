@@ -1,5 +1,5 @@
 WorkmAIn
-Feature Backlog v5.12
+Feature Backlog v5.13
 20260603
 
 # WorkmAIn Feature Backlog
@@ -32,6 +32,10 @@ Items deferred from various phases for future implementation.
 - v5.9 (20260528): Added Item 34 — weekly report prompt using confirmed daily summaries as context instead of raw data re-query (token cost reduction, Phase 13).
 - v5.10 (20260529): Added Item 35 — AI model config-driven selection; model strings currently hardcoded in claude_client.py and gemini_client.py; ai_settings.json already has model fields that are not read.
 - v5.11 (20260529): Item 13 marked COMPLETE (v1.17.0 cost tracking sprint).
+- v5.12 (20260603): Items 10, 11, 35 marked COMPLETE (v1.18.0 Provider Foundation Sprint);
+  Item 36 added (ProviderConfig dead code cleanup).
+- v5.13 (20260603): Quick Reference Register — Items 10, 11, 35 ✓ added (were missed in v5.12);
+  Item 36 row added to register.
 
 ---
 
@@ -88,8 +92,8 @@ Build first, refactor later. See the complete picture before abstracting.
 | 7 | formatters.py Extraction | Medium | Phase 15 | ~4 hrs | |
 | 8 | master_log_template.md | Low | Phase 15 | ~1 hr | |
 | 9 | examples.json | Low | Conditional | ~2 hrs | |
-| 10 | Streamlined Model Update Process | Medium | Phase 15 | ~4–6 hrs | |
-| 11 | Add New AI Provider | Low | — | ~8–12 hrs | |
+| 10 | Streamlined Model Update Process | Medium | Phase 15 | ~4–6 hrs | ✓ |
+| 11 | Add New AI Provider | Low | — | ~8–12 hrs | ✓ |
 | 12 | email.py Internal Session Refactor | Low | Phase 15 | ~30 min | |
 | 13 | datetime.utcnow() Deprecation | Low | Phase 15 | ~30 min | ✓ |
 | 14 | test_database.py Engine Fixture | Medium | Phase 15 | ~1–2 hrs | |
@@ -113,7 +117,8 @@ Build first, refactor later. See the complete picture before abstracting.
 | 32 | Task Deduplication and Forwarding | Low | Phase 13 | ~2–3 hrs | |
 | 33 | correction_note Field Population | Low | Phase 13 | ~2 hrs | |
 | 34 | Weekly Report Prompt — Confirmed Daily Summaries as Context | Medium | Phase 13 | ~3–4 hrs | |
-| 35 | AI Model Config-Driven Selection | Medium | Phase 14 | ~2–3 hrs | |
+| 35 | AI Model Config-Driven Selection | Medium | Phase 14 | ~2–3 hrs | ✓ |
+| 36 | ProviderConfig Dead Code Cleanup | Low | next base_provider.py mod | ~15 min | |
 
 ---
 
