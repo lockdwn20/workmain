@@ -1,7 +1,7 @@
 """
 WorkmAIn Daemon Narration Layer
-narration.py v1.0
-20260505
+narration.py v1.1
+20260603
 
 Converts a list of Observation objects from the inspection engine into a
 concise natural-language summary using the configured AI provider.
@@ -16,6 +16,8 @@ Max tokens: 200. This is a brief summary, not a full report.
 
 Version History:
 - v1.0: Phase 10 Gate 4 initial implementation
+- v1.1: Provider Foundation Sprint — remove get_claude_client/get_gemini_client imports
+        and register_provider() calls; ProviderManager instantiates from registry
 """
 
 from typing import List, Optional
@@ -84,7 +86,6 @@ def _call_provider(prompt: str, provider: Optional[str],
     Returns:
         Generated text content from the provider.
     """
-    from workmain.ai import get_claude_client, get_gemini_client
     from workmain.ai.base_provider import GenerationRequest, ProviderType
     from workmain.ai.provider_manager import get_provider_manager
 
@@ -96,8 +97,6 @@ def _call_provider(prompt: str, provider: Optional[str],
             pass
 
     manager = get_provider_manager()
-    manager.register_provider(ProviderType.CLAUDE, get_claude_client())
-    manager.register_provider(ProviderType.GEMINI, get_gemini_client())
 
     request = GenerationRequest(
         prompt=prompt,

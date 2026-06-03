@@ -1,15 +1,25 @@
 """
 WorkmAIn AI Base Provider
-Base Provider v1.0
-20251229
+Base Provider v1.1
+20260603
 
 Abstract base class for AI provider implementations.
-Defines standard interface for Claude, Gemini, and future providers.
+Defines standard interface for Claude, Gemini, Ollama, and future providers.
 
 All providers must implement:
 - generate() for text generation
 - estimate_cost() for cost calculation
 - validate_config() for configuration validation
+- count_tokens() for token estimation
+- check_availability() for connectivity
+
+Version History:
+- v1.0: Initial implementation
+- v1.1: Provider Foundation Sprint — add ProviderType.OLLAMA; add
+        ProviderUnavailableError; BaseProvider.__init__ accepts dict instead of
+        ProviderConfig dataclass; add test_connection() default method;
+        remove ProviderConfig-tied properties (model, provider_type, is_enabled)
+        so subclasses can set self.model = config.get('model', fallback) directly
 """
 
 from abc import ABC, abstractmethod
@@ -22,6 +32,7 @@ class ProviderType(Enum):
     """Supported AI provider types."""
     CLAUDE = "claude"
     GEMINI = "gemini"
+    OLLAMA = "ollama"
 
 
 class ProviderStatus(Enum):
@@ -36,7 +47,7 @@ class ProviderStatus(Enum):
 class GenerationRequest:
     """
     Request for AI text generation.
-    
+
     Attributes:
         prompt: The prompt text to send to AI
         max_tokens: Maximum tokens to generate
@@ -55,7 +66,7 @@ class GenerationRequest:
 class GenerationResponse:
     """
     Response from AI text generation.
-    
+
     Attributes:
         content: Generated text content
         provider: Provider that generated the response
@@ -76,11 +87,15 @@ class GenerationResponse:
     metadata: Optional[Dict[str, Any]] = None
 
 
+# TODO (v1.18.0 Provider Foundation Sprint): ProviderConfig is unused.
+# claude_client.py and gemini_client.py (its only consumers) were deleted.
+# Remove this class when base_provider.py is next modified.
+# Tracked: FEATURE_BACKLOG Item 36.
 @dataclass
 class ProviderConfig:
     """
     Configuration for an AI provider.
-    
+
     Attributes:
         provider_type: Type of provider (claude/gemini)
         api_key: API key (loaded from environment)
@@ -112,118 +127,116 @@ class ProviderConfig:
 class BaseProvider(ABC):
     """
     Abstract base class for AI providers.
-    
-    All provider implementations (Claude, Gemini) must inherit from this class
-    and implement the required abstract methods.
+
+    All provider implementations (Claude, Gemini, Ollama) must inherit from
+    this class and implement the required abstract methods.
+
+    Accepts a plain dict from ai_settings.json rather than a ProviderConfig
+    dataclass. Each provider reads its own required fields via config.get().
     """
-    
-    def __init__(self, config: ProviderConfig):
+
+    def __init__(self, config: dict):
         """
-        Initialize provider with configuration.
-        
-        Args:
-            config: Provider configuration
+        Initialize provider with config dict from ai_settings.json section.
+
+        Accepts raw dict to support N-provider extensibility. Each provider
+        reads its own required fields via config.get(). Previously accepted
+        ProviderConfig dataclass — changed in v1.1 Provider Foundation Sprint.
         """
         self.config = config
         self._status = ProviderStatus.AVAILABLE
         self._last_error: Optional[str] = None
-    
+
     @abstractmethod
     def generate(self, request: GenerationRequest) -> GenerationResponse:
         """
         Generate text using the AI provider.
-        
+
         Args:
             request: Generation request with prompt and parameters
-            
+
         Returns:
             GenerationResponse with generated content and metadata
-            
+
         Raises:
             ProviderError: If generation fails
             RateLimitError: If rate limit exceeded
         """
         pass
-    
+
     @abstractmethod
     def estimate_cost(self, prompt_tokens: int, completion_tokens: int) -> float:
         """
         Estimate cost for a request.
-        
+
         Args:
             prompt_tokens: Number of prompt tokens
             completion_tokens: Number of completion tokens
-            
+
         Returns:
             Estimated cost in USD
         """
         pass
-    
+
     @abstractmethod
     def validate_config(self) -> bool:
         """
         Validate provider configuration.
-        
+
         Returns:
             True if configuration is valid
-            
+
         Raises:
             ConfigurationError: If configuration is invalid
         """
         pass
-    
+
     @abstractmethod
     def count_tokens(self, text: str) -> int:
         """
         Count tokens in text using provider's tokenizer.
-        
+
         Args:
             text: Text to count tokens for
-            
+
         Returns:
             Number of tokens
         """
         pass
-    
+
     @abstractmethod
     def check_availability(self) -> ProviderStatus:
         """
         Check if provider is currently available.
-        
+
         Returns:
             Provider status
         """
         pass
-    
-    @property
-    def provider_type(self) -> ProviderType:
-        """Get provider type."""
-        return self.config.provider_type
-    
-    @property
-    def model(self) -> str:
-        """Get model name."""
-        return self.config.model
-    
-    @property
-    def is_enabled(self) -> bool:
-        """Check if provider is enabled."""
-        return self.config.enabled
-    
+
+    def test_connection(self) -> bool:
+        """Check if provider is reachable. Default wraps check_availability().
+        Subclasses may override for a simpler boolean check.
+        Returns True if available, False otherwise."""
+        try:
+            return self.check_availability() == ProviderStatus.AVAILABLE
+        except Exception:
+            return False
+
     @property
     def status(self) -> ProviderStatus:
         """Get current provider status."""
         return self._status
-    
+
     @property
     def last_error(self) -> Optional[str]:
         """Get last error message."""
         return self._last_error
-    
+
     def _set_status(self, status: ProviderStatus, error: Optional[str] = None):
         """
         Set provider status.
-        
+
         Args:
             status: New status
             error: Optional error message
@@ -234,6 +247,13 @@ class BaseProvider(ABC):
 
 class ProviderError(Exception):
     """Base exception for provider errors."""
+    pass
+
+
+class ProviderUnavailableError(ProviderError):
+    """Raised when a provider is disabled in config or not registered.
+    Distinct from ProviderError (connectivity/API failures) — this indicates
+    the provider has not been enabled, not that it failed."""
     pass
 
 

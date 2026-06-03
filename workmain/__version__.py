@@ -1,9 +1,25 @@
 """
 WorkmAIn Package Version
-Version v1.17.0
-20260529
+Version v1.18.0
+20260603
 
 Version History:
+- v1.18.0: Provider Foundation Sprint — N-provider extensible registry (providers/
+           subpackage, PROVIDER_REGISTRY); base_provider.py: ProviderUnavailableError,
+           ProviderType.OLLAMA, __init__ accepts dict, test_connection() default method;
+           OllamaProvider ABC-compliant stub (Phase 13-1 activation ready);
+           ProviderManager: registry-based instantiation, string-keyed _providers,
+           get_provider()/get_all_provider_configs()/get_registered_provider_names()/
+           is_disabled(); generate() string-keyed, _get_provider() retired;
+           config-driven model selection (Item 35); hardcoded "Sending to Claude..."
+           fixed in meetings.py + notes.py; providers list N-provider dynamic;
+           providers test/costs: click.Choice removed, runtime validation;
+           providers set default: full read-modify-write implementation;
+           providers config show: new subcommand (providers_config group);
+           docs/ai_settings_guide.md: full annotated schema (Item 10);
+           claude_client.py + gemini_client.py deleted (replaced by providers/);
+           36 new tests (test_provider_foundation.py); suite: 479 passed.
+           Items 10, 11, 35 closed.
 - v1.17.0: Cost tracking persistence sprint — new ai_costs table persists every AI API
            interaction. AiCostRepository with create/get_filtered/get_summary.
            Migration 017_ai_costs.sql. Backfill script for historical reports.
@@ -232,7 +248,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.17.0"
-__version_info__ = (1, 17, 0)
+__version__ = "1.18.0"
+__version_info__ = (1, 18, 0)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"

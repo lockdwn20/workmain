@@ -1,16 +1,15 @@
 """
 WorkmAIn AI Package
-AI Package v1.3
-20251229
+AI Package v1.4
+20260603
 
 AI provider integration for report generation.
 
 This package provides:
 - Abstract base provider class
+- Provider registry (claude, gemini, ollama)
 - Provider manager with fallback
 - Cost tracking system
-- Claude client (Anthropic)
-- Gemini client (Google AI)
 - Prompt builder for report generation
 - Report generator orchestrator
 
@@ -19,6 +18,9 @@ Version History:
 - v1.1: Added Claude and Gemini client implementations
 - v1.2: Added prompt_builder for AI report generation
 - v1.3: Added report_generator orchestrator for complete pipeline
+- v1.4: Provider Foundation Sprint — remove get_claude_client/get_gemini_client exports
+        (claude_client.py and gemini_client.py deleted); add providers/ subpackage
+        re-exports; add ProviderUnavailableError export
 """
 
 from workmain.ai.base_provider import (
@@ -29,6 +31,7 @@ from workmain.ai.base_provider import (
     GenerationRequest,
     GenerationResponse,
     ProviderError,
+    ProviderUnavailableError,
     RateLimitError,
     ConfigurationError,
     GenerationError
@@ -49,16 +52,11 @@ from workmain.ai.cost_tracker import (
     CostCategory
 )
 
-from workmain.ai.claude_client import (
-    ClaudeClient,
-    get_claude_client,
-    reset_claude_client
-)
-
-from workmain.ai.gemini_client import (
-    GeminiClient,
-    get_gemini_client,
-    reset_gemini_client
+from workmain.ai.providers import (
+    PROVIDER_REGISTRY,
+    ClaudeProvider,
+    GeminiProvider,
+    OllamaProvider,
 )
 
 from workmain.ai.prompt_builder import (
@@ -81,41 +79,38 @@ __all__ = [
     'GenerationRequest',
     'GenerationResponse',
     'ProviderError',
+    'ProviderUnavailableError',
     'RateLimitError',
     'ConfigurationError',
     'GenerationError',
-    
+
     # Provider Manager
     'ProviderManager',
     'get_provider_manager',
     'FallbackMode',
     'ReportTypeConfig',
-    
+
     # Cost Tracker
     'CostTracker',
     'get_cost_tracker',
     'SectionCost',
     'ReportCost',
     'CostCategory',
-    
-    # Claude Client
-    'ClaudeClient',
-    'get_claude_client',
-    'reset_claude_client',
-    
-    # Gemini Client
-    'GeminiClient',
-    'get_gemini_client',
-    'reset_gemini_client',
-    
+
+    # Provider Registry
+    'PROVIDER_REGISTRY',
+    'ClaudeProvider',
+    'GeminiProvider',
+    'OllamaProvider',
+
     # Prompt Builder
     'PromptBuilder',
     'get_prompt_builder',
-    
+
     # Report Generator
     'ReportGenerator',
     'get_report_generator',
     'ReportFormat',
 ]
 
-__version__ = '1.3'
+__version__ = '1.4'

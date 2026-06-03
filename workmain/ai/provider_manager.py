@@ -1,27 +1,31 @@
 """
 WorkmAIn AI Provider Manager
-Provider Manager v1.1
-20260528
+Provider Manager v1.2
+20260603
 
 Manages AI providers with intelligent fallback and selection.
 
 Features:
-- Multi-provider support (Claude + Gemini)
-- Per-report-type provider selection
+- N-provider extensible registry (claude, gemini, ollama, ...)
+- Per-report-type provider selection from ai_settings.json
 - Configurable fallback (manual/automatic)
 - Provider health monitoring
 - Notification on fallback
-- Cost-aware selection
-
-Fallback Modes:
-- AUTO: Automatic fallback with notification
-- MANUAL: Prompt user before fallback
+- Disabled provider tracking (no connectivity check for disabled providers)
 
 Version History:
 - v1.0: Initial implementation
 - v1.1: Implement _load_config() — reads ai_settings.json on every instantiation;
-        removes if config_path: guard so config is always loaded (file-not-found
-        is handled gracefully). Fixes provider selection being hardcoded to Claude.
+        removes if config_path: guard so config is always loaded.
+        Fixes provider selection being hardcoded to Claude.
+- v1.2: Provider Foundation Sprint — registry-based instantiation in _load_config();
+        _providers dict now string-keyed ('claude', 'gemini', 'ollama');
+        add _disabled set and _all_configs dict; add get_provider(name),
+        get_all_provider_configs(), get_registered_provider_names(), is_disabled();
+        generate() uses get_provider(primary.value) — string-keyed lookup;
+        _get_provider() retired; check_provider_status() / get_all_provider_statuses()
+        removed (dead code — no callers outside provider_manager.py);
+        register_provider() removed (replaced by registry instantiation in _load_config)
 """
 
 import os
@@ -29,42 +33,30 @@ from typing import Dict, Optional, List, Tuple
 from enum import Enum
 from dataclasses import dataclass
 
-try:
-    from workmain.ai.base_provider import (
-        BaseProvider,
-        ProviderType,
-        ProviderStatus,
-        ProviderConfig,
-        GenerationRequest,
-        GenerationResponse,
-        ProviderError,
-        RateLimitError
-    )
-except ModuleNotFoundError:
-    # Fallback for standalone testing
-    from base_provider import (
-        BaseProvider,
-        ProviderType,
-        ProviderStatus,
-        ProviderConfig,
-        GenerationRequest,
-        GenerationResponse,
-        ProviderError,
-        RateLimitError
-    )
+from workmain.ai.base_provider import (
+    BaseProvider,
+    ProviderType,
+    ProviderStatus,
+    ProviderUnavailableError,
+    GenerationRequest,
+    GenerationResponse,
+    ProviderError,
+    RateLimitError
+)
+from workmain.ai.providers import PROVIDER_REGISTRY
 
 
 class FallbackMode(Enum):
     """Fallback behavior modes."""
-    AUTO = "auto"  # Automatic fallback with notification
-    MANUAL = "manual"  # Prompt user before fallback
+    AUTO = "auto"
+    MANUAL = "manual"
 
 
 @dataclass
 class ReportTypeConfig:
     """
     Configuration for a specific report type.
-    
+
     Attributes:
         report_type: Type of report (daily_internal, weekly_client)
         primary_provider: Primary provider to use
@@ -82,43 +74,68 @@ class ReportTypeConfig:
 class ProviderManager:
     """
     Manage AI providers with intelligent selection and fallback.
-    
-    Handles:
-    - Loading provider configurations
-    - Selecting appropriate provider per report type
-    - Fallback to alternative provider on failure
-    - Provider health monitoring
-    - Notifications on fallback
+
+    Instantiates providers from PROVIDER_REGISTRY based on ai_settings.json.
+    Disabled providers (enabled: false) are tracked but never instantiated
+    or connectivity-checked.
     """
-    
+
     def __init__(self, config_path: Optional[str] = None):
         """
         Initialize provider manager.
-        
+
         Args:
             config_path: Path to ai_settings.json config file
         """
         self.config_path = config_path
-        self._providers: Dict[ProviderType, BaseProvider] = {}
+        self._providers: Dict[str, BaseProvider] = {}   # name → instantiated provider
+        self._disabled: set = set()                      # names of disabled providers
+        self._all_configs: Dict[str, dict] = {}          # name → config dict (all providers)
+        self._settings: dict = {}                        # full ai_settings.json
         self._report_configs: Dict[str, ReportTypeConfig] = {}
         self._fallback_notifications: List[str] = []
-        
+
         self._load_config()
-    
-    def register_provider(
-        self,
-        provider_type: ProviderType,
-        provider: BaseProvider
-    ):
+
+    def get_provider(self, name: str) -> BaseProvider:
         """
-        Register a provider instance.
-        
+        Get provider instance by name.
+
         Args:
-            provider_type: Type of provider
-            provider: Provider instance
+            name: Provider name string (e.g. 'claude', 'gemini')
+
+        Returns:
+            Provider instance
+
+        Raises:
+            ProviderUnavailableError: If provider is disabled or not registered
         """
-        self._providers[provider_type] = provider
-    
+        if name in self._disabled:
+            raise ProviderUnavailableError(
+                f"Provider '{name}' is disabled. "
+                f"Set 'enabled: true' in config/ai_settings.json to enable it."
+            )
+        if name not in self._providers:
+            raise ProviderUnavailableError(
+                f"Provider '{name}' is not registered. "
+                f"Add it to PROVIDER_REGISTRY and config/ai_settings.json."
+            )
+        return self._providers[name]
+
+    def get_all_provider_configs(self) -> Dict[str, dict]:
+        """Returns config dict for ALL providers including disabled.
+        Used by providers list to display complete provider table."""
+        return self._all_configs
+
+    def get_registered_provider_names(self) -> List[str]:
+        """Returns list of all provider names in registry.
+        Used for dynamic CLI validation."""
+        return list(PROVIDER_REGISTRY.keys())
+
+    def is_disabled(self, name: str) -> bool:
+        """Returns True if the named provider is disabled in config."""
+        return name in self._disabled
+
     def configure_report_type(
         self,
         report_type: str,
@@ -129,7 +146,7 @@ class ProviderManager:
     ):
         """
         Configure provider selection for a report type.
-        
+
         Args:
             report_type: Report type name
             primary_provider: Primary provider to use
@@ -145,7 +162,7 @@ class ProviderManager:
             max_cost_per_report=max_cost
         )
         self._report_configs[report_type] = config
-    
+
     def generate(
         self,
         request: GenerationRequest,
@@ -154,19 +171,18 @@ class ProviderManager:
     ) -> Tuple[GenerationResponse, bool]:
         """
         Generate content using appropriate provider.
-        
+
         Args:
             request: Generation request
             report_type: Report type (for provider selection)
             provider_override: Optional provider override
-            
+
         Returns:
             Tuple of (GenerationResponse, fallback_used)
-            
+
         Raises:
             ProviderError: If generation fails with all providers
         """
-        # Determine primary provider
         if provider_override:
             primary = provider_override
             fallback = None
@@ -177,140 +193,92 @@ class ProviderManager:
             fallback = config.fallback_provider
             fallback_mode = config.fallback_mode
         else:
-            # Default to Claude
             primary = ProviderType.CLAUDE
             fallback = ProviderType.GEMINI
             fallback_mode = FallbackMode.AUTO
-        
-        # Try primary provider
+
         try:
-            provider = self._get_provider(primary)
+            provider = self.get_provider(primary.value)
             response = provider.generate(request)
             return response, False
-            
+
         except (ProviderError, RateLimitError) as e:
-            # Primary failed - check fallback
             if not fallback:
                 raise ProviderError(
                     f"Primary provider {primary.value} failed and no fallback configured"
                 ) from e
-            
-            # Handle fallback based on mode
+
             if fallback_mode == FallbackMode.MANUAL:
-                # Manual mode - would need user input
-                # For now, raise error with fallback suggestion
                 raise ProviderError(
                     f"Primary provider {primary.value} failed. "
                     f"Fallback to {fallback.value} available but manual mode enabled. "
                     f"Use --provider {fallback.value} to retry."
                 ) from e
-            
-            # AUTO mode - try fallback with notification
+
             try:
-                fallback_provider = self._get_provider(fallback)
+                fallback_provider = self.get_provider(fallback.value)
                 notification = (
                     f"⚠️  Primary provider {primary.value} failed. "
                     f"Automatically falling back to {fallback.value}. "
                     f"Reason: {str(e)}"
                 )
                 self._fallback_notifications.append(notification)
-                
+
                 response = fallback_provider.generate(request)
                 return response, True
-                
+
             except (ProviderError, RateLimitError) as fallback_error:
-                # Both failed
                 raise ProviderError(
                     f"Both providers failed. "
                     f"Primary ({primary.value}): {str(e)}. "
                     f"Fallback ({fallback.value}): {str(fallback_error)}"
                 ) from fallback_error
-    
+
     def get_provider_for_report(self, report_type: str) -> ProviderType:
         """
         Get primary provider for a report type.
-        
+
         Args:
             report_type: Report type name
-            
+
         Returns:
             Primary provider type
         """
         if report_type in self._report_configs:
             return self._report_configs[report_type].primary_provider
-        return ProviderType.CLAUDE  # Default
-    
-    def check_provider_status(
-        self,
-        provider_type: ProviderType
-    ) -> ProviderStatus:
-        """
-        Check status of a specific provider.
-        
-        Args:
-            provider_type: Provider to check
-            
-        Returns:
-            Provider status
-        """
-        try:
-            provider = self._get_provider(provider_type)
-            return provider.check_availability()
-        except KeyError:
-            return ProviderStatus.UNAVAILABLE
-    
-    def get_all_provider_statuses(self) -> Dict[ProviderType, ProviderStatus]:
-        """
-        Get status of all registered providers.
-        
-        Returns:
-            Dictionary mapping provider types to statuses
-        """
-        return {
-            ptype: self.check_provider_status(ptype)
-            for ptype in ProviderType
-        }
-    
+        return ProviderType.CLAUDE
+
     def get_fallback_notifications(self) -> List[str]:
-        """
-        Get list of fallback notifications.
-        
-        Returns:
-            List of notification messages
-        """
+        """Get list of fallback notifications."""
         return self._fallback_notifications.copy()
-    
+
     def clear_fallback_notifications(self):
         """Clear fallback notification history."""
         self._fallback_notifications.clear()
-    
-    def set_fallback_mode(
-        self,
-        report_type: str,
-        mode: FallbackMode
-    ):
+
+    def set_fallback_mode(self, report_type: str, mode: FallbackMode):
         """
         Update fallback mode for a report type.
-        
+
         Args:
             report_type: Report type to update
             mode: New fallback mode
         """
         if report_type in self._report_configs:
             self._report_configs[report_type].fallback_mode = mode
-    
+
     def get_report_config(self, report_type: str) -> Optional[ReportTypeConfig]:
         """
         Get configuration for a report type.
-        
+
         Args:
             report_type: Report type name
-            
+
         Returns:
             Report type configuration or None
         """
         return self._report_configs.get(report_type)
-    
+
     def estimate_cost(
         self,
         report_type: str,
@@ -319,41 +287,25 @@ class ProviderManager:
     ) -> float:
         """
         Estimate cost for a report generation.
-        
+
         Args:
             report_type: Type of report
             prompt_tokens: Estimated prompt tokens
             completion_tokens: Estimated completion tokens
-            
+
         Returns:
             Estimated cost in USD
         """
         provider_type = self.get_provider_for_report(report_type)
-        provider = self._get_provider(provider_type)
+        provider = self.get_provider(provider_type.value)
         return provider.estimate_cost(prompt_tokens, completion_tokens)
-    
-    def _get_provider(self, provider_type: ProviderType) -> BaseProvider:
-        """
-        Get provider instance.
-        
-        Args:
-            provider_type: Type of provider
-            
-        Returns:
-            Provider instance
-            
-        Raises:
-            KeyError: If provider not registered
-        """
-        if provider_type not in self._providers:
-            raise KeyError(
-                f"Provider {provider_type.value} not registered. "
-                f"Available: {list(self._providers.keys())}"
-            )
-        return self._providers[provider_type]
-    
+
     def _load_config(self):
-        """Load provider and report-type configuration from ai_settings.json."""
+        """Load provider and report-type configuration from ai_settings.json.
+
+        Instantiates enabled providers from PROVIDER_REGISTRY.
+        Tracks disabled providers in _disabled (no connectivity check).
+        """
         import json
         from pathlib import Path
 
@@ -365,18 +317,36 @@ class ProviderManager:
             return
 
         with open(config_file, 'r') as f:
-            config = json.load(f)
+            self._settings = json.load(f)
 
+        # Instantiate providers from registry
+        for name, provider_cfg in self._settings.get('providers', {}).items():
+            self._all_configs[name] = provider_cfg
+            if not provider_cfg.get('enabled', True):
+                self._disabled.add(name)
+                continue
+            cls = PROVIDER_REGISTRY.get(name)
+            if cls:
+                try:
+                    self._providers[name] = cls(provider_cfg)
+                except Exception:
+                    # Provider instantiation failed (e.g. missing API key in env).
+                    # Mark as disabled so callers get a clear error rather than
+                    # an unhandled exception at import time.
+                    self._disabled.add(name)
+
+        # Build report-type configs
         provider_map = {
             'claude': ProviderType.CLAUDE,
             'gemini': ProviderType.GEMINI,
+            'ollama': ProviderType.OLLAMA,
         }
         fallback_mode_map = {
             'auto':   FallbackMode.AUTO,
             'manual': FallbackMode.MANUAL,
         }
 
-        for report_type, cfg in config.get('report_types', {}).items():
+        for report_type, cfg in self._settings.get('report_types', {}).items():
             primary  = provider_map.get(cfg.get('primary_provider',  'claude'), ProviderType.CLAUDE)
             fallback = provider_map.get(cfg.get('fallback_provider', 'gemini'), ProviderType.GEMINI)
             fb_mode  = fallback_mode_map.get(cfg.get('fallback_mode', 'auto'), FallbackMode.AUTO)
@@ -398,10 +368,10 @@ _provider_manager_instance: Optional[ProviderManager] = None
 def get_provider_manager(config_path: Optional[str] = None) -> ProviderManager:
     """
     Get singleton instance of ProviderManager.
-    
+
     Args:
         config_path: Optional path to ai_settings.json
-        
+
     Returns:
         ProviderManager singleton instance
     """
