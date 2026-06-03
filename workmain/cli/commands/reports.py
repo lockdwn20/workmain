@@ -1,7 +1,7 @@
 """
 WorkmAIn Report Commands - Phase 4 Implementation
-Report Commands v2.9
-20260529
+Report Commands v2.10
+20260603
 
 Static action-first command structure — template is an argument.
 
@@ -53,6 +53,8 @@ Version History:
 - v2.9: Gate 3 cost tracking sprint — reports costs redesigned as per-report detail view;
         full date filter set (--date/-d, --start/-b, --end/-e, --month/-M, --all);
         --type/-R and --provider/-P filters; reads from reports_repo instead of generator
+- v2.10: Hotfix — reports correct: after committing corrected_content to DB, also
+         overwrite the staging file so email and gdocs steps use the edited content
 """
 
 import os
@@ -566,6 +568,12 @@ def report_correct(identifier: str):
         report.status = 'corrected'
         report.updated_at = datetime.now()
         session.commit()
+        fp = (report.report_metadata or {}).get('file_path')
+        if fp:
+            try:
+                Path(fp).write_text(edited, encoding='utf-8')
+            except Exception as stage_err:
+                console.print(f"[yellow]⚠ DB saved; staging file update failed: {stage_err}[/yellow]")
         console.print(
             f"[green]✓ Report correction saved:[/green] {report.report_type} {report.report_date}"
         )
