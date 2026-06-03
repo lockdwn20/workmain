@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.1] - 2026-06-03
+
+### Fixed
+- Note condensation truncation with Gemini primary provider — raised `max_tokens` from
+  200 → 1024 in `note_condenser.py`; `gemini-2.5-flash` uses thinking tokens from the
+  `max_output_tokens` budget, leaving insufficient space for the visible summary and
+  producing mid-phrase cutoffs (e.g. `"Splunk Normalization Sync: Reviewed app"`)
+
 ## [1.18.0] - 2026-06-03
 
 ### Added
