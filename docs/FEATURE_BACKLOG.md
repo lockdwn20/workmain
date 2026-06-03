@@ -1,5 +1,5 @@
 WorkmAIn
-Feature Backlog v5.13
+Feature Backlog v5.14
 20260603
 
 # WorkmAIn Feature Backlog
@@ -36,6 +36,8 @@ Items deferred from various phases for future implementation.
   Item 36 added (ProviderConfig dead code cleanup).
 - v5.13 (20260603): Quick Reference Register — Items 10, 11, 35 ✓ added (were missed in v5.12);
   Item 36 row added to register.
+- v5.14 (20260603): Summary Statistics fully corrected — Item 13 (v1.17.0) and Items 10, 11, 35
+  (v1.18.0) reflected; Item 36 added to Open/Low/Phase 15; counts and effort total updated.
 
 ---
 
@@ -124,23 +126,23 @@ Build first, refactor later. See the complete picture before abstracting.
 
 ## Summary Statistics
 
-**Total Items:** 35 (Item 22 is a redirect — no separate deferred work; see Item 20)
-**Completed:** 7 (Items 17, 18, 20, 24, 25, 26, 27)
-**Open:** 27
+**Total Items:** 36 (Item 22 is a redirect — no separate deferred work; see Item 20)
+**Completed:** 11 (Items 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 35)
+**Open:** 24
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Open (targeted) | 22 | 1, 2, 3, 4, 7, 8, 10, 12, 13, 14, 15, 16, 19, 23, 28, 29, 30, 31, 32, 33, 34, 35 |
+| Open (targeted) | 20 | 1, 2, 3, 4, 7, 8, 12, 14, 15, 16, 19, 23, 28, 29, 30, 31, 32, 33, 34, 36 |
 | Conditional | 1 | 9 |
-| Indefinitely | 4 | 5, 6, 11, 21 |
-| Complete | 7 | 17, 18, 20, 24, 25, 26, 27 |
+| Indefinitely | 3 | 5, 6, 21 |
+| Complete | 11 | 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 35 |
 | Redirect | 1 | 22 → Item 20 |
 
 | Priority | Count | Items |
 |----------|-------|-------|
 | High | 0 | — |
 | Medium | 9 | 2, 3, 7, 10, 14, 15, 23, 34, 35 |
-| Low | 17 | 1, 4, 5, 6, 8, 11, 12, 13, 16, 19, 21, 28, 29, 30, 31, 32, 33 |
+| Low | 18 | 1, 4, 5, 6, 8, 11, 12, 13, 16, 19, 21, 28, 29, 30, 31, 32, 33, 36 |
 | Conditional | 1 | 9 |
 
 | Target Phase | Items |
@@ -148,12 +150,12 @@ Build first, refactor later. See the complete picture before abstracting.
 | Phase 11+ | 4, 28 |
 | Phase 13 | 19, 32, 33, 34 |
 | Phase 14 | 31, 35 |
-| Phase 15 | 1, 2, 3, 7, 8, 10, 12, 13, 14, 15, 16, 23, 29 |
+| Phase 15 | 1, 2, 3, 7, 8, 10, 12, 13, 14, 15, 16, 23, 29, 36 |
 | Phase 18 | 30 |
 | Conditional | 9 |
 | Indefinitely | 5, 6, 11, 21 |
 
-**Total Deferred Effort (open items):** ~93–94 hours
+**Total Deferred Effort (open items):** ~75–76 hours
 
 ---
 
