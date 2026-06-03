@@ -1,9 +1,13 @@
 """
 WorkmAIn Package Version
-Version v1.18.1
+Version v1.18.2
 20260603
 
 Version History:
+- v1.18.2: Hotfix eod-edit-staging-sync — corrected_content committed to DB but staging
+           file never updated; email and gdocs steps consumed original AI content instead
+           of user edits; fix: overwrite staging file from report_metadata.file_path after
+           session.commit() in eod.py Step 4a edit and reports.py reports correct
 - v1.18.1: Hotfix — raise note_condenser max_tokens 200→1024; Gemini 2.5 Flash thinking
            tokens count against max_output_tokens, leaving insufficient space for the
            visible condensed summary and causing mid-phrase truncation
@@ -251,7 +255,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.18.1"
-__version_info__ = (1, 18, 1)
+__version__ = "1.18.2"
+__version_info__ = (1, 18, 2)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.2] - 2026-06-03
+
+### Fixed
+- EOD Step 4a edit and `reports correct`: corrected content was committed to the DB
+  (`report.corrected_content`) but the staging file was never updated, so `email save`
+  and Google Docs upload used the original AI-generated content instead of user edits.
+  Fix: after `session.commit()`, overwrite `staging/reports/<report>.md` from
+  `report.report_metadata['file_path']` in both `eod.py` and `reports.py`.
+
 ## [1.18.1] - 2026-06-03
 
 ### Fixed
