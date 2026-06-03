@@ -19,7 +19,7 @@
     },
     "gemini": {
       "enabled": true,
-      "model": "gemini-3.5-flash",
+      "model": "gemini-2.5-flash",
       "api_key_env": "GOOGLE_API_KEY",
       "default_max_tokens": 8192,
       "default_temperature": 0.7,
@@ -29,7 +29,7 @@
       "timeout_seconds": 60,
       "retry_attempts": 3,
       "retry_delay_seconds": 1.0,
-      "notes": "Gemini 3.5 Flash - $0.15/MTok input, $0.60/MTok output"
+      "notes": "Gemini 2.5 Flash - $0.15/MTok input, $0.60/MTok output"
     }
   },
   "report_types": {
