@@ -1,6 +1,6 @@
 """
 WorkmAIn Note Condenser
-Note Condenser v1.9
+Note Condenser v2.0
 20260603
 
 AI-powered condensation of meeting notes into one-line summaries for Clockify.
@@ -27,6 +27,8 @@ Version History:
 - v1.9: Provider Foundation Sprint — remove get_claude_client/get_gemini_client imports
         and register_provider() calls; ProviderManager._load_config() now instantiates
         providers from PROVIDER_REGISTRY directly
+- v2.0: Hotfix — raise max_tokens 200→1024; Gemini 2.5 Flash uses thinking tokens from
+        the max_output_tokens budget, leaving insufficient space for the visible response
 """
 
 import json
@@ -138,7 +140,7 @@ class NoteCondenser:
         # Generate condensed summary
         request = GenerationRequest(
             prompt=prompt,
-            max_tokens=200,  # One-liner shouldn't need more
+            max_tokens=1024,  # Gemini 2.5 Flash thinking tokens count against this budget; 200 caused truncation
             temperature=0.3,  # Low temperature for consistency
             system_prompt=self._get_system_prompt()
         )

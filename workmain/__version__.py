@@ -1,9 +1,12 @@
 """
 WorkmAIn Package Version
-Version v1.18.0
+Version v1.18.1
 20260603
 
 Version History:
+- v1.18.1: Hotfix — raise note_condenser max_tokens 200→1024; Gemini 2.5 Flash thinking
+           tokens count against max_output_tokens, leaving insufficient space for the
+           visible condensed summary and causing mid-phrase truncation
 - v1.18.0: Provider Foundation Sprint — N-provider extensible registry (providers/
            subpackage, PROVIDER_REGISTRY); base_provider.py: ProviderUnavailableError,
            ProviderType.OLLAMA, __init__ accepts dict, test_connection() default method;
@@ -248,7 +251,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.18.0"
-__version_info__ = (1, 18, 0)
+__version__ = "1.18.1"
+__version_info__ = (1, 18, 1)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
