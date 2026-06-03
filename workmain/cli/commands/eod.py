@@ -1,7 +1,7 @@
 """
 WorkmAIn End-of-Day Workflow
-EOD v2.9
-20260528
+EOD v2.10
+20260603
 
 Guided end-of-day workflow for daily work wrap-up.
 
@@ -68,6 +68,8 @@ Version History:
         Step 3c (task_match) added: keyword scoring against time entries, [c/d/s] prompt;
         Step 4a gains pre-check for confirmed/corrected report, review menu with
         $EDITOR support, and status writes (confirmed/corrected/unconfirmed)
+- v2.10: Hotfix — Step 4a edit: after committing corrected_content to DB, also
+         overwrite the staging file so email and gdocs steps use the edited content
 """
 
 import json
@@ -620,6 +622,14 @@ def _run_report_step(dry_run: bool, target_date: date) -> bool:
                     report.status = 'corrected'
                     report.updated_at = datetime.now()
                     session.commit()
+                    fp = (report.report_metadata or {}).get('file_path')
+                    if fp:
+                        try:
+                            Path(fp).write_text(edited, encoding='utf-8')
+                        except Exception as stage_err:
+                            console.print(
+                                f"  [yellow]⚠ DB saved; staging file update failed: {stage_err}[/yellow]"
+                            )
                     console.print("  [green]✓ Daily report saved with corrections.[/green]")
                 else:
                     console.print("  [dim]No changes detected.[/dim]")
