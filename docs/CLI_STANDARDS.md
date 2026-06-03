@@ -1,6 +1,6 @@
 # WorkmAIn
-# CLI_STANDARDS.md v2.5
-# 20260529
+# CLI_STANDARDS.md v2.6
+# 20260603
 
 ---
 
@@ -56,6 +56,11 @@
   `meetings costs`); `-P`/`--provider` and `-M`/`--month` scope expanded to all four
   costs commands (was `providers costs` only). No-short-form table: `--all` added
   (infrequent override to disable default month filter on costs commands).
+- v2.6 (20260603): Provider Foundation Sprint — registered `providers set default
+  REPORT_TYPE PROVIDER` (new signature; was `PROVIDER --for TYPE`; `--fallback/-f`,
+  `--force`); `providers config show` registered; §5.3 `-f/--fallback` scope added
+  (`providers set default` only); §4 dynamic provider argument pattern documented;
+  no-short-form table: `--force` added.
 
 ---
 
@@ -348,6 +353,7 @@ The following assignments are **reserved across all commands**. No flag may use 
 | `-q` | `--silent` | Silent/quiet-mode commands | Unix quiet convention; currently `clockify sync push`, `calendar import` |
 | `-i` | `--show-ids` | Group level only | On `time`, `notes`, `meetings` groups |
 | `-f` | `--source` | `notes add` | Note/entry source field |
+| `-f` | `--fallback` | `providers set default` | Fallback provider assignment (distinct scope from `-f/--source` on `notes add`) |
 | `-b` | `--start` | `time add`, `meetings create`, `clockify sync pull`, `providers costs`, `reports costs`, `notes costs`, `meetings costs` | "Begin" mnemonic; avoids `-s` conflict |
 | `-e` | `--end` | `time add`, `meetings create`, `providers costs`, `reports costs`, `notes costs`, `meetings costs` | Consistent with `--start` |
 | `-H` | `--history` | `notes list` (when `--meeting` is also provided) | Uppercase; Click reserves `-h` for help |

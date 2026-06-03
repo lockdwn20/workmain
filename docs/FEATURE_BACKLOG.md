@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v5.11
-20260529
+Feature Backlog v5.12
+20260603
 
 # WorkmAIn Feature Backlog
 
@@ -363,53 +363,58 @@ AI report quality has been acceptable without examples. Creating them speculativ
 
 #### Item 10 — Streamlined Model Update Process
 
-**Status:** Open — Deferred to Phase 15
+**Status:** ✓ COMPLETE — v1.18.0 (Provider Foundation Sprint)
 **Priority:** Medium
 **Effort:** ~4–6 hours
 **Added:** 20260210
+**Completed:** 20260603
 **Target Phase:** Phase 15
 
 **Description:**
 Documented process for updating AI model versions — steps for testing new model versions, updating model identifiers in code, verifying output quality, and committing changes. Demonstrated informally during Claude Sonnet 4 → 4.5 update.
 
-**Why Deferred:**
-Process exists informally and works. No urgent need to formalize. Phase 15 documentation pass.
+**Resolution:**
+`docs/ai_settings_guide.md` v1.0 added in the Provider Foundation Sprint. Documents
+the config-driven model update mechanism (edit `config/ai_settings.json providers.<name>.model`,
+no Python edits required), provider assignment changes, how to add new providers, and
+the Phase 13-1 Ollama activation checklist. Model identifiers are now config-only
+(Item 35 closes the code side).
 
 **Acceptance Criteria:**
-- [ ] Written process in `docs/` covering: locate model identifiers, test report quality, update code, commit format
-- [ ] Model identifier locations documented (which files contain model strings)
-- [ ] Quality checklist for comparing old vs new model output
+- [x] Written process in `docs/` covering: locate model identifiers, test report quality, update config
+- [x] Model identifier locations documented (`config/ai_settings.json providers.<name>.model`)
+- [x] Config-driven approach documented (change model in config, takes effect on next invocation)
 
 **Files Affected:**
-- New: `docs/MODEL_UPDATE_PROCESS.md`
-- `workmain/ai/` (model identifier locations to document)
+- New: `docs/ai_settings_guide.md`
 
 ---
 
 #### Item 11 — Add New AI Provider
 
-**Status:** Deferred Indefinitely
+**Status:** ✓ COMPLETE — v1.18.0 (Provider Foundation Sprint)
 **Priority:** Low
 **Effort:** ~8–12 hours
 **Added:** 20260210
+**Completed:** 20260603
 **Target Phase:** None (revisit if a specific use case emerges)
 
 **Description:**
-Add support for a third AI provider beyond Claude (daily internal reports, note condensation) and Gemini (weekly client reports). A new provider would require a client in `workmain/ai/`, cost tracker entry, and template configuration.
+Add support for a third AI provider beyond Claude and Gemini. Required N-provider
+extensible registry so adding a provider is one file + one config section.
 
-**Why Deferred:**
-No current use case. Two-provider architecture covers all report types. Speculative work until a specific provider or use case is identified. YAGNI.
+**Resolution:**
+Provider Foundation Sprint delivered: `PROVIDER_REGISTRY` in `workmain/ai/providers/__init__.py`
+as the single registration point; `OllamaProvider` (Phase 13-1 stub, `enabled: false`) as the
+third provider. `providers list` iterates registry dynamically. To add any future provider:
+one Python file implementing `BaseProvider`, one registry entry, one `ai_settings.json` section.
+See `docs/ai_settings_guide.md` for the three-step process.
 
-**Acceptance Criteria (if implemented):**
-- [ ] New provider client implemented in `workmain/ai/`
-- [ ] Cost tracking supports new provider
-- [ ] Template configuration supports provider assignment
-- [ ] `workmain providers list` shows new provider
-
-**Files Affected:**
-- `workmain/ai/` (new provider client)
-- `workmain/ai/cost_tracker.py`
-- Template configuration files
+**Acceptance Criteria:**
+- [x] N-provider registry implemented (PROVIDER_REGISTRY)
+- [x] OllamaProvider stub in place (Phase 13-1 activation ready)
+- [x] `workmain providers list` shows all three providers including disabled Ollama
+- [x] Adding a new provider requires no changes beyond registry + config
 
 ---
 
@@ -1025,48 +1030,61 @@ that should be done with full Phase 13 context rather than bolted on mid-phase.
 
 #### Item 35 — AI Model Config-Driven Selection
 
-**Status:** Open — Deferred to Phase 14
+**Status:** ✓ COMPLETE — v1.18.0 (Provider Foundation Sprint)
 **Priority:** Medium
 **Effort:** ~2–3 hours
 **Added:** 20260529
+**Completed:** 20260603
 **Target Phase:** Phase 14 (Setup Wizard)
 
 **Description:**
-The model string for each AI provider is currently hardcoded in the Python client files
-(`claude_client.py` default: `claude-sonnet-4-5-20250929`; `gemini_client.py` default:
-`gemini-2.5-flash`). Updating the model requires editing Python source and committing a
-code change, even though `config/ai_settings.json` already contains a `model` field under
-each provider entry — that field is currently ignored by the clients.
+Model strings were hardcoded in Python client files. Fix: read model from
+`ai_settings.json` at provider instantiation with hardcoded fallback.
 
-The fix is to make `get_claude_client()` and `get_gemini_client()` read their `model`
-value from `ai_settings.json` at instantiation, falling back to the current hardcoded
-default only when the config file is absent or the field is missing. This would allow
-model updates entirely through config, matching the provider routing behaviour implemented
-in Gate 2 of the cost tracking sprint (provider_manager v1.1).
-
-**Relationship to Item 10:** Item 10 (Streamlined Model Update Process, Phase 15) covers
-the *documentation* side — a written process + checklist. This item covers the *code
-mechanism* that eliminates the need to touch Python to change the model. Both are needed;
-implement this item first so the documented process reflects the config-driven approach.
-
-**Why Deferred:**
-The current hardcoded defaults work correctly. The urgency was removed in the cost
-tracking sprint (Phase 14 precursor) which fixed provider routing — model selection is
-a lower-risk follow-on. Deferring alongside `providers set default` (Phase 14 Setup
-Wizard) so all provider/model config UI is delivered together.
+**Resolution:**
+`claude_client.py` and `gemini_client.py` deleted; replaced by `providers/claude.py`
+(ClaudeProvider) and `providers/gemini.py` (GeminiProvider). Both read:
+`self.model = config.get('model', _FALLBACK_MODEL)` in `__init__`. Model changes are
+config-only — no Python edits needed. Verified end-to-end: setting
+`providers.claude.model = test-model-gate2` showed in `providers list` model column.
 
 **Acceptance Criteria:**
-- [ ] `get_claude_client()` reads `config/ai_settings.json providers.claude.model`; falls
-  back to hardcoded default if file absent or field missing
-- [ ] `get_gemini_client()` reads `config/ai_settings.json providers.gemini.model`; falls
-  back to hardcoded default if file absent or field missing
-- [ ] `workmain providers list` model column reflects the value from config, not the
-  hardcoded string
-- [ ] Changing the model in `ai_settings.json` takes effect on next CLI invocation
-  without any Python file edits
-- [ ] Item 10 (Model Update Process doc) updated to reflect config-driven approach
+- [x] `ClaudeProvider.__init__` reads `config.get('model', fallback)`
+- [x] `GeminiProvider.__init__` reads `config.get('model', fallback)`
+- [x] `workmain providers list` model column reflects config value
+- [x] Changing model in `ai_settings.json` takes effect on next invocation
+- [x] Item 10 updated to reflect config-driven approach (docs/ai_settings_guide.md)
 
 **Files Affected:**
-- `workmain/ai/claude_client.py` — read model from config in `get_claude_client()`
-- `workmain/ai/gemini_client.py` — read model from config in `get_gemini_client()`
-- `config/ai_settings.json` — no schema changes; `model` field already present
+- `workmain/ai/providers/claude.py` — `self.model = config.get('model', _FALLBACK_MODEL)`
+- `workmain/ai/providers/gemini.py` — same pattern
+- `config/ai_settings.json` — `model` field already present, now actually read
+
+---
+
+#### Item 36 — ProviderConfig Dead Code Cleanup
+
+**Status:** Open — Deferred (low priority)
+**Priority:** Low
+**Effort:** ~15 min
+**Added:** 20260603
+**Target Phase:** Next `base_provider.py` modification
+
+**Description:**
+`ProviderConfig` dataclass in `workmain/ai/base_provider.py` has no remaining consumers
+post-v1.18.0. Its only consumers were `claude_client.py` and `gemini_client.py`, both
+deleted in the Provider Foundation Sprint. The class is currently exported from
+`workmain/ai/__init__.py` for backward compat but nothing in the codebase imports it.
+
+**Why Deferred:**
+No functional impact. Remove when `base_provider.py` is next modified to avoid
+a dedicated one-line-removal commit.
+
+**Acceptance Criteria:**
+- [ ] `ProviderConfig` class removed from `base_provider.py`
+- [ ] `ProviderConfig` removed from `workmain/ai/__init__.py` exports and `__all__`
+- [ ] `grep -rn "ProviderConfig" workmain/` returns empty (no remaining imports)
+
+**Files Affected:**
+- `workmain/ai/base_provider.py`
+- `workmain/ai/__init__.py`

@@ -7,6 +7,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.0] - 2026-06-03
+
+### Added
+- `workmain/ai/providers/` subpackage — `PROVIDER_REGISTRY` as single registration
+  point; adding a provider = one file + one registry entry + one config section
+- `workmain/ai/providers/claude.py` — `ClaudeProvider` v2.0, config-driven model
+- `workmain/ai/providers/gemini.py` — `GeminiProvider` v2.0, config-driven model
+- `workmain/ai/providers/ollama.py` — `OllamaProvider` v1.0, ABC-compliant Phase
+  13-1 stub; all 5 abstract methods present; `generate()` raises
+  `ProviderUnavailableError`; activation checklist in docstring
+- `ProviderUnavailableError(ProviderError)` — new exception for disabled/
+  unregistered providers; distinct from connectivity failures
+- `ProviderType.OLLAMA = 'ollama'` added to enum
+- `BaseProvider.test_connection()` — default method wrapping `check_availability()`
+- `workmain/ai/provider_manager.py`: `get_provider(name)`,
+  `get_all_provider_configs()`, `get_registered_provider_names()`, `is_disabled()`
+- `providers set default REPORT_TYPE PROVIDER` — read-modify-write implementation
+  (replaces NOT IMPLEMENTED stub); `--fallback/-f`; `--force`; updates `last_updated`
+- `providers config show` — new subcommand; Providers panel + Report Type
+  Assignments panel; `api_key_env` shown, never the key value
+- `docs/ai_settings_guide.md` — annotated schema for `config/ai_settings.json`;
+  how to change provider assignments; how to add a new provider; Phase 13-1 Ollama
+  activation checklist (Item 10)
+- `config/ai_settings.json`: `ollama` section (enabled: false); `cost_structure`
+  field in all provider sections
+- `tests/test_provider_foundation.py` — 36 new tests (registry, base_provider
+  additions, OllamaProvider stub, config-driven model, ProviderManager N-provider,
+  dynamic CLI validation, providers set default read-modify-write)
+
+### Changed
+- `BaseProvider.__init__` now accepts `dict` (was `ProviderConfig`); each provider
+  reads its own fields via `config.get()`
+- `ProviderManager._load_config()` now instantiates providers from `PROVIDER_REGISTRY`
+  (was a `ReportTypeConfig`-only setup); `_providers` dict is now string-keyed
+- `ProviderManager.generate()` uses `get_provider(primary.value)` — string-keyed
+  lookup (was enum-keyed via `_get_provider()`)
+- `providers test <provider>` — `click.Choice` removed; dynamic validation against
+  registry; disabled providers show informational message instead of crashing
+- `providers costs --provider` — `click.Choice` removed; same runtime validation
+- `providers list` — N-provider-safe dynamic loop; `cost_structure` column from
+  config; disabled status without connectivity check
+- `"Sending to Claude..."` made dynamic in `meetings.py` and `notes.py` — reads
+  active provider from `note_condensation` config (Category B display accuracy fix)
+- `workmain/ai/__init__.py` — `get_claude_client`/`get_gemini_client` exports
+  removed; `providers/` subpackage re-exports added; `ProviderUnavailableError`
+  exported
+- `test_ai_clients.py`, `test_ai_foundation.py` — updated for new provider API
+
+### Removed
+- `workmain/ai/claude_client.py` — replaced by `providers/claude.py`
+- `workmain/ai/gemini_client.py` — replaced by `providers/gemini.py`
+- `ProviderManager.register_provider()` — providers now instantiated from registry
+- `ProviderManager._get_provider()` — replaced by `get_provider(name: str)`
+- `ProviderManager.check_provider_status()` / `get_all_provider_statuses()` — dead
+  code removed
+
+### Closed
+- Item 10 — Streamlined Model Update Process: `docs/ai_settings_guide.md` documents
+  the config-driven model update mechanism
+- Item 11 — Add New AI Provider: N-provider extensible registry; Ollama stub in place
+- Item 35 — AI Model Config-Driven Selection: `ClaudeProvider` and `GeminiProvider`
+  read `model` from `ai_settings.json`; model updates are config-only
+
 ## [1.17.0] - 2026-05-29
 
 ### Added

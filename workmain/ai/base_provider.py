@@ -90,7 +90,7 @@ class GenerationResponse:
 # TODO (v1.18.0 Provider Foundation Sprint): ProviderConfig is unused.
 # claude_client.py and gemini_client.py (its only consumers) were deleted.
 # Remove this class when base_provider.py is next modified.
-# Tracked: FEATURE_BACKLOG Item <N> — see Gate 5.
+# Tracked: FEATURE_BACKLOG Item 36.
 @dataclass
 class ProviderConfig:
     """
