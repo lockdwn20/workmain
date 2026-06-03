@@ -1,15 +1,16 @@
 """
 WorkmAIn Provider CLI Commands
-Provider Commands v1.13
+Provider Commands v1.14
 20260603
 
-CLI commands for managing AI providers (Claude and Gemini).
+CLI commands for managing AI providers.
 
 Commands:
-- providers list: Show available providers and their status
+- providers list: Show all providers, status, model, cost structure
 - providers test <provider>: Test provider API connection
-- providers costs: Show cost breakdown by provider
-- providers set default <provider> --for <type>: Set default provider (future)
+- providers costs: Show aggregate cost totals
+- providers set default <REPORT_TYPE> <PROVIDER>: Update provider assignment
+- providers config show: Display full ai_settings.json detail view
 
 Version History:
 - v1.0: Initial implementation with list, test, costs, and set-default commands
@@ -32,14 +33,23 @@ Version History:
 - v1.12: Gate 3 — providers costs redesigned as aggregate view from ai_costs table;
          full date filter set (--date/-d, --start/-b, --end/-e, --month/-M, --all);
          reads from AiCostRepository instead of report_metadata
-- v1.13: Provider Foundation Sprint — remove direct claude_client/gemini_client imports;
-         providers list and test use manager.get_provider(); remove register_provider() calls
+- v1.13: Provider Foundation Sprint Gate 1 — remove direct claude_client/gemini_client
+         imports; providers list and test use manager.get_provider(); remove
+         register_provider() calls
+- v1.14: Provider Foundation Sprint Gate 4 — providers list: wider columns, no wrapping;
+         providers test: remove click.Choice, dynamic validation, disabled message;
+         providers costs --provider: remove click.Choice, dynamic validation;
+         providers set default: full read-modify-write implementation (was NOT IMPLEMENTED
+         stub); providers config group + config show added; docstring updated
 """
 
+import json
+from pathlib import Path
 from typing import Optional
 import click
 from rich.console import Console
 from rich.table import Table
+from rich.panel import Panel
 from rich import box
 
 from workmain.database.connection import get_db
@@ -51,17 +61,19 @@ from workmain.utils.date_utils import resolve_date_window, format_date_window_la
 
 console = Console()
 
+_SETTINGS_PATH = Path(__file__).parent.parent.parent.parent / 'config' / 'ai_settings.json'
+
 
 @click.group()
 def providers():
-    """Manage AI providers (Claude and Gemini)."""
+    """Manage AI providers (Claude, Gemini, Ollama, ...)."""
     pass
 
 
 @providers.command('list')
 def list_providers():
     """
-    Show available AI providers and their status.
+    Show all AI providers, their status, model, and cost structure.
 
     \b
     Example:
@@ -70,15 +82,13 @@ def list_providers():
     console.print()
     console.print("[bold cyan]Available AI Providers:[/bold cyan]")
     console.print()
-    
-    # Create status table
+
     table = Table(show_header=True, header_style="bold cyan", box=box.ROUNDED)
-    table.add_column("Provider", style="cyan", width=12)
-    table.add_column("Model", style="dim", width=30)
-    table.add_column("Status", width=12)
-    table.add_column("Cost Structure", style="dim")
-    
-    # Get provider manager — providers instantiated from registry in _load_config()
+    table.add_column("Provider", style="cyan", width=14)
+    table.add_column("Model", style="dim", min_width=28)
+    table.add_column("Status", width=14)
+    table.add_column("Cost Structure", style="dim", min_width=42, no_wrap=False)
+
     manager = get_provider_manager()
 
     status_color_map = {
@@ -107,7 +117,6 @@ def list_providers():
     console.print(table)
     console.print()
 
-    # Show provider assignments read from ai_settings.json via provider_manager
     report_type_labels = [
         ('Daily Internal Report', 'daily_internal'),
         ('Weekly Client Report',  'weekly_client'),
@@ -129,54 +138,62 @@ def list_providers():
 
 
 @providers.command('test')
-@click.argument('provider', type=click.Choice(['claude', 'gemini'], case_sensitive=False))
+@click.argument('provider')
 def test_provider(provider: str):
     """
     Test AI provider connection with a simple generation request.
-
-    Args:
-        provider: Provider to test (claude or gemini)
 
     \b
     Examples:
       workmain providers test claude
       workmain providers test gemini
     """
+    pm = get_provider_manager()
+    valid = pm.get_registered_provider_names()
     provider_lower = provider.lower()
-    
+
+    if provider_lower not in valid:
+        raise click.BadParameter(
+            f"Unknown provider '{provider}'. Valid providers: {', '.join(valid)}",
+            param_hint="'provider'"
+        )
+
     console.print()
-    console.print(f"[bold]Testing {provider.title()} API connection...[/bold]")
+    console.print(f"[bold]Testing {provider_lower.title()} API connection...[/bold]")
     console.print()
-    
+
+    if pm.is_disabled(provider_lower):
+        console.print(
+            f"[yellow]{provider_lower.title()} is disabled.[/yellow] "
+            f"Set 'enabled: true' in config/ai_settings.json to test."
+        )
+        console.print()
+        return
+
     try:
-        manager = get_provider_manager()
-        client = manager.get_provider(provider_lower)
-        
-        # Check availability first
+        client = pm.get_provider(provider_lower)
+
         console.print("[dim]Checking availability...[/dim]")
         status = client.check_availability()
-        
+
         if status != ProviderStatus.AVAILABLE:
             console.print(f"[red]✗ Provider status: {status.value}[/red]")
             console.print()
             return
-        
+
         console.print(f"[green]✓ Provider available[/green]")
-        
-        # Test generation
         console.print("[dim]Sending test request...[/dim]")
-        
+
         request = GenerationRequest(
             prompt="Respond with exactly: 'API connection successful'",
             max_tokens=20,
             temperature=0.0
         )
-        
+
         response = client.generate(request)
-        
-        # Show results
+
         console.print()
-        console.print(f"[green]✓ {provider.title()} API test successful![/green]")
+        console.print(f"[green]✓ {provider_lower.title()} API test successful![/green]")
         console.print()
         console.print(f"[bold]Response:[/bold] {response.content}")
         console.print()
@@ -185,20 +202,20 @@ def test_provider(provider: str):
         console.print(f"  Tokens: {response.tokens_used} (prompt: {response.prompt_tokens}, completion: {response.completion_tokens})")
         console.print(f"  Cost: ${response.cost:.6f}")
         console.print()
-        
+
     except Exception as e:
         console.print(f"[red]✗ Test failed: {e}[/red]")
         console.print()
-        console.print("[dim]Check your API key in .env file:[/dim]")
-        if provider_lower == 'claude':
-            console.print("  ANTHROPIC_API_KEY=sk-ant-...")
-        else:
-            console.print("  GOOGLE_API_KEY=...")
+        cfg = pm.get_all_provider_configs().get(provider_lower, {})
+        api_key_env = cfg.get('api_key_env')
+        if api_key_env:
+            console.print("[dim]Check your API key in .env file:[/dim]")
+            console.print(f"  {api_key_env}=...")
         console.print()
 
 
 @providers.command('costs')
-@click.option('--provider', '-P', type=click.Choice(['claude', 'gemini'], case_sensitive=False),
+@click.option('--provider', '-P', default=None, metavar='PROVIDER',
               help='Filter by specific provider')
 @click.option('--date', '-d', 'date_str', metavar='YYYY-MM-DD', default=None,
               help='Show costs for a single day')
@@ -233,6 +250,15 @@ def show_costs(
       workmain providers costs -b 2026-05-01 -e 2026-05-15
       workmain providers costs --all
     """
+    if provider:
+        pm = get_provider_manager()
+        valid = pm.get_registered_provider_names()
+        if provider.lower() not in valid:
+            raise click.BadParameter(
+                f"Unknown provider '{provider}'. Valid providers: {', '.join(valid)}",
+                param_hint="'--provider'"
+            )
+
     try:
         start_date, end_date = resolve_date_window(date_str, start_str, end_str, month_str, show_all)
     except click.UsageError as e:
@@ -326,44 +352,167 @@ def show_costs(
 
 @providers.group('set')
 def providers_set():
-    """Configure provider settings (Phase 12)."""
+    """Configure provider settings."""
     pass
 
 
 @providers_set.command('default')
-@click.argument('provider', type=click.Choice(['claude', 'gemini'], case_sensitive=False))
-@click.option('--for', 'report_type', required=True,
-              type=click.Choice(['daily', 'weekly', 'all'], case_sensitive=False),
-              help='Report type to configure')
-def set_default_provider(provider: str, report_type: str):
+@click.argument('report_type', metavar='REPORT_TYPE')
+@click.argument('provider', metavar='PROVIDER')
+@click.option('--fallback', '-f', default=None,
+              help='Set fallback provider (optional)')
+@click.option('--force', is_flag=True, default=False,
+              help='Skip confirmation prompt')
+def set_default_provider(report_type: str, provider: str, fallback: Optional[str], force: bool):
     """
-    Set default AI provider for a report type. [NOT IMPLEMENTED]
+    Set the default AI provider for a report type.
 
-    Args:
-        provider: Provider to use (claude or gemini)
-        report_type: Report type (daily, weekly, or all)
+    REPORT_TYPE: e.g. daily_internal, weekly_client, note_condensation
+    PROVIDER: e.g. claude, gemini
 
     \b
     Examples:
-      workmain providers set default claude --for daily
-      workmain providers set default gemini --for weekly
-      workmain providers set default claude --for all
-
-    Note:
-        NOT IMPLEMENTED — requires Phase 12 configuration management system.
-        Currently defaults are set in config/ai_settings.json manually.
+      workmain providers set default daily_internal claude
+      workmain providers set default weekly_client gemini
+      workmain providers set default daily_internal claude --fallback gemini
+      workmain providers set default daily_internal gemini --force
     """
+    pm = get_provider_manager()
+    valid_providers = pm.get_registered_provider_names()
+
+    if not _SETTINGS_PATH.exists():
+        console.print(f"[red]✗ Config file not found: {_SETTINGS_PATH}[/red]")
+        console.print()
+        return
+
+    with open(_SETTINGS_PATH, 'r') as f:
+        data = json.load(f)
+
+    valid_report_types = list(data.get('report_types', {}).keys())
+
+    if report_type not in valid_report_types:
+        raise click.BadParameter(
+            f"Unknown report type '{report_type}'. "
+            f"Valid: {', '.join(valid_report_types)}",
+            param_hint="'REPORT_TYPE'"
+        )
+    if provider not in valid_providers:
+        raise click.BadParameter(
+            f"Unknown provider '{provider}'. "
+            f"Valid: {', '.join(valid_providers)}",
+            param_hint="'PROVIDER'"
+        )
+    if fallback and fallback not in valid_providers:
+        raise click.BadParameter(
+            f"Unknown fallback provider '{fallback}'. "
+            f"Valid: {', '.join(valid_providers)}",
+            param_hint="'--fallback'"
+        )
+
+    rt_cfg = data['report_types'][report_type]
+    current_primary = rt_cfg.get('primary_provider', '—')
+    current_fallback = rt_cfg.get('fallback_provider', '—')
+
     console.print()
-    console.print("[yellow]⚠ NOT IMPLEMENTED — requires Phase 12 configuration system[/yellow]")
+    console.print("[bold]Provider assignment change:[/bold]")
+    console.print(
+        f"  {report_type}  primary_provider: "
+        f"[dim]{current_primary}[/dim] → [cyan]{provider}[/cyan]"
+    )
+    if fallback:
+        console.print(
+            f"  {report_type}  fallback_provider: "
+            f"[dim]{current_fallback}[/dim] → [cyan]{fallback}[/cyan]"
+        )
     console.print()
-    console.print("[dim]Current workaround:[/dim]")
-    console.print("  1. Edit config/ai_settings.json")
-    console.print("  2. Update 'primary_provider' for the desired report type")
-    console.print("  3. Save and restart WorkmAIn")
+
+    if not force:
+        click.confirm("Proceed?", abort=True)
+
+    # Read-modify-write — only update targeted fields + last_updated
+    data['report_types'][report_type]['primary_provider'] = provider
+    if fallback:
+        data['report_types'][report_type]['fallback_provider'] = fallback
+    from datetime import date as _date
+    data['last_updated'] = _date.today().strftime('%Y%m%d')
+
+    with open(_SETTINGS_PATH, 'w') as f:
+        json.dump(data, f, indent=2)
+
+    console.print(f"[green]✓ Updated {_SETTINGS_PATH.name}[/green]")
+    fallback_str = f" (fallback: {fallback.capitalize()})" if fallback else ""
+    console.print(f"  {report_type} → {provider.capitalize()}{fallback_str}")
+    console.print("[dim]Changes take effect on next CLI invocation.[/dim]")
     console.print()
-    console.print(f"[dim]You want to set: {provider} for {report_type} reports[/dim]")
+
+
+@providers.group('config')
+def providers_config():
+    """Show AI provider configuration detail."""
+    pass
+
+
+@providers_config.command('show')
+def config_show():
+    """
+    Display current ai_settings.json provider configuration.
+
+    Shows provider settings and report type assignments.
+    API key values are never displayed — only the env var name.
+
+    \b
+    Example:
+      workmain providers config show
+    """
+    if not _SETTINGS_PATH.exists():
+        console.print(f"[red]✗ Config file not found: {_SETTINGS_PATH}[/red]")
+        console.print()
+        return
+
+    with open(_SETTINGS_PATH, 'r') as f:
+        data = json.load(f)
+
     console.print()
-    console.print("[dim]This will be fully automated in Phase 12 (Setup Wizard).[/dim]")
+
+    # Panel 1: Providers
+    prov_table = Table(show_header=True, header_style="bold cyan",
+                       box=box.SIMPLE, padding=(0, 1))
+    prov_table.add_column("Provider", style="cyan", width=10)
+    prov_table.add_column("Enabled", width=8)
+    prov_table.add_column("Model", style="dim", min_width=28)
+    prov_table.add_column("API Key Env", style="dim", width=24)
+    prov_table.add_column("Cost Structure", style="dim")
+
+    for name, cfg in data.get('providers', {}).items():
+        enabled = cfg.get('enabled', True)
+        enabled_str = "[green]yes[/green]" if enabled else "[dim]no[/dim]"
+        model = cfg.get('model', '—')
+        api_key_env = cfg.get('api_key_env', '[dim]N/A (local)[/dim]')
+        cost = cfg.get('cost_structure', '—')
+        prov_table.add_row(name.title(), enabled_str, model, api_key_env, cost)
+
+    console.print(Panel(prov_table, title="[bold]Providers[/bold]", border_style="cyan"))
+    console.print()
+
+    # Panel 2: Report Type Assignments
+    rt_table = Table(show_header=True, header_style="bold cyan",
+                     box=box.SIMPLE, padding=(0, 1))
+    rt_table.add_column("Report Type", style="cyan", min_width=20)
+    rt_table.add_column("Primary", style="green", width=12)
+    rt_table.add_column("Fallback", style="dim", width=12)
+
+    for rt_name, rt_cfg in data.get('report_types', {}).items():
+        primary = rt_cfg.get('primary_provider', '—')
+        fallback = rt_cfg.get('fallback_provider', '—')
+        rt_table.add_row(rt_name, primary.capitalize(), fallback.capitalize())
+
+    console.print(Panel(rt_table, title="[bold]Report Type Assignments[/bold]", border_style="cyan"))
+    console.print()
+
+    console.print(
+        f"[dim]Config file: {_SETTINGS_PATH}  |  "
+        f"Last updated: {data.get('last_updated', '—')}[/dim]"
+    )
     console.print()
 
 

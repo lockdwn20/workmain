@@ -1,7 +1,7 @@
 {
   "version": "1.1",
   "description": "WorkmAIn AI Provider Configuration",
-  "last_updated": "20260528",
+  "last_updated": "20260603",
   "providers": {
     "claude": {
       "enabled": true,
