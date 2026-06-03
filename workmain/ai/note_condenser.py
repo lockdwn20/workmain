@@ -1,7 +1,7 @@
 """
 WorkmAIn Note Condenser
-Note Condenser v1.8
-20260528
+Note Condenser v1.9
+20260603
 
 AI-powered condensation of meeting notes into one-line summaries for Clockify.
 
@@ -24,6 +24,9 @@ Version History:
 - v1.8: Gate 2 cost tracking sprint — replace hardcoded self.claude with provider_manager
         routing through 'note_condensation' config entry; persist ai_costs row after
         each condensation; honours provider parameter as provider_override
+- v1.9: Provider Foundation Sprint — remove get_claude_client/get_gemini_client imports
+        and register_provider() calls; ProviderManager._load_config() now instantiates
+        providers from PROVIDER_REGISTRY directly
 """
 
 import json
@@ -35,7 +38,6 @@ from sqlalchemy.orm import Session
 
 from workmain.database.models import Meeting, Note
 from workmain.ai.base_provider import GenerationRequest, ProviderType
-from workmain.ai import get_claude_client, get_gemini_client
 from workmain.ai.cost_tracker import get_cost_tracker
 from workmain.ai.provider_manager import get_provider_manager
 from workmain.database.repositories.ai_costs_repo import AiCostRepository
@@ -63,8 +65,6 @@ class NoteCondenser:
         self.cost_tracker = get_cost_tracker()
         self.writing_style = self._load_writing_style()
         self.provider_manager = get_provider_manager()
-        self.provider_manager.register_provider(ProviderType.CLAUDE, get_claude_client())
-        self.provider_manager.register_provider(ProviderType.GEMINI, get_gemini_client())
     
     def _load_writing_style(self) -> dict:
         """

@@ -1,7 +1,7 @@
 """
 WorkmAIn AI Report Generator
-Report Generator v1.11
-20260528
+Report Generator v1.12
+20260603
 
 High-level orchestrator for AI report generation with database integration.
 
@@ -40,6 +40,9 @@ Version History:
 - v1.11: Gate 2 cost tracking sprint — persist ai_costs row after report creation;
          remove template-metadata provider override so provider_manager config
          (ai_settings.json) governs provider selection when no --provider flag given
+- v1.12: Provider Foundation Sprint — remove get_claude_client/get_gemini_client imports
+         and register_provider() calls; ProviderManager instantiates providers from
+         PROVIDER_REGISTRY in _load_config() directly
 
 Workflow:
 1. Load template and validate
@@ -117,14 +120,7 @@ class ReportGenerator:
         self.cost_tracker = cost_tracker or get_cost_tracker()
         self.template_loader = template_loader or get_template_loader()
         self.reports_repo = reports_repository or get_reports_repository(session)
-        
-        # Register AI providers with the manager
-        from workmain.ai import get_claude_client, get_gemini_client
-        claude = get_claude_client()
-        gemini = get_gemini_client()
-        self.provider_manager.register_provider(ProviderType.CLAUDE, claude)
-        self.provider_manager.register_provider(ProviderType.GEMINI, gemini)
-        
+
         # Set output directory
         if output_dir is None:
             project_root = Path(__file__).parent.parent.parent
