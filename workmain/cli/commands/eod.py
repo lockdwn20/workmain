@@ -1,7 +1,7 @@
 """
 WorkmAIn End-of-Day Workflow
-EOD v2.10
-20260603
+EOD v2.11
+20260604
 
 Guided end-of-day workflow for daily work wrap-up.
 
@@ -70,6 +70,9 @@ Version History:
         $EDITOR support, and status writes (confirmed/corrected/unconfirmed)
 - v2.10: Hotfix — Step 4a edit: after committing corrected_content to DB, also
          overwrite the staging file so email and gdocs steps use the edited content
+- v2.11: Hotfix — _run_weekly_report_step gains same pre-check, review menu,
+         editor integration, and staging-file sync as daily report step (Step 4a);
+         also passes --date to subprocess for backdated EOD consistency
 """
 
 import json
@@ -794,10 +797,13 @@ def _run_slack_weekly_step(dry_run: bool, target_date: date) -> bool:
 
 
 def _run_weekly_report_step(dry_run: bool, target_date: date) -> bool:
-    """Friday step A: Generate weekly client report."""
+    """Friday step A: Generate weekly client report with pre-check and interactive review menu."""
+    date_str = target_date.isoformat()
+    cmd = ['workmain', 'reports', 'save', 'weekly_client', '--date', date_str]
+
     if dry_run:
-        console.print("  [dim]Would run: workmain reports save weekly_client[/dim]")
-        console.print("  [dim]Output: staging/reports/weekly_client_YYYY-MM-DD.md[/dim]")
+        console.print(f"  [dim]Would run: workmain reports save weekly_client --date {date_str}[/dim]")
+        console.print("  [dim]Would present: [v]iew / [e]dit / [c]onfirm / [s]kip menu[/dim]")
         return True
 
     # Skip guard: weekly client report requires an active client context
@@ -816,19 +822,138 @@ def _run_weekly_report_step(dry_run: bool, target_date: date) -> bool:
         )
         return True  # Non-fatal — continue EOD pipeline
 
+    # Pre-check: skip generation if a confirmed/corrected report already exists for this date
+    db = get_db()
+    session = db.get_session()
     try:
-        result = subprocess.run(['workmain', 'reports', 'save', 'weekly_client'])
+        from workmain.database.repositories.reports_repo import get_reports_repository
+        repo = get_reports_repository(session)
+        existing = repo.list_reports(
+            report_type='weekly_client',
+            start_date=target_date,
+            end_date=target_date,
+        )
+        for r in existing:
+            if r.status in ('confirmed', 'corrected'):
+                console.print(
+                    f"  [dim]Weekly report already confirmed for {date_str} — "
+                    f"skipping generation[/dim]"
+                )
+                return True
+    finally:
+        session.close()
 
+    # Generate report
+    try:
+        result = subprocess.run(cmd)
         if result.returncode != 0:
             console.print()
-            console.print(f"  [yellow]⚠ Weekly report returned exit code {result.returncode}[/yellow]")
-            console.print("  [dim]Continuing to next step.[/dim]")
+            console.print(
+                f"  [yellow]⚠ Weekly report generation returned exit code {result.returncode}[/yellow]"
+            )
+            action = click.prompt(
+                "  Continue? [r]etry / [s]kip",
+                default='s',
+                show_choices=False,
+            ).strip().lower()
+            if action == 'r':
+                result = subprocess.run(cmd)
+                if result.returncode != 0:
+                    console.print("  [red]✗ Retry failed[/red]")
+                    return True  # Non-fatal — log and continue
+    except Exception as e:
+        console.print(f"  [red]✗ Weekly report step error: {e}[/red]")
+        return True  # Non-fatal — log and continue
+
+    # Load the new report for review
+    db = get_db()
+    session = db.get_session()
+    try:
+        from workmain.database.repositories.reports_repo import get_reports_repository
+        repo = get_reports_repository(session)
+        reports = repo.list_reports(
+            report_type='weekly_client',
+            start_date=target_date,
+            end_date=target_date,
+            limit=1,
+        )
+
+        if not reports:
+            console.print(
+                "  [yellow]⚠ Could not load weekly report for review — "
+                "report saved as unconfirmed[/yellow]"
+            )
+            return True
+
+        report = reports[0]
+        content = report.content or ''
+        preview = content[:200] + '…' if len(content) > 200 else content
+
+        console.print()
+        console.print(Panel(preview, title="Weekly Report Preview", border_style="dim"))
+        console.print()
+
+        while True:
+            choice = click.prompt(
+                "  Review: [v]iew / [e]dit / [c]onfirm / [s]kip",
+                default='s',
+                show_choices=False,
+                show_default=False,
+            ).strip().lower()
+
+            if choice == 'v':
+                console.print()
+                console.print(
+                    Panel(content, title="Weekly Report — Full View", border_style="cyan")
+                )
+                console.print()
+                continue
+
+            elif choice == 'e':
+                source = report.corrected_content if report.corrected_content else content
+                edited = _eod_edit_in_editor(source)
+                if edited is not None and edited != source:
+                    report.corrected_content = edited
+                    report.status = 'corrected'
+                    report.updated_at = datetime.now()
+                    session.commit()
+                    fp = (report.report_metadata or {}).get('file_path')
+                    if fp:
+                        try:
+                            Path(fp).write_text(edited, encoding='utf-8')
+                        except Exception as stage_err:
+                            console.print(
+                                f"  [yellow]⚠ DB saved; staging file update failed: {stage_err}[/yellow]"
+                            )
+                    console.print("  [green]✓ Weekly report saved with corrections.[/green]")
+                else:
+                    console.print("  [dim]No changes detected.[/dim]")
+                break
+
+            elif choice == 'c':
+                report.status = 'confirmed'
+                report.updated_at = datetime.now()
+                session.commit()
+                console.print("  [green]✓ Weekly report confirmed.[/green]")
+                break
+
+            else:  # s or any other input
+                console.print()
+                console.print(
+                    "  [yellow]⚠ Weekly report left unconfirmed.[/yellow]"
+                )
+                break
 
         return True
 
     except Exception as e:
-        console.print(f"  [red]✗ Weekly report step error: {e}[/red]")
-        return True  # Non-fatal — log and continue
+        console.print(
+            f"  [yellow]⚠ Weekly report review failed ({e}) — report saved but review skipped[/yellow]"
+        )
+        return True
+
+    finally:
+        session.close()
 
 
 def _run_weekly_email_step(dry_run: bool, target_date: date) -> bool:
