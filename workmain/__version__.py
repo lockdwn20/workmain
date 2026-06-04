@@ -1,9 +1,14 @@
 """
 WorkmAIn Package Version
-Version v1.18.2
-20260603
+Version v1.18.3
+20260604
 
 Version History:
+- v1.18.3: Hotfix weekly-report-review — Friday EOD Step 7 now has the same
+           interactive review menu as the daily report step: pre-check skips
+           regeneration if already confirmed/corrected; --date passed to subprocess
+           for backdated EOD consistency; [v]iew / [e]dit / [c]onfirm / [s]kip
+           menu with $EDITOR support and staging-file sync
 - v1.18.2: Hotfix eod-edit-staging-sync — corrected_content committed to DB but staging
            file never updated; email and gdocs steps consumed original AI content instead
            of user edits; fix: overwrite staging file from report_metadata.file_path after
@@ -255,7 +260,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.18.2"
-__version_info__ = (1, 18, 2)
+__version__ = "1.18.3"
+__version_info__ = (1, 18, 3)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"

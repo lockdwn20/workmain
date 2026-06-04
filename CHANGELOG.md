@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.3] - 2026-06-04
+
+### Fixed
+- EOD Friday Step 7 (weekly report) now presents the same interactive review menu as
+  the daily report step: pre-check skips regeneration if a confirmed/corrected weekly
+  report already exists for the date; `--date` is passed to the subprocess for backdated
+  EOD consistency; `[v]iew / [e]dit / [c]onfirm / [s]kip` menu with `$EDITOR` support
+  and staging-file sync from `report_metadata['file_path']` after saving corrections.
+
 ## [1.18.2] - 2026-06-03
 
 ### Fixed
