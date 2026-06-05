@@ -1,7 +1,7 @@
 """
 WorkmAIn Intent Parser
 workmain/ai/intent_parser.py
-v1.0
+v1.1
 20260605
 
 Parses natural language input (Slack DM messages) into structured action JSON
@@ -15,6 +15,7 @@ Version History:
 - v1.0: Gate 2 Phase 13 Sprint 1 — initial implementation; system_prompt=None
         at runtime (Modelfile owns system); txt file loaded for fail-fast validation
         and source-of-truth reference only
+- v1.1: Gate 3 — wire ai_costs tracking for intent_parse interactions
 """
 
 import json
@@ -124,5 +125,23 @@ class IntentParser:
             raise IntentParseError(
                 f"Parsed JSON missing 'action' key: {result}"
             )
+
+        # Record cost — non-fatal; never interrupts parse result
+        try:
+            from workmain.database.connection import get_db
+            from workmain.database.repositories.ai_costs_repo import AiCostRepository
+            db = get_db()
+            session = db.get_session()
+            AiCostRepository(session).create(
+                interaction_type="intent_parse",
+                provider="ollama",
+                model=response.model,
+                prompt_tokens=response.prompt_tokens,
+                completion_tokens=response.completion_tokens,
+                cost_usd=0.0,
+            )
+            session.close()
+        except Exception as cost_err:
+            logger.warning("Cost tracking failed for intent parse: %s", cost_err)
 
         return result
