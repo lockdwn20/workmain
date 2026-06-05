@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.19.1] - 2026-06-05
+
+### Fixed
+- `workmain/ai/prompt_builder.py` v1.8 — `ai_instruction` per section now included in
+  the user prompt before each section's data block. The field was defined in every
+  template section (daily, weekly, monthly) but never read by the prompt builder.
+  Without it the AI had no per-section guidance and incorporated internal time entry
+  descriptions into the weekly client report regardless of note tag filtering. Fix is
+  one targeted insertion in `_build_user_prompt()`.
+
 ## [1.19.0] - 2026-06-05
 
 ### Added

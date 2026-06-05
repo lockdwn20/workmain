@@ -1,9 +1,14 @@
 """
 WorkmAIn Package Version
-Version v1.19.0
+Version v1.19.1
 20260605
 
 Version History:
+- v1.19.1: Hotfix weekly-report-ai-instruction — prompt_builder.py now includes
+           ai_instruction per section in the generated user prompt. The field was
+           defined in every template section but never read, so the AI received no
+           per-section guidance and incorporated internal time entry descriptions
+           into the weekly client report. prompt_builder.py → v1.8.
 - v1.19.0: Phase 13 Sprint 1 — Ollama Provider Activation. OllamaProvider fully
            implemented (generate, check_availability, _build_prompt); Mistral 7B
            on Proxmox via workmain-intent:latest Modelfile. intent_parser.py: natural
@@ -275,7 +280,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.19.0"
-__version_info__ = (1, 19, 0)
+__version__ = "1.19.1"
+__version_info__ = (1, 19, 1)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
