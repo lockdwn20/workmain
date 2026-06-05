@@ -1,7 +1,7 @@
 """
 WorkmAIn Note Condenser
-Note Condenser v2.0
-20260603
+Note Condenser v2.1
+20260605
 
 AI-powered condensation of meeting notes into one-line summaries for Clockify.
 
@@ -29,12 +29,13 @@ Version History:
         providers from PROVIDER_REGISTRY directly
 - v2.0: Hotfix — raise max_tokens 200→1024; Gemini 2.5 Flash uses thinking tokens from
         the max_output_tokens budget, leaving insufficient space for the visible response
+- v2.1: Gate 0 Phase 13 Sprint 1 (20260605) — replace broken _format_writing_style_context
+        with StyleAdapter.get_style_prompt("internal") for consistent voice
+        across condensation and reports
 """
 
-import json
 from typing import List, Optional
 from datetime import datetime
-from pathlib import Path
 
 from sqlalchemy.orm import Session
 
@@ -43,6 +44,7 @@ from workmain.ai.base_provider import GenerationRequest, ProviderType
 from workmain.ai.cost_tracker import get_cost_tracker
 from workmain.ai.provider_manager import get_provider_manager
 from workmain.database.repositories.ai_costs_repo import AiCostRepository
+from workmain.templates_engine import get_style_adapter
 
 
 class NoteCondenser:
@@ -65,28 +67,8 @@ class NoteCondenser:
         """
         self.session = session
         self.cost_tracker = get_cost_tracker()
-        self.writing_style = self._load_writing_style()
+        self.style_adapter = get_style_adapter()
         self.provider_manager = get_provider_manager()
-    
-    def _load_writing_style(self) -> dict:
-        """
-        Load writing style configuration.
-        
-        Returns:
-            dict: Writing style settings, or empty dict if file not found
-        """
-        style_path = Path("templates/style/writing_style.json")
-        
-        if not style_path.exists():
-            # Return empty style if file doesn't exist
-            return {}
-        
-        try:
-            with open(style_path, 'r') as f:
-                return json.load(f)
-        except Exception:
-            # If load fails, return empty dict (don't break condensation)
-            return {}
     
     def condense_meeting(
         self,
@@ -221,13 +203,11 @@ Date: {meeting.start_time.strftime('%Y-%m-%d')}
 Notes:
 {notes_text}"""
         
-        # Add writing style context if available
-        if self.writing_style:
-            style_context = self._format_writing_style_context()
-            prompt = f"""{style_context}
+        # Prepend writing style context via StyleAdapter
+        style_context = self.style_adapter.get_style_prompt("internal")
+        if style_context:
+            prompt = f"WRITING STYLE CONTEXT:\n{style_context}\n\n{prompt}"
 
-{prompt}"""
-        
         # Add requirements
         prompt += """
 
@@ -237,11 +217,8 @@ Requirements:
 3. Include key topics, decisions, or blockers
 4. Format: "<Meeting type>: <key points>"
 5. Do NOT include tags, formatting, or metadata
-6. Be specific and concrete"""
-        
-        # Add style matching requirement if we have style
-        if self.writing_style:
-            prompt += "\n7. Match the established writing style and voice shown above"
+6. Be specific and concrete
+7. Match the established writing style and voice shown above"""
         
         # Add examples
         prompt += """
@@ -254,37 +231,6 @@ Example formats:
 Condensed summary:"""
         
         return prompt
-    
-    def _format_writing_style_context(self) -> str:
-        """
-        Format writing style information for inclusion in prompt.
-        
-        Returns:
-            Formatted writing style context string
-        """
-        if not self.writing_style:
-            return ""
-        
-        context_parts = ["WRITING STYLE CONTEXT:"]
-        
-        # Add voice characteristics
-        if "voice_characteristics" in self.writing_style:
-            voice = ", ".join(self.writing_style["voice_characteristics"])
-            context_parts.append(f"Voice: {voice}")
-        
-        # Add tone
-        if "tone" in self.writing_style:
-            context_parts.append(f"Tone: {self.writing_style['tone']}")
-        
-        # Add example phrases (limit to 3 for brevity)
-        if "example_phrases" in self.writing_style:
-            examples = self.writing_style["example_phrases"][:3]
-            if examples:
-                context_parts.append("\nExample phrases in this style:")
-                for phrase in examples:
-                    context_parts.append(f"- {phrase}")
-        
-        return "\n".join(context_parts)
     
     def _get_system_prompt(self) -> str:
         """
