@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.19.2] - 2026-06-05
+
+### Fixed
+- `workmain/ai/prompt_builder.py` v1.9 — `_get_section_data` now respects the
+  `data_sources` field declared in each template section. Time entries and meetings
+  are only fetched when explicitly listed (e.g., weekly_client sections 2–5 declare
+  `["notes"]` only). Previously the v1.6 hotfix made ALL sources always fetched
+  regardless, causing untagged Clockify time entry descriptions to appear in timeline,
+  risks, and artifacts sections of the client report. For client-type reports
+  (`filter_client=True`), the Work Entries block header now carries an explicit
+  context-only instruction directing the AI to anchor on tagged notes rather than
+  deriving report content from time entry descriptions.
+
 ## [1.19.1] - 2026-06-05
 
 ### Fixed

@@ -1,6 +1,6 @@
 """
 WorkmAIn AI Prompt Builder
-Prompt Builder v1.8
+Prompt Builder v1.9
 20260605
 
 Dynamic prompt construction for AI report generation.
@@ -31,6 +31,11 @@ Version History:
 - v1.8: Hotfix weekly-report-ai-instruction — include ai_instruction per section in
         the user prompt; was defined in every template but never read, causing the
         weekly client report to ignore tag semantics and incorporate internal content
+- v1.9: Hotfix weekly-report-data-sources — _get_section_data now respects the
+        data_sources field declared in each template section; time entries and meetings
+        are only fetched when listed (e.g. only section 1 of weekly_client declares
+        time_entries); for client reports (filter_client=True) the Work Entries header
+        carries an explicit context-only note so the AI anchors on tagged notes
 
 Workflow:
 1. Load template structure
@@ -286,13 +291,21 @@ class PromptBuilder:
         tag_filter = section.get("tag_filter", {})
         tags_include = tag_filter.get("include", [])
         tags_exclude = tag_filter.get("exclude", [])
-        
+
+        # Respect data_sources declared in the template section. When absent or
+        # empty, default to all sources (backward compat). When explicitly declared,
+        # only fetch what is listed — prevents untagged time entries from leaking
+        # into client-facing sections that have no use for them.
+        data_sources = section.get("data_sources", [])
+        include_time_entries = ("time_entries" in data_sources) if data_sources else True
+        include_meetings = ("meetings" in data_sources) if data_sources else True
+
         parts = []
-        
+
         # Get date range for the section
         date_range = self._get_date_range(template, report_date)
         start_date, end_date = date_range
-        
+
         # Get notes
         notes = self._get_filtered_notes(
             start_date=start_date,
@@ -300,7 +313,7 @@ class PromptBuilder:
             tags_include=tags_include,
             tags_exclude=tags_exclude
         )
-        
+
         if notes:
             parts.append("### Notes:")
             for note in notes:
@@ -308,44 +321,54 @@ class PromptBuilder:
                 timestamp = note.get("created_at", "")
                 content = note.get("content", "")
                 parts.append(f"- {timestamp} {tags_str}: {content}")
-        
-        # Always include individual work entry descriptions so every section has full
-        # context — critical for backdated reports where notes may have the wrong
-        # created_date but time entries always filter by entry_date correctly.
-        time_entries = self._get_time_entries(start_date, end_date)
-        if time_entries:
-            parts.append("\n### Work Entries:")
-            for entry in time_entries:
-                time_str = entry.get("start_time") or ""
-                hours = entry.get("duration_hours", 0)
-                desc = entry.get("description") or ""
-                parts.append(f"- {time_str} ({hours}h): {desc}")
 
-        # Project-level time tracking summary only for time_tracking/summary sections
-        if section_type in ["time_tracking", "summary"] and time_entries:
-            parts.append("\n### Time Tracking Summary:")
-            total_hours = sum(e.get("duration_hours", 0) for e in time_entries)
-            parts.append(f"Total time logged: {total_hours:.2f} hours")
+        # Fetch time entries only when the section declares "time_entries" in
+        # data_sources. Individual descriptions provide context for backdated
+        # reports where entry_date is reliable but note created_date may not be.
+        if include_time_entries:
+            time_entries = self._get_time_entries(start_date, end_date)
+            if time_entries:
+                if self._filter_client:
+                    parts.append(
+                        "\n### Work Entries (time allocation context only — "
+                        "use the tagged notes above as the authoritative source "
+                        "for client-facing content; do not derive report items "
+                        "from time entry descriptions alone):"
+                    )
+                else:
+                    parts.append("\n### Work Entries:")
+                for entry in time_entries:
+                    time_str = entry.get("start_time") or ""
+                    hours = entry.get("duration_hours", 0)
+                    desc = entry.get("description") or ""
+                    parts.append(f"- {time_str} ({hours}h): {desc}")
 
-            by_project: Dict[str, float] = {}
-            for entry in time_entries:
-                project = entry.get("project_name") or "General"
-                by_project[project] = by_project.get(project, 0) + entry.get("duration_hours", 0)
+                # Project-level time tracking summary only for time_tracking/summary sections
+                if section_type in ["time_tracking", "summary"]:
+                    parts.append("\n### Time Tracking Summary:")
+                    total_hours = sum(e.get("duration_hours", 0) for e in time_entries)
+                    parts.append(f"Total time logged: {total_hours:.2f} hours")
 
-            parts.append("\nBy project:")
-            for project, hours in sorted(by_project.items()):
-                parts.append(f"- {project}: {hours:.2f} hours")
-        
-        # Get meetings
-        meetings = self._get_meetings(start_date, end_date)
-        if meetings:
-            parts.append("\n### Meetings:")
-            for meeting in meetings:
-                time_str = meeting.get("start_time", "")
-                title = meeting.get("title", "Untitled")
-                attendees = meeting.get("attendees", 0)
-                parts.append(f"- {time_str} - {title} ({attendees} attendees)")
-        
+                    by_project: Dict[str, float] = {}
+                    for entry in time_entries:
+                        project = entry.get("project_name") or "General"
+                        by_project[project] = by_project.get(project, 0) + entry.get("duration_hours", 0)
+
+                    parts.append("\nBy project:")
+                    for project, hours in sorted(by_project.items()):
+                        parts.append(f"- {project}: {hours:.2f} hours")
+
+        # Fetch meetings only when the section declares "meetings" in data_sources.
+        if include_meetings:
+            meetings = self._get_meetings(start_date, end_date)
+            if meetings:
+                parts.append("\n### Meetings:")
+                for meeting in meetings:
+                    time_str = meeting.get("start_time", "")
+                    title = meeting.get("title", "Untitled")
+                    attendees = meeting.get("attendees", 0)
+                    parts.append(f"- {time_str} - {title} ({attendees} attendees)")
+
         return "\n".join(parts) if parts else "No data available for this section."
     
     def _get_date_range(
