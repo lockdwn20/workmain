@@ -20,7 +20,7 @@
     },
     "gemini": {
       "enabled": true,
-      "model": "gemini-3.5-flash",
+      "model": "gemini-3.1-flash-lite",
       "api_key_env": "GOOGLE_API_KEY",
       "default_max_tokens": 8192,
       "default_temperature": 0.7,
@@ -31,14 +31,14 @@
       "timeout_seconds": 60,
       "retry_attempts": 3,
       "retry_delay_seconds": 1.0,
-      "notes": "Gemini 3.5 Flash - $1.5/MTok input, $9/MTok output"
+      "notes": "Gemini 3.1 Flash Lite - $1.5/MTok input, $9/MTok output"
     },
     "ollama": {
       "enabled": true,
-      "model": "mistral:latest",
+      "model": "workmain-intent:latest",
       "host": "workmain-ollama.lab.haloschaos.com",
       "port": 11434,
-      "timeout": 30,
+      "timeout": 120,
       "cost_structure": "Local \u2014 no API cost"
     }
   },

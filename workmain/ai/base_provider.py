@@ -20,7 +20,8 @@ Version History:
         ProviderConfig dataclass; add test_connection() default method;
         remove ProviderConfig-tied properties (model, provider_type, is_enabled)
         so subclasses can set self.model = config.get('model', fallback) directly
-- v1.2: Gate 1 Phase 13 Sprint 1 — remove ProviderConfig dead code (Item 36)
+- v1.2: Gate 1 Phase 13 Sprint 1 — remove ProviderConfig dead code (Item 36);
+        add generation_options: Optional[Dict[str, Any]] = None to GenerationRequest
 """
 
 from abc import ABC, abstractmethod
@@ -61,6 +62,11 @@ class GenerationRequest:
     temperature: float = 0.7
     system_prompt: Optional[str] = None
     context: Optional[Dict[str, Any]] = None
+    generation_options: Optional[Dict[str, Any]] = None
+    # Passed through to OllamaProvider options dict when set.
+    # Claude/Gemini providers ignore this field.
+    # For workmain-intent:latest, leave None — Modelfile owns all generation params.
+    # Only set if you need to override a specific parameter per-request.
 
 
 @dataclass

@@ -1,6 +1,6 @@
 """
 WorkmAIn AI Ollama Provider
-Ollama Provider v1.1
+Ollama Provider v1.2
 20260605
 
 Ollama local inference provider — Mistral 7B on Proxmox via REST API.
@@ -10,6 +10,8 @@ Version History:
         config so ProviderManager never instantiates until Phase 13-1
 - v1.1: Gate 1 Phase 13 Sprint 1 — implement generate(), check_availability(),
         _build_prompt(); real HTTP calls replacing NotImplementedError stubs
+- v1.2: Gate 2 Phase 13 Sprint 1 — generate() sends only num_predict per-request;
+        Modelfile owns temperature/top_p/top_k/repeat_penalty; timeout default 120s
 """
 
 import json
@@ -34,7 +36,7 @@ class OllamaProvider(BaseProvider):
         self._host = config.get("host", "localhost")
         self._port = config.get("port", 11434)
         self._model = config.get("model", "mistral")
-        self._timeout = config.get("timeout", 30)
+        self._timeout = config.get("timeout", 120)
 
     def check_availability(self) -> ProviderStatus:
         """GET /api/tags and confirm configured model is listed."""
@@ -57,14 +59,18 @@ class OllamaProvider(BaseProvider):
                 f"Ollama ({self._model}) unreachable at {self._host}:{self._port}"
             )
 
+        # The workmain-intent Modelfile owns temperature, top_p, top_k, repeat_penalty.
+        # Only num_predict (max_tokens) is sent per-request — it can legitimately vary
+        # by call type. generation_options is reserved for explicit per-request overrides.
+        options = {"num_predict": request.max_tokens or 512}
+        if request.generation_options:
+            options.update(request.generation_options)
+
         payload = {
             "model": self._model,
             "prompt": self._build_prompt(request),
             "stream": False,
-            "options": {
-                "temperature": request.temperature or 0.3,
-                "num_predict": request.max_tokens or 512,
-            },
+            "options": options,
         }
 
         try:
