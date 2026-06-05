@@ -1,7 +1,7 @@
 """
 WorkmAIn AI Prompt Builder
-Prompt Builder v1.7
-20260512
+Prompt Builder v1.8
+20260605
 
 Dynamic prompt construction for AI report generation.
 
@@ -28,6 +28,9 @@ Version History:
         summary still gated; fixes backdated reports missing non-meeting work entries
 - v1.7: Phase 11 Gate 6 — build_prompt() accepts filter_client and client_id;
         stores on instance; private data-fetch methods use get_for_date_client()
+- v1.8: Hotfix weekly-report-ai-instruction — include ai_instruction per section in
+        the user prompt; was defined in every template but never read, causing the
+        weekly client report to ignore tag semantics and incorporate internal content
 
 Workflow:
 1. Load template structure
@@ -235,9 +238,13 @@ class PromptBuilder:
                 report_date=report_date,
                 template=template
             )
-            
+
             if section_data:
                 parts.append(f"## {section.get('title', 'Section')}")
+                ai_instruction = section.get("ai_instruction", "")
+                if ai_instruction:
+                    parts.append(f"**Instruction:** {ai_instruction}")
+                    parts.append("")
                 parts.append(section_data)
                 parts.append("")
         
