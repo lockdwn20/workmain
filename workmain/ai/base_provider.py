@@ -1,7 +1,7 @@
 """
 WorkmAIn AI Base Provider
-Base Provider v1.1
-20260603
+Base Provider v1.2
+20260605
 
 Abstract base class for AI provider implementations.
 Defines standard interface for Claude, Gemini, Ollama, and future providers.
@@ -20,6 +20,7 @@ Version History:
         ProviderConfig dataclass; add test_connection() default method;
         remove ProviderConfig-tied properties (model, provider_type, is_enabled)
         so subclasses can set self.model = config.get('model', fallback) directly
+- v1.2: Gate 1 Phase 13 Sprint 1 — remove ProviderConfig dead code (Item 36)
 """
 
 from abc import ABC, abstractmethod
@@ -85,43 +86,6 @@ class GenerationResponse:
     completion_tokens: int
     cost: float
     metadata: Optional[Dict[str, Any]] = None
-
-
-# TODO (v1.18.0 Provider Foundation Sprint): ProviderConfig is unused.
-# claude_client.py and gemini_client.py (its only consumers) were deleted.
-# Remove this class when base_provider.py is next modified.
-# Tracked: FEATURE_BACKLOG Item 36.
-@dataclass
-class ProviderConfig:
-    """
-    Configuration for an AI provider.
-
-    Attributes:
-        provider_type: Type of provider (claude/gemini)
-        api_key: API key (loaded from environment)
-        model: Model name to use
-        enabled: Whether provider is enabled
-        default_max_tokens: Default max tokens
-        default_temperature: Default temperature
-        cost_per_1k_prompt: Cost per 1k prompt tokens (USD)
-        cost_per_1k_completion: Cost per 1k completion tokens (USD)
-        rate_limit_rpm: Rate limit (requests per minute)
-        timeout: Request timeout in seconds
-        retry_attempts: Number of retry attempts
-        retry_delay: Delay between retries in seconds
-    """
-    provider_type: ProviderType
-    api_key: str
-    model: str
-    enabled: bool = True
-    default_max_tokens: int = 4096
-    default_temperature: float = 0.7
-    cost_per_1k_prompt: float = 0.0
-    cost_per_1k_completion: float = 0.0
-    rate_limit_rpm: int = 60
-    timeout: int = 60
-    retry_attempts: int = 3
-    retry_delay: float = 1.0
 
 
 class BaseProvider(ABC):

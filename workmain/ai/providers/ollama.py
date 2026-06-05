@@ -1,23 +1,20 @@
 """
-WorkmAIn AI Ollama Provider — Phase 13-1 Stub
-Ollama Provider v1.0
-20260603
+WorkmAIn AI Ollama Provider
+Ollama Provider v1.1
+20260605
 
-ABC-compliant placeholder. All abstract methods present; generate() raises
-ProviderUnavailableError until Phase 13-1 implements the body.
-
-Phase 13-1 activation checklist:
-  1. Set enabled: true in config/ai_settings.json providers.ollama
-  2. Set host/port to your Proxmox Ollama instance
-  3. Implement generate() body — Ollama REST API: POST host:port/api/generate
-  4. Implement check_availability() health check (GET host:port/api/tags)
-  5. Extend ai_costs CHECK constraint: add 'intent_parse' to valid types
-  6. Update ProviderType usage where intent_parse costs are written
+Ollama local inference provider — Mistral 7B on Proxmox via REST API.
 
 Version History:
 - v1.0: Provider Foundation Sprint — ABC-compliant stub; enabled: false in
         config so ProviderManager never instantiates until Phase 13-1
+- v1.1: Gate 1 Phase 13 Sprint 1 — implement generate(), check_availability(),
+        _build_prompt(); real HTTP calls replacing NotImplementedError stubs
 """
+
+import json
+import urllib.request
+import urllib.error
 
 from workmain.ai.base_provider import (
     BaseProvider,
@@ -30,44 +27,89 @@ from workmain.ai.base_provider import (
 
 
 class OllamaProvider(BaseProvider):
-    """Ollama local inference provider. Phase 13-1 stub."""
+    """Ollama local inference provider — wraps POST /api/generate."""
 
     def __init__(self, config: dict):
         super().__init__(config)
-        self.model = config.get('model', 'mistral-7b')
-        self.host = config.get('host', 'localhost')
-        self.port = config.get('port', 11434)
-        self._base_url = f"http://{self.host}:{self.port}"
+        self._host = config.get("host", "localhost")
+        self._port = config.get("port", 11434)
+        self._model = config.get("model", "mistral")
+        self._timeout = config.get("timeout", 30)
 
-    # --- Abstract method stubs (signatures from Gate 0 base_provider.py audit) ---
+    def check_availability(self) -> ProviderStatus:
+        """GET /api/tags and confirm configured model is listed."""
+        try:
+            url = f"http://{self._host}:{self._port}/api/tags"
+            resp = urllib.request.urlopen(url, timeout=self._timeout)
+            data = json.loads(resp.read())
+            available = [m["name"] for m in data.get("models", [])]
+            model_base = self._model.split(":")[0]
+            if any(m.split(":")[0] == model_base for m in available):
+                return ProviderStatus.AVAILABLE
+            return ProviderStatus.UNAVAILABLE
+        except Exception:
+            return ProviderStatus.UNAVAILABLE
 
     def generate(self, request: GenerationRequest) -> GenerationResponse:
-        """Phase 13-1 implements this. Raises until then."""
-        raise ProviderUnavailableError(
-            "Ollama provider is not yet implemented. "
-            "Full implementation arrives in Phase 13-1. "
-            "See Phase 13-1 activation checklist in this file's docstring."
-        )
+        """POST /api/generate with stream=false."""
+        if self.check_availability() != ProviderStatus.AVAILABLE:
+            raise ProviderUnavailableError(
+                f"Ollama ({self._model}) unreachable at {self._host}:{self._port}"
+            )
+
+        payload = {
+            "model": self._model,
+            "prompt": self._build_prompt(request),
+            "stream": False,
+            "options": {
+                "temperature": request.temperature or 0.3,
+                "num_predict": request.max_tokens or 512,
+            },
+        }
+
+        try:
+            data = json.dumps(payload).encode("utf-8")
+            req = urllib.request.Request(
+                f"http://{self._host}:{self._port}/api/generate",
+                data=data,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            resp = urllib.request.urlopen(req, timeout=self._timeout)
+            result = json.loads(resp.read())
+            response_text = result.get("response", "").strip()
+            prompt_tokens = result.get("prompt_eval_count", 0)
+            completion_tokens = result.get("eval_count", 0)
+
+            return GenerationResponse(
+                content=response_text,
+                provider=ProviderType.OLLAMA,
+                model=self._model,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                tokens_used=prompt_tokens + completion_tokens,
+                cost=0.0,
+            )
+        except urllib.error.URLError as e:
+            raise ProviderUnavailableError(f"Ollama request failed: {e}") from e
+
+    def _build_prompt(self, request: GenerationRequest) -> str:
+        """Format prompt in Mistral [INST] instruction format."""
+        if request.system_prompt:
+            return f"[INST] {request.system_prompt}\n\n{request.prompt} [/INST]"
+        return f"[INST] {request.prompt} [/INST]"
 
     def estimate_cost(self, prompt_tokens: int, completion_tokens: int) -> float:
-        """Ollama is local — no API cost."""
+        """Local model — no API cost."""
         return 0.0
 
     def validate_config(self) -> bool:
         """Returns True if host and port are configured."""
-        return bool(self.host and self.port)
+        return bool(self._host and self._port)
 
     def count_tokens(self, text: str) -> int:
-        """Approximate token count until Phase 13-1 wires Ollama tokenizer."""
+        """Approximate token count (word-based heuristic)."""
         return len(text.split())
-
-    def check_availability(self) -> ProviderStatus:
-        """Phase 13-1 implements GET host:port/api/tags health check."""
-        return ProviderStatus.UNAVAILABLE
-
-    def test_connection(self) -> bool:
-        """Phase 13-1 implements real check. Returns False until then."""
-        return False
 
     @property
     def name(self) -> str:

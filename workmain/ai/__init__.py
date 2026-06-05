@@ -1,7 +1,7 @@
 """
 WorkmAIn AI Package
-AI Package v1.4
-20260603
+AI Package v1.5
+20260605
 
 AI provider integration for report generation.
 
@@ -21,13 +21,13 @@ Version History:
 - v1.4: Provider Foundation Sprint — remove get_claude_client/get_gemini_client exports
         (claude_client.py and gemini_client.py deleted); add providers/ subpackage
         re-exports; add ProviderUnavailableError export
+- v1.5: Gate 1 Phase 13 Sprint 1 — remove ProviderConfig re-export (Item 36)
 """
 
 from workmain.ai.base_provider import (
     BaseProvider,
     ProviderType,
     ProviderStatus,
-    ProviderConfig,
     GenerationRequest,
     GenerationResponse,
     ProviderError,
@@ -75,7 +75,6 @@ __all__ = [
     'BaseProvider',
     'ProviderType',
     'ProviderStatus',
-    'ProviderConfig',
     'GenerationRequest',
     'GenerationResponse',
     'ProviderError',
@@ -113,4 +112,4 @@ __all__ = [
     'ReportFormat',
 ]
 
-__version__ = '1.4'
+__version__ = '1.5'
