@@ -1,0 +1,22 @@
+{
+  "_doc": {
+    "name": "WorkmAIn Intent Parse — Generation Config",
+    "description": "Generation parameters for Mistral 7B intent parsing via Ollama. Controls max_tokens only at runtime — temperature/top_p/top_k/repeat_penalty are baked into the Modelfile and listed here as the editable reference for rebuilds.",
+    "system_prompt_source": "config/intent_parse_system_prompt.txt",
+    "ollama_model": "workmain-intent:latest",
+    "ollama_host": "workmain-ollama.lab.haloschaos.com:11434",
+    "config_version": "1.1",
+    "config_updated": "20260605",
+    "model_built": "",
+    "notes": "After editing generation_options, update Modelfile PARAMETER blocks to match, rebuild model via build_workmain_intent.sh, then set model_built to today's date."
+  },
+  "system_prompt_file": "config/intent_parse_system_prompt.txt",
+  "max_tokens": 256,
+  "generation_options": {
+    "_comment": "Reference only — runtime source of truth is Modelfile PARAMETER blocks. Edit here first, then sync to Modelfile and rebuild.",
+    "temperature": 0.4,
+    "top_p": 0.9,
+    "top_k": 40,
+    "repeat_penalty": 1.1
+  }
+}

@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v5.14
-20260603
+Feature Backlog v5.15
+20260605
 
 # WorkmAIn Feature Backlog
 
@@ -38,6 +38,9 @@ Items deferred from various phases for future implementation.
   Item 36 row added to register.
 - v5.14 (20260603): Summary Statistics fully corrected — Item 13 (v1.17.0) and Items 10, 11, 35
   (v1.18.0) reflected; Item 36 added to Open/Low/Phase 15; counts and effort total updated.
+- v5.15 (20260605): Phase 13 Sprint 1 (v1.19.0) — Item 36 marked COMPLETE; Item 19 status updated
+  (CPU path delivered, GPU deferred); Items 37 and 38 added (Modelfile tuning workflow, Ollama
+  warm-up ping as Sprint 2 Gate 0 prerequisite); register and statistics updated.
 
 ---
 
@@ -120,42 +123,45 @@ Build first, refactor later. See the complete picture before abstracting.
 | 33 | correction_note Field Population | Low | Phase 13 | ~2 hrs | |
 | 34 | Weekly Report Prompt — Confirmed Daily Summaries as Context | Medium | Phase 13 | ~3–4 hrs | |
 | 35 | AI Model Config-Driven Selection | Medium | Phase 14 | ~2–3 hrs | ✓ |
-| 36 | ProviderConfig Dead Code Cleanup | Low | next base_provider.py mod | ~15 min | |
+| 36 | ProviderConfig Dead Code Cleanup | Low | next base_provider.py mod | ~15 min | ✓ |
+| 37 | Ollama Modelfile Tuning Workflow | Low | Sprint 2/3 maintenance | ~30 min/rebuild | |
+| 38 | Ollama Warm-Up Ping on Bot Startup | Medium | Sprint 2 Gate 0 | ~30 min | |
 
 ---
 
 ## Summary Statistics
 
-**Total Items:** 36 (Item 22 is a redirect — no separate deferred work; see Item 20)
-**Completed:** 11 (Items 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 35)
-**Open:** 24
+**Total Items:** 38 (Item 22 is a redirect — no separate deferred work; see Item 20)
+**Completed:** 12 (Items 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 35, 36)
+**Open:** 25
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Open (targeted) | 20 | 1, 2, 3, 4, 7, 8, 12, 14, 15, 16, 19, 23, 28, 29, 30, 31, 32, 33, 34, 36 |
+| Open (targeted) | 21 | 1, 2, 3, 4, 7, 8, 12, 14, 15, 16, 19, 23, 28, 29, 30, 31, 32, 33, 34, 37, 38 |
 | Conditional | 1 | 9 |
 | Indefinitely | 3 | 5, 6, 21 |
-| Complete | 11 | 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 35 |
+| Complete | 12 | 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 35, 36 |
 | Redirect | 1 | 22 → Item 20 |
 
 | Priority | Count | Items |
 |----------|-------|-------|
 | High | 0 | — |
-| Medium | 9 | 2, 3, 7, 10, 14, 15, 23, 34, 35 |
-| Low | 18 | 1, 4, 5, 6, 8, 11, 12, 13, 16, 19, 21, 28, 29, 30, 31, 32, 33, 36 |
+| Medium | 10 | 2, 3, 7, 10, 14, 15, 23, 34, 35, 38 |
+| Low | 19 | 1, 4, 5, 6, 8, 11, 12, 13, 16, 19, 21, 28, 29, 30, 31, 32, 33, 36, 37 |
 | Conditional | 1 | 9 |
 
 | Target Phase | Items |
 |-------------|-------|
 | Phase 11+ | 4, 28 |
-| Phase 13 | 19, 32, 33, 34 |
-| Phase 14 | 31, 35 |
-| Phase 15 | 1, 2, 3, 7, 8, 10, 12, 13, 14, 15, 16, 23, 29, 36 |
+| Phase 13 | 32, 33, 34 |
+| Phase 14+ | 19, 31 |
+| Phase 15 | 1, 2, 3, 7, 8, 10, 12, 13, 14, 15, 16, 23, 29 |
 | Phase 18 | 30 |
+| Sprint 2/3 | 37, 38 |
 | Conditional | 9 |
 | Indefinitely | 5, 6, 11, 21 |
 
-**Total Deferred Effort (open items):** ~75–76 hours
+**Total Deferred Effort (open items):** ~76–78 hours
 
 ---
 
@@ -579,14 +585,16 @@ Day-aware EOD pipeline: Thursday adds `slack post weekly` (step 7/8); Friday add
 
 #### Item 19 — Ollama / Mistral 7B GPU Offloading
 
-**Status:** Open — Deferred to Phase 13 polish pass
+**Status:** Open — Deferred to Phase 14+ (CPU path delivered in Phase 13 Sprint 1, v1.19.0)
 **Priority:** Low (performance enhancement — not blocking)
 **Effort:** ~2–3 hours
 **Added:** 20260421
-**Target Phase:** Phase 13 polish pass (after primary CPU path is validated)
+**Target Phase:** Phase 14+
 
 **Description:**
-Phase 13 deploys Mistral 7B on the Proxmox server (i9-12950HX) via Ollama for CPU-only intent parsing. Estimated latency: ~4–7 seconds per parse. Acceptable for Phase 13 use.
+Phase 13 Sprint 1 delivered the CPU path — Mistral 7B (Q4_K_M) running on Proxmox
+(i9-12950HX) via workmain-intent:latest. Warm latency: ~7–11s per parse. Acceptable
+for Sprint 2/3 use given the 10s Slack polling interval.
 
 The Alienware M18R2 (RTX 4070 laptop GPU) is available on the home network and can serve as an optional GPU inference host when online, reducing parse latency to ~60–80 tok/s.
 
@@ -1071,7 +1079,7 @@ config-only — no Python edits needed. Verified end-to-end: setting
 
 #### Item 36 — ProviderConfig Dead Code Cleanup
 
-**Status:** Open — Deferred (low priority)
+**Status:** ✓ COMPLETE — v1.19.0 (Phase 13 Sprint 1 Gate 1, 20260605)
 **Priority:** Low
 **Effort:** ~15 min
 **Added:** 20260603
@@ -1088,10 +1096,76 @@ No functional impact. Remove when `base_provider.py` is next modified to avoid
 a dedicated one-line-removal commit.
 
 **Acceptance Criteria:**
-- [ ] `ProviderConfig` class removed from `base_provider.py`
-- [ ] `ProviderConfig` removed from `workmain/ai/__init__.py` exports and `__all__`
-- [ ] `grep -rn "ProviderConfig" workmain/` returns empty (no remaining imports)
+- [x] `ProviderConfig` class removed from `base_provider.py`
+- [x] `ProviderConfig` removed from `workmain/ai/__init__.py` exports and `__all__`
+- [x] `grep -rn "ProviderConfig" workmain/` returns empty (no remaining imports)
 
 **Files Affected:**
 - `workmain/ai/base_provider.py`
+
+---
+
+#### Item 37 — Ollama Modelfile Tuning Workflow
+
+**Status:** Open — ongoing Sprint 2/3 maintenance
+**Priority:** Low
+**Effort:** ~30 min per rebuild
+**Added:** 20260605
+**Target Phase:** Sprint 2/3 maintenance
+
+**Description:**
+workmain-intent:latest Modelfile delivered in Phase 13 Sprint 1. As the action
+vocabulary grows in Sprint 2 and 3 (new action types, refined examples, tuned
+generation parameters), the Modelfile must be rebuilt after each schema update.
+
+Long-term: consider fine-tuning on actual WorkmAIn usage data once sufficient
+real interaction logs are accumulated (post-Sprint 2 go-live). Fine-tuning on
+real inputs would significantly improve multi-tag inference (currently limited
+by 7B model size) and domain-specific phrasing recognition.
+
+**Why Deferred:**
+Requires real usage data from Sprint 2+ to have value. Fine-tuning on synthetic
+examples would not improve on the current prompt-engineered approach.
+
+**Acceptance Criteria:**
+- [ ] Rebuild Modelfile after each Sprint 2/3 action schema change
+- [ ] `config/intent_parse_system_prompt.txt` versioning header kept in sync
+- [ ] `config_version` incremented and `model_built` date updated on each rebuild
+- [ ] Evaluate fine-tuning feasibility after 30 days of production usage
+
+**Files Affected:**
+- `config/intent_parse_system_prompt.txt`
+- `config/intent_parse_prompt.json`
+- `ollama-lxc/models/workmain-intent/Modelfile` (IaC repo)
+
+---
+
+#### Item 38 — Ollama Warm-Up Ping on Bot Startup
+
+**Status:** Open — Sprint 2 Gate 0 prerequisite
+**Priority:** Medium (UX — cold start is 55–72s, unacceptable for first Slack message)
+**Effort:** ~30 min
+**Added:** 20260605
+**Target Phase:** Sprint 2 Gate 0
+
+**Description:**
+Observed in Phase 13 Sprint 1 benchmark: first request after model idle takes
+55–72s (Ollama loading workmain-intent:latest from storage into RAM). Subsequent
+warm requests complete in 7–11s. With a 10s Slack polling interval, the first
+message after a container restart would appear to hang for over a minute.
+
+Sprint 2 Slack bot startup should send a no-op generate request (e.g. a single
+token `[INST] ping [/INST]`) to pre-warm the model before the bot begins polling.
+This eliminates the cold-start penalty in normal operation.
+
+**Why Deferred:**
+No Slack bot in Sprint 1. Sprint 2 is where the bot starts up and polls.
+
+**Acceptance Criteria:**
+- [ ] Bot startup sequence sends warm-up ping to workmain-intent:latest before poll loop
+- [ ] Warm-up ping is logged but not cost-tracked (no meaningful token count)
+- [ ] Cold-start latency after bot restart is ≤ 15s for first real user message
+
+**Files Affected:**
+- Sprint 2 Slack bot startup module (TBD)
 - `workmain/ai/__init__.py`

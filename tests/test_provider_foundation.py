@@ -1,7 +1,7 @@
 """
 WorkmAIn Provider Foundation Tests
-test_provider_foundation.py v1.0
-20260603
+test_provider_foundation.py v1.1
+20260605
 
 Tests for the Provider Foundation Sprint deliverables:
 - PROVIDER_REGISTRY structure and subclass contract
@@ -14,6 +14,9 @@ Tests for the Provider Foundation Sprint deliverables:
 
 Version History:
 - v1.0: Provider Foundation Sprint — initial suite
+- v1.1: Gate 1 Phase 13 Sprint 1 — update OllamaProvider stub tests to reflect
+        real implementation (localhost:11434 refuses → UNAVAILABLE, same observable
+        behaviour but now via real HTTP path, not hardcoded returns)
 """
 
 import json
@@ -103,7 +106,7 @@ def test_base_provider_test_connection_returns_true_when_available():
 
 
 # ---------------------------------------------------------------------------
-# OllamaProvider stub tests
+# OllamaProvider tests
 # ---------------------------------------------------------------------------
 
 def test_ollama_provider_instantiates_without_type_error():
@@ -113,8 +116,9 @@ def test_ollama_provider_instantiates_without_type_error():
 
 
 def test_ollama_provider_generate_raises_unavailable():
-    """OllamaProvider.generate() raises ProviderUnavailableError."""
+    """OllamaProvider.generate() raises ProviderUnavailableError when host unreachable."""
     from workmain.ai.base_provider import GenerationRequest
+    # localhost:11434 not running → check_availability() returns UNAVAILABLE → raises
     p = OllamaProvider({'model': 'mistral-7b', 'host': 'localhost', 'port': 11434})
     request = GenerationRequest(prompt="test")
     try:
@@ -125,7 +129,8 @@ def test_ollama_provider_generate_raises_unavailable():
 
 
 def test_ollama_provider_test_connection_returns_false():
-    """OllamaProvider.test_connection() returns False until Phase 13-1."""
+    """OllamaProvider.test_connection() returns False when host unreachable."""
+    # localhost:11434 not running → check_availability() returns UNAVAILABLE → False
     p = OllamaProvider({'model': 'mistral-7b', 'host': 'localhost', 'port': 11434})
     assert p.test_connection() is False
 
@@ -143,7 +148,8 @@ def test_ollama_provider_validate_config_true_when_host_and_port_set():
 
 
 def test_ollama_provider_check_availability_returns_unavailable():
-    """OllamaProvider.check_availability() returns ProviderStatus.UNAVAILABLE."""
+    """OllamaProvider.check_availability() returns UNAVAILABLE when host unreachable."""
+    # localhost:11434 not running → URLError → returns ProviderStatus.UNAVAILABLE
     p = OllamaProvider({'model': 'mistral-7b', 'host': 'localhost', 'port': 11434})
     assert p.check_availability() == ProviderStatus.UNAVAILABLE
 

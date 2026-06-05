@@ -1,7 +1,7 @@
 """
 WorkmAIn Database Models
-Database Models v2.5
-20260528
+Database Models v2.6
+20260605
 
 SQLAlchemy ORM models for WorkmAIn database.
 Models: Note, TimeEntry, Meeting, Project, Report, Recipient, ReportRecipient,
@@ -34,6 +34,8 @@ Version History:
         ON DELETE CASCADE handles task_status rows when a note is deleted
 - v2.5: Cost tracking sprint — added AiCost model; fixed datetime.utcnow → datetime.now(timezone.utc)
         on GDriveUpload.created_at (Item 13)
+- v2.6: Gate 1 Phase 13 Sprint 1 — extend AiCost interaction_type CHECK for 'intent_parse'
+        (migration 018)
 """
 
 from datetime import datetime, date, time
@@ -439,12 +441,12 @@ class AiCost(Base):
 
     One row per API interaction. Only one FK (report_id or meeting_id) is
     populated per row depending on the interaction type.
-    Phase 13-1 extends interaction_type to include 'intent_parse'.
+    interaction_type values: 'report', 'condensation', 'intent_parse'.
     """
     __tablename__ = 'ai_costs'
     __table_args__ = (
         CheckConstraint(
-            "interaction_type IN ('report', 'condensation')",
+            "interaction_type IN ('report', 'condensation', 'intent_parse')",
             name='ai_costs_interaction_type_check'
         ),
     )
