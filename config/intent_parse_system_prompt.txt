@@ -1,9 +1,9 @@
 # ============================================================
 # WorkmAIn Intent Parse — System Prompt
 # ============================================================
-# config_version:    1.0
+# config_version:    1.1
 # config_updated:    20260605
-# ollama_model:      workmain-intent-1
+# ollama_model:      workmain-intent:v1.1
 # ollama_host:       workmain-ollama.lab.haloschaos.com:11434
 # model_built:       (set this when build_workmain_intent.sh is run)
 #
