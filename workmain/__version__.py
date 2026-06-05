@@ -1,9 +1,24 @@
 """
 WorkmAIn Package Version
-Version v1.18.3
-20260604
+Version v1.19.0
+20260605
 
 Version History:
+- v1.19.0: Phase 13 Sprint 1 — Ollama Provider Activation. OllamaProvider fully
+           implemented (generate, check_availability, _build_prompt); Mistral 7B
+           on Proxmox via workmain-intent:latest Modelfile. intent_parser.py: natural
+           language → structured JSON action dict via Ollama; benchmark-validated
+           9/10 against 10 sample inputs. config/intent_parse_system_prompt.txt:
+           human-readable system prompt (source of truth for Modelfile SYSTEM block).
+           config/intent_parse_prompt.json: generation parameters only (max_tokens;
+           temperature/top_p/top_k/repeat_penalty baked into Modelfile). Migration 018:
+           ai_costs interaction_type CHECK extended for 'intent_parse'. GenerationRequest
+           gains generation_options: Optional[Dict[str, Any]] = None.
+           Gate 0 fix: note_condenser.py v2.1 — broken _format_writing_style_context
+           replaced with StyleAdapter for consistent AI voice. Item 36 closed:
+           ProviderConfig dead code removed from base_provider.py.
+           New tests: test_ollama_provider.py (10), test_intent_parser.py (12).
+           Suite: 501 passed.
 - v1.18.3: Hotfix weekly-report-review — Friday EOD Step 7 now has the same
            interactive review menu as the daily report step: pre-check skips
            regeneration if already confirmed/corrected; --date passed to subprocess
@@ -260,7 +275,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.18.3"
-__version_info__ = (1, 18, 3)
+__version__ = "1.19.0"
+__version_info__ = (1, 19, 0)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"

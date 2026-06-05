@@ -1,7 +1,7 @@
 """
 WorkmAIn AI Clients Tests
-Client Tests v1.3
-20260603
+Client Tests v1.4
+20260605
 
 Tests for AI provider implementations:
 - ClaudeProvider (Anthropic)
@@ -19,6 +19,9 @@ Version History:
         gemini_client -> providers.gemini; remove register_provider() / reset_* calls;
         remove provider_type / is_enabled assertions (properties removed from BaseProvider);
         test_integrated_generation uses ProviderManager() which auto-instantiates from registry
+- v1.4: Gate 4 Phase 13 Sprint 1 — _make_gemini_config() reads model from
+        ai_settings.json instead of hardcoding gemini-2.5-flash; test always
+        validates the configured model, not a stale hardcode
 
 Note: These tests make real API calls and will consume tokens.
 Set SKIP_API_TESTS=1 to skip real API tests.
@@ -51,27 +54,36 @@ from workmain.ai.cost_tracker import CostTracker
 SKIP_API_TESTS = os.getenv('SKIP_API_TESTS', '0') == '1'
 
 
+def _load_ai_settings() -> dict:
+    """Load ai_settings.json provider configs."""
+    import json
+    with open('config/ai_settings.json', 'r') as f:
+        return json.load(f)['providers']
+
+
 def _make_claude_config():
-    """Build minimal Claude config dict from environment."""
+    """Build Claude config dict from ai_settings.json."""
+    cfg = _load_ai_settings()['claude']
     return {
-        'model': 'claude-sonnet-4-5-20250929',
-        'api_key_env': 'ANTHROPIC_API_KEY',
-        'retry_attempts': 3,
-        'retry_delay_seconds': 1.0,
-        'cost_per_1k_prompt_tokens': 0.003,
-        'cost_per_1k_completion_tokens': 0.015,
+        'model': cfg['model'],
+        'api_key_env': cfg['api_key_env'],
+        'retry_attempts': cfg.get('retry_attempts', 3),
+        'retry_delay_seconds': cfg.get('retry_delay_seconds', 1.0),
+        'cost_per_1k_prompt_tokens': cfg.get('cost_per_1k_prompt_tokens', 0.003),
+        'cost_per_1k_completion_tokens': cfg.get('cost_per_1k_completion_tokens', 0.015),
     }
 
 
 def _make_gemini_config():
-    """Build minimal Gemini config dict from environment."""
+    """Build Gemini config dict from ai_settings.json — always uses the configured model."""
+    cfg = _load_ai_settings()['gemini']
     return {
-        'model': 'gemini-2.5-flash',
-        'api_key_env': 'GOOGLE_API_KEY',
-        'retry_attempts': 3,
-        'retry_delay_seconds': 1.0,
-        'cost_per_1k_prompt_tokens': 0.00015,
-        'cost_per_1k_completion_tokens': 0.0006,
+        'model': cfg['model'],
+        'api_key_env': cfg['api_key_env'],
+        'retry_attempts': cfg.get('retry_attempts', 3),
+        'retry_delay_seconds': cfg.get('retry_delay_seconds', 1.0),
+        'cost_per_1k_prompt_tokens': cfg.get('cost_per_1k_prompt_tokens', 0.0015),
+        'cost_per_1k_completion_tokens': cfg.get('cost_per_1k_completion_tokens', 0.009),
     }
 
 
@@ -102,7 +114,8 @@ def test_gemini_client_initialization():
 
     client = GeminiProvider(_make_gemini_config())
 
-    assert client.model == "gemini-2.5-flash"
+    expected_model = _load_ai_settings()['gemini']['model']
+    assert client.model == expected_model
 
     print("✓ Gemini provider initialization working")
 
@@ -220,7 +233,10 @@ def test_cost_estimation():
         gemini = GeminiProvider(_make_gemini_config())
 
         cost = gemini.estimate_cost(1000, 500)
-        assert cost <= 0.001, f"Expected small cost but got ${cost}"
+        gemini_cfg = _load_ai_settings()['gemini']
+        expected_gemini = (1000 / 1000 * gemini_cfg['cost_per_1k_prompt_tokens']) + \
+                          (500 / 1000 * gemini_cfg['cost_per_1k_completion_tokens'])
+        assert abs(cost - expected_gemini) < 0.0001, f"Expected ${expected_gemini:.6f} but got ${cost}"
         print(f"✓ Gemini cost estimation: 1000 prompt + 500 completion = ${cost:.6f}")
 
 
