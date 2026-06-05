@@ -1,9 +1,16 @@
 """
 WorkmAIn Package Version
-Version v1.19.1
+Version v1.19.2
 20260605
 
 Version History:
+- v1.19.2: Hotfix weekly-report-data-sources — prompt_builder.py v1.9 now respects
+           data_sources declared in each template section; time entries and meetings
+           are only fetched/included when listed in that field (weekly_client sections
+           2–5 declare ["notes"] only, so internal time entry descriptions no longer
+           leak into timeline, risks, or artifacts sections). For client reports
+           (filter_client=True), Work Entries header carries an explicit context-only
+           instruction so the AI anchors on tagged notes, not Clockify descriptions.
 - v1.19.1: Hotfix weekly-report-ai-instruction — prompt_builder.py now includes
            ai_instruction per section in the generated user prompt. The field was
            defined in every template section but never read, so the AI received no
@@ -280,7 +287,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.19.1"
-__version_info__ = (1, 19, 1)
+__version__ = "1.19.2"
+__version_info__ = (1, 19, 2)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
