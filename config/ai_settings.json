@@ -1,7 +1,7 @@
 {
-  "version": "1.1",
+  "version": "1.2",
   "description": "WorkmAIn AI Provider Configuration",
-  "last_updated": "20260603",
+  "last_updated": "20260605",
   "providers": {
     "claude": {
       "enabled": true,
@@ -20,24 +20,25 @@
     },
     "gemini": {
       "enabled": true,
-      "model": "gemini-2.5-flash",
+      "model": "gemini-3.1-flash-lite",
       "api_key_env": "GOOGLE_API_KEY",
       "default_max_tokens": 8192,
       "default_temperature": 0.7,
-      "cost_per_1k_prompt_tokens": 0.00015,
-      "cost_per_1k_completion_tokens": 0.0006,
-      "cost_structure": "$0.15/MTok prompt, $0.60/MTok completion",
+      "cost_per_1k_prompt_tokens": 0.0015,
+      "cost_per_1k_completion_tokens": 0.009,
+      "cost_structure": "$1.5/MTok prompt, $9.00/MTok completion",
       "rate_limit_rpm": 60,
       "timeout_seconds": 60,
       "retry_attempts": 3,
       "retry_delay_seconds": 1.0,
-      "notes": "Gemini 2.5 Flash - $0.15/MTok input, $0.60/MTok output"
+      "notes": "Gemini 3.1 Flash Lite - $1.5/MTok input, $9/MTok output"
     },
     "ollama": {
-      "enabled": false,
-      "model": "mistral-7b",
-      "host": "localhost",
+      "enabled": true,
+      "model": "workmain-intent:latest",
+      "host": "workmain-ollama.lab.haloschaos.com",
       "port": 11434,
+      "timeout": 120,
       "cost_structure": "Local \u2014 no API cost"
     }
   },

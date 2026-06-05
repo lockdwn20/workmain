@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.19.0] - 2026-06-05
+
+### Added
+- `workmain/ai/providers/ollama.py` v1.2 — OllamaProvider fully implemented:
+  `generate()` (POST /api/generate, stream=false; only `num_predict` sent per-request —
+  Modelfile owns temperature/top_p/top_k/repeat_penalty), `check_availability()`
+  (GET /api/tags, model prefix matching), `_build_prompt()` (Mistral [INST] format);
+  timeout default 120s for cold-start headroom
+- `workmain/ai/intent_parser.py` v1.1 — IntentParser: natural language Slack DM input →
+  structured JSON action dict via workmain-intent:latest; system_prompt=None at runtime
+  (Modelfile owns system); txt file loaded for fail-fast validation only; markdown fence
+  stripping; IntentParseError on non-JSON output; ai_costs tracking for intent_parse
+- `config/intent_parse_prompt.json` v1.1 — generation parameters + `_doc` metadata block;
+  `system_prompt_file` reference; `generation_options` (temperature: 0.4, top_p, top_k,
+  repeat_penalty) listed as Modelfile reference — not sent per-request
+- `config/intent_parse_system_prompt.txt` — human-readable system prompt with versioning
+  header and tuning workflow; 7 action types with examples and inference rules; source of
+  truth for Modelfile SYSTEM block (sync to IaC before rebuilding model)
+- `workmain/ai/base_provider.py` v1.2 — `GenerationRequest` gains
+  `generation_options: Optional[Dict[str, Any]] = None`; Claude/Gemini providers ignore
+  this field; OllamaProvider merges it into options dict when set
+- Migration 018 — extend `ai_costs` interaction_type CHECK to include `'intent_parse'`
+- `scripts/migrate_018_extend_ai_costs.py` — Python migration runner for Migration 018
+- `tests/test_ollama_provider.py` v1.0 — OllamaProvider unit tests (10 cases; all HTTP mocked)
+- `tests/test_intent_parser.py` v1.0 — IntentParser unit tests (12 cases; all Ollama/DB mocked)
+
+### Fixed
+- `workmain/ai/note_condenser.py` v2.1 — replace broken `_format_writing_style_context`
+  (queried three non-existent JSON keys, always returned empty header) with
+  `StyleAdapter.get_style_prompt("internal")` for consistent AI voice across condensation
+  and reports
+
+### Removed
+- `ProviderConfig` dataclass from `workmain/ai/base_provider.py` — dead code since
+  v1.18.0; no remaining consumers (Item 36 closed)
+- `ProviderConfig` removed from `workmain/ai/__init__.py` exports and `__all__`
+
+### Database
+- Migration 018: `ai_costs` CHECK constraint extended for `'intent_parse'`
+- `workmain/database/models.py` v2.6: `AiCost` CHECK constraint updated to match schema
+
 ## [1.18.3] - 2026-06-04
 
 ### Fixed
