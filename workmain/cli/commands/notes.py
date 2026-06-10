@@ -45,6 +45,9 @@ Version History:
         condensation costs from ai_costs table; full date filter set + --provider/-P
 - v3.9: Provider Foundation Sprint Gate 3 — "Sending to Claude..." made dynamic;
         reads active provider from note_condensation config via get_provider_manager()
+- v4.0: Phase 13 DB Schema Sprint Gate 5 — notes delete pre-checks for linked
+        time entries (ON DELETE RESTRICT) before hitting DB constraint; user-friendly
+        abort message with time entry IDs
 """
 
 import click
@@ -519,6 +522,19 @@ def notes_delete(identifier: str):
 
         click.echo(f"\nNote to delete:")
         click.echo(format_note_display(note))
+
+        # Pre-check: block deletion if linked time entries exist (ON DELETE RESTRICT)
+        from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+        linked = TimeEntriesRepository(session).get_by_note_id(note_id)
+        if linked:
+            ids = ', '.join(str(e.id) for e in linked)
+            click.echo(
+                f"\n✗ Cannot delete — {len(linked)} time "
+                f"{'entry is' if len(linked) == 1 else 'entries are'} linked to this note "
+                f"(time entry ID{'s' if len(linked) > 1 else ''}: {ids}).\n"
+                "Delete the time entries first, then retry."
+            )
+            return
 
         if not click.confirm("\nDelete this note?", default=False):
             click.echo("Cancelled.")

@@ -1,7 +1,7 @@
 """
 WorkmAIn Name-or-ID Resolution Tests
-test_name_or_id_resolution v1.0
-20260501
+test_name_or_id_resolution v1.1
+20260610
 
 Tests for Item 26 (CLI V18) — name-or-ID resolution added to repository
 lookup methods used by edit/delete commands.
@@ -13,6 +13,8 @@ Covers:
 
 Version History:
 - v1.0: Initial tests for Item 26 (CLI V18)
+- v1.1: Phase 13 DB Schema Sprint Gate 5 — _make_entry() creates a Note first;
+        TimeEntriesRepository.find_by_description_like() now joins through notes.content
 """
 
 from datetime import date, datetime
@@ -122,17 +124,22 @@ class TestNotesFindByContentLike:
 class TestTimeEntriesFindByDescriptionLike:
     """Tests for the new find_by_description_like() method."""
 
-    def _make_entry(self, repo, description: str, day: int):
-        return repo.create(
-            description=description,
+    def _make_entry(self, db_session, description: str, day: int):
+        note = NotesRepository(db_session).create(
+            content=description,
+            tags=['internal-only'],
+            source='task',
+        )
+        return TimeEntriesRepository(db_session).create(
+            note_id=note.id,
             duration_hours=1.0,
             entry_date=date(2099, 1, day),
         )
 
     def test_substring_match(self, db_session):
-        """Query matching a substring of description returns the entry."""
+        """Query matching a substring of note content returns the entry."""
         repo = TimeEntriesRepository(db_session)
-        entry = self._make_entry(repo, 'Clockify sync for weekly report', day=1)
+        entry = self._make_entry(db_session, 'Clockify sync for weekly report', day=1)
 
         results = repo.find_by_description_like('weekly report')
         ids = [e.id for e in results]
@@ -141,7 +148,7 @@ class TestTimeEntriesFindByDescriptionLike:
     def test_case_insensitive(self, db_session):
         """Match is case-insensitive."""
         repo = TimeEntriesRepository(db_session)
-        entry = self._make_entry(repo, 'Security incident review', day=2)
+        entry = self._make_entry(db_session, 'Security incident review', day=2)
 
         results = repo.find_by_description_like('SECURITY')
         ids = [e.id for e in results]
@@ -156,8 +163,8 @@ class TestTimeEntriesFindByDescriptionLike:
     def test_multiple_matches_ordered_by_recency(self, db_session):
         """Multiple matches returned newest date first."""
         repo = TimeEntriesRepository(db_session)
-        older = self._make_entry(repo, 'sentinel_te alpha work', day=1)
-        newer = self._make_entry(repo, 'sentinel_te beta work', day=3)
+        older = self._make_entry(db_session, 'sentinel_te alpha work', day=1)
+        newer = self._make_entry(db_session, 'sentinel_te beta work', day=3)
 
         results = repo.find_by_description_like('sentinel_te')
         ids = [e.id for e in results]
@@ -169,7 +176,7 @@ class TestTimeEntriesFindByDescriptionLike:
         """limit parameter caps result count."""
         repo = TimeEntriesRepository(db_session)
         for i in range(5):
-            self._make_entry(repo, f'sentinel_limit_te task {i}', day=i + 1)
+            self._make_entry(db_session, f'sentinel_limit_te task {i}', day=i + 1)
 
         results = repo.find_by_description_like('sentinel_limit_te', limit=2)
         assert len(results) <= 2
@@ -177,7 +184,7 @@ class TestTimeEntriesFindByDescriptionLike:
     def test_get_by_id_still_works(self, db_session):
         """get_by_id() still resolves correctly (ID path unchanged)."""
         repo = TimeEntriesRepository(db_session)
-        entry = self._make_entry(repo, 'Test time entry', day=1)
+        entry = self._make_entry(db_session, 'Test time entry', day=1)
 
         found = repo.get_by_id(entry.id)
         assert found is not None

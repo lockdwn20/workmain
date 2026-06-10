@@ -1,6 +1,6 @@
 """
 WorkmAIn Time Entries Repository
-Time Entries Repository v1.8
+Time Entries Repository v1.9
 20260610
 
 Data access layer for time entries with 24-hour time format.
@@ -20,6 +20,9 @@ Version History:
         signature, making Clockify import atomic (no post-create assignment needed)
 - v1.8: Phase 13 DB Schema Sprint Gate 2 — H-3: add _validate_client_project_consistency()
         guard; wire into create() and update()
+- v1.9: Phase 13 DB Schema Sprint Gate 5 — create() takes note_id instead of
+        description/tags; update() drops description/tags params; find_by_description_like()
+        joins through notes.content; add get_by_note_id()
 """
 
 from datetime import date, datetime, time, timedelta
@@ -29,7 +32,7 @@ from typing import List, Optional, Tuple, Dict
 from sqlalchemy import func, and_, or_, desc
 from sqlalchemy.orm import Session
 
-from workmain.database.models import TimeEntry, Project
+from workmain.database.models import Note, TimeEntry, Project
 
 
 class TimeEntriesRepository:
@@ -80,14 +83,13 @@ class TimeEntriesRepository:
 
     def create(
         self,
-        description: str,
+        note_id: int,
         duration_hours: float,
         entry_date: date,
         entry_time: Optional[time] = None,
         category: Optional[str] = None,
         project_id: Optional[int] = None,
         meeting_id: Optional[int] = None,
-        tags: Optional[List[str]] = None,
         client_id: Optional[int] = None,
         clockify_id: Optional[str] = None,
         synced_at: Optional[datetime] = None,
@@ -96,14 +98,13 @@ class TimeEntriesRepository:
         Create a new time entry.
 
         Args:
-            description: Description of work done
+            note_id: ID of the linked Note (required — carries content and tags)
             duration_hours: Duration in hours (e.g., 1.5, 2.25)
             entry_date: Date of the time entry
             entry_time: Time in 24-hour format (optional)
             category: Category (e.g., 'development', 'meeting', 'review')
             project_id: Optional project ID to link
-            meeting_id: Optional meeting ID to link (for Clockify sync from meetings)
-            tags: Optional list of tags
+            meeting_id: Optional meeting ID to link
             client_id: Optional client ID for attribution (None = internal mode)
             clockify_id: Optional Clockify entry ID (set on pull import)
             synced_at: Optional sync timestamp (set on pull import, atomic with clockify_id)
@@ -114,23 +115,22 @@ class TimeEntriesRepository:
         self._validate_client_project_consistency(client_id, project_id)
 
         time_entry = TimeEntry(
-            description=description,
+            note_id=note_id,
             duration_hours=Decimal(str(duration_hours)),
             entry_date=entry_date,
             entry_time=entry_time,
             category=category,
             project_id=project_id,
             meeting_id=meeting_id,
-            tags=tags or [],
             client_id=client_id,
             clockify_id=clockify_id,
             synced_at=synced_at,
         )
-        
+
         self.session.add(time_entry)
         self.session.commit()
         self.session.refresh(time_entry)
-        
+
         return time_entry
     
     def get_by_id(self, entry_id: int) -> Optional[TimeEntry]:
@@ -305,27 +305,25 @@ class TimeEntriesRepository:
     def update(
         self,
         entry_id: int,
-        description: Optional[str] = None,
         duration_hours: Optional[float] = None,
         entry_time: Optional[time] = None,
         category: Optional[str] = None,
         project_id: Optional[int] = None,
         meeting_id: Optional[int] = None,
-        tags: Optional[List[str]] = None
     ) -> Optional[TimeEntry]:
         """
         Update an existing time entry.
-        
+
+        Description edits route through NotesRepository.update(note_id, content=...).
+
         Args:
             entry_id: Time entry ID to update
-            description: New description (None to keep existing)
             duration_hours: New duration (None to keep existing)
             entry_time: New time (None to keep existing)
             category: New category (None to keep existing)
             project_id: New project ID (None to keep existing)
             meeting_id: New meeting ID (None to keep existing)
-            tags: New tags (None to keep existing)
-            
+
         Returns:
             Updated TimeEntry object or None if not found
         """
@@ -339,9 +337,6 @@ class TimeEntriesRepository:
         effective_project_id = project_id if project_id is not None else entry.project_id
         self._validate_client_project_consistency(effective_client_id, effective_project_id)
 
-        # Update fields if provided
-        if description is not None:
-            entry.description = description
         if duration_hours is not None:
             entry.duration_hours = Decimal(str(duration_hours))
         if entry_time is not None:
@@ -352,12 +347,10 @@ class TimeEntriesRepository:
             entry.project_id = project_id
         if meeting_id is not None:
             entry.meeting_id = meeting_id
-        if tags is not None:
-            entry.tags = tags
-        
+
         self.session.commit()
         self.session.refresh(entry)
-        
+
         return entry
     
     def delete(self, entry_id: int) -> bool:
@@ -541,13 +534,13 @@ class TimeEntriesRepository:
     
     def find_by_description_like(self, query: str, limit: int = 10) -> List[TimeEntry]:
         """
-        Find time entries by description substring (case-insensitive).
+        Find time entries by note content substring (case-insensitive).
 
-        Used by name-or-ID resolution on time edit/delete commands so users
-        can target an entry by partial description instead of its numeric ID.
+        Joins through time_entries.note_id → notes.content so the search
+        reflects the live note text rather than a stale copy.
 
         Args:
-            query: Substring to search for in entry description.
+            query: Substring to search for in the linked note's content.
             limit: Maximum results to return (default 10).
 
         Returns:
@@ -555,9 +548,30 @@ class TimeEntriesRepository:
         """
         return (
             self.session.query(TimeEntry)
-            .filter(func.lower(TimeEntry.description).contains(query.lower()))
+            .join(Note, TimeEntry.note_id == Note.id)
+            .filter(func.lower(Note.content).contains(query.lower()))
             .order_by(TimeEntry.entry_date.desc(), TimeEntry.entry_time.desc())
             .limit(limit)
+            .all()
+        )
+
+    def get_by_note_id(self, note_id: int) -> List[TimeEntry]:
+        """
+        Get all time entries linked to a specific note.
+
+        Used by notes delete pre-check to enforce ON DELETE RESTRICT before
+        hitting the DB constraint, giving callers a user-friendly error message.
+
+        Args:
+            note_id: Note ID to look up.
+
+        Returns:
+            List of TimeEntry objects (empty if none).
+        """
+        return (
+            self.session.query(TimeEntry)
+            .filter(TimeEntry.note_id == note_id)
+            .order_by(TimeEntry.entry_date.desc())
             .all()
         )
 

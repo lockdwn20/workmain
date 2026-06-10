@@ -1,7 +1,7 @@
 """
 WorkmAIn AI Prompt Builder
-Prompt Builder v1.9
-20260605
+Prompt Builder v2.0
+20260610
 
 Dynamic prompt construction for AI report generation.
 
@@ -36,6 +36,8 @@ Version History:
         are only fetched when listed (e.g. only section 1 of weekly_client declares
         time_entries); for client reports (filter_client=True) the Work Entries header
         carries an explicit context-only note so the AI anchors on tagged notes
+- v2.0: Phase 13 DB Schema Sprint Gate 5 — _get_time_entries reads entry.note.content
+        instead of the now-dropped entry.description column
 
 Workflow:
 1. Load template structure
@@ -471,7 +473,7 @@ class PromptBuilder:
             "project_name": entry.project.name if entry.project else None,
             "start_time": entry.entry_time.strftime("%H:%M") if entry.entry_time else None,
             "duration_hours": float(entry.duration_hours),
-            "description": entry.description
+            "description": entry.note.content,
         } for entry in entries]
     
     def _get_meetings(
