@@ -1,7 +1,7 @@
 """
 WorkmAIn Time Tracking Tests
-test_time_tracking v2.0
-20260320
+test_time_tracking v2.1
+20260610
 
 Pytest suite for TimeEntriesRepository: CRUD, parsing, aggregations,
 week retrieval, and display properties.
@@ -17,13 +17,32 @@ Version History:
 - v1.1: Added 6 new time format tests (military time, AM/PM without colons)
 - v2.0: Converted to pytest suite using db_session fixture; original script
         moved to scripts-deprecated/test_time_tracking.py
+- v2.1: Phase 13 DB Schema Sprint Gate 5 — create() now takes note_id; tests
+        use _make_te() helper that creates a stub Note first; description
+        assertions migrated to entry.note.content; test_update restructured
+        to call notes_repo.update() for content changes
 """
 
 import pytest
 from datetime import date, time, timedelta
 from decimal import Decimal
 
+from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+
+
+def _make_te(db_session, content: str, **kwargs):
+    """Create a stub Note + TimeEntry pair for testing.
+
+    All kwargs are forwarded to TimeEntriesRepository.create() (note_id is
+    injected automatically).  Minimum required kwarg: duration_hours, entry_date.
+    """
+    note = NotesRepository(db_session).create(
+        content=content,
+        tags=['internal-only'],
+        source='task',
+    )
+    return TimeEntriesRepository(db_session).create(note_id=note.id, **kwargs)
 
 # Sentinel dates far in the future — guarantee zero overlap with production data
 # so category/total assertions can use exact values.
@@ -101,8 +120,7 @@ class TestTimeEntryCRUD:
 
     def test_create_and_retrieve(self, db_session):
         repo = TimeEntriesRepository(db_session)
-        entry = repo.create(
-            description="Test time entry",
+        entry = _make_te(db_session, "Test time entry",
             duration_hours=2.5,
             entry_date=_TEST_DATE,
             entry_time=time(14, 30),
@@ -111,24 +129,25 @@ class TestTimeEntryCRUD:
         assert entry.id is not None
         retrieved = repo.get_by_id(entry.id)
         assert retrieved is not None
-        assert retrieved.description == "Test time entry"
+        assert retrieved.note.content == "Test time entry"
         assert float(retrieved.duration_hours) == 2.5
 
     def test_update(self, db_session):
+        notes_repo = NotesRepository(db_session)
         repo = TimeEntriesRepository(db_session)
-        entry = repo.create(
-            description="Before update",
+        entry = _make_te(db_session, "Before update",
             duration_hours=1.0,
             entry_date=_TEST_DATE,
         )
-        updated = repo.update(entry.id, description="After update", duration_hours=3.0)
-        assert updated.description == "After update"
+        notes_repo.update(note_id=entry.note_id, content="After update")
+        repo.update(entry.id, duration_hours=3.0)
+        updated = repo.get_by_id(entry.id)
+        assert updated.note.content == "After update"
         assert float(updated.duration_hours) == 3.0
 
     def test_delete(self, db_session):
         repo = TimeEntriesRepository(db_session)
-        entry = repo.create(
-            description="To be deleted",
+        entry = _make_te(db_session, "To be deleted",
             duration_hours=1.0,
             entry_date=_TEST_DATE,
         )
@@ -136,10 +155,9 @@ class TestTimeEntryCRUD:
         assert repo.get_by_id(entry.id) is None
 
     def test_total_hours_by_date(self, db_session):
-        repo = TimeEntriesRepository(db_session)
-        repo.create(description="Entry A", duration_hours=2.0, entry_date=_TEST_DATE)
-        repo.create(description="Entry B", duration_hours=3.0, entry_date=_TEST_DATE)
-        total = repo.get_total_hours_by_date(_TEST_DATE)
+        _make_te(db_session, "Entry A", duration_hours=2.0, entry_date=_TEST_DATE)
+        _make_te(db_session, "Entry B", duration_hours=3.0, entry_date=_TEST_DATE)
+        total = TimeEntriesRepository(db_session).get_total_hours_by_date(_TEST_DATE)
         assert float(total) == 5.0
 
 
@@ -151,16 +169,16 @@ class TestTimeAggregations:
     """get_category_breakdown_by_date — exact totals using sentinel date."""
 
     def test_category_breakdown(self, db_session):
-        repo = TimeEntriesRepository(db_session)
-        repo.create(description="Development work", duration_hours=3.0,
-                    entry_date=_TEST_DATE, category="development")
-        repo.create(description="Team meeting",     duration_hours=1.5,
-                    entry_date=_TEST_DATE, category="meeting")
-        repo.create(description="Code review",      duration_hours=1.0,
-                    entry_date=_TEST_DATE, category="review")
-        repo.create(description="More development", duration_hours=2.0,
-                    entry_date=_TEST_DATE, category="development")
+        _make_te(db_session, "Development work", duration_hours=3.0,
+                 entry_date=_TEST_DATE, category="development")
+        _make_te(db_session, "Team meeting",     duration_hours=1.5,
+                 entry_date=_TEST_DATE, category="meeting")
+        _make_te(db_session, "Code review",      duration_hours=1.0,
+                 entry_date=_TEST_DATE, category="review")
+        _make_te(db_session, "More development", duration_hours=2.0,
+                 entry_date=_TEST_DATE, category="development")
 
+        repo = TimeEntriesRepository(db_session)
         results = repo.get_category_breakdown_by_date(_TEST_DATE)
         breakdown = {cat: float(hours) for cat, hours in results}
 
@@ -177,33 +195,31 @@ class TestWeekRetrieval:
     """get_week() with explicit start_of_week on sentinel Monday."""
 
     def test_week_contains_created_entries(self, db_session, _sentinel_monday):
-        repo = TimeEntriesRepository(db_session)
         monday = _sentinel_monday
         created_ids = []
         for i in range(5):
-            entry = repo.create(
-                description=f"Work day {i + 1}",
+            entry = _make_te(db_session, f"Work day {i + 1}",
                 duration_hours=8.0,
                 entry_date=monday + timedelta(days=i),
                 category="development",
             )
             created_ids.append(entry.id)
 
+        repo = TimeEntriesRepository(db_session)
         week_entries = repo.get_week(start_of_week=monday)
         found_ids = {e.id for e in week_entries}
         assert all(eid in found_ids for eid in created_ids)
 
     def test_week_date_range(self, db_session, _sentinel_monday):
-        repo = TimeEntriesRepository(db_session)
         monday = _sentinel_monday
         for i in range(5):
-            repo.create(
-                description=f"Day {i + 1}",
+            _make_te(db_session, f"Day {i + 1}",
                 duration_hours=8.0,
                 entry_date=monday + timedelta(days=i),
                 category="development",
             )
 
+        repo = TimeEntriesRepository(db_session)
         entries = repo.get_week(start_of_week=monday)
         dates = {e.entry_date for e in entries}
         assert min(dates) >= monday
@@ -218,9 +234,7 @@ class TestDisplayProperties:
     """TimeEntry model properties: display_time, is_synced."""
 
     def test_display_time(self, db_session):
-        repo = TimeEntriesRepository(db_session)
-        entry = repo.create(
-            description="Display test",
+        entry = _make_te(db_session, "Display test",
             duration_hours=2.0,
             entry_date=_TEST_DATE,
             entry_time=time(14, 30),
@@ -228,9 +242,7 @@ class TestDisplayProperties:
         assert entry.display_time == "14:30"
 
     def test_is_synced_before_sync(self, db_session):
-        repo = TimeEntriesRepository(db_session)
-        entry = repo.create(
-            description="Sync test",
+        entry = _make_te(db_session, "Sync test",
             duration_hours=1.0,
             entry_date=_TEST_DATE,
         )
@@ -238,8 +250,7 @@ class TestDisplayProperties:
 
     def test_is_synced_after_sync(self, db_session):
         repo = TimeEntriesRepository(db_session)
-        entry = repo.create(
-            description="Sync test",
+        entry = _make_te(db_session, "Sync test",
             duration_hours=1.0,
             entry_date=_TEST_DATE,
         )

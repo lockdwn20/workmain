@@ -2,14 +2,16 @@
 Unit tests for recurring meetings functionality.
 Tests Phase 5.1 operational fixes.
 
-Version: 1.2
-Date: 20260320
+Version: 1.3
+Date: 20260610
 
 Version History:
 - v1.0: Initial test suite with placeholder db_session fixture
 - v1.1: Implemented db_session fixture with proper database connection
 - v1.2: Remove local db_session fixture — defer to conftest.py v2.1 which
         correctly redirects commit→flush and rolls back at teardown
+- v1.3: Phase 13 DB Schema Sprint Gate 5 — test_time_entry_with_meeting_link
+        creates a Note first (note_id required after migration 021)
 """
 
 import pytest
@@ -200,14 +202,20 @@ class TestMeetingTimeIntegration:
             attendees=["test@example.com"]
         )
 
-        # Create time entry linked to meeting
+        # Create time entry linked to meeting (note-first pattern)
+        note = NotesRepository(db_session).create(
+            content="Meeting: Team Sync",
+            tags=['both'],
+            source='meeting',
+            meeting_id=meeting.id,
+        )
         entry = time_repo.create(
-            description="Meeting: Team Sync",
+            note_id=note.id,
             duration_hours=1.0,
             entry_date=date(2026, 1, 20),
             entry_time=time(14, 0),
             category='meeting',
-            meeting_id=meeting.id
+            meeting_id=meeting.id,
         )
 
         assert entry.meeting_id == meeting.id

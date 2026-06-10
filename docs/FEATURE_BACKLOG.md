@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v5.15
-20260605
+Feature Backlog v5.17
+20260610
 
 # WorkmAIn Feature Backlog
 
@@ -41,6 +41,11 @@ Items deferred from various phases for future implementation.
 - v5.15 (20260605): Phase 13 Sprint 1 (v1.19.0) — Item 36 marked COMPLETE; Item 19 status updated
   (CPU path delivered, GPU deferred); Items 37 and 38 added (Modelfile tuning workflow, Ollama
   warm-up ping as Sprint 2 Gate 0 prerequisite); register and statistics updated.
+- v5.17 (20260610): Item 23 priority elevated to High — meeting visibility
+  gap identified as same structural issue resolved for time entries in this
+  sprint; Phase 15 target retained pending scheduling review.
+- v5.16 (20260610): Item 39 added — re-tag audit for 242 stub notes created during Phase 13
+  DB Schema Sprint Gate 4 (time_entries note_id backfill extension).
 
 ---
 
@@ -126,18 +131,19 @@ Build first, refactor later. See the complete picture before abstracting.
 | 36 | ProviderConfig Dead Code Cleanup | Low | next base_provider.py mod | ~15 min | ✓ |
 | 37 | Ollama Modelfile Tuning Workflow | Low | Sprint 2/3 maintenance | ~30 min/rebuild | |
 | 38 | Ollama Warm-Up Ping on Bot Startup | Medium | Sprint 2 Gate 0 | ~30 min | |
+| 39 | Re-tag Audit — 242 Gate 4 Stub Notes | Medium | Phase 13 (post-v1.20.0) | ~1–2 hrs | |
 
 ---
 
 ## Summary Statistics
 
-**Total Items:** 38 (Item 22 is a redirect — no separate deferred work; see Item 20)
+**Total Items:** 39 (Item 22 is a redirect — no separate deferred work; see Item 20)
 **Completed:** 12 (Items 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 35, 36)
-**Open:** 25
+**Open:** 26
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Open (targeted) | 21 | 1, 2, 3, 4, 7, 8, 12, 14, 15, 16, 19, 23, 28, 29, 30, 31, 32, 33, 34, 37, 38 |
+| Open (targeted) | 22 | 1, 2, 3, 4, 7, 8, 12, 14, 15, 16, 19, 23, 28, 29, 30, 31, 32, 33, 34, 37, 38, 39 |
 | Conditional | 1 | 9 |
 | Indefinitely | 3 | 5, 6, 21 |
 | Complete | 12 | 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 35, 36 |
@@ -146,14 +152,14 @@ Build first, refactor later. See the complete picture before abstracting.
 | Priority | Count | Items |
 |----------|-------|-------|
 | High | 0 | — |
-| Medium | 10 | 2, 3, 7, 10, 14, 15, 23, 34, 35, 38 |
+| Medium | 11 | 2, 3, 7, 10, 14, 15, 23, 34, 35, 38, 39 |
 | Low | 19 | 1, 4, 5, 6, 8, 11, 12, 13, 16, 19, 21, 28, 29, 30, 31, 32, 33, 36, 37 |
 | Conditional | 1 | 9 |
 
 | Target Phase | Items |
 |-------------|-------|
 | Phase 11+ | 4, 28 |
-| Phase 13 | 32, 33, 34 |
+| Phase 13 | 32, 33, 34, 39 |
 | Phase 14+ | 19, 31 |
 | Phase 15 | 1, 2, 3, 7, 8, 10, 12, 13, 14, 15, 16, 23, 29 |
 | Phase 18 | 30 |
@@ -161,7 +167,7 @@ Build first, refactor later. See the complete picture before abstracting.
 | Conditional | 9 |
 | Indefinitely | 5, 6, 11, 21 |
 
-**Total Deferred Effort (open items):** ~76–78 hours
+**Total Deferred Effort (open items):** ~78–81 hours
 
 ---
 
@@ -676,10 +682,10 @@ The design decision (Option A — active client context switch) was approved 202
 #### Item 23 — Meeting Visibility / Tagging for Report Prompt Context
 
 **Status:** Open — Deferred
-**Priority:** Medium (report quality / data leakage risk)
+**Priority:** High (same structural gap resolved for time entries in Phase 13 DB Schema Sprint)
 **Effort:** ~3–5 hours
 **Added:** 20260327
-**Target Phase:** Phase 15 (prompt quality pass)
+**Target Phase:** Phase 15 (prompt quality pass — scheduling review pending)
 
 **Description:**
 Meetings are fetched for the full week and appended to every section's context in the AI prompt without filtering. Because meetings have no tag equivalent, internal meetings (e.g., "Splunk Normalization Project - Internal Sync") are exposed when generating client-facing reports (`weekly_client`), potentially causing AI-generated content about internal discussions.
@@ -1169,3 +1175,61 @@ No Slack bot in Sprint 1. Sprint 2 is where the bot starts up and polls.
 **Files Affected:**
 - Sprint 2 Slack bot startup module (TBD)
 - `workmain/ai/__init__.py`
+
+---
+
+#### Item 39 — Re-tag Audit: 242 Gate 4 Stub Notes
+
+**Status:** Open — Phase 13 (post-v1.20.0)
+**Priority:** Medium (data quality — affects report tag filtering accuracy)
+**Effort:** ~1–2 hours
+**Added:** 20260610
+**Target Phase:** Phase 13 (post-v1.20.0 merge, before Sprint 2)
+
+**Description:**
+During Phase 13 DB Schema Sprint Gate 4 (migration 021), 242 time entries
+had no note with matching content+date. These were resolved by creating stub
+notes with `tags=['internal-only']` as a safe default. The internal-only tag
+was chosen to prevent accidental client report inclusion pending review.
+
+These 242 stubs need to be reviewed and re-tagged to their correct values
+(`both`, `client-report`, `carry-forward`, etc.) based on the actual work
+context captured in their content.
+
+**Identification query:**
+
+```sql
+SELECT
+    n.id          AS note_id,
+    n.content,
+    n.created_date,
+    te.id         AS time_entry_id,
+    te.duration_hours,
+    te.category
+FROM notes n
+JOIN time_entries te ON te.note_id = n.id
+WHERE n.source = 'task'
+  AND n.tags = ARRAY['internal-only']::text[]
+  AND n.created_at::time = '00:00:00'
+ORDER BY n.created_date, n.id;
+```
+
+Note: This query also returns the single stub note created for `te.id=2`
+(2026-02-02, Google PMLE lab), which was explicitly approved as
+`internal-only` in Gate 3 and does NOT require re-tagging. Exclude it
+by adding `AND n.id != 7606` if needed.
+
+**Why Deferred:**
+Migration needed to complete before tag reviews could begin. Stub notes
+were intentionally defaulted to `internal-only` to be conservative — no
+content leaks into client reports pending this audit.
+
+**Acceptance Criteria:**
+- [ ] All 242 stub notes reviewed against work context
+- [ ] Tags updated to correct values via `workmain notes edit <id> --tags <tags>`
+- [ ] Any notes confirmed as internal-only are verified, not just left by default
+- [ ] Identification query returns 0 rows after re-tag (or only note id=7606)
+
+**Files Affected:**
+- `notes` table (data only — tag updates via `workmain notes edit`)
+- `workmain/cli/commands/notes.py` (no code change needed)

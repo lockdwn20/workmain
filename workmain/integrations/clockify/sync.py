@@ -1,14 +1,19 @@
 """
 WorkmAIn Clockify Integration
 Sync Engine
-v1.1
-20260202
+v1.3
+20260610
 
 Bidirectional sync between WorkmAIn and Clockify with conflict resolution.
 
 Version History:
 - v1.0: Initial implementation with push, pull, and interactive conflict resolution
 - v1.1: Phase 5.1 - Convert UTC times from Clockify to local timezone on pull
+- v1.2: Phase 13 DB Schema Sprint Gate 1 — H-4: pass clockify_id + synced_at directly
+        to repo.create() so import is atomic; removes post-create synced_at assignment.
+- v1.3: Phase 13 DB Schema Sprint Gate 5 — note-first pull path: _import_clockify_entry
+        creates a Note (source='clockify', tags=['internal-only']) before creating the
+        TimeEntry with note_id; push path reads entry.note.content and entry.note.tags
 """
 
 from typing import List, Dict, Any, Optional, Tuple
@@ -18,6 +23,7 @@ from sqlalchemy.orm import Session
 
 from .client import ClockifyClient
 from workmain.database.models import TimeEntry, Meeting
+from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
 
 
@@ -90,38 +96,38 @@ class ClockifySync:
         
         for i, entry in enumerate(entries, 1):
             if interactive:
-                print(f"[{i}/{results['total']}] Syncing: {entry.description[:50]}...")
-            
+                print(f"[{i}/{results['total']}] Syncing: {entry.note.content[:50]}...")
+
             try:
                 # Get project ID if linked
                 project_id = None
                 if entry.project_id:
                     project_id = self._get_clockify_project_id(entry.project_id)
-                
+
                 # Create in Clockify
                 clockify_entry = self.client.create_time_entry(
-                    description=entry.description,
+                    description=entry.note.content,
                     start_time=datetime.combine(entry.entry_date, entry.entry_time),
                     duration_hours=entry.duration_hours,
                     project_id=project_id,
-                    tags=entry.tags
+                    tags=entry.note.tags,
                 )
-                
+
                 # Update local entry with Clockify ID
                 entry.clockify_id = clockify_entry['id']
                 entry.synced_at = datetime.now()
                 self.session.commit()
-                
+
                 results['successful'] += 1
-                
+
                 if interactive:
                     print(f"  ✓ Synced (Clockify ID: {clockify_entry['id'][:8]}...)")
-                
+
             except Exception as e:
                 results['failed'] += 1
                 results['failures'].append({
                     'entry_id': entry.id,
-                    'description': entry.description,
+                    'description': entry.note.content,
                     'error': str(e)
                 })
                 
@@ -262,7 +268,7 @@ class ClockifySync:
         print(f"  Date: {local.entry_date}")
         print(f"  Time: {local.entry_time}")
         print(f"  Duration: {local.duration_hours}h")
-        print(f"  Description: {local.description}")
+        print(f"  Description: {local.note.content}")
         
         # Show Clockify entry
         clockify = conflict.clockify_entry
@@ -316,19 +322,22 @@ class ClockifySync:
         duration_seconds = (end_dt - start_dt).total_seconds()
         duration_hours = Decimal(str(duration_seconds / 3600))
 
-        # Create local entry with local date/time
+        content = clockify_entry.get('description') or 'Imported from Clockify'
+        note = NotesRepository(self.session).create(
+            content=content,
+            tags=['internal-only'],
+            source='clockify',
+        )
+
         entry = self.repo.create(
-            description=clockify_entry.get('description', 'Imported from Clockify'),
+            note_id=note.id,
             duration_hours=duration_hours,
             entry_date=start_dt.date(),
             entry_time=start_dt.time().replace(tzinfo=None),
             clockify_id=clockify_entry['id'],
-            tags=clockify_entry.get('tags', [])
+            synced_at=datetime.now(),
         )
-        
-        entry.synced_at = datetime.now()
-        self.session.commit()
-        
+
         return entry
     
     def _get_clockify_project_id(self, local_project_id: int) -> Optional[str]:

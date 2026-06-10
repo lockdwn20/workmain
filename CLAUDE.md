@@ -196,6 +196,19 @@ Report outputs go to `staging/` (not `output/`). This was renamed in the hotfix 
 - Storage: PostgreSQL TIME type (24-hour)
 - Display: Always 24-hour format
 
+## Known Naming Asymmetry
+
+`notes.created_date` and `time_entries.entry_date` serve the same
+conceptual role (the calendar date the record belongs to) but are named
+differently and populated differently:
+- `notes.created_date` — DB-computed column (`created_at::DATE`), never
+  written by application code
+- `time_entries.entry_date` — explicit write at creation, caller-supplied
+
+Do not rename either column. Blast radius is ~55 references across ~12
+files. If a unified date abstraction layer is ever introduced, normalize
+naming at that point.
+
 ## User Context
 
 - **Role:** Security Engineer — high security standards expected

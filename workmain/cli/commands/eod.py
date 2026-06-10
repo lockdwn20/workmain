@@ -1,7 +1,7 @@
 """
 WorkmAIn End-of-Day Workflow
-EOD v2.11
-20260604
+EOD v2.12
+20260610
 
 Guided end-of-day workflow for daily work wrap-up.
 
@@ -73,6 +73,8 @@ Version History:
 - v2.11: Hotfix — _run_weekly_report_step gains same pre-check, review menu,
          editor integration, and staging-file sync as daily report step (Step 4a);
          also passes --date to subprocess for backdated EOD consistency
+- v2.12: Phase 13 DB Schema Sprint Gate 5 fix — replace entry.description with
+         entry.note.content in _run_task_match_step (task scoring and display)
 """
 
 import json
@@ -436,9 +438,9 @@ def _run_task_match_step(dry_run: bool, target_date: date) -> bool:
             best_score = 0.0
             best_entry = None
             for entry in entries:
-                if not entry.description:
+                if not entry.note.content:
                     continue
-                score = _score_match(task_tokens, _tokenize(entry.description))
+                score = _score_match(task_tokens, _tokenize(entry.note.content))
                 if score > best_score:
                     best_score = score
                     best_entry = entry
@@ -463,7 +465,7 @@ def _run_task_match_step(dry_run: bool, target_date: date) -> bool:
         for score, ts, entry in candidates:
             confidence = "high" if score >= 0.5 else "medium"
             note_content = ts.note.content or ''
-            entry_desc = entry.description or ''
+            entry_desc = entry.note.content or ''
             note_preview = note_content[:80] + ('…' if len(note_content) > 80 else '')
             entry_preview = entry_desc[:80] + ('…' if len(entry_desc) > 80 else '')
 

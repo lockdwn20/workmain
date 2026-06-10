@@ -55,6 +55,8 @@ Version History:
         --type/-R and --provider/-P filters; reads from reports_repo instead of generator
 - v2.10: Hotfix — reports correct: after committing corrected_content to DB, also
          overwrite the staging file so email and gdocs steps use the edited content
+- v2.11: Phase 13 DB Schema Sprint Gate 5 — preview_only branch passes filter_client
+         and client_id_filter through to generator.preview_report()
 """
 
 import os
@@ -236,7 +238,9 @@ def generate_report_impl(
 
             preview = generator.preview_report(
                 template_name=template_name,
-                report_date=report_date
+                report_date=report_date,
+                filter_client=filter_client,
+                client_id=client_id_filter,
             )
 
             console.print("[bold]Report Preview:[/bold]")

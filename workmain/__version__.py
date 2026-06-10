@@ -1,9 +1,28 @@
 """
 WorkmAIn Package Version
-Version v1.19.2
-20260605
+Version v1.20.0
+20260610
 
 Version History:
+- v1.20.0: Phase 13 DB Schema Refactorization Sprint — time entries
+           architectural refactor and schema hygiene. time_entries.note_id:
+           non-nullable FK to notes.id (ON DELETE RESTRICT); every time
+           entry now references its source note. Dropped dead columns:
+           time_entries.description (denormalized) and time_entries.tags
+           (all []).  All creation paths updated (time add, EOD condensation,
+           clockify sync pull). time edit description routes to notes.content.
+           notes delete: pre-check prevents ON DELETE RESTRICT from firing
+           with user-friendly message. prompt_builder: time entry tag
+           filtering via note_id join — internal-only entries excluded from
+           client reports at DB level, not via AI instruction.
+           Schema hygiene: projects.client_id FK (migration 019, ON DELETE
+           SET NULL); report_recipients.email dropped (migration 020);
+           client/project consistency guard in NotesRepository and
+           TimeEntriesRepository; clockify_id/synced_at signature fix;
+           CLAUDE.md naming asymmetry note. preview_report() gains
+           filter_client + client_id — preview now matches save behavior.
+           Migrations 019, 020, 021. New tests: test_time_entries_refactor
+           (8), test_prompt_builder_data_sources (5).
 - v1.19.2: Hotfix weekly-report-data-sources — prompt_builder.py v1.9 now respects
            data_sources declared in each template section; time entries and meetings
            are only fetched/included when listed in that field (weekly_client sections
@@ -287,7 +306,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.19.2"
-__version_info__ = (1, 19, 2)
+__version__ = "1.20.0"
+__version_info__ = (1, 20, 0)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"

@@ -1,7 +1,7 @@
 """
 WorkmAIn AI Report Generator
-Report Generator v1.12
-20260603
+Report Generator v1.13
+20260610
 
 High-level orchestrator for AI report generation with database integration.
 
@@ -43,6 +43,8 @@ Version History:
 - v1.12: Provider Foundation Sprint — remove get_claude_client/get_gemini_client imports
          and register_provider() calls; ProviderManager instantiates providers from
          PROVIDER_REGISTRY in _load_config() directly
+- v1.13: Phase 13 DB Schema Sprint Gate 5 — preview_report() accepts filter_client and
+         client_id so previews respect the same client filter as full generation
 
 Workflow:
 1. Load template and validate
@@ -373,24 +375,30 @@ class ReportGenerator:
     def preview_report(
         self,
         template_name: str,
-        report_date: date
+        report_date: date,
+        filter_client: bool = False,
+        client_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         Preview a report without generating AI content.
-        
+
         Shows the prompts that would be sent to AI and estimated costs.
-        
+
         Args:
             template_name: Name of template
             report_date: Date for the report
-            
+            filter_client: When True, restrict data to records for client_id
+            client_id: Client ID for data filtering
+
         Returns:
             Dictionary with prompts and estimates
         """
         # Build prompts
         system_prompt, user_prompt = self.prompt_builder.build_prompt(
             template_name=template_name,
-            report_date=report_date
+            report_date=report_date,
+            filter_client=filter_client,
+            client_id=client_id,
         )
         
         # Estimate tokens

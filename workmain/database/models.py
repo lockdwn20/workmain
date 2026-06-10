@@ -1,7 +1,7 @@
 """
 WorkmAIn Database Models
-Database Models v2.6
-20260605
+Database Models v2.8
+20260610
 
 SQLAlchemy ORM models for WorkmAIn database.
 Models: Note, TimeEntry, Meeting, Project, Report, Recipient, ReportRecipient,
@@ -36,6 +36,12 @@ Version History:
         on GDriveUpload.created_at (Item 13)
 - v2.6: Gate 1 Phase 13 Sprint 1 — extend AiCost interaction_type CHECK for 'intent_parse'
         (migration 018)
+- v2.7: Phase 13 DB Schema Sprint Gate 1 — H-1: Project.client_id FK constraint + client
+        relationship; Client.projects back-relationship (migration 019); H-2: ReportRecipient
+        email field removed, __repr__ updated (migration 020)
+- v2.8: Phase 13 DB Schema Sprint Gate 4 — TimeEntry: add note_id FK (ON DELETE RESTRICT,
+        NOT NULL) + note relationship; remove description and tags fields (migration 021);
+        Note: add time_entries back-relationship
 """
 
 from datetime import datetime, date, time
@@ -80,6 +86,8 @@ class Client(Base):
                            default=lambda: datetime.now(timezone.utc),
                            onupdate=lambda: datetime.now(timezone.utc))
 
+    projects = relationship("Project", back_populates="client")
+
 
 class Project(Base):
     """
@@ -94,8 +102,12 @@ class Project(Base):
     id = Column(Integer, primary_key=True)
     
     # Foreign keys
-    client_id = Column(Integer, nullable=True)  # References clients.id (Phase 6)
-    
+    client_id = Column(
+        Integer,
+        ForeignKey('clients.id', ondelete='SET NULL'),
+        nullable=True
+    )
+
     # Fields
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
@@ -103,12 +115,13 @@ class Project(Base):
     clockify_project_id = Column(String(255), nullable=True)
     start_date = Column(Date, nullable=True)
     end_date = Column(Date, nullable=True)
-    
+
     # Timestamps
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
-    
+
     # Relationships
+    client = relationship("Client", back_populates="projects")
     notes = relationship("Note", back_populates="project")
     time_entries = relationship("TimeEntry", back_populates="project")
     
@@ -226,6 +239,7 @@ class Note(Base):
     task_status = relationship("TaskStatus", uselist=False, back_populates="note",
                                foreign_keys="TaskStatus.note_id",
                                passive_deletes=True)
+    time_entries = relationship("TimeEntry", back_populates="note")
 
     def __repr__(self):
         tags_str = ', '.join(self.tags) if self.tags else 'no tags'
@@ -282,25 +296,24 @@ class TimeEntry(Base):
     
     # Primary key
     id = Column(Integer, primary_key=True)
-    
+
     # Foreign keys
+    note_id    = Column(Integer, ForeignKey('notes.id', ondelete='RESTRICT'), nullable=False)
     project_id = Column(Integer, ForeignKey('projects.id', ondelete='SET NULL'), nullable=True)
     meeting_id = Column(Integer, ForeignKey('meetings.id', ondelete='SET NULL'), nullable=True)  # Phase 4 Feature 4
-    
+
     # Fields
-    description = Column(Text, nullable=False)
     duration_hours = Column(DECIMAL(5, 2), nullable=False)  # e.g., 1.50 for 1.5 hours
     category = Column(String(100), nullable=True)  # 'development', 'meeting', 'review', etc.
-    tags = Column(ARRAY(Text), nullable=True)
-    
+
     # Clockify integration
     clockify_id = Column(String(255), unique=True, nullable=True)
     synced_at = Column(DateTime, nullable=True)
-    
+
     # Date/time (24-hour format)
     entry_date = Column(Date, nullable=False)
     entry_time = Column(Time, nullable=True)  # 24-hour format: 14:30, 09:00
-    
+
     # Client attribution (Phase 11)
     client_id = Column(Integer, ForeignKey('clients.id', ondelete='SET NULL'),
                        nullable=True, index=True)
@@ -311,13 +324,14 @@ class TimeEntry(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     # Relationships
+    note    = relationship("Note", back_populates="time_entries")
     project = relationship("Project", back_populates="time_entries")
     meeting = relationship("Meeting", back_populates="time_entries")
-    
+
     def __repr__(self):
         time_str = self.entry_time.strftime('%H:%M') if self.entry_time else 'no time'
         return (f"<TimeEntry(id={self.id}, date={self.entry_date}, time={time_str}, "
-                f"duration={self.duration_hours}h, desc='{self.description[:30]}...')>")
+                f"duration={self.duration_hours}h, note_id={self.note_id})>")
     
     @property
     def display_time(self) -> str:
@@ -505,7 +519,6 @@ class ReportRecipient(Base):
 
     id             = Column(Integer, primary_key=True)
     report_type    = Column(String(50), nullable=False)
-    email          = Column(String(255), nullable=False)
     recipient_type = Column(String(10), nullable=False)  # 'to' or 'cc'
     client_id      = Column(Integer, ForeignKey('clients.id', ondelete='SET NULL'),
                             nullable=True, index=True)
@@ -517,7 +530,7 @@ class ReportRecipient(Base):
 
     def __repr__(self):
         return (f"<ReportRecipient(id={self.id}, report_type='{self.report_type}', "
-                f"email='{self.email}', role='{self.recipient_type}')>")
+                f"role='{self.recipient_type}')>")
 
 
 class GDriveUpload(Base):
