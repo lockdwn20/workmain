@@ -1,6 +1,6 @@
 """
 WorkmAIn Database Models
-Database Models v2.7
+Database Models v2.8
 20260610
 
 SQLAlchemy ORM models for WorkmAIn database.
@@ -39,6 +39,9 @@ Version History:
 - v2.7: Phase 13 DB Schema Sprint Gate 1 — H-1: Project.client_id FK constraint + client
         relationship; Client.projects back-relationship (migration 019); H-2: ReportRecipient
         email field removed, __repr__ updated (migration 020)
+- v2.8: Phase 13 DB Schema Sprint Gate 4 — TimeEntry: add note_id FK (ON DELETE RESTRICT,
+        NOT NULL) + note relationship; remove description and tags fields (migration 021);
+        Note: add time_entries back-relationship
 """
 
 from datetime import datetime, date, time
@@ -236,6 +239,7 @@ class Note(Base):
     task_status = relationship("TaskStatus", uselist=False, back_populates="note",
                                foreign_keys="TaskStatus.note_id",
                                passive_deletes=True)
+    time_entries = relationship("TimeEntry", back_populates="note")
 
     def __repr__(self):
         tags_str = ', '.join(self.tags) if self.tags else 'no tags'
@@ -292,25 +296,24 @@ class TimeEntry(Base):
     
     # Primary key
     id = Column(Integer, primary_key=True)
-    
+
     # Foreign keys
+    note_id    = Column(Integer, ForeignKey('notes.id', ondelete='RESTRICT'), nullable=False)
     project_id = Column(Integer, ForeignKey('projects.id', ondelete='SET NULL'), nullable=True)
     meeting_id = Column(Integer, ForeignKey('meetings.id', ondelete='SET NULL'), nullable=True)  # Phase 4 Feature 4
-    
+
     # Fields
-    description = Column(Text, nullable=False)
     duration_hours = Column(DECIMAL(5, 2), nullable=False)  # e.g., 1.50 for 1.5 hours
     category = Column(String(100), nullable=True)  # 'development', 'meeting', 'review', etc.
-    tags = Column(ARRAY(Text), nullable=True)
-    
+
     # Clockify integration
     clockify_id = Column(String(255), unique=True, nullable=True)
     synced_at = Column(DateTime, nullable=True)
-    
+
     # Date/time (24-hour format)
     entry_date = Column(Date, nullable=False)
     entry_time = Column(Time, nullable=True)  # 24-hour format: 14:30, 09:00
-    
+
     # Client attribution (Phase 11)
     client_id = Column(Integer, ForeignKey('clients.id', ondelete='SET NULL'),
                        nullable=True, index=True)
@@ -321,13 +324,14 @@ class TimeEntry(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     # Relationships
+    note    = relationship("Note", back_populates="time_entries")
     project = relationship("Project", back_populates="time_entries")
     meeting = relationship("Meeting", back_populates="time_entries")
-    
+
     def __repr__(self):
         time_str = self.entry_time.strftime('%H:%M') if self.entry_time else 'no time'
         return (f"<TimeEntry(id={self.id}, date={self.entry_date}, time={time_str}, "
-                f"duration={self.duration_hours}h, desc='{self.description[:30]}...')>")
+                f"duration={self.duration_hours}h, note_id={self.note_id})>")
     
     @property
     def display_time(self) -> str:
