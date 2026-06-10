@@ -1,5 +1,5 @@
 WorkmAIn
-Feature Backlog v5.17
+Feature Backlog v5.18
 20260610
 
 # WorkmAIn Feature Backlog
@@ -7,6 +7,7 @@ Feature Backlog v5.17
 Items deferred from various phases for future implementation.
 
 **Version History:**
+
 - v1.0 (20251224): Initial backlog with Phase 2 & 3 deferrals
 - v2.0 (20251226): Added Phase 3.5/Pre-Phase 4 deferrals
 - v3.0 (20260127): Added Phase 5.1 deferrals
@@ -41,11 +42,13 @@ Items deferred from various phases for future implementation.
 - v5.15 (20260605): Phase 13 Sprint 1 (v1.19.0) — Item 36 marked COMPLETE; Item 19 status updated
   (CPU path delivered, GPU deferred); Items 37 and 38 added (Modelfile tuning workflow, Ollama
   warm-up ping as Sprint 2 Gate 0 prerequisite); register and statistics updated.
+- v5.16 (20260610): Item 39 added — re-tag audit for 242 stub notes created during Phase 13
+  DB Schema Sprint Gate 4 (time_entries note_id backfill extension).
 - v5.17 (20260610): Item 23 priority elevated to High — meeting visibility
   gap identified as same structural issue resolved for time entries in this
   sprint; Phase 15 target retained pending scheduling review.
-- v5.16 (20260610): Item 39 added — re-tag audit for 242 stub notes created during Phase 13
-  DB Schema Sprint Gate 4 (time_entries note_id backfill extension).
+- v5.18 (20260610): Item 39 marked COMPLETE — re-tag audit finished; 214 → both,
+  28 → internal-only, 1 → info-only; 0 unreviewed stubs remaining.
 
 ---
 
@@ -131,35 +134,35 @@ Build first, refactor later. See the complete picture before abstracting.
 | 36 | ProviderConfig Dead Code Cleanup | Low | next base_provider.py mod | ~15 min | ✓ |
 | 37 | Ollama Modelfile Tuning Workflow | Low | Sprint 2/3 maintenance | ~30 min/rebuild | |
 | 38 | Ollama Warm-Up Ping on Bot Startup | Medium | Sprint 2 Gate 0 | ~30 min | |
-| 39 | Re-tag Audit — 242 Gate 4 Stub Notes | Medium | Phase 13 (post-v1.20.0) | ~1–2 hrs | |
+| 39 | Re-tag Audit — 242 Gate 4 Stub Notes | Medium | Phase 13 (post-v1.20.0) | ~1–2 hrs | ✓ |
 
 ---
 
 ## Summary Statistics
 
 **Total Items:** 39 (Item 22 is a redirect — no separate deferred work; see Item 20)
-**Completed:** 12 (Items 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 35, 36)
-**Open:** 26
+**Completed:** 13 (Items 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 35, 36, 39)
+**Open:** 25
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Open (targeted) | 22 | 1, 2, 3, 4, 7, 8, 12, 14, 15, 16, 19, 23, 28, 29, 30, 31, 32, 33, 34, 37, 38, 39 |
+| Open (targeted) | 21 | 1, 2, 3, 4, 7, 8, 12, 14, 15, 16, 19, 23, 28, 29, 30, 31, 32, 33, 34, 37, 38 |
 | Conditional | 1 | 9 |
 | Indefinitely | 3 | 5, 6, 21 |
-| Complete | 12 | 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 35, 36 |
+| Complete | 13 | 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 35, 36, 39 |
 | Redirect | 1 | 22 → Item 20 |
 
 | Priority | Count | Items |
 |----------|-------|-------|
 | High | 0 | — |
-| Medium | 11 | 2, 3, 7, 10, 14, 15, 23, 34, 35, 38, 39 |
+| Medium | 10 | 2, 3, 7, 10, 14, 15, 23, 34, 35, 38 |
 | Low | 19 | 1, 4, 5, 6, 8, 11, 12, 13, 16, 19, 21, 28, 29, 30, 31, 32, 33, 36, 37 |
 | Conditional | 1 | 9 |
 
 | Target Phase | Items |
 |-------------|-------|
 | Phase 11+ | 4, 28 |
-| Phase 13 | 32, 33, 34, 39 |
+| Phase 13 | 32, 33, 34 |
 | Phase 14+ | 19, 31 |
 | Phase 15 | 1, 2, 3, 7, 8, 10, 12, 13, 14, 15, 16, 23, 29 |
 | Phase 18 | 30 |
@@ -187,6 +190,7 @@ Build first, refactor later. See the complete picture before abstracting.
 Add short aliases for frequently used command groups.
 
 **Proposed Aliases:**
+
 ```
 workmain n  → workmain note
 workmain m  → workmain meetings
@@ -197,6 +201,7 @@ workmain tk → workmain tasks
 UX polish. Core CLI works without aliases. Phase 15 documentation/polish pass is the appropriate time.
 
 **Acceptance Criteria:**
+
 - [ ] All main command groups have 1–2 letter aliases
 - [ ] `--help` shows both full name and alias
 - [ ] No alias conflicts
@@ -219,6 +224,7 @@ Tab completion for bash and zsh shells with command, option, and value completio
 UX polish. No impact on functionality. Phase 15 documentation/polish pass.
 
 **Acceptance Criteria:**
+
 - [ ] Bash completion working
 - [ ] Zsh completion working
 - [ ] Tag completion shows all 6 tags
@@ -242,6 +248,7 @@ Interactive editor for template JSON files that opens the file in `$EDITOR` with
 Templates are modified infrequently. Direct JSON editing works. Phase 15 polish pass.
 
 **Acceptance Criteria:**
+
 - [ ] Opens template in `$EDITOR` with live validation
 - [ ] Prevents saving invalid templates
 - [ ] Version bump on save
@@ -263,6 +270,7 @@ Auto-migrate database schema when new fields are added to templates. Currently a
 Template schema has been stable since Phase 3. Auto-migration adds significant complexity for a problem that hasn't been painful in practice. Phase 11 multi-client data model changes are the better evaluation point for whether this pattern is needed.
 
 **Acceptance Criteria:**
+
 - [ ] Detect new fields in templates vs current schema
 - [ ] Auto-migrate database schema when new fields found
 - [ ] Validate field compatibility before migration
@@ -285,6 +293,7 @@ Track version history for individual template JSON files — version bump, times
 No practical use case identified. Templates are infrequently modified and changes are visible in git history. YAGNI until template management becomes complex enough to warrant it.
 
 **Acceptance Criteria (if implemented):**
+
 - [ ] Templates have a `version` field in their JSON structure
 - [ ] Version increments on save via template editor (depends on Item 3)
 - [ ] `workmain templates list` shows current version per template
@@ -306,6 +315,7 @@ Export templates to a portable format for sharing between WorkmAIn installations
 Single-installation use case. No multi-user or deployment scenario identified. YAGNI.
 
 **Acceptance Criteria (if implemented):**
+
 - [ ] `workmain templates export <name> --output <path>` exports to JSON
 - [ ] `workmain templates import <path>` imports and validates
 - [ ] Conflict resolution on import (existing template with same name)
@@ -327,12 +337,14 @@ Extract formatting functions scattered across command files into a shared `forma
 Premature abstraction risk. All commands needed to be built first to see the real pattern. Phase 15 refactor pass is the right time.
 
 **Acceptance Criteria:**
+
 - [ ] Common formatting functions extracted to `workmain/utils/formatters.py` (or similar)
 - [ ] All command files updated to import from shared module
 - [ ] No behavior change — formatting output identical
 - [ ] Tests updated if formatting functions have unit tests
 
 **Files Affected:**
+
 - `workmain/cli/commands/*.py` (all command files)
 - New: `workmain/utils/formatters.py`
 
@@ -353,6 +365,7 @@ Create a `master_log_template.md` documenting the expected format for daily mast
 AI report quality is acceptable without formal template documentation. Useful reference but not blocking any feature. Phase 15 docs pass.
 
 **Acceptance Criteria:**
+
 - [ ] `master_log_template.md` created in `templates/` or `docs/`
 - [ ] Documents all section headers and expected content format
 - [ ] Reviewed against actual daily master logs for accuracy
@@ -374,6 +387,7 @@ Create `examples.json` for AI prompts providing few-shot examples of high-qualit
 AI report quality has been acceptable without examples. Creating them speculatively adds maintenance overhead for no current benefit.
 
 **Acceptance Criteria (if triggered):**
+
 - [ ] `examples.json` created with representative high-quality report sections
 - [ ] Prompt builder updated to include examples when available
 - [ ] Report quality measurably improved vs baseline
@@ -400,11 +414,13 @@ the Phase 13-1 Ollama activation checklist. Model identifiers are now config-onl
 (Item 35 closes the code side).
 
 **Acceptance Criteria:**
+
 - [x] Written process in `docs/` covering: locate model identifiers, test report quality, update config
 - [x] Model identifier locations documented (`config/ai_settings.json providers.<name>.model`)
 - [x] Config-driven approach documented (change model in config, takes effect on next invocation)
 
 **Files Affected:**
+
 - New: `docs/ai_settings_guide.md`
 
 ---
@@ -430,6 +446,7 @@ one Python file implementing `BaseProvider`, one registry entry, one `ai_setting
 See `docs/ai_settings_guide.md` for the three-step process.
 
 **Acceptance Criteria:**
+
 - [x] N-provider registry implemented (PROVIDER_REGISTRY)
 - [x] OllamaProvider stub in place (Phase 13-1 activation ready)
 - [x] `workmain providers list` shows all three providers including disabled Ollama
@@ -452,11 +469,13 @@ See `docs/ai_settings_guide.md` for the three-step process.
 No functional bug. Internal session is self-contained and works correctly. Technical debt only. Phase 15 cleanup pass.
 
 **Acceptance Criteria:**
+
 - [ ] `_generate_draft()` receives session via parameter instead of creating internally
 - [ ] Pattern consistent with other command files (`get_db()` + `try/finally`)
 - [ ] No functional change to email draft behavior
 
 **Files Affected:**
+
 - `workmain/cli/commands/email.py`
 
 ---
@@ -480,14 +499,17 @@ No functional impact. Warning only. Phase 15 cleanup pass.
 
 **Resolution:**
 Fixed as part of the Gate 1 cost tracking sprint (v1.17.0). Both affected call sites replaced:
+
 - `workmain/database/models.py` — `GDriveUpload.created_at` default
 - `workmain/integrations/gdrive/gdrive_repository.py` — inline `created_at=` assignment
 
 **Acceptance Criteria:**
+
 - [x] All `datetime.utcnow()` calls replaced with `datetime.now(timezone.utc)`
 - [x] No `DeprecationWarning` on `workmain gdocs` operations
 
 **Files Affected:**
+
 - `workmain/integrations/gdrive/gdrive_repository.py`
 
 ---
@@ -507,11 +529,13 @@ Fixed as part of the Gate 1 cost tracking sprint (v1.17.0). Both affected call s
 Erroring tests don't block the suite baseline (161 passed). Schema-level assertions are a nice-to-have validation, not blocking any feature work. Phase 15 test debt cleanup.
 
 **Acceptance Criteria:**
+
 - [ ] `engine` fixture added to `conftest.py`
 - [ ] `test_database.py` passes with 0 errors
 - [ ] No regression to existing test baseline
 
 **Files Affected:**
+
 - `tests/conftest.py`
 - `tests/test_database.py`
 
@@ -532,11 +556,13 @@ Stale import in `test_templates.py` causes a collection error. The entire file i
 File doesn't block the suite (collection errors are isolated). Template behavior covered by other tests. Phase 15 test debt cleanup.
 
 **Acceptance Criteria:**
+
 - [ ] Stale import identified and removed or updated
 - [ ] `test_templates.py` collects and passes with 0 errors
 - [ ] No regression to existing test baseline
 
 **Files Affected:**
+
 - `tests/test_templates.py`
 
 ---
@@ -556,11 +582,13 @@ File doesn't block the suite (collection errors are isolated). Template behavior
 Edge case — only triggers on token expiry, which is infrequent. No silent data loss. Phase 15 cleanup pass.
 
 **Acceptance Criteria:**
+
 - [ ] `_require_auth()` catches `RefreshError` from `google.auth.exceptions`
 - [ ] Raises clean `GDriveAuthError` with user-friendly message
 - [ ] No raw traceback on token expiry
 
 **Files Affected:**
+
 - `workmain/integrations/gdrive/auth.py`
 
 ---
@@ -608,12 +636,14 @@ The Alienware M18R2 (RTX 4070 laptop GPU) is available on the home network and c
 Phase 13 primary path (Proxmox CPU) is sufficient. GPU offloading is a latency improvement, not a correctness requirement. Adding infrastructure complexity before the base path is validated is premature.
 
 **Acceptance Criteria:**
+
 - [ ] WorkmAIn Ollama client accepts configurable host endpoint via env var (`OLLAMA_HOST`)
 - [ ] Fallback to Proxmox CPU host if configured GPU host unreachable
 - [ ] README includes GPU offloading setup instructions for Ollama on RTX 4070
 - [ ] Benchmark results documented (CPU vs GPU latency for Mistral 7B)
 
 **Files Affected:**
+
 - `workmain/ai/` (Ollama client)
 - `README.md` or `docs/` (setup instructions)
 
@@ -652,6 +682,7 @@ context managed via `workmain clients set active <name>` / `workmain clients sta
 Phase 13 uses Slack Web API polling (~10 second latency) for inbound messages. The Slack Events API (webhook/push model) would reduce latency to ~1 second but requires a publicly reachable HTTPS endpoint from WSL. Cloudflare Tunnel is the cleanest solution — creates a persistent public URL forwarding to localhost without port forwarding or a static IP.
 
 **When to reconsider:**
+
 - If home lab gains other services that benefit from Cloudflare Tunnel
 - If polling latency becomes noticeable friction in daily use
 - If Cloudflare Tunnel is set up for other reasons and the upgrade becomes low-cost
@@ -660,6 +691,7 @@ Phase 13 uses Slack Web API polling (~10 second latency) for inbound messages. T
 Polling is sufficient for Phase 13. Cloudflare Tunnel adds infrastructure complexity and a new failure mode (tunnel outage = silent loss of inbound messages) before the base path is proven.
 
 **Acceptance Criteria (if implemented):**
+
 - [ ] Cloudflare Tunnel configured and running as systemd service
 - [ ] Slack Events API webhook handler replaces poll loop
 - [ ] Tunnel outage falls back to polling gracefully
@@ -691,6 +723,7 @@ The design decision (Option A — active client context switch) was approved 202
 Meetings are fetched for the full week and appended to every section's context in the AI prompt without filtering. Because meetings have no tag equivalent, internal meetings (e.g., "Splunk Normalization Project - Internal Sync") are exposed when generating client-facing reports (`weekly_client`), potentially causing AI-generated content about internal discussions.
 
 **Options to evaluate:**
+
 1. **Meeting-level tag** — Add a `visibility` or `tags` field to the Meeting model (e.g., `internal-only`, `client-report`, `both`). Prompt builder filters meetings the same way it filters notes.
 2. **Respect `data_sources`** — Prompt builder currently ignores `data_sources` for meetings. Wrap meeting fetch in a `"meetings" in data_sources` check.
 3. **Exclude meetings from weekly_client entirely** — Don't include meeting titles in weekly report prompts at all; meeting content is already captured in tagged notes.
@@ -702,6 +735,7 @@ Investigated 2026-03-27 after weekly report included AI-generated content derive
 Workaround exists (internal meetings captured as internal-only notes). Requires design decision between three options before implementation. Phase 15 prompt quality pass.
 
 **Acceptance Criteria:**
+
 - [ ] Evaluate which option best fits the workflow
 - [ ] Internal meetings do not appear in `weekly_client` report prompt context
 - [ ] If meeting tags added: Meeting model updated, migration written, CLI updated
@@ -709,6 +743,7 @@ Workaround exists (internal meetings captured as internal-only notes). Requires 
 - [ ] Tests updated to cover meeting filtering behavior
 
 **Files Affected:**
+
 - `workmain/ai/prompt_builder.py`
 - `workmain/database/models.py` (if adding meeting tags)
 - `templates/reports/weekly_client.json`
@@ -768,6 +803,7 @@ Advanced recurring meeting management features beyond basic creation and instanc
 4. **Recurring Templates** — Pre-defined patterns (daily standup, weekly review)
 
 **Proposed Commands:**
+
 ```bash
 workmain meetings edit-series "Daily Standup" --start 10:00 --end 10:15
 workmain meetings skip "Daily Standup" --date 2026-02-15
@@ -778,6 +814,7 @@ workmain meetings reschedule 42 --date 2026-02-20 --start 14:00
 Core recurring functionality (create, view, delete) is complete and working. These are convenience features with known workarounds. Phase 5.1 focused on critical bugs preventing basic usage.
 
 **Acceptance Criteria:**
+
 - [x] Can edit all future instances of recurring series
 - [x] Can skip individual occurrences without deleting
 - [x] Can reschedule single instance to different time/date
@@ -785,6 +822,7 @@ Core recurring functionality (create, view, delete) is complete and working. The
 - [x] UI clearly shows modified instances
 
 **Files Affected:**
+
 - `workmain/cli/commands/meetings.py`
 - `workmain/database/repositories/` (meeting repository)
 
@@ -810,6 +848,7 @@ Command groups that were placeholders in `interface.py`, removed in v1.1.0. Curr
 `config` deferred to Phase 14. `provider` redundancy should be confirmed before any work is done.
 
 **Acceptance Criteria:**
+
 - [ ] Phase 14 setup wizard covers `config` use case — or `config` group re-added at that time
 - [ ] `provider` vs `providers` audited; if redundant, confirm `providers` covers all need with no gap
 
@@ -827,6 +866,7 @@ Command groups that were placeholders in `interface.py`, removed in v1.1.0. Curr
 Refactor `clockify report ACTION` to use a consistent subcommand pattern matching `clockify sync push/pull/both`. Currently `clockify report save` uses the action as a positional argument rather than a Click subcommand.
 
 **Desired state:**
+
 ```bash
 workmain clockify report save daily    # consistent subcommand pattern
 ```
@@ -835,11 +875,13 @@ workmain clockify report save daily    # consistent subcommand pattern
 Current behavior works correctly. Cosmetic CLI consistency issue only. Phase 15 polish pass.
 
 **Acceptance Criteria:**
+
 - [ ] `clockify report save` follows the same subcommand pattern as `clockify sync`
 - [ ] `--help` output consistent with `clockify sync` format
 - [ ] No functional change to report behavior
 
 **Files Affected:**
+
 - `workmain/cli/commands/` (clockify-related command file)
 
 ---
@@ -883,10 +925,12 @@ explicit Phase 10 design decision so that a future system service promotion requ
 environment file changes rather than a code rewrite.
 
 **WSL2 exceptions to re-enable on native Linux (documented in service unit):**
+
 - `CapabilityBoundingSet=` and `AmbientCapabilities=` — kernel EPERM on WSL2
 - `LimitNPROC=64` — kernel EPERM when combined with other security directives on WSL2
 
 **Acceptance Criteria:**
+
 - [ ] Architecture decision documented before Phase 18 Gate 0
 - [ ] If Option A: `postinst` creates `workmain` user/group; daemon starts without
       interactive user logged in; notifications confirmed delivered
@@ -894,6 +938,7 @@ environment file changes rather than a code rewrite.
 - [ ] WSL2 service unit exceptions resolved or documented for target platform
 
 **Files Affected:**
+
 - `deploy/workmain-notify.service`
 - `workmain/daemon/daemon.py` (path config, if Option A changes state dir)
 - `workmain/__version__.py` (packaging phase)
@@ -927,11 +972,13 @@ surfaced in output, reports, or notifications. Phase 14 (Setup Wizard and Config
 is the earliest point where attendee management becomes user-facing.
 
 **Acceptance Criteria:**
+
 - [ ] Attendees surfaced in at least one user-facing output (meetings show, weekly report, etc.)
 - [ ] `--attendees` restored to `meetings create` with a compliant short form
 - [ ] Short form assigned in CLI_STANDARDS.md §5.3 reserved table
 
 **Files Affected:**
+
 - `workmain/cli/commands/meetings.py`
 - `docs/CLI_STANDARDS.md` (§5.3 reserved table — new short form assignment)
 
@@ -959,6 +1006,7 @@ Requires the Mistral 7B intent parser (Phase 13 Item 19). The `forwarding_note_i
 is a Phase 12 placeholder; no Phase 12 business logic uses it.
 
 **Acceptance Criteria:**
+
 - [ ] Mistral 7B intent parser detects semantically duplicate active CF tasks
 - [ ] Step 3c surfaces merge candidates with [m]erge / [s]kip prompt
 - [ ] Dismissed note's task_status.forwarding_note_id set to surviving note ID
@@ -985,6 +1033,7 @@ No CLI write path is needed until Slack DM intent parsing is implemented (Phase 
 column exists as a Phase 12 schema placeholder only.
 
 **Acceptance Criteria:**
+
 - [ ] Ollama/Mistral parses Slack DM correction intent and extracts reason
 - [ ] `reports correct` (or Slack handler) writes structured reason to `correction_note`
 - [ ] `reports show` displays `correction_note` when populated
@@ -1012,6 +1061,7 @@ content as its source instead of raw data. The confirmed `content` field (or
 `corrected_content` when set) represents the user-reviewed, accurate version of each day.
 
 **Benefits:**
+
 - **Token cost reduction** — a week of 5 compact daily summaries is significantly smaller
   than 5 days of raw notes + time entries + meetings joined together
 - **Accuracy** — the weekly prompt reflects the user's reviewed and corrected account of
@@ -1020,6 +1070,7 @@ content as its source instead of raw data. The confirmed `content` field (or
   attribution) automatically flow into the weekly report without manual re-editing
 
 **Implementation notes:**
+
 - `get_confirmed_dailies(start_date, end_date)` already exists in `ReportsRepository`
   (added v1.16.0); it returns confirmed/corrected `daily_internal` reports ordered ASC
 - `prompt_builder.py` needs a new code path: if confirmed dailies exist for the full
@@ -1034,12 +1085,14 @@ prompt-building path for the weekly report is a meaningful refactor of `prompt_b
 that should be done with full Phase 13 context rather than bolted on mid-phase.
 
 **Files Affected:**
+
 - `workmain/ai/prompt_builder.py` — new `_get_confirmed_daily_summaries()` method; wire
   into `build_prompt()` when template frequency is `weekly`
 - `workmain/database/repositories/reports_repo.py` — `get_confirmed_dailies()` already
   present; no changes needed unless signature needs extension
 
 **Acceptance Criteria:**
+
 - [ ] Weekly prompt uses confirmed/corrected daily content when all 5 weekdays have a
   confirmed or corrected daily report
 - [ ] Falls back to raw notes/time_entries/meetings query when any weekday lacks a
@@ -1070,6 +1123,7 @@ config-only — no Python edits needed. Verified end-to-end: setting
 `providers.claude.model = test-model-gate2` showed in `providers list` model column.
 
 **Acceptance Criteria:**
+
 - [x] `ClaudeProvider.__init__` reads `config.get('model', fallback)`
 - [x] `GeminiProvider.__init__` reads `config.get('model', fallback)`
 - [x] `workmain providers list` model column reflects config value
@@ -1077,6 +1131,7 @@ config-only — no Python edits needed. Verified end-to-end: setting
 - [x] Item 10 updated to reflect config-driven approach (docs/ai_settings_guide.md)
 
 **Files Affected:**
+
 - `workmain/ai/providers/claude.py` — `self.model = config.get('model', _FALLBACK_MODEL)`
 - `workmain/ai/providers/gemini.py` — same pattern
 - `config/ai_settings.json` — `model` field already present, now actually read
@@ -1102,11 +1157,13 @@ No functional impact. Remove when `base_provider.py` is next modified to avoid
 a dedicated one-line-removal commit.
 
 **Acceptance Criteria:**
+
 - [x] `ProviderConfig` class removed from `base_provider.py`
 - [x] `ProviderConfig` removed from `workmain/ai/__init__.py` exports and `__all__`
 - [x] `grep -rn "ProviderConfig" workmain/` returns empty (no remaining imports)
 
 **Files Affected:**
+
 - `workmain/ai/base_provider.py`
 
 ---
@@ -1134,12 +1191,14 @@ Requires real usage data from Sprint 2+ to have value. Fine-tuning on synthetic
 examples would not improve on the current prompt-engineered approach.
 
 **Acceptance Criteria:**
+
 - [ ] Rebuild Modelfile after each Sprint 2/3 action schema change
 - [ ] `config/intent_parse_system_prompt.txt` versioning header kept in sync
 - [ ] `config_version` incremented and `model_built` date updated on each rebuild
 - [ ] Evaluate fine-tuning feasibility after 30 days of production usage
 
 **Files Affected:**
+
 - `config/intent_parse_system_prompt.txt`
 - `config/intent_parse_prompt.json`
 - `ollama-lxc/models/workmain-intent/Modelfile` (IaC repo)
@@ -1168,11 +1227,13 @@ This eliminates the cold-start penalty in normal operation.
 No Slack bot in Sprint 1. Sprint 2 is where the bot starts up and polls.
 
 **Acceptance Criteria:**
+
 - [ ] Bot startup sequence sends warm-up ping to workmain-intent:latest before poll loop
 - [ ] Warm-up ping is logged but not cost-tracked (no meaningful token count)
 - [ ] Cold-start latency after bot restart is ≤ 15s for first real user message
 
 **Files Affected:**
+
 - Sprint 2 Slack bot startup module (TBD)
 - `workmain/ai/__init__.py`
 
@@ -1180,10 +1241,11 @@ No Slack bot in Sprint 1. Sprint 2 is where the bot starts up and polls.
 
 #### Item 39 — Re-tag Audit: 242 Gate 4 Stub Notes
 
-**Status:** Open — Phase 13 (post-v1.20.0)
+**Status:** ✓ COMPLETE — 20260610 (data audit, no code change)
 **Priority:** Medium (data quality — affects report tag filtering accuracy)
 **Effort:** ~1–2 hours
 **Added:** 20260610
+**Completed:** 20260610
 **Target Phase:** Phase 13 (post-v1.20.0 merge, before Sprint 2)
 
 **Description:**
@@ -1224,12 +1286,18 @@ Migration needed to complete before tag reviews could begin. Stub notes
 were intentionally defaulted to `internal-only` to be conservative — no
 content leaks into client reports pending this audit.
 
+**Completion Notes:**
+214 notes → `both`, 28 notes → `internal-only` (verified, not defaulted), 1 note → `info-only`.
+Identification query confirmed 0 unreviewed stubs remaining.
+
 **Acceptance Criteria:**
-- [ ] All 242 stub notes reviewed against work context
-- [ ] Tags updated to correct values via `workmain notes edit <id> --tags <tags>`
-- [ ] Any notes confirmed as internal-only are verified, not just left by default
-- [ ] Identification query returns 0 rows after re-tag (or only note id=7606)
+
+- [x] All 242 stub notes reviewed against work context
+- [x] Tags updated to correct values via `workmain notes edit <id> --tags <tags>`
+- [x] Any notes confirmed as internal-only are verified, not just left by default
+- [x] Identification query returns 0 rows after re-tag (or only note id=7606)
 
 **Files Affected:**
+
 - `notes` table (data only — tag updates via `workmain notes edit`)
 - `workmain/cli/commands/notes.py` (no code change needed)
