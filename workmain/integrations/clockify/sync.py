@@ -1,7 +1,7 @@
 """
 WorkmAIn Clockify Integration
 Sync Engine
-v1.3
+v1.4
 20260610
 
 Bidirectional sync between WorkmAIn and Clockify with conflict resolution.
@@ -14,6 +14,8 @@ Version History:
 - v1.3: Phase 13 DB Schema Sprint Gate 5 — note-first pull path: _import_clockify_entry
         creates a Note (source='clockify', tags=['internal-only']) before creating the
         TimeEntry with note_id; push path reads entry.note.content and entry.note.tags
+- v1.4: Fix Clockify push: WorkmAIn tags (e.g. internal-only) are internal classification
+        tags with no Clockify UUID equivalent; pass tags=None to avoid 400 tag errors
 """
 
 from typing import List, Dict, Any, Optional, Tuple
@@ -105,12 +107,14 @@ class ClockifySync:
                     project_id = self._get_clockify_project_id(entry.project_id)
 
                 # Create in Clockify
+                # WorkmAIn tags (internal-only, client-report, etc.) are internal
+                # classification tags for report filtering; Clockify expects workspace
+                # UUID tag IDs which have no mapping here, so tags are omitted.
                 clockify_entry = self.client.create_time_entry(
                     description=entry.note.content,
                     start_time=datetime.combine(entry.entry_date, entry.entry_time),
                     duration_hours=entry.duration_hours,
                     project_id=project_id,
-                    tags=entry.note.tags,
                 )
 
                 # Update local entry with Clockify ID
