@@ -1,5 +1,5 @@
 WorkmAIn
-Feature Backlog v5.16
+Feature Backlog v5.17
 20260610
 
 # WorkmAIn Feature Backlog
@@ -41,6 +41,9 @@ Items deferred from various phases for future implementation.
 - v5.15 (20260605): Phase 13 Sprint 1 (v1.19.0) — Item 36 marked COMPLETE; Item 19 status updated
   (CPU path delivered, GPU deferred); Items 37 and 38 added (Modelfile tuning workflow, Ollama
   warm-up ping as Sprint 2 Gate 0 prerequisite); register and statistics updated.
+- v5.17 (20260610): Item 23 priority elevated to High — meeting visibility
+  gap identified as same structural issue resolved for time entries in this
+  sprint; Phase 15 target retained pending scheduling review.
 - v5.16 (20260610): Item 39 added — re-tag audit for 242 stub notes created during Phase 13
   DB Schema Sprint Gate 4 (time_entries note_id backfill extension).
 
@@ -679,10 +682,10 @@ The design decision (Option A — active client context switch) was approved 202
 #### Item 23 — Meeting Visibility / Tagging for Report Prompt Context
 
 **Status:** Open — Deferred
-**Priority:** Medium (report quality / data leakage risk)
+**Priority:** High (same structural gap resolved for time entries in Phase 13 DB Schema Sprint)
 **Effort:** ~3–5 hours
 **Added:** 20260327
-**Target Phase:** Phase 15 (prompt quality pass)
+**Target Phase:** Phase 15 (prompt quality pass — scheduling review pending)
 
 **Description:**
 Meetings are fetched for the full week and appended to every section's context in the AI prompt without filtering. Because meetings have no tag equivalent, internal meetings (e.g., "Splunk Normalization Project - Internal Sync") are exposed when generating client-facing reports (`weekly_client`), potentially causing AI-generated content about internal discussions.
