@@ -1,7 +1,7 @@
 """
 WorkmAIn Meeting CLI Commands
-Meeting Commands v4.4
-20260603
+Meeting Commands v4.5
+20260610
 
 CLI commands for meeting management.
 

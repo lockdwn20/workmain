@@ -1,7 +1,7 @@
 """
 WorkmAIn Report Commands - Phase 4 Implementation
-Report Commands v2.10
-20260603
+Report Commands v2.11
+20260610
 
 Static action-first command structure — template is an argument.
 
