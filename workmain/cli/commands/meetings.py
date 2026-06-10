@@ -57,6 +57,8 @@ Version History:
         condensation costs from ai_costs table; full date filter set + --provider/-P
 - v4.4: Provider Foundation Sprint Gate 3 — "Sending to Claude..." made dynamic;
         reads active provider from note_condensation config via get_provider_manager()
+- v4.5: Phase 13 DB Schema Sprint Gate 5 — note-first pattern in meetings track and
+        meetings condense; entry.description references replaced with entry.note.content
 """
 
 import click
@@ -730,7 +732,7 @@ def track(title_or_id: str, date: Optional[datetime]):
         if existing_today:
             console.print(f"\n[yellow]⚠ Time entry already exists for this meeting on {meeting_date}:[/yellow]")
             for e in existing_today:
-                console.print(f"  [ID: {e.id}] {e.description} ({e.duration_hours}h)")
+                console.print(f"  [ID: {e.id}] {e.note.content} ({e.duration_hours}h)")
             if not click.confirm("\nCreate another entry?", default=False):
                 console.print("Skipped.")
                 return
@@ -745,13 +747,21 @@ def track(title_or_id: str, date: Optional[datetime]):
             default=default_desc
         )
 
+        from workmain.database.repositories.notes_repo import NotesRepository
+        notes_repo = NotesRepository(session)
+        note = notes_repo.create(
+            content=description,
+            tags=['both'],
+            source='meeting',
+            meeting_id=meeting.id,
+        )
         entry = time_repo.create(
-            description=description,
+            note_id=note.id,
             duration_hours=duration_hours,
             entry_date=meeting.start_time.date(),
             entry_time=meeting.start_time.time(),
             category='meeting',
-            meeting_id=meeting.id
+            meeting_id=meeting.id,
         )
 
         console.print(f"\n[green]✓ Time entry created:[/green]")
@@ -944,24 +954,24 @@ def meetings_condense(meeting_title: str):
             existing_today = [e for e in existing if e.entry_date == meeting_date]
 
             if existing_today:
-                # Update existing time entry description with condensed summary
+                # Re-link existing time entry to the condensed note
                 entry = existing_today[0]
-                entry.description = summary
+                entry.note_id = condensed_note.id
                 session.commit()
-                console.print(f"[green]✓ Time entry (ID: {entry.id}) updated with condensed summary[/green]")
+                console.print(f"[green]✓ Time entry (ID: {entry.id}) linked to condensed note[/green]")
             else:
-                # Create new time entry from meeting
+                # Create new time entry from meeting using the condensed note
                 duration_hours = (
                     meeting.end_time - meeting.start_time
                 ).total_seconds() / 3600
 
                 entry = time_repo.create(
-                    description=summary,
+                    note_id=condensed_note.id,
                     duration_hours=duration_hours,
                     entry_date=meeting.start_time.date(),
                     entry_time=meeting.start_time.time(),
                     category='meeting',
-                    meeting_id=meeting.id
+                    meeting_id=meeting.id,
                 )
                 console.print(f"[green]✓ Time entry created (ID: {entry.id}, {duration_hours:.2f}h)[/green]")
 

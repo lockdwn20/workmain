@@ -1,7 +1,7 @@
 """
 WorkmAIn Notes CLI Commands
-Notes Commands v3.9
-20260603
+Notes Commands v4.1
+20260610
 
 Unified notes command group. Consolidates note (write) and notes (read) groups
 from note.py into a single group with all subcommands.
@@ -45,6 +45,12 @@ Version History:
         condensation costs from ai_costs table; full date filter set + --provider/-P
 - v3.9: Provider Foundation Sprint Gate 3 — "Sending to Claude..." made dynamic;
         reads active provider from note_condensation config via get_provider_manager()
+- v4.0: Phase 13 DB Schema Sprint Gate 5 — notes delete pre-checks for linked
+        time entries (ON DELETE RESTRICT) before hitting DB constraint; user-friendly
+        abort message with time entry IDs
+- v4.1: Phase 13 DB Schema Sprint Gate 5 fix — apply note-first pattern to the two
+        missed TimeEntry creation sites in notes add (meeting time entry prompt) and
+        notes log (condensation flow); fix entry.description=summary → entry.note_id
 """
 
 import click
@@ -390,8 +396,15 @@ def notes_add(text: Optional[str], tags: Optional[str], meeting: Optional[str],
                     default=f"Meeting: {note.meeting.title}"
                 )
 
+                te_note = notes_repo.create(
+                    content=time_description,
+                    tags=['both'],
+                    source='meeting',
+                    meeting_id=note.meeting.id,
+                    client_id=active_client_id,
+                )
                 time_repo.create(
-                    description=time_description,
+                    note_id=te_note.id,
                     duration_hours=meeting_duration,
                     entry_date=note.meeting.start_time.date(),
                     entry_time=note.meeting.start_time.time(),
@@ -519,6 +532,19 @@ def notes_delete(identifier: str):
 
         click.echo(f"\nNote to delete:")
         click.echo(format_note_display(note))
+
+        # Pre-check: block deletion if linked time entries exist (ON DELETE RESTRICT)
+        from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+        linked = TimeEntriesRepository(session).get_by_note_id(note_id)
+        if linked:
+            ids = ', '.join(str(e.id) for e in linked)
+            click.echo(
+                f"\n✗ Cannot delete — {len(linked)} time "
+                f"{'entry is' if len(linked) == 1 else 'entries are'} linked to this note "
+                f"(time entry ID{'s' if len(linked) > 1 else ''}: {ids}).\n"
+                "Delete the time entries first, then retry."
+            )
+            return
 
         if not click.confirm("\nDelete this note?", default=False):
             click.echo("Cancelled.")
@@ -722,16 +748,16 @@ def notes_log(meeting: str):
 
                 if existing_today:
                     entry = existing_today[0]
-                    entry.description = summary
+                    entry.note_id = condensed_note.id
                     session.commit()
-                    click.echo(f"✓ Time entry (ID: {entry.id}) updated with condensed summary")
+                    click.echo(f"✓ Time entry (ID: {entry.id}) linked to condensed note")
                 else:
                     duration_hours = (
                         meeting_obj.end_time - meeting_obj.start_time
                     ).total_seconds() / 3600
 
                     entry = time_repo.create(
-                        description=summary,
+                        note_id=condensed_note.id,
                         duration_hours=duration_hours,
                         entry_date=meeting_obj.start_time.date(),
                         entry_time=meeting_obj.start_time.time(),

@@ -1,7 +1,7 @@
 """
 WorkmAIn Email Repository
-Email Repository v1.1
-20260522
+Email Repository v1.2
+20260610
 
 Data access layer for recipient management and report-template assignments.
 Handles all CRUD operations for the recipients and report_recipients tables.
@@ -11,6 +11,8 @@ Version History:
 - v1.1: Phase 11.5 Gate 3 — assign_recipient() and unassign_recipient() accept
         client_id for ambient client scoping; list_for_client() added for
         client-aware recipient resolution (global + client-scoped merged)
+- v1.2: Phase 13 DB Schema Sprint Gate 1 — H-2: remove email= write from
+        assign_recipient() create path (column dropped in migration 020)
 """
 
 from typing import Optional, List
@@ -186,7 +188,6 @@ class EmailRepository:
         assignment = ReportRecipient(
             recipient_id=recipient_id,
             report_type=report_type,
-            email=recipient.email,
             recipient_type=role,
             client_id=client_id,
         )

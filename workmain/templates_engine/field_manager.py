@@ -1,10 +1,15 @@
 """
 WorkmAIn Field Manager
-Field Manager v1.0
-20251224
+Field Manager v1.1
+20260610
 
 Manages template fields and sections.
 Handles data retrieval from database based on section configuration.
+
+Version History:
+- v1.0: Initial implementation
+- v1.1: Phase 13 DB Schema Sprint Gate 5 fix — _time_entry_to_dict reads
+        entry.note.content and entry.note.tags (description/tags columns dropped)
 """
 
 from datetime import date, datetime, timedelta
@@ -224,12 +229,12 @@ class FieldManager:
         """Convert TimeEntry model to dictionary."""
         return {
             'id': entry.id,
-            'description': entry.description,
+            'description': entry.note.content,
             'duration_hours': float(entry.duration_hours),
             'category': entry.category,
             'entry_date': entry.entry_date,
             'entry_time': entry.display_time,
-            'tags': entry.tags or [],
+            'tags': entry.note.tags or [],
             'project_id': entry.project_id,
             'project_name': entry.project.name if entry.project else None,
             'is_synced': entry.is_synced(),

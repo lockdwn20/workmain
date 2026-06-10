@@ -1,7 +1,7 @@
 """
 WorkmAIn Time CLI Commands
-Time Commands v1.5
-20260512
+Time Commands v1.6
+20260610
 
 CLI commands for time tracking with 24-hour format support and Clockify sync.
 Replaces track.py — `track` and `time` groups merged into a single `time` group.
@@ -22,6 +22,9 @@ Version History:
 - v1.4: Item 26 (CLI V18) — name-or-ID resolution on time edit/delete. New
         _resolve_time_entry() helper; both commands accept ID or description substring.
 - v1.5: Phase 11 Gate 5 — stamp active_client_id on time_repo.create() in time add
+- v1.6: Phase 13 DB Schema Sprint Gate 5 — note-first: create Note before TimeEntry in
+        time_add; route --description edits through NotesRepository in time_edit;
+        display references updated from entry.description to entry.note.content
 """
 
 import click
@@ -65,7 +68,7 @@ def format_time_entry_display(entry, show_id: bool = True, show_date: bool = Tru
 
     # Description and duration
     duration_str = f"{float(entry.duration_hours)}h"
-    lines.append(f"  {entry.description} ({duration_str})")
+    lines.append(f"  {entry.note.content} ({duration_str})")
 
     # Category
     if entry.category:
@@ -147,7 +150,8 @@ def _resolve_time_entry(identifier: str, repo: TimeEntriesRepository):
     for i, entry in enumerate(matches, 1):
         date_str = entry.entry_date.strftime('%Y-%m-%d')
         duration = f"{float(entry.duration_hours)}h"
-        preview = entry.description[:60] + "..." if len(entry.description) > 60 else entry.description
+        content = entry.note.content
+        preview = content[:60] + "..." if len(content) > 60 else content
         click.echo(f"  {i}. [ID: {entry.id}] {date_str} {preview} ({duration})")
 
     choice = click.prompt("\nSelect [number, or q to cancel]", default="1")
@@ -286,28 +290,7 @@ def time_add(description: Optional[str], duration: str, time: str,
                         click.echo("✗ Invalid selection")
                         return
 
-        # Create time entry with meeting link
-        entry = repo.create(
-            description=description,
-            duration_hours=duration_hours,
-            entry_date=entry_date,
-            entry_time=entry_time,
-            category=category,
-            project_id=project,
-            meeting_id=meeting_obj.id if meeting_obj else None,
-            client_id=active_client_id,
-        )
-
-        # Success message
-        click.echo(f"✓ Time entry added (ID: {entry.id})")
-        click.echo(f"  {duration_hours}h - {description}")
-        click.echo(f"  Time: {entry.display_time}")
-        if category:
-            click.echo(f"  Category: {category}")
-        if meeting_obj:
-            click.echo(f"  Linked to meeting: [#{meeting_obj.id}] {meeting_obj.title}")
-
-        # Parse tags for note creation
+        # Parse tags and determine primary note parameters
         from workmain.database.repositories.notes_repo import NotesRepository
         from workmain.utils.tag_utils import parse_tags
         notes_repo = NotesRepository(session)
@@ -322,50 +305,63 @@ def time_add(description: Optional[str], duration: str, time: str,
             if parsed_tags:
                 note_tags = parsed_tags
 
-        # Handle --notes if provided (meeting-linked note with custom content)
         if notes and meeting_obj:
-            note = notes_repo.create(
-                content=notes,
-                tags=note_tags,
-                source='meeting',
-                meeting_id=meeting_obj.id,
-                created_at=note_created_at,
-            )
+            primary_content = notes
+            primary_source = 'meeting'
+            primary_meeting_id = meeting_obj.id
+        elif meeting_obj:
+            primary_content = description
+            primary_source = 'meeting'
+            primary_meeting_id = meeting_obj.id
+        else:
+            primary_content = description
+            primary_source = 'task'
+            primary_meeting_id = None
 
+        # Create the linked note first, then the time entry
+        note = notes_repo.create(
+            content=primary_content,
+            tags=note_tags,
+            source=primary_source,
+            meeting_id=primary_meeting_id,
+            created_at=note_created_at,
+        )
+
+        entry = repo.create(
+            note_id=note.id,
+            duration_hours=duration_hours,
+            entry_date=entry_date,
+            entry_time=entry_time,
+            category=category,
+            project_id=project,
+            meeting_id=meeting_obj.id if meeting_obj else None,
+            client_id=active_client_id,
+        )
+
+        # Success message
+        click.echo(f"✓ Time entry added (ID: {entry.id})")
+        click.echo(f"  {duration_hours}h - {note.content}")
+        click.echo(f"  Time: {entry.display_time}")
+        if category:
+            click.echo(f"  Category: {category}")
+        if meeting_obj:
+            click.echo(f"  Linked to meeting: [#{meeting_obj.id}] {meeting_obj.title}")
+
+        if notes and meeting_obj:
             click.echo(f"✓ Note created (ID: {note.id}) and linked to meeting [#{meeting_obj.id}]")
-
-        # Suggest adding notes if --meeting but no --notes
-        elif meeting_obj and not notes:
-            # Auto-create note from description linked to meeting
-            note = notes_repo.create(
-                content=description,
-                tags=note_tags,
-                source='meeting',
-                meeting_id=meeting_obj.id,
-                created_at=note_created_at,
-            )
+        elif meeting_obj:
             click.echo(f"✓ Note created (ID: {note.id}) linked to meeting [#{meeting_obj.id}]")
 
             if click.confirm(f"\nAdd additional notes to this meeting?", default=False):
                 note_content = click.prompt("Enter note content")
-
                 extra_note = notes_repo.create(
                     content=note_content,
                     tags=note_tags,
                     meeting_id=meeting_obj.id,
                     created_at=note_created_at,
                 )
-
                 click.echo(f"✓ Note created (ID: {extra_note.id}) and linked to meeting [#{meeting_obj.id}]")
-
-        # No meeting - create standalone note from description
         else:
-            note = notes_repo.create(
-                content=description,
-                tags=note_tags,
-                source='task',
-                created_at=note_created_at,
-            )
             click.echo(f"✓ Note created (ID: {note.id})")
 
         # Prompt for Clockify sync
@@ -433,14 +429,17 @@ def time_edit(identifier: str, description: Optional[str], duration: Optional[st
                 click.echo(f"✗ {e}")
                 return
 
-        # Update entry
+        # Description edits route through the linked note
+        if description is not None:
+            from workmain.database.repositories.notes_repo import NotesRepository
+            NotesRepository(session).update(note_id=entry.note_id, content=description)
+
         updated = repo.update(
             entry_id=entry_id,
-            description=description,
             duration_hours=duration_hours,
             entry_time=entry_time,
             category=category,
-            project_id=project
+            project_id=project,
         )
 
         if updated:

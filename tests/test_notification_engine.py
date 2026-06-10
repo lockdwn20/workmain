@@ -1,7 +1,7 @@
 """
 WorkmAIn Notification Engine Tests
-test_notification_engine.py v1.0
-20260505
+test_notification_engine.py v1.1
+20260610
 
 Tests for the rules-based inspection engine (InspectionEngine) and the
 acknowledgment store (AcknowledgmentStore).
@@ -17,6 +17,8 @@ Sentinel dates used:
 
 Version History:
 - v1.0: Phase 10 Gate 3 — full suite per Gate 10 spec
+- v1.1: Phase 13 DB Schema Sprint Gate 5 — _time_entry() creates a Note first
+        (note_id required on TimeEntry after migration 021)
 """
 
 from datetime import date, datetime
@@ -58,9 +60,13 @@ def _note(db_session, content: str, tags: list, meeting_id=None,
 
 
 def _time_entry(db_session, hours: float, meeting_id=None):
-    repo = TimeEntriesRepository(db_session)
-    return repo.create(
-        description='Test entry',
+    note = NotesRepository(db_session).create(
+        content='Test entry',
+        tags=['internal-only'],
+        source='task',
+    )
+    return TimeEntriesRepository(db_session).create(
+        note_id=note.id,
         duration_hours=hours,
         entry_date=SENTINEL_DATE,
         meeting_id=meeting_id,

@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.20.0] - 2026-06-10
+
+### Added
+- `time_entries.note_id` — non-nullable FK to `notes.id` (ON DELETE RESTRICT);
+  every time entry now references the note it was created from. Notes are the
+  single source of truth for content, tags, and visibility.
+- `TimeEntriesRepository.get_by_note_id()` — returns linked time entries by note
+- Client/project consistency guard in `NotesRepository.create()`, `.update()`,
+  `TimeEntriesRepository.create()`, `.update()` — raises `ValueError` on mismatch
+- `notes delete` pre-check — user-friendly message when linked time entries exist;
+  aborts before ON DELETE RESTRICT fires
+- `clockify sync pull` auto-creates a note per imported entry (`source='clockify'`,
+  `tags=['internal-only']`); post-pull review list for user re-tagging
+- `preview_report()` gains `filter_client` + `client_id` — preview now applies
+  identical filtering as `reports save`
+- Migration 019: `projects.client_id` FK constraint (ON DELETE SET NULL)
+- Migration 021: `time_entries.note_id` FK (non-nullable after backfill)
+
+### Changed
+- `time add`: creates note first, then time entry referencing it via `note_id`
+- `time edit`: description edits route to `notes.content` via `note_id`
+- EOD meeting condensation: note created first, then time entry with `note_id`
+- `prompt_builder.py`: time entry content and tag filtering via `note_id` join;
+  `internal-only` time entries excluded from client reports at DB level
+- `NotesRepository.update()`: gains `client_id` parameter
+- `TimeEntriesRepository.create()`: gains `clockify_id` + `synced_at`; drops
+  `description` + `tags`
+- `Project` model: `client_id` now has FK constraint + `client` relationship
+- `Client` model: gains `projects` back-relationship
+- `CLAUDE.md`: `created_date`/`entry_date` asymmetry documented
+
+### Removed
+- `time_entries.description` — denormalized copy of `notes.content`; dropped
+- `time_entries.tags` — dead column (all rows `[]`); dropped
+- `report_recipients.email` — dead denormalized column; dropped (migration 020)
+- `ReportRecipient.email` field and `__repr__` reference
+- `email_repository.py` `email=recipient.email` write
+
+### Fixed
+- `clockify sync pull`: `TypeError: create() got unexpected keyword argument
+  'clockify_id'` resolved; signature aligned; `synced_at` atomic at create
+- `prompt_builder.py`: time entry tag filtering now structural (DB join),
+  not AI instruction only — resolves Issues A and B from hotfix v1.19.1/v1.19.2
+  permanently
+- `preview_report()`: client filter now applied — preview matches `reports save`
+
 ## [1.19.2] - 2026-06-05
 
 ### Fixed
