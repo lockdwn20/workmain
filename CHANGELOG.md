@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.20.1] - 2026-06-10
+
+### Fixed
+
+- Clockify sync push: Phase 13 note-first refactor caused `sync.py` to pass
+  `entry.note.tags` (e.g. `['internal-only']`) as Clockify `tagIds`. Clockify
+  rejected every push with `400 "Tag doesn't belong to Workspace"`. WorkmAIn
+  tags are internal report-classification labels with no Clockify UUID
+  equivalent; removed the `tags` argument from `create_time_entry()`.
+
 ## [1.20.0] - 2026-06-10
 
 ### Added

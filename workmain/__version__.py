@@ -1,9 +1,15 @@
 """
 WorkmAIn Package Version
-Version v1.20.0
+Version v1.20.1
 20260610
 
 Version History:
+- v1.20.1: Hotfix clockify-tag-sync — Phase 13 note-first refactor caused
+           sync.py push path to send entry.note.tags (e.g. ['internal-only'])
+           as Clockify tagIds; Clockify rejects these with 400 "Tag doesn't
+           belong to Workspace" (code 501). WorkmAIn tags are internal report
+           classification tags with no Clockify UUID equivalent; removed tags
+           argument from create_time_entry() call in push_entries(). sync.py v1.4.
 - v1.20.0: Phase 13 DB Schema Refactorization Sprint — time entries
            architectural refactor and schema hygiene. time_entries.note_id:
            non-nullable FK to notes.id (ON DELETE RESTRICT); every time
@@ -306,7 +312,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.20.0"
-__version_info__ = (1, 20, 0)
+__version__ = "1.20.1"
+__version_info__ = (1, 20, 1)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
