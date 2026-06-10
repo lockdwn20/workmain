@@ -1,7 +1,7 @@
 """
 WorkmAIn Notes Repository
-Notes Repository v1.9
-20260526
+Notes Repository v2.0
+20260610
 
 Data access layer for notes with tag filtering and full-text search.
 Handles all CRUD operations for the notes table.
@@ -20,6 +20,9 @@ Version History:
 - v1.8: Phase 11 Gate 6 — add get_for_date_client() for client-filtered report queries
 - v1.9: Notes & Tasks Foundation Sprint — add get_filtered() combined filter method
         supporting date, meeting, search, tags, and limit parameters simultaneously
+- v2.0: Phase 13 DB Schema Sprint Gate 2 — H-3: add _validate_client_project_consistency()
+        guard; wire into create() and update(); add client_id param to update();
+        update source docstring with all 5 valid values
 """
 
 from datetime import date, datetime
@@ -53,6 +56,29 @@ class NotesRepository:
         """
         self.session = session
     
+    def _validate_client_project_consistency(
+        self,
+        client_id: Optional[int],
+        project_id: Optional[int],
+    ) -> None:
+        """Raise ValueError if project's client_id doesn't match note's client_id.
+
+        Only validates when both client_id and project_id are set.
+        No-op if either is None.
+        """
+        if project_id is None or client_id is None:
+            return
+        project = self.session.query(Project).filter(
+            Project.id == project_id
+        ).first()
+        if project is None:
+            raise ValueError(f"Project {project_id} does not exist")
+        if project.client_id != client_id:
+            raise ValueError(
+                f"Project {project_id} belongs to client {project.client_id}, "
+                f"not client {client_id}. Cannot link note to mismatched project."
+            )
+
     def create(
         self,
         content: str,
@@ -71,7 +97,13 @@ class NotesRepository:
             tags: List of full tag names (e.g., ['internal-only'])
             project_id: Optional project ID to link
             meeting_id: Optional meeting ID to link
-            source: Note source ('ad-hoc', 'meeting', 'task')
+            source: Origin of the note. Valid values:
+                'meeting'   — note taken during a meeting (time add meeting path,
+                              notes.py, meetings.py)
+                'task'      — note from time add non-meeting path
+                'condensed' — AI-generated condensation summary (notes.py, meetings.py)
+                'ad-hoc'    — default for CLI notes add
+                'clockify'  — auto-created note for imported Clockify entry
             created_at: Override creation timestamp (used when backdating entries
                         so note.created_date matches the intended entry date)
             client_id: Optional client ID for attribution (None = internal mode)
@@ -79,6 +111,8 @@ class NotesRepository:
         Returns:
             Created Note object
         """
+        self._validate_client_project_consistency(client_id, project_id)
+
         # Normalize tags: remove duplicates and sort alphabetically
         normalized_tags = sorted(set(tags)) if tags else []
 
@@ -289,26 +323,33 @@ class NotesRepository:
         content: Optional[str] = None,
         tags: Optional[List[str]] = None,
         project_id: Optional[int] = None,
-        meeting_id: Optional[int] = None
+        meeting_id: Optional[int] = None,
+        client_id: Optional[int] = None,
     ) -> Optional[Note]:
         """
         Update an existing note.
-        
+
         Args:
             note_id: Note ID to update
             content: New content (None to keep existing)
             tags: New tags (None to keep existing)
             project_id: New project ID (None to keep existing)
             meeting_id: New meeting ID (None to keep existing)
-            
+            client_id: New client ID for consistency validation (None to keep existing)
+
         Returns:
             Updated Note object or None if not found
         """
         note = self.get_by_id(note_id)
-        
+
         if not note:
             return None
-        
+
+        # Resolve effective values for consistency check
+        effective_client_id = client_id if client_id is not None else note.client_id
+        effective_project_id = project_id if project_id is not None else note.project_id
+        self._validate_client_project_consistency(effective_client_id, effective_project_id)
+
         # Update fields if provided
         if content is not None:
             note.content = content
@@ -319,10 +360,12 @@ class NotesRepository:
             note.project_id = project_id
         if meeting_id is not None:
             note.meeting_id = meeting_id
-        
+        if client_id is not None:
+            note.client_id = client_id
+
         self.session.commit()
         self.session.refresh(note)
-        
+
         return note
     
     def delete(self, note_id: int) -> bool:

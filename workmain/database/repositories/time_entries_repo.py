@@ -1,6 +1,6 @@
 """
 WorkmAIn Time Entries Repository
-Time Entries Repository v1.7
+Time Entries Repository v1.8
 20260610
 
 Data access layer for time entries with 24-hour time format.
@@ -18,6 +18,8 @@ Version History:
 - v1.6: Phase 11 Gate 6 — add get_for_date_client() for client-filtered report queries
 - v1.7: Phase 13 DB Schema Sprint Gate 1 — H-4: add clockify_id + synced_at to create()
         signature, making Clockify import atomic (no post-create assignment needed)
+- v1.8: Phase 13 DB Schema Sprint Gate 2 — H-3: add _validate_client_project_consistency()
+        guard; wire into create() and update()
 """
 
 from datetime import date, datetime, time, timedelta
@@ -53,6 +55,29 @@ class TimeEntriesRepository:
         self.session = session
         self.model = TimeEntry  # For direct SQLAlchemy queries when needed
     
+    def _validate_client_project_consistency(
+        self,
+        client_id: Optional[int],
+        project_id: Optional[int],
+    ) -> None:
+        """Raise ValueError if project's client_id doesn't match entry's client_id.
+
+        Only validates when both client_id and project_id are set.
+        No-op if either is None.
+        """
+        if project_id is None or client_id is None:
+            return
+        project = self.session.query(Project).filter(
+            Project.id == project_id
+        ).first()
+        if project is None:
+            raise ValueError(f"Project {project_id} does not exist")
+        if project.client_id != client_id:
+            raise ValueError(
+                f"Project {project_id} belongs to client {project.client_id}, "
+                f"not client {client_id}. Cannot link time entry to mismatched project."
+            )
+
     def create(
         self,
         description: str,
@@ -86,6 +111,8 @@ class TimeEntriesRepository:
         Returns:
             Created TimeEntry object
         """
+        self._validate_client_project_consistency(client_id, project_id)
+
         time_entry = TimeEntry(
             description=description,
             duration_hours=Decimal(str(duration_hours)),
@@ -303,10 +330,15 @@ class TimeEntriesRepository:
             Updated TimeEntry object or None if not found
         """
         entry = self.get_by_id(entry_id)
-        
+
         if not entry:
             return None
-        
+
+        # Resolve effective values for consistency check
+        effective_client_id = entry.client_id
+        effective_project_id = project_id if project_id is not None else entry.project_id
+        self._validate_client_project_consistency(effective_client_id, effective_project_id)
+
         # Update fields if provided
         if description is not None:
             entry.description = description
