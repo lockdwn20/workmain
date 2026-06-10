@@ -1,7 +1,7 @@
 """
 WorkmAIn Email Commands
-Email Commands v1.6
-20260522
+Email Commands v1.7
+20260610
 
 Email command group for Outlook email draft pipeline (Phase 6).
 
@@ -36,6 +36,8 @@ Version History:
         global vs client-scoped note; email assign help updated with scoping docs;
         _get_draft_recipients() updated to use list_for_client() for client-aware
         resolution
+- v1.7: Phase 13 DB Schema Sprint Gate 1 -- H-2: _get_draft_recipients() now reads
+        email via a.recipient.email (report_recipients.email column dropped migration 020)
 """
 
 import re
@@ -141,7 +143,7 @@ def _get_draft_recipients(
         # Deduplicate by email: client-scoped record wins over global on conflict.
         seen: dict[str, str] = {}  # email -> role
         for a in assignments:
-            email = a.email
+            email = a.recipient.email
             if email not in seen:
                 seen[email] = a.recipient_type
             elif a.client_id is not None:

@@ -1,7 +1,7 @@
 """
 WorkmAIn Database Models
-Database Models v2.6
-20260605
+Database Models v2.7
+20260610
 
 SQLAlchemy ORM models for WorkmAIn database.
 Models: Note, TimeEntry, Meeting, Project, Report, Recipient, ReportRecipient,
@@ -36,6 +36,9 @@ Version History:
         on GDriveUpload.created_at (Item 13)
 - v2.6: Gate 1 Phase 13 Sprint 1 — extend AiCost interaction_type CHECK for 'intent_parse'
         (migration 018)
+- v2.7: Phase 13 DB Schema Sprint Gate 1 — H-1: Project.client_id FK constraint + client
+        relationship; Client.projects back-relationship (migration 019); H-2: ReportRecipient
+        email field removed, __repr__ updated (migration 020)
 """
 
 from datetime import datetime, date, time
@@ -80,6 +83,8 @@ class Client(Base):
                            default=lambda: datetime.now(timezone.utc),
                            onupdate=lambda: datetime.now(timezone.utc))
 
+    projects = relationship("Project", back_populates="client")
+
 
 class Project(Base):
     """
@@ -94,8 +99,12 @@ class Project(Base):
     id = Column(Integer, primary_key=True)
     
     # Foreign keys
-    client_id = Column(Integer, nullable=True)  # References clients.id (Phase 6)
-    
+    client_id = Column(
+        Integer,
+        ForeignKey('clients.id', ondelete='SET NULL'),
+        nullable=True
+    )
+
     # Fields
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
@@ -103,12 +112,13 @@ class Project(Base):
     clockify_project_id = Column(String(255), nullable=True)
     start_date = Column(Date, nullable=True)
     end_date = Column(Date, nullable=True)
-    
+
     # Timestamps
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
-    
+
     # Relationships
+    client = relationship("Client", back_populates="projects")
     notes = relationship("Note", back_populates="project")
     time_entries = relationship("TimeEntry", back_populates="project")
     
@@ -505,7 +515,6 @@ class ReportRecipient(Base):
 
     id             = Column(Integer, primary_key=True)
     report_type    = Column(String(50), nullable=False)
-    email          = Column(String(255), nullable=False)
     recipient_type = Column(String(10), nullable=False)  # 'to' or 'cc'
     client_id      = Column(Integer, ForeignKey('clients.id', ondelete='SET NULL'),
                             nullable=True, index=True)
@@ -517,7 +526,7 @@ class ReportRecipient(Base):
 
     def __repr__(self):
         return (f"<ReportRecipient(id={self.id}, report_type='{self.report_type}', "
-                f"email='{self.email}', role='{self.recipient_type}')>")
+                f"role='{self.recipient_type}')>")
 
 
 class GDriveUpload(Base):

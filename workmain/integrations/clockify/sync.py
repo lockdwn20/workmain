@@ -1,14 +1,18 @@
 """
 WorkmAIn Clockify Integration
 Sync Engine
-v1.1
-20260202
+v1.2
+20260610
 
 Bidirectional sync between WorkmAIn and Clockify with conflict resolution.
 
 Version History:
 - v1.0: Initial implementation with push, pull, and interactive conflict resolution
 - v1.1: Phase 5.1 - Convert UTC times from Clockify to local timezone on pull
+- v1.2: Phase 13 DB Schema Sprint Gate 1 — H-4: pass clockify_id + synced_at directly
+        to repo.create() so import is atomic; removes post-create synced_at assignment.
+        NOTE: This fix will be superseded by the time_entries note_id refactor
+        (Phase 13 DB Schema Sprint, Gate 5) which rewrites the full pull path.
 """
 
 from typing import List, Dict, Any, Optional, Tuple
@@ -316,19 +320,18 @@ class ClockifySync:
         duration_seconds = (end_dt - start_dt).total_seconds()
         duration_hours = Decimal(str(duration_seconds / 3600))
 
-        # Create local entry with local date/time
+        # NOTE: This fix will be superseded by the time_entries note_id refactor
+        # (Phase 13 DB Schema Sprint, Gate 5) which rewrites the full pull path.
         entry = self.repo.create(
             description=clockify_entry.get('description', 'Imported from Clockify'),
             duration_hours=duration_hours,
             entry_date=start_dt.date(),
             entry_time=start_dt.time().replace(tzinfo=None),
             clockify_id=clockify_entry['id'],
+            synced_at=datetime.now(),
             tags=clockify_entry.get('tags', [])
         )
-        
-        entry.synced_at = datetime.now()
-        self.session.commit()
-        
+
         return entry
     
     def _get_clockify_project_id(self, local_project_id: int) -> Optional[str]:

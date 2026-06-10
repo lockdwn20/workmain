@@ -1,7 +1,7 @@
 """
 WorkmAIn Time Entries Repository
-Time Entries Repository v1.6
-20260512
+Time Entries Repository v1.7
+20260610
 
 Data access layer for time entries with 24-hour time format.
 Handles all CRUD operations for the time_entries table.
@@ -16,6 +16,8 @@ Version History:
         commands (Item 26, CLI V18)
 - v1.5: Phase 11 Gate 5 — create() accepts client_id for attribution stamping
 - v1.6: Phase 11 Gate 6 — add get_for_date_client() for client-filtered report queries
+- v1.7: Phase 13 DB Schema Sprint Gate 1 — H-4: add clockify_id + synced_at to create()
+        signature, making Clockify import atomic (no post-create assignment needed)
 """
 
 from datetime import date, datetime, time, timedelta
@@ -62,6 +64,8 @@ class TimeEntriesRepository:
         meeting_id: Optional[int] = None,
         tags: Optional[List[str]] = None,
         client_id: Optional[int] = None,
+        clockify_id: Optional[str] = None,
+        synced_at: Optional[datetime] = None,
     ) -> TimeEntry:
         """
         Create a new time entry.
@@ -76,6 +80,8 @@ class TimeEntriesRepository:
             meeting_id: Optional meeting ID to link (for Clockify sync from meetings)
             tags: Optional list of tags
             client_id: Optional client ID for attribution (None = internal mode)
+            clockify_id: Optional Clockify entry ID (set on pull import)
+            synced_at: Optional sync timestamp (set on pull import, atomic with clockify_id)
 
         Returns:
             Created TimeEntry object
@@ -90,6 +96,8 @@ class TimeEntriesRepository:
             meeting_id=meeting_id,
             tags=tags or [],
             client_id=client_id,
+            clockify_id=clockify_id,
+            synced_at=synced_at,
         )
         
         self.session.add(time_entry)

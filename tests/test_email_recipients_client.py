@@ -1,7 +1,7 @@
 """
 WorkmAIn Email Recipient Client Tests
-test_email_recipients_client.py v1.0
-20260522
+test_email_recipients_client.py v1.1
+20260610
 
 Tests for Phase 11.5 email recipient client dimension:
 - assign_recipient() client_id scoping
@@ -15,6 +15,8 @@ production data.
 
 Version History:
 - v1.0: Phase 11.5 Gate 5 — initial implementation
+- v1.1: Phase 13 DB Schema Sprint Gate 1 — update all a.email refs to a.recipient.email
+        (report_recipients.email removed in migration 020)
 """
 
 import pytest
@@ -149,7 +151,7 @@ class TestListForClient:
         repo.assign_recipient(r_scoped.id, _TMPL, "to", client_id=client.id)
 
         results = repo.list_for_client(_TMPL, client_id=None)
-        emails = {a.email for a in results}
+        emails = {a.recipient.email for a in results}
         assert r_global.email in emails
         assert r_scoped.email not in emails
 
@@ -164,7 +166,7 @@ class TestListForClient:
         repo.assign_recipient(r_scoped.id, _TMPL, "to", client_id=client.id)
 
         results = repo.list_for_client(_TMPL, client_id=client.id)
-        emails = {a.email for a in results}
+        emails = {a.recipient.email for a in results}
         assert r_global.email in emails
         assert r_scoped.email in emails
 
@@ -180,7 +182,7 @@ class TestListForClient:
         repo.assign_recipient(r_b.id, _TMPL, "to", client_id=client_b.id)
 
         results = repo.list_for_client(_TMPL, client_id=client_a.id)
-        emails = {a.email for a in results}
+        emails = {a.recipient.email for a in results}
         assert r_a.email in emails
         assert r_b.email not in emails
 
