@@ -1,7 +1,7 @@
 """
 WorkmAIn EOD Task Matching Tests
-test_eod_task_matching v1.0
-20260528
+test_eod_task_matching v1.1
+20260611
 
 Tests for PC-1 — EOD Step 3c task matching algorithm.
 
@@ -9,9 +9,9 @@ Covers:
   - _tokenize(): lowercases, strips punctuation, removes stop words, returns set
   - _score_match(): ratio of overlap to task token count; 0.0 for empty task_tokens
   - Confidence thresholds: High ≥ 0.5, Medium 0.2–0.49, Low < 0.2 (not surfaced)
-  - _run_task_match_step(): returns True immediately when no CF observations
-  - _run_task_match_step(): returns True immediately when no active tasks
-  - _run_task_match_step(): exception handling returns True (non-blocking)
+  - _run_task_match_step(): returns COMPLETED immediately when no CF observations
+  - _run_task_match_step(): returns COMPLETED immediately when no active tasks
+  - _run_task_match_step(): exception handling returns COMPLETED (non-blocking)
 
 Pure-Python functions are tested with no database.
 Step-level entry-condition tests use a temporary state file
@@ -19,6 +19,8 @@ and stub out the DB via mocking.
 
 Version History:
 - v1.0: Phase 12 Gate 7 — initial implementation
+- v1.1: Phase 13 Sprint 2 Gate 2 — updated imports after step runner extraction to
+        workmain.workflows.eod_workflow; bool return assertions updated to EodStepResult
 """
 
 import json
@@ -30,7 +32,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from workmain.cli.commands.eod import _tokenize, _score_match, _run_task_match_step
+from workmain.workflows.eod_workflow import (
+    _tokenize, _score_match, _run_task_match_step, EodStepStatus
+)
 
 
 # ---------------------------------------------------------------------------
@@ -192,21 +196,21 @@ class TestTaskMatchStepEntryConditions:
         """Step returns True immediately when no last_inspection.json exists."""
         with patch.dict(os.environ, {'WORKMAIN_STATE_DIR': str(tmp_path)}):
             result = _run_task_match_step(dry_run=False, target_date=date(2099, 1, 1))
-        assert result is True
+        assert result.status == EodStepStatus.COMPLETED
 
     def test_returns_true_when_no_cf_observations(self, tmp_path):
         """Step returns True immediately when state file has no carry-forward observations."""
         self._write_empty_state_file(str(tmp_path), date(2099, 1, 1))
         with patch.dict(os.environ, {'WORKMAIN_STATE_DIR': str(tmp_path)}):
             result = _run_task_match_step(dry_run=False, target_date=date(2099, 1, 1))
-        assert result is True
+        assert result.status == EodStepStatus.COMPLETED
 
     def test_returns_true_when_state_file_date_mismatch(self, tmp_path):
         """Step returns True when state file is for a different date."""
         self._write_cf_state_file(str(tmp_path), date(2099, 1, 2))  # different date
         with patch.dict(os.environ, {'WORKMAIN_STATE_DIR': str(tmp_path)}):
             result = _run_task_match_step(dry_run=False, target_date=date(2099, 1, 1))
-        assert result is True
+        assert result.status == EodStepStatus.COMPLETED
 
     def test_returns_true_when_no_active_tasks(self, tmp_path):
         """Step returns True when CF items exist but no active task_status records."""
@@ -217,22 +221,20 @@ class TestTaskMatchStepEntryConditions:
         mock_task_repo.get_filtered.return_value = []  # no active tasks
 
         with patch.dict(os.environ, {'WORKMAIN_STATE_DIR': str(tmp_path)}):
-            with patch('workmain.cli.commands.eod.get_db') as mock_get_db:
+            with patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
                 mock_get_db.return_value.get_session.return_value = mock_session
-                with patch('workmain.cli.commands.eod.TaskStatusRepository',
-                           return_value=mock_task_repo, create=True):
-                    with patch('workmain.database.repositories.task_status_repo.'
-                               'TaskStatusRepository', return_value=mock_task_repo):
+                with patch('workmain.database.repositories.task_status_repo.'
+                           'TaskStatusRepository', return_value=mock_task_repo):
                         # The step imports TaskStatusRepository lazily inside the function
-                        # Patch at the point of use in eod.py
-                        with patch('workmain.cli.commands.eod._run_task_match_step',
+                        # Patch at the point of use in eod_workflow.py
+                        with patch('workmain.workflows.eod_workflow._run_task_match_step',
                                    wraps=_run_task_match_step):
                             pass  # just verify the mocking path exists
 
         # Simpler: call with a real tmp state file but mock the DB session layer
         # directly by patching the import inside the function
         with patch.dict(os.environ, {'WORKMAIN_STATE_DIR': str(tmp_path)}):
-            with patch('workmain.cli.commands.eod.get_db') as mock_get_db:
+            with patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
                 mock_sess = MagicMock()
                 mock_get_db.return_value.get_session.return_value = mock_sess
 
@@ -260,7 +262,7 @@ class TestTaskMatchStepEntryConditions:
                         result = _run_task_match_step(
                             dry_run=False, target_date=date(2099, 1, 1)
                         )
-                        assert result is True
+                        assert result.status == EodStepStatus.COMPLETED
                     finally:
                         ts_mod.TaskStatusRepository = original_ts_class
                         te_mod.TimeEntriesRepository = original_te_class
@@ -279,7 +281,7 @@ class TestTaskMatchStepEntryConditions:
         try:
             ts_mod.TaskStatusRepository = _RaisingRepo
             with patch.dict(os.environ, {'WORKMAIN_STATE_DIR': str(tmp_path)}):
-                with patch('workmain.cli.commands.eod.get_db') as mock_get_db:
+                with patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
                     mock_sess = MagicMock()
                     mock_get_db.return_value.get_session.return_value = mock_sess
                     result = _run_task_match_step(
@@ -288,10 +290,10 @@ class TestTaskMatchStepEntryConditions:
         finally:
             ts_mod.TaskStatusRepository = original
 
-        assert result is True
+        assert result.status == EodStepStatus.COMPLETED
 
     def test_dry_run_returns_true_without_reading_state(self, tmp_path):
         """--dry-run returns True without reading the state file or DB."""
         with patch.dict(os.environ, {'WORKMAIN_STATE_DIR': str(tmp_path)}):
             result = _run_task_match_step(dry_run=True, target_date=date(2099, 1, 1))
-        assert result is True
+        assert result.status == EodStepStatus.COMPLETED

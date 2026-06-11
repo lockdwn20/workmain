@@ -1,10 +1,11 @@
 """
 WorkmAIn EOD Pipeline Tests
-test_eod_pipeline v1.3
-20260505
+test_eod_pipeline v1.4
+20260611
 
-Tests for eod.py day-aware pipeline (Phase 9 Gate 2).
-Covers _build_step_sequence, --skip weekly, and --dry-run output.
+Tests for the EOD pipeline CLI surface (eod.py) and workflow step sequence.
+Step runner logic now lives in workmain.workflows.eod_workflow — imports updated
+to source _build_step_sequence and _run_review_step from there.
 
 Version History:
 - v1.0: Phase 9 Gate 5 — 9 test cases for day detection, --skip weekly, --dry-run
@@ -14,6 +15,9 @@ Version History:
         that _run_review_step calls 'time date <date>' for past dates and 'time today'
         for today
 - v1.3: Phase 10 Gate 5 — updated step count assertions (+1 for pre_flight_inspection)
+- v1.4: Phase 13 Sprint 2 Gate 2 — updated imports and mock paths after step runner
+        extraction to workmain.workflows.eod_workflow; patch paths updated to
+        eod_workflow.subprocess and eod_workflow._confirm accordingly
 """
 
 import unittest
@@ -22,7 +26,8 @@ from unittest.mock import patch, call, MagicMock
 
 from click.testing import CliRunner
 
-from workmain.cli.commands.eod import _build_step_sequence, _run_review_step, eod
+from workmain.workflows.eod_workflow import _build_step_sequence, _run_review_step
+from workmain.cli.commands.eod import eod
 
 MONDAY    = 0
 THURSDAY  = 3
@@ -123,8 +128,8 @@ class TestReviewStepDispatch(unittest.TestCase):
     """Tests that _run_review_step calls the correct time subcommand for the date."""
 
     def _run_review(self, target_date: date):
-        with patch('workmain.cli.commands.eod.subprocess.run') as mock_run, \
-             patch('click.confirm', return_value=True):
+        with patch('workmain.workflows.eod_workflow.subprocess.run') as mock_run, \
+             patch('workmain.workflows.eod_workflow._confirm', return_value=True):
             _run_review_step(dry_run=False, target_date=target_date)
         return mock_run
 
