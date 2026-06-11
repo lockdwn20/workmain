@@ -1,7 +1,7 @@
 """
 WorkmAIn End-of-Day Workflow
-EOD v2.12
-20260610
+EOD v2.13
+20260611
 
 Guided end-of-day workflow for daily work wrap-up.
 
@@ -75,6 +75,9 @@ Version History:
          also passes --date to subprocess for backdated EOD consistency
 - v2.12: Phase 13 DB Schema Sprint Gate 5 fix — replace entry.description with
          entry.note.content in _run_task_match_step (task scoring and display)
+- v2.13: Phase 13 Sprint 2 Gate 1 — correction_note prompt added to _run_report_step
+         and _run_weekly_report_step after edit (Item 33); _run_task_match_step
+         upgraded with IntentParser semantic matching + keyword fallback (Item 32)
 """
 
 import json
@@ -372,6 +375,32 @@ def _eod_edit_in_editor(content: str) -> Optional[str]:
             Path(tmp_path).unlink(missing_ok=True)
 
 
+def _keyword_score_match(task, entries: list) -> dict:
+    """Score a task against a list of time entries using keyword overlap.
+
+    Args:
+        task: TaskStatus object (task.note.content is the task text)
+        entries: List of TimeEntry objects
+
+    Returns:
+        dict with keys: score (float 0.0–1.0), entry (TimeEntry|None)
+    """
+    note = task.note
+    if not note or not note.content:
+        return {"score": 0.0, "entry": None}
+    task_tokens = _tokenize(note.content)
+    best_score = 0.0
+    best_entry = None
+    for entry in entries:
+        if not entry.note or not entry.note.content:
+            continue
+        score = _score_match(task_tokens, _tokenize(entry.note.content))
+        if score > best_score:
+            best_score = score
+            best_entry = entry
+    return {"score": best_score, "entry": best_entry}
+
+
 def _run_task_match_step(dry_run: bool, target_date: date) -> bool:
     """Step 3c: Match active carry-forward tasks against today's time entries.
 
@@ -428,24 +457,46 @@ def _run_task_match_step(dry_run: bool, target_date: date) -> bool:
             console.print("  [dim]No time entries for today — skipping task match[/dim]")
             return True
 
-        # Score every active task against every time entry; keep best per task
+        # Check Ollama availability — use semantic matching when available,
+        # fall back to keyword scoring when unreachable.
+        ollama_available = False
+        intent_parser = None
+        try:
+            from workmain.ai.providers.ollama import OllamaProvider
+            from workmain.ai.base_provider import ProviderStatus
+            import os as _os
+            _probe = OllamaProvider({
+                "model": "workmain-intent:latest",
+                "host": _os.environ.get("OLLAMA_HOST", "workmain-ollama.lab.haloschaos.com"),
+                "port": int(_os.environ.get("OLLAMA_PORT", "11434")),
+                "timeout": 15,
+            })
+            if _probe.check_availability() == ProviderStatus.AVAILABLE:
+                from workmain.ai.intent_parser import IntentParser
+                intent_parser = IntentParser()
+                ollama_available = True
+        except Exception:
+            pass
+
+        # Build an entry-by-id lookup for the Ollama path
+        entries_by_id = {e.id: e for e in entries}
+
         candidates = []
         for ts in active_tasks:
-            note = ts.note
-            if not note or not note.content:
+            if not ts.note or not ts.note.content:
                 continue
-            task_tokens = _tokenize(note.content)
-            best_score = 0.0
-            best_entry = None
-            for entry in entries:
-                if not entry.note.content:
+
+            if ollama_available:
+                result = intent_parser.parse_task_match(ts, entries)
+                if result["confidence"] < 0.7:
                     continue
-                score = _score_match(task_tokens, _tokenize(entry.note.content))
-                if score > best_score:
-                    best_score = score
-                    best_entry = entry
-            if best_score >= 0.2 and best_entry:
-                candidates.append((best_score, ts, best_entry))
+                matched_entry = entries_by_id.get(result["entry_id"])
+                candidates.append((result["confidence"], ts, matched_entry))
+            else:
+                result = _keyword_score_match(ts, entries)
+                if result["score"] < 0.2:
+                    continue
+                candidates.append((result["score"], ts, result["entry"]))
 
         candidates.sort(key=lambda x: x[0], reverse=True)
 
@@ -490,6 +541,11 @@ def _run_task_match_step(dry_run: bool, target_date: date) -> bool:
 
             if raw in ('c', 'complete'):
                 task_repo.set_completed(ts.note_id)
+                if entry and hasattr(entry, 'note_id') and entry.note_id:
+                    try:
+                        task_repo.set_forwarding_note(ts.id, entry.note_id)
+                    except Exception:
+                        pass
                 session.commit()
                 console.print("  [green]✓ Marked complete[/green]")
                 n_completed += 1
@@ -635,6 +691,14 @@ def _run_report_step(dry_run: bool, target_date: date) -> bool:
                             console.print(
                                 f"  [yellow]⚠ DB saved; staging file update failed: {stage_err}[/yellow]"
                             )
+                    correction_note_text = click.prompt(
+                        "  Add a correction note (optional)",
+                        default="",
+                        show_default=False,
+                    ).strip()
+                    if correction_note_text:
+                        repo.set_correction_note(report.id, correction_note_text)
+                        console.print("  [dim]Correction note saved.[/dim]")
                     console.print("  [green]✓ Daily report saved with corrections.[/green]")
                 else:
                     console.print("  [dim]No changes detected.[/dim]")
@@ -927,6 +991,14 @@ def _run_weekly_report_step(dry_run: bool, target_date: date) -> bool:
                             console.print(
                                 f"  [yellow]⚠ DB saved; staging file update failed: {stage_err}[/yellow]"
                             )
+                    correction_note_text = click.prompt(
+                        "  Add a correction note (optional)",
+                        default="",
+                        show_default=False,
+                    ).strip()
+                    if correction_note_text:
+                        repo.set_correction_note(report.id, correction_note_text)
+                        console.print("  [dim]Correction note saved.[/dim]")
                     console.print("  [green]✓ Weekly report saved with corrections.[/green]")
                 else:
                     console.print("  [dim]No changes detected.[/dim]")

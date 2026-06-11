@@ -1,14 +1,14 @@
 # ============================================================
 # WorkmAIn Intent Parse — System Prompt
 # ============================================================
-# config_version:    1.1
-# config_updated:    20260605
+# config_version:    1.2
+# config_updated:    20260611
 # ollama_model:      workmain-intent:v1.1
 # ollama_host:       workmain-ollama.lab.haloschaos.com:11434
 # model_built:       (set this when build_workmain_intent.sh is run)
 #
 # Description:
-#   System prompt for Mistral 7B intent parsing. Defines 7 action types
+#   System prompt for Mistral 7B intent parsing. Defines 8 action types
 #   with examples and inference rules. This file is the source of truth —
 #   the Modelfile SYSTEM block must match this content exactly.
 #
@@ -76,7 +76,16 @@ Valid actions and their required fields:
    Example input: "push the PR review to tomorrow"
    Example output: {"action": "defer_task", "task_description": "PR review"}
 
-7. unknown
+7. deduplicate_task
+   Use when the user says two carry-forward tasks are the same thing.
+   Required: task_description (string — the duplicate task to merge/dismiss),
+             canonical_description (string — the task that should survive)
+   Example input: "that XSOAR task is the same as the migration one"
+   Example output: {"action": "deduplicate_task", "task_description": "XSOAR task", "canonical_description": "XSOAR migration"}
+   Example input: "the splunk review is a duplicate of the normalization doc task"
+   Example output: {"action": "deduplicate_task", "task_description": "Splunk review", "canonical_description": "normalization doc task"}
+
+8. unknown
    Use when the input does not match any action or is too ambiguous to parse.
    Required: follow_up (string — a short clarifying question)
    Example input: "hey what's the weather like"

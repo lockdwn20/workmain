@@ -1,7 +1,7 @@
 """
 WorkmAIn AI Prompt Builder
-Prompt Builder v2.0
-20260610
+Prompt Builder v2.1
+20260611
 
 Dynamic prompt construction for AI report generation.
 
@@ -38,6 +38,9 @@ Version History:
         carries an explicit context-only note so the AI anchors on tagged notes
 - v2.0: Phase 13 DB Schema Sprint Gate 5 — _get_time_entries reads entry.note.content
         instead of the now-dropped entry.description column
+- v2.1: Phase 13 Sprint 2 Gate 1a — add build_weekly_prompt(); prepends confirmed
+        daily summaries block when calling build_prompt() for weekly_client reports;
+        build_prompt() unmodified
 
 Workflow:
 1. Load template structure
@@ -59,9 +62,11 @@ from workmain.templates_engine import (
     TemplateLoader,
     StyleAdapter
 )
+from workmain.database.connection import get_db
 from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
 from workmain.database.repositories.meetings_repo import MeetingsRepository
+from workmain.database.repositories.reports_repo import ReportsRepository
 
 
 class PromptBuilder:
@@ -146,6 +151,71 @@ class PromptBuilder:
         
         return system_prompt, user_prompt
     
+    def build_weekly_prompt(
+        self,
+        template_name: str,
+        report_date: date,
+        section_name: Optional[str] = None,
+        filter_client: bool = False,
+        client_id: Optional[int] = None,
+    ) -> Tuple[str, str]:
+        """Build the weekly client report prompt with confirmed daily context.
+
+        Fetches confirmed/corrected daily_internal reports for the Mon–Fri week
+        containing report_date via ReportsRepository.get_confirmed_dailies(). If
+        any exist, prepends a ## Confirmed Daily Summaries block to the user prompt
+        before delegating to build_prompt() for the remainder of prompt construction.
+
+        If no confirmed dailies exist for the week, delegates to build_prompt()
+        directly with no modification — no error, no placeholder block.
+
+        Args:
+            template_name: Name of template to use (expected: weekly_client)
+            report_date: Date for the report
+            section_name: Optional — generate only this section
+            filter_client: When True, restrict data queries to client_id records
+            client_id: Client ID for filtering
+
+        Returns:
+            Tuple of (system_prompt, user_prompt)
+        """
+        week_start = report_date - timedelta(days=report_date.weekday())
+        week_end = week_start + timedelta(days=4)  # Mon–Fri
+
+        db = get_db()
+        session = db.get_session()
+        try:
+            reports_repo = ReportsRepository(session)
+            confirmed = reports_repo.get_confirmed_dailies(week_start, week_end)
+        finally:
+            session.close()
+
+        system_prompt, user_prompt = self.build_prompt(
+            template_name=template_name,
+            report_date=report_date,
+            section_name=section_name,
+            filter_client=filter_client,
+            client_id=client_id,
+        )
+
+        if not confirmed:
+            return system_prompt, user_prompt
+
+        lines = [
+            "## Confirmed Daily Summaries (for context)",
+            "The following daily reports were confirmed for this week.",
+            "Use them as context for themes, patterns, and continuity.",
+            "",
+        ]
+        for report in confirmed:
+            day_label = report.report_date.strftime("%A %Y-%m-%d")
+            lines.append(f"### {day_label}")
+            lines.append(report.content or "")
+            lines.append("")
+        daily_context_block = "\n".join(lines)
+
+        return system_prompt, daily_context_block + "\n" + user_prompt
+
     def _build_system_prompt(
         self,
         template: Dict[str, Any],
