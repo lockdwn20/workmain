@@ -1,7 +1,7 @@
 """
 WorkmAIn Notification Daemon
-daemon.py v1.2
-20260506
+daemon.py v1.3
+20260611
 
 Entry point for the always-on background daemon process.
 Manages the APScheduler instance, graceful shutdown, and
@@ -18,6 +18,8 @@ Version History:
 - v1.2: Remove module-level _scheduler (now owned by scheduler.py to avoid
         cross-module import ambiguity when daemon runs as __main__); add
         _write_scheduled_jobs() to persist pre-meeting schedule for status display
+- v1.3: Phase 13 Sprint 2 Gate 0 — add _warmup_ollama() (Item 38); eliminates
+        55–72s cold-start latency before Slack poll loop begins
 """
 
 import json
@@ -266,6 +268,38 @@ def _schedule_meeting_reminders(target_date: date, scheduler: BlockingScheduler)
 
 
 # ---------------------------------------------------------------------------
+# Ollama warm-up
+# ---------------------------------------------------------------------------
+
+def _warmup_ollama() -> None:
+    """Pre-warm workmain-intent:latest to eliminate cold-start latency.
+
+    Module-level function. Sends a single minimal generate request.
+    The response is discarded. Failure is logged but never raises —
+    warm-up is best-effort; daemon startup must not block on Ollama.
+    """
+    try:
+        from workmain.ai.providers.ollama import OllamaProvider
+        from workmain.ai.base_provider import GenerationRequest
+
+        host = os.environ.get("OLLAMA_HOST", "workmain-ollama.lab.haloschaos.com")
+        port_str = os.environ.get("OLLAMA_PORT", "11434")
+        provider = OllamaProvider({
+            "model": "workmain-intent:latest",
+            "host": host,
+            "port": int(port_str),
+            "timeout": 120,
+        })
+        provider.generate(GenerationRequest(
+            prompt="ping",
+            max_tokens=1,
+        ))
+        logging.info("Ollama warm-up complete.")
+    except Exception as e:
+        logging.warning("Ollama warm-up failed (non-fatal): %s", e)
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -278,6 +312,7 @@ def main() -> None:
     scheduler = _build_scheduler()
     _register_signal_handlers(scheduler)
     _schedule_meeting_reminders(date.today(), scheduler)
+    _warmup_ollama()
     logging.info("workmain-notify daemon running.")
     scheduler.start()
 
