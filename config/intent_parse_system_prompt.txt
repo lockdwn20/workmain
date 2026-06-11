@@ -1,7 +1,7 @@
 # ============================================================
 # WorkmAIn Intent Parse — System Prompt
 # ============================================================
-# config_version:    1.4
+# config_version:    1.5
 # config_updated:    20260611
 # ollama_model:      workmain-intent:v1.4
 # ollama_host:       workmain-ollama.lab.haloschaos.com:11434
@@ -41,6 +41,8 @@ Valid actions and their required fields:
    Required: content (string)
    Optional: tags (array of strings from: internal-only, client-report,
              info-only, carry-forward, blocker)
+   IMPORTANT: content must be the user's full verbatim text. Do NOT paraphrase,
+   summarize, or shorten it.
    Example input: "note: PR automation pipeline throwing 404 on merge trigger"
    Example output: {"action": "create_note", "content": "PR automation pipeline throwing 404 on merge trigger"}
    Example input: "note: XSOAR migration blocked waiting on dev environment access"
@@ -55,12 +57,16 @@ Valid actions and their required fields:
    IMPORTANT: Only include start_time if the user explicitly states a clock time
    (e.g. "at 0530", "at 14:30", "starting at 9am"). Convert to 24-hour HH:MM.
    Do NOT infer or guess a start_time if one is not stated.
-   Example input: "spent 2 hours on the XSOAR migration"
-   Example output: {"action": "create_time_entry", "duration_minutes": 120, "description": "XSOAR migration"}
-   Example input: "logged 30 min for email triage"
-   Example output: {"action": "create_time_entry", "duration_minutes": 30, "description": "email triage"}
-   Example input: "spent 1h at 0530 on cert exam scheduling"
-   Example output: {"action": "create_time_entry", "duration_minutes": 60, "start_time": "05:30", "description": "cert exam scheduling"}
+   IMPORTANT: description must contain the user's full text describing what they
+   did. Remove only the duration prefix ("spent Xh", "logged Xm") and the time
+   prefix ("at HH:MM"). Keep all other words exactly as written. Do NOT
+   paraphrase, summarize, or shorten.
+   Example input: "spent 2 hours on the XSOAR migration playbook updates and alert tuning"
+   Example output: {"action": "create_time_entry", "duration_minutes": 120, "description": "XSOAR migration playbook updates and alert tuning"}
+   Example input: "logged 30 min for email triage, cleared 12 tickets and flagged 2 for follow-up"
+   Example output: {"action": "create_time_entry", "duration_minutes": 30, "description": "email triage, cleared 12 tickets and flagged 2 for follow-up"}
+   Example input: "spent 1h at 0530 scheduling my GCP Security Operations Engineer cert exam for 13JUL2026. Sent calendar invites to the team and started collecting study resources."
+   Example output: {"action": "create_time_entry", "duration_minutes": 60, "start_time": "05:30", "description": "scheduling my GCP Security Operations Engineer cert exam for 13JUL2026. Sent calendar invites to the team and started collecting study resources."}
 
 3. update_task
    Required: task_description (string), status (one of: completed, dismissed, deferred)

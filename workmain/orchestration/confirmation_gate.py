@@ -1,6 +1,6 @@
 """
 WorkmAIn Confirmation Gate
-Confirmation Gate v1.1
+Confirmation Gate v1.2
 20260611
 
 Formats action dicts as human-readable confirmation prompts and classifies
@@ -12,6 +12,7 @@ Sprint 2: plain conversational text. Sprint 3: Block Kit upgrade.
 Version History:
 - v1.0: Phase 13 Sprint 2 Gate 4 — initial implementation
 - v1.1: Include start_time in create_time_entry confirmation prompt
+- v1.2: Truncate long descriptions in confirmation preview (full text is still saved)
 """
 
 _CONFIRMATIONS = frozenset({
@@ -57,8 +58,9 @@ class ConfirmationGate:
                 dur = f"{hrs}h"
             else:
                 dur = f"{rem}m"
+            preview = desc[:120] + ("…" if len(desc) > 120 else "")
             time_suffix = f" at {start_time}" if start_time else ""
-            return f"I'll log {dur} for '{desc}'{time_suffix}. Confirm? (yes/no)"
+            return f"I'll log {dur} for '{preview}'{time_suffix}. Confirm? (yes/no)"
 
         if action_type == "create_note":
             content = action.get("content", "")
