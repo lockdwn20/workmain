@@ -1,6 +1,6 @@
 """
 WorkmAIn Slack Integration Package
-slack/__init__.py v1.1
+slack/__init__.py v1.2
 20260611
 
 Slack integration for posting weekly draft reports to a channel and polling
@@ -15,6 +15,7 @@ Scope: chat:write, auth:read, conversations:history, conversations:open
 Version History:
 - v1.0: Initial implementation (Phase 8 Gate 2)
 - v1.1: Phase 13 Sprint 2 Gate 3 — export SlackPoller for daemon integration
+- v1.2: Phase 13 Sprint 2 Gate 3 — export get/save_operator_user_id from auth
 """
 
 from workmain.integrations.slack.auth import (
@@ -24,6 +25,8 @@ from workmain.integrations.slack.auth import (
     load_slack_config,
     save_slack_config,
     get_default_channel,
+    get_operator_user_id,
+    save_operator_user_id,
 )
 from workmain.integrations.slack.client import (
     SlackClient,
@@ -40,10 +43,12 @@ __all__ = [
     "load_slack_config",
     "save_slack_config",
     "get_default_channel",
+    "get_operator_user_id",
+    "save_operator_user_id",
     "SlackClient",
     "SlackClientError",
     "get_slack_client",
     "format_for_slack",
     "SlackPoller",
 ]
-__version__ = "1.1"
+__version__ = "1.2"

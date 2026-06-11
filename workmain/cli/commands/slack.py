@@ -1,8 +1,8 @@
 """
 WorkmAIn CLI
 Slack Command Group
-slack.py v1.5
-20260522
+slack.py v1.6
+20260611
 
 CLI commands for posting reports to Slack.
 
@@ -28,6 +28,8 @@ Version History:
         `workspace` (informational, no writes); update post-weekly channel resolution
         to read clients.slack_channel first, config.json fallback second;
         update slack status/auth/setup channel display to use same resolution order
+- v1.6: Phase 13 Sprint 2 Gate 3 — add `slack set operator-user-id` command for
+        inbound DM polling setup
 """
 
 import os
@@ -395,6 +397,35 @@ def slack_set_workspace():
         console.print(f"  Config file: {config_path}")
         console.print()
         console.print("  Run [bold]workmain slack auth[/bold] to authenticate and cache the workspace name.")
+    console.print()
+
+
+@slack_set.command("operator-user-id")
+@click.argument("user_id")
+def slack_set_operator_user_id(user_id: str):
+    """Set your Slack user ID for inbound DM polling.
+
+    The daemon uses this to find the DM channel where you send messages to
+    the bot. Set it once — the channel ID is then cached automatically.
+
+    Find your user ID: Slack → click your avatar → Profile →
+    kebab menu (⋮) → Copy member ID. Starts with 'U'.
+
+    \b
+    Example:
+      workmain slack set operator-user-id U0A1B2C3D4
+    """
+    from workmain.integrations.slack.auth import save_operator_user_id, get_operator_user_id
+    user_id = user_id.strip()
+    if not user_id.upper().startswith('U'):
+        console.print()
+        console.print("[yellow]⚠  Slack user IDs typically start with 'U' (e.g. U0A1B2C3D4).[/yellow]")
+        console.print("  Find it: Slack → avatar → Profile → ⋮ → Copy member ID")
+        console.print()
+    save_operator_user_id(user_id)
+    console.print()
+    console.print(f"[green]✓[/green] Operator user ID set to [bold]{user_id}[/bold].")
+    console.print("  The daemon poll loop will use this to find your DM channel with the bot.")
     console.print()
 
 

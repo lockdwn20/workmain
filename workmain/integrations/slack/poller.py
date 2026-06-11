@@ -1,6 +1,6 @@
 """
 WorkmAIn Slack Poller
-Slack Poller v1.0
+Slack Poller v1.1
 20260611
 
 Inbound DM polling via Slack Web API conversations.history.
@@ -9,6 +9,9 @@ messages — dispatches raw message dicts to the registered handler.
 
 Version History:
 - v1.0: Phase 13 Sprint 2 Gate 3 — initial implementation
+- v1.1: Phase 13 Sprint 2 Gate 3 — fix channel discovery: use operator_user_id
+        from config (conversations.open(users=[operator_user_id])) instead of
+        bot's own user_id; add graceful no-op when operator_user_id not set
 """
 
 import json
@@ -19,6 +22,7 @@ import time
 from pathlib import Path
 from typing import Callable, Optional
 
+from workmain.integrations.slack.auth import get_operator_user_id
 from workmain.integrations.slack.client import SlackClient, SlackClientError
 
 logger = logging.getLogger(__name__)
@@ -137,24 +141,35 @@ class SlackPoller:
     def _get_or_create_channel_id(self) -> Optional[str]:
         """Return cached channel_id or discover it via the Slack API.
 
-        On first call, invokes test_connection() to obtain the bot user_id,
-        then calls conversations.open to get or create the DM channel.
-        The result is cached in slack_poll_state.json for subsequent calls.
+        Uses operator_user_id from config to open the DM channel between
+        the operator (you) and the bot.  The result is cached in
+        slack_poll_state.json for subsequent calls.
+
+        Returns None and logs a warning if operator_user_id is not configured.
         """
         state = self._load_state()
         if state.get('channel_id'):
             return state['channel_id']
 
+        operator_user_id = get_operator_user_id()
+        if not operator_user_id:
+            logger.warning(
+                "poll_once: operator_user_id not set — run "
+                "'workmain slack set operator-user-id <your-slack-user-id>'"
+            )
+            return None
+
         try:
-            info = self._client.test_connection()
-            bot_user_id = info['user_id']
-            channel_id = self._client.get_dm_channel(bot_user_id)
+            channel_id = self._client.get_dm_channel(operator_user_id)
             state['channel_id'] = channel_id
             self._save_state(state)
-            logger.info("Slack poll channel discovered: %s (bot_user=%s)", channel_id, bot_user_id)
+            logger.info(
+                "Slack poll channel discovered: %s (operator=%s)",
+                channel_id, operator_user_id,
+            )
             return channel_id
         except SlackClientError as e:
-            logger.warning("Could not determine Slack DM channel: %s", e)
+            logger.warning("Could not open DM channel for operator: %s", e)
             return None
 
     def _load_state(self) -> dict:

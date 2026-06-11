@@ -1,17 +1,19 @@
 """
 WorkmAIn Slack Auth
-slack/auth.py v1.0
-20260310
+slack/auth.py v1.1
+20260611
 
 Bot Token authentication and config file management for Slack integration.
 Token is stored in .env (SLACK_BOT_TOKEN) — never in config.json.
-Config file stores default channel and cached workspace name only.
+Config file stores workspace name and operator_user_id (Phase 13).
 
 Config file: ~/.workmain/integrations/slack/config.json  (chmod 600)
 Token:       .env SLACK_BOT_TOKEN=xoxb-...
 
 Version History:
 - v1.0: Initial implementation (Phase 8 Gate 2)
+- v1.1: Phase 13 Sprint 2 Gate 3 — add get_operator_user_id() and
+        save_operator_user_id() for inbound DM poll channel discovery
 """
 
 import json
@@ -105,3 +107,27 @@ def get_default_channel() -> Optional[str]:
     if cfg.get("default_channel"):
         return cfg["default_channel"]
     return os.environ.get("SLACK_DEFAULT_CHANNEL") or None
+
+
+def get_operator_user_id() -> Optional[str]:
+    """Return the operator's Slack user ID from config, or None if not set.
+
+    The operator user ID identifies the human who DMs the bot (i.e. you).
+    Used by SlackPoller to derive the correct DM channel for inbound polling.
+
+    Returns:
+        Slack user ID string (e.g. "U0A1B2C3D4"), or None.
+    """
+    cfg = load_slack_config()
+    return cfg.get("operator_user_id") or None
+
+
+def save_operator_user_id(user_id: str) -> None:
+    """Persist the operator's Slack user ID to config.
+
+    Args:
+        user_id: Slack user ID (e.g. "U0A1B2C3D4"). Whitespace is stripped.
+    """
+    cfg = load_slack_config()
+    cfg["operator_user_id"] = user_id.strip()
+    save_slack_config(cfg)
