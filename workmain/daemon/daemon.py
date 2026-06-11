@@ -1,6 +1,6 @@
 """
 WorkmAIn Notification Daemon
-daemon.py v1.4
+daemon.py v1.5
 20260611
 
 Entry point for the always-on background daemon process.
@@ -22,6 +22,9 @@ Version History:
         55–72s cold-start latency before Slack poll loop begins
 - v1.4: Phase 13 Sprint 2 Gate 3 — add _slack_message_handler() stub, add
         _build_slack_poller(), wire SlackPoller into main() startup sequence
+- v1.5: Phase 13 Sprint 2 Gate 4 — replace logging stub with SlackMessageDispatcher;
+        IntentParser + ConfirmationGate + ActionExecutor wired into message handler;
+        pending_action state per user; start_eod stubbed for Gate 6
 """
 
 import json
@@ -302,23 +305,131 @@ def _warmup_ollama() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Slack inbound polling
+# Slack inbound polling — message dispatcher
 # ---------------------------------------------------------------------------
 
-def _slack_message_handler(message: dict) -> None:
-    """Gate 3 logging stub — logs received DM; full dispatch wired in Gate 4.
+class SlackMessageDispatcher:
+    """Routes inbound Slack DMs through intent parsing, confirmation, and execution.
 
-    Args:
-        message: Raw Slack message dict with keys: text, user, ts, channel, type.
+    Maintains one pending action per user in memory. A new message while an
+    action is pending cancels the pending action and processes the new message
+    fresh (spec AD-S2-7).
+
+    Gate 4: IntentParser + ConfirmationGate + ActionExecutor wired.
+    Gate 6: T5 EOD session manager will be added here.
     """
-    user = message.get('user', 'unknown')
-    text = message.get('text', '')
-    ts = message.get('ts', '')
-    logging.info("Slack DM received: user=%s ts=%s text=%r", user, ts, text)
+
+    def __init__(self, client) -> None:
+        from workmain.orchestration.confirmation_gate import ConfirmationGate
+        self._client = client
+        self._gate = ConfirmationGate()
+        self._pending: dict = {}        # {user_id: action_dict}
+        self._intent_parser = None      # lazy — loaded on first parse
+
+    def handle_message(self, message: dict) -> None:
+        """Entry point called by SlackPoller for each new inbound DM."""
+        user_id = message.get('user', '')
+        text = (message.get('text') or '').strip()
+        channel = message.get('channel', '')
+
+        # Ignore bot messages and messages without text
+        if not text or not user_id or not channel or message.get('bot_id'):
+            return
+        if message.get('subtype'):
+            return
+
+        logging.info("Slack DM received: user=%s text=%r", user_id, text)
+
+        if user_id in self._pending:
+            pending = self._pending.pop(user_id)
+            if self._gate.is_confirmation(text):
+                self._execute(pending, channel)
+                return
+            elif self._gate.is_rejection(text):
+                self._send(channel, "Cancelled.")
+                return
+            # Unrecognised reply — cancel pending, process fresh
+            logging.info("Pending action cancelled by new message from user=%s", user_id)
+
+        self._dispatch(user_id, text, channel)
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _dispatch(self, user_id: str, text: str, channel: str) -> None:
+        """Parse intent and route to confirmation gate or direct response."""
+        parser = self._get_intent_parser()
+        if parser is None:
+            self._send(channel, "Intent parsing unavailable — Ollama unreachable.")
+            return
+
+        try:
+            action = parser.parse(text)
+        except Exception as e:
+            logging.warning("Intent parse error: %s", e)
+            self._send(channel, "Sorry, I couldn't understand that. Try rephrasing.")
+            return
+
+        action_type = action.get("action", "unknown")
+
+        if action_type == "unknown":
+            follow_up = action.get("follow_up", "What would you like to do?")
+            self._send(channel, follow_up)
+            return
+
+        if action_type == "start_eod":
+            # Gate 6 wires the T5 session manager; stub for now
+            self._send(channel, "EOD conversational flow coming soon (Gate 6).")
+            return
+
+        if action_type in ("eod_confirm_step", "eod_stop", "eod_skip_step", "eod_resume"):
+            # T5 control words outside an active session
+            self._send(channel, "No active EOD session. Send 'start eod' to begin.")
+            return
+
+        prompt = self._gate.format_prompt(action)
+        self._pending[user_id] = action
+        self._send(channel, prompt)
+
+    def _execute(self, action: dict, channel: str) -> None:
+        """Execute a confirmed action and report the result."""
+        from workmain.database.connection import get_db
+        from workmain.orchestration.action_executor import ActionExecutor, ActionExecutorError
+        db = get_db()
+        session = db.get_session()
+        try:
+            result = ActionExecutor(session).execute(action)
+            self._send(channel, result.message)
+        except ActionExecutorError as e:
+            self._send(channel, f"Error: {e}")
+        except Exception as e:
+            logging.error("Unexpected execution error: %s", e)
+            self._send(channel, "An unexpected error occurred. Please try again.")
+        finally:
+            session.close()
+
+    def _send(self, channel: str, text: str) -> None:
+        """Send a DM reply, logging failures as warnings (never raises)."""
+        try:
+            self._client.post_message(channel, text)
+        except Exception as e:
+            logging.warning("Failed to send DM to %s: %s", channel, e)
+
+    def _get_intent_parser(self):
+        """Lazily instantiate IntentParser; returns None on init failure."""
+        if self._intent_parser is None:
+            try:
+                from workmain.ai.intent_parser import IntentParser
+                self._intent_parser = IntentParser()
+            except Exception as e:
+                logging.warning("IntentParser init failed: %s", e)
+                return None
+        return self._intent_parser
 
 
 def _build_slack_poller():
-    """Instantiate SlackPoller with the logging stub handler.
+    """Instantiate SlackPoller with the full message dispatcher.
 
     Returns None and logs a warning if the Slack bot token is unavailable —
     the daemon must not crash on missing credentials.
@@ -330,7 +441,8 @@ def _build_slack_poller():
             Path(os.environ.get('WORKMAIN_STATE_DIR', '~/.workmain')).expanduser()
             / 'daemon'
         )
-        return SlackPoller(client, _slack_message_handler, state_dir)
+        dispatcher = SlackMessageDispatcher(client)
+        return SlackPoller(client, dispatcher.handle_message, state_dir)
     except SlackAuthError as e:
         logging.warning("Slack auth unavailable — poll loop disabled: %s", e)
         return None
