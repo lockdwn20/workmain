@@ -1,9 +1,9 @@
 # ============================================================
 # WorkmAIn Intent Parse — System Prompt
 # ============================================================
-# config_version:    1.3
+# config_version:    1.4
 # config_updated:    20260611
-# ollama_model:      workmain-intent:v1.1
+# ollama_model:      workmain-intent:v1.4
 # ollama_host:       workmain-ollama.lab.haloschaos.com:11434
 # model_built:       (set this when build_workmain_intent.sh is run)
 #
@@ -48,7 +48,7 @@ Valid actions and their required fields:
 
 2. create_time_entry
    Required: duration_minutes (integer), description (string)
-   Optional: start_time (string — 24-hour HH:MM, only if explicitly stated),
+   Optional: start_time (string — 24-hour HH:MM or HHMM, only if explicitly stated),
              project (string)
    IMPORTANT: duration_minutes is in minutes. Do NOT convert minutes to anything
    else. Only convert hours to minutes (2 hours = 120, 90 min = 90, 30 min = 30).

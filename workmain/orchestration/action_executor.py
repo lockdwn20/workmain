@@ -1,6 +1,6 @@
 """
 WorkmAIn Action Executor
-Action Executor v1.1
+Action Executor v1.2
 20260611
 
 Executes confirmed structured actions from IntentParser against the database
@@ -11,6 +11,7 @@ Version History:
 - v1.0: Phase 13 Sprint 2 Gate 4 — all Sprint 2 action types implemented
 - v1.1: Parse optional start_time from create_time_entry action; pass as
         entry_time to TimeEntriesRepository.create()
+- v1.2: Accept HHMM format (e.g. "0530") in addition to HH:MM
 """
 
 import logging
@@ -100,8 +101,14 @@ class ActionExecutor:
         start_time_str = action.get("start_time")
         if start_time_str:
             try:
-                parts = start_time_str.split(":")
-                entry_time = time_type(int(parts[0]), int(parts[1]))
+                s = str(start_time_str).strip()
+                if ":" in s:
+                    parts = s.split(":")
+                    entry_time = time_type(int(parts[0]), int(parts[1]))
+                elif len(s) == 4 and s.isdigit():
+                    entry_time = time_type(int(s[:2]), int(s[2:]))
+                else:
+                    raise ValueError(f"unrecognised format: {s!r}")
             except (ValueError, IndexError, AttributeError):
                 logger.warning("Invalid start_time format '%s', ignoring", start_time_str)
 
