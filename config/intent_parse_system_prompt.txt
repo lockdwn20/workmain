@@ -3,7 +3,7 @@
 # ============================================================
 # config_version:    1.5
 # config_updated:    20260611
-# ollama_model:      workmain-intent:v1.4
+# ollama_model:      workmain-intent:v1.5
 # ollama_host:       workmain-ollama.lab.haloschaos.com:11434
 # model_built:       (set this when build_workmain_intent.sh is run)
 #

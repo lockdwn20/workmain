@@ -5,7 +5,7 @@
     "system_prompt_source": "config/intent_parse_system_prompt.txt",
     "ollama_model": "workmain-intent:latest",
     "ollama_host": "workmain-ollama.lab.haloschaos.com:11434",
-    "config_version": "1.2",
+    "config_version": "1.5",
     "config_updated": "20260611",
     "model_built": "",
     "notes": "After editing generation_options, update Modelfile PARAMETER blocks to match, rebuild model via build_workmain_intent.sh, then set model_built to today's date."
