@@ -1,6 +1,6 @@
 """
 WorkmAIn Notification Daemon
-daemon.py v1.5
+daemon.py v1.6
 20260611
 
 Entry point for the always-on background daemon process.
@@ -25,6 +25,8 @@ Version History:
 - v1.5: Phase 13 Sprint 2 Gate 4 — replace logging stub with SlackMessageDispatcher;
         IntentParser + ConfirmationGate + ActionExecutor wired into message handler;
         pending_action state per user; start_eod stubbed for Gate 6
+- v1.6: Phase 13 Sprint 2 Gate 5 — T1 morning briefing: _count_unresolved_observations(),
+        _build_morning_briefing_handler(), wired into main()
 """
 
 import json
@@ -44,7 +46,11 @@ from workmain.daemon.narration import narrate
 from workmain.database.connection import get_db
 from workmain.database.repositories.notification_repository import NotificationConfigRepository
 from workmain.database.repositories.schedule_repository import ScheduleExceptionRepository
-from workmain.daemon.scheduler import build_scheduler, register_slack_poll_job
+from workmain.daemon.scheduler import (
+    build_scheduler,
+    register_slack_poll_job,
+    register_morning_briefing_job,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -305,6 +311,86 @@ def _warmup_ollama() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Morning briefing helpers
+# ---------------------------------------------------------------------------
+
+def _count_unresolved_observations() -> int:
+    """Return count of unacknowledged observations from last_inspection.json."""
+    import json as _json
+    path = _daemon_state_path('last_inspection.json')
+    if not path.exists():
+        return 0
+    try:
+        data = _json.loads(path.read_text())
+        return sum(1 for o in data.get('observations', []) if not o.get('acknowledged'))
+    except Exception:
+        return 0
+
+
+def _build_morning_briefing_handler(client):
+    """Return a zero-argument callable that sends the T1 morning briefing DM.
+
+    Reads meetings and tasks from DB, unresolved observations from the daemon
+    state file, then posts the briefing to the operator's DM channel.
+    Failures are logged as warnings — never raised.
+    """
+    from workmain.integrations.slack.auth import get_operator_user_id
+    from workmain.integrations.slack.slack_eod import build_morning_briefing
+
+    def _send_morning_briefing() -> None:
+        import json as _json
+        from datetime import date
+
+        logging.info("T1 morning briefing triggered")
+
+        # Resolve channel — prefer cached value in state file
+        state_file = _daemon_state_path('slack_poll_state.json')
+        channel_id = None
+        if state_file.exists():
+            try:
+                channel_id = _json.loads(state_file.read_text()).get('channel_id')
+            except Exception:
+                pass
+
+        if not channel_id:
+            operator_user_id = get_operator_user_id()
+            if not operator_user_id:
+                logging.warning("Morning briefing: operator_user_id not set — skipping")
+                return
+            try:
+                channel_id = client.get_dm_channel(operator_user_id)
+            except Exception as e:
+                logging.warning("Morning briefing: could not open DM channel: %s", e)
+                return
+
+        # Fetch meetings and tasks
+        from workmain.database.repositories.meetings_repo import MeetingsRepository
+        from workmain.database.repositories.task_status_repo import TaskStatusRepository
+        db = get_db()
+        session = db.get_session()
+        try:
+            all_meetings = MeetingsRepository(session).get_by_date(date.today())
+            meetings = [m for m in all_meetings if not m.is_cancelled]
+            tasks = TaskStatusRepository(session).get_filtered(status='active', limit=0)
+        except Exception as e:
+            logging.warning("Morning briefing: DB error: %s", e)
+            return
+        finally:
+            session.close()
+
+        unresolved = _count_unresolved_observations()
+        text = build_morning_briefing(meetings, tasks, unresolved)
+
+        try:
+            client.post_message(channel_id, text)
+            logging.info("Morning briefing sent (channel=%s)", channel_id)
+        except Exception as e:
+            logging.warning("Morning briefing: send failed: %s", e)
+
+    return _send_morning_briefing
+
+
+# ---------------------------------------------------------------------------
 # Slack inbound polling — message dispatcher
 # ---------------------------------------------------------------------------
 
@@ -468,6 +554,8 @@ def main() -> None:
     poller = _build_slack_poller()
     if poller is not None:
         register_slack_poll_job(poller)
+        briefing_handler = _build_morning_briefing_handler(poller._client)
+        register_morning_briefing_job(briefing_handler)
     logging.info("workmain-notify daemon running.")
     scheduler.start()
 

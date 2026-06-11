@@ -1,6 +1,6 @@
 """
 WorkmAIn Daemon Scheduler
-scheduler.py v1.3
+scheduler.py v1.4
 20260611
 
 APScheduler job configuration. All trigger times are hardcoded in
@@ -20,6 +20,8 @@ Version History:
         UTF-8 multi-byte characters passed to wsl-notify-send.exe.
 - v1.3: Phase 13 Sprint 2 Gate 3 — add register_slack_poll_job() for inbound
         DM polling loop (10-second interval)
+- v1.4: Phase 13 Sprint 2 Gate 5 — add register_morning_briefing_job() for
+        T1 morning briefing (08:00 Mon-Fri CronTrigger)
 """
 
 import logging
@@ -146,6 +148,27 @@ def build_scheduler() -> BlockingScheduler:
 
     _scheduler = scheduler
     return scheduler
+
+
+def register_morning_briefing_job(handler: Any) -> None:
+    """Register the T1 morning briefing job at 08:00 Mon–Fri.
+
+    Must be called after build_scheduler() so _scheduler is set.
+    Job ID 'morning_briefing' replaces any existing job with that ID.
+
+    Args:
+        handler: Zero-argument callable that builds and sends the briefing DM.
+    """
+    if _scheduler is None:
+        logging.warning("register_morning_briefing_job: called before build_scheduler — skipped")
+        return
+    _scheduler.add_job(
+        handler,
+        CronTrigger(day_of_week='mon-fri', hour=8, minute=0),
+        id='morning_briefing',
+        replace_existing=True,
+    )
+    logging.info("Morning briefing job registered (08:00 Mon-Fri)")
 
 
 def register_slack_poll_job(poller: Any) -> None:

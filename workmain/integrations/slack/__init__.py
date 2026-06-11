@@ -1,6 +1,6 @@
 """
 WorkmAIn Slack Integration Package
-slack/__init__.py v1.2
+slack/__init__.py v1.3
 20260611
 
 Slack integration for posting weekly draft reports to a channel and polling
@@ -16,6 +16,7 @@ Version History:
 - v1.0: Initial implementation (Phase 8 Gate 2)
 - v1.1: Phase 13 Sprint 2 Gate 3 — export SlackPoller for daemon integration
 - v1.2: Phase 13 Sprint 2 Gate 3 — export get/save_operator_user_id from auth
+- v1.3: Phase 13 Sprint 2 Gate 5 — export build_morning_briefing from slack_eod
 """
 
 from workmain.integrations.slack.auth import (
@@ -35,6 +36,7 @@ from workmain.integrations.slack.client import (
     format_for_slack,
 )
 from workmain.integrations.slack.poller import SlackPoller
+from workmain.integrations.slack.slack_eod import build_morning_briefing
 
 __all__ = [
     "get_token",
@@ -50,5 +52,6 @@ __all__ = [
     "get_slack_client",
     "format_for_slack",
     "SlackPoller",
+    "build_morning_briefing",
 ]
-__version__ = "1.2"
+__version__ = "1.3"
