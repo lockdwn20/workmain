@@ -1,6 +1,6 @@
 """
 WorkmAIn EOD Workflow Tests
-test_eod_workflow v1.0
+test_eod_workflow v1.1
 20260611
 
 Tests for workmain/workflows/eod_workflow.py — the surface-agnostic service
@@ -12,6 +12,8 @@ extraction).
 
 Version History:
 - v1.0: Phase 13 Sprint 2 Gate 2 — initial test suite for extracted workflow
+- v1.1: Phase 13 Sprint 2 Gate 6 fix — TestReviewStepDispatch assertions now use
+        _WORKMAIN_BIN (resolved path) instead of bare 'workmain' string
 """
 
 import unittest
@@ -28,6 +30,7 @@ from workmain.workflows.eod_workflow import (
     _tokenize,
     _score_match,
     _keyword_score_match,
+    _WORKMAIN_BIN,
 )
 
 MONDAY    = 0
@@ -164,12 +167,12 @@ class TestReviewStepDispatch(unittest.TestCase):
     def test_review_step_uses_time_date_for_past_date(self):
         """Past date: review step runs 'time date YYYY-MM-DD', not 'time today'."""
         mock_run = self._run_review(date(2026, 4, 27))
-        mock_run.assert_called_once_with(['workmain', 'time', 'date', '2026-04-27'])
+        mock_run.assert_called_once_with([_WORKMAIN_BIN, 'time', 'date', '2026-04-27'])
 
     def test_review_step_uses_time_today_for_today(self):
         """Today: review step runs 'time today'."""
         mock_run = self._run_review(date.today())
-        mock_run.assert_called_once_with(['workmain', 'time', 'today'])
+        mock_run.assert_called_once_with([_WORKMAIN_BIN, 'time', 'today'])
 
     def test_review_step_dry_run_returns_completed(self):
         result = _run_review_step(dry_run=True, target_date=SENTINEL_DATE)

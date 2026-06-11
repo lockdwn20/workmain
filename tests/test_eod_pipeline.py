@@ -1,6 +1,6 @@
 """
 WorkmAIn EOD Pipeline Tests
-test_eod_pipeline v1.4
+test_eod_pipeline v1.5
 20260611
 
 Tests for the EOD pipeline CLI surface (eod.py) and workflow step sequence.
@@ -18,6 +18,8 @@ Version History:
 - v1.4: Phase 13 Sprint 2 Gate 2 — updated imports and mock paths after step runner
         extraction to workmain.workflows.eod_workflow; patch paths updated to
         eod_workflow.subprocess and eod_workflow._confirm accordingly
+- v1.5: Phase 13 Sprint 2 Gate 6 fix — TestReviewStepDispatch assertions now use
+        _WORKMAIN_BIN (resolved path) instead of bare 'workmain' string
 """
 
 import unittest
@@ -26,7 +28,7 @@ from unittest.mock import patch, call, MagicMock
 
 from click.testing import CliRunner
 
-from workmain.workflows.eod_workflow import _build_step_sequence, _run_review_step
+from workmain.workflows.eod_workflow import _build_step_sequence, _run_review_step, _WORKMAIN_BIN
 from workmain.cli.commands.eod import eod
 
 MONDAY    = 0
@@ -136,12 +138,12 @@ class TestReviewStepDispatch(unittest.TestCase):
     def test_review_step_uses_time_date_for_past_date(self):
         """Past date: review step runs 'time date YYYY-MM-DD', not 'time today'."""
         mock_run = self._run_review(date(2026, 4, 27))
-        mock_run.assert_called_once_with(['workmain', 'time', 'date', '2026-04-27'])
+        mock_run.assert_called_once_with([_WORKMAIN_BIN, 'time', 'date', '2026-04-27'])
 
     def test_review_step_uses_time_today_for_today(self):
         """Today: review step runs 'time today'."""
         mock_run = self._run_review(date.today())
-        mock_run.assert_called_once_with(['workmain', 'time', 'today'])
+        mock_run.assert_called_once_with([_WORKMAIN_BIN, 'time', 'today'])
 
 
 if __name__ == '__main__':

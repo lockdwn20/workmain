@@ -1,7 +1,7 @@
 """
 WorkmAIn EOD Workflow Service Layer
 workmain/workflows/eod_workflow.py
-v1.1
+v1.2
 20260611
 
 Surface-agnostic EOD workflow step runners. Returns EodStepResult objects
@@ -19,6 +19,8 @@ Version History:
         and _run_task_match_step; non-interactive paths return EodStepStatus.PAUSED
         with formatted data for Slack surface; run_step() passes non_interactive
         to runners that declare the parameter
+- v1.2: Phase 13 Sprint 2 Gate 6 fix — resolve workmain bin via sys.executable
+        so subprocess calls work inside systemd venv without PATH activation
 """
 
 import inspect as _inspect
@@ -26,12 +28,23 @@ import json
 import os
 import re
 import subprocess
+import sys
 import tempfile
 from dataclasses import dataclass
 from datetime import date, datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any, Optional
+
+# Resolve the absolute path to the workmain entry-point script.  When the
+# daemon runs as a systemd service the venv is not activated, so 'workmain'
+# is not on PATH.  sys.executable is the venv Python, so the workmain script
+# lives in the same bin/ directory.
+def _resolve_workmain_bin() -> str:
+    candidate = Path(sys.executable).parent / "workmain"
+    return str(candidate) if candidate.is_file() else "workmain"
+
+_WORKMAIN_BIN = _resolve_workmain_bin()
 
 from workmain.database.connection import get_db
 from workmain.database.repositories.meetings_repo import MeetingsRepository
@@ -236,7 +249,7 @@ def _run_condense_step(dry_run: bool, target_date: date) -> EodStepResult:
         for mtg, total_count, non_ifo_count in pending:
             print(f"  → {mtg.title}")
             if _confirm(f"    Condense {total_count} note(s)?"):
-                result = subprocess.run(['workmain', 'meetings', 'condense', mtg.title])
+                result = subprocess.run([_WORKMAIN_BIN, 'meetings', 'condense', mtg.title])
                 if result.returncode != 0:
                     print(f"  ⚠ Condensation returned non-zero for '{mtg.title}'")
             else:
@@ -259,7 +272,7 @@ def _run_sync_step(dry_run: bool, target_date: date) -> EodStepResult:
         return EodStepResult(status=EodStepStatus.COMPLETED)
 
     try:
-        result = subprocess.run(['workmain', 'clockify', 'sync', 'push'])
+        result = subprocess.run([_WORKMAIN_BIN, 'clockify', 'sync', 'push'])
 
         if result.returncode != 0:
             print()
@@ -269,7 +282,7 @@ def _run_sync_step(dry_run: bool, target_date: date) -> EodStepResult:
             )
 
             if action == 'r':
-                subprocess.run(['workmain', 'clockify', 'sync', 'push'])
+                subprocess.run([_WORKMAIN_BIN, 'clockify', 'sync', 'push'])
             elif action == 's':
                 print("  Sync skipped")
 
@@ -324,9 +337,9 @@ def _run_review_step(dry_run: bool, target_date: date, non_interactive: bool = F
     try:
         while True:
             if target_date == date.today():
-                subprocess.run(['workmain', 'time', 'today'])
+                subprocess.run([_WORKMAIN_BIN, 'time', 'today'])
             else:
-                subprocess.run(['workmain', 'time', 'date', target_date.isoformat()])
+                subprocess.run([_WORKMAIN_BIN, 'time', 'date', target_date.isoformat()])
             print()
 
             if _confirm("  Are these time entries correct?"):
@@ -567,7 +580,7 @@ def _run_task_match_step(dry_run: bool, target_date: date, non_interactive: bool
 def _run_report_step(dry_run: bool, target_date: date) -> EodStepResult:
     """Step 4a: Generate daily report with pre-check and interactive review menu."""
     date_str = target_date.isoformat()
-    cmd = ['workmain', 'reports', 'save', 'daily_internal', '--date', date_str]
+    cmd = [_WORKMAIN_BIN, 'reports', 'save', 'daily_internal', '--date', date_str]
 
     if dry_run:
         print(f"  Would run: workmain reports save daily_internal --date {date_str}")
@@ -718,7 +731,7 @@ def _run_email_step(dry_run: bool, target_date: date) -> EodStepResult:
         return EodStepResult(status=EodStepStatus.COMPLETED)
 
     try:
-        result = subprocess.run(['workmain', 'email', 'save', 'daily_internal'])
+        result = subprocess.run([_WORKMAIN_BIN, 'email', 'save', 'daily_internal'])
 
         if result.returncode != 0:
             print()
@@ -727,7 +740,7 @@ def _run_email_step(dry_run: bool, target_date: date) -> EodStepResult:
             action = _prompt_choice("  Continue? [r]etry / [s]kip", default='s')
 
             if action == 'r':
-                result = subprocess.run(['workmain', 'email', 'save', 'daily_internal'])
+                result = subprocess.run([_WORKMAIN_BIN, 'email', 'save', 'daily_internal'])
                 if result.returncode != 0:
                     print("  ⚠ Retry failed — skipping email draft")
 
@@ -741,7 +754,7 @@ def _run_email_step(dry_run: bool, target_date: date) -> EodStepResult:
 def _run_clockify_step(dry_run: bool, target_date: date) -> EodStepResult:
     """Step 5: Pull Clockify PDF to staging/clockify/."""
     date_str = target_date.isoformat()
-    cmd = ['workmain', 'clockify', 'report', 'save', 'daily',
+    cmd = [_WORKMAIN_BIN, 'clockify', 'report', 'save', 'daily',
            '--start', date_str, '--end', date_str]
     if dry_run:
         print(
@@ -778,7 +791,7 @@ def _run_gdocs_step(dry_run: bool, target_date: date) -> EodStepResult:
     """Step 6: Upload artifacts to Google Drive."""
     date_str = target_date.strftime('%Y%m%d')
     backdated = target_date != date.today()
-    cmd = ['workmain', 'gdocs', 'upload', 'all', '--date', date_str]
+    cmd = [_WORKMAIN_BIN, 'gdocs', 'upload', 'all', '--date', date_str]
     if backdated:
         cmd.append('--force')
     if dry_run:
@@ -824,7 +837,7 @@ def _run_slack_weekly_step(dry_run: bool, target_date: date) -> EodStepResult:
         return EodStepResult(status=EodStepStatus.COMPLETED)
 
     try:
-        result = subprocess.run(['workmain', 'slack', 'post', 'weekly'])
+        result = subprocess.run([_WORKMAIN_BIN, 'slack', 'post', 'weekly'])
 
         if result.returncode != 0:
             print()
@@ -842,7 +855,7 @@ def _run_slack_weekly_step(dry_run: bool, target_date: date) -> EodStepResult:
 def _run_weekly_report_step(dry_run: bool, target_date: date) -> EodStepResult:
     """Friday step A: Generate weekly client report with pre-check and review menu."""
     date_str = target_date.isoformat()
-    cmd = ['workmain', 'reports', 'save', 'weekly_client', '--date', date_str]
+    cmd = [_WORKMAIN_BIN, 'reports', 'save', 'weekly_client', '--date', date_str]
 
     if dry_run:
         print(f"  Would run: workmain reports save weekly_client --date {date_str}")
@@ -1003,7 +1016,7 @@ def _run_weekly_email_step(dry_run: bool, target_date: date) -> EodStepResult:
         return EodStepResult(status=EodStepStatus.COMPLETED)
 
     try:
-        result = subprocess.run(['workmain', 'email', 'save', 'weekly_client'])
+        result = subprocess.run([_WORKMAIN_BIN, 'email', 'save', 'weekly_client'])
 
         if result.returncode != 0:
             print()
