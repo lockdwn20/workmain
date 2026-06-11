@@ -12,6 +12,9 @@ Version History:
 - v1.1: Phase 13 Sprint 2 Gate 3 — fix channel discovery: use operator_user_id
         from config (conversations.open(users=[operator_user_id])) instead of
         bot's own user_id; add graceful no-op when operator_user_id not set
+- v1.2: Phase 13 Sprint 2 Gate 4 — stamp channel_id onto each message dict
+        before dispatch; conversations.history responses omit the channel field
+        so handlers relying on message.get('channel') would always see ''
 """
 
 import json
@@ -113,6 +116,9 @@ class SlackPoller:
             if msg_ts <= last_ts:
                 # Safety belt: skip anything at or before the last-seen marker
                 continue
+            # conversations.history omits 'channel' from each message dict;
+            # stamp it so handlers can reply without a separate lookup.
+            msg['channel'] = channel_id
             try:
                 self._handler(msg)
                 logger.info("poll_once: dispatched ts=%s", msg_ts)
