@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v5.18
-20260610
+Feature Backlog v5.19
+20260611
 
 # WorkmAIn Feature Backlog
 
@@ -135,18 +135,19 @@ Build first, refactor later. See the complete picture before abstracting.
 | 37 | Ollama Modelfile Tuning Workflow | Low | Sprint 2/3 maintenance | ~30 min/rebuild | |
 | 38 | Ollama Warm-Up Ping on Bot Startup | Medium | Sprint 2 Gate 0 | ~30 min | |
 | 39 | Re-tag Audit — 242 Gate 4 Stub Notes | Medium | Phase 13 (post-v1.20.0) | ~1–2 hrs | ✓ |
+| 40 | Daemon Scheduler — Configurable Trigger Times | Low | Phase 14 | ~1–2 hrs | |
 
 ---
 
 ## Summary Statistics
 
-**Total Items:** 39 (Item 22 is a redirect — no separate deferred work; see Item 20)
+**Total Items:** 40 (Item 22 is a redirect — no separate deferred work; see Item 20)
 **Completed:** 13 (Items 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 35, 36, 39)
-**Open:** 25
+**Open:** 26
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Open (targeted) | 21 | 1, 2, 3, 4, 7, 8, 12, 14, 15, 16, 19, 23, 28, 29, 30, 31, 32, 33, 34, 37, 38 |
+| Open (targeted) | 22 | 1, 2, 3, 4, 7, 8, 12, 14, 15, 16, 19, 23, 28, 29, 30, 31, 32, 33, 34, 37, 38, 40 |
 | Conditional | 1 | 9 |
 | Indefinitely | 3 | 5, 6, 21 |
 | Complete | 13 | 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 35, 36, 39 |
@@ -156,7 +157,7 @@ Build first, refactor later. See the complete picture before abstracting.
 |----------|-------|-------|
 | High | 0 | — |
 | Medium | 10 | 2, 3, 7, 10, 14, 15, 23, 34, 35, 38 |
-| Low | 19 | 1, 4, 5, 6, 8, 11, 12, 13, 16, 19, 21, 28, 29, 30, 31, 32, 33, 36, 37 |
+| Low | 20 | 1, 4, 5, 6, 8, 11, 12, 13, 16, 19, 21, 28, 29, 30, 31, 32, 33, 36, 37, 40 |
 | Conditional | 1 | 9 |
 
 | Target Phase | Items |
@@ -1301,3 +1302,39 @@ Identification query confirmed 0 unreviewed stubs remaining.
 
 - `notes` table (data only — tag updates via `workmain notes edit`)
 - `workmain/cli/commands/notes.py` (no code change needed)
+
+---
+
+#### Item 40 — Daemon Scheduler — Configurable Trigger Times
+
+**Status:** Open
+**Priority:** Low
+**Effort:** ~1–2 hours
+**Added:** 20260611
+**Target Phase:** Phase 14 (Setup Wizard)
+
+**Description:**
+All trigger times in `workmain/daemon/scheduler.py` are hardcoded constants
+(workday start 05:30, daily closeout 14:00, EOD prompt 14:30, T1 morning
+briefing 05:30). Changing any of these requires editing Python source code.
+They should be read from a JSON config file (e.g. `config/scheduler.json`)
+so times can be adjusted without a code change, aligned with the Phase 14
+Setup Wizard scope already noted in the scheduler.py docstring.
+
+**Why Deferred:**
+Low operational urgency — current times work well for the target user's
+schedule. Phase 14 is the natural home for all user-configurable settings.
+Premature configuration adds complexity without immediate benefit.
+
+**Acceptance Criteria:**
+
+- [ ] `config/scheduler.json` defines trigger times with sensible defaults
+- [ ] `scheduler.py` reads from config at `build_scheduler()` time; falls back
+      to hardcoded defaults if config absent or key missing
+- [ ] All existing trigger IDs and behaviors preserved
+- [ ] `workmain notifications config` (Phase 14) exposes time settings
+
+**Files Affected:**
+
+- `workmain/daemon/scheduler.py`
+- `config/scheduler.json` (new file)

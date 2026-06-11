@@ -1,6 +1,6 @@
 """
 WorkmAIn Notification Daemon
-daemon.py v1.6
+daemon.py v1.7
 20260611
 
 Entry point for the always-on background daemon process.
@@ -27,6 +27,9 @@ Version History:
         pending_action state per user; start_eod stubbed for Gate 6
 - v1.6: Phase 13 Sprint 2 Gate 5 — T1 morning briefing: _count_unresolved_observations(),
         _build_morning_briefing_handler(), wired into main()
+- v1.7: Phase 13 Sprint 2 Gate 6 — SlackEodManager wired into SlackMessageDispatcher;
+        handle_message() routes active EOD sessions before confirmation gate;
+        start_eod dispatches to manager; T5 control word stubs removed
 """
 
 import json
@@ -407,9 +410,11 @@ class SlackMessageDispatcher:
 
     def __init__(self, client) -> None:
         from workmain.orchestration.confirmation_gate import ConfirmationGate
+        from workmain.integrations.slack.slack_eod import SlackEodManager
         self._client = client
         self._gate = ConfirmationGate()
         self._pending: dict = {}        # {user_id: action_dict}
+        self._eod_manager = SlackEodManager(client)
         self._intent_parser = None      # lazy — loaded on first parse
 
     def handle_message(self, message: dict) -> None:
@@ -425,6 +430,11 @@ class SlackMessageDispatcher:
             return
 
         logging.info("Slack DM received: user=%s text=%r", user_id, text)
+
+        # Active EOD session takes priority over the confirmation gate
+        if self._eod_manager.has_session(user_id):
+            self._eod_manager.handle_reply(user_id, text)
+            return
 
         if user_id in self._pending:
             pending = self._pending.pop(user_id)
@@ -465,13 +475,7 @@ class SlackMessageDispatcher:
             return
 
         if action_type == "start_eod":
-            # Gate 6 wires the T5 session manager; stub for now
-            self._send(channel, "EOD conversational flow coming soon (Gate 6).")
-            return
-
-        if action_type in ("eod_confirm_step", "eod_stop", "eod_skip_step", "eod_resume"):
-            # T5 control words outside an active session
-            self._send(channel, "No active EOD session. Send 'start eod' to begin.")
+            self._eod_manager.handle_start_eod(user_id, channel)
             return
 
         prompt = self._gate.format_prompt(action)

@@ -1,7 +1,7 @@
 """
 WorkmAIn EOD Workflow Service Layer
 workmain/workflows/eod_workflow.py
-v1.0
+v1.1
 20260611
 
 Surface-agnostic EOD workflow step runners. Returns EodStepResult objects
@@ -15,8 +15,13 @@ Version History:
         EodStepStatus/EodStepResult added; step runners return EodStepResult;
         _confirm()/_prompt_choice()/_prompt_raw() replace click primitives;
         console.print() replaced with print(); step runner logic otherwise verbatim
+- v1.1: Phase 13 Sprint 2 Gate 6 — add non_interactive=False to _run_review_step
+        and _run_task_match_step; non-interactive paths return EodStepStatus.PAUSED
+        with formatted data for Slack surface; run_step() passes non_interactive
+        to runners that declare the parameter
 """
 
+import inspect as _inspect
 import json
 import os
 import re
@@ -275,12 +280,46 @@ def _run_sync_step(dry_run: bool, target_date: date) -> EodStepResult:
         return EodStepResult(status=EodStepStatus.FAILED, error=str(e))
 
 
-def _run_review_step(dry_run: bool, target_date: date) -> EodStepResult:
-    """Step 3: Review time entries (loop until confirmed)."""
+def _run_review_step(dry_run: bool, target_date: date, non_interactive: bool = False) -> EodStepResult:
+    """Step 3: Review time entries (loop until confirmed).
+
+    When non_interactive=True, fetches entries from the DB and returns PAUSED
+    with formatted text; does not block on stdin.
+    """
     if dry_run:
         print("  Would display time entries for target date")
         print("  Would loop until user confirms entries are correct")
         return EodStepResult(status=EodStepStatus.COMPLETED)
+
+    if non_interactive:
+        _db = get_db()
+        _session = _db.get_session()
+        try:
+            from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+            entries = TimeEntriesRepository(_session).get_by_date(target_date)
+        finally:
+            _session.close()
+        if not entries:
+            return EodStepResult(
+                status=EodStepStatus.COMPLETED,
+                message="No time entries for today — review step skipped.",
+            )
+        lines = [f"Time entries for {target_date}:"]
+        total_hours = 0.0
+        for e in entries:
+            desc = (e.note.content if e.note else '') or '(no description)'
+            start = e.entry_time.strftime('%H:%M') if e.entry_time else 'no time'
+            preview = desc[:100] + ('…' if len(desc) > 100 else '')
+            lines.append(f"• [{e.id}] {start} — {preview} ({e.duration_hours}h)")
+            total_hours += float(e.duration_hours or 0)
+        lines.append(f"Total: {total_hours:.2f}h")
+        formatted = "\n".join(lines)
+        return EodStepResult(
+            status=EodStepStatus.PAUSED,
+            message=formatted,
+            pause_reason=formatted,
+            pause_resume_hint="Reply 'yes' to confirm entries are correct, or send a correction.",
+        )
 
     try:
         while True:
@@ -346,7 +385,7 @@ def _run_pre_flight_inspection_step(dry_run: bool, target_date: date) -> EodStep
         session.close()
 
 
-def _run_task_match_step(dry_run: bool, target_date: date) -> EodStepResult:
+def _run_task_match_step(dry_run: bool, target_date: date, non_interactive: bool = False) -> EodStepResult:
     """Step 3c: Match active carry-forward tasks against today's time entries.
 
     Skips silently if Step 3b did not flag CF observations or no active tasks.
@@ -442,6 +481,22 @@ def _run_task_match_step(dry_run: bool, target_date: date) -> EodStepResult:
         if not candidates:
             print("  No matches found above threshold")
             return EodStepResult(status=EodStepStatus.COMPLETED)
+
+        if non_interactive:
+            lines = [f"Found {len(candidates)} carry-forward task match(es):"]
+            for score, ts, entry in candidates:
+                confidence = "high" if score >= 0.5 else "medium"
+                note_preview = (ts.note.content or '')[:80]
+                entry_preview = ((entry.note.content if entry and entry.note else '') or '')[:80]
+                lines.append(f"• Task: {note_preview}")
+                lines.append(f"  Matches: {entry_preview} ({confidence} confidence)")
+            lines.append("Use 'update task X as complete/dismissed' to resolve, then reply 'yes' when done.")
+            formatted = "\n".join(lines)
+            return EodStepResult(
+                status=EodStepStatus.PAUSED,
+                pause_reason=formatted,
+                pause_resume_hint="Reply 'yes' when done resolving tasks.",
+            )
 
         print(f"  Found {len(candidates)} candidate match(es) to review:")
         print()
@@ -1028,13 +1083,18 @@ def get_step_sequence(weekday: int, skip: list) -> list:
     return _build_step_sequence(weekday, skip)
 
 
-def run_step(step: dict, dry_run: bool, target_date: date) -> EodStepResult:
+def run_step(step: dict, dry_run: bool, target_date: date, non_interactive: bool = False) -> EodStepResult:
     """Dispatch to the step runner for this step dict.
 
     Returns EodStepResult. The CLI surface renders result.message and
-    handles PAUSED states interactively via click/rich.
+    handles PAUSED states interactively via click/rich. The Slack surface
+    passes non_interactive=True so interactive steps return PAUSED instead
+    of blocking on stdin.
     """
-    return step['runner'](dry_run, target_date)
+    runner = step['runner']
+    if non_interactive and 'non_interactive' in _inspect.signature(runner).parameters:
+        return runner(dry_run, target_date, non_interactive=True)
+    return runner(dry_run, target_date)
 
 
 __all__ = [
