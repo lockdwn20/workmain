@@ -1,6 +1,6 @@
 """
 WorkmAIn Daemon Scheduler
-scheduler.py v1.4
+scheduler.py v1.5
 20260611
 
 APScheduler job configuration. All trigger times are hardcoded in
@@ -22,6 +22,7 @@ Version History:
         DM polling loop (10-second interval)
 - v1.4: Phase 13 Sprint 2 Gate 5 — add register_morning_briefing_job() for
         T1 morning briefing (08:00 Mon-Fri CronTrigger)
+- v1.5: Correct T1 trigger time to 05:30 Mon-Fri to align with workday start
 """
 
 import logging
@@ -151,8 +152,9 @@ def build_scheduler() -> BlockingScheduler:
 
 
 def register_morning_briefing_job(handler: Any) -> None:
-    """Register the T1 morning briefing job at 08:00 Mon–Fri.
+    """Register the T1 morning briefing job at 05:30 Mon–Fri.
 
+    Fires at workday start, aligned with job_workday_start.
     Must be called after build_scheduler() so _scheduler is set.
     Job ID 'morning_briefing' replaces any existing job with that ID.
 
@@ -164,11 +166,11 @@ def register_morning_briefing_job(handler: Any) -> None:
         return
     _scheduler.add_job(
         handler,
-        CronTrigger(day_of_week='mon-fri', hour=8, minute=0),
+        CronTrigger(day_of_week='mon-fri', hour=5, minute=30),
         id='morning_briefing',
         replace_existing=True,
     )
-    logging.info("Morning briefing job registered (08:00 Mon-Fri)")
+    logging.info("Morning briefing job registered (05:30 Mon-Fri)")
 
 
 def register_slack_poll_job(poller: Any) -> None:
