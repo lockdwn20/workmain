@@ -1,6 +1,6 @@
 """
 WorkmAIn Notification Daemon
-daemon.py v1.3
+daemon.py v1.4
 20260611
 
 Entry point for the always-on background daemon process.
@@ -20,6 +20,8 @@ Version History:
         _write_scheduled_jobs() to persist pre-meeting schedule for status display
 - v1.3: Phase 13 Sprint 2 Gate 0 — add _warmup_ollama() (Item 38); eliminates
         55–72s cold-start latency before Slack poll loop begins
+- v1.4: Phase 13 Sprint 2 Gate 3 — add _slack_message_handler() stub, add
+        _build_slack_poller(), wire SlackPoller into main() startup sequence
 """
 
 import json
@@ -39,7 +41,7 @@ from workmain.daemon.narration import narrate
 from workmain.database.connection import get_db
 from workmain.database.repositories.notification_repository import NotificationConfigRepository
 from workmain.database.repositories.schedule_repository import ScheduleExceptionRepository
-from workmain.daemon.scheduler import build_scheduler
+from workmain.daemon.scheduler import build_scheduler, register_slack_poll_job
 
 
 # ---------------------------------------------------------------------------
@@ -300,6 +302,44 @@ def _warmup_ollama() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Slack inbound polling
+# ---------------------------------------------------------------------------
+
+def _slack_message_handler(message: dict) -> None:
+    """Gate 3 logging stub — logs received DM; full dispatch wired in Gate 4.
+
+    Args:
+        message: Raw Slack message dict with keys: text, user, ts, channel, type.
+    """
+    user = message.get('user', 'unknown')
+    text = message.get('text', '')
+    ts = message.get('ts', '')
+    logging.info("Slack DM received: user=%s ts=%s text=%r", user, ts, text)
+
+
+def _build_slack_poller():
+    """Instantiate SlackPoller with the logging stub handler.
+
+    Returns None and logs a warning if the Slack bot token is unavailable —
+    the daemon must not crash on missing credentials.
+    """
+    from workmain.integrations.slack import SlackPoller, get_slack_client, SlackAuthError
+    try:
+        client = get_slack_client()
+        state_dir = (
+            Path(os.environ.get('WORKMAIN_STATE_DIR', '~/.workmain')).expanduser()
+            / 'daemon'
+        )
+        return SlackPoller(client, _slack_message_handler, state_dir)
+    except SlackAuthError as e:
+        logging.warning("Slack auth unavailable — poll loop disabled: %s", e)
+        return None
+    except Exception as e:
+        logging.warning("SlackPoller build failed (non-fatal): %s", e)
+        return None
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -313,6 +353,9 @@ def main() -> None:
     _register_signal_handlers(scheduler)
     _schedule_meeting_reminders(date.today(), scheduler)
     _warmup_ollama()
+    poller = _build_slack_poller()
+    if poller is not None:
+        register_slack_poll_job(poller)
     logging.info("workmain-notify daemon running.")
     scheduler.start()
 

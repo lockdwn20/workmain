@@ -1,7 +1,7 @@
 """
 WorkmAIn Slack Client
-slack/client.py v1.0
-20260310
+slack/client.py v1.1
+20260611
 
 SlackClient wraps slack_sdk.WebClient for message posting and auth validation.
 format_for_slack() converts Markdown to Slack mrkdwn.
@@ -9,6 +9,8 @@ already_posted() queries the reports table for existing Slack posts.
 
 Version History:
 - v1.0: Initial implementation (Phase 8 Gate 2)
+- v1.1: Phase 13 Sprint 2 Gate 3 — add get_dm_channel() and fetch_messages()
+        for SlackPoller inbound polling support
 """
 
 import re
@@ -60,6 +62,57 @@ class SlackClient:
                 "user": response["user"],
                 "user_id": response["user_id"],
             }
+        except SlackApiError as e:
+            raise SlackClientError(str(e.response["error"])) from e
+
+    def get_dm_channel(self, user_id: str) -> str:
+        """Open or return the existing DM channel with user_id.
+
+        Calls conversations.open; if the channel already exists Slack
+        returns the existing channel ID without creating a duplicate.
+
+        Args:
+            user_id: Slack user ID to open a DM with.
+
+        Returns:
+            DM channel ID (starts with 'D').
+
+        Raises:
+            SlackClientError: If the API call fails.
+        """
+        try:
+            resp = self._client.conversations_open(users=[user_id])
+            return resp["channel"]["id"]
+        except SlackApiError as e:
+            raise SlackClientError(str(e.response["error"])) from e
+
+    def fetch_messages(
+        self,
+        channel_id: str,
+        oldest: Optional[str] = None,
+        limit: int = 10,
+    ) -> list:
+        """Fetch message history from a channel.
+
+        Messages are returned newest-first by the Slack API.
+
+        Args:
+            channel_id: Channel or DM channel ID.
+            oldest:     If set, return only messages after this Unix timestamp.
+            limit:      Maximum number of messages to return.
+
+        Returns:
+            List of message dicts (newest-first).
+
+        Raises:
+            SlackClientError: If the API call fails.
+        """
+        try:
+            kwargs: dict = {"channel": channel_id, "limit": limit}
+            if oldest is not None:
+                kwargs["oldest"] = oldest
+            resp = self._client.conversations_history(**kwargs)
+            return resp.get("messages", [])
         except SlackApiError as e:
             raise SlackClientError(str(e.response["error"])) from e
 

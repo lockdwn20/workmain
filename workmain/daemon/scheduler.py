@@ -1,7 +1,7 @@
 """
 WorkmAIn Daemon Scheduler
-scheduler.py v1.2
-20260508
+scheduler.py v1.3
+20260611
 
 APScheduler job configuration. All trigger times are hardcoded in
 this file for Phase 10. Trigger time configuration is deferred to
@@ -18,11 +18,13 @@ Version History:
         module-level _scheduler directly instead of importing from daemon.py.
 - v1.2: Replace em dashes in job titles with ' - ' — Windows codepage garbles
         UTF-8 multi-byte characters passed to wsl-notify-send.exe.
+- v1.3: Phase 13 Sprint 2 Gate 3 — add register_slack_poll_job() for inbound
+        DM polling loop (10-second interval)
 """
 
 import logging
 from datetime import date
-from typing import Optional
+from typing import Any, Optional
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -144,3 +146,25 @@ def build_scheduler() -> BlockingScheduler:
 
     _scheduler = scheduler
     return scheduler
+
+
+def register_slack_poll_job(poller: Any) -> None:
+    """Register SlackPoller.poll_once as an interval job on the scheduler.
+
+    Must be called after build_scheduler() so _scheduler is set.
+    Job ID 'slack_poll' replaces any existing job with that ID.
+
+    Args:
+        poller: SlackPoller instance (typed Any to avoid circular import).
+    """
+    if _scheduler is None:
+        logging.warning("register_slack_poll_job: called before build_scheduler — skipped")
+        return
+    _scheduler.add_job(
+        poller.poll_once,
+        'interval',
+        seconds=poller.interval_seconds,
+        id='slack_poll',
+        replace_existing=True,
+    )
+    logging.info("Slack poll job registered (interval=%ds)", poller.interval_seconds)

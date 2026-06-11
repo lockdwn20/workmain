@@ -1,15 +1,20 @@
 """
 WorkmAIn Slack Integration Package
-slack/__init__.py v1.0
-20260310
+slack/__init__.py v1.1
+20260611
 
-Slack integration for posting weekly draft reports to a channel.
-Provides Bot Token auth, config file helpers, and Slack API operations.
+Slack integration for posting weekly draft reports to a channel and polling
+inbound DMs via the SlackPoller.
 
-Scope: chat:write, auth:read (Bot Token, manual browser setup via workmain slack setup)
+Provides Bot Token auth, config file helpers, Slack API operations, and
+inbound message polling.
+
+Scope: chat:write, auth:read, conversations:history, conversations:open
+(Bot Token, manual browser setup via workmain slack setup)
 
 Version History:
 - v1.0: Initial implementation (Phase 8 Gate 2)
+- v1.1: Phase 13 Sprint 2 Gate 3 — export SlackPoller for daemon integration
 """
 
 from workmain.integrations.slack.auth import (
@@ -26,6 +31,7 @@ from workmain.integrations.slack.client import (
     get_slack_client,
     format_for_slack,
 )
+from workmain.integrations.slack.poller import SlackPoller
 
 __all__ = [
     "get_token",
@@ -38,5 +44,6 @@ __all__ = [
     "SlackClientError",
     "get_slack_client",
     "format_for_slack",
+    "SlackPoller",
 ]
-__version__ = "1.0"
+__version__ = "1.1"
