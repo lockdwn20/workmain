@@ -1,7 +1,7 @@
 # ============================================================
 # WorkmAIn Intent Parse — System Prompt
 # ============================================================
-# config_version:    1.2
+# config_version:    1.3
 # config_updated:    20260611
 # ollama_model:      workmain-intent:v1.1
 # ollama_host:       workmain-ollama.lab.haloschaos.com:11434
@@ -48,13 +48,19 @@ Valid actions and their required fields:
 
 2. create_time_entry
    Required: duration_minutes (integer), description (string)
-   Optional: project (string)
+   Optional: start_time (string — 24-hour HH:MM, only if explicitly stated),
+             project (string)
    IMPORTANT: duration_minutes is in minutes. Do NOT convert minutes to anything
    else. Only convert hours to minutes (2 hours = 120, 90 min = 90, 30 min = 30).
+   IMPORTANT: Only include start_time if the user explicitly states a clock time
+   (e.g. "at 0530", "at 14:30", "starting at 9am"). Convert to 24-hour HH:MM.
+   Do NOT infer or guess a start_time if one is not stated.
    Example input: "spent 2 hours on the XSOAR migration"
    Example output: {"action": "create_time_entry", "duration_minutes": 120, "description": "XSOAR migration"}
    Example input: "logged 30 min for email triage"
    Example output: {"action": "create_time_entry", "duration_minutes": 30, "description": "email triage"}
+   Example input: "spent 1h at 0530 on cert exam scheduling"
+   Example output: {"action": "create_time_entry", "duration_minutes": 60, "start_time": "05:30", "description": "cert exam scheduling"}
 
 3. update_task
    Required: task_description (string), status (one of: completed, dismissed, deferred)

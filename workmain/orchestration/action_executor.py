@@ -1,6 +1,6 @@
 """
 WorkmAIn Action Executor
-Action Executor v1.0
+Action Executor v1.1
 20260611
 
 Executes confirmed structured actions from IntentParser against the database
@@ -9,11 +9,13 @@ ConfirmationGate first — that is the caller's responsibility.
 
 Version History:
 - v1.0: Phase 13 Sprint 2 Gate 4 — all Sprint 2 action types implemented
+- v1.1: Parse optional start_time from create_time_entry action; pass as
+        entry_time to TimeEntriesRepository.create()
 """
 
 import logging
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, time as time_type
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -94,6 +96,15 @@ class ActionExecutor:
         duration_minutes = int(action.get("duration_minutes", 0))
         duration_hours = duration_minutes / 60.0
 
+        entry_time = None
+        start_time_str = action.get("start_time")
+        if start_time_str:
+            try:
+                parts = start_time_str.split(":")
+                entry_time = time_type(int(parts[0]), int(parts[1]))
+            except (ValueError, IndexError, AttributeError):
+                logger.warning("Invalid start_time format '%s', ignoring", start_time_str)
+
         note_repo = NotesRepository(self.session)
         note = note_repo.create(
             content=description,
@@ -105,13 +116,15 @@ class ActionExecutor:
             note_id=note.id,
             duration_hours=duration_hours,
             entry_date=date.today(),
+            entry_time=entry_time,
         )
         hrs = duration_minutes // 60
         mins = duration_minutes % 60
         hrs_str = f"{hrs}h {mins}m" if hrs and mins else (f"{hrs}h" if hrs else f"{mins}m")
+        time_suffix = f" at {start_time_str}" if entry_time else ""
         return ActionResult(
             success=True,
-            message=f"✓ Logged {hrs_str} for '{description}'.",
+            message=f"✓ Logged {hrs_str} for '{description}'{time_suffix}.",
             entity_id=entry.id,
         )
 
