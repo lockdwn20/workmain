@@ -1,9 +1,23 @@
 """
 WorkmAIn Package Version
-Version v1.21.0
+Version v1.22.0
 20260612
 
 Version History:
+- v1.22.0: Intent Action Service Layer (Part 1). New workmain/services/ package:
+           notes_service.create_note() and time_entry_service.create_time_entry()
+           — shared, no-I/O service layer used by both the CLI and action_executor.
+           Migration 022: time_entries.entry_time NOT NULL; notes.tags CHECK
+           constraint restricting to the 6-value vocabulary from config/tags.json.
+           tag_utils.py: validate_full_names() + get_valid_full_names() on TagSystem.
+           CLI: notes add and time add (non-meeting path) delegate to the service layer.
+           Fixes: Slack-originated notes and time entries now stamp client_id from
+           active-client state (previously unattributed). create_time_entry via Slack
+           with no stated start time now returns a clarification request instead of
+           writing a null-timestamp row. action_executor _execute_create_note /
+           _execute_create_time_entry refactored to thin adapters. 34 new tests
+           (test_notes_service, test_time_entry_service, action_executor extensions).
+           Suite: 624 passed.
 - v1.21.0: Phase 13 Sprint 2 — Bidirectional Slack Interface (Slack Inbound).
            eod_workflow.py: surface-agnostic EOD service layer extracted from
            eod.py; EodStepResult/EodStepStatus dataclasses; all 9–11 step runners
@@ -336,7 +350,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.21.0"
-__version_info__ = (1, 21, 0)
+__version__ = "1.22.0"
+__version_info__ = (1, 22, 0)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"

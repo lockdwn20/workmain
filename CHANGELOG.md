@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.22.0] - 2026-06-12
+
+### Added
+
+- **`workmain/services/` package** — new shared application service layer.
+  `notes_service.create_note()` and `time_entry_service.create_time_entry()`
+  encapsulate note and time entry creation for both the CLI and Slack
+  `action_executor`, following the same pattern as `eod_workflow.py`.
+- **`workmain/services/exceptions.py`** — typed service exceptions:
+  `ServiceValidationError` (base), `MissingStartTimeError`,
+  `InvalidTagsError` (carries `invalid_tags` + `valid_tags`).
+- **`TagSystem.validate_full_names()` / `get_valid_full_names()`** — new
+  instance methods on `TagSystem`; `get_valid_full_names()` module-level
+  convenience wrapper added to `tag_utils.py`.
+- **Migration 022** (`022_intent_action_constraints.sql`):
+  `time_entries.entry_time` column now `NOT NULL`; `notes.tags` CHECK
+  constraint restricts to the 6 full-name vocabulary values from
+  `config/tags.json`.
+- 34 new tests: `tests/test_notes_service.py` (13), `tests/test_time_entry_service.py` (17),
+  plus 4 new tests in `tests/test_action_executor.py`
+  (client_id stamping, invalid_tags error path, no-row guard). Suite: 624 passed.
+
+### Fixed
+
+- **Slack → DB `client_id` attribution**: `create_note` and `create_time_entry`
+  actions arriving via Slack now stamp `client_id` from active-client state.
+  Previously all Slack-originated entries were unattributed (`client_id = NULL`).
+- **Null-timestamp time entries from Slack**: `create_time_entry` via Slack with
+  no stated `start_time` now returns `error="needs_clarification"` and writes no
+  row. Previously it wrote a `NULL` `entry_time` row, which violated the
+  `entry_time NOT NULL` constraint added by migration 022.
+- **`action_executor` `start_time` parsing** replaced with
+  `TimeEntriesRepository.parse_time()` — supports `HH:MM`, `HHMM`, and AM/PM
+  formats (supersedes the ad-hoc parser that only handled `HH:MM` and `HHMM`).
+
+### Changed
+
+- `notes add` CLI delegates note creation to `notes_service.create_note()` —
+  behavior unchanged from the user's perspective.
+- `time add` CLI non-meeting path delegates to
+  `time_entry_service.create_time_entry()` — behavior unchanged. Meeting path
+  (`--meeting`) is unchanged (meeting_id linkage deferred to Part 2/3).
+- `action_executor._execute_create_note` and `_execute_create_time_entry`
+  refactored to thin adapters over the new service layer.
+
 ## [1.21.0] - 2026-06-12
 
 ### Added
