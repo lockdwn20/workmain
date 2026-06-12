@@ -1,7 +1,7 @@
 """
 WorkmAIn Notification Daemon
-daemon.py v1.8
-20260611
+daemon.py v1.9
+20260612
 
 Entry point for the always-on background daemon process.
 Manages the APScheduler instance, graceful shutdown, and
@@ -32,6 +32,8 @@ Version History:
         start_eod dispatches to manager; T5 control word stubs removed
 - v1.8: Phase 13 Sprint 2 Gate 6 fix — wrap handle_reply in try/except so any
         exception in EOD session handling never falls through to normal dispatch
+- v1.9: Phase 13 Sprint 2 Gate 6 fix — move build_morning_briefing call inside
+        DB session scope so task.note lazy load succeeds (DetachedInstanceError)
 """
 
 import json
@@ -368,7 +370,8 @@ def _build_morning_briefing_handler(client):
                 logging.warning("Morning briefing: could not open DM channel: %s", e)
                 return
 
-        # Fetch meetings and tasks
+        # Fetch meetings and tasks, then build briefing text — all inside the
+        # session scope so task.note lazy loads can proceed before close().
         from workmain.database.repositories.meetings_repo import MeetingsRepository
         from workmain.database.repositories.task_status_repo import TaskStatusRepository
         db = get_db()
@@ -377,14 +380,13 @@ def _build_morning_briefing_handler(client):
             all_meetings = MeetingsRepository(session).get_by_date(date.today())
             meetings = [m for m in all_meetings if not m.is_cancelled]
             tasks = TaskStatusRepository(session).get_filtered(status='active', limit=0)
+            unresolved = _count_unresolved_observations()
+            text = build_morning_briefing(meetings, tasks, unresolved)
         except Exception as e:
             logging.warning("Morning briefing: DB error: %s", e)
             return
         finally:
             session.close()
-
-        unresolved = _count_unresolved_observations()
-        text = build_morning_briefing(meetings, tasks, unresolved)
 
         try:
             client.post_message(channel_id, text)
