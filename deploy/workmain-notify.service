@@ -1,6 +1,6 @@
 # WorkmAIn Notification Daemon
-# workmain-notify.service v1.1
-# 20260505
+# workmain-notify.service v1.2
+# 20260612
 #
 # systemd user service unit for the WorkmAIn notification daemon.
 # Install: cp deploy/workmain-notify.service ~/.config/systemd/user/
@@ -52,10 +52,11 @@ NoNewPrivileges=yes
 # --- Filesystem Sandboxing ---
 ProtectSystem=strict
 ProtectHome=read-only
-# Explicit write access for daemon state (daemon/) and config root.
+# Explicit write access for daemon state and staged report outputs.
 # ~/.workmain/daemon/ holds acknowledgments.json and last_inspection.json.
-# All paths under WORKMAIN_STATE_DIR — must match .env.
-ReadWritePaths=%h/.workmain
+# staging/ receives report MD files, email drafts, and Clockify PDFs
+# written by subprocess steps during the EOD workflow.
+ReadWritePaths=%h/.workmain %h/Projects/workmain/staging
 # ReadOnlyPaths for the project dir is omitted — ProtectHome=read-only
 # already makes the entire home tree read-only; an explicit ReadOnlyPaths
 # entry would be redundant.
