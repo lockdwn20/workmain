@@ -3,9 +3,9 @@
 # ============================================================
 # config_version:    1.6
 # config_updated:    20260611
-# ollama_model:      workmain-intent:v1.6
+# ollama_model:      workmain-intent:latest
 # ollama_host:       workmain-ollama.lab.haloschaos.com:11434
-# model_built:       (set this when build_workmain_intent.sh is run)
+# model_built:       workmain-intent:v1.6
 #
 # Description:
 #   System prompt for Mistral 7B intent parsing. Defines 8 action types
