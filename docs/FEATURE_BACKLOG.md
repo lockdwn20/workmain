@@ -1,5 +1,5 @@
 WorkmAIn
-Feature Backlog v5.20
+Feature Backlog v5.21
 20260612
 
 # WorkmAIn Feature Backlog
@@ -52,6 +52,8 @@ Items deferred from various phases for future implementation.
 - v5.19 (20260611): Item 40 added — Daemon Scheduler configurable trigger times (Phase 14).
 - v5.20 (20260612): Item 41 added — Clockify command exits 0 on staging write failure;
   discovered during Phase 13 Sprint 2 live testing (systemd EROFS).
+- v5.21 (20260612): Items 32, 33, 34, 38 marked COMPLETE (Phase 13 Sprint 2, v1.21.0);
+  statistics updated.
 
 ---
 
@@ -130,13 +132,13 @@ Build first, refactor later. See the complete picture before abstracting.
 | 29 | clockify report Subcommand Refactor | Low | Phase 15 | ~30 min | |
 | 30 | System Service Promotion for workmain-notify | Low | Phase 18 | ~4 hours | |
 | 31 | meetings create --attendees Restoration | Low | Phase 14 | ~30 min | |
-| 32 | Task Deduplication and Forwarding | Low | Phase 13 | ~2–3 hrs | |
-| 33 | correction_note Field Population | Low | Phase 13 | ~2 hrs | |
-| 34 | Weekly Report Prompt — Confirmed Daily Summaries as Context | Medium | Phase 13 | ~3–4 hrs | |
+| 32 | Task Deduplication and Forwarding | Low | Phase 13 | ~2–3 hrs | ✓ |
+| 33 | correction_note Field Population | Low | Phase 13 | ~2 hrs | ✓ |
+| 34 | Weekly Report Prompt — Confirmed Daily Summaries as Context | Medium | Phase 13 | ~3–4 hrs | ✓ |
 | 35 | AI Model Config-Driven Selection | Medium | Phase 14 | ~2–3 hrs | ✓ |
 | 36 | ProviderConfig Dead Code Cleanup | Low | next base_provider.py mod | ~15 min | ✓ |
 | 37 | Ollama Modelfile Tuning Workflow | Low | Sprint 2/3 maintenance | ~30 min/rebuild | |
-| 38 | Ollama Warm-Up Ping on Bot Startup | Medium | Sprint 2 Gate 0 | ~30 min | |
+| 38 | Ollama Warm-Up Ping on Bot Startup | Medium | Sprint 2 Gate 0 | ~30 min | ✓ |
 | 39 | Re-tag Audit — 242 Gate 4 Stub Notes | Medium | Phase 13 (post-v1.20.0) | ~1–2 hrs | ✓ |
 | 40 | Daemon Scheduler — Configurable Trigger Times | Low | Phase 14 | ~1–2 hrs | |
 | 41 | Clockify Command Exits 0 on Staging Write Failure | Low | Phase 14 | ~30 min | |
@@ -146,15 +148,15 @@ Build first, refactor later. See the complete picture before abstracting.
 ## Summary Statistics
 
 **Total Items:** 41 (Item 22 is a redirect — no separate deferred work; see Item 20)
-**Completed:** 13 (Items 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 35, 36, 39)
-**Open:** 27
+**Completed:** 17 (Items 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39)
+**Open:** 23
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Open (targeted) | 23 | 1, 2, 3, 4, 7, 8, 12, 14, 15, 16, 19, 23, 28, 29, 30, 31, 32, 33, 34, 37, 38, 40, 41 |
+| Open (targeted) | 19 | 1, 2, 3, 4, 7, 8, 12, 14, 15, 16, 19, 23, 28, 29, 30, 31, 37, 40, 41 |
 | Conditional | 1 | 9 |
 | Indefinitely | 3 | 5, 6, 21 |
-| Complete | 13 | 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 35, 36, 39 |
+| Complete | 17 | 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39 |
 | Redirect | 1 | 22 → Item 20 |
 
 | Priority | Count | Items |
@@ -991,7 +993,7 @@ is the earliest point where attendee management becomes user-facing.
 
 #### Item 32 — Task Deduplication and Forwarding (Phase 13)
 
-**Status:** Open — Deferred to Phase 13
+**Status:** ✓ COMPLETE — 20260612 (Phase 13 Sprint 2, v1.21.0)
 **Priority:** Low
 **Effort:** ~2–3 hours
 **Added:** 20260528
@@ -1021,7 +1023,7 @@ is a Phase 12 placeholder; no Phase 12 business logic uses it.
 
 #### Item 33 — correction_note Field Population (Phase 13)
 
-**Status:** Open — Deferred to Phase 13
+**Status:** ✓ COMPLETE — 20260612 (Phase 13 Sprint 2, v1.21.0)
 **Priority:** Low
 **Effort:** ~2 hours
 **Added:** 20260528
@@ -1047,7 +1049,7 @@ column exists as a Phase 12 schema placeholder only.
 
 #### Item 34 — Weekly Report Prompt — Confirmed Daily Summaries as Context
 
-**Status:** Open — Deferred to Phase 13
+**Status:** ✓ COMPLETE — 20260612 (Phase 13 Sprint 2, v1.21.0)
 **Priority:** Medium (token cost reduction + accuracy improvement)
 **Effort:** ~3–4 hours
 **Added:** 20260528
@@ -1212,7 +1214,7 @@ examples would not improve on the current prompt-engineered approach.
 
 #### Item 38 — Ollama Warm-Up Ping on Bot Startup
 
-**Status:** Open — Sprint 2 Gate 0 prerequisite
+**Status:** ✓ COMPLETE — 20260612 (Phase 13 Sprint 2, v1.21.0)
 **Priority:** Medium (UX — cold start is 55–72s, unacceptable for first Slack message)
 **Effort:** ~30 min
 **Added:** 20260605

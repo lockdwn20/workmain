@@ -7,6 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.21.0] - 2026-06-12
+
+### Added
+
+- **eod_workflow.py** — surface-agnostic EOD service layer extracted from
+  `cli/commands/eod.py`. `EodStepResult` / `EodStepStatus` dataclasses;
+  `get_step_sequence()` / `run_step()` public API; all 9–11 step runners
+  in one module. CLI and daemon now share the same execution path.
+- **SlackPoller** (`workmain/integrations/slack/poller.py`) — inbound DM
+  polling via `conversations.history`. 10-second APScheduler interval;
+  last-seen timestamp deduplication; channel_id stamped onto every dispatched
+  message; state persisted to `~/.workmain/daemon/slack_poll_state.json`
+  (chmod 600). First-run establishes baseline without replaying history.
+- **ActionExecutor** (`workmain/orchestration/action_executor.py`) — executes
+  confirmed action dicts against the database via existing repositories.
+  Action types: `create_time_entry`, `create_note`, `update_task`,
+  `defer_task`, `confirm_report`, `correct_report`, `deduplicate_task`,
+  `write_correction_note`. `start_time` accepts `HH:MM` or `HHMM` format.
+- **ConfirmationGate** (`workmain/orchestration/confirmation_gate.py`) —
+  plain-text confirmation prompts for all action types; `is_confirmation()` /
+  `is_rejection()` classifiers; 120-char description truncation.
+- **T1 Morning Briefing** — 05:30 Mon-Fri APScheduler trigger sends today's
+  meetings, active task count, and unresolved observation count to Slack DM.
+- **T5 EOD Conversational Review** (`workmain/integrations/slack/slack_eod.py`)
+  — message-driven state machine replaces interactive CLI prompts in daemon
+  context. `start eod`, `continue`, `stop` keywords drive a step-by-step
+  approval flow in Slack DM.
+- **Ollama warm-up ping** on daemon startup (Item 38) — no-op generate
+  request to pre-warm `workmain-intent` model; eliminates 55–72s cold-start
+  penalty. Non-fatal if Ollama unavailable.
+- Item 34 — weekly report prompt now uses `get_confirmed_dailies()` as context
+  instead of re-querying 5 days of raw data; confirmed/corrected daily content
+  is the source of truth for weekly aggregation.
+- Item 33 — `write_correction_note` action type wires Slack DM corrections to
+  `ReportsRepository.set_correction_note()`.
+- Item 32 — `deduplicate_task` action type: duplicate task dismissed with
+  `forwarding_note_id` pointing to canonical task.
+- `tests/test_slack_poller.py` (16 tests) — polling, dedup, state, channel stamp
+- `tests/test_action_executor.py` (36 tests) — action executor, confirmation gate
+
+### Fixed
+
+- Subprocess PATH in daemon context: all `eod_workflow.py` subprocess calls
+  now use `_WORKMAIN_BIN` resolved via `Path(sys.executable).parent / 'workmain'`
+  instead of bare `'workmain'` string — fixes `[Errno 2]` when daemon runs as
+  systemd service without venv activated.
+- Step 3 `DetachedInstanceError`: ORM lazy-load of `TimeEntry.note` moved
+  inside session scope in `_run_review_step` non-interactive path.
+- EOD session routing: `handle_reply` wrapped in try/except in
+  `daemon.handle_message()`; exceptions no longer fall through to intent dispatch.
+- Step runners return `FAILED` (not `COMPLETED`) on subprocess non-zero exit
+  in daemon context — `_is_interactive()` guard on all 7 step runners.
+- T1 Morning Briefing `DetachedInstanceError`: `build_morning_briefing()` and
+  `_count_unresolved_observations()` moved inside session scope.
+- `staging/` read-only in systemd service: `ReadWritePaths` in
+  `deploy/workmain-notify.service` now includes `%h/Projects/workmain/staging`
+  (`ProtectHome=read-only` previously blocked all writes to `staging/`).
+- `conversations.history` omits `channel` field: `SlackPoller` stamps
+  `msg['channel'] = channel_id` before dispatching to handler.
+
+### Test suite
+
+590 passed (538 baseline + 52 new: 16 poller + 36 action_executor)
+
 ## [1.20.1] - 2026-06-10
 
 ### Fixed

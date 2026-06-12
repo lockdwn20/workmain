@@ -1,6 +1,6 @@
 WorkmAIn
-Implementation Checklist v2.3
-20260522
+Implementation Checklist v2.4
+20260612
 
 Version History:
 - v1.0: Original checklist through Phase 8 (maintained by Claude Code)
@@ -8,6 +8,7 @@ Version History:
 - v2.1 (20260311): Restored Phase 2 completion status (regression fix); restored Phase 4 Provider CLI completed commands (regression fix); restored Phase 3 templates show [x] and templates preview [ ] with bug note; added DB auth config note to Phase 16 (moved from Phase 12); confirmed Phase 13 Code Quality Refactoring intentionally omitted (tracked in FEATURE_BACKLOG.md Item 7); updated Phase 6/7/8 headers to reflect completion.
 - v2.2 (20260421): Phase restructure following bidirectional Slack scoping session. Phase 10 scope narrowed (daemon + rules-based inspection + schedule/notifications commands only; trigger time config deferred to Phase 14). Phase 11 scope clarified (recipient management + active client context switch design decision). New Phase 12 inserted — Data Integrity & Correction Loop (PC-1/2/3). New Phase 13 inserted — Bidirectional Slack Interface (Ollama, intent parsing, conversational workflow). Old Phases 12-16 renumbered to 14-18. Timeline header updated.
 - v2.3 (20260522): Phase 11 marked ✓ COMPLETED (v1.13.0, 2026-05-12); Phase 11.5 delivery noted inline (v1.14.0, 2026-05-22) — all Phase 11 checklist items checked off.
+- v2.4 (20260612): Phase 13 Sprint 1 (v1.19.0) and Sprint 2 (v1.21.0) deliverables checked off.
 
 ---
 
@@ -601,8 +602,9 @@ before the record is eligible for weekly report aggregation.
 Replace pull-based logging (user goes to system) with push-based capture
 (system comes to user).
 
-Note: Requires Phase 12 complete — correction loop must exist before conversational
-corrections can land correctly.
+Note: Sprint 1 complete (v1.19.0, 2026-05-29) — Ollama/Mistral 7B provider activation.
+Note: Sprint 2 complete (v1.21.0, 2026-06-12) — Slack inbound, EOD service layer, T1/T5.
+Note: Sprint 3 (planned) — T2/T3/T4/T6, Block Kit UX, session persistence.
 
 Note: Infrastructure — Mistral 7B via Ollama on Proxmox server (i9-12950HX, always-on,
 CPU-only inference). RTX 4070 GPU offloading available as future upgrade
@@ -612,44 +614,45 @@ CPU-only inference). RTX 4070 GPU offloading available as future upgrade
 Note: All parsed actions require user confirmation before database write.
 No unsupervised database writes.
 
-### Ollama / Mistral 7B Setup
+### Ollama / Mistral 7B Setup (Sprint 1 — v1.19.0)
 
-- [ ] Ollama installed and running on Proxmox server
-- [ ] Mistral 7B model pulled and verified
-- [ ] WorkmAIn Ollama client (`workmain/ai/ollama_client.py`)
-- [ ] Intent parsing prompt template (short conversational input → structured JSON actions)
-- [ ] Benchmark validation: sample workmAIn responses parsed correctly before Phase 13 gates proceed
+- [x] Ollama installed and running on Proxmox server
+- [x] Mistral 7B model pulled and verified
+- [x] WorkmAIn Ollama client (`workmain/ai/providers/ollama_provider.py`)
+- [x] Intent parsing prompt template (short conversational input → structured JSON actions)
+- [x] Benchmark validation: sample workmAIn responses parsed correctly before Phase 13 gates proceed
 
-### Inbound Slack Polling
+### Inbound Slack Polling (Sprint 2 — v1.21.0)
 
-- [ ] Slack Web API `conversations.history` poll loop (10-second interval)
-- [ ] DM channel monitoring (existing Bot Token auth — no new Slack integration required)
-- [ ] Message deduplication (track last-seen timestamp)
-- [ ] Poll loop integrated into Phase 10 daemon (APScheduler job)
+- [x] Slack Web API `conversations.history` poll loop (10-second interval)
+- [x] DM channel monitoring (existing Bot Token auth — no new Slack integration required)
+- [x] Message deduplication (track last-seen timestamp)
+- [x] Poll loop integrated into Phase 10 daemon (APScheduler job)
 
-### Intent Parsing Layer
+### Intent Parsing Layer (Sprint 1 — v1.19.0)
 
-- [ ] Natural language input → structured JSON action list (Mistral 7B)
-- [ ] Action types: `update_task`, `create_time_entry`, `create_task_note`, `update_note_tag`,
-  `confirm_report`, `correct_report`, `defer_task`
+- [x] Natural language input → structured JSON action list (Mistral 7B)
+- [x] Action types: `update_task`, `create_time_entry`, `create_note`, `update_note_tag`,
+  `confirm_report`, `correct_report`, `defer_task`, `deduplicate_task`,
+  `write_correction_note`, `start_eod`
 - [ ] Ambiguous input handling: follow-up question generated when parse confidence is low
-- [ ] All parsed actions presented to user for confirmation before execution
+- [x] All parsed actions presented to user for confirmation before execution
 
-### Orchestration Layer
+### Orchestration Layer (Sprint 2 — v1.21.0)
 
-- [ ] Action executor: confirmed JSON actions → database writes via existing repositories
-- [ ] Confirmation UX: Slack Block Kit structured messages with Approve/Reject buttons
-- [ ] Fallback: plain conversational text if Block Kit unavailable
-- [ ] Correction loop: corrected actions re-presented before final commit
+- [x] Action executor: confirmed JSON actions → database writes via existing repositories
+- [ ] Confirmation UX: Slack Block Kit structured messages with Approve/Reject buttons (Sprint 3)
+- [x] Fallback: plain conversational text if Block Kit unavailable
+- [x] Correction loop: corrected actions re-presented before final commit
 
 ### Trigger Types
 
-**T1 — Morning Briefing**
+**T1 — Morning Briefing (Sprint 2 — v1.21.0)**
 
-- [ ] Configurable start time trigger (default: 05:30, see Phase 10 daemon)
-- [ ] Today's meetings with times
-- [ ] Pending tasks with carry-forward context
-- [ ] Current project status summary
+- [x] Configurable start time trigger (default: 05:30, see Phase 10 daemon)
+- [x] Today's meetings with times
+- [x] Pending tasks with carry-forward context
+- [x] Unresolved observation count
 
 **T2 — Meeting Start Notification**
 
@@ -670,13 +673,13 @@ No unsupervised database writes.
 - [ ] Response parsed → time entry + task/project update
 - [ ] Follow-up if response ambiguous: "Is that billable to [Project X]?"
 
-**T5 — End of Day Review (Conversational)**
+**T5 — End of Day Review (Conversational) (Sprint 2 — v1.21.0)**
 
-- [ ] Replaces/extends Phase 10 enriched notification for EOD
-- [ ] Conversational review of: time coverage gaps, task reconciliation, carry-forward review,
+- [x] Replaces/extends Phase 10 enriched notification for EOD
+- [x] Conversational review of: time coverage gaps, task reconciliation, carry-forward review,
   note confirmation, daily report preview
-- [ ] Each item presented sequentially with confirmation/correction prompts
-- [ ] Daily report marked confirmed after user approval
+- [x] Each item presented sequentially with confirmation/correction prompts
+- [x] Daily report marked confirmed after user approval
 
 **T6 — Inline Correction**
 
@@ -686,19 +689,22 @@ No unsupervised database writes.
 - [ ] Updated version re-presented for confirmation
 - [ ] Correction flagged so it does not propagate to weekly in original form
 
-### Tests
+### Tests (Sprint 1 + Sprint 2)
 
-- [ ] `tests/test_ollama_client.py` — intent parsing, action extraction, ambiguity handling
-- [ ] `tests/test_slack_polling.py` — deduplication, message handling, poll loop
-- [ ] `tests/test_orchestration.py` — action executor, confirmation flow, correction loop
+- [x] `tests/test_ollama_provider.py` — Ollama provider, generate, availability check
+- [x] `tests/test_intent_parser.py` — intent parsing, action extraction
+- [x] `tests/test_slack_poller.py` — deduplication, message handling, channel stamp
+- [x] `tests/test_action_executor.py` — action executor, confirmation gate, all action types
+- [ ] `tests/test_orchestration.py` — full confirmation flow, correction loop (Sprint 3)
 
 **Deliverables**:
 
-- Ollama/Mistral 7B intent parsing on Proxmox (always-on)
-- Inbound Slack polling integrated into Phase 10 daemon
-- All six trigger types (T1–T6) operational
-- Confirmation UX via Slack Block Kit
-- Full correction loop wired to Phase 12 PC-3 mechanism
+- [x] Ollama/Mistral 7B intent parsing on Proxmox (always-on) — Sprint 1
+- [x] Inbound Slack polling integrated into Phase 10 daemon — Sprint 2
+- [x] T1 Morning Briefing and T5 EOD Conversational Review operational — Sprint 2
+- [ ] T2/T3/T4/T6 trigger types — Sprint 3
+- [ ] Confirmation UX via Slack Block Kit — Sprint 3
+- [ ] Full correction loop wired to Phase 12 PC-3 mechanism — Sprint 3
 
 ---
 
