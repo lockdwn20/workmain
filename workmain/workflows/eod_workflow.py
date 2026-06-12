@@ -1,8 +1,8 @@
 """
 WorkmAIn EOD Workflow Service Layer
 workmain/workflows/eod_workflow.py
-v1.3
-20260611
+v1.4
+20260612
 
 Surface-agnostic EOD workflow step runners. Returns EodStepResult objects
 instead of bool so any I/O surface (CLI or Slack) can interpret results.
@@ -24,6 +24,10 @@ Version History:
 - v1.3: Phase 13 Sprint 2 Gate 6 fix — move _run_review_step non-interactive
         data access inside try block so e.note lazy load occurs before session
         is closed (fixes DetachedInstanceError)
+- v1.4: Phase 13 Sprint 2 Gate 6 fix — add _is_interactive() helper; all 7
+        step runners that use subprocess now return FAILED (not COMPLETED) when
+        subprocess exits non-zero in daemon/non-TTY context; report and weekly
+        report steps skip the interactive review loop when non-interactive
 """
 
 import inspect as _inspect
@@ -112,6 +116,16 @@ def _prompt_raw(prompt: str) -> str:
         return input(prompt)
     except (EOFError, KeyboardInterrupt):
         return ''
+
+
+def _is_interactive() -> bool:
+    """Return True when stdin is a real terminal (interactive CLI session).
+
+    Returns False in daemon/systemd context (stdin is /dev/null).
+    Step runners use this to skip interactive retry/review prompts and return
+    EodStepStatus.FAILED instead of silently swallowing subprocess failures.
+    """
+    return sys.stdin.isatty()
 
 
 # ---------------------------------------------------------------------------
@@ -618,6 +632,11 @@ def _run_report_step(dry_run: bool, target_date: date) -> EodStepResult:
         if result.returncode != 0:
             print()
             print(f"  ⚠ Report generation returned exit code {result.returncode}")
+            if not _is_interactive():
+                return EodStepResult(
+                    status=EodStepStatus.FAILED,
+                    error=f"Report generation failed (exit code {result.returncode})",
+                )
             action = _prompt_choice("  Continue? [r]etry / [s]kip", default='s')
             if action == 'r':
                 result = subprocess.run(cmd)
@@ -630,6 +649,13 @@ def _run_report_step(dry_run: bool, target_date: date) -> EodStepResult:
     except Exception as e:
         print(f"  ✗ Report step error: {e}")
         return EodStepResult(status=EodStepStatus.FAILED, error=str(e))
+
+    # Non-interactive: report generated, skip the interactive review loop
+    if not _is_interactive():
+        return EodStepResult(
+            status=EodStepStatus.COMPLETED,
+            message="Daily report generated — review with: workmain reports history",
+        )
 
     # Load the new report for review
     db = get_db()
@@ -741,6 +767,11 @@ def _run_email_step(dry_run: bool, target_date: date) -> EodStepResult:
             print()
             print(f"  ⚠ Email draft returned exit code {result.returncode}")
             print("  No recipients configured? Run: workmain email recipients add <email>")
+            if not _is_interactive():
+                return EodStepResult(
+                    status=EodStepStatus.FAILED,
+                    error=f"Email draft failed (exit code {result.returncode})",
+                )
             action = _prompt_choice("  Continue? [r]etry / [s]kip", default='s')
 
             if action == 'r':
@@ -775,6 +806,11 @@ def _run_clockify_step(dry_run: bool, target_date: date) -> EodStepResult:
         if result.returncode != 0:
             print()
             print(f"  ⚠ Clockify report returned exit code {result.returncode}")
+            if not _is_interactive():
+                return EodStepResult(
+                    status=EodStepStatus.FAILED,
+                    error=f"Clockify PDF download failed (exit code {result.returncode})",
+                )
             action = _prompt_choice("  Continue? [r]etry / [s]kip", default='s')
 
             if action == 'r':
@@ -810,6 +846,11 @@ def _run_gdocs_step(dry_run: bool, target_date: date) -> EodStepResult:
         if result.returncode != 0:
             print()
             print(f"  ⚠ Drive upload returned exit code {result.returncode}")
+            if not _is_interactive():
+                return EodStepResult(
+                    status=EodStepStatus.FAILED,
+                    error=f"Drive upload failed (exit code {result.returncode})",
+                )
             action = _prompt_choice(
                 "  Not authenticated. Skip Drive upload? [Y/n]",
                 default='y',
@@ -847,13 +888,20 @@ def _run_slack_weekly_step(dry_run: bool, target_date: date) -> EodStepResult:
             print()
             print("  ⚠ Slack post weekly returned non-zero "
                   "(user aborted or already posted)")
+            if not _is_interactive():
+                return EodStepResult(
+                    status=EodStepStatus.FAILED,
+                    error=f"Slack weekly post failed (exit code {result.returncode})",
+                )
             print("  Continuing to Complete.")
 
         return EodStepResult(status=EodStepStatus.COMPLETED)
 
     except Exception as e:
         print(f"  ✗ Slack weekly step error: {e}")
-        return EodStepResult(status=EodStepStatus.COMPLETED)  # Non-fatal
+        if not _is_interactive():
+            return EodStepResult(status=EodStepStatus.FAILED, error=str(e))
+        return EodStepResult(status=EodStepStatus.COMPLETED)  # Non-fatal in CLI
 
 
 def _run_weekly_report_step(dry_run: bool, target_date: date) -> EodStepResult:
@@ -909,15 +957,32 @@ def _run_weekly_report_step(dry_run: bool, target_date: date) -> EodStepResult:
         if result.returncode != 0:
             print()
             print(f"  ⚠ Weekly report generation returned exit code {result.returncode}")
+            if not _is_interactive():
+                return EodStepResult(
+                    status=EodStepStatus.FAILED,
+                    error=f"Weekly report generation failed (exit code {result.returncode})",
+                )
             action = _prompt_choice("  Continue? [r]etry / [s]kip", default='s')
             if action == 'r':
                 result = subprocess.run(cmd)
                 if result.returncode != 0:
                     print("  ✗ Retry failed")
-                    return EodStepResult(status=EodStepStatus.COMPLETED)  # Non-fatal
+                    return EodStepResult(
+                        status=EodStepStatus.FAILED,
+                        error="Weekly report generation retry failed",
+                    )
     except Exception as e:
         print(f"  ✗ Weekly report step error: {e}")
-        return EodStepResult(status=EodStepStatus.COMPLETED)  # Non-fatal
+        if not _is_interactive():
+            return EodStepResult(status=EodStepStatus.FAILED, error=str(e))
+        return EodStepResult(status=EodStepStatus.COMPLETED)  # Non-fatal in CLI
+
+    # Non-interactive: report generated, skip the interactive review loop
+    if not _is_interactive():
+        return EodStepResult(
+            status=EodStepStatus.COMPLETED,
+            message="Weekly client report generated — review with: workmain reports history",
+        )
 
     # Load the new report for review
     db = get_db()
@@ -1025,13 +1090,20 @@ def _run_weekly_email_step(dry_run: bool, target_date: date) -> EodStepResult:
         if result.returncode != 0:
             print()
             print(f"  ⚠ Weekly email draft returned exit code {result.returncode}")
+            if not _is_interactive():
+                return EodStepResult(
+                    status=EodStepStatus.FAILED,
+                    error=f"Weekly email draft failed (exit code {result.returncode})",
+                )
             print("  Continuing to Complete.")
 
         return EodStepResult(status=EodStepStatus.COMPLETED)
 
     except Exception as e:
         print(f"  ✗ Weekly email step error: {e}")
-        return EodStepResult(status=EodStepStatus.COMPLETED)  # Non-fatal
+        if not _is_interactive():
+            return EodStepResult(status=EodStepStatus.FAILED, error=str(e))
+        return EodStepResult(status=EodStepStatus.COMPLETED)  # Non-fatal in CLI
 
 
 # ---------------------------------------------------------------------------
