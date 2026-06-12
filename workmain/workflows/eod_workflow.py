@@ -1,7 +1,7 @@
 """
 WorkmAIn EOD Workflow Service Layer
 workmain/workflows/eod_workflow.py
-v1.2
+v1.3
 20260611
 
 Surface-agnostic EOD workflow step runners. Returns EodStepResult objects
@@ -21,6 +21,9 @@ Version History:
         to runners that declare the parameter
 - v1.2: Phase 13 Sprint 2 Gate 6 fix — resolve workmain bin via sys.executable
         so subprocess calls work inside systemd venv without PATH activation
+- v1.3: Phase 13 Sprint 2 Gate 6 fix — move _run_review_step non-interactive
+        data access inside try block so e.note lazy load occurs before session
+        is closed (fixes DetachedInstanceError)
 """
 
 import inspect as _inspect
@@ -310,23 +313,24 @@ def _run_review_step(dry_run: bool, target_date: date, non_interactive: bool = F
         try:
             from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
             entries = TimeEntriesRepository(_session).get_by_date(target_date)
+            if not entries:
+                return EodStepResult(
+                    status=EodStepStatus.COMPLETED,
+                    message="No time entries for today — review step skipped.",
+                )
+            lines = [f"Time entries for {target_date}:"]
+            total_hours = 0.0
+            for e in entries:
+                # Access e.note inside the session scope — lazy load requires an open session
+                desc = (e.note.content if e.note else '') or '(no description)'
+                start = e.entry_time.strftime('%H:%M') if e.entry_time else 'no time'
+                preview = desc[:100] + ('…' if len(desc) > 100 else '')
+                lines.append(f"• [{e.id}] {start} — {preview} ({e.duration_hours}h)")
+                total_hours += float(e.duration_hours or 0)
+            lines.append(f"Total: {total_hours:.2f}h")
+            formatted = "\n".join(lines)
         finally:
             _session.close()
-        if not entries:
-            return EodStepResult(
-                status=EodStepStatus.COMPLETED,
-                message="No time entries for today — review step skipped.",
-            )
-        lines = [f"Time entries for {target_date}:"]
-        total_hours = 0.0
-        for e in entries:
-            desc = (e.note.content if e.note else '') or '(no description)'
-            start = e.entry_time.strftime('%H:%M') if e.entry_time else 'no time'
-            preview = desc[:100] + ('…' if len(desc) > 100 else '')
-            lines.append(f"• [{e.id}] {start} — {preview} ({e.duration_hours}h)")
-            total_hours += float(e.duration_hours or 0)
-        lines.append(f"Total: {total_hours:.2f}h")
-        formatted = "\n".join(lines)
         return EodStepResult(
             status=EodStepStatus.PAUSED,
             message=formatted,

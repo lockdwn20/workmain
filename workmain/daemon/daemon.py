@@ -1,6 +1,6 @@
 """
 WorkmAIn Notification Daemon
-daemon.py v1.7
+daemon.py v1.8
 20260611
 
 Entry point for the always-on background daemon process.
@@ -30,6 +30,8 @@ Version History:
 - v1.7: Phase 13 Sprint 2 Gate 6 — SlackEodManager wired into SlackMessageDispatcher;
         handle_message() routes active EOD sessions before confirmation gate;
         start_eod dispatches to manager; T5 control word stubs removed
+- v1.8: Phase 13 Sprint 2 Gate 6 fix — wrap handle_reply in try/except so any
+        exception in EOD session handling never falls through to normal dispatch
 """
 
 import json
@@ -431,9 +433,16 @@ class SlackMessageDispatcher:
 
         logging.info("Slack DM received: user=%s text=%r", user_id, text)
 
-        # Active EOD session takes priority over the confirmation gate
+        # Active EOD session takes priority over the confirmation gate.
+        # Wrap in try/except so an exception in handle_reply never falls through
+        # to the normal dispatch path — instead we clean up the session and notify.
         if self._eod_manager.has_session(user_id):
-            self._eod_manager.handle_reply(user_id, text)
+            try:
+                self._eod_manager.handle_reply(user_id, text)
+            except Exception as e:
+                logging.error("EOD handle_reply raised for user=%s: %s", user_id, e)
+                self._eod_manager._sessions.pop(user_id, None)
+                self._send(channel, "EOD session error — please reply 'start eod' to begin again.")
             return
 
         if user_id in self._pending:
