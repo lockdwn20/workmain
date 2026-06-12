@@ -1,9 +1,33 @@
 """
 WorkmAIn Package Version
-Version v1.20.1
-20260610
+Version v1.21.0
+20260612
 
 Version History:
+- v1.21.0: Phase 13 Sprint 2 — Bidirectional Slack Interface (Slack Inbound).
+           eod_workflow.py: surface-agnostic EOD service layer extracted from
+           eod.py; EodStepResult/EodStepStatus dataclasses; all 9–11 step runners
+           in one module. Slack polling loop (SlackPoller): conversations.history
+           10s interval, last-seen deduplication, channel stamping, operator_user_id
+           discovery, state persisted to ~/.workmain/daemon/slack_poll_state.json.
+           APScheduler poll job registered in daemon. Action executor + confirmation
+           gate: all 8 action types (create_time_entry, create_note, update_task,
+           defer_task, confirm_report, correct_report, deduplicate_task,
+           write_correction_note). T1 Morning Briefing: 05:30 Mon-Fri, today's
+           meetings + active tasks + unresolved observation count.
+           T5 EOD Conversational Review (SlackEodManager): message-driven state
+           machine replacing interactive CLI for daemon context; handles
+           start eod, continue, stop, and step-by-step approval in Slack DM.
+           Live-test bugs fixed: (1) subprocess PATH — _WORKMAIN_BIN resolves
+           venv bin path via sys.executable; (2) Step 3 DetachedInstanceError —
+           ORM relationship access moved inside session scope; (3) handle_reply
+           fall-through — try/except guard in daemon.handle_message(); (4) false
+           success in daemon context — _is_interactive() guard on all 7 step
+           runners; (5) T1 briefing DetachedInstanceError — build_morning_briefing
+           called inside session scope; (6) staging/ read-only — ReadWritePaths
+           updated in workmain-notify.service (ProtectHome=read-only fix).
+           Items 32/33/34/38 complete. New tests: test_slack_poller (16),
+           test_action_executor (36). Suite: 590 passed.
 - v1.20.1: Hotfix clockify-tag-sync — Phase 13 note-first refactor caused
            sync.py push path to send entry.note.tags (e.g. ['internal-only'])
            as Clockify tagIds; Clockify rejects these with 400 "Tag doesn't
@@ -312,7 +336,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.20.1"
-__version_info__ = (1, 20, 1)
+__version__ = "1.21.0"
+__version_info__ = (1, 21, 0)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
