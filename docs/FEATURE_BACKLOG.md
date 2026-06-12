@@ -1,5 +1,5 @@
 WorkmAIn
-Feature Backlog v5.21
+Feature Backlog v5.22
 20260612
 
 # WorkmAIn Feature Backlog
@@ -54,6 +54,9 @@ Items deferred from various phases for future implementation.
   discovered during Phase 13 Sprint 2 live testing (systemd EROFS).
 - v5.21 (20260612): Items 32, 33, 34, 38 marked COMPLETE (Phase 13 Sprint 2, v1.21.0);
   statistics updated.
+- v5.22 (20260612): Items 42, 43, 44 added — three items deferred from
+  INTENT_ACTION_SERVICE_LAYER_PART_1 (v1.22.0): project_id Slack schema removal,
+  meeting_id non-interactive linkage, entry_date/category schema fields.
 
 ---
 
@@ -142,18 +145,21 @@ Build first, refactor later. See the complete picture before abstracting.
 | 39 | Re-tag Audit — 242 Gate 4 Stub Notes | Medium | Phase 13 (post-v1.20.0) | ~1–2 hrs | ✓ |
 | 40 | Daemon Scheduler — Configurable Trigger Times | Low | Phase 14 | ~1–2 hrs | |
 | 41 | Clockify Command Exits 0 on Staging Write Failure | Low | Phase 14 | ~30 min | |
+| 42 | project_id Slack Schema Removal — create_time_entry | Low | next intent_parse rebuild | ~30 min | |
+| 43 | meeting_id Non-Interactive Linkage for create_note/create_time_entry | Medium | Phase 13 Sprint 3 (T6) | ~4–6 hrs | |
+| 44 | entry_date/category as IntentParser Schema Fields (Phase 2) | Low | next model rebuild | ~1–2 hrs | |
 
 ---
 
 ## Summary Statistics
 
-**Total Items:** 41 (Item 22 is a redirect — no separate deferred work; see Item 20)
+**Total Items:** 44 (Item 22 is a redirect — no separate deferred work; see Item 20)
 **Completed:** 17 (Items 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39)
-**Open:** 23
+**Open:** 26
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Open (targeted) | 19 | 1, 2, 3, 4, 7, 8, 12, 14, 15, 16, 19, 23, 28, 29, 30, 31, 37, 40, 41 |
+| Open (targeted) | 22 | 1, 2, 3, 4, 7, 8, 12, 14, 15, 16, 19, 23, 28, 29, 30, 31, 37, 40, 41, 42, 43, 44 |
 | Conditional | 1 | 9 |
 | Indefinitely | 3 | 5, 6, 21 |
 | Complete | 17 | 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39 |
@@ -162,22 +168,25 @@ Build first, refactor later. See the complete picture before abstracting.
 | Priority | Count | Items |
 |----------|-------|-------|
 | High | 0 | — |
-| Medium | 10 | 2, 3, 7, 10, 14, 15, 23, 34, 35, 38 |
-| Low | 20 | 1, 4, 5, 6, 8, 11, 12, 13, 16, 19, 21, 28, 29, 30, 31, 32, 33, 36, 37, 40 |
+| Medium | 11 | 2, 3, 7, 10, 14, 15, 23, 34, 35, 38, 43 |
+| Low | 23 | 1, 4, 5, 6, 8, 11, 12, 13, 16, 19, 21, 28, 29, 30, 31, 32, 33, 36, 37, 40, 41, 42, 44 |
 | Conditional | 1 | 9 |
 
 | Target Phase | Items |
 |-------------|-------|
 | Phase 11+ | 4, 28 |
 | Phase 13 | 32, 33, 34 |
+| Phase 13 Sprint 3 | 43 |
 | Phase 14+ | 19, 31 |
+| Phase 14 | 40, 41 |
 | Phase 15 | 1, 2, 3, 7, 8, 10, 12, 13, 14, 15, 16, 23, 29 |
 | Phase 18 | 30 |
 | Sprint 2/3 | 37, 38 |
+| Next model rebuild | 42, 44 |
 | Conditional | 9 |
 | Indefinitely | 5, 6, 11, 21 |
 
-**Total Deferred Effort (open items):** ~78–81 hours
+**Total Deferred Effort (open items):** ~84–89 hours
 
 ---
 
@@ -1384,3 +1393,124 @@ consolidation point for similar CLI robustness tasks.
 **Files Affected:**
 
 - `workmain/cli/commands/clockify.py` (add `sys.exit(1)` on failure paths)
+
+---
+
+#### Item 42 — project_id Slack Schema Removal — create_time_entry
+
+**Status:** Open — Deferred to next intent_parse rebuild
+**Priority:** Low
+**Effort:** ~30 min
+**Added:** 20260612
+**Target Phase:** Next `intent_parse_system_prompt.txt` rebuild
+
+**Description:**
+The `create_time_entry` action schema in `intent_parse_system_prompt.txt` includes
+a `project` field (a string). There is no `ProjectsRepository`, and no project-by-name
+resolution exists anywhere in the local DB layer. The field cannot be wired to
+`project_id` (an integer FK) without a resolution path, so any value the model
+extracts is silently dropped by `action_executor`. The field should be removed from the
+schema entirely to prevent user confusion when `project` is stated but not recorded.
+
+The CLI's `--project` flag (`time.py:187`, `type=int`) is unaffected — it is already
+a Click-validated integer and is passed through to `time_entry_service.create_time_entry()`
+as `project_id`. This item is Slack/schema-specific only.
+
+**Why Deferred:**
+Requires a `intent_parse_system_prompt.txt` edit + `config_version` bump + model
+rebuild. Intentionally separated from INTENT_ACTION_SERVICE_LAYER_PART_1 to keep the
+spec focused. The service layer already accepts `project_id: Optional[int] = None`
+as a forward-compatible parameter.
+
+**Acceptance Criteria:**
+
+- [ ] `project` field removed from `create_time_entry` schema in
+      `config/intent_parse_system_prompt.txt`
+- [ ] `config_version` bumped and model rebuilt to new version
+- [ ] `action_executor._execute_create_time_entry` no longer extracts or attempts
+      to pass a string `project` field
+
+**Files Affected:**
+
+- `config/intent_parse_system_prompt.txt`
+- `config/intent_parse_prompt.json` (`config_version`, `model_built`)
+- `workmain/orchestration/action_executor.py` (remove dead `project` extraction if present)
+
+---
+
+#### Item 43 — meeting_id Non-Interactive Linkage for create_note / create_time_entry
+
+**Status:** Open — Deferred to Phase 13 Sprint 3 (T6)
+**Priority:** Medium
+**Effort:** ~4–6 hrs
+**Added:** 20260612
+**Target Phase:** Phase 13 Sprint 3 — T6 conversational flow
+
+**Description:**
+The `notes_service.create_note()` and `time_entry_service.create_time_entry()` service
+signatures accept `meeting_id: Optional[int] = None` as a forward-compatible parameter,
+but it is always `None` in v1. Wiring it requires a non-interactive meeting resolution
+path: given a meeting title or fuzzy description extracted from a Slack message, resolve
+it to a `Meeting.id` without `click.confirm`/`click.prompt`. The current
+`fuzzy_match_meeting()` and `interactive_meeting_picker()` helpers are built entirely
+around interactive CLI I/O and cannot be used in daemon context.
+
+**Why Deferred:**
+Non-interactive meeting resolution is most naturally built as part of Sprint 3 T6
+(conversational inline correction / multi-step clarification flow). The service
+parameters are already in place; only the resolver and the `action_executor` wiring
+remain.
+
+**Acceptance Criteria:**
+
+- [ ] A non-interactive `resolve_meeting_id(session, title_or_fragment)` helper exists
+      that returns a `Meeting.id` or `None` (no interactive I/O)
+- [ ] `action_executor._execute_create_note` and `_execute_create_time_entry` extract
+      `meeting` from the action dict and pass a resolved `meeting_id` to the service
+- [ ] Ambiguous matches return a clarification `ActionResult` (T6 pattern)
+- [ ] Tests cover: exact match, fuzzy match, no match, ambiguous match
+
+**Files Affected:**
+
+- `workmain/database/repositories/meetings_repo.py` (non-interactive resolver)
+- `workmain/orchestration/action_executor.py`
+- `tests/test_action_executor.py`
+
+---
+
+#### Item 44 — entry_date / category as IntentParser Schema Fields (Phase 2)
+
+**Status:** Open — Deferred to next model rebuild
+**Priority:** Low
+**Effort:** ~1–2 hrs
+**Added:** 20260612
+**Target Phase:** Next `intent_parse_system_prompt.txt` rebuild
+
+**Description:**
+`time_entry_service.create_time_entry()` already accepts `entry_date: Optional[date]`
+and `category: Optional[str]` as parameters, added in v1.22.0 as forward-compatible
+stubs. The service defaults `entry_date` to today and passes `category` through without
+validation. To make these fields model-extractable from Slack messages, they need to be
+added to the `create_time_entry` schema in `intent_parse_system_prompt.txt` with
+examples, the `config_version` bumped, and the model rebuilt.
+
+**Why Deferred:**
+Deliberately separated from INTENT_ACTION_SERVICE_LAYER_PART_1 to keep the service
+layer spec focused on the service extraction itself. The service is ready; only the
+schema wiring and model rebuild remain.
+
+**Acceptance Criteria:**
+
+- [ ] `entry_date` field added to `create_time_entry` schema (ISO 8601 string, optional)
+- [ ] `category` field added to `create_time_entry` schema (string, optional)
+- [ ] At least 3 new examples in `intent_parse_system_prompt.txt` covering
+      backdated entries and category extraction
+- [ ] `config_version` bumped and model rebuilt
+- [ ] `action_executor._execute_create_time_entry` extracts `entry_date` (parsed to
+      `date`) and `category` and passes them to `time_entry_service.create_time_entry()`
+
+**Files Affected:**
+
+- `config/intent_parse_system_prompt.txt`
+- `config/intent_parse_prompt.json` (`config_version`, `model_built`)
+- `workmain/orchestration/action_executor.py`

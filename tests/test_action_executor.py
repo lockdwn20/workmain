@@ -1,6 +1,6 @@
 """
 WorkmAIn Action Executor Tests
-test_action_executor v1.0
+test_action_executor v1.1
 20260612
 
 Tests for workmain/orchestration/action_executor.py and
@@ -11,6 +11,8 @@ ConfirmationGate tests are pure-unit (no DB required).
 
 Version History:
 - v1.0: Phase 13 Sprint 2 Gate 7 — initial test suite
+- v1.1: Intent action service layer Gate 4 — update create_time_entry tests for new
+        MissingStartTimeError behavior (no start_time → needs_clarification, not null row)
 """
 
 import unittest
@@ -18,6 +20,9 @@ from datetime import date
 
 import pytest
 
+from workmain.database.models import Client
+from workmain.database.repositories.notes_repo import NotesRepository
+from workmain.database.repositories.system_state_repository import SystemStateRepository
 from workmain.orchestration.action_executor import (
     ActionExecutor,
     ActionExecutorError,
@@ -206,6 +211,45 @@ class TestActionExecutorCreateNote:
         assert isinstance(result.entity_id, int)
         assert result.entity_id > 0
 
+    def test_create_note_invalid_tag_returns_invalid_tags_error(self, db_session):
+        executor = ActionExecutor(db_session)
+        result = executor.execute({
+            "action": "create_note",
+            "content": "Bad tag note",
+            "tags": ["not-a-real-tag"],
+        })
+        assert result.success is False
+        assert result.error == "invalid_tags"
+        assert "not-a-real-tag" in result.message
+
+    def test_create_note_invalid_tag_writes_no_row(self, db_session):
+        from datetime import date as _date
+        repo = NotesRepository(db_session)
+        before_count = len(repo.get_by_date(_date.today()))
+        executor = ActionExecutor(db_session)
+        executor.execute({
+            "action": "create_note",
+            "content": "Should not persist",
+            "tags": ["bogus-tag"],
+        })
+        after_count = len(repo.get_by_date(_date.today()))
+        assert after_count == before_count
+
+    def test_create_note_stamps_client_id(self, db_session):
+        client = Client(name="ActionTestClient-note", is_active=True)
+        db_session.add(client)
+        db_session.flush()
+        SystemStateRepository(db_session).set_int("active_client_id", client.id)
+
+        executor = ActionExecutor(db_session)
+        result = executor.execute({
+            "action": "create_note",
+            "content": "Attributed via Slack",
+        })
+        assert result.success is True
+        note = NotesRepository(db_session).get_by_id(result.entity_id)
+        assert note.client_id == client.id
+
 
 @pytest.mark.usefixtures("db_session")
 class TestActionExecutorCreateTimeEntry:
@@ -216,6 +260,7 @@ class TestActionExecutorCreateTimeEntry:
             "action": "create_time_entry",
             "description": "Gate 7 time entry test",
             "duration_minutes": 60,
+            "start_time": "10:00",
         })
         assert result.success is True
         assert result.entity_id is not None
@@ -226,6 +271,7 @@ class TestActionExecutorCreateTimeEntry:
             "action": "create_time_entry",
             "description": "meeting",
             "duration_minutes": 90,
+            "start_time": "09:00",
         })
         assert "1h 30m" in result.message
 
@@ -238,7 +284,7 @@ class TestActionExecutorCreateTimeEntry:
             "start_time": "0900",
         })
         assert result.success is True
-        assert "0900" in result.message
+        assert "09:00" in result.message
 
     def test_create_time_entry_with_colon_start_time(self, db_session):
         executor = ActionExecutor(db_session)
@@ -251,8 +297,8 @@ class TestActionExecutorCreateTimeEntry:
         assert result.success is True
         assert "14:30" in result.message
 
-    def test_create_time_entry_with_invalid_start_time_still_succeeds(self, db_session):
-        """Invalid start_time is silently ignored; entry is still created."""
+    def test_create_time_entry_with_invalid_start_time_returns_clarification(self, db_session):
+        """Invalid start_time is treated as not provided → needs_clarification (no null row)."""
         executor = ActionExecutor(db_session)
         result = executor.execute({
             "action": "create_time_entry",
@@ -260,7 +306,19 @@ class TestActionExecutorCreateTimeEntry:
             "duration_minutes": 30,
             "start_time": "not-a-time",
         })
-        assert result.success is True
+        assert result.success is False
+        assert result.error == "needs_clarification"
+
+    def test_create_time_entry_missing_start_time_returns_clarification(self, db_session):
+        """No start_time → needs_clarification; no DB row written."""
+        executor = ActionExecutor(db_session)
+        result = executor.execute({
+            "action": "create_time_entry",
+            "description": "No start time",
+            "duration_minutes": 60,
+        })
+        assert result.success is False
+        assert result.error == "needs_clarification"
 
     def test_create_time_entry_zero_minutes(self, db_session):
         executor = ActionExecutor(db_session)
@@ -268,8 +326,28 @@ class TestActionExecutorCreateTimeEntry:
             "action": "create_time_entry",
             "description": "Zero duration",
             "duration_minutes": 0,
+            "start_time": "08:00",
         })
         assert result.success is True
+
+    def test_create_time_entry_stamps_client_id(self, db_session):
+        from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+        client = Client(name="ActionTestClient-time", is_active=True)
+        db_session.add(client)
+        db_session.flush()
+        SystemStateRepository(db_session).set_int("active_client_id", client.id)
+
+        executor = ActionExecutor(db_session)
+        result = executor.execute({
+            "action": "create_time_entry",
+            "description": "Attributed via Slack",
+            "duration_minutes": 60,
+            "start_time": "14:00",
+        })
+        assert result.success is True
+        entry = TimeEntriesRepository(db_session).get_by_id(result.entity_id)
+        assert entry.client_id == client.id
+        assert entry.note.client_id == client.id
 
 
 @pytest.mark.usefixtures("db_session")

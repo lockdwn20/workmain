@@ -1,7 +1,7 @@
 """
 WorkmAIn Tag Utilities
-Tag Parser v1.1
-20260528
+Tag Parser v1.2
+20260612
 
 Provides tag parsing, validation, conversion, and display formatting.
 Tags are case-insensitive, normalized, and validated against config/tags.json.
@@ -9,6 +9,7 @@ Tags are case-insensitive, normalized, and validated against config/tags.json.
 Version History:
 - v1.0: Initial implementation
 - v1.1: Add format_short() and format_tags_short() for Rich-safe compact display
+- v1.2: Add validate_full_names() and get_valid_full_names() for service-layer tag validation
 """
 
 import re
@@ -203,12 +204,31 @@ class TagSystem:
     def get_valid_tags_list(self) -> List[str]:
         """
         Get list of all valid tag shortcuts.
-        
+
         Returns:
             List of valid tag shortcuts (e.g., ["ilo", "cr", "ifo", ...])
         """
         return sorted(self.tag_mappings.keys())
-    
+
+    def validate_full_names(self, tags: List[str]) -> Tuple[List[str], List[str]]:
+        """Validate a list of full-name tags against the configured vocabulary.
+
+        Returns:
+            Tuple of (valid, invalid) — full-name strings.
+        """
+        full_names = {m["full_name"] for m in self.tag_mappings.values()}
+        valid, invalid = [], []
+        for tag in tags:
+            if tag in full_names:
+                valid.append(tag)
+            else:
+                invalid.append(tag)
+        return valid, invalid
+
+    def get_valid_full_names(self) -> List[str]:
+        """Return all valid full-name tag values."""
+        return sorted(m["full_name"] for m in self.tag_mappings.values())
+
     def get_tag_description(self, tag_shortcut: str) -> Optional[str]:
         """
         Get description for a tag.
@@ -395,3 +415,8 @@ def get_valid_tags() -> List[str]:
     """
     ts = get_tag_system()
     return ts.get_valid_tags_list()
+
+
+def get_valid_full_names() -> List[str]:
+    """Convenience function: Get all valid full-name tag values."""
+    return get_tag_system().get_valid_full_names()
