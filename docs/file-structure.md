@@ -1,13 +1,19 @@
 # WorkmAIn Project - Complete File Structure
 
-**Last Updated:** Phase 13 Sprint 1 Complete (June 10, 2026)
-**Status:** v1.20.1 — Phases 1–13 (Sprint 1) complete
+**Last Updated:** Phase 13 Sprint 2 Gate 2 (June 11, 2026)
+**Status:** v1.20.1 — Phases 1–13 (Sprint 2 in progress)
 
-File Structure v4.0 | 20260610
+File Structure v4.1 | 20260611
 
 ---
 
 ## CHANGE LOG
+
+**v4.1 (20260611) — Sprint 2 Gate 2:**
+
+- workflows/ populated: eod_workflow.py extracted from cli/commands/eod.py;
+  workflows/__init__.py now has full package structure; stub note removed
+- tests/test_eod_workflow.py added (35 tests for extracted workflow layer)
 
 **v4.0 (20260610) — Full Audit & Update:**
 
@@ -200,10 +206,9 @@ workmain/                                    # Main project directory
 │   │                                       # base.py, terminal.py, os_native.py, email.py never built here
 │   │                                       # Notification delivery → daemon/delivery.py
 │   │
-│   ├── workflows/                          # Stub — superseded by daemon/
-│   │   └── __init__.py                     # Possible future use — delete if unused
-│   │                                       # daily_eod.py, weekly_*.py never built here
-│   │                                       # EOD workflow logic → cli/commands/eod.py
+│   ├── workflows/                          # ✓ Surface-agnostic workflow service layer (Phase 13 Sprint 2)
+│   │   ├── __init__.py                     # Package: exports EodStepResult, EodStepStatus, get_step_sequence, run_step
+│   │   └── eod_workflow.py                 # EOD step runners extracted from eod.py; no click/rich imports
 │   │
 │   ├── cli/                                # ✓ Command-line interface
 │   │   ├── __init__.py
@@ -254,7 +259,7 @@ workmain/                                    # Main project directory
 ├── scripts-deprecated/                     # Legacy manual validation scripts (Claude Desktop era)
 │   └── test_*.py                           # DO NOT run with pytest — DO NOT add to this dir
 │
-├── tests/                                  # ✓ Test suite (pytest) — 514 tests baseline
+├── tests/                                  # ✓ Test suite (pytest) — 538 tests baseline (Gate 2)
 │   ├── __init__.py
 │   ├── conftest.py                         # pytest config + db_session fixture
 │   ├── fixtures/                           # Test data files (ICS, JSON)
@@ -359,7 +364,8 @@ workmain/                                    # Main project directory
 ### Daemon vs. Stub Packages
 
 - `daemon/` is the canonical implementation for notifications and scheduling
-- `core/`, `notifications/`, `workflows/` are stubs — their originally planned contents landed in `daemon/` and `cli/commands/eod.py`
+- `core/` and `notifications/` are stubs — their originally planned contents landed in `daemon/` and `cli/commands/eod.py`
+- `workflows/` is now active — eod_workflow.py is the surface-agnostic service layer; eod.py is a thin CLI surface over it
 - These stubs are retained as possible future extension points; delete if a future phase confirms they are unneeded
 
 ### File Organization

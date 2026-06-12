@@ -1,7 +1,7 @@
 """
 WorkmAIn Reports Repository
-Reports Repository v1.3
-20260528
+Reports Repository v1.4
+20260611
 
 Repository for managing generated reports in the database.
 
@@ -17,6 +17,7 @@ Version History:
 - v1.2: Phase 11 Gate 5 — create() accepts client_id for attribution stamping
 - v1.3: Phase 12 Gate 4 — list_reports() gains status parameter; get_confirmed_dailies()
         added as Phase 13 weekly aggregation infrastructure (PC-3)
+- v1.4: Phase 13 Sprint 2 Gate 1b — set_correction_note() added (Item 33)
 """
 
 from datetime import date, datetime
@@ -189,6 +190,24 @@ class ReportsRepository:
             .all()
         )
     
+    def set_correction_note(self, report_id: int, note: str) -> None:
+        """Populate reports.correction_note for a corrected report.
+
+        Strips whitespace. Silently no-ops if note is empty after strip.
+
+        Args:
+            report_id: ID of the report to annotate.
+            note: Human-readable correction note describing what changed.
+        """
+        note = note.strip()
+        if not note:
+            return
+        report = self.get_by_id(report_id)
+        if report is None:
+            return
+        report.correction_note = note
+        self.session.commit()
+
     def get_cost_summary(
         self,
         start_date: Optional[date] = None,

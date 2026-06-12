@@ -1,6 +1,6 @@
 """
 WorkmAIn AI Report Generator
-Report Generator v1.13
+Report Generator v1.14
 20260610
 
 High-level orchestrator for AI report generation with database integration.
@@ -45,6 +45,8 @@ Version History:
          PROVIDER_REGISTRY in _load_config() directly
 - v1.13: Phase 13 DB Schema Sprint Gate 5 — preview_report() accepts filter_client and
          client_id so previews respect the same client filter as full generation
+- v1.14: Phase 13 Sprint 2 Gate 1a — generate_report() routes weekly_client through
+         prompt_builder.build_weekly_prompt() to include confirmed daily summaries context
 
 Workflow:
 1. Load template and validate
@@ -177,15 +179,25 @@ class ReportGenerator:
             # Load template
             template = self.template_loader.load(template_name)
             
-            # Build prompts
+            # Build prompts — weekly_client routes through build_weekly_prompt() to
+            # prepend confirmed daily summaries context; all other templates use
+            # build_prompt() directly.
             # provider stays None unless --provider flag was passed by caller;
             # provider_manager.generate() resolves from ai_settings.json config.
-            system_prompt, user_prompt = self.prompt_builder.build_prompt(
-                template_name=template_name,
-                report_date=report_date,
-                filter_client=filter_client,
-                client_id=client_id_filter,
-            )
+            if template_name == 'weekly_client':
+                system_prompt, user_prompt = self.prompt_builder.build_weekly_prompt(
+                    template_name=template_name,
+                    report_date=report_date,
+                    filter_client=filter_client,
+                    client_id=client_id_filter,
+                )
+            else:
+                system_prompt, user_prompt = self.prompt_builder.build_prompt(
+                    template_name=template_name,
+                    report_date=report_date,
+                    filter_client=filter_client,
+                    client_id=client_id_filter,
+                )
 
             # Create generation request
             request = GenerationRequest(

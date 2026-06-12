@@ -1,10 +1,11 @@
 """
 WorkmAIn EOD Pipeline Tests
-test_eod_pipeline v1.3
-20260505
+test_eod_pipeline v1.5
+20260611
 
-Tests for eod.py day-aware pipeline (Phase 9 Gate 2).
-Covers _build_step_sequence, --skip weekly, and --dry-run output.
+Tests for the EOD pipeline CLI surface (eod.py) and workflow step sequence.
+Step runner logic now lives in workmain.workflows.eod_workflow — imports updated
+to source _build_step_sequence and _run_review_step from there.
 
 Version History:
 - v1.0: Phase 9 Gate 5 — 9 test cases for day detection, --skip weekly, --dry-run
@@ -14,6 +15,11 @@ Version History:
         that _run_review_step calls 'time date <date>' for past dates and 'time today'
         for today
 - v1.3: Phase 10 Gate 5 — updated step count assertions (+1 for pre_flight_inspection)
+- v1.4: Phase 13 Sprint 2 Gate 2 — updated imports and mock paths after step runner
+        extraction to workmain.workflows.eod_workflow; patch paths updated to
+        eod_workflow.subprocess and eod_workflow._confirm accordingly
+- v1.5: Phase 13 Sprint 2 Gate 6 fix — TestReviewStepDispatch assertions now use
+        _WORKMAIN_BIN (resolved path) instead of bare 'workmain' string
 """
 
 import unittest
@@ -22,7 +28,8 @@ from unittest.mock import patch, call, MagicMock
 
 from click.testing import CliRunner
 
-from workmain.cli.commands.eod import _build_step_sequence, _run_review_step, eod
+from workmain.workflows.eod_workflow import _build_step_sequence, _run_review_step, _WORKMAIN_BIN
+from workmain.cli.commands.eod import eod
 
 MONDAY    = 0
 THURSDAY  = 3
@@ -123,20 +130,20 @@ class TestReviewStepDispatch(unittest.TestCase):
     """Tests that _run_review_step calls the correct time subcommand for the date."""
 
     def _run_review(self, target_date: date):
-        with patch('workmain.cli.commands.eod.subprocess.run') as mock_run, \
-             patch('click.confirm', return_value=True):
+        with patch('workmain.workflows.eod_workflow.subprocess.run') as mock_run, \
+             patch('workmain.workflows.eod_workflow._confirm', return_value=True):
             _run_review_step(dry_run=False, target_date=target_date)
         return mock_run
 
     def test_review_step_uses_time_date_for_past_date(self):
         """Past date: review step runs 'time date YYYY-MM-DD', not 'time today'."""
         mock_run = self._run_review(date(2026, 4, 27))
-        mock_run.assert_called_once_with(['workmain', 'time', 'date', '2026-04-27'])
+        mock_run.assert_called_once_with([_WORKMAIN_BIN, 'time', 'date', '2026-04-27'])
 
     def test_review_step_uses_time_today_for_today(self):
         """Today: review step runs 'time today'."""
         mock_run = self._run_review(date.today())
-        mock_run.assert_called_once_with(['workmain', 'time', 'today'])
+        mock_run.assert_called_once_with([_WORKMAIN_BIN, 'time', 'today'])
 
 
 if __name__ == '__main__':

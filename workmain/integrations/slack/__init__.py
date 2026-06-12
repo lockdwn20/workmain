@@ -1,15 +1,23 @@
 """
 WorkmAIn Slack Integration Package
-slack/__init__.py v1.0
-20260310
+slack/__init__.py v1.4
+20260611
 
-Slack integration for posting weekly draft reports to a channel.
-Provides Bot Token auth, config file helpers, and Slack API operations.
+Slack integration for posting weekly draft reports to a channel and polling
+inbound DMs via the SlackPoller.
 
-Scope: chat:write, auth:read (Bot Token, manual browser setup via workmain slack setup)
+Provides Bot Token auth, config file helpers, Slack API operations, and
+inbound message polling.
+
+Scope: chat:write, auth:read, conversations:history, conversations:open
+(Bot Token, manual browser setup via workmain slack setup)
 
 Version History:
 - v1.0: Initial implementation (Phase 8 Gate 2)
+- v1.1: Phase 13 Sprint 2 Gate 3 — export SlackPoller for daemon integration
+- v1.2: Phase 13 Sprint 2 Gate 3 — export get/save_operator_user_id from auth
+- v1.3: Phase 13 Sprint 2 Gate 5 — export build_morning_briefing from slack_eod
+- v1.4: Phase 13 Sprint 2 Gate 6 — export SlackEodManager, SlackEodSession
 """
 
 from workmain.integrations.slack.auth import (
@@ -19,12 +27,20 @@ from workmain.integrations.slack.auth import (
     load_slack_config,
     save_slack_config,
     get_default_channel,
+    get_operator_user_id,
+    save_operator_user_id,
 )
 from workmain.integrations.slack.client import (
     SlackClient,
     SlackClientError,
     get_slack_client,
     format_for_slack,
+)
+from workmain.integrations.slack.poller import SlackPoller
+from workmain.integrations.slack.slack_eod import (
+    build_morning_briefing,
+    SlackEodManager,
+    SlackEodSession,
 )
 
 __all__ = [
@@ -34,9 +50,15 @@ __all__ = [
     "load_slack_config",
     "save_slack_config",
     "get_default_channel",
+    "get_operator_user_id",
+    "save_operator_user_id",
     "SlackClient",
     "SlackClientError",
     "get_slack_client",
     "format_for_slack",
+    "SlackPoller",
+    "build_morning_briefing",
+    "SlackEodManager",
+    "SlackEodSession",
 ]
-__version__ = "1.0"
+__version__ = "1.4"

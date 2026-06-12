@@ -1,13 +1,14 @@
 """
 WorkmAIn Task Status Repository
-Task Status Repository v1.0
-20260527
+Task Status Repository v1.1
+20260611
 
 Data access layer for the task_status table. Provides lifecycle management
 for carry-forward notes: creation, status transitions, and filtered queries.
 
 Version History:
 - v1.0: Phase 12 Gate 2 — initial implementation with full lifecycle methods
+- v1.1: Phase 13 Sprint 2 Gate 1c — set_forwarding_note() added (Item 32)
 """
 
 from __future__ import annotations
@@ -130,6 +131,29 @@ class TaskStatusRepository:
         ts.updated_at = now
         self.session.flush()
         return ts
+
+    def set_forwarding_note(self, task_status_id: int, note_id: int) -> None:
+        """Populate forwarding_note_id on a task_status record.
+
+        Records the canonical note that supersedes this task — used when a
+        carry-forward task is identified as completed by or duplicate of another
+        note (e.g. a time entry note or a deduplication target).
+
+        Args:
+            task_status_id: PK of the task_status record to update.
+            note_id: ID of the note that this task forwards to.
+
+        Raises:
+            ValueError: If no task_status record exists with task_status_id.
+        """
+        ts = self.session.query(TaskStatus).filter(TaskStatus.id == task_status_id).first()
+        if ts is None:
+            raise ValueError(
+                f"No task_status record exists with id {task_status_id}."
+            )
+        ts.forwarding_note_id = note_id
+        ts.updated_at = datetime.now()
+        self.session.flush()
 
     def set_dismissed_by_tag_removal(self, note_id: int) -> Optional[TaskStatus]:
         """Dismiss task when carry-forward tag is removed via notes edit.

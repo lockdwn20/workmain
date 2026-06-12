@@ -1,8 +1,8 @@
 """
 WorkmAIn Intent Parser
 workmain/ai/intent_parser.py
-v1.1
-20260605
+v1.2
+20260611
 
 Parses natural language input (Slack DM messages) into structured action JSON
 using Mistral 7B via OllamaProvider (workmain-intent:latest).
@@ -16,6 +16,8 @@ Version History:
         at runtime (Modelfile owns system); txt file loaded for fail-fast validation
         and source-of-truth reference only
 - v1.1: Gate 3 — wire ai_costs tracking for intent_parse interactions
+- v1.2: Phase 13 Sprint 2 Gate 1c — parse_task_match() added for Item 32 semantic
+        deduplication; structured query, separate from general parse() path
 """
 
 import json
@@ -145,3 +147,74 @@ class IntentParser:
             logger.warning("Cost tracking failed for intent parse: %s", cost_err)
 
         return result
+
+    def parse_task_match(self, task, entries: list) -> dict:
+        """Determine if a carry-forward task was completed based on today's time entries.
+
+        Targeted structured query — not a free-text intent parse. Asks whether
+        the task was likely completed based on the provided entries and returns a
+        structured match result.
+
+        Args:
+            task: TaskStatus object (task.note.content is the task description)
+            entries: List of TimeEntry objects for the target date
+
+        Returns:
+            dict with keys:
+                matched (bool): True if task appears completed/worked on
+                confidence (float): 0.0–1.0 confidence score
+                entry_id (int|None): ID of the best-matching time entry, or None
+        """
+        task_content = task.note.content if task.note else ""
+        if not task_content or not entries:
+            return {"matched": False, "confidence": 0.0, "entry_id": None}
+
+        entries_text = "\n".join(
+            f"- ID {e.id}: {e.note.content} ({e.duration_hours}h)"
+            for e in entries
+            if e.note and e.note.content
+        )
+        if not entries_text:
+            return {"matched": False, "confidence": 0.0, "entry_id": None}
+
+        prompt = (
+            f"Given this carry-forward task:\nTask: {task_content}\n\n"
+            f"And today's time entries:\n{entries_text}\n\n"
+            "Did the user complete or work on this task today? "
+            "Return ONLY a JSON object with:\n"
+            '- matched: boolean (true if task appears completed/worked on)\n'
+            '- confidence: float 0.0-1.0\n'
+            '- entry_id: integer (ID of best-matching entry) or null\n\n'
+            'Example: {"matched": true, "confidence": 0.85, "entry_id": 42}'
+        )
+
+        request = GenerationRequest(
+            system_prompt=None,
+            prompt=prompt,
+            max_tokens=64,
+        )
+
+        try:
+            response, _ = self._provider_manager.generate(
+                request, provider_override=ProviderType.OLLAMA
+            )
+            raw = response.content.strip()
+
+            if raw.startswith("```"):
+                lines = raw.splitlines()
+                raw = "\n".join(
+                    l for l in lines if not l.strip().startswith("```")
+                ).strip()
+
+            result = json.loads(raw)
+            return {
+                "matched": bool(result.get("matched", False)),
+                "confidence": float(result.get("confidence", 0.0)),
+                "entry_id": result.get("entry_id"),
+            }
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.warning("parse_task_match failed to parse response: %s", e)
+            return {"matched": False, "confidence": 0.0, "entry_id": None}
+        except Exception as e:
+            logger.warning("parse_task_match error: %s", e)
+            return {"matched": False, "confidence": 0.0, "entry_id": None}
