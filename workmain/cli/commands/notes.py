@@ -1,7 +1,7 @@
 """
 WorkmAIn Notes CLI Commands
-Notes Commands v4.1
-20260610
+Notes Commands v4.2
+20260612
 
 Unified notes command group. Consolidates note (write) and notes (read) groups
 from note.py into a single group with all subcommands.
@@ -51,6 +51,8 @@ Version History:
 - v4.1: Phase 13 DB Schema Sprint Gate 5 fix — apply note-first pattern to the two
         missed TimeEntry creation sites in notes add (meeting time entry prompt) and
         notes log (condensation flow); fix entry.description=summary → entry.note_id
+- v4.2: Intent action service layer — notes add delegates to notes_service.create_note()
+        for client_id stamping and tag validation; meeting path unchanged
 """
 
 import click
@@ -71,6 +73,7 @@ from workmain.database.repositories.system_state_repository import SystemStateRe
 from workmain.database.repositories.task_status_repo import TaskStatusRepository
 from workmain.database.repositories.ai_costs_repo import get_ai_cost_repository
 from workmain.utils.tag_utils import parse_tags, get_tag_system
+from workmain.services import notes_service
 from workmain.utils.date_utils import resolve_date_window, format_date_window_label
 
 console = Console()
@@ -359,14 +362,14 @@ def notes_add(text: Optional[str], tags: Optional[str], meeting: Optional[str],
             tag_str = " ".join(f"#{t}" for t in corrected)
             _, all_tags, _ = parse_tags(tag_str, apply_default=True)
 
-        # Create note
-        note = notes_repo.create(
+        # Create note via service (handles client_id stamping and tag validation)
+        note = notes_service.create_note(
+            session,
             content=clean_text,
             tags=all_tags,
+            source=source,
             meeting_id=meeting_id,
             project_id=project,
-            source=source,
-            client_id=active_client_id,
         )
 
         if 'carry-forward' in (note.tags or []):
