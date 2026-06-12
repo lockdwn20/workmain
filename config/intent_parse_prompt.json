@@ -7,7 +7,7 @@
     "ollama_host": "workmain-ollama.lab.haloschaos.com:11434",
     "config_version": "1.6",
     "config_updated": "20260611",
-    "model_built": "",
+    "model_built": "workmain-intent:v1.6",
     "notes": "After editing generation_options, update Modelfile PARAMETER blocks to match, rebuild model via build_workmain_intent.sh, then set model_built to today's date."
   },
   "system_prompt_file": "config/intent_parse_system_prompt.txt",

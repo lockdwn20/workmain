@@ -1,7 +1,7 @@
 """
 WorkmAIn Action Executor
-Action Executor v1.2
-20260611
+Action Executor v1.3
+20260612
 
 Executes confirmed structured actions from IntentParser against the database
 via existing repositories. No action writes to the DB without passing through
@@ -12,6 +12,10 @@ Version History:
 - v1.1: Parse optional start_time from create_time_entry action; pass as
         entry_time to TimeEntriesRepository.create()
 - v1.2: Accept HHMM format (e.g. "0530") in addition to HH:MM
+- v1.3: Intent action service layer — _execute_create_note and _execute_create_time_entry
+        delegate to services; client_id now stamped; MissingStartTimeError returns
+        clarification request instead of writing null-timestamp row; InvalidTagsError
+        surfaces full vocabulary; parse_time() replaces ad-hoc HHMM parsing
 """
 
 import logging
@@ -90,8 +94,10 @@ class ActionExecutor:
     # ------------------------------------------------------------------
 
     def _execute_create_time_entry(self, action: dict) -> ActionResult:
-        from workmain.database.repositories.notes_repo import NotesRepository
+        from workmain.services import time_entry_service
+        from workmain.services.exceptions import MissingStartTimeError, InvalidTagsError
         from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+        from workmain.utils.tag_utils import get_valid_full_names
 
         description = action.get("description", "")
         duration_minutes = int(action.get("duration_minutes", 0))
@@ -101,47 +107,65 @@ class ActionExecutor:
         start_time_str = action.get("start_time")
         if start_time_str:
             try:
-                s = str(start_time_str).strip()
-                if ":" in s:
-                    parts = s.split(":")
-                    entry_time = time_type(int(parts[0]), int(parts[1]))
-                elif len(s) == 4 and s.isdigit():
-                    entry_time = time_type(int(s[:2]), int(s[2:]))
-                else:
-                    raise ValueError(f"unrecognised format: {s!r}")
-            except (ValueError, IndexError, AttributeError):
-                logger.warning("Invalid start_time format '%s', ignoring", start_time_str)
+                entry_time = TimeEntriesRepository(self.session).parse_time(str(start_time_str))
+            except ValueError:
+                logger.warning("Invalid start_time format '%s', treating as not provided", start_time_str)
+                entry_time = None
 
-        note_repo = NotesRepository(self.session)
-        note = note_repo.create(
-            content=description,
-            tags=["internal-only"],
-            source="task",
-        )
-        time_repo = TimeEntriesRepository(self.session)
-        entry = time_repo.create(
-            note_id=note.id,
-            duration_hours=duration_hours,
-            entry_date=date.today(),
-            entry_time=entry_time,
-        )
+        # create_time_entry has no `tags` field in the schema (v1.6) — always None today.
+        # Pass it anyway so no further change is needed if a tags field is added later.
+        # With tags=None the service applies the ["internal-only"] default.
+        tags = action.get("tags")
+
+        try:
+            entry = time_entry_service.create_time_entry(
+                self.session,
+                description=description,
+                duration_hours=duration_hours,
+                entry_time=entry_time,
+                tags=tags,
+            )
+        except MissingStartTimeError:
+            return ActionResult(
+                success=False,
+                message="What time did you start this?",
+                error="needs_clarification",
+            )
+        except InvalidTagsError as e:
+            return ActionResult(
+                success=False,
+                message=f"Unrecognized tag(s): {', '.join(e.invalid_tags)}. "
+                        f"Valid tags: {', '.join(get_valid_full_names())}.",
+                error="invalid_tags",
+            )
+
         hrs = duration_minutes // 60
         mins = duration_minutes % 60
         hrs_str = f"{hrs}h {mins}m" if hrs and mins else (f"{hrs}h" if hrs else f"{mins}m")
-        time_suffix = f" at {start_time_str}" if entry_time else ""
         return ActionResult(
             success=True,
-            message=f"✓ Logged {hrs_str} for '{description}'{time_suffix}.",
+            message=f"✓ Logged {hrs_str} for '{description}' at {entry_time.strftime('%H:%M')}.",
             entity_id=entry.id,
         )
 
     def _execute_create_note(self, action: dict) -> ActionResult:
-        from workmain.database.repositories.notes_repo import NotesRepository
+        from workmain.services import notes_service
+        from workmain.services.exceptions import InvalidTagsError
+        from workmain.utils.tag_utils import get_valid_full_names
 
         content = action.get("content", "")
-        tags = action.get("tags") or ["internal-only"]
-        note_repo = NotesRepository(self.session)
-        note = note_repo.create(content=content, tags=tags, source="ad-hoc")
+        tags = action.get("tags")  # full names per schema, or None
+
+        try:
+            note = notes_service.create_note(self.session, content=content, tags=tags)
+        except InvalidTagsError as e:
+            return ActionResult(
+                success=False,
+                message=f"Unrecognized tag(s): {', '.join(e.invalid_tags)}. "
+                        f"Valid tags: {', '.join(get_valid_full_names())}.",
+                error="invalid_tags",
+            )
+
         return ActionResult(success=True, message="✓ Note saved.", entity_id=note.id)
 
     def _execute_update_task(self, action: dict) -> ActionResult:
