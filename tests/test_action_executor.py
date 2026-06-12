@@ -1,6 +1,6 @@
 """
 WorkmAIn Action Executor Tests
-test_action_executor v1.0
+test_action_executor v1.1
 20260612
 
 Tests for workmain/orchestration/action_executor.py and
@@ -11,6 +11,8 @@ ConfirmationGate tests are pure-unit (no DB required).
 
 Version History:
 - v1.0: Phase 13 Sprint 2 Gate 7 — initial test suite
+- v1.1: Intent action service layer Gate 4 — update create_time_entry tests for new
+        MissingStartTimeError behavior (no start_time → needs_clarification, not null row)
 """
 
 import unittest
@@ -216,6 +218,7 @@ class TestActionExecutorCreateTimeEntry:
             "action": "create_time_entry",
             "description": "Gate 7 time entry test",
             "duration_minutes": 60,
+            "start_time": "10:00",
         })
         assert result.success is True
         assert result.entity_id is not None
@@ -226,6 +229,7 @@ class TestActionExecutorCreateTimeEntry:
             "action": "create_time_entry",
             "description": "meeting",
             "duration_minutes": 90,
+            "start_time": "09:00",
         })
         assert "1h 30m" in result.message
 
@@ -238,7 +242,7 @@ class TestActionExecutorCreateTimeEntry:
             "start_time": "0900",
         })
         assert result.success is True
-        assert "0900" in result.message
+        assert "09:00" in result.message
 
     def test_create_time_entry_with_colon_start_time(self, db_session):
         executor = ActionExecutor(db_session)
@@ -251,8 +255,8 @@ class TestActionExecutorCreateTimeEntry:
         assert result.success is True
         assert "14:30" in result.message
 
-    def test_create_time_entry_with_invalid_start_time_still_succeeds(self, db_session):
-        """Invalid start_time is silently ignored; entry is still created."""
+    def test_create_time_entry_with_invalid_start_time_returns_clarification(self, db_session):
+        """Invalid start_time is treated as not provided → needs_clarification (no null row)."""
         executor = ActionExecutor(db_session)
         result = executor.execute({
             "action": "create_time_entry",
@@ -260,7 +264,19 @@ class TestActionExecutorCreateTimeEntry:
             "duration_minutes": 30,
             "start_time": "not-a-time",
         })
-        assert result.success is True
+        assert result.success is False
+        assert result.error == "needs_clarification"
+
+    def test_create_time_entry_missing_start_time_returns_clarification(self, db_session):
+        """No start_time → needs_clarification; no DB row written."""
+        executor = ActionExecutor(db_session)
+        result = executor.execute({
+            "action": "create_time_entry",
+            "description": "No start time",
+            "duration_minutes": 60,
+        })
+        assert result.success is False
+        assert result.error == "needs_clarification"
 
     def test_create_time_entry_zero_minutes(self, db_session):
         executor = ActionExecutor(db_session)
@@ -268,6 +284,7 @@ class TestActionExecutorCreateTimeEntry:
             "action": "create_time_entry",
             "description": "Zero duration",
             "duration_minutes": 0,
+            "start_time": "08:00",
         })
         assert result.success is True
 
