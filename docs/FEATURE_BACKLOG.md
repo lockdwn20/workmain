@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v5.19
-20260611
+Feature Backlog v5.20
+20260612
 
 # WorkmAIn Feature Backlog
 
@@ -49,6 +49,9 @@ Items deferred from various phases for future implementation.
   sprint; Phase 15 target retained pending scheduling review.
 - v5.18 (20260610): Item 39 marked COMPLETE — re-tag audit finished; 214 → both,
   28 → internal-only, 1 → info-only; 0 unreviewed stubs remaining.
+- v5.19 (20260611): Item 40 added — Daemon Scheduler configurable trigger times (Phase 14).
+- v5.20 (20260612): Item 41 added — Clockify command exits 0 on staging write failure;
+  discovered during Phase 13 Sprint 2 live testing (systemd EROFS).
 
 ---
 
@@ -136,18 +139,19 @@ Build first, refactor later. See the complete picture before abstracting.
 | 38 | Ollama Warm-Up Ping on Bot Startup | Medium | Sprint 2 Gate 0 | ~30 min | |
 | 39 | Re-tag Audit — 242 Gate 4 Stub Notes | Medium | Phase 13 (post-v1.20.0) | ~1–2 hrs | ✓ |
 | 40 | Daemon Scheduler — Configurable Trigger Times | Low | Phase 14 | ~1–2 hrs | |
+| 41 | Clockify Command Exits 0 on Staging Write Failure | Low | Phase 14 | ~30 min | |
 
 ---
 
 ## Summary Statistics
 
-**Total Items:** 40 (Item 22 is a redirect — no separate deferred work; see Item 20)
+**Total Items:** 41 (Item 22 is a redirect — no separate deferred work; see Item 20)
 **Completed:** 13 (Items 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 35, 36, 39)
-**Open:** 26
+**Open:** 27
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Open (targeted) | 22 | 1, 2, 3, 4, 7, 8, 12, 14, 15, 16, 19, 23, 28, 29, 30, 31, 32, 33, 34, 37, 38, 40 |
+| Open (targeted) | 23 | 1, 2, 3, 4, 7, 8, 12, 14, 15, 16, 19, 23, 28, 29, 30, 31, 32, 33, 34, 37, 38, 40, 41 |
 | Conditional | 1 | 9 |
 | Indefinitely | 3 | 5, 6, 21 |
 | Complete | 13 | 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 35, 36, 39 |
@@ -1338,3 +1342,43 @@ Premature configuration adds complexity without immediate benefit.
 
 - `workmain/daemon/scheduler.py`
 - `config/scheduler.json` (new file)
+
+---
+
+#### Item 41 — Clockify Command Exits 0 on Staging Write Failure
+
+**Status:** Open
+**Priority:** Low
+**Effort:** ~30 min
+**Added:** 20260612
+**Target Phase:** Phase 14
+
+**Description:**
+`workmain clockify report save daily` prints `✗ Error downloading report: <msg>` to
+stdout when it fails to write the Clockify PDF to `staging/clockify/`, but the Click
+command exits with code 0. `_run_clockify_step` in `eod_workflow.py` checks
+`result.returncode` to detect failure; since the command always exits 0, the step
+runner cannot detect write failures and reports `COMPLETED` in the Slack EOD surface
+even when the PDF was not staged. Discovered during Phase 13 Sprint 2 live testing:
+`[Errno 30] Read-only file system` on `staging/clockify/` caused the step to show
+"✓ complete" in Slack while the backend logged the error. The root filesystem
+sandboxing issue was resolved (systemd `ReadWritePaths` fix in v1.21.0), but the
+command should still return a non-zero exit code on write failure as a defensive
+invariant.
+
+**Why Deferred:**
+The staging write failure that exposed this bug was caused by a systemd
+`ProtectHome=read-only` misconfiguration now fixed. Low operational risk until the
+next edge case triggers it. Fix is small and self-contained; Phase 14 is the natural
+consolidation point for similar CLI robustness tasks.
+
+**Acceptance Criteria:**
+
+- [ ] `workmain clockify report save daily` exits with code 1 when the report
+      download or staging write fails (exception caught or `success=False`)
+- [ ] `_run_clockify_step` correctly reports `FAILED` when the clockify command
+      exits non-zero in daemon context
+
+**Files Affected:**
+
+- `workmain/cli/commands/clockify.py` (add `sys.exit(1)` on failure paths)
