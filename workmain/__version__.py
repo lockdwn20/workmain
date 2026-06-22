@@ -1,9 +1,16 @@
 """
 WorkmAIn Package Version
-Version v1.22.0
-20260612
+Version v1.22.1
+20260622
 
 Version History:
+- v1.22.1: Hotfix intent-parse-config-consolidation — removed redundant
+           config_version, config_updated, and model_built fields from
+           intent_parse_prompt.json _doc block (stale copy caused confusion
+           during sprint); added version_authority pointer to .txt.
+           intent_parse_system_prompt.txt: added VERSION AUTHORITY comment
+           block. CLAUDE.md: new Intent Parser Config section documents
+           file ownership and 6-step version bump workflow. No runtime changes.
 - v1.22.0: Intent Action Service Layer (Part 1). New workmain/services/ package:
            notes_service.create_note() and time_entry_service.create_time_entry()
            — shared, no-I/O service layer used by both the CLI and action_executor.
@@ -350,7 +357,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.22.0"
-__version_info__ = (1, 22, 0)
+__version__ = "1.22.1"
+__version_info__ = (1, 22, 1)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"

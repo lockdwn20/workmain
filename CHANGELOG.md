@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.22.1] - 2026-06-22
+
+### Fixed
+
+- **Intent parse config consolidation** — removed redundant `config_version`,
+  `config_updated`, and `model_built` fields from `intent_parse_prompt.json`
+  `_doc` block; stale copy (`"1.5"` vs correct `1.6`) caused significant
+  confusion during the Intent Action Service Layer sprint. Replaced with a
+  single `version_authority` pointer to `intent_parse_system_prompt.txt`.
+- **`intent_parse_system_prompt.txt`** — added `VERSION AUTHORITY` comment
+  block explicitly declaring this file as the single source of truth for
+  version metadata.
+- **`CLAUDE.md`** — new "Intent Parser Config — Source of Truth" section
+  documents file ownership boundaries and the correct 6-step version bump
+  workflow so future sessions don't re-derive the wrong answer.
+
 ## [1.22.0] - 2026-06-12
 
 ### Added
