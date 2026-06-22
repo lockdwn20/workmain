@@ -7,6 +7,11 @@
 # ollama_host:       workmain-ollama.lab.haloschaos.com:11434
 # model_built:       workmain-intent:v1.6
 #
+# VERSION AUTHORITY: This file is the single source of truth for
+#   config_version, config_updated, and model_built. These fields
+#   do NOT appear in intent_parse_prompt.json — read this header
+#   for current version state.
+#
 # Description:
 #   System prompt for Mistral 7B intent parsing. Defines 8 action types
 #   with examples and inference rules. This file is the source of truth —

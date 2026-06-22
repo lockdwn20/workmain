@@ -252,6 +252,38 @@ naming at that point.
 7. **Staged output path** — reports write to `staging/` not `output/`. The `output/` directory no longer exists.
 8. **Phase 11 wires Slack config** — `slack/config.json` is temporary Phase 8 scaffolding. Phase 11 replaces it with `system_state.active_client → clients.slack_channel`. Do not expand config.json into a permanent solution.
 
+## Intent Parser Config — Source of Truth
+
+Two files govern the IntentParser. They own different things:
+
+- `config/intent_parse_system_prompt.txt` — system prompt content AND
+  version metadata (`config_version`, `config_updated`, `model_built`).
+  This is the ONLY place version state is tracked. Edit this file when
+  changing action types, examples, or inference rules.
+
+- `config/intent_parse_prompt.json` — runtime generation parameters ONLY
+  (`ollama_model`, `ollama_host`, `max_tokens`, `generation_options`).
+  No version fields. Do not add config_version or model_built here.
+
+The Modelfile lives in the IaC repo
+(`haloschaos-lab/automation-scripts/ollama-lxc/models/workmain-intent/Modelfile`)
+— it is a build artifact, not a WorkmAIn source file. Its SYSTEM block
+must match the body of `intent_parse_system_prompt.txt` exactly; its
+PARAMETER blocks must match `generation_options` in
+`intent_parse_prompt.json`.
+
+**Version bump workflow:**
+
+1. Edit `intent_parse_system_prompt.txt` (prompt content changes)
+2. Sync SYSTEM block to Modelfile in IaC repo
+3. Run `build_workmain_intent.sh` on Proxmox LXC
+4. Update `config_version`, `config_updated`, `model_built` in
+   `intent_parse_system_prompt.txt` header ONLY
+5. Update `ollama_model` in `ai_settings.json` if the model name changed
+   (e.g. a new versioned tag rather than `latest`)
+6. Nothing else needs updating — `intent_parse_prompt.json` has no
+   version fields to maintain
+
 ## Documentation Standards
 
 | Location | Type | Tracked? |
