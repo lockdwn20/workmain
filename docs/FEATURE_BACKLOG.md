@@ -1,5 +1,5 @@
 WorkmAIn
-Feature Backlog v5.24
+Feature Backlog v5.25
 20260623
 
 # WorkmAIn Feature Backlog
@@ -60,6 +60,8 @@ Items deferred from various phases for future implementation.
 - v5.23 (20260623): Item 45 added — `tags` field for `create_time_entry`
 - v5.24 (20260623): Item 46 added — `build_weekly_prompt()` edge cases: short weeks,
   Thursday draft, internal content pollution in confirmed daily summaries
+- v5.25 (20260623): Item 32 reopened — incorrectly marked COMPLETE in Sprint 2;
+  Step 3c investigation required before scope can be determined
   via Slack (separate from Item 44 which covers `entry_date`/`category`).
 
 ---
@@ -139,7 +141,7 @@ Build first, refactor later. See the complete picture before abstracting.
 | 29 | clockify report Subcommand Refactor | Low | Phase 15 | ~30 min | |
 | 30 | System Service Promotion for workmain-notify | Low | Phase 18 | ~4 hours | |
 | 31 | meetings create --attendees Restoration | Low | Phase 14 | ~30 min | |
-| 32 | Task Deduplication and Forwarding | Low | Phase 13 | ~2–3 hrs | ✓ |
+| 32 | Task Deduplication and Forwarding | Low | Phase 13 (TBD) | TBD | |
 | 33 | correction_note Field Population | Low | Phase 13 | ~2 hrs | ✓ |
 | 34 | Weekly Report Prompt — Confirmed Daily Summaries as Context | Medium | Phase 13 | ~3–4 hrs | ✓ |
 | 35 | AI Model Config-Driven Selection | Medium | Phase 14 | ~2–3 hrs | ✓ |
@@ -160,22 +162,22 @@ Build first, refactor later. See the complete picture before abstracting.
 ## Summary Statistics
 
 **Total Items:** 46 (Item 22 is a redirect — no separate deferred work; see Item 20)
-**Completed:** 17 (Items 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39)
-**Open:** 28
+**Completed:** 16 (Items 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 33, 34, 35, 36, 38, 39)
+**Open:** 29
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Open (targeted) | 24 | 1, 2, 3, 4, 7, 8, 12, 14, 15, 16, 19, 23, 28, 29, 30, 31, 37, 40, 41, 42, 43, 44, 45, 46 |
+| Open (targeted) | 25 | 1, 2, 3, 4, 7, 8, 12, 14, 15, 16, 19, 23, 28, 29, 30, 31, 32, 37, 40, 41, 42, 43, 44, 45, 46 |
 | Conditional | 1 | 9 |
 | Indefinitely | 3 | 5, 6, 21 |
-| Complete | 17 | 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39 |
+| Complete | 16 | 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 33, 34, 35, 36, 38, 39 |
 | Redirect | 1 | 22 → Item 20 |
 
 | Priority | Count | Items |
 |----------|-------|-------|
 | High | 0 | — |
 | Medium | 13 | 2, 3, 7, 10, 14, 15, 23, 34, 35, 38, 43, 45, 46 |
-| Low | 23 | 1, 4, 5, 6, 8, 11, 12, 13, 16, 19, 21, 28, 29, 30, 31, 32, 33, 36, 37, 40, 41, 42, 44 |
+| Low | 24 | 1, 4, 5, 6, 8, 11, 12, 13, 16, 19, 21, 28, 29, 30, 31, 32, 33, 36, 37, 40, 41, 42, 44 |
 | Conditional | 1 | 9 |
 
 | Target Phase | Items |
@@ -1008,11 +1010,11 @@ is the earliest point where attendee management becomes user-facing.
 
 #### Item 32 — Task Deduplication and Forwarding (Phase 13)
 
-**Status:** ✓ COMPLETE — 20260612 (Phase 13 Sprint 2, v1.21.0)
+**Status:** Open — Pending Step 3c investigation (reopened 20260623)
 **Priority:** Low
-**Effort:** ~2–3 hours
+**Effort:** TBD — pending investigation
 **Added:** 20260528
-**Target Phase:** Phase 13
+**Target Phase:** Phase 13 (scope TBD after Step 3c investigation)
 
 **Description:**
 When multiple active carry-forward notes appear to cover the same work item, Phase 13's
@@ -1022,6 +1024,13 @@ note's record is set to dismissed with `forwarding_note_id` pointing to the surv
 
 The `forwarding_note_id` column is already present in `task_status` as of v1.16.0 — no
 additional migration needed.
+
+**Reopened:**
+Item 32 was incorrectly marked COMPLETE in Phase 13 Sprint 2. The Step 3c work that was
+delivered matches CF tasks to time entries (for completion/dismissal), which is a different
+problem from detecting semantically duplicate CF notes. Before this item can be properly
+scoped, a Step 3c investigation is needed to understand why CF tasks are not moving forward
+in practice — that finding may significantly reshape what this item needs to be.
 
 **Why Deferred:**
 Requires the Mistral 7B intent parser (Phase 13 Item 19). The `forwarding_note_id` column
