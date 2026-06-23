@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.22.2] - 2026-06-23
+
+### Fixed
+
+- **Item 33 — `reports show` correction_note display** — `reports show <id>` now
+  renders a `Correction note:` line below the content panel when `correction_note`
+  is non-empty on the report record. Previously the field was written to DB by the
+  EOD workflow and Slack action executor but never surfaced in the CLI.
+  (`workmain/cli/commands/reports.py` v2.12)
+
+- **Item 34 — `build_weekly_prompt()` three defects** — corrects three AC failures
+  from Phase 13 Sprint 2:
+  (1) `corrected_content` is now preferred over `content` when set on a confirmed
+  daily report, so user-edited corrections flow into the weekly prompt correctly.
+  (2) When all 5 Mon–Fri weekdays have a confirmed or corrected daily report, the
+  raw DB data query is now **skipped entirely** — the user prompt is built solely
+  from confirmed summaries (token reduction). Previously confirmed summaries were
+  prepended *on top of* raw data, increasing token count.
+  (3) The fallback to raw data now triggers whenever **any** weekday lacks a confirmed
+  daily (previously only fell back when zero confirmed dailies existed).
+  (`workmain/ai/prompt_builder.py` v2.2)
+
 ## [1.22.1] - 2026-06-22
 
 ### Fixed
