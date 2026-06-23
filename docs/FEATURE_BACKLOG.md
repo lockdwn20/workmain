@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v5.22
-20260612
+Feature Backlog v5.23
+20260623
 
 # WorkmAIn Feature Backlog
 
@@ -57,6 +57,8 @@ Items deferred from various phases for future implementation.
 - v5.22 (20260612): Items 42, 43, 44 added — three items deferred from
   INTENT_ACTION_SERVICE_LAYER_PART_1 (v1.22.0): project_id Slack schema removal,
   meeting_id non-interactive linkage, entry_date/category schema fields.
+- v5.23 (20260623): Item 45 added — `tags` field for `create_time_entry`
+  via Slack (separate from Item 44 which covers `entry_date`/`category`).
 
 ---
 
@@ -148,18 +150,19 @@ Build first, refactor later. See the complete picture before abstracting.
 | 42 | project_id Slack Schema Removal — create_time_entry | Low | next intent_parse rebuild | ~30 min | |
 | 43 | meeting_id Non-Interactive Linkage for create_note/create_time_entry | Medium | Phase 13 Sprint 3 (T6) | ~4–6 hrs | |
 | 44 | entry_date/category as IntentParser Schema Fields (Phase 2) | Low | next model rebuild | ~1–2 hrs | |
+| 45 | `tags` for `create_time_entry` via Slack | Medium | Phase 13 Sprint 3 | ~3h | |
 
 ---
 
 ## Summary Statistics
 
-**Total Items:** 44 (Item 22 is a redirect — no separate deferred work; see Item 20)
+**Total Items:** 45 (Item 22 is a redirect — no separate deferred work; see Item 20)
 **Completed:** 17 (Items 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39)
-**Open:** 26
+**Open:** 27
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Open (targeted) | 22 | 1, 2, 3, 4, 7, 8, 12, 14, 15, 16, 19, 23, 28, 29, 30, 31, 37, 40, 41, 42, 43, 44 |
+| Open (targeted) | 23 | 1, 2, 3, 4, 7, 8, 12, 14, 15, 16, 19, 23, 28, 29, 30, 31, 37, 40, 41, 42, 43, 44, 45 |
 | Conditional | 1 | 9 |
 | Indefinitely | 3 | 5, 6, 21 |
 | Complete | 17 | 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39 |
@@ -168,7 +171,7 @@ Build first, refactor later. See the complete picture before abstracting.
 | Priority | Count | Items |
 |----------|-------|-------|
 | High | 0 | — |
-| Medium | 11 | 2, 3, 7, 10, 14, 15, 23, 34, 35, 38, 43 |
+| Medium | 12 | 2, 3, 7, 10, 14, 15, 23, 34, 35, 38, 43, 45 |
 | Low | 23 | 1, 4, 5, 6, 8, 11, 12, 13, 16, 19, 21, 28, 29, 30, 31, 32, 33, 36, 37, 40, 41, 42, 44 |
 | Conditional | 1 | 9 |
 
@@ -176,7 +179,7 @@ Build first, refactor later. See the complete picture before abstracting.
 |-------------|-------|
 | Phase 11+ | 4, 28 |
 | Phase 13 | 32, 33, 34 |
-| Phase 13 Sprint 3 | 43 |
+| Phase 13 Sprint 3 | 43, 45 |
 | Phase 14+ | 19, 31 |
 | Phase 14 | 40, 41 |
 | Phase 15 | 1, 2, 3, 7, 8, 10, 12, 13, 14, 15, 16, 23, 29 |
@@ -186,7 +189,7 @@ Build first, refactor later. See the complete picture before abstracting.
 | Conditional | 9 |
 | Indefinitely | 5, 6, 11, 21 |
 
-**Total Deferred Effort (open items):** ~84–89 hours
+**Total Deferred Effort (open items):** ~87–92 hours
 
 ---
 
@@ -1050,9 +1053,9 @@ column exists as a Phase 12 schema placeholder only.
 
 **Acceptance Criteria:**
 
-- [ ] Ollama/Mistral parses Slack DM correction intent and extracts reason
-- [ ] `reports correct` (or Slack handler) writes structured reason to `correction_note`
-- [ ] `reports show` displays `correction_note` when populated
+- [x] Ollama/Mistral parses Slack DM correction intent and extracts reason
+- [x] `reports correct` (or Slack handler) writes structured reason to `correction_note`
+- [x] `reports show` displays `correction_note` when populated (hotfix v1.22.2, 20260623)
 
 ---
 
@@ -1109,12 +1112,14 @@ that should be done with full Phase 13 context rather than bolted on mid-phase.
 
 **Acceptance Criteria:**
 
-- [ ] Weekly prompt uses confirmed/corrected daily content when all 5 weekdays have a
-  confirmed or corrected daily report
-- [ ] Falls back to raw notes/time_entries/meetings query when any weekday lacks a
-  confirmed daily (same behavior as today)
-- [ ] `corrected_content` preferred over `content` when set on a given day's report
-- [ ] Token count of weekly prompt measurably reduced versus baseline (raw data path)
+- [x] Weekly prompt uses confirmed/corrected daily content when all 5 weekdays have a
+  confirmed or corrected daily report (hotfix v1.22.2, 20260623)
+- [x] Falls back to raw notes/time_entries/meetings query when any weekday lacks a
+  confirmed daily (same behavior as today) (hotfix v1.22.2, 20260623)
+- [x] `corrected_content` preferred over `content` when set on a given day's report
+  (hotfix v1.22.2, 20260623)
+- [x] Token count of weekly prompt measurably reduced versus baseline (raw data path)
+  — confirmed path skips raw DB data entirely when all 5 dailies present (hotfix v1.22.2)
 
 ---
 
@@ -1514,3 +1519,49 @@ schema wiring and model rebuild remain.
 - `config/intent_parse_system_prompt.txt`
 - `config/intent_parse_prompt.json` (`config_version`, `model_built`)
 - `workmain/orchestration/action_executor.py`
+
+---
+
+#### Item 45 — `tags` Field for `create_time_entry` via Slack
+
+**Status:** Open — Deferred to Phase 13 Sprint 3
+**Priority:** Medium
+**Effort:** ~3 hours
+**Added:** 20260623
+**Target Phase:** Phase 13 Sprint 3 — Slack UX / Block Kit
+
+**Description:**
+`create_time_entry` has no `tags` field in its IntentParser action schema,
+so users cannot specify tags when creating time entries through the Slack
+interface. Adding this requires two independent deliverables: (1) `tags`
+field added to the `create_time_entry` action schema in
+`config/intent_parse_system_prompt.txt`, which requires a `config_version`
+bump and `workmain-intent` model rebuild; (2) Sprint 3 Block Kit UX work to
+surface tag selection/input for Slack-originated time entry creation.
+`time_entry_service.create_time_entry()` already accepts a `tags` parameter —
+no service layer changes are needed; only the `action_executor` thin adapter
+needs to forward `tags` from the action dict if present. Note: this item is
+distinct from Item 44, which covers `entry_date` and `category` as
+IntentParser schema fields and does not cover tags.
+
+**Why Deferred:**
+Both prerequisites (schema field addition + Block Kit UX) are Sprint 3 scope.
+Neither was in scope during the service layer work (v1.22.0).
+
+**Acceptance Criteria:**
+
+- [ ] `tags` field added to `create_time_entry` schema in
+      `intent_parse_system_prompt.txt`
+- [ ] `config_version` bumped; `workmain-intent` model rebuilt and
+      retagged `latest`
+- [ ] `action_executor._execute_create_time_entry` forwards `tags` from
+      action dict to service layer (absent field → empty list default)
+- [ ] Block Kit UX surfaces tag selection/input for Slack time entry creation
+- [ ] Slack-originated time entries correctly persist requested tags
+- [ ] New tests cover `tags` passthrough in action_executor adapter
+
+**Files Affected:**
+
+- `config/intent_parse_system_prompt.txt`
+- `workmain/orchestration/action_executor.py`
+- Block Kit UX files (TBD — Sprint 3 Track 2)

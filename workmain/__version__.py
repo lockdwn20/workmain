@@ -1,9 +1,16 @@
 """
 WorkmAIn Package Version
-Version v1.22.1
-20260622
+Version v1.22.2
+20260623
 
 Version History:
+- v1.22.2: Hotfix items-33-34-incomplete-impl — reports show (ID path) now
+           displays correction_note below content panel when non-empty (Item 33).
+           build_weekly_prompt() rewritten: (1) corrected_content preferred over
+           content for each confirmed daily; (2) substitutive path — when all 5
+           Mon–Fri weekdays are confirmed, lean user_prompt replaces raw DB data;
+           (3) fallback to raw build_prompt() when any weekday lacks a confirmed
+           daily (Item 34). Suite: 624 passed.
 - v1.22.1: Hotfix intent-parse-config-consolidation — removed redundant
            config_version, config_updated, and model_built fields from
            intent_parse_prompt.json _doc block (stale copy caused confusion

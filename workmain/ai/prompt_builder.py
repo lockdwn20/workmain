@@ -1,7 +1,7 @@
 """
 WorkmAIn AI Prompt Builder
-Prompt Builder v2.1
-20260611
+Prompt Builder v2.2
+20260623
 
 Dynamic prompt construction for AI report generation.
 
@@ -41,6 +41,11 @@ Version History:
 - v2.1: Phase 13 Sprint 2 Gate 1a — add build_weekly_prompt(); prepends confirmed
         daily summaries block when calling build_prompt() for weekly_client reports;
         build_prompt() unmodified
+- v2.2: Hotfix items-33-34-incomplete-impl — rewrite build_weekly_prompt() (Item 34):
+        (1) prefer corrected_content over content for each confirmed daily;
+        (2) substitutive path — when all 5 Mon–Fri weekdays are confirmed, lean
+        user_prompt replaces raw DB data entirely (token reduction);
+        (3) fallback to raw build_prompt() when any weekday lacks a confirmed daily
 
 Workflow:
 1. Load template structure
@@ -162,12 +167,15 @@ class PromptBuilder:
         """Build the weekly client report prompt with confirmed daily context.
 
         Fetches confirmed/corrected daily_internal reports for the Mon–Fri week
-        containing report_date via ReportsRepository.get_confirmed_dailies(). If
-        any exist, prepends a ## Confirmed Daily Summaries block to the user prompt
-        before delegating to build_prompt() for the remainder of prompt construction.
+        containing report_date via ReportsRepository.get_confirmed_dailies().
 
-        If no confirmed dailies exist for the week, delegates to build_prompt()
-        directly with no modification — no error, no placeholder block.
+        When all 5 weekdays (Mon–Fri) have a confirmed or corrected daily report,
+        the raw DB data query is skipped entirely and the user prompt is built solely
+        from confirmed daily summaries — reducing token count. corrected_content is
+        preferred over content when set on any given day's report.
+
+        When any weekday lacks a confirmed daily, falls back to build_prompt() with
+        the full raw notes/time_entries/meetings data query unchanged.
 
         Args:
             template_name: Name of template to use (expected: weekly_client)
@@ -190,7 +198,7 @@ class PromptBuilder:
         finally:
             session.close()
 
-        system_prompt, user_prompt = self.build_prompt(
+        system_prompt, raw_user_prompt = self.build_prompt(
             template_name=template_name,
             report_date=report_date,
             section_name=section_name,
@@ -198,23 +206,24 @@ class PromptBuilder:
             client_id=client_id,
         )
 
-        if not confirmed:
-            return system_prompt, user_prompt
+        weekdays_covered = {r.report_date.weekday() for r in confirmed}
+        if weekdays_covered != {0, 1, 2, 3, 4}:
+            return system_prompt, raw_user_prompt
 
         lines = [
-            "## Confirmed Daily Summaries (for context)",
-            "The following daily reports were confirmed for this week.",
-            "Use them as context for themes, patterns, and continuity.",
+            "## Confirmed Daily Summaries",
+            "Use the following confirmed daily reports as the source of truth for this week.",
+            "Do not infer additional work beyond what is stated here.",
             "",
         ]
         for report in confirmed:
             day_label = report.report_date.strftime("%A %Y-%m-%d")
+            content = report.corrected_content if report.corrected_content else report.content
             lines.append(f"### {day_label}")
-            lines.append(report.content or "")
+            lines.append(content or "")
             lines.append("")
-        daily_context_block = "\n".join(lines)
 
-        return system_prompt, daily_context_block + "\n" + user_prompt
+        return system_prompt, "\n".join(lines)
 
     def _build_system_prompt(
         self,
