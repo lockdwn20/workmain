@@ -1,7 +1,7 @@
 """
 WorkmAIn Report History Tests
-test_report_history v1.1
-20260401
+test_report_history v1.2
+20260623
 
 Tests for reports history, show, and resend commands (Phase 9 Gate 3).
 Uses db_session fixture from conftest.py. Seeds Report rows per test
@@ -12,6 +12,8 @@ Version History:
         resend staging and abort paths
 - v1.1: CLI Standardization Sprint Part 1 (WU-6) — `reports view` → `reports show`;
         TestReportView class updated: all ['view', ...] invocations → ['show', ...]
+- v1.2: Hotfix items-33-34-incomplete-impl follow-up — add
+        test_show_displays_correction_note_when_set (Item 33)
 """
 
 import os
@@ -183,6 +185,16 @@ class TestReportView(unittest.TestCase):
         result = self.runner.invoke(reports, ['show', '99999'])
         self.assertNotEqual(result.exit_code, 0)
         self.assertIn('99999', result.output)
+
+    def test_show_displays_correction_note_when_set(self):
+        """reports show <id> renders correction_note below the panel when non-empty."""
+        r = self._seed('daily_internal', date(2099, 6, 1), 'Report body content.')
+        r.correction_note = 'Wrong client attribution — corrected manually'
+        self.session.commit()
+
+        result = self.runner.invoke(reports, ['show', str(r.id)])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn('Wrong client attribution', result.output)
 
 
 class TestReportResend(unittest.TestCase):

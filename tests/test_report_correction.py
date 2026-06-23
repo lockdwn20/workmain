@@ -1,7 +1,7 @@
 """
 WorkmAIn Report Correction Tests
-test_report_correction v1.0
-20260528
+test_report_correction v1.1
+20260623
 
 Tests for PC-3 — report status fields, confirm/correct commands,
 --status filter on reports list, and weekly aggregation filter.
@@ -17,6 +17,8 @@ Covers:
   - get_confirmed_dailies(): weekly aggregation filter
   - EOD Step 4a pre-check: skips generation if confirmed/corrected report exists
   - EOD Step 4a: report starts as unconfirmed after generation
+  - build_weekly_prompt(): fallback when partial/no confirmed week, substitutive
+    path when all 5 weekdays confirmed, corrected_content preference (Item 34)
 
 Uses db_session fixture for repo/model tests.
 Uses unittest.TestCase with real sessions for CLI command tests that need
@@ -24,20 +26,30 @@ data visible to the CLI's own DB sessions.
 
 Version History:
 - v1.0: Phase 12 Gate 7 — initial implementation
+- v1.1: Hotfix items-33-34-incomplete-impl follow-up — add TestBuildWeeklyPrompt
+        (4 tests covering Item 34 behavioral fixes)
 """
 
 import unittest
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
+from unittest.mock import patch
 
 import pytest
 from click.testing import CliRunner
 
+from workmain.ai.prompt_builder import PromptBuilder
 from workmain.database.models import Report
 from workmain.database.repositories.reports_repo import (
     ReportsRepository,
     get_reports_repository,
 )
 from workmain.cli.commands.reports import reports
+
+# Sentinel Mon–Fri week for build_weekly_prompt() tests (first Monday of June 2099)
+_d = date(2099, 6, 1)
+while _d.weekday() != 0:
+    _d += timedelta(days=1)
+_WEEKLY_SENTINEL_MON = _d
 
 
 # ---------------------------------------------------------------------------
@@ -385,3 +397,109 @@ class TestEodStep4aPreCheck:
         r = _seed_report(db_session, report_type='daily_internal',
                          report_date=date(2099, 12, 3))
         assert r.status == 'unconfirmed'
+
+
+# ---------------------------------------------------------------------------
+# build_weekly_prompt() — Item 34 behavioral coverage
+# ---------------------------------------------------------------------------
+
+class TestBuildWeeklyPrompt(unittest.TestCase):
+    """
+    Tests for PromptBuilder.build_weekly_prompt() covering the three behaviors
+    fixed in hotfix items-33-34-incomplete-impl (Item 34):
+
+    1. Falls back to raw build_prompt() result when any weekday lacks a confirmed daily.
+    2. Replaces raw data with lean confirmed summaries when all 5 weekdays are confirmed.
+    3. Prefers corrected_content over content in the lean confirmed-path prompt.
+
+    build_prompt() is patched to isolate the weekly-prompt logic from template
+    loading and DB data queries.  Confirmed dailies are committed via a real session
+    so the method's internal get_db() call can find them.
+    """
+
+    def setUp(self):
+        from dotenv import load_dotenv
+        load_dotenv()
+        from workmain.database.connection import get_db
+        db = get_db()
+        self.session = db.get_session()
+        self._seeded_ids: list = []
+
+    def tearDown(self):
+        for rid in self._seeded_ids:
+            self.session.query(Report).filter(Report.id == rid).delete()
+        self.session.commit()
+        self.session.close()
+
+    def _seed(self, report_date, content='Day content', corrected_content=None):
+        r = Report(
+            report_type='daily_internal',
+            report_date=report_date,
+            content=content,
+            status='confirmed',
+        )
+        if corrected_content is not None:
+            r.corrected_content = corrected_content
+        self.session.add(r)
+        self.session.commit()
+        self.session.refresh(r)
+        self._seeded_ids.append(r.id)
+        return r
+
+    def _make_builder(self):
+        return PromptBuilder(self.session)
+
+    def test_fallback_when_no_confirmed_dailies(self):
+        """build_weekly_prompt returns raw build_prompt() user_prompt when no confirmed dailies exist."""
+        builder = self._make_builder()
+        with patch.object(builder, 'build_prompt', return_value=('SYS', 'RAW')) as mock_bp:
+            _, user = builder.build_weekly_prompt(
+                template_name='daily_internal',
+                report_date=_WEEKLY_SENTINEL_MON,
+            )
+        mock_bp.assert_called_once()
+        self.assertEqual(user, 'RAW')
+
+    def test_fallback_when_partial_week_confirmed(self):
+        """build_weekly_prompt falls back to raw data when any weekday lacks a confirmed daily."""
+        # Seed Mon–Thu only; Friday is absent
+        for i in range(4):
+            self._seed(_WEEKLY_SENTINEL_MON + timedelta(days=i))
+        builder = self._make_builder()
+        with patch.object(builder, 'build_prompt', return_value=('SYS', 'RAW')):
+            _, user = builder.build_weekly_prompt(
+                template_name='daily_internal',
+                report_date=_WEEKLY_SENTINEL_MON,
+            )
+        self.assertEqual(user, 'RAW')
+
+    def test_substitutive_when_all_five_confirmed(self):
+        """build_weekly_prompt replaces raw data with lean confirmed summaries when all 5 weekdays confirmed."""
+        for i in range(5):
+            self._seed(_WEEKLY_SENTINEL_MON + timedelta(days=i), content=f'Confirmed day {i}')
+        builder = self._make_builder()
+        with patch.object(builder, 'build_prompt', return_value=('SYS', 'RAW')):
+            _, user = builder.build_weekly_prompt(
+                template_name='daily_internal',
+                report_date=_WEEKLY_SENTINEL_MON,
+            )
+        self.assertNotEqual(user, 'RAW')
+        self.assertIn('Confirmed day 0', user)
+
+    def test_corrected_content_preferred_over_content(self):
+        """build_weekly_prompt uses corrected_content in the confirmed path, not the original content."""
+        self._seed(
+            _WEEKLY_SENTINEL_MON,
+            content='Original content',
+            corrected_content='Corrected version',
+        )
+        for i in range(1, 5):
+            self._seed(_WEEKLY_SENTINEL_MON + timedelta(days=i))
+        builder = self._make_builder()
+        with patch.object(builder, 'build_prompt', return_value=('SYS', 'RAW')):
+            _, user = builder.build_weekly_prompt(
+                template_name='daily_internal',
+                report_date=_WEEKLY_SENTINEL_MON,
+            )
+        self.assertIn('Corrected version', user)
+        self.assertNotIn('Original content', user)
