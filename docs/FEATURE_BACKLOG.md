@@ -1053,9 +1053,9 @@ column exists as a Phase 12 schema placeholder only.
 
 **Acceptance Criteria:**
 
-- [ ] Ollama/Mistral parses Slack DM correction intent and extracts reason
-- [ ] `reports correct` (or Slack handler) writes structured reason to `correction_note`
-- [ ] `reports show` displays `correction_note` when populated
+- [x] Ollama/Mistral parses Slack DM correction intent and extracts reason
+- [x] `reports correct` (or Slack handler) writes structured reason to `correction_note`
+- [x] `reports show` displays `correction_note` when populated (hotfix v1.22.2, 20260623)
 
 ---
 
@@ -1112,12 +1112,14 @@ that should be done with full Phase 13 context rather than bolted on mid-phase.
 
 **Acceptance Criteria:**
 
-- [ ] Weekly prompt uses confirmed/corrected daily content when all 5 weekdays have a
-  confirmed or corrected daily report
-- [ ] Falls back to raw notes/time_entries/meetings query when any weekday lacks a
-  confirmed daily (same behavior as today)
-- [ ] `corrected_content` preferred over `content` when set on a given day's report
-- [ ] Token count of weekly prompt measurably reduced versus baseline (raw data path)
+- [x] Weekly prompt uses confirmed/corrected daily content when all 5 weekdays have a
+  confirmed or corrected daily report (hotfix v1.22.2, 20260623)
+- [x] Falls back to raw notes/time_entries/meetings query when any weekday lacks a
+  confirmed daily (same behavior as today) (hotfix v1.22.2, 20260623)
+- [x] `corrected_content` preferred over `content` when set on a given day's report
+  (hotfix v1.22.2, 20260623)
+- [x] Token count of weekly prompt measurably reduced versus baseline (raw data path)
+  — confirmed path skips raw DB data entirely when all 5 dailies present (hotfix v1.22.2)
 
 ---
 

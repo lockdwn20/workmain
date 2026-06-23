@@ -1,7 +1,7 @@
 """
 WorkmAIn Report Commands - Phase 4 Implementation
-Report Commands v2.11
-20260610
+Report Commands v2.12
+20260623
 
 Static action-first command structure — template is an argument.
 
@@ -57,6 +57,8 @@ Version History:
          overwrite the staging file so email and gdocs steps use the edited content
 - v2.11: Phase 13 DB Schema Sprint Gate 5 — preview_only branch passes filter_client
          and client_id_filter through to generator.preview_report()
+- v2.12: Hotfix items-33-34-incomplete-impl — reports show (ID path) now displays
+         correction_note below the content panel when the field is non-empty (Item 33)
 """
 
 import os
@@ -619,6 +621,8 @@ def report_show(target: str):
                 title=f"[bold]{title}[/bold]",
                 border_style="green"
             ))
+            if report.correction_note:
+                console.print(f"  [yellow]Correction note:[/yellow] {report.correction_note}")
             console.print()
 
         except ValueError:
