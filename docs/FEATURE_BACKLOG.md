@@ -1,5 +1,5 @@
 WorkmAIn
-Feature Backlog v5.23
+Feature Backlog v5.24
 20260623
 
 # WorkmAIn Feature Backlog
@@ -58,6 +58,8 @@ Items deferred from various phases for future implementation.
   INTENT_ACTION_SERVICE_LAYER_PART_1 (v1.22.0): project_id Slack schema removal,
   meeting_id non-interactive linkage, entry_date/category schema fields.
 - v5.23 (20260623): Item 45 added — `tags` field for `create_time_entry`
+- v5.24 (20260623): Item 46 added — `build_weekly_prompt()` edge cases: short weeks,
+  Thursday draft, internal content pollution in confirmed daily summaries
   via Slack (separate from Item 44 which covers `entry_date`/`category`).
 
 ---
@@ -151,18 +153,19 @@ Build first, refactor later. See the complete picture before abstracting.
 | 43 | meeting_id Non-Interactive Linkage for create_note/create_time_entry | Medium | Phase 13 Sprint 3 (T6) | ~4–6 hrs | |
 | 44 | entry_date/category as IntentParser Schema Fields (Phase 2) | Low | next model rebuild | ~1–2 hrs | |
 | 45 | `tags` for `create_time_entry` via Slack | Medium | Phase 13 Sprint 3 | ~3h | |
+| 46 | `build_weekly_prompt()` Edge Cases — Short Weeks, Thursday Draft, Internal Pollution | Medium | Phase 13 | ~3–4 hrs | |
 
 ---
 
 ## Summary Statistics
 
-**Total Items:** 45 (Item 22 is a redirect — no separate deferred work; see Item 20)
+**Total Items:** 46 (Item 22 is a redirect — no separate deferred work; see Item 20)
 **Completed:** 17 (Items 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39)
-**Open:** 27
+**Open:** 28
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Open (targeted) | 23 | 1, 2, 3, 4, 7, 8, 12, 14, 15, 16, 19, 23, 28, 29, 30, 31, 37, 40, 41, 42, 43, 44, 45 |
+| Open (targeted) | 24 | 1, 2, 3, 4, 7, 8, 12, 14, 15, 16, 19, 23, 28, 29, 30, 31, 37, 40, 41, 42, 43, 44, 45, 46 |
 | Conditional | 1 | 9 |
 | Indefinitely | 3 | 5, 6, 21 |
 | Complete | 17 | 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39 |
@@ -171,14 +174,14 @@ Build first, refactor later. See the complete picture before abstracting.
 | Priority | Count | Items |
 |----------|-------|-------|
 | High | 0 | — |
-| Medium | 12 | 2, 3, 7, 10, 14, 15, 23, 34, 35, 38, 43, 45 |
+| Medium | 13 | 2, 3, 7, 10, 14, 15, 23, 34, 35, 38, 43, 45, 46 |
 | Low | 23 | 1, 4, 5, 6, 8, 11, 12, 13, 16, 19, 21, 28, 29, 30, 31, 32, 33, 36, 37, 40, 41, 42, 44 |
 | Conditional | 1 | 9 |
 
 | Target Phase | Items |
 |-------------|-------|
 | Phase 11+ | 4, 28 |
-| Phase 13 | 32, 33, 34 |
+| Phase 13 | 32, 33, 34, 46 |
 | Phase 13 Sprint 3 | 43, 45 |
 | Phase 14+ | 19, 31 |
 | Phase 14 | 40, 41 |
@@ -1565,3 +1568,65 @@ Neither was in scope during the service layer work (v1.22.0).
 - `config/intent_parse_system_prompt.txt`
 - `workmain/orchestration/action_executor.py`
 - Block Kit UX files (TBD — Sprint 3 Track 2)
+
+---
+
+#### Item 46 — `build_weekly_prompt()` Edge Cases: Short Weeks, Thursday Draft, Internal Content Pollution
+
+**Status:** Open — Deferred to Phase 13
+**Priority:** Medium
+**Effort:** ~3–4 hours
+**Added:** 20260623
+**Target Phase:** Phase 13
+
+**Description:**
+Three known gaps in `build_weekly_prompt()` (introduced v2.1, partially corrected
+v2.2 in hotfix items-33-34-incomplete-impl) that were not addressed during the
+Item 34 work and require a coordinated fix:
+
+**Gap 1 — Short work weeks:**
+The confirmed-path condition is `weekdays_covered == {0, 1, 2, 3, 4}`. If Monday
+is a bank holiday and EOD was only run Tue–Fri, `weekdays_covered = {1, 2, 3, 4}`,
+which always falls back to raw data regardless of how many confirmed dailies exist.
+Any week with a holiday or unworked day is permanently blocked from the confirmed
+path.
+
+**Gap 2 — Thursday draft weekly:**
+On Thursday EOD the pipeline posts a Slack draft weekly report. At that point only
+Mon–Thu confirmed dailies exist (Friday hasn't run yet), so `weekdays_covered`
+never equals `{0, 1, 2, 3, 4}` and the confirmed path is unreachable. The Thursday
+draft always uses raw data even if Mon–Thu are fully confirmed.
+
+**Gap 3 — Internal content pollution:**
+`get_confirmed_dailies()` returns `daily_internal` reports. Those reports are built
+from all non-`client-report`/non-`info-only` notes — meaning they contain
+`internal-only`, `carry-forward`, and `blocker` tagged content that should never
+appear in a client-facing weekly report. Injecting confirmed daily summaries
+verbatim into the `weekly_client` prompt risks leaking internal information to the
+client.
+
+**Why Deferred:**
+Gaps 1 and 2 require a decision on the correct fallback threshold (count-based vs.
+date-range-aware vs. day-of-week-aware). Gap 3 requires either: (a) filtering the
+confirmed daily content before injection using tag-aware stripping, or (b) a
+separate `daily_client` report type whose content is safe to forward. Both
+approaches have downstream implications for the EOD pipeline and report schema that
+should be scoped as a coherent unit rather than patched ad-hoc.
+
+**Acceptance Criteria:**
+
+- [ ] Short work weeks: confirmed path activates when all *actual working days* in
+      the Mon–Fri range have a confirmed daily (e.g., 4 confirmed dailies on a
+      Monday-holiday week satisfies the threshold)
+- [ ] Thursday draft: confirmed path available for Thu EOD draft using the confirmed
+      dailies that exist at that point (Mon–Thu), without requiring Friday
+- [ ] Internal content filtering: confirmed daily summaries injected into the weekly
+      client prompt contain only client-safe content; `internal-only`,
+      `carry-forward`, and `blocker`-tagged content is excluded before injection
+- [ ] Existing behavior (raw data fallback) preserved when no confirmed dailies exist
+
+**Files Affected:**
+
+- `workmain/ai/prompt_builder.py` — `build_weekly_prompt()` threshold + filtering logic
+- `workmain/database/repositories/reports_repo.py` — `get_confirmed_dailies()` may
+  need a `client_safe=True` variant or the caller handles filtering
