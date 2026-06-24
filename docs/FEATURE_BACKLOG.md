@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v5.25
-20260623
+Feature Backlog v5.26
+20260624
 
 # WorkmAIn Feature Backlog
 
@@ -58,11 +58,14 @@ Items deferred from various phases for future implementation.
   INTENT_ACTION_SERVICE_LAYER_PART_1 (v1.22.0): project_id Slack schema removal,
   meeting_id non-interactive linkage, entry_date/category schema fields.
 - v5.23 (20260623): Item 45 added — `tags` field for `create_time_entry`
+  via Slack (separate from Item 44 which covers `entry_date`/`category`).
 - v5.24 (20260623): Item 46 added — `build_weekly_prompt()` edge cases: short weeks,
   Thursday draft, internal content pollution in confirmed daily summaries
 - v5.25 (20260623): Item 32 reopened — incorrectly marked COMPLETE in Sprint 2;
   Step 3c investigation required before scope can be determined
-  via Slack (separate from Item 44 which covers `entry_date`/`category`).
+- v5.26 (20260624): Item 47 added — Block Kit modal for full report
+  correction from Slack (Phase 14; requires Cloudflare Tunnel
+  interactivity endpoint).
 
 ---
 
@@ -156,18 +159,19 @@ Build first, refactor later. See the complete picture before abstracting.
 | 44 | entry_date/category as IntentParser Schema Fields (Phase 2) | Low | next model rebuild | ~1–2 hrs | |
 | 45 | `tags` for `create_time_entry` via Slack | Medium | Phase 13 Sprint 3 | ~3h | |
 | 46 | `build_weekly_prompt()` Edge Cases — Short Weeks, Thursday Draft, Internal Pollution | Medium | Phase 13 | ~3–4 hrs | |
+| 47 | Block Kit modal — report correction from Slack | Medium | Phase 14 | ~6h | |
 
 ---
 
 ## Summary Statistics
 
-**Total Items:** 46 (Item 22 is a redirect — no separate deferred work; see Item 20)
+**Total Items:** 47 (Item 22 is a redirect — no separate deferred work; see Item 20)
 **Completed:** 16 (Items 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 33, 34, 35, 36, 38, 39)
-**Open:** 29
+**Open:** 30
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Open (targeted) | 25 | 1, 2, 3, 4, 7, 8, 12, 14, 15, 16, 19, 23, 28, 29, 30, 31, 32, 37, 40, 41, 42, 43, 44, 45, 46 |
+| Open (targeted) | 26 | 1, 2, 3, 4, 7, 8, 12, 14, 15, 16, 19, 23, 28, 29, 30, 31, 32, 37, 40, 41, 42, 43, 44, 45, 46, 47 |
 | Conditional | 1 | 9 |
 | Indefinitely | 3 | 5, 6, 21 |
 | Complete | 16 | 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 33, 34, 35, 36, 38, 39 |
@@ -176,7 +180,7 @@ Build first, refactor later. See the complete picture before abstracting.
 | Priority | Count | Items |
 |----------|-------|-------|
 | High | 0 | — |
-| Medium | 13 | 2, 3, 7, 10, 14, 15, 23, 34, 35, 38, 43, 45, 46 |
+| Medium | 14 | 2, 3, 7, 10, 14, 15, 23, 34, 35, 38, 43, 45, 46, 47 |
 | Low | 24 | 1, 4, 5, 6, 8, 11, 12, 13, 16, 19, 21, 28, 29, 30, 31, 32, 33, 36, 37, 40, 41, 42, 44 |
 | Conditional | 1 | 9 |
 
@@ -186,7 +190,7 @@ Build first, refactor later. See the complete picture before abstracting.
 | Phase 13 | 32, 33, 34, 46 |
 | Phase 13 Sprint 3 | 43, 45 |
 | Phase 14+ | 19, 31 |
-| Phase 14 | 40, 41 |
+| Phase 14 | 40, 41, 47 |
 | Phase 15 | 1, 2, 3, 7, 8, 10, 12, 13, 14, 15, 16, 23, 29 |
 | Phase 18 | 30 |
 | Sprint 2/3 | 37, 38 |
@@ -194,7 +198,7 @@ Build first, refactor later. See the complete picture before abstracting.
 | Conditional | 9 |
 | Indefinitely | 5, 6, 11, 21 |
 
-**Total Deferred Effort (open items):** ~87–92 hours
+**Total Deferred Effort (open items):** ~93–98 hours
 
 ---
 
@@ -1639,3 +1643,60 @@ should be scoped as a coherent unit rather than patched ad-hoc.
 - `workmain/ai/prompt_builder.py` — `build_weekly_prompt()` threshold + filtering logic
 - `workmain/database/repositories/reports_repo.py` — `get_confirmed_dailies()` may
   need a `client_safe=True` variant or the caller handles filtering
+
+---
+
+#### Item 47 — Block Kit Modal for Full Report Correction from Slack
+
+**Status:** Open — Deferred to Phase 14
+**Priority:** Medium
+**Effort:** ~6 hours
+**Added:** 20260624
+**Target Phase:** Phase 14 — Slack UX Enhancement
+
+**Description:**
+The current `correct_report` Slack path flags a correction by writing a
+description to `correction_note`; it cannot produce a fully corrected
+report because the polling-based text interface has no mechanism to
+capture multi-line edited content. Block Kit interactive modals support
+a multi-line text input (up to 3,000 characters) that can pre-populate
+with the current report content and accept a full corrected version,
+enabling complete report correction from Slack without terminal access.
+This is the primary use case for users traveling without access to their
+development machine. Pre-populate logic mirrors the CLI: use
+`corrected_content` if set, otherwise fall back to `content`.
+
+**Why Deferred:**
+Block Kit interactive modals require Slack to POST HTTP callbacks to a
+publicly accessible HTTPS endpoint (Slack's interactivity mechanism).
+The current implementation uses polling and has no inbound endpoint.
+Exposing an interactivity endpoint requires Cloudflare Tunnel or
+equivalent infrastructure, which is a longer-horizon item. The interim
+solution — `correction_note` flagging via Slack text + `workmain reports
+correct today` at the terminal — is implemented in v1.22.4 and covers
+the non-traveling case adequately.
+
+**Acceptance Criteria:**
+
+- [ ] Cloudflare Tunnel or equivalent HTTPS interactivity endpoint
+      operational (prerequisite — homelab repo concern)
+- [ ] `correct_report` Slack action triggers a Block Kit modal
+      pre-populated with current report content (`corrected_content`
+      if set, otherwise `content`)
+- [ ] Modal text input accepts full corrected report text; chunked
+      gracefully for reports exceeding 3,000 characters
+- [ ] On modal submit: `corrected_content` written with full edited
+      text; `status = 'corrected'`; `updated_at` set
+- [ ] `correction_note` populated with a system note recording the
+      correction was applied via Slack modal
+- [ ] Original `content` field preserved (Phase 12 Decision 10:
+      content is never overwritten)
+- [ ] Graceful fallback if modal interaction times out or fails:
+      existing `correction_note` flagging behaviour preserved
+
+**Files Affected:**
+
+- `workmain/orchestration/action_executor.py`
+- `workmain/slack/` (Block Kit modal handling — TBD)
+- Cloudflare Tunnel / interactivity endpoint configuration
+  (homelab repo, not app repo)

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.22.4] - 2026-06-24
+
+### Fixed
+
+- `action_executor._execute_confirm_report`: now sets `updated_at`
+  explicitly and returns early (no-op) if report is already confirmed
+  or corrected. Matches CLI and eod_workflow behaviour.
+- `action_executor._execute_correct_report`: correction description is
+  now written to `correction_note` (Phase 12 Decision 21 design intent)
+  rather than `corrected_content`. `corrected_content` is no longer
+  overwritten by Slack corrections and remains reserved for full edited
+  report text from $EDITOR. `status` is set to 'corrected' to prevent
+  EOD regeneration.
+- `_execute_correct_report` now returns `error="missing_correction"` if
+  the correction field is absent or empty, rather than writing an empty
+  string to `correction_note`.
+- Fixed missing `datetime` import in `action_executor.py` — `datetime.now()`
+  would raise `NameError` at runtime when either handler was invoked.
+
 ## [1.22.3] - 2026-06-24
 
 ### Fixed

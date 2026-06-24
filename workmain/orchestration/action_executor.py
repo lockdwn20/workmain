@@ -1,7 +1,7 @@
 """
 WorkmAIn Action Executor
-Action Executor v1.3
-20260612
+Action Executor v1.4
+20260624
 
 Executes confirmed structured actions from IntentParser against the database
 via existing repositories. No action writes to the DB without passing through
@@ -16,11 +16,15 @@ Version History:
         delegate to services; client_id now stamped; MissingStartTimeError returns
         clarification request instead of writing null-timestamp row; InvalidTagsError
         surfaces full vocabulary; parse_time() replaces ad-hoc HHMM parsing
+- v1.4: Fix _execute_confirm_report — idempotency guard (no-op if already confirmed/corrected)
+        and explicit updated_at stamp. Fix _execute_correct_report — route correction
+        description to correction_note (Phase 12 Decision 21) not corrected_content;
+        add empty-correction guard; explicit updated_at stamp.
 """
 
 import logging
 from dataclasses import dataclass, field
-from datetime import date, time as time_type
+from datetime import date, datetime, time as time_type
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -212,6 +216,15 @@ class ActionExecutor:
         return ActionResult(success=True, message=f"✓ Task deferred: '{label}'.", entity_id=task.id)
 
     def _execute_confirm_report(self, action: dict) -> ActionResult:
+        """Confirm today's most recent report of the given type.
+
+        Matches CLI behaviour (report_confirm in reports.py):
+        - Idempotency guard: no-op if already confirmed or corrected.
+        - Explicit updated_at stamp (does not rely on ORM onupdate trigger).
+
+        Does not accept a report_date — the intent schema has no such field
+        and the Slack path is designed for today's report only.
+        """
         report_type = action.get("report_type", "daily_internal")
         report = self._get_latest_report(report_type)
         if report is None:
@@ -220,7 +233,17 @@ class ActionExecutor:
                 message=f"No {report_type.replace('_', ' ')} found for today.",
                 error="no_report",
             )
+        if report.status in ("confirmed", "corrected"):
+            return ActionResult(
+                success=True,
+                message=(
+                    f"{report_type.replace('_', ' ').title()} is already "
+                    f"{report.status} — no change made."
+                ),
+                entity_id=report.id,
+            )
         report.status = "confirmed"
+        report.updated_at = datetime.now()
         self.session.commit()
         return ActionResult(
             success=True,
@@ -229,7 +252,38 @@ class ActionExecutor:
         )
 
     def _execute_correct_report(self, action: dict) -> ActionResult:
+        """Flag a correction for today's most recent report.
+
+        Phase 12 Decision 21 (locked): correction_note was added as the
+        Phase 13 placeholder for Slack/intent parser correction descriptions.
+        This method writes the correction description to correction_note.
+
+        corrected_content is reserved for full edited report text written
+        via $EDITOR (CLI / eod_workflow path only). This method must never
+        write to corrected_content — doing so would corrupt the pre-populate
+        behaviour of 'workmain reports correct today'.
+
+        Sets status = 'corrected' to:
+        - Prevent EOD from regenerating the report on a subsequent run
+          (eod_workflow pre-check skips reports where status IN
+          ('confirmed', 'corrected')).
+        - Exclude this daily from weekly aggregation until the CLI edit
+          is applied and the report is re-confirmed.
+
+        Status transition table:
+          unconfirmed → corrected  : normal flagging path
+          confirmed   → corrected  : correction overrides prior confirmation
+          corrected   → corrected  : already flagged; correction_note
+                                     overwritten with most recent description
+        """
         report_type = action.get("report_type", "daily_internal")
+        correction = action.get("correction", "").strip()
+        if not correction:
+            return ActionResult(
+                success=False,
+                message="Cannot flag correction: no correction description provided.",
+                error="missing_correction",
+            )
         report = self._get_latest_report(report_type)
         if report is None:
             return ActionResult(
@@ -237,12 +291,18 @@ class ActionExecutor:
                 message=f"No {report_type.replace('_', ' ')} found for today.",
                 error="no_report",
             )
-        report.corrected_content = action.get("correction", "")
-        report.status = "corrected"
+        report.correction_note = correction
+        if report.status != "corrected":
+            report.status = "corrected"
+        report.updated_at = datetime.now()
         self.session.commit()
+        report_label = report_type.replace("_", " ")
         return ActionResult(
             success=True,
-            message=f"✓ Correction applied to {report_type.replace('_', ' ')}.",
+            message=(
+                f"Correction noted for {report_label}: '{correction}'. "
+                f"Apply the full edit with: workmain reports correct today"
+            ),
             entity_id=report.id,
         )
 
