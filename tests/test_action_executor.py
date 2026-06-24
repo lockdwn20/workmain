@@ -1,7 +1,7 @@
 """
 WorkmAIn Action Executor Tests
-test_action_executor v1.1
-20260612
+test_action_executor v1.2
+20260624
 
 Tests for workmain/orchestration/action_executor.py and
 workmain/orchestration/confirmation_gate.py.
@@ -13,14 +13,18 @@ Version History:
 - v1.0: Phase 13 Sprint 2 Gate 7 — initial test suite
 - v1.1: Intent action service layer Gate 4 — update create_time_entry tests for new
         MissingStartTimeError behavior (no start_time → needs_clarification, not null row)
+- v1.2: Gate 3 — confirm_report and correct_report fix tests: idempotency guard,
+        updated_at stamp, corrected_content isolation, status transition table,
+        empty correction guard, and no-report-today cases
 """
 
 import unittest
 from datetime import date
+from unittest.mock import patch
 
 import pytest
 
-from workmain.database.models import Client
+from workmain.database.models import Client, Report
 from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
 from workmain.orchestration.action_executor import (
@@ -364,6 +368,21 @@ class TestActionExecutorUnknownAction:
             executor.execute({})
 
 
+def _seed_report_today(session, status: str = "unconfirmed", **kwargs) -> Report:
+    """Create a Report row for today and return the persisted object."""
+    r = Report(
+        report_type="daily_internal",
+        report_date=date.today(),
+        content="Test report content.",
+        status=status,
+        **kwargs,
+    )
+    session.add(r)
+    session.commit()
+    session.refresh(r)
+    return r
+
+
 @pytest.mark.usefixtures("db_session")
 class TestActionExecutorConfirmReport:
 
@@ -375,6 +394,149 @@ class TestActionExecutorConfirmReport:
             "report_type": "daily_internal_9999",
         })
         # Type not found → graceful failure
+        assert result.success is False
+        assert result.error == "no_report"
+
+    def test_confirm_report_sets_status_confirmed(self, db_session):
+        report = _seed_report_today(db_session, status="unconfirmed")
+        executor = ActionExecutor(db_session)
+        result = executor.execute({"action": "confirm_report", "report_type": "daily_internal"})
+        db_session.refresh(report)
+        assert result.success is True
+        assert result.entity_id == report.id
+        assert report.status == "confirmed"
+
+    def test_confirm_report_sets_updated_at(self, db_session):
+        report = _seed_report_today(db_session, status="unconfirmed")
+        before = report.updated_at
+        executor = ActionExecutor(db_session)
+        executor.execute({"action": "confirm_report", "report_type": "daily_internal"})
+        db_session.refresh(report)
+        assert report.updated_at > before
+
+    def test_confirm_report_idempotent_when_already_confirmed(self, db_session):
+        report = _seed_report_today(db_session, status="confirmed")
+        executor = ActionExecutor(db_session)
+        with patch.object(db_session, "commit") as mock_commit:
+            result = executor.execute({"action": "confirm_report", "report_type": "daily_internal"})
+        assert result.success is True
+        assert "already confirmed" in result.message
+        mock_commit.assert_not_called()
+
+    def test_confirm_report_no_change_when_corrected(self, db_session):
+        report = _seed_report_today(db_session, status="corrected")
+        executor = ActionExecutor(db_session)
+        with patch.object(db_session, "commit") as mock_commit:
+            result = executor.execute({"action": "confirm_report", "report_type": "daily_internal"})
+        db_session.refresh(report)
+        assert result.success is True
+        assert "already corrected" in result.message
+        assert report.status == "corrected"
+        mock_commit.assert_not_called()
+
+    def test_confirm_report_no_report_today(self, db_session):
+        executor = ActionExecutor(db_session)
+        result = executor.execute({"action": "confirm_report", "report_type": "daily_internal_missing"})
+        assert result.success is False
+        assert result.error == "no_report"
+
+
+@pytest.mark.usefixtures("db_session")
+class TestActionExecutorCorrectReport:
+
+    def test_correct_report_writes_correction_note(self, db_session):
+        report = _seed_report_today(db_session, status="unconfirmed")
+        executor = ActionExecutor(db_session)
+        result = executor.execute({
+            "action": "correct_report",
+            "report_type": "daily_internal",
+            "correction": "XSOAR time should be 120 min not 90",
+        })
+        db_session.refresh(report)
+        assert result.success is True
+        assert report.correction_note == "XSOAR time should be 120 min not 90"
+        assert report.corrected_content is None
+        assert report.status == "corrected"
+        assert report.updated_at is not None
+
+    def test_correct_report_corrected_content_not_touched(self, db_session):
+        full_text = "## Executive Summary\n\nFull edited report text."
+        report = _seed_report_today(db_session, status="confirmed", corrected_content=full_text)
+        executor = ActionExecutor(db_session)
+        executor.execute({
+            "action": "correct_report",
+            "report_type": "daily_internal",
+            "correction": "Update the risk section",
+        })
+        db_session.refresh(report)
+        assert report.corrected_content == full_text
+
+    def test_correct_report_from_unconfirmed(self, db_session):
+        report = _seed_report_today(db_session, status="unconfirmed")
+        executor = ActionExecutor(db_session)
+        executor.execute({
+            "action": "correct_report",
+            "report_type": "daily_internal",
+            "correction": "Fix the time entry",
+        })
+        db_session.refresh(report)
+        assert report.status == "corrected"
+
+    def test_correct_report_overrides_confirmed_status(self, db_session):
+        report = _seed_report_today(db_session, status="confirmed")
+        executor = ActionExecutor(db_session)
+        executor.execute({
+            "action": "correct_report",
+            "report_type": "daily_internal",
+            "correction": "Change the meeting duration",
+        })
+        db_session.refresh(report)
+        assert report.status == "corrected"
+
+    def test_correct_report_status_unchanged_if_already_corrected(self, db_session):
+        report = _seed_report_today(db_session, status="corrected", correction_note="old note")
+        executor = ActionExecutor(db_session)
+        executor.execute({
+            "action": "correct_report",
+            "report_type": "daily_internal",
+            "correction": "new correction description",
+        })
+        db_session.refresh(report)
+        assert report.status == "corrected"
+        assert report.correction_note == "new correction description"
+
+    def test_correct_report_empty_correction_string(self, db_session):
+        _seed_report_today(db_session, status="unconfirmed")
+        executor = ActionExecutor(db_session)
+        with patch.object(db_session, "commit") as mock_commit:
+            result = executor.execute({
+                "action": "correct_report",
+                "report_type": "daily_internal",
+                "correction": "",
+            })
+        assert result.success is False
+        assert result.error == "missing_correction"
+        mock_commit.assert_not_called()
+
+    def test_correct_report_missing_correction_field(self, db_session):
+        _seed_report_today(db_session, status="unconfirmed")
+        executor = ActionExecutor(db_session)
+        with patch.object(db_session, "commit") as mock_commit:
+            result = executor.execute({
+                "action": "correct_report",
+                "report_type": "daily_internal",
+            })
+        assert result.success is False
+        assert result.error == "missing_correction"
+        mock_commit.assert_not_called()
+
+    def test_correct_report_no_report_today(self, db_session):
+        executor = ActionExecutor(db_session)
+        result = executor.execute({
+            "action": "correct_report",
+            "report_type": "daily_internal_missing",
+            "correction": "Fix the time entry",
+        })
         assert result.success is False
         assert result.error == "no_report"
 

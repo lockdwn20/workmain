@@ -24,7 +24,7 @@ Version History:
 
 import logging
 from dataclasses import dataclass, field
-from datetime import date, time as time_type
+from datetime import date, datetime, time as time_type
 from typing import Optional
 
 logger = logging.getLogger(__name__)
