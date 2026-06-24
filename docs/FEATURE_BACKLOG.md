@@ -58,10 +58,10 @@ Items deferred from various phases for future implementation.
   INTENT_ACTION_SERVICE_LAYER_PART_1 (v1.22.0): project_id Slack schema removal,
   meeting_id non-interactive linkage, entry_date/category schema fields.
 - v5.23 (20260623): Item 45 added — `tags` field for `create_time_entry`
+  via Slack (separate from Item 44 which covers `entry_date`/`category`).
 - v5.24 (20260624): Item 46 added — Block Kit modal for full report
   correction from Slack (Phase 14; requires Cloudflare Tunnel
   interactivity endpoint).
-  via Slack (separate from Item 44 which covers `entry_date`/`category`).
 
 ---
 
