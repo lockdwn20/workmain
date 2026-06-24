@@ -252,7 +252,38 @@ class ActionExecutor:
         )
 
     def _execute_correct_report(self, action: dict) -> ActionResult:
+        """Flag a correction for today's most recent report.
+
+        Phase 12 Decision 21 (locked): correction_note was added as the
+        Phase 13 placeholder for Slack/intent parser correction descriptions.
+        This method writes the correction description to correction_note.
+
+        corrected_content is reserved for full edited report text written
+        via $EDITOR (CLI / eod_workflow path only). This method must never
+        write to corrected_content — doing so would corrupt the pre-populate
+        behaviour of 'workmain reports correct today'.
+
+        Sets status = 'corrected' to:
+        - Prevent EOD from regenerating the report on a subsequent run
+          (eod_workflow pre-check skips reports where status IN
+          ('confirmed', 'corrected')).
+        - Exclude this daily from weekly aggregation until the CLI edit
+          is applied and the report is re-confirmed.
+
+        Status transition table:
+          unconfirmed → corrected  : normal flagging path
+          confirmed   → corrected  : correction overrides prior confirmation
+          corrected   → corrected  : already flagged; correction_note
+                                     overwritten with most recent description
+        """
         report_type = action.get("report_type", "daily_internal")
+        correction = action.get("correction", "").strip()
+        if not correction:
+            return ActionResult(
+                success=False,
+                message="Cannot flag correction: no correction description provided.",
+                error="missing_correction",
+            )
         report = self._get_latest_report(report_type)
         if report is None:
             return ActionResult(
@@ -260,12 +291,18 @@ class ActionExecutor:
                 message=f"No {report_type.replace('_', ' ')} found for today.",
                 error="no_report",
             )
-        report.corrected_content = action.get("correction", "")
-        report.status = "corrected"
+        report.correction_note = correction
+        if report.status != "corrected":
+            report.status = "corrected"
+        report.updated_at = datetime.now()
         self.session.commit()
+        report_label = report_type.replace("_", " ")
         return ActionResult(
             success=True,
-            message=f"✓ Correction applied to {report_type.replace('_', ' ')}.",
+            message=(
+                f"Correction noted for {report_label}: '{correction}'. "
+                f"Apply the full edit with: workmain reports correct today"
+            ),
             entity_id=report.id,
         )
 
