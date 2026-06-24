@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v5.23
-20260623
+Feature Backlog v5.24
+20260624
 
 # WorkmAIn Feature Backlog
 
@@ -58,6 +58,9 @@ Items deferred from various phases for future implementation.
   INTENT_ACTION_SERVICE_LAYER_PART_1 (v1.22.0): project_id Slack schema removal,
   meeting_id non-interactive linkage, entry_date/category schema fields.
 - v5.23 (20260623): Item 45 added — `tags` field for `create_time_entry`
+- v5.24 (20260624): Item 46 added — Block Kit modal for full report
+  correction from Slack (Phase 14; requires Cloudflare Tunnel
+  interactivity endpoint).
   via Slack (separate from Item 44 which covers `entry_date`/`category`).
 
 ---
@@ -151,18 +154,19 @@ Build first, refactor later. See the complete picture before abstracting.
 | 43 | meeting_id Non-Interactive Linkage for create_note/create_time_entry | Medium | Phase 13 Sprint 3 (T6) | ~4–6 hrs | |
 | 44 | entry_date/category as IntentParser Schema Fields (Phase 2) | Low | next model rebuild | ~1–2 hrs | |
 | 45 | `tags` for `create_time_entry` via Slack | Medium | Phase 13 Sprint 3 | ~3h | |
+| 46 | Block Kit modal — report correction from Slack | Ph 14 | Medium | ~6h | |
 
 ---
 
 ## Summary Statistics
 
-**Total Items:** 45 (Item 22 is a redirect — no separate deferred work; see Item 20)
+**Total Items:** 46 (Item 22 is a redirect — no separate deferred work; see Item 20)
 **Completed:** 17 (Items 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39)
-**Open:** 27
+**Open:** 28
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Open (targeted) | 23 | 1, 2, 3, 4, 7, 8, 12, 14, 15, 16, 19, 23, 28, 29, 30, 31, 37, 40, 41, 42, 43, 44, 45 |
+| Open (targeted) | 24 | 1, 2, 3, 4, 7, 8, 12, 14, 15, 16, 19, 23, 28, 29, 30, 31, 37, 40, 41, 42, 43, 44, 45, 46 |
 | Conditional | 1 | 9 |
 | Indefinitely | 3 | 5, 6, 21 |
 | Complete | 17 | 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39 |
@@ -171,7 +175,7 @@ Build first, refactor later. See the complete picture before abstracting.
 | Priority | Count | Items |
 |----------|-------|-------|
 | High | 0 | — |
-| Medium | 12 | 2, 3, 7, 10, 14, 15, 23, 34, 35, 38, 43, 45 |
+| Medium | 13 | 2, 3, 7, 10, 14, 15, 23, 34, 35, 38, 43, 45, 46 |
 | Low | 23 | 1, 4, 5, 6, 8, 11, 12, 13, 16, 19, 21, 28, 29, 30, 31, 32, 33, 36, 37, 40, 41, 42, 44 |
 | Conditional | 1 | 9 |
 
@@ -181,7 +185,7 @@ Build first, refactor later. See the complete picture before abstracting.
 | Phase 13 | 32, 33, 34 |
 | Phase 13 Sprint 3 | 43, 45 |
 | Phase 14+ | 19, 31 |
-| Phase 14 | 40, 41 |
+| Phase 14 | 40, 41, 46 |
 | Phase 15 | 1, 2, 3, 7, 8, 10, 12, 13, 14, 15, 16, 23, 29 |
 | Phase 18 | 30 |
 | Sprint 2/3 | 37, 38 |
@@ -1565,3 +1569,60 @@ Neither was in scope during the service layer work (v1.22.0).
 - `config/intent_parse_system_prompt.txt`
 - `workmain/orchestration/action_executor.py`
 - Block Kit UX files (TBD — Sprint 3 Track 2)
+
+---
+
+#### Item 46 — Block Kit Modal for Full Report Correction from Slack
+
+**Status:** Open — Deferred to Phase 14
+**Priority:** Medium
+**Effort:** ~6 hours
+**Added:** 20260624
+**Target Phase:** Phase 14 — Slack UX Enhancement
+
+**Description:**
+The current `correct_report` Slack path flags a correction by writing a
+description to `correction_note`; it cannot produce a fully corrected
+report because the polling-based text interface has no mechanism to
+capture multi-line edited content. Block Kit interactive modals support
+a multi-line text input (up to 3,000 characters) that can pre-populate
+with the current report content and accept a full corrected version,
+enabling complete report correction from Slack without terminal access.
+This is the primary use case for users traveling without access to their
+development machine. Pre-populate logic mirrors the CLI: use
+`corrected_content` if set, otherwise fall back to `content`.
+
+**Why Deferred:**
+Block Kit interactive modals require Slack to POST HTTP callbacks to a
+publicly accessible HTTPS endpoint (Slack's interactivity mechanism).
+The current implementation uses polling and has no inbound endpoint.
+Exposing an interactivity endpoint requires Cloudflare Tunnel or
+equivalent infrastructure, which is a longer-horizon item. The interim
+solution — `correction_note` flagging via Slack text + `workmain reports
+correct today` at the terminal — is implemented in v1.22.4 and covers
+the non-traveling case adequately.
+
+**Acceptance Criteria:**
+
+- [ ] Cloudflare Tunnel or equivalent HTTPS interactivity endpoint
+      operational (prerequisite — homelab repo concern)
+- [ ] `correct_report` Slack action triggers a Block Kit modal
+      pre-populated with current report content (`corrected_content`
+      if set, otherwise `content`)
+- [ ] Modal text input accepts full corrected report text; chunked
+      gracefully for reports exceeding 3,000 characters
+- [ ] On modal submit: `corrected_content` written with full edited
+      text; `status = 'corrected'`; `updated_at` set
+- [ ] `correction_note` populated with a system note recording the
+      correction was applied via Slack modal
+- [ ] Original `content` field preserved (Phase 12 Decision 10:
+      content is never overwritten)
+- [ ] Graceful fallback if modal interaction times out or fails:
+      existing `correction_note` flagging behaviour preserved
+
+**Files Affected:**
+
+- `workmain/orchestration/action_executor.py`
+- `workmain/slack/` (Block Kit modal handling — TBD)
+- Cloudflare Tunnel / interactivity endpoint configuration
+  (homelab repo, not app repo)
