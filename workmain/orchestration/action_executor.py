@@ -1,7 +1,7 @@
 """
 WorkmAIn Action Executor
-Action Executor v1.3
-20260612
+Action Executor v1.4
+20260624
 
 Executes confirmed structured actions from IntentParser against the database
 via existing repositories. No action writes to the DB without passing through
@@ -16,6 +16,10 @@ Version History:
         delegate to services; client_id now stamped; MissingStartTimeError returns
         clarification request instead of writing null-timestamp row; InvalidTagsError
         surfaces full vocabulary; parse_time() replaces ad-hoc HHMM parsing
+- v1.4: Fix _execute_confirm_report — idempotency guard (no-op if already confirmed/corrected)
+        and explicit updated_at stamp. Fix _execute_correct_report — route correction
+        description to correction_note (Phase 12 Decision 21) not corrected_content;
+        add empty-correction guard; explicit updated_at stamp.
 """
 
 import logging
@@ -212,6 +216,15 @@ class ActionExecutor:
         return ActionResult(success=True, message=f"✓ Task deferred: '{label}'.", entity_id=task.id)
 
     def _execute_confirm_report(self, action: dict) -> ActionResult:
+        """Confirm today's most recent report of the given type.
+
+        Matches CLI behaviour (report_confirm in reports.py):
+        - Idempotency guard: no-op if already confirmed or corrected.
+        - Explicit updated_at stamp (does not rely on ORM onupdate trigger).
+
+        Does not accept a report_date — the intent schema has no such field
+        and the Slack path is designed for today's report only.
+        """
         report_type = action.get("report_type", "daily_internal")
         report = self._get_latest_report(report_type)
         if report is None:
@@ -220,7 +233,17 @@ class ActionExecutor:
                 message=f"No {report_type.replace('_', ' ')} found for today.",
                 error="no_report",
             )
+        if report.status in ("confirmed", "corrected"):
+            return ActionResult(
+                success=True,
+                message=(
+                    f"{report_type.replace('_', ' ').title()} is already "
+                    f"{report.status} — no change made."
+                ),
+                entity_id=report.id,
+            )
         report.status = "confirmed"
+        report.updated_at = datetime.now()
         self.session.commit()
         return ActionResult(
             success=True,
