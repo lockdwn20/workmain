@@ -1,7 +1,7 @@
 """
 WorkmAIn AI Ollama Provider
-Ollama Provider v1.2
-20260605
+Ollama Provider v1.3
+20260624
 
 Ollama local inference provider — Mistral 7B on Proxmox via REST API.
 
@@ -12,6 +12,8 @@ Version History:
         _build_prompt(); real HTTP calls replacing NotImplementedError stubs
 - v1.2: Gate 2 Phase 13 Sprint 1 — generate() sends only num_predict per-request;
         Modelfile owns temperature/top_p/top_k/repeat_penalty; timeout default 120s
+- v1.3: Hotfix ollama-keep-alive — add keep_alive: -1 to /api/generate payload so
+        model stays resident in VRAM after each call; reduce default timeout 120→30s
 """
 
 import json
@@ -36,7 +38,7 @@ class OllamaProvider(BaseProvider):
         self._host = config.get("host", "localhost")
         self._port = config.get("port", 11434)
         self._model = config.get("model", "mistral")
-        self._timeout = config.get("timeout", 120)
+        self._timeout = config.get("timeout", 30)
 
     def check_availability(self) -> ProviderStatus:
         """GET /api/tags and confirm configured model is listed."""
@@ -70,6 +72,7 @@ class OllamaProvider(BaseProvider):
             "model": self._model,
             "prompt": self._build_prompt(request),
             "stream": False,
+            "keep_alive": -1,
             "options": options,
         }
 

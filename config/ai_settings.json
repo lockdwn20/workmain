@@ -38,7 +38,7 @@
       "model": "workmain-intent:latest",
       "host": "workmain-ollama.lab.haloschaos.com",
       "port": 11434,
-      "timeout": 120,
+      "timeout": 30,
       "cost_structure": "Local \u2014 no API cost"
     }
   },
