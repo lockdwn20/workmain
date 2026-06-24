@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.22.3] - 2026-06-24
+
+### Fixed
+
+- **Ollama keep_alive — eod step 3c freeze** — `/api/generate` payload now includes
+  `keep_alive: -1`, keeping the model resident in VRAM between EOD runs. Without this,
+  the 5-minute default eviction caused cold-start loads that exceeded the 120s request
+  timeout, making step 3c hang for 120 seconds per carry-forward task before falling back
+  to keyword scoring. Supplements the `OLLAMA_KEEP_ALIVE=-1` systemd environment variable
+  applied on the Ollama LXC host. (`workmain/ai/providers/ollama.py` v1.3)
+
+- **Ollama timeout hardened** — reduced from 120 → 30 seconds in both `config/ai_settings.json`
+  and the `OllamaProvider` fallback default. A loaded model generating 64 tokens completes
+  in well under 30 seconds; a tighter timeout allows step 3c's keyword fallback to engage
+  sooner if Ollama is genuinely unresponsive.
+
+- **`__version__` variable corrected** — `workmain/__version__.py` `__version__` variable
+  was stale at `"1.22.1"` despite the v1.22.2 history entry and header; corrected to `"1.22.3"`.
+
 ## [1.22.2] - 2026-06-23
 
 ### Fixed
