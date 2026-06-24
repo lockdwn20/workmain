@@ -1,9 +1,13 @@
 """
 WorkmAIn Package Version
-Version v1.22.2
-20260623
+Version v1.22.3
+20260624
 
 Version History:
+- v1.22.3: Hotfix ollama-keep-alive — add keep_alive: -1 to /api/generate payload
+           so model stays resident in VRAM between EOD runs; reduce Ollama timeout
+           120→30s in ai_settings.json and ollama.py default; fixes eod step 3c
+           freezing on parse_task_match when model is cold. ollama.py v1.3.
 - v1.22.2: Hotfix items-33-34-incomplete-impl — reports show (ID path) now
            displays correction_note below content panel when non-empty (Item 33).
            build_weekly_prompt() rewritten: (1) corrected_content preferred over
@@ -364,7 +368,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.22.1"
-__version_info__ = (1, 22, 1)
+__version__ = "1.22.3"
+__version_info__ = (1, 22, 3)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
