@@ -209,6 +209,19 @@ Do not rename either column. Blast radius is ~55 references across ~12
 files. If a unified date abstraction layer is ever introduced, normalize
 naming at that point.
 
+## Report Correction Fields — corrected_content vs correction_note
+
+- `corrected_content` (TEXT): full edited report text, written only by
+  the $EDITOR path (CLI `workmain reports correct` and eod_workflow
+  `[e]dit` branch). Never written by action_executor.
+- `correction_note` (TEXT): correction description or intent, written by
+  action_executor._execute_correct_report (Slack/intent parser path) and
+  optionally by the user at the eod_workflow correction-note prompt.
+  Phase 12 Decision 21 (locked): this field was designed as a Phase 13
+  placeholder for exactly this purpose.
+
+These fields serve different purposes and must never be conflated.
+
 ## User Context
 
 - **Role:** Security Engineer — high security standards expected

@@ -1,9 +1,15 @@
 """
 WorkmAIn Package Version
-Version v1.22.3
+Version v1.22.4
 20260624
 
 Version History:
+- v1.22.4: Hotfix intent-action-executor-fixes-items4-5 — _execute_confirm_report gains
+           idempotency guard (no-op if already confirmed/corrected) and explicit updated_at
+           stamp. _execute_correct_report routes correction description to correction_note
+           per Phase 12 Decision 21 (not corrected_content), adds empty-correction guard,
+           and sets updated_at explicitly. Fixes missing datetime import (NameError at
+           runtime). action_executor.py v1.4, test_action_executor.py v1.2.
 - v1.22.3: Hotfix ollama-keep-alive — add keep_alive: -1 to /api/generate payload
            so model stays resident in VRAM between EOD runs; reduce Ollama timeout
            120→30s in ai_settings.json and ollama.py default; fixes eod step 3c
@@ -368,7 +374,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.22.3"
-__version_info__ = (1, 22, 3)
+__version__ = "1.22.4"
+__version_info__ = (1, 22, 4)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
