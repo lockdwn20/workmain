@@ -1,6 +1,6 @@
 """
 WorkmAIn Daemon Scheduler
-scheduler.py v1.7
+scheduler.py v1.8
 20260625
 
 APScheduler job configuration. All trigger times are hardcoded in
@@ -31,11 +31,19 @@ Version History:
         _send_t2(), _send_t3(), _reschedule_t4_checkin() stub; extend
         register_all_jobs() with midnight rescan CronTrigger and 15-min
         IntervalTrigger; initial trigger scan at daemon start
+- v1.8: Phase 13 Sprint 3 Gate 4 — implement _reschedule_t4_checkin(daemon)
+        (DateTrigger at now + random(30-120) min; suppressed on weekends,
+        non-working days, fire_at outside 09:00-18:00); add _send_t4_checkin(),
+        _load_non_working_days(); initial _reschedule_t4_checkin() call in
+        register_all_jobs()
 """
 
 import functools
+import json
 import logging
-from datetime import date, datetime
+import random
+from datetime import date, datetime, timedelta
+from pathlib import Path
 from typing import Any, Optional
 
 from apscheduler.schedulers.blocking import BlockingScheduler
@@ -301,9 +309,59 @@ def _send_t3(meeting_id: int, daemon: Any) -> None:
     _reschedule_t4_checkin(daemon)
 
 
+def _load_non_working_days() -> set:
+    """Load non-working days from config/non_working_days.json.
+
+    Returns empty set if file is absent or malformed. Failure is silent
+    so that a missing config never blocks T4 scheduling.
+    """
+    try:
+        data = json.loads(Path('config/non_working_days.json').read_text())
+        return set(data.get('non_working_days', []))
+    except (FileNotFoundError, json.JSONDecodeError, KeyError):
+        return set()
+
+
 def _reschedule_t4_checkin(daemon: Any) -> None:
-    """Schedule next T4 random check-in. (Gate 4 implementation)"""
-    pass
+    """Schedule next T4 DateTrigger at now + random(30, 120) minutes.
+
+    Suppressed if: weekend; non-working day; fire_at outside 09:00–18:00.
+    Called from: daemon start, _send_t2(), _send_t3(), _send_t4_checkin().
+    End-of-day behaviour: if fire_at > 18:00, no job is scheduled — T4 stops
+    for the day. Next daemon start or next T2/T3 notification will reschedule.
+    This is intentional (T4 should not fire after working hours).
+    """
+    if _scheduler is None:
+        return
+    now = datetime.now()
+    if now.weekday() >= 5:
+        return
+    non_working = _load_non_working_days()
+    if now.date().isoformat() in non_working:
+        return
+    delay_minutes = random.randint(30, 120)
+    fire_at = now + timedelta(minutes=delay_minutes)
+    if fire_at.hour < 9 or fire_at.hour >= 18:
+        return   # end-of-day stop — intentional, not a bug
+    _scheduler.add_job(
+        lambda: _send_t4_checkin(daemon),
+        trigger=DateTrigger(run_date=fire_at),
+        id='t4_checkin',
+        replace_existing=True,
+    )
+    logger.info('T4 check-in scheduled for %s', fire_at.strftime('%H:%M'))
+
+
+def _send_t4_checkin(daemon: Any) -> None:
+    """T4 — Send check-in DM and reschedule next window."""
+    if any(
+        daemon._eod_manager.has_session(uid)
+        for uid in list(daemon._eod_manager._sessions)
+    ):
+        _reschedule_t4_checkin(daemon)
+        return
+    daemon.post_message('What are you working on right now?')
+    _reschedule_t4_checkin(daemon)
 
 
 def register_all_jobs(daemon: Any) -> None:
@@ -357,3 +415,7 @@ def register_all_jobs(daemon: Any) -> None:
     # Initial scan — schedule today's meeting triggers immediately at startup
     _schedule_today_meeting_triggers(daemon)
     logging.info("T2/T3 initial meeting trigger scan complete.")
+
+    # T4 — initial random check-in window at daemon start
+    _reschedule_t4_checkin(daemon)
+    logging.info("T4 initial check-in window scheduled.")
