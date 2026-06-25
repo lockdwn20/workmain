@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.23.0] - 2026-06-25
+
+### Added
+
+- `WorkmAInDaemon` class — absorbs `SlackMessageDispatcher`; owns `_socket_client`,
+  `_eod_manager`, `_dm_channel`; proactive DM channel resolution at startup via
+  `conversations.open()`; `main()` is now `daemon.start()`
+- `WorkmAInSocketClient` — Socket Mode via persistent WebSocket; ack-within-3s then
+  background-thread dispatch; in-memory `event_ts` deduplication (60-second eviction window)
+- `SLACK_SOCKET_TOKEN` (`xapp-`) env var required; added to `.env.example`
+- Block Kit Approve/Reject buttons for all action-executor confirmations
+  (`wm_approve` / `wm_reject`); `ConfirmationGate.format_blocks()` added;
+  `format_prompt()` retained as `fallback_text`
+- T2 meeting-start and T3 meeting-end `DateTrigger` notifications per meeting;
+  15-minute rescan job picks up impromptu meetings added during the day;
+  cancelled meetings (`is_cancelled`) filtered
+- T4 random check-in: `DateTrigger` at `random(30–120)` minutes after last
+  notification; resets on every T2/T3/T4 notification; suppressed on weekends,
+  `non_working_days.json` dates, outside 09:00–18:00, and during active T5 session;
+  no DB query — purely notification-timing-based
+- T6 inline correction re-presentation: `_maybe_post_correction_summary()` wired on
+  all three execution paths (Block Kit button, typed confirm, T5 EOD manager); posts
+  updated report status and `correction_note` after `correct_report` /
+  `write_correction_note` actions
+- T5 session persistence: `SlackEodSession.save/load/clear()` write to
+  `~/.workmain/daemon/eod_session.json` (chmod 600); 24-hour staleness eviction;
+  daemon-restart resume offer posted 5 seconds after socket connects
+- `config/non_working_days.json` — user-maintained ISO-date holiday/time-off list;
+  T4 suppression reads this file at scheduling time
+- `tests/test_orchestration.py` — 45 tests (daemon dispatch, Block Kit gate,
+  T2/T3 triggers, T4 suppression/scheduling, T6 correction paths, T5 persistence)
+
+### Changed
+
+- `daemon.py` startup: `socket_client.start()` before `scheduler_start()` (blocking)
+- `client.py`: `fetch_messages()` removed (superseded by Socket Mode);
+  `get_dm_channel()` retained; `post_blocks()` added
+- `auth.py`: `get_socket_token()` added
+- `scheduler.py`: APScheduler poll job removed; all trigger functions accept
+  `daemon` reference; `scheduler_start()` / `scheduler_stop()` added
+
+### Removed
+
+- `workmain/integrations/slack/poller.py` — deleted; Socket Mode supersedes polling
+- `tests/test_slack_poller.py` — deleted (16 tests); superseded by
+  `tests/test_orchestration.py`
+- APScheduler 10-second Slack poll job
+- `~/.workmain/daemon/slack_poll_state.json` — no longer written
+- Item 21 (Cloudflare Tunnel / Slack Events API) — Socket Mode delivers push events
+  without a tunnel; item closed
+
 ## [1.22.4] - 2026-06-24
 
 ### Fixed

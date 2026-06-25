@@ -1,7 +1,7 @@
 """
 WorkmAIn Slack Auth
-slack/auth.py v1.1
-20260611
+slack/auth.py v1.2
+20260625
 
 Bot Token authentication and config file management for Slack integration.
 Token is stored in .env (SLACK_BOT_TOKEN) — never in config.json.
@@ -14,6 +14,7 @@ Version History:
 - v1.0: Initial implementation (Phase 8 Gate 2)
 - v1.1: Phase 13 Sprint 2 Gate 3 — add get_operator_user_id() and
         save_operator_user_id() for inbound DM poll channel discovery
+- v1.2: Phase 13 Sprint 3 Gate 1 — add get_socket_token() for Socket Mode
 """
 
 import json
@@ -27,6 +28,17 @@ CONFIG_PATH = Path.home() / ".workmain" / "integrations" / "slack" / "config.jso
 
 class SlackAuthError(Exception):
     """Raised when SLACK_BOT_TOKEN is missing or empty."""
+
+
+def get_socket_token() -> str:
+    """Load SLACK_SOCKET_TOKEN from environment. Raises SlackAuthError if absent."""
+    token = os.environ.get('SLACK_SOCKET_TOKEN', '').strip()
+    if not token:
+        raise SlackAuthError(
+            'SLACK_SOCKET_TOKEN not set. '
+            'Add xapp- token to .env (see SLACK_SETUP.md).'
+        )
+    return token
 
 
 def get_token() -> str:

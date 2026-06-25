@@ -1,7 +1,7 @@
 """
 WorkmAIn Slack Client
-slack/client.py v1.1
-20260611
+slack/client.py v1.2
+20260625
 
 SlackClient wraps slack_sdk.WebClient for message posting and auth validation.
 format_for_slack() converts Markdown to Slack mrkdwn.
@@ -11,6 +11,9 @@ Version History:
 - v1.0: Initial implementation (Phase 8 Gate 2)
 - v1.1: Phase 13 Sprint 2 Gate 3 — add get_dm_channel() and fetch_messages()
         for SlackPoller inbound polling support
+- v1.2: Phase 13 Sprint 3 Gate 1 — remove fetch_messages() (polling superseded
+        by Socket Mode); retain get_dm_channel() (used by proactive startup
+        resolution); add post_blocks() for Block Kit messages
 """
 
 import re
@@ -86,33 +89,27 @@ class SlackClient:
         except SlackApiError as e:
             raise SlackClientError(str(e.response["error"])) from e
 
-    def fetch_messages(
-        self,
-        channel_id: str,
-        oldest: Optional[str] = None,
-        limit: int = 10,
-    ) -> list:
-        """Fetch message history from a channel.
-
-        Messages are returned newest-first by the Slack API.
+    def post_blocks(self, channel: str, blocks: list, fallback_text: str) -> str:
+        """Post a Block Kit message to a Slack channel.
 
         Args:
-            channel_id: Channel or DM channel ID.
-            oldest:     If set, return only messages after this Unix timestamp.
-            limit:      Maximum number of messages to return.
+            channel:       Channel name or ID.
+            blocks:        List of Block Kit block dicts.
+            fallback_text: Plain-text fallback shown in notifications.
 
         Returns:
-            List of message dicts (newest-first).
+            The message timestamp string (ts field from the API response).
 
         Raises:
             SlackClientError: If the API call fails.
         """
         try:
-            kwargs: dict = {"channel": channel_id, "limit": limit}
-            if oldest is not None:
-                kwargs["oldest"] = oldest
-            resp = self._client.conversations_history(**kwargs)
-            return resp.get("messages", [])
+            response = self._client.chat_postMessage(
+                channel=channel,
+                text=fallback_text,
+                blocks=blocks,
+            )
+            return response["ts"]
         except SlackApiError as e:
             raise SlackClientError(str(e.response["error"])) from e
 

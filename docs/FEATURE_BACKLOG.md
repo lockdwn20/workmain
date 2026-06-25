@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v5.24
-20260624
+Feature Backlog v5.27
+20260625
 
 # WorkmAIn Feature Backlog
 
@@ -59,9 +59,16 @@ Items deferred from various phases for future implementation.
   meeting_id non-interactive linkage, entry_date/category schema fields.
 - v5.23 (20260623): Item 45 added — `tags` field for `create_time_entry`
   via Slack (separate from Item 44 which covers `entry_date`/`category`).
-- v5.24 (20260624): Item 46 added — Block Kit modal for full report
+- v5.24 (20260623): Item 46 added — `build_weekly_prompt()` edge cases: short weeks,
+  Thursday draft, internal content pollution in confirmed daily summaries
+- v5.25 (20260623): Item 32 reopened — incorrectly marked COMPLETE in Sprint 2;
+  Step 3c investigation required before scope can be determined
+- v5.26 (20260624): Item 47 added — Block Kit modal for full report
   correction from Slack (Phase 14; requires Cloudflare Tunnel
   interactivity endpoint).
+- v5.27 (20260625): Item 21 closed — superseded by Socket Mode (v1.23.0);
+  Item 47 "Why Deferred" updated — Socket Mode resolves infrastructure
+  prerequisite; tunnel no longer required.
 
 ---
 
@@ -140,7 +147,7 @@ Build first, refactor later. See the complete picture before abstracting.
 | 29 | clockify report Subcommand Refactor | Low | Phase 15 | ~30 min | |
 | 30 | System Service Promotion for workmain-notify | Low | Phase 18 | ~4 hours | |
 | 31 | meetings create --attendees Restoration | Low | Phase 14 | ~30 min | |
-| 32 | Task Deduplication and Forwarding | Low | Phase 13 | ~2–3 hrs | ✓ |
+| 32 | Task Deduplication and Forwarding | Low | Phase 13 (TBD) | TBD | |
 | 33 | correction_note Field Population | Low | Phase 13 | ~2 hrs | ✓ |
 | 34 | Weekly Report Prompt — Confirmed Daily Summaries as Context | Medium | Phase 13 | ~3–4 hrs | ✓ |
 | 35 | AI Model Config-Driven Selection | Medium | Phase 14 | ~2–3 hrs | ✓ |
@@ -154,38 +161,39 @@ Build first, refactor later. See the complete picture before abstracting.
 | 43 | meeting_id Non-Interactive Linkage for create_note/create_time_entry | Medium | Phase 13 Sprint 3 (T6) | ~4–6 hrs | |
 | 44 | entry_date/category as IntentParser Schema Fields (Phase 2) | Low | next model rebuild | ~1–2 hrs | |
 | 45 | `tags` for `create_time_entry` via Slack | Medium | Phase 13 Sprint 3 | ~3h | |
-| 46 | Block Kit modal — report correction from Slack | Ph 14 | Medium | ~6h | |
+| 46 | `build_weekly_prompt()` Edge Cases — Short Weeks, Thursday Draft, Internal Pollution | Medium | Phase 13 | ~3–4 hrs | |
+| 47 | Block Kit modal — report correction from Slack | Medium | Phase 14 | ~6h | |
 
 ---
 
 ## Summary Statistics
 
-**Total Items:** 46 (Item 22 is a redirect — no separate deferred work; see Item 20)
-**Completed:** 17 (Items 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39)
-**Open:** 28
+**Total Items:** 47 (Item 22 is a redirect — no separate deferred work; see Item 20)
+**Completed:** 16 (Items 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 33, 34, 35, 36, 38, 39)
+**Open:** 30
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Open (targeted) | 24 | 1, 2, 3, 4, 7, 8, 12, 14, 15, 16, 19, 23, 28, 29, 30, 31, 37, 40, 41, 42, 43, 44, 45, 46 |
+| Open (targeted) | 26 | 1, 2, 3, 4, 7, 8, 12, 14, 15, 16, 19, 23, 28, 29, 30, 31, 32, 37, 40, 41, 42, 43, 44, 45, 46, 47 |
 | Conditional | 1 | 9 |
 | Indefinitely | 3 | 5, 6, 21 |
-| Complete | 17 | 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39 |
+| Complete | 16 | 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 33, 34, 35, 36, 38, 39 |
 | Redirect | 1 | 22 → Item 20 |
 
 | Priority | Count | Items |
 |----------|-------|-------|
 | High | 0 | — |
-| Medium | 13 | 2, 3, 7, 10, 14, 15, 23, 34, 35, 38, 43, 45, 46 |
-| Low | 23 | 1, 4, 5, 6, 8, 11, 12, 13, 16, 19, 21, 28, 29, 30, 31, 32, 33, 36, 37, 40, 41, 42, 44 |
+| Medium | 14 | 2, 3, 7, 10, 14, 15, 23, 34, 35, 38, 43, 45, 46, 47 |
+| Low | 24 | 1, 4, 5, 6, 8, 11, 12, 13, 16, 19, 21, 28, 29, 30, 31, 32, 33, 36, 37, 40, 41, 42, 44 |
 | Conditional | 1 | 9 |
 
 | Target Phase | Items |
 |-------------|-------|
 | Phase 11+ | 4, 28 |
-| Phase 13 | 32, 33, 34 |
+| Phase 13 | 32, 33, 34, 46 |
 | Phase 13 Sprint 3 | 43, 45 |
 | Phase 14+ | 19, 31 |
-| Phase 14 | 40, 41, 46 |
+| Phase 14 | 40, 41, 47 |
 | Phase 15 | 1, 2, 3, 7, 8, 10, 12, 13, 14, 15, 16, 23, 29 |
 | Phase 18 | 30 |
 | Sprint 2/3 | 37, 38 |
@@ -193,7 +201,7 @@ Build first, refactor later. See the complete picture before abstracting.
 | Conditional | 9 |
 | Indefinitely | 5, 6, 11, 21 |
 
-**Total Deferred Effort (open items):** ~87–92 hours
+**Total Deferred Effort (open items):** ~93–98 hours
 
 ---
 
@@ -695,30 +703,28 @@ context managed via `workmain clients set active <name>` / `workmain clients sta
 
 #### Item 21 — Cloudflare Tunnel / Slack Events API Upgrade
 
-**Status:** Deferred Indefinitely (revisit if home lab infrastructure expands)
+**Status:** Complete — Superseded by Socket Mode (v1.23.0). Socket Mode
+delivers push event delivery via outbound WebSocket without a public
+endpoint or tunnel. Cloudflare Tunnel is no longer required for the
+Slack integration.
 **Priority:** Low
 **Effort:** ~3–4 hours
 **Added:** 20260421
-**Target Phase:** None (optional upgrade post-Phase 13)
+**Closed:** 20260625
+**Target Phase:** None — superseded
 
 **Description:**
-Phase 13 uses Slack Web API polling (~10 second latency) for inbound messages. The Slack Events API (webhook/push model) would reduce latency to ~1 second but requires a publicly reachable HTTPS endpoint from WSL. Cloudflare Tunnel is the cleanest solution — creates a persistent public URL forwarding to localhost without port forwarding or a static IP.
+Phase 13 Sprint 2 used Slack Web API polling (~10 second latency) for inbound
+messages. Phase 13 Sprint 3 replaced polling with Slack Socket Mode — a
+persistent outbound WebSocket that delivers push events without requiring a
+publicly reachable endpoint. Cloudflare Tunnel is no longer needed.
 
-**When to reconsider:**
-
-- If home lab gains other services that benefit from Cloudflare Tunnel
-- If polling latency becomes noticeable friction in daily use
-- If Cloudflare Tunnel is set up for other reasons and the upgrade becomes low-cost
-
-**Why Deferred:**
+**Original "Why Deferred":**
 Polling is sufficient for Phase 13. Cloudflare Tunnel adds infrastructure complexity and a new failure mode (tunnel outage = silent loss of inbound messages) before the base path is proven.
 
-**Acceptance Criteria (if implemented):**
-
-- [ ] Cloudflare Tunnel configured and running as systemd service
-- [ ] Slack Events API webhook handler replaces poll loop
-- [ ] Tunnel outage falls back to polling gracefully
-- [ ] Tunnel health monitored and logged
+**Resolution:** `WorkmAInSocketClient` (v1.23.0) connects via `SLACK_SOCKET_TOKEN`
+(xapp- token) on startup. Inbound messages and Block Kit button interactions are
+delivered over the same WebSocket. No inbound port, no tunnel, no public endpoint.
 
 ---
 
@@ -1009,11 +1015,11 @@ is the earliest point where attendee management becomes user-facing.
 
 #### Item 32 — Task Deduplication and Forwarding (Phase 13)
 
-**Status:** ✓ COMPLETE — 20260612 (Phase 13 Sprint 2, v1.21.0)
+**Status:** Open — Pending Step 3c investigation (reopened 20260623)
 **Priority:** Low
-**Effort:** ~2–3 hours
+**Effort:** TBD — pending investigation
 **Added:** 20260528
-**Target Phase:** Phase 13
+**Target Phase:** Phase 13 (scope TBD after Step 3c investigation)
 
 **Description:**
 When multiple active carry-forward notes appear to cover the same work item, Phase 13's
@@ -1023,6 +1029,13 @@ note's record is set to dismissed with `forwarding_note_id` pointing to the surv
 
 The `forwarding_note_id` column is already present in `task_status` as of v1.16.0 — no
 additional migration needed.
+
+**Reopened:**
+Item 32 was incorrectly marked COMPLETE in Phase 13 Sprint 2. The Step 3c work that was
+delivered matches CF tasks to time entries (for completion/dismissal), which is a different
+problem from detecting semantically duplicate CF notes. Before this item can be properly
+scoped, a Step 3c investigation is needed to understand why CF tasks are not moving forward
+in practice — that finding may significantly reshape what this item needs to be.
 
 **Why Deferred:**
 Requires the Mistral 7B intent parser (Phase 13 Item 19). The `forwarding_note_id` column
@@ -1572,7 +1585,69 @@ Neither was in scope during the service layer work (v1.22.0).
 
 ---
 
-#### Item 46 — Block Kit Modal for Full Report Correction from Slack
+#### Item 46 — `build_weekly_prompt()` Edge Cases: Short Weeks, Thursday Draft, Internal Content Pollution
+
+**Status:** Open — Deferred to Phase 13
+**Priority:** Medium
+**Effort:** ~3–4 hours
+**Added:** 20260623
+**Target Phase:** Phase 13
+
+**Description:**
+Three known gaps in `build_weekly_prompt()` (introduced v2.1, partially corrected
+v2.2 in hotfix items-33-34-incomplete-impl) that were not addressed during the
+Item 34 work and require a coordinated fix:
+
+**Gap 1 — Short work weeks:**
+The confirmed-path condition is `weekdays_covered == {0, 1, 2, 3, 4}`. If Monday
+is a bank holiday and EOD was only run Tue–Fri, `weekdays_covered = {1, 2, 3, 4}`,
+which always falls back to raw data regardless of how many confirmed dailies exist.
+Any week with a holiday or unworked day is permanently blocked from the confirmed
+path.
+
+**Gap 2 — Thursday draft weekly:**
+On Thursday EOD the pipeline posts a Slack draft weekly report. At that point only
+Mon–Thu confirmed dailies exist (Friday hasn't run yet), so `weekdays_covered`
+never equals `{0, 1, 2, 3, 4}` and the confirmed path is unreachable. The Thursday
+draft always uses raw data even if Mon–Thu are fully confirmed.
+
+**Gap 3 — Internal content pollution:**
+`get_confirmed_dailies()` returns `daily_internal` reports. Those reports are built
+from all non-`client-report`/non-`info-only` notes — meaning they contain
+`internal-only`, `carry-forward`, and `blocker` tagged content that should never
+appear in a client-facing weekly report. Injecting confirmed daily summaries
+verbatim into the `weekly_client` prompt risks leaking internal information to the
+client.
+
+**Why Deferred:**
+Gaps 1 and 2 require a decision on the correct fallback threshold (count-based vs.
+date-range-aware vs. day-of-week-aware). Gap 3 requires either: (a) filtering the
+confirmed daily content before injection using tag-aware stripping, or (b) a
+separate `daily_client` report type whose content is safe to forward. Both
+approaches have downstream implications for the EOD pipeline and report schema that
+should be scoped as a coherent unit rather than patched ad-hoc.
+
+**Acceptance Criteria:**
+
+- [ ] Short work weeks: confirmed path activates when all *actual working days* in
+      the Mon–Fri range have a confirmed daily (e.g., 4 confirmed dailies on a
+      Monday-holiday week satisfies the threshold)
+- [ ] Thursday draft: confirmed path available for Thu EOD draft using the confirmed
+      dailies that exist at that point (Mon–Thu), without requiring Friday
+- [ ] Internal content filtering: confirmed daily summaries injected into the weekly
+      client prompt contain only client-safe content; `internal-only`,
+      `carry-forward`, and `blocker`-tagged content is excluded before injection
+- [ ] Existing behavior (raw data fallback) preserved when no confirmed dailies exist
+
+**Files Affected:**
+
+- `workmain/ai/prompt_builder.py` — `build_weekly_prompt()` threshold + filtering logic
+- `workmain/database/repositories/reports_repo.py` — `get_confirmed_dailies()` may
+  need a `client_safe=True` variant or the caller handles filtering
+
+---
+
+#### Item 47 — Block Kit Modal for Full Report Correction from Slack
 
 **Status:** Open — Deferred to Phase 14
 **Priority:** Medium
@@ -1593,14 +1668,12 @@ development machine. Pre-populate logic mirrors the CLI: use
 `corrected_content` if set, otherwise fall back to `content`.
 
 **Why Deferred:**
-Block Kit interactive modals require Slack to POST HTTP callbacks to a
-publicly accessible HTTPS endpoint (Slack's interactivity mechanism).
-The current implementation uses polling and has no inbound endpoint.
-Exposing an interactivity endpoint requires Cloudflare Tunnel or
-equivalent infrastructure, which is a longer-horizon item. The interim
-solution — `correction_note` flagging via Slack text + `workmain reports
-correct today` at the terminal — is implemented in v1.22.4 and covers
-the non-traveling case adequately.
+Block Kit interactive modals require Slack to deliver interaction payloads
+to WorkmAIn. With Socket Mode (v1.23.0), these payloads are delivered over
+the existing WebSocket — no tunnel or public endpoint required. The
+infrastructure prerequisite is resolved. Remaining work is application code:
+modal trigger via a Slack action, `views.open()` API call, `view_submission`
+event handling. Deferred to Phase 14 as a coherent interactive UX package.
 
 **Acceptance Criteria:**
 

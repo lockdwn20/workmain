@@ -604,7 +604,7 @@ Replace pull-based logging (user goes to system) with push-based capture
 
 Note: Sprint 1 complete (v1.19.0, 2026-05-29) — Ollama/Mistral 7B provider activation.
 Note: Sprint 2 complete (v1.21.0, 2026-06-12) — Slack inbound, EOD service layer, T1/T5.
-Note: Sprint 3 (planned) — T2/T3/T4/T6, Block Kit UX, session persistence.
+Note: Sprint 3 complete (v1.23.0, 2026-06-25) — Socket Mode, Block Kit UX, T2/T3/T4/T6, T5 session persistence.
 
 Note: Infrastructure — Mistral 7B via Ollama on Proxmox server (i9-12950HX, always-on,
 CPU-only inference). RTX 4070 GPU offloading available as future upgrade
@@ -641,7 +641,7 @@ No unsupervised database writes.
 ### Orchestration Layer (Sprint 2 — v1.21.0)
 
 - [x] Action executor: confirmed JSON actions → database writes via existing repositories
-- [ ] Confirmation UX: Slack Block Kit structured messages with Approve/Reject buttons (Sprint 3)
+- [x] Confirmation UX: Slack Block Kit structured messages with Approve/Reject buttons (Sprint 3 — v1.23.0)
 - [x] Fallback: plain conversational text if Block Kit unavailable
 - [x] Correction loop: corrected actions re-presented before final commit
 
@@ -654,24 +654,24 @@ No unsupervised database writes.
 - [x] Pending tasks with carry-forward context
 - [x] Unresolved observation count
 
-**T2 — Meeting Start Notification**
+**T2 — Meeting Start Notification (Sprint 3 — v1.23.0)**
 
-- [ ] Meeting start time reached (from workmAIn meeting records)
-- [ ] Meeting name, duration delivered to Slack DM
-- [ ] Prompt to begin note capture
+- [x] Meeting start time reached (from workmAIn meeting records)
+- [x] Meeting name, duration delivered to Slack DM
+- [x] Prompt to begin note capture
 
-**T3 — Meeting End Notification**
+**T3 — Meeting End Notification (Sprint 3 — v1.23.0)**
 
-- [ ] Meeting end time reached
-- [ ] Prompt to finalize notes and confirm tags
-- [ ] Task/project update prompts from meeting outcomes
+- [x] Meeting end time reached
+- [x] Prompt to finalize notes and confirm tags
+- [x] Task/project update prompts from meeting outcomes
 
-**T4 — Random Check-In**
+**T4 — Random Check-In (Sprint 3 — v1.23.0)**
 
-- [ ] Configurable interval (default: fires if >30 min since last entry, no more than 2hr gap)
-- [ ] "What are you working on right now?"
-- [ ] Response parsed → time entry + task/project update
-- [ ] Follow-up if response ambiguous: "Is that billable to [Project X]?"
+- [x] Configurable interval (DateTrigger at random 30–120 min after last notification)
+- [x] "What are you working on right now?"
+- [x] Response parsed → time entry + task/project update
+- [x] Suppressed on weekends, non-working days, outside 09:00–18:00, during active T5
 
 **T5 — End of Day Review (Conversational) (Sprint 2 — v1.21.0)**
 
@@ -681,30 +681,30 @@ No unsupervised database writes.
 - [x] Each item presented sequentially with confirmation/correction prompts
 - [x] Daily report marked confirmed after user approval
 
-**T6 — Inline Correction**
+**T6 — Inline Correction (Sprint 3 — v1.23.0)**
 
-- [ ] User responds with correction to a presented summary or report section
-- [ ] Mistral 7B parses correction intent
-- [ ] Targeted record updated in PostgreSQL (via PC-3 correction mechanism)
-- [ ] Updated version re-presented for confirmation
-- [ ] Correction flagged so it does not propagate to weekly in original form
+- [x] User responds with correction to a presented summary or report section
+- [x] Mistral 7B parses correction intent
+- [x] Targeted record updated in PostgreSQL (via PC-3 correction mechanism)
+- [x] Updated version re-presented for confirmation
+- [x] Correction flagged so it does not propagate to weekly in original form
 
 ### Tests (Sprint 1 + Sprint 2)
 
 - [x] `tests/test_ollama_provider.py` — Ollama provider, generate, availability check
 - [x] `tests/test_intent_parser.py` — intent parsing, action extraction
-- [x] `tests/test_slack_poller.py` — deduplication, message handling, channel stamp
+- [x] ~~`tests/test_slack_poller.py`~~ — superseded; deleted v1.23.0 (Socket Mode)
 - [x] `tests/test_action_executor.py` — action executor, confirmation gate, all action types
-- [ ] `tests/test_orchestration.py` — full confirmation flow, correction loop (Sprint 3)
+- [x] `tests/test_orchestration.py` — daemon dispatch, Block Kit, T2/T3/T4/T6, T5 persistence (Sprint 3 — v1.23.0)
 
 **Deliverables**:
 
 - [x] Ollama/Mistral 7B intent parsing on Proxmox (always-on) — Sprint 1
 - [x] Inbound Slack polling integrated into Phase 10 daemon — Sprint 2
 - [x] T1 Morning Briefing and T5 EOD Conversational Review operational — Sprint 2
-- [ ] T2/T3/T4/T6 trigger types — Sprint 3
-- [ ] Confirmation UX via Slack Block Kit — Sprint 3
-- [ ] Full correction loop wired to Phase 12 PC-3 mechanism — Sprint 3
+- [x] T2/T3/T4/T6 trigger types — Sprint 3 (v1.23.0)
+- [x] Confirmation UX via Slack Block Kit — Sprint 3 (v1.23.0)
+- [x] Full correction loop wired to Phase 12 PC-3 mechanism — Sprint 3 (v1.23.0)
 
 ---
 
