@@ -1,7 +1,7 @@
 """
 WorkmAIn Slack EOD Surface
-Slack EOD Surface v1.1
-20260611
+Slack EOD Surface v1.5
+20260625
 
 Slack I/O surface for the T1 morning briefing and T5 EOD conversational
 workflow. Plain-text I/O in Sprint 2. Block Kit UX upgrade in Sprint 3.
@@ -12,14 +12,28 @@ Version History:
 - v1.1: Phase 13 Sprint 2 Gate 6 — SlackEodSession dataclass, SlackEodManager
         with handle_start_eod/handle_reply/_advance_step; inline corrections
         routed through ConfirmationGate; control word handling before IntentParser
+- v1.2: Phase 13 Sprint 3 Gate 1 fix — SlackEodManager.__init__ accepts daemon
+        as second positional arg (required by WorkmAInDaemon); stored as
+        self._daemon for Path 3 T6 correction re-presentation (Gate 5)
+- v1.3: Phase 13 Sprint 3 Gate 2 — T5 step result messages use Block Kit section
+        and context blocks; tabular summaries use code blocks; control word
+        responses remain plain text; add _send_blocks() helper
+- v1.4: Phase 13 Sprint 3 Gate 5 — wire T6 Path 3: _execute_and_reprompt()
+        calls self._daemon._maybe_post_correction_summary() after execute()
+- v1.5: Phase 13 Sprint 3 Gate 6 — SlackEodSession.save/load/clear(); started_at
+        field; _SESSION_PATH constant; SlackEodManager calls save() after every
+        step, clear() on complete/stop; handle_start_eod guard message updated
 """
 
 from __future__ import annotations
 
+import json
 import logging
+import os
 from dataclasses import dataclass, field
-from datetime import date
-from typing import Dict, Optional
+from datetime import date, datetime, timedelta
+from pathlib import Path
+from typing import ClassVar, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -44,9 +58,9 @@ CONTROL_RESUME = frozenset({"continue", "resume"})
 class SlackEodSession:
     """In-memory state for a single T5 EOD session.
 
-    One session per user_id. If the daemon restarts during a pause, the
-    session is lost and the user must 'start eod' again. Session persistence
-    to disk is deferred to Sprint 3.
+    One session per user_id. Persisted to _SESSION_PATH (chmod 600) after
+    every step so daemon restarts can offer resume. Sessions older than 24 h
+    are discarded on load.
     """
     user_id: str
     channel_id: str
@@ -57,6 +71,65 @@ class SlackEodSession:
     completed: list
     skipped: list
     pending_action: Optional[dict] = None
+    started_at: datetime = field(default_factory=datetime.now)
+
+    # Class-level constant — excluded from __init__/__repr__/__eq__ by ClassVar
+    _SESSION_PATH: ClassVar[Path] = Path(
+        os.environ.get('WORKMAIN_STATE_DIR', '~/.workmain')
+    ).expanduser() / 'daemon' / 'eod_session.json'
+
+    def save(self) -> None:
+        """Persist session state to disk (chmod 600). Creates parent dirs."""
+        self._SESSION_PATH.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        payload = {
+            'user_id': self.user_id,
+            'channel_id': self.channel_id,
+            'target_date': str(self.target_date),
+            'current_step_idx': self.current_step_idx,
+            'completed': self.completed,
+            'skipped': self.skipped,
+            'started_at': self.started_at.isoformat(),
+        }
+        self._SESSION_PATH.write_text(json.dumps(payload, indent=2))
+        self._SESSION_PATH.chmod(0o600)
+
+    @classmethod
+    def load(cls) -> Optional['SlackEodSession']:
+        """Restore session from disk. Returns None if absent, stale, or corrupt."""
+        if not cls._SESSION_PATH.exists():
+            return None
+        try:
+            data = json.loads(cls._SESSION_PATH.read_text())
+            started_at = datetime.fromisoformat(data['started_at'])
+            if datetime.now() - started_at > timedelta(hours=24):
+                cls._SESSION_PATH.unlink(missing_ok=True)
+                return None
+
+            from workmain.workflows.eod_workflow import get_step_sequence
+            session = cls.__new__(cls)
+            session.user_id = data['user_id']
+            session.channel_id = data['channel_id']
+            session.target_date = date.fromisoformat(data['target_date'])
+            session.current_step_idx = data['current_step_idx']
+            session.completed = list(data['completed'])
+            session.skipped = list(data['skipped'])
+            session.started_at = started_at
+            session.steps = get_step_sequence(
+                weekday=session.target_date.weekday(),
+                skip=[],
+            )
+            session.paused = False
+            session.pending_action = None
+            return session
+
+        except (KeyError, ValueError, json.JSONDecodeError):
+            cls._SESSION_PATH.unlink(missing_ok=True)
+            return None
+
+    @classmethod
+    def clear(cls) -> None:
+        """Delete the persisted session file."""
+        cls._SESSION_PATH.unlink(missing_ok=True)
 
 
 # ---------------------------------------------------------------------------
@@ -74,8 +147,9 @@ class SlackEodManager:
     offers to resume or abort.
     """
 
-    def __init__(self, slack_client) -> None:
+    def __init__(self, slack_client, daemon) -> None:
         self._client = slack_client
+        self._daemon = daemon
         self._sessions: Dict[str, SlackEodSession] = {}
         self._intent_parser = None   # lazy
 
@@ -90,17 +164,10 @@ class SlackEodManager:
     def handle_start_eod(self, user_id: str, channel_id: str) -> None:
         """Start (or offer to resume/abort) a T5 EOD session."""
         if user_id in self._sessions:
-            existing = self._sessions[user_id]
-            idx = existing.current_step_idx
-            if idx < len(existing.steps):
-                step = existing.steps[idx]
-                self._send(
-                    channel_id,
-                    f"You have an EOD session in progress (step {step['num']} — {step['desc']}). "
-                    "Reply 'continue' to resume or 'stop' to abort.",
-                )
-            else:
-                self._send(channel_id, "Your EOD session is already completing.")
+            self._send(
+                channel_id,
+                "EOD already in progress — reply *resume* to continue or *stop* to end it.",
+            )
             return
 
         steps = self._build_steps()
@@ -209,44 +276,71 @@ class SlackEodManager:
                 )
             except Exception as e:
                 logger.error("EOD step '%s' raised unexpectedly: %s", step['key'], e)
-                result_msg = f"Step {step['num']} ({step['desc']}) failed: {e}"
-                self._send(
+                header = f"⚠ Step {step['num']} ({step['desc']}) failed: {e}"
+                footer = "Reply 'continue' to skip this step or 'stop' to abort EOD."
+                self._send_blocks(
                     session.channel_id,
-                    f"⚠ {result_msg}\nReply 'continue' to skip this step or 'stop' to abort EOD.",
+                    blocks=[
+                        {"type": "section", "text": {"type": "mrkdwn", "text": header}},
+                        {"type": "context", "elements": [{"type": "mrkdwn", "text": footer}]},
+                    ],
+                    fallback_text=f"{header}\n{footer}",
                 )
                 session.paused = True
+                session.save()
                 return
 
             if result.status == EodStepStatus.COMPLETED:
                 session.completed.append(step['key'])
                 session.current_step_idx += 1
                 msg = result.message or f"Step {step['num']} — {step['desc']} complete."
-                self._send(session.channel_id, f"✓ {msg}")
+                self._send_blocks(
+                    session.channel_id,
+                    blocks=[{"type": "section", "text": {"type": "mrkdwn", "text": f"*✓ {msg}*"}}],
+                    fallback_text=f"✓ {msg}",
+                )
+                session.save()
                 # Loop to next step automatically
 
             elif result.status == EodStepStatus.SKIPPED:
                 session.skipped.append(step['key'])
                 session.current_step_idx += 1
+                session.save()
                 # Advance silently
 
             elif result.status == EodStepStatus.PAUSED:
                 session.paused = True
                 pause_msg = result.pause_reason or result.message or f"Step {step['num']} requires your input."
                 hint = result.pause_resume_hint or "Reply when ready."
-                self._send(session.channel_id, f"{pause_msg}\n{hint}")
+                self._send_blocks(
+                    session.channel_id,
+                    blocks=[
+                        {"type": "section", "text": {"type": "mrkdwn", "text": pause_msg}},
+                        {"type": "context", "elements": [{"type": "mrkdwn", "text": hint}]},
+                    ],
+                    fallback_text=f"{pause_msg}\n{hint}",
+                )
+                session.save()
                 return
 
             elif result.status == EodStepStatus.FAILED:
                 session.paused = True
                 error_detail = result.error or "Unknown error."
-                self._send(
+                header = f"⚠ Step {step['num']} ({step['desc']}) failed: {error_detail}"
+                footer = "Reply 'continue' to skip this step or 'stop' to abort EOD."
+                self._send_blocks(
                     session.channel_id,
-                    f"⚠ Step {step['num']} ({step['desc']}) failed: {error_detail}\n"
-                    "Reply 'continue' to skip this step or 'stop' to abort EOD.",
+                    blocks=[
+                        {"type": "section", "text": {"type": "mrkdwn", "text": header}},
+                        {"type": "context", "elements": [{"type": "mrkdwn", "text": footer}]},
+                    ],
+                    fallback_text=f"{header}\n{footer}",
                 )
+                session.save()
                 return
 
         # All steps done
+        SlackEodSession.clear()
         self._send_completion_summary(session)
         del self._sessions[session.user_id]
 
@@ -266,7 +360,14 @@ class SlackEodManager:
         if result.status == EodStepStatus.PAUSED:
             pause_msg = result.pause_reason or result.message or "Step updated."
             hint = result.pause_resume_hint or "Reply when ready."
-            self._send(session.channel_id, f"{pause_msg}\n{hint}")
+            self._send_blocks(
+                session.channel_id,
+                blocks=[
+                    {"type": "section", "text": {"type": "mrkdwn", "text": pause_msg}},
+                    {"type": "context", "elements": [{"type": "mrkdwn", "text": hint}]},
+                ],
+                fallback_text=f"{pause_msg}\n{hint}",
+            )
         elif result.status == EodStepStatus.COMPLETED:
             session.completed.append(step['key'])
             session.current_step_idx += 1
@@ -306,6 +407,7 @@ class SlackEodManager:
         try:
             result = ActionExecutor(db_session).execute(action)
             self._send(session.channel_id, result.message)
+            self._daemon._maybe_post_correction_summary(result, action)
         except ActionExecutorError as e:
             self._send(session.channel_id, f"Error: {e}")
         except Exception as e:
@@ -322,11 +424,16 @@ class SlackEodManager:
 
     def _abort_session(self, user_id: str, session: SlackEodSession) -> None:
         """Abort an active session and send a summary."""
+        SlackEodSession.clear()
         completed_str = ", ".join(session.completed) if session.completed else "—"
         skipped_str = ", ".join(session.skipped) if session.skipped else "—"
-        self._send(
+        self._send_blocks(
             session.channel_id,
-            f"EOD aborted.\nCompleted: {completed_str}\nSkipped: {skipped_str}",
+            blocks=[
+                {"type": "section", "text": {"type": "mrkdwn", "text": "*EOD aborted.*"}},
+                {"type": "section", "text": {"type": "mrkdwn", "text": f"```Completed: {completed_str}\nSkipped:   {skipped_str}```"}},
+            ],
+            fallback_text=f"EOD aborted.\nCompleted: {completed_str}\nSkipped: {skipped_str}",
         )
         del self._sessions[user_id]
 
@@ -334,9 +441,13 @@ class SlackEodManager:
         """Send the EOD completion summary DM."""
         completed_str = ", ".join(session.completed) if session.completed else "—"
         skipped_str = ", ".join(session.skipped) if session.skipped else "—"
-        self._send(
+        self._send_blocks(
             session.channel_id,
-            f"✅ EOD complete.\nCompleted: {completed_str}\nSkipped: {skipped_str}",
+            blocks=[
+                {"type": "section", "text": {"type": "mrkdwn", "text": "*✅ EOD complete.*"}},
+                {"type": "section", "text": {"type": "mrkdwn", "text": f"```Completed: {completed_str}\nSkipped:   {skipped_str}```"}},
+            ],
+            fallback_text=f"✅ EOD complete.\nCompleted: {completed_str}\nSkipped: {skipped_str}",
         )
 
     # ------------------------------------------------------------------
@@ -349,11 +460,19 @@ class SlackEodManager:
         return get_step_sequence(date.today().weekday(), skip=[])
 
     def _send(self, channel_id: str, text: str) -> None:
-        """Post a DM; logs failures as warnings, never raises."""
+        """Post a plain-text DM; logs failures as warnings, never raises."""
         try:
             self._client.post_message(channel_id, text)
         except Exception as e:
             logger.warning("SlackEodManager: send failed to %s: %s", channel_id, e)
+
+    def _send_blocks(self, channel_id: str, blocks: list, fallback_text: str) -> None:
+        """Post a Block Kit message DM; falls back to plain text on error."""
+        try:
+            self._client.post_blocks(channel_id, blocks, fallback_text)
+        except Exception as e:
+            logger.warning("SlackEodManager: send_blocks failed to %s: %s — falling back", channel_id, e)
+            self._send(channel_id, fallback_text)
 
     def _get_intent_parser(self):
         """Lazily instantiate IntentParser; returns None on init failure."""

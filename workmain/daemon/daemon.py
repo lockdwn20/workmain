@@ -1,11 +1,12 @@
 """
 WorkmAIn Notification Daemon
-daemon.py v1.9
-20260612
+daemon.py v1.13
+20260625
 
 Entry point for the always-on background daemon process.
-Manages the APScheduler instance, graceful shutdown, and
-coordinates inspection + delivery on each scheduled trigger.
+WorkmAInDaemon owns the Slack socket connection, EOD manager, and
+outbound DM dispatch. Replaces the module-level SlackMessageDispatcher
+and SlackPoller infrastructure.
 
 Run via systemd user service (workmain-notify.service).
 Do not run as root — enforced by _check_not_root().
@@ -34,6 +35,21 @@ Version History:
         exception in EOD session handling never falls through to normal dispatch
 - v1.9: Phase 13 Sprint 2 Gate 6 fix — move build_morning_briefing call inside
         DB session scope so task.note lazy load succeeds (DetachedInstanceError)
+- v1.10: Phase 13 Sprint 3 Gate 1 — WorkmAInDaemon class replaces
+         SlackMessageDispatcher and module-level main() wiring; absorbs inbound
+         message dispatch, outbound DM helpers, and EOD manager ownership;
+         _register_signal_handlers updated to on_shutdown: Callable; SlackPoller
+         and _build_slack_poller removed; Socket Mode via WorkmAInSocketClient
+- v1.11: Phase 13 Sprint 3 Gate 2 — handle_block_action() implemented (wm_approve
+         executes via ActionExecutor; wm_reject sends cancellation); _dispatch_message()
+         uses post_blocks() for confirmations; _maybe_post_correction_summary() stub
+         added (Gate 5 implementation)
+- v1.12: Phase 13 Sprint 3 Gate 5 — _maybe_post_correction_summary() implemented
+         (T6: posts Block Kit report summary after correct_report / write_correction_note
+         using entity_id + get_by_id()); Path 2 (typed confirm) wired in _execute_action()
+- v1.13: Phase 13 Sprint 3 Gate 6 — _maybe_offer_eod_resume() and
+         _send_eod_resume_offer() implemented; loads persisted T5 session on
+         daemon start and injects into eod_manager._sessions
 """
 
 import json
@@ -44,8 +60,11 @@ import stat
 import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from typing import Callable, Optional
+
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.date import DateTrigger
+from slack_sdk import WebClient
 
 from workmain.daemon.delivery import deliver
 from workmain.daemon.inspection_engine import InspectionEngine
@@ -53,11 +72,12 @@ from workmain.daemon.narration import narrate
 from workmain.database.connection import get_db
 from workmain.database.repositories.notification_repository import NotificationConfigRepository
 from workmain.database.repositories.schedule_repository import ScheduleExceptionRepository
-from workmain.daemon.scheduler import (
-    build_scheduler,
-    register_slack_poll_job,
-    register_morning_briefing_job,
-)
+import workmain.daemon.scheduler as _sched_module
+from workmain.daemon.scheduler import build_scheduler, register_all_jobs, scheduler_start, scheduler_stop
+from workmain.integrations.slack import auth
+from workmain.integrations.slack.socket_client import WorkmAInSocketClient
+from workmain.integrations.slack.slack_eod import SlackEodManager, SlackEodSession
+from workmain.orchestration.confirmation_gate import ConfirmationGate
 
 
 # ---------------------------------------------------------------------------
@@ -103,19 +123,14 @@ def _configure_logging() -> None:
     )
 
 
-def _register_signal_handlers(scheduler: BlockingScheduler) -> None:
+def _register_signal_handlers(on_shutdown: Callable) -> None:
     """Register SIGTERM and SIGINT handlers for graceful shutdown."""
-    def _shutdown(signum, frame):
-        logging.info("Received signal %d — shutting down scheduler.", signum)
-        scheduler.shutdown(wait=False)
+    def _handle(signum, frame) -> None:
+        logging.info("Received signal %d — shutting down.", signum)
+        on_shutdown()
 
-    signal.signal(signal.SIGTERM, _shutdown)
-    signal.signal(signal.SIGINT, _shutdown)
-
-
-def _build_scheduler() -> BlockingScheduler:
-    """Build and return the APScheduler instance."""
-    return build_scheduler()
+    signal.signal(signal.SIGTERM, _handle)
+    signal.signal(signal.SIGINT, _handle)
 
 
 # ---------------------------------------------------------------------------
@@ -129,7 +144,7 @@ def _daemon_state_path(filename: str) -> Path:
 
 
 def _write_last_inspection(observations: list, summary: str,
-                           target_date: date) -> None:
+                            target_date: date) -> None:
     """Write inspection results to the daemon state file for status display.
 
     Shared format with eod.py — both write last_inspection.json.
@@ -323,199 +338,222 @@ def _warmup_ollama() -> None:
 
 def _count_unresolved_observations() -> int:
     """Return count of unacknowledged observations from last_inspection.json."""
-    import json as _json
     path = _daemon_state_path('last_inspection.json')
     if not path.exists():
         return 0
     try:
-        data = _json.loads(path.read_text())
+        data = json.loads(path.read_text())
         return sum(1 for o in data.get('observations', []) if not o.get('acknowledged'))
     except Exception:
         return 0
 
 
-def _build_morning_briefing_handler(client):
-    """Return a zero-argument callable that sends the T1 morning briefing DM.
-
-    Reads meetings and tasks from DB, unresolved observations from the daemon
-    state file, then posts the briefing to the operator's DM channel.
-    Failures are logged as warnings — never raised.
-    """
-    from workmain.integrations.slack.auth import get_operator_user_id
-    from workmain.integrations.slack.slack_eod import build_morning_briefing
-
-    def _send_morning_briefing() -> None:
-        import json as _json
-        from datetime import date
-
-        logging.info("T1 morning briefing triggered")
-
-        # Resolve channel — prefer cached value in state file
-        state_file = _daemon_state_path('slack_poll_state.json')
-        channel_id = None
-        if state_file.exists():
-            try:
-                channel_id = _json.loads(state_file.read_text()).get('channel_id')
-            except Exception:
-                pass
-
-        if not channel_id:
-            operator_user_id = get_operator_user_id()
-            if not operator_user_id:
-                logging.warning("Morning briefing: operator_user_id not set — skipping")
-                return
-            try:
-                channel_id = client.get_dm_channel(operator_user_id)
-            except Exception as e:
-                logging.warning("Morning briefing: could not open DM channel: %s", e)
-                return
-
-        # Fetch meetings and tasks, then build briefing text — all inside the
-        # session scope so task.note lazy loads can proceed before close().
-        from workmain.database.repositories.meetings_repo import MeetingsRepository
-        from workmain.database.repositories.task_status_repo import TaskStatusRepository
-        db = get_db()
-        session = db.get_session()
-        try:
-            all_meetings = MeetingsRepository(session).get_by_date(date.today())
-            meetings = [m for m in all_meetings if not m.is_cancelled]
-            tasks = TaskStatusRepository(session).get_filtered(status='active', limit=0)
-            unresolved = _count_unresolved_observations()
-            text = build_morning_briefing(meetings, tasks, unresolved)
-        except Exception as e:
-            logging.warning("Morning briefing: DB error: %s", e)
-            return
-        finally:
-            session.close()
-
-        try:
-            client.post_message(channel_id, text)
-            logging.info("Morning briefing sent (channel=%s)", channel_id)
-        except Exception as e:
-            logging.warning("Morning briefing: send failed: %s", e)
-
-    return _send_morning_briefing
-
-
 # ---------------------------------------------------------------------------
-# Slack inbound polling — message dispatcher
+# WorkmAInDaemon
 # ---------------------------------------------------------------------------
 
-class SlackMessageDispatcher:
-    """Routes inbound Slack DMs through intent parsing, confirmation, and execution.
+logger = logging.getLogger(__name__)
 
-    Maintains one pending action per user in memory. A new message while an
-    action is pending cancels the pending action and processes the new message
-    fresh (spec AD-S2-7).
 
-    Gate 4: IntentParser + ConfirmationGate + ActionExecutor wired.
-    Gate 6: T5 EOD session manager will be added here.
+class WorkmAInDaemon:
+    """Central orchestrator — owns Slack socket, EOD manager, outbound DMs.
+
+    Replaces SlackMessageDispatcher and the module-level main() wiring.
+    Scheduler functions remain module-level in scheduler.py and receive
+    a daemon reference via closures, matching the existing morning-briefing
+    closure pattern.
     """
 
-    def __init__(self, client) -> None:
-        from workmain.orchestration.confirmation_gate import ConfirmationGate
-        from workmain.integrations.slack.slack_eod import SlackEodManager
-        self._client = client
+    def __init__(self) -> None:
+        self._socket_client: Optional[WorkmAInSocketClient] = None
+        self._eod_manager: Optional[SlackEodManager] = None  # set in start()
+        self._dm_channel: Optional[str] = None
+        self._pending: dict = {}         # {user_id: action_dict}
         self._gate = ConfirmationGate()
-        self._pending: dict = {}        # {user_id: action_dict}
-        self._eod_manager = SlackEodManager(client)
-        self._intent_parser = None      # lazy — loaded on first parse
+        self._intent_parser = None       # lazy
 
-    def handle_message(self, message: dict) -> None:
-        """Entry point called by SlackPoller for each new inbound DM."""
-        user_id = message.get('user', '')
-        text = (message.get('text') or '').strip()
-        channel = message.get('channel', '')
+    def start(self) -> None:
+        """Initialise and run. scheduler_start() is blocking — must be last."""
+        build_scheduler()      # initialises module-level _scheduler; must be first
+        _check_not_root()
+        _ensure_daemon_dirs()
+        _configure_logging()
+        logging.info("workmain-notify daemon starting.")
 
-        # Ignore bot messages and messages without text
-        if not text or not user_id or not channel or message.get('bot_id'):
+        bot_token = auth.get_token()
+        app_token = auth.get_socket_token()
+        operator_user_id = auth.get_operator_user_id()
+
+        _warmup_ollama()
+
+        self._dm_channel = self._resolve_dm_channel(bot_token, operator_user_id)
+
+        self._socket_client = WorkmAInSocketClient(
+            app_token=app_token,
+            bot_token=bot_token,
+            message_handler=self.handle_message,
+            block_action_handler=self.handle_block_action,
+        )
+
+        # SlackEodManager requires socket_client (for _send) and daemon
+        # (for _maybe_post_correction_summary on Path 3 corrections).
+        self._eod_manager = SlackEodManager(self._socket_client, self)
+
+        _register_signal_handlers(on_shutdown=self.stop)
+
+        self._socket_client.start()           # non-blocking — before scheduler
+        self._maybe_offer_eod_resume()        # restore persisted T5 session (Gate 6)
+        register_all_jobs(daemon=self)        # register APScheduler jobs
+        logging.info("workmain-notify daemon running.")
+        scheduler_start()                     # BLOCKING — must be last
+
+    def stop(self) -> None:
+        """Cleanly stop socket and scheduler."""
+        if self._socket_client:
+            self._socket_client.stop()
+        scheduler_stop()
+
+    def post_message(self, text: str) -> None:
+        """Post plain text to operator DM."""
+        if self._dm_channel and self._socket_client:
+            self._socket_client.post_message(self._dm_channel, text)
+        else:
+            logger.warning('WorkmAInDaemon.post_message: DM channel not resolved')
+
+    def post_blocks(self, blocks: list, fallback_text: str) -> None:
+        """Post Block Kit message to operator DM."""
+        if self._dm_channel and self._socket_client:
+            self._socket_client.post_blocks(self._dm_channel, blocks, fallback_text)
+        else:
+            logger.warning('WorkmAInDaemon.post_blocks: DM channel not resolved')
+
+    def handle_message(self, event: dict) -> None:
+        """Inbound DM message — update channel cache, dispatch."""
+        user_id = event.get('user', '')
+        text = (event.get('text') or '').strip()
+        channel = event.get('channel', '')
+
+        if not text or not user_id or not channel or event.get('bot_id'):
             return
-        if message.get('subtype'):
+        if event.get('subtype'):
             return
 
-        logging.info("Slack DM received: user=%s text=%r", user_id, text)
+        # Self-correct cached channel if startup resolution failed
+        if channel:
+            self._dm_channel = channel
 
-        # Active EOD session takes priority over the confirmation gate.
-        # Wrap in try/except so an exception in handle_reply never falls through
-        # to the normal dispatch path — instead we clean up the session and notify.
+        logger.info("Slack DM received: user=%s text=%r", user_id, text)
+
+        # Active EOD session takes priority over the confirmation gate
         if self._eod_manager.has_session(user_id):
             try:
                 self._eod_manager.handle_reply(user_id, text)
             except Exception as e:
-                logging.error("EOD handle_reply raised for user=%s: %s", user_id, e)
+                logger.error("EOD handle_reply raised for user=%s: %s", user_id, e)
                 self._eod_manager._sessions.pop(user_id, None)
-                self._send(channel, "EOD session error — please reply 'start eod' to begin again.")
+                self.post_message("EOD session error — please reply 'start eod' to begin again.")
             return
 
         if user_id in self._pending:
             pending = self._pending.pop(user_id)
             if self._gate.is_confirmation(text):
-                self._execute(pending, channel)
+                self._execute_action(pending)
                 return
             elif self._gate.is_rejection(text):
-                self._send(channel, "Cancelled.")
+                self.post_message('Cancelled.')
                 return
             # Unrecognised reply — cancel pending, process fresh
-            logging.info("Pending action cancelled by new message from user=%s", user_id)
+            logger.info("Pending action cancelled by new message from user=%s", user_id)
 
-        self._dispatch(user_id, text, channel)
+        self._dispatch_message(user_id, text)
+
+    def handle_block_action(self, payload: dict) -> None:
+        """Handle Slack block_actions interactive payload."""
+        actions = payload.get('actions', [])
+        if not actions:
+            return
+        action = actions[0]
+        action_id = action.get('action_id', '')
+
+        if action_id == 'wm_approve':
+            try:
+                action_dict = json.loads(action['value'])
+            except (KeyError, json.JSONDecodeError) as e:
+                logger.error("handle_block_action: could not parse action value: %s", e)
+                self.post_message("Error: could not read action data.")
+                return
+            db = get_db()
+            session = db.get_session()
+            try:
+                from workmain.orchestration.action_executor import ActionExecutor, ActionExecutorError
+                result = ActionExecutor(session).execute(action_dict)
+                self.post_message(result.message or 'Action completed.')
+                self._maybe_post_correction_summary(result, action_dict)
+            except ActionExecutorError as e:
+                self.post_message(f"Error: {e}")
+            except Exception as e:
+                logger.error("handle_block_action execute error: %s", e)
+                self.post_message("An unexpected error occurred.")
+            finally:
+                session.close()
+
+        elif action_id == 'wm_reject':
+            self.post_message('Action rejected.')
+
+        else:
+            self.post_message('Unrecognised interaction.')
 
     # ------------------------------------------------------------------
-    # Internal helpers
+    # Internal dispatch helpers
     # ------------------------------------------------------------------
 
-    def _dispatch(self, user_id: str, text: str, channel: str) -> None:
+    def _dispatch_message(self, user_id: str, text: str) -> None:
         """Parse intent and route to confirmation gate or direct response."""
         parser = self._get_intent_parser()
         if parser is None:
-            self._send(channel, "Intent parsing unavailable — Ollama unreachable.")
+            self.post_message("Intent parsing unavailable — Ollama unreachable.")
             return
 
         try:
             action = parser.parse(text)
         except Exception as e:
-            logging.warning("Intent parse error: %s", e)
-            self._send(channel, "Sorry, I couldn't understand that. Try rephrasing.")
+            logger.warning("Intent parse error: %s", e)
+            self.post_message("Sorry, I couldn't understand that. Try rephrasing.")
             return
 
         action_type = action.get("action", "unknown")
 
         if action_type == "unknown":
             follow_up = action.get("follow_up", "What would you like to do?")
-            self._send(channel, follow_up)
+            self.post_message(follow_up)
             return
 
         if action_type == "start_eod":
-            self._eod_manager.handle_start_eod(user_id, channel)
+            self._eod_manager.handle_start_eod(user_id, self._dm_channel)
             return
 
-        prompt = self._gate.format_prompt(action)
         self._pending[user_id] = action
-        self._send(channel, prompt)
+        self.post_blocks(
+            blocks=self._gate.format_blocks(action),
+            fallback_text=self._gate.format_prompt(action),
+        )
 
-    def _execute(self, action: dict, channel: str) -> None:
+    def _execute_action(self, action: dict) -> None:
         """Execute a confirmed action and report the result."""
-        from workmain.database.connection import get_db
         from workmain.orchestration.action_executor import ActionExecutor, ActionExecutorError
         db = get_db()
         session = db.get_session()
         try:
             result = ActionExecutor(session).execute(action)
-            self._send(channel, result.message)
+            self.post_message(result.message)
+            self._maybe_post_correction_summary(result, action)
         except ActionExecutorError as e:
-            self._send(channel, f"Error: {e}")
+            self.post_message(f"Error: {e}")
         except Exception as e:
-            logging.error("Unexpected execution error: %s", e)
-            self._send(channel, "An unexpected error occurred. Please try again.")
+            logger.error("Unexpected execution error: %s", e)
+            self.post_message("An unexpected error occurred. Please try again.")
         finally:
             session.close()
-
-    def _send(self, channel: str, text: str) -> None:
-        """Send a DM reply, logging failures as warnings (never raises)."""
-        try:
-            self._client.post_message(channel, text)
-        except Exception as e:
-            logging.warning("Failed to send DM to %s: %s", channel, e)
 
     def _get_intent_parser(self):
         """Lazily instantiate IntentParser; returns None on init failure."""
@@ -524,32 +562,96 @@ class SlackMessageDispatcher:
                 from workmain.ai.intent_parser import IntentParser
                 self._intent_parser = IntentParser()
             except Exception as e:
-                logging.warning("IntentParser init failed: %s", e)
+                logger.warning("IntentParser init failed: %s", e)
                 return None
         return self._intent_parser
 
+    # ------------------------------------------------------------------
+    # Startup helpers
+    # ------------------------------------------------------------------
 
-def _build_slack_poller():
-    """Instantiate SlackPoller with the full message dispatcher.
+    def _resolve_dm_channel(
+        self, bot_token: str, operator_user_id: Optional[str]
+    ) -> Optional[str]:
+        """Proactively resolve operator DM channel at startup (non-fatal)."""
+        if not operator_user_id:
+            logger.warning('_resolve_dm_channel: operator_user_id not set — skipping')
+            return None
+        try:
+            resp = WebClient(token=bot_token).conversations_open(
+                users=[operator_user_id]
+            )
+            channel_id = resp['channel']['id']
+            logger.info("DM channel resolved at startup: %s", channel_id)
+            return channel_id
+        except Exception as e:
+            logger.warning(
+                'Could not pre-resolve DM channel: %s — '
+                'triggers deferred until first inbound message', e
+            )
+            return None
 
-    Returns None and logs a warning if the Slack bot token is unavailable —
-    the daemon must not crash on missing credentials.
-    """
-    from workmain.integrations.slack import SlackPoller, get_slack_client, SlackAuthError
-    try:
-        client = get_slack_client()
-        state_dir = (
-            Path(os.environ.get('WORKMAIN_STATE_DIR', '~/.workmain')).expanduser()
-            / 'daemon'
+    def _maybe_offer_eod_resume(self) -> None:
+        """Restore persisted T5 session on daemon start and offer resume via DM."""
+        from workmain.integrations.slack.slack_eod import SlackEodSession
+        session = SlackEodSession.load()
+        if session is None:
+            return
+        if self._eod_manager is None:
+            return
+        self._eod_manager._sessions[session.user_id] = session
+        logger.info(
+            "Restored T5 EOD session for user=%s at step=%d",
+            session.user_id, session.current_step_idx,
         )
-        dispatcher = SlackMessageDispatcher(client)
-        return SlackPoller(client, dispatcher.handle_message, state_dir)
-    except SlackAuthError as e:
-        logging.warning("Slack auth unavailable — poll loop disabled: %s", e)
-        return None
-    except Exception as e:
-        logging.warning("SlackPoller build failed (non-fatal): %s", e)
-        return None
+        self._send_eod_resume_offer(session)
+
+    def _send_eod_resume_offer(self, session) -> None:
+        """Post a resume offer DM for a disk-restored T5 session."""
+        from workmain.integrations.slack.slack_eod import SlackEodSession
+        step_idx = session.current_step_idx
+        if step_idx < len(session.steps):
+            step = session.steps[step_idx]
+            self.post_message(
+                f"Welcome back. You have an EOD session in progress "
+                f"(step {step['num']} — {step['desc']}). "
+                f"Reply *resume* to continue or *stop* to end it."
+            )
+        else:
+            SlackEodSession.clear()
+            self._eod_manager._sessions.pop(session.user_id, None)
+
+    def _maybe_post_correction_summary(self, result, action_dict: dict) -> None:
+        """T6 — Post updated report summary after a correction action succeeds."""
+        if not result.success:
+            return
+        if action_dict.get('action') not in ('correct_report', 'write_correction_note'):
+            return
+        if not result.entity_id:
+            self.post_message('Correction applied.')
+            return
+        from workmain.database.repositories.reports_repo import ReportsRepository
+        db = get_db()
+        session = db.get_session()
+        try:
+            report = ReportsRepository(session).get_by_id(result.entity_id)
+            if report:
+                blocks = [
+                    {'type': 'section', 'text': {'type': 'mrkdwn',
+                        'text': f'*Report updated* — {report.report_date}'}},
+                    {'type': 'section', 'text': {'type': 'mrkdwn',
+                        'text': f'Status: `{report.status}`'}},
+                ]
+                if report.correction_note:
+                    blocks.append({'type': 'section', 'text': {'type': 'mrkdwn',
+                        'text': f'Correction note: {report.correction_note}'}})
+                self.post_blocks(blocks, fallback_text='Report updated.')
+            else:
+                self.post_message('Correction applied.')
+        except Exception:
+            self.post_message('Correction applied.')
+        finally:
+            session.close()
 
 
 # ---------------------------------------------------------------------------
@@ -558,21 +660,8 @@ def _build_slack_poller():
 
 def main() -> None:
     """Daemon entry point."""
-    _check_not_root()
-    _ensure_daemon_dirs()
-    _configure_logging()
-    logging.info("workmain-notify daemon starting.")
-    scheduler = _build_scheduler()
-    _register_signal_handlers(scheduler)
-    _schedule_meeting_reminders(date.today(), scheduler)
-    _warmup_ollama()
-    poller = _build_slack_poller()
-    if poller is not None:
-        register_slack_poll_job(poller)
-        briefing_handler = _build_morning_briefing_handler(poller._client)
-        register_morning_briefing_job(briefing_handler)
-    logging.info("workmain-notify daemon running.")
-    scheduler.start()
+    daemon = WorkmAInDaemon()
+    daemon.start()
 
 
 if __name__ == '__main__':

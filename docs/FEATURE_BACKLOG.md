@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v5.26
-20260624
+Feature Backlog v5.27
+20260625
 
 # WorkmAIn Feature Backlog
 
@@ -66,6 +66,9 @@ Items deferred from various phases for future implementation.
 - v5.26 (20260624): Item 47 added — Block Kit modal for full report
   correction from Slack (Phase 14; requires Cloudflare Tunnel
   interactivity endpoint).
+- v5.27 (20260625): Item 21 closed — superseded by Socket Mode (v1.23.0);
+  Item 47 "Why Deferred" updated — Socket Mode resolves infrastructure
+  prerequisite; tunnel no longer required.
 
 ---
 
@@ -700,30 +703,28 @@ context managed via `workmain clients set active <name>` / `workmain clients sta
 
 #### Item 21 — Cloudflare Tunnel / Slack Events API Upgrade
 
-**Status:** Deferred Indefinitely (revisit if home lab infrastructure expands)
+**Status:** Complete — Superseded by Socket Mode (v1.23.0). Socket Mode
+delivers push event delivery via outbound WebSocket without a public
+endpoint or tunnel. Cloudflare Tunnel is no longer required for the
+Slack integration.
 **Priority:** Low
 **Effort:** ~3–4 hours
 **Added:** 20260421
-**Target Phase:** None (optional upgrade post-Phase 13)
+**Closed:** 20260625
+**Target Phase:** None — superseded
 
 **Description:**
-Phase 13 uses Slack Web API polling (~10 second latency) for inbound messages. The Slack Events API (webhook/push model) would reduce latency to ~1 second but requires a publicly reachable HTTPS endpoint from WSL. Cloudflare Tunnel is the cleanest solution — creates a persistent public URL forwarding to localhost without port forwarding or a static IP.
+Phase 13 Sprint 2 used Slack Web API polling (~10 second latency) for inbound
+messages. Phase 13 Sprint 3 replaced polling with Slack Socket Mode — a
+persistent outbound WebSocket that delivers push events without requiring a
+publicly reachable endpoint. Cloudflare Tunnel is no longer needed.
 
-**When to reconsider:**
-
-- If home lab gains other services that benefit from Cloudflare Tunnel
-- If polling latency becomes noticeable friction in daily use
-- If Cloudflare Tunnel is set up for other reasons and the upgrade becomes low-cost
-
-**Why Deferred:**
+**Original "Why Deferred":**
 Polling is sufficient for Phase 13. Cloudflare Tunnel adds infrastructure complexity and a new failure mode (tunnel outage = silent loss of inbound messages) before the base path is proven.
 
-**Acceptance Criteria (if implemented):**
-
-- [ ] Cloudflare Tunnel configured and running as systemd service
-- [ ] Slack Events API webhook handler replaces poll loop
-- [ ] Tunnel outage falls back to polling gracefully
-- [ ] Tunnel health monitored and logged
+**Resolution:** `WorkmAInSocketClient` (v1.23.0) connects via `SLACK_SOCKET_TOKEN`
+(xapp- token) on startup. Inbound messages and Block Kit button interactions are
+delivered over the same WebSocket. No inbound port, no tunnel, no public endpoint.
 
 ---
 
@@ -1667,14 +1668,12 @@ development machine. Pre-populate logic mirrors the CLI: use
 `corrected_content` if set, otherwise fall back to `content`.
 
 **Why Deferred:**
-Block Kit interactive modals require Slack to POST HTTP callbacks to a
-publicly accessible HTTPS endpoint (Slack's interactivity mechanism).
-The current implementation uses polling and has no inbound endpoint.
-Exposing an interactivity endpoint requires Cloudflare Tunnel or
-equivalent infrastructure, which is a longer-horizon item. The interim
-solution — `correction_note` flagging via Slack text + `workmain reports
-correct today` at the terminal — is implemented in v1.22.4 and covers
-the non-traveling case adequately.
+Block Kit interactive modals require Slack to deliver interaction payloads
+to WorkmAIn. With Socket Mode (v1.23.0), these payloads are delivered over
+the existing WebSocket — no tunnel or public endpoint required. The
+infrastructure prerequisite is resolved. Remaining work is application code:
+modal trigger via a Slack action, `views.open()` API call, `view_submission`
+event handling. Deferred to Phase 14 as a coherent interactive UX package.
 
 **Acceptance Criteria:**
 

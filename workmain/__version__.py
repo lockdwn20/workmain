@@ -1,9 +1,31 @@
 """
 WorkmAIn Package Version
-Version v1.22.4
-20260624
+Version v1.23.0
+20260625
 
 Version History:
+- v1.23.0: Phase 13 Sprint 3 — Socket Mode, Block Kit UX, T2/T3/T4/T6,
+           T5 persistence. WorkmAInDaemon class: absorbs SlackMessageDispatcher;
+           owns socket_client, eod_manager, dm_channel; proactive DM channel
+           resolution at startup via conversations.open(). WorkmAInSocketClient
+           replaces SlackPoller; ack-within-3s then background-thread dispatch;
+           in-memory event_ts deduplication (60s window). Block Kit Approve/Reject
+           buttons for all action-executor confirmations (wm_approve/wm_reject);
+           ConfirmationGate.format_blocks() added; format_prompt() retained as
+           fallback_text. T2/T3 DateTrigger per meeting (start_time/end_time as
+           direct datetimes); 15-min rescan job for impromptu meetings; is_cancelled
+           filter. T4: DateTrigger at random(30-120) min anchored to last notification
+           (T2/T3/T4 all reset the window); suppressed on weekends, non_working_days,
+           outside 09:00-18:00, and during active T5 session. T6 correction
+           re-presentation wired on all three execution paths (Block Kit button,
+           typed confirm, T5 EOD manager). T5 session persisted to
+           ~/.workmain/daemon/eod_session.json (chmod 600); 24h staleness eviction;
+           daemon-restart resume offer 5s after socket connects.
+           config/non_working_days.json added. test_slack_poller.py deleted (16
+           tests); test_orchestration.py added (45 tests). Suite: 671 passed.
+           daemon.py v1.13; scheduler.py v1.8; socket_client.py v1.0;
+           confirmation_gate.py v1.3; slack_eod.py v1.5; auth.py v1.2;
+           client.py v1.2; __init__.py v1.5.
 - v1.22.4: Hotfix intent-action-executor-fixes-items4-5 — _execute_confirm_report gains
            idempotency guard (no-op if already confirmed/corrected) and explicit updated_at
            stamp. _execute_correct_report routes correction description to correction_note
@@ -374,7 +396,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.22.4"
-__version_info__ = (1, 22, 4)
+__version__ = "1.23.0"
+__version_info__ = (1, 23, 0)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
