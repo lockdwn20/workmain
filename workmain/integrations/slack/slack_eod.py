@@ -1,7 +1,7 @@
 """
 WorkmAIn Slack EOD Surface
-Slack EOD Surface v1.1
-20260611
+Slack EOD Surface v1.2
+20260625
 
 Slack I/O surface for the T1 morning briefing and T5 EOD conversational
 workflow. Plain-text I/O in Sprint 2. Block Kit UX upgrade in Sprint 3.
@@ -12,6 +12,9 @@ Version History:
 - v1.1: Phase 13 Sprint 2 Gate 6 — SlackEodSession dataclass, SlackEodManager
         with handle_start_eod/handle_reply/_advance_step; inline corrections
         routed through ConfirmationGate; control word handling before IntentParser
+- v1.2: Phase 13 Sprint 3 Gate 1 fix — SlackEodManager.__init__ accepts daemon
+        as second positional arg (required by WorkmAInDaemon); stored as
+        self._daemon for Path 3 T6 correction re-presentation (Gate 5)
 """
 
 from __future__ import annotations
@@ -74,8 +77,9 @@ class SlackEodManager:
     offers to resume or abort.
     """
 
-    def __init__(self, slack_client) -> None:
+    def __init__(self, slack_client, daemon) -> None:
         self._client = slack_client
+        self._daemon = daemon
         self._sessions: Dict[str, SlackEodSession] = {}
         self._intent_parser = None   # lazy
 
