@@ -1,6 +1,6 @@
 """
 WorkmAIn Daemon Scheduler
-scheduler.py v1.6
+scheduler.py v1.7
 20260625
 
 APScheduler job configuration. All trigger times are hardcoded in
@@ -27,15 +27,21 @@ Version History:
         _send_morning_briefing(daemon), register_all_jobs(daemon); remove
         register_morning_briefing_job() and register_slack_poll_job() (both
         superseded by register_all_jobs)
+- v1.7: Phase 13 Sprint 3 Gate 3 — add _schedule_today_meeting_triggers(daemon),
+        _send_t2(), _send_t3(), _reschedule_t4_checkin() stub; extend
+        register_all_jobs() with midnight rescan CronTrigger and 15-min
+        IntervalTrigger; initial trigger scan at daemon start
 """
 
 import functools
 import logging
-from datetime import date
+from datetime import date, datetime
 from typing import Any, Optional
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.date import DateTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 logger = logging.getLogger(__name__)
 
@@ -199,11 +205,113 @@ def _send_morning_briefing(daemon: Any) -> None:
         logger.error("_send_morning_briefing error: %s", e)
 
 
+def _schedule_today_meeting_triggers(daemon: Any) -> None:
+    """Schedule T2/T3 DateTrigger jobs for today's meetings. Idempotent.
+
+    Uses replace_existing=True so re-running after a rescan is safe.
+    Skips cancelled meetings and any whose start/end has already passed.
+    """
+    from workmain.database.connection import get_db
+    from workmain.database.repositories.meetings_repo import MeetingsRepository
+
+    if _scheduler is None:
+        return
+
+    db = get_db()
+    session = db.get_session()
+    try:
+        meetings = MeetingsRepository(session).get_by_date(date.today())
+    finally:
+        session.close()
+
+    now = datetime.now()
+    scheduled_t2, scheduled_t3 = 0, 0
+    for meeting in meetings:
+        if meeting.is_cancelled:
+            continue
+
+        if meeting.start_time and meeting.start_time > now:
+            _scheduler.add_job(
+                lambda mid=meeting.id: _send_t2(mid, daemon),
+                trigger=DateTrigger(run_date=meeting.start_time),
+                id=f't2_{meeting.id}',
+                replace_existing=True,
+            )
+            scheduled_t2 += 1
+
+        if meeting.end_time and meeting.end_time > now:
+            _scheduler.add_job(
+                lambda mid=meeting.id: _send_t3(mid, daemon),
+                trigger=DateTrigger(run_date=meeting.end_time),
+                id=f't3_{meeting.id}',
+                replace_existing=True,
+            )
+            scheduled_t3 += 1
+
+    logger.info(
+        "_schedule_today_meeting_triggers: T2=%d T3=%d jobs scheduled",
+        scheduled_t2, scheduled_t3,
+    )
+
+
+def _send_t2(meeting_id: int, daemon: Any) -> None:
+    """T2 — Meeting start notification."""
+    from workmain.database.connection import get_db
+    from workmain.database.repositories.meetings_repo import MeetingsRepository
+
+    db = get_db()
+    session = db.get_session()
+    try:
+        meeting = MeetingsRepository(session).get_by_id(meeting_id)
+        if not meeting:
+            logger.warning('T2: meeting %d not found', meeting_id)
+            return
+        dur = f' ({int(meeting.duration_hours * 60)} min)' if meeting.duration_hours else ''
+        daemon.post_message(
+            f'*{meeting.title}* is starting now{dur}.\n'
+            f'Add notes: message me here or use `workmain note add`'
+        )
+    except Exception as e:
+        logger.warning('T2 send failed for meeting %d: %s', meeting_id, e)
+    finally:
+        session.close()
+    _reschedule_t4_checkin(daemon)
+
+
+def _send_t3(meeting_id: int, daemon: Any) -> None:
+    """T3 — Meeting end notification."""
+    from workmain.database.connection import get_db
+    from workmain.database.repositories.meetings_repo import MeetingsRepository
+
+    db = get_db()
+    session = db.get_session()
+    try:
+        meeting = MeetingsRepository(session).get_by_id(meeting_id)
+        if not meeting:
+            logger.warning('T3: meeting %d not found', meeting_id)
+            return
+        daemon.post_message(
+            f'*{meeting.title}* has ended.\n'
+            f'Finalize notes and confirm tags when ready.'
+        )
+    except Exception as e:
+        logger.warning('T3 send failed for meeting %d: %s', meeting_id, e)
+    finally:
+        session.close()
+    _reschedule_t4_checkin(daemon)
+
+
+def _reschedule_t4_checkin(daemon: Any) -> None:
+    """Schedule next T4 random check-in. (Gate 4 implementation)"""
+    pass
+
+
 def register_all_jobs(daemon: Any) -> None:
     """Register all APScheduler jobs for the daemon.
 
-    Gate 1 version: T1 only. Removes legacy 'slack_poll' job if present.
-    Gates 3, 4, and 5 will extend this function with T2/T3, T4, and T5 jobs.
+    Gate 3 version: T1 morning briefing + T2/T3 meeting triggers (rescan
+    at midnight and every 15 min) + initial trigger scan at start.
+    Gate 4 will add T4 random check-in.
 
     Must be called after build_scheduler() so _scheduler is set.
 
@@ -227,3 +335,25 @@ def register_all_jobs(daemon: Any) -> None:
         replace_existing=True,
     )
     logging.info("T1 morning briefing job registered (05:30 Mon-Fri)")
+
+    # T2/T3 — midnight rescan (picks up next day's meetings at rollover)
+    _scheduler.add_job(
+        functools.partial(_schedule_today_meeting_triggers, daemon),
+        CronTrigger(hour=0, minute=0),
+        id='t2t3_midnight_rescan',
+        replace_existing=True,
+    )
+
+    # T2/T3 — 15-minute interval rescan (catches impromptu meetings)
+    _scheduler.add_job(
+        functools.partial(_schedule_today_meeting_triggers, daemon),
+        IntervalTrigger(minutes=15),
+        id='t2t3_interval_rescan',
+        replace_existing=True,
+    )
+
+    logging.info("T2/T3 meeting trigger jobs registered (midnight + 15-min rescan)")
+
+    # Initial scan — schedule today's meeting triggers immediately at startup
+    _schedule_today_meeting_triggers(daemon)
+    logging.info("T2/T3 initial meeting trigger scan complete.")
