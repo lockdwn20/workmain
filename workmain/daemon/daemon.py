@@ -1,6 +1,6 @@
 """
 WorkmAIn Notification Daemon
-daemon.py v1.12
+daemon.py v1.13
 20260625
 
 Entry point for the always-on background daemon process.
@@ -47,6 +47,9 @@ Version History:
 - v1.12: Phase 13 Sprint 3 Gate 5 — _maybe_post_correction_summary() implemented
          (T6: posts Block Kit report summary after correct_report / write_correction_note
          using entity_id + get_by_id()); Path 2 (typed confirm) wired in _execute_action()
+- v1.13: Phase 13 Sprint 3 Gate 6 — _maybe_offer_eod_resume() and
+         _send_eod_resume_offer() implemented; loads persisted T5 session on
+         daemon start and injects into eod_manager._sessions
 """
 
 import json
@@ -589,12 +592,34 @@ class WorkmAInDaemon:
             return None
 
     def _maybe_offer_eod_resume(self) -> None:
-        """Restore persisted EOD session and schedule resume offer DM. (Gate 6)"""
-        pass
+        """Restore persisted T5 session on daemon start and offer resume via DM."""
+        from workmain.integrations.slack.slack_eod import SlackEodSession
+        session = SlackEodSession.load()
+        if session is None:
+            return
+        if self._eod_manager is None:
+            return
+        self._eod_manager._sessions[session.user_id] = session
+        logger.info(
+            "Restored T5 EOD session for user=%s at step=%d",
+            session.user_id, session.current_step_idx,
+        )
+        self._send_eod_resume_offer(session)
 
-    def _send_eod_resume_offer(self) -> None:
-        """Send resume offer DM for a restored T5 session. (Gate 6)"""
-        pass
+    def _send_eod_resume_offer(self, session) -> None:
+        """Post a resume offer DM for a disk-restored T5 session."""
+        from workmain.integrations.slack.slack_eod import SlackEodSession
+        step_idx = session.current_step_idx
+        if step_idx < len(session.steps):
+            step = session.steps[step_idx]
+            self.post_message(
+                f"Welcome back. You have an EOD session in progress "
+                f"(step {step['num']} — {step['desc']}). "
+                f"Reply *resume* to continue or *stop* to end it."
+            )
+        else:
+            SlackEodSession.clear()
+            self._eod_manager._sessions.pop(session.user_id, None)
 
     def _maybe_post_correction_summary(self, result, action_dict: dict) -> None:
         """T6 — Post updated report summary after a correction action succeeds."""
