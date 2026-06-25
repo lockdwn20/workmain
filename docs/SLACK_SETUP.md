@@ -1,32 +1,33 @@
 WorkmAIn
-SLACK_SETUP.md v1.0
-20260611
+SLACK_SETUP.md v2.0
+20260625
 
 ---
 
 # Slack Integration Setup
 
 This document covers the full setup process for WorkmAIn's Slack integration:
-outbound report posting (Phase 8) and inbound DM polling (Phase 13 Sprint 2).
+outbound report posting (Phase 8) and inbound Socket Mode DM interface (Phase 13).
 
 ---
 
 ## Overview
 
-WorkmAIn uses a Slack **Bot Token** (not OAuth user tokens). There is no
-user-level OAuth flow — the bot is installed to the workspace once and
-authenticates via a static token stored in `.env`.
+WorkmAIn uses a Slack **Bot Token** (`xoxb-`) for API calls and a **Socket Mode
+App-Level Token** (`xapp-`) for the persistent WebSocket connection. There is no
+user-level OAuth flow — the bot is installed to the workspace once and both tokens
+are stored statically in `.env`.
 
 Two capability tiers require different scopes and app configuration:
 
-| Tier | Feature | Phases |
-|------|---------|--------|
+| Tier | Feature | Phase |
+|------|---------|-------|
 | **Outbound** | Post weekly draft to a channel | Phase 8 |
-| **Inbound** | Receive DMs, parse intent, conversational EOD (T5) | Phase 13 |
+| **Inbound** | Receive DMs, parse intent, Block Kit buttons, conversational EOD | Phase 13 |
 
-Both tiers use the same app and the same `SLACK_BOT_TOKEN`. Adding inbound
-support requires additional scopes and a one-time App Home configuration
-change, followed by a workspace reinstall.
+Both tiers use the same app. Adding inbound support requires additional Bot Token
+scopes, a Socket Mode App-Level Token, and several one-time app configuration
+changes, followed by a workspace reinstall.
 
 ---
 
@@ -51,7 +52,7 @@ Navigate to **Features → OAuth & Permissions → Bot Token Scopes**.
 | `chat:write` | Post messages to channels |
 | `auth:test` | Validate token via `auth.test` API call |
 
-### Phase 13 Sprint 2 — Add Inbound DM Support
+### Phase 13 — Add Inbound DM Support
 
 Add these scopes to the existing Phase 8 set:
 
@@ -59,10 +60,12 @@ Add these scopes to the existing Phase 8 set:
 |-------|---------|
 | `im:write` | Open DM channels via `conversations.open` |
 | `im:read` | List IM channels via `conversations.list` |
-| `im:history` | Read DM message history via `conversations.history` |
+
+**Note:** `im:history` (previously required for polling) is no longer needed.
+If it is already present from a prior setup it is harmless but can be removed.
 
 **Important:** Every time scopes are added, Slack requires the app to be
-reinstalled to the workspace before the new scopes take effect (see Step 5).
+reinstalled to the workspace before the new scopes take effect (see Step 6).
 
 ---
 
@@ -77,31 +80,76 @@ the error: *"Sending messages to this app has been turned off."*
    messages tab"**
 4. Save changes
 
-This must be done before testing inbound DMs.
+---
+
+## Step 4 — Enable Socket Mode and Configure Events (Inbound only)
+
+Socket Mode delivers inbound messages and Block Kit button interactions over a
+persistent outbound WebSocket. No public endpoint or tunnel is required.
+
+### 4a — Enable Socket Mode
+
+1. In the left sidebar → **Settings → Socket Mode**
+2. Toggle **Enable Socket Mode** on
+
+### 4b — Subscribe to Bot Events
+
+1. In the left sidebar → **Features → Event Subscriptions**
+2. Toggle **Enable Events** on
+3. Under **Subscribe to bot events**, click **Add Bot User Event**
+4. Add: `message.im`
+5. Click **Save Changes**
+
+### 4c — Enable Interactivity (Block Kit buttons)
+
+1. In the left sidebar → **Features → Interactivity & Shortcuts**
+2. Toggle **Interactivity** on
+3. No Request URL is needed — Socket Mode delivers interaction payloads
+   over the WebSocket
+4. Click **Save Changes**
 
 ---
 
-## Step 4 — Install to Workspace and Obtain the Bot Token
+## Step 5 — Generate the App-Level Token
+
+The `xapp-` App-Level Token is separate from the Bot Token and is required for
+Socket Mode. It is generated once and stored in `.env`.
+
+1. In the left sidebar → **Settings → Basic Information**
+2. Scroll to **App-Level Tokens**
+3. Click **Generate Token and Scopes**
+4. Name the token (e.g. `workmain-socket`)
+5. Add scope: `connections:write`
+6. Click **Generate**
+7. Copy the token (begins with `xapp-`)
+
+Add it to `.env` (chmod 600):
+
+```bash
+SLACK_SOCKET_TOKEN=xapp-your-token-here
+```
+
+App-Level Tokens do not expire unless manually revoked.
+
+---
+
+## Step 6 — Install to Workspace and Obtain the Bot Token
 
 1. Navigate to **Settings → Install App**
-2. Click **Install to Workspace**
+2. Click **Install to Workspace** (or **Reinstall** if updating scopes)
 3. Review the requested permissions and click **Allow**
 4. Copy the **Bot User OAuth Token** (begins with `xoxb-`)
 
 Add it to `.env` (chmod 600):
 
-```
+```bash
 SLACK_BOT_TOKEN=xoxb-your-token-here
 ```
 
-The token does not expire unless manually revoked. It does not rotate.
+The Bot Token does not expire unless manually revoked.
 
----
-
-## Step 5 — Reinstalling After Scope Changes
-
-Whenever scopes are added or removed, a yellow banner appears at the top
-of the app settings page:
+Whenever Bot Token scopes are added or removed, a yellow banner appears at
+the top of the app settings page:
 
 > *"You've changed the permission scopes… Reinstall your app"*
 
@@ -110,19 +158,14 @@ update `SLACK_BOT_TOKEN` in `.env`, then run:
 
 ```bash
 workmain slack auth
-```
-
-Restart the daemon after any token change:
-
-```bash
 systemctl --user restart workmain-notify
 ```
 
 ---
 
-## Step 6 — WorkmAIn CLI Configuration
+## Step 7 — WorkmAIn CLI Configuration
 
-### Validate the token
+### Validate the Bot Token
 
 ```bash
 workmain slack auth
@@ -132,20 +175,18 @@ Expected output: team name, bot user, and "authenticated" status.
 
 ### Set the report posting channel (Phase 8)
 
-The outbound weekly post target is stored per-client (not in the Slack app).
-Set it with:
+The outbound weekly post target is stored per-client:
 
 ```bash
 workmain slack set channel "#your-channel-name"
 ```
 
-This writes to `clients.slack_channel` for the currently active client.
 Requires an active client (`workmain clients set active <name>`).
 
-### Set the operator user ID (Phase 13 — inbound DM polling)
+### Set the operator user ID (Phase 13 — inbound DMs)
 
-The daemon polls the DM channel between you and the bot. It needs your
-Slack user ID to locate that channel.
+The daemon opens a DM channel with you at startup. It needs your Slack user ID
+to do so.
 
 **Find your Slack user ID:**
 - Slack → click your avatar → **Profile** → kebab menu (⋮) → **Copy member ID**
@@ -160,8 +201,7 @@ workmain slack set operator-user-id U123456789A
 This writes `operator_user_id` to
 `~/.workmain/integrations/slack/config.json` (chmod 600).
 
-The daemon caches the resolved DM channel ID in
-`~/.workmain/daemon/slack_poll_state.json` on first poll.
+The daemon calls `conversations.open()` at startup to resolve the DM channel.
 
 ---
 
@@ -169,9 +209,10 @@ The daemon caches the resolved DM channel ID in
 
 | File | Purpose | Permissions |
 |------|---------|-------------|
-| `.env` — `SLACK_BOT_TOKEN` | Bot token | 600 |
+| `.env` — `SLACK_BOT_TOKEN` | Bot Token (`xoxb-`) | 600 |
+| `.env` — `SLACK_SOCKET_TOKEN` | App-Level Token (`xapp-`) for Socket Mode | 600 |
 | `~/.workmain/integrations/slack/config.json` | workspace_name, operator_user_id | 600 |
-| `~/.workmain/daemon/slack_poll_state.json` | last_seen_ts, channel_id (poll state) | 600 |
+| `~/.workmain/daemon/eod_session.json` | T5 EOD session state (persisted across restarts) | 600 |
 
 None of these files should be committed to version control.
 
@@ -192,16 +233,23 @@ workmain slack setup
 # Confirm operator_user_id is set
 cat ~/.workmain/integrations/slack/config.json
 
-# Watch daemon poll log in real time
+# Watch daemon log in real time
 journalctl --user -u workmain-notify -f
 ```
 
-Expected daemon log on first inbound DM after setup:
+Expected daemon log on startup with Socket Mode connected:
 
 ```
-Slack poll channel discovered: D0XXXXXXXXX (operator=U123456789A)
-poll_once: first-run baseline set ts=...
-poll_once: dispatched ts=...
+WorkmAIn daemon starting.
+Socket Mode client connecting...
+DM channel resolved: D0XXXXXXXXX (operator=U123456789A)
+Scheduler starting (blocking).
+```
+
+Expected log when a DM is received:
+
+```
+WorkmAInSocketClient: dispatching message event ts=...
 Slack DM received: user=U123456789A ts=... text='...'
 ```
 
@@ -216,17 +264,17 @@ Slack DM received: user=U123456789A ts=... text='...'
 | `workmain slack setup` | Interactive setup checklist |
 | `workmain slack set channel <ch>` | Set posting channel for active client |
 | `workmain slack set workspace` | Show workspace config path (informational) |
-| `workmain slack set operator-user-id <id>` | Set your Slack user ID for DM polling |
+| `workmain slack set operator-user-id <id>` | Set your Slack user ID for DM resolution |
 | `workmain slack post weekly [flags]` | Generate → preview → post weekly draft |
 
 ---
 
 ## Scope Reference (Complete)
 
-| Scope | Tier | Required By |
-|-------|------|-------------|
-| `chat:write` | Outbound | `workmain slack post weekly` |
-| `auth:test` | Both | `workmain slack auth` |
-| `im:write` | Inbound | SlackPoller channel discovery |
-| `im:read` | Inbound | SlackPoller channel discovery |
-| `im:history` | Inbound | SlackPoller `conversations.history` polling |
+| Scope | Type | Tier | Required By |
+|-------|------|------|-------------|
+| `chat:write` | Bot Token | Outbound | `workmain slack post weekly` |
+| `auth:test` | Bot Token | Both | `workmain slack auth` |
+| `im:write` | Bot Token | Inbound | DM channel resolution at startup |
+| `im:read` | Bot Token | Inbound | DM channel list |
+| `connections:write` | App-Level Token | Inbound | Socket Mode WebSocket connection |

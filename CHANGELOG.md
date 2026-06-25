@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.23.1] - 2026-06-25
+
+### Changed
+
+- `docs/SLACK_SETUP.md` v2.0 — rewritten for Socket Mode: polling setup removed
+  (`im:history` scope, `slack_poll_state.json`, poll log references); Socket Mode
+  setup added (App-Level Token generation, Socket Mode enable, Event Subscriptions
+  `message.im`, Interactivity & Shortcuts enable); scope reference table updated
+  (`connections:write` added, `im:history` removed); config/state files table
+  updated (`eod_session.json` added, poll state removed)
+
 ## [1.23.0] - 2026-06-25
 
 ### Added
