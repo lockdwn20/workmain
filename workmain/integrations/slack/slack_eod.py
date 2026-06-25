@@ -1,6 +1,6 @@
 """
 WorkmAIn Slack EOD Surface
-Slack EOD Surface v1.3
+Slack EOD Surface v1.4
 20260625
 
 Slack I/O surface for the T1 morning briefing and T5 EOD conversational
@@ -18,6 +18,8 @@ Version History:
 - v1.3: Phase 13 Sprint 3 Gate 2 — T5 step result messages use Block Kit section
         and context blocks; tabular summaries use code blocks; control word
         responses remain plain text; add _send_blocks() helper
+- v1.4: Phase 13 Sprint 3 Gate 5 — wire T6 Path 3: _execute_and_reprompt()
+        calls self._daemon._maybe_post_correction_summary() after execute()
 """
 
 from __future__ import annotations
@@ -341,6 +343,7 @@ class SlackEodManager:
         try:
             result = ActionExecutor(db_session).execute(action)
             self._send(session.channel_id, result.message)
+            self._daemon._maybe_post_correction_summary(result, action)
         except ActionExecutorError as e:
             self._send(session.channel_id, f"Error: {e}")
         except Exception as e:

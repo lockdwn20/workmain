@@ -1,6 +1,6 @@
 """
 WorkmAIn Notification Daemon
-daemon.py v1.11
+daemon.py v1.12
 20260625
 
 Entry point for the always-on background daemon process.
@@ -44,6 +44,9 @@ Version History:
          executes via ActionExecutor; wm_reject sends cancellation); _dispatch_message()
          uses post_blocks() for confirmations; _maybe_post_correction_summary() stub
          added (Gate 5 implementation)
+- v1.12: Phase 13 Sprint 3 Gate 5 — _maybe_post_correction_summary() implemented
+         (T6: posts Block Kit report summary after correct_report / write_correction_note
+         using entity_id + get_by_id()); Path 2 (typed confirm) wired in _execute_action()
 """
 
 import json
@@ -540,6 +543,7 @@ class WorkmAInDaemon:
         try:
             result = ActionExecutor(session).execute(action)
             self.post_message(result.message)
+            self._maybe_post_correction_summary(result, action)
         except ActionExecutorError as e:
             self.post_message(f"Error: {e}")
         except Exception as e:
@@ -592,9 +596,37 @@ class WorkmAInDaemon:
         """Send resume offer DM for a restored T5 session. (Gate 6)"""
         pass
 
-    def _maybe_post_correction_summary(self, _result, _action_dict: dict) -> None:
-        """Re-present the corrected report after a correct_report action. (Gate 5)"""
-        pass
+    def _maybe_post_correction_summary(self, result, action_dict: dict) -> None:
+        """T6 — Post updated report summary after a correction action succeeds."""
+        if not result.success:
+            return
+        if action_dict.get('action') not in ('correct_report', 'write_correction_note'):
+            return
+        if not result.entity_id:
+            self.post_message('Correction applied.')
+            return
+        from workmain.database.repositories.reports_repo import ReportsRepository
+        db = get_db()
+        session = db.get_session()
+        try:
+            report = ReportsRepository(session).get_by_id(result.entity_id)
+            if report:
+                blocks = [
+                    {'type': 'section', 'text': {'type': 'mrkdwn',
+                        'text': f'*Report updated* — {report.report_date}'}},
+                    {'type': 'section', 'text': {'type': 'mrkdwn',
+                        'text': f'Status: `{report.status}`'}},
+                ]
+                if report.correction_note:
+                    blocks.append({'type': 'section', 'text': {'type': 'mrkdwn',
+                        'text': f'Correction note: {report.correction_note}'}})
+                self.post_blocks(blocks, fallback_text='Report updated.')
+            else:
+                self.post_message('Correction applied.')
+        except Exception:
+            self.post_message('Correction applied.')
+        finally:
+            session.close()
 
 
 # ---------------------------------------------------------------------------
