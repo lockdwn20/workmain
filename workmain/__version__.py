@@ -1,9 +1,13 @@
 """
 WorkmAIn Package Version
-Version v1.23.0
+Version v1.23.1
 20260625
 
 Version History:
+- v1.23.1: Hotfix docs — SLACK_SETUP.md v2.0: polling setup removed; full
+           Socket Mode setup documented (App-Level Token, Socket Mode enable,
+           Event Subscriptions message.im, Interactivity & Shortcuts, scope
+           reference updated).
 - v1.23.0: Phase 13 Sprint 3 — Socket Mode, Block Kit UX, T2/T3/T4/T6,
            T5 persistence. WorkmAInDaemon class: absorbs SlackMessageDispatcher;
            owns socket_client, eod_manager, dm_channel; proactive DM channel
@@ -396,7 +400,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.23.0"
-__version_info__ = (1, 23, 0)
+__version__ = "1.23.1"
+__version_info__ = (1, 23, 1)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
