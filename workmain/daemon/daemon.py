@@ -1,6 +1,6 @@
 """
 WorkmAIn Notification Daemon
-daemon.py v1.10
+daemon.py v1.11
 20260625
 
 Entry point for the always-on background daemon process.
@@ -40,6 +40,10 @@ Version History:
          message dispatch, outbound DM helpers, and EOD manager ownership;
          _register_signal_handlers updated to on_shutdown: Callable; SlackPoller
          and _build_slack_poller removed; Socket Mode via WorkmAInSocketClient
+- v1.11: Phase 13 Sprint 3 Gate 2 — handle_block_action() implemented (wm_approve
+         executes via ActionExecutor; wm_reject sends cancellation); _dispatch_message()
+         uses post_blocks() for confirmations; _maybe_post_correction_summary() stub
+         added (Gate 5 implementation)
 """
 
 import json
@@ -458,8 +462,40 @@ class WorkmAInDaemon:
         self._dispatch_message(user_id, text)
 
     def handle_block_action(self, payload: dict) -> None:
-        """Inbound block_actions — implemented fully in Gate 2."""
-        pass
+        """Handle Slack block_actions interactive payload."""
+        actions = payload.get('actions', [])
+        if not actions:
+            return
+        action = actions[0]
+        action_id = action.get('action_id', '')
+
+        if action_id == 'wm_approve':
+            try:
+                action_dict = json.loads(action['value'])
+            except (KeyError, json.JSONDecodeError) as e:
+                logger.error("handle_block_action: could not parse action value: %s", e)
+                self.post_message("Error: could not read action data.")
+                return
+            db = get_db()
+            session = db.get_session()
+            try:
+                from workmain.orchestration.action_executor import ActionExecutor, ActionExecutorError
+                result = ActionExecutor(session).execute(action_dict)
+                self.post_message(result.message or 'Action completed.')
+                self._maybe_post_correction_summary(result, action_dict)
+            except ActionExecutorError as e:
+                self.post_message(f"Error: {e}")
+            except Exception as e:
+                logger.error("handle_block_action execute error: %s", e)
+                self.post_message("An unexpected error occurred.")
+            finally:
+                session.close()
+
+        elif action_id == 'wm_reject':
+            self.post_message('Action rejected.')
+
+        else:
+            self.post_message('Unrecognised interaction.')
 
     # ------------------------------------------------------------------
     # Internal dispatch helpers
@@ -490,9 +526,11 @@ class WorkmAInDaemon:
             self._eod_manager.handle_start_eod(user_id, self._dm_channel)
             return
 
-        prompt = self._gate.format_prompt(action)
         self._pending[user_id] = action
-        self.post_message(prompt)
+        self.post_blocks(
+            blocks=self._gate.format_blocks(action),
+            fallback_text=self._gate.format_prompt(action),
+        )
 
     def _execute_action(self, action: dict) -> None:
         """Execute a confirmed action and report the result."""
@@ -552,6 +590,10 @@ class WorkmAInDaemon:
 
     def _send_eod_resume_offer(self) -> None:
         """Send resume offer DM for a restored T5 session. (Gate 6)"""
+        pass
+
+    def _maybe_post_correction_summary(self, _result, _action_dict: dict) -> None:
+        """Re-present the corrected report after a correct_report action. (Gate 5)"""
         pass
 
 

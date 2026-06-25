@@ -1,11 +1,11 @@
 """
 WorkmAIn Confirmation Gate
-Confirmation Gate v1.2
-20260611
+Confirmation Gate v1.3
+20260625
 
 Formats action dicts as human-readable confirmation prompts and classifies
 user replies as confirmations or rejections. Does not send messages —
-returns formatted strings for the surface to transmit.
+returns formatted strings or Block Kit payloads for the surface to transmit.
 
 Sprint 2: plain conversational text. Sprint 3: Block Kit upgrade.
 
@@ -13,7 +13,12 @@ Version History:
 - v1.0: Phase 13 Sprint 2 Gate 4 — initial implementation
 - v1.1: Include start_time in create_time_entry confirmation prompt
 - v1.2: Truncate long descriptions in confirmation preview (full text is still saved)
+- v1.3: Phase 13 Sprint 3 Gate 2 — add format_blocks() returning Block Kit payload
+        with Approve (primary, wm_approve) and Reject (danger, wm_reject) buttons;
+        action dict serialized as JSON in value field
 """
+
+import json
 
 _CONFIRMATIONS = frozenset({
     "yes", "y", "yep", "yeah", "yup",
@@ -97,6 +102,49 @@ class ConfirmationGate:
             return f"I'll add correction note: '{preview}'. Confirm? (yes/no)"
 
         return f"I'll execute '{action_type}'. Confirm? (yes/no)"
+
+    def format_blocks(self, action: dict) -> list:
+        """Return a Block Kit payload for confirming the given action.
+
+        Section block contains the description text (120-char truncation,
+        same as format_prompt). Actions block contains Approve and Reject buttons.
+
+        Args:
+            action: Structured action dict from IntentParser.parse().
+
+        Returns:
+            List of Block Kit block dicts.
+        """
+        prompt = self.format_prompt(action)
+        description = prompt
+        if description.endswith("(yes/no)"):
+            description = description[: -len("(yes/no)")].rstrip()
+
+        return [
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": description},
+            },
+            {
+                "type": "actions",
+                "elements": [
+                    {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": "Approve"},
+                        "style": "primary",
+                        "action_id": "wm_approve",
+                        "value": json.dumps(action),
+                    },
+                    {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": "Reject"},
+                        "style": "danger",
+                        "action_id": "wm_reject",
+                        "value": "reject",
+                    },
+                ],
+            },
+        ]
 
     def is_confirmation(self, text: str) -> bool:
         """Return True if text is an affirmative reply.
