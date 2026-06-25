@@ -1,7 +1,7 @@
 """
 WorkmAIn Daemon Scheduler
-scheduler.py v1.5
-20260611
+scheduler.py v1.6
+20260625
 
 APScheduler job configuration. All trigger times are hardcoded in
 this file for Phase 10. Trigger time configuration is deferred to
@@ -23,8 +23,13 @@ Version History:
 - v1.4: Phase 13 Sprint 2 Gate 5 — add register_morning_briefing_job() for
         T1 morning briefing (08:00 Mon-Fri CronTrigger)
 - v1.5: Correct T1 trigger time to 05:30 Mon-Fri to align with workday start
+- v1.6: Phase 13 Sprint 3 Gate 1 — add scheduler_start(), scheduler_stop(),
+        _send_morning_briefing(daemon), register_all_jobs(daemon); remove
+        register_morning_briefing_job() and register_slack_poll_job() (both
+        superseded by register_all_jobs)
 """
 
+import functools
 import logging
 from datetime import date
 from typing import Any, Optional
@@ -151,45 +156,74 @@ def build_scheduler() -> BlockingScheduler:
     return scheduler
 
 
-def register_morning_briefing_job(handler: Any) -> None:
-    """Register the T1 morning briefing job at 05:30 Mon–Fri.
+def scheduler_start() -> None:
+    """Start the scheduler. BLOCKING — must be the last call in daemon startup."""
+    if _scheduler is None:
+        logging.error("scheduler_start: _scheduler is None — build_scheduler() was not called")
+        return
+    logging.info("Scheduler starting (blocking).")
+    _scheduler.start()
 
-    Fires at workday start, aligned with job_workday_start.
+
+def scheduler_stop() -> None:
+    """Shut down the scheduler without waiting for running jobs to finish."""
+    if _scheduler is not None:
+        try:
+            _scheduler.shutdown(wait=False)
+            logging.info("Scheduler stopped.")
+        except Exception as e:
+            logging.warning("scheduler_stop error: %s", e)
+
+
+def _send_morning_briefing(daemon: Any) -> None:
+    """T1 morning briefing — build summary and post to operator DM.
+
+    Called by the CronTrigger job registered in register_all_jobs().
+    Counts unresolved observations, builds a text summary, and posts it
+    via daemon.post_message(). Failure is logged but never re-raised so
+    the scheduler loop survives.
+    """
+    from workmain.daemon.daemon import _count_unresolved_observations
+    try:
+        unresolved = _count_unresolved_observations()
+        if unresolved:
+            msg = (
+                f"Good morning. WorkmAIn is running.\n"
+                f"{unresolved} unresolved observation(s) from the last inspection."
+            )
+        else:
+            msg = "Good morning. WorkmAIn is running. No outstanding observations."
+        daemon.post_message(msg)
+        logger.info("T1 morning briefing sent.")
+    except Exception as e:
+        logger.error("_send_morning_briefing error: %s", e)
+
+
+def register_all_jobs(daemon: Any) -> None:
+    """Register all APScheduler jobs for the daemon.
+
+    Gate 1 version: T1 only. Removes legacy 'slack_poll' job if present.
+    Gates 3, 4, and 5 will extend this function with T2/T3, T4, and T5 jobs.
+
     Must be called after build_scheduler() so _scheduler is set.
-    Job ID 'morning_briefing' replaces any existing job with that ID.
 
     Args:
-        handler: Zero-argument callable that builds and sends the briefing DM.
+        daemon: WorkmAInDaemon instance (typed Any to avoid circular import).
     """
     if _scheduler is None:
-        logging.warning("register_morning_briefing_job: called before build_scheduler — skipped")
+        logging.warning("register_all_jobs: called before build_scheduler — skipped")
         return
+
+    # Remove legacy polling job if it somehow survived restart
+    if _scheduler.get_job('slack_poll'):
+        _scheduler.remove_job('slack_poll')
+        logging.info("Removed legacy slack_poll job.")
+
+    # T1 — morning briefing 05:30 Mon–Fri
     _scheduler.add_job(
-        handler,
+        functools.partial(_send_morning_briefing, daemon),
         CronTrigger(day_of_week='mon-fri', hour=5, minute=30),
         id='morning_briefing',
         replace_existing=True,
     )
-    logging.info("Morning briefing job registered (05:30 Mon-Fri)")
-
-
-def register_slack_poll_job(poller: Any) -> None:
-    """Register SlackPoller.poll_once as an interval job on the scheduler.
-
-    Must be called after build_scheduler() so _scheduler is set.
-    Job ID 'slack_poll' replaces any existing job with that ID.
-
-    Args:
-        poller: SlackPoller instance (typed Any to avoid circular import).
-    """
-    if _scheduler is None:
-        logging.warning("register_slack_poll_job: called before build_scheduler — skipped")
-        return
-    _scheduler.add_job(
-        poller.poll_once,
-        'interval',
-        seconds=poller.interval_seconds,
-        id='slack_poll',
-        replace_existing=True,
-    )
-    logging.info("Slack poll job registered (interval=%ds)", poller.interval_seconds)
+    logging.info("T1 morning briefing job registered (05:30 Mon-Fri)")
