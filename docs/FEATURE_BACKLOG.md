@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v5.27
-20260625
+Feature Backlog v5.29
+20260626
 
 # WorkmAIn Feature Backlog
 
@@ -69,6 +69,16 @@ Items deferred from various phases for future implementation.
 - v5.27 (20260625): Item 21 closed — superseded by Socket Mode (v1.23.0);
   Item 47 "Why Deferred" updated — Socket Mode resolves infrastructure
   prerequisite; tunnel no longer required.
+- v5.28 (20260626): Architecture integration recon complete (Item 51 added and
+  closed); Items 14 and 15 closed as stale (premises resolved — suite green at
+  671 passed); Item 21 register ✓ corrected (missed in v5.27); Item 32
+  description updated — note↔note dedup scope clarified, design with Item 48;
+  Item 37 description updated — reassessed as greenfield quality-tracking
+  capability, Phase 15; Item 47 resolved Cloudflare Tunnel prerequisite AC
+  removed (Socket Mode resolves it); Items 48–57 added; register and
+  statistics updated.
+- v5.29 (20260626): Item 58 added — T4 check-in fires regardless of recent
+  activity; register and statistics updated.
 
 ---
 
@@ -78,23 +88,23 @@ Use this template for every new backlog item. All fields are required except Fil
 
 ```
 #### Item N — Title
-
+ 
 **Status:** Open — Deferred to Phase X
 **Priority:** High / Medium / Low
 **Effort:** ~X hours
 **Added:** YYYYMMDD
 **Target Phase:** Phase X — Name
-
+ 
 **Description:**
 What the feature or fix is.
-
+ 
 **Why Deferred:**
 Reason this work was not done in the originating phase.
-
+ 
 **Acceptance Criteria:**
 - [ ] Criterion one
 - [ ] Criterion two
-
+ 
 **Files Affected:** (optional — list known files when scope is clear)
 ```
 
@@ -107,7 +117,6 @@ Reason this work was not done in the originating phase.
 - Avoid over-engineering (YAGNI principle)
 - Add enhancements based on actual usage patterns, not speculation
 - Don't abstract until patterns are proven across multiple implementations
-
 Build first, refactor later. See the complete picture before abstracting.
 
 ---
@@ -129,14 +138,14 @@ Build first, refactor later. See the complete picture before abstracting.
 | 11 | Add New AI Provider | Low | — | ~8–12 hrs | ✓ |
 | 12 | email.py Internal Session Refactor | Low | Phase 15 | ~30 min | |
 | 13 | datetime.utcnow() Deprecation | Low | Phase 15 | ~30 min | ✓ |
-| 14 | test_database.py Engine Fixture | Medium | Phase 15 | ~1–2 hrs | |
-| 15 | test_templates.py Stale Import | Medium | Phase 15 | ~1 hr | |
+| 14 | test_database.py Engine Fixture | Medium | Phase 15 | ~1–2 hrs | ✓ |
+| 15 | test_templates.py Stale Import | Medium | Phase 15 | ~1 hr | ✓ |
 | 16 | auth.py RefreshError → GDriveAuthError | Low | Phase 15 | ~30 min | |
 | 17 | eod Day-Aware Thu/Fri Steps | — | Phase 9 | — | ✓ |
 | 18 | templates preview get_session ImportError | — | Phase 9 | — | ✓ |
 | 19 | Ollama / Mistral 7B GPU Offloading | Low | Phase 13+ | ~2–3 hrs | |
 | 20 | Multi-Client Data Attribution | — | Phase 11 | — | ✓ |
-| 21 | Cloudflare Tunnel / Slack Events API | Low | — | ~3–4 hrs | |
+| 21 | Cloudflare Tunnel / Slack Events API | Low | — | ~3–4 hrs | ✓ |
 | 22 | Active Client Context Data Model | — | → Item 20 | — | |
 | 23 | Meeting Visibility / Tagging | Medium | Phase 15 | ~3–5 hrs | |
 | 24 | tasks carryover Group Review | — | Phase 12 | — | ✓ |
@@ -163,45 +172,57 @@ Build first, refactor later. See the complete picture before abstracting.
 | 45 | `tags` for `create_time_entry` via Slack | Medium | Phase 13 Sprint 3 | ~3h | |
 | 46 | `build_weekly_prompt()` Edge Cases — Short Weeks, Thursday Draft, Internal Pollution | Medium | Phase 13 | ~3–4 hrs | |
 | 47 | Block Kit modal — report correction from Slack | Medium | Phase 14 | ~6h | |
+| 48 | 3c Timeout Loop — No Exit Condition, No Cancel Path | High | Phase 14 | ~4–6 hrs | |
+| 49 | T4 Suppression Window Hard-Coded Independent of Schedule Config | Low | Phase 14 | ~2–3 hrs | |
+| 50 | Morning Briefing Content | Medium | Phase 14 | ~2–3 hrs | |
+| 51 | Architecture Integration Recon | Medium | — | ~2–3 hrs | ✓ |
+| 52 | Cancelled Meetings Not Filtered from Inspection or Notification Schedule | Medium | Phase 14 | ~2–3 hrs | |
+| 53 | Notification Delivery Method Refactor | Medium | Phase 14 | ~4–6 hrs | |
+| 54 | Technical Debt — Warnings and Deprecations (Living List) | Low | Phase 15 | TBD | |
+| 55 | Clockify Bidirectional Reconciliation | Medium | Phase 14+ | ~8–12 hrs | |
+| 56 | workmain reports corrections Listing Command | Low | Phase 14 | ~1–2 hrs | |
+| 57 | DB Schema Test Coverage Audit and Restoration | Low | Phase 15 | ~2–4 hrs | |
+| 58 | T4 Check-in Fires Regardless of Recent Activity | Medium | Phase 14 | ~2–3 hrs | |
 
 ---
 
 ## Summary Statistics
 
-**Total Items:** 47 (Item 22 is a redirect — no separate deferred work; see Item 20)
-**Completed:** 16 (Items 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 33, 34, 35, 36, 38, 39)
-**Open:** 30
+**Total Items:** 58 (Item 22 is a redirect — no separate deferred work; see Item 20)
+**Complete:** 18 (Items 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 33, 34, 35, 36, 38, 39, 51)
+**Closed/Stale:** 2 (Items 14, 15 — premises resolved, suite green)
+**Open:** 37
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Open (targeted) | 26 | 1, 2, 3, 4, 7, 8, 12, 14, 15, 16, 19, 23, 28, 29, 30, 31, 32, 37, 40, 41, 42, 43, 44, 45, 46, 47 |
+| Open (targeted) | 34 | 1, 2, 3, 4, 7, 8, 12, 16, 19, 23, 28, 29, 30, 31, 32, 37, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 52, 53, 54, 55, 56, 57, 58 |
 | Conditional | 1 | 9 |
-| Indefinitely | 3 | 5, 6, 21 |
-| Complete | 16 | 10, 11, 13, 17, 18, 20, 24, 25, 26, 27, 33, 34, 35, 36, 38, 39 |
+| Indefinitely | 2 | 5, 6 |
+| Complete | 18 | 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 33, 34, 35, 36, 38, 39, 51 |
+| Closed/Stale | 2 | 14, 15 |
 | Redirect | 1 | 22 → Item 20 |
 
 | Priority | Count | Items |
 |----------|-------|-------|
-| High | 0 | — |
-| Medium | 14 | 2, 3, 7, 10, 14, 15, 23, 34, 35, 38, 43, 45, 46, 47 |
-| Low | 24 | 1, 4, 5, 6, 8, 11, 12, 13, 16, 19, 21, 28, 29, 30, 31, 32, 33, 36, 37, 40, 41, 42, 44 |
+| High | 2 | 23, 48 |
+| Medium | 12 | 2, 3, 7, 43, 45, 46, 47, 50, 52, 53, 55, 58 |
+| Low | 22 | 1, 4, 5, 6, 8, 12, 16, 19, 28, 29, 30, 31, 32, 37, 40, 41, 42, 44, 49, 54, 56, 57 |
 | Conditional | 1 | 9 |
 
 | Target Phase | Items |
 |-------------|-------|
 | Phase 11+ | 4, 28 |
-| Phase 13 | 32, 33, 34, 46 |
+| Phase 13 | 32, 46 |
 | Phase 13 Sprint 3 | 43, 45 |
-| Phase 14+ | 19, 31 |
-| Phase 14 | 40, 41, 47 |
-| Phase 15 | 1, 2, 3, 7, 8, 10, 12, 13, 14, 15, 16, 23, 29 |
+| Phase 14 | 40, 41, 47, 48, 49, 50, 52, 53, 56, 58 |
+| Phase 14+ | 19, 31, 55 |
+| Phase 15 | 1, 2, 3, 7, 8, 12, 16, 23, 29, 37, 54, 57 |
 | Phase 18 | 30 |
-| Sprint 2/3 | 37, 38 |
 | Next model rebuild | 42, 44 |
 | Conditional | 9 |
-| Indefinitely | 5, 6, 11, 21 |
+| Indefinitely | 5, 6 |
 
-**Total Deferred Effort (open items):** ~93–98 hours
+**Total Deferred Effort (open items):** ~118–137 hours (Item 54 TBD — effort grows as warnings are catalogued)
 
 ---
 
@@ -373,7 +394,6 @@ Premature abstraction risk. All commands needed to be built first to see the rea
 - [ ] All command files updated to import from shared module
 - [ ] No behavior change — formatting output identical
 - [ ] Tests updated if formatting functions have unit tests
-
 **Files Affected:**
 
 - `workmain/cli/commands/*.py` (all command files)
@@ -449,7 +469,6 @@ the Phase 13-1 Ollama activation checklist. Model identifiers are now config-onl
 - [x] Written process in `docs/` covering: locate model identifiers, test report quality, update config
 - [x] Model identifier locations documented (`config/ai_settings.json providers.<name>.model`)
 - [x] Config-driven approach documented (change model in config, takes effect on next invocation)
-
 **Files Affected:**
 
 - New: `docs/ai_settings_guide.md`
@@ -504,7 +523,6 @@ No functional bug. Internal session is self-contained and works correctly. Techn
 - [ ] `_generate_draft()` receives session via parameter instead of creating internally
 - [ ] Pattern consistent with other command files (`get_db()` + `try/finally`)
 - [ ] No functional change to email draft behavior
-
 **Files Affected:**
 
 - `workmain/cli/commands/email.py`
@@ -533,12 +551,10 @@ Fixed as part of the Gate 1 cost tracking sprint (v1.17.0). Both affected call s
 
 - `workmain/database/models.py` — `GDriveUpload.created_at` default
 - `workmain/integrations/gdrive/gdrive_repository.py` — inline `created_at=` assignment
-
 **Acceptance Criteria:**
 
 - [x] All `datetime.utcnow()` calls replaced with `datetime.now(timezone.utc)`
 - [x] No `DeprecationWarning` on `workmain gdocs` operations
-
 **Files Affected:**
 
 - `workmain/integrations/gdrive/gdrive_repository.py`
@@ -547,10 +563,11 @@ Fixed as part of the Gate 1 cost tracking sprint (v1.17.0). Both affected call s
 
 #### Item 14 — test_database.py Missing Engine Fixture
 
-**Status:** Open — Deferred to Phase 15
+**Status:** ✓ Closed — Stale (20260626)
 **Priority:** Medium
 **Effort:** ~1–2 hours
 **Added:** 20260309
+**Closed:** 20260626
 **Target Phase:** Phase 15
 
 **Description:**
@@ -559,12 +576,17 @@ Fixed as part of the Gate 1 cost tracking sprint (v1.17.0). Both affected call s
 **Why Deferred:**
 Erroring tests don't block the suite baseline (161 passed). Schema-level assertions are a nice-to-have validation, not blocking any feature work. Phase 15 test debt cleanup.
 
+**Closure Notes (20260626):**
+Architecture integration recon confirmed this item's premise is stale. `tests/test_database.py`
+does not exist in the active test suite — the original file was relocated to
+`scripts-deprecated/test_database.py` (a pre-pytest script, excluded from pytest collection per
+CLAUDE.md §6). The active suite is green at 671 passed with 0 errors. The real gap (whether the
+deprecated script's coverage intent was ever translated into proper pytest tests) is tracked under
+Backlog Item 57.
+
 **Acceptance Criteria:**
 
-- [ ] `engine` fixture added to `conftest.py`
-- [ ] `test_database.py` passes with 0 errors
-- [ ] No regression to existing test baseline
-
+- [x] Premise confirmed stale — no active test_database.py in tests/; suite green
 **Files Affected:**
 
 - `tests/conftest.py`
@@ -574,10 +596,11 @@ Erroring tests don't block the suite baseline (161 passed). Schema-level asserti
 
 #### Item 15 — test_templates.py Stale Import
 
-**Status:** Open — Deferred to Phase 15
+**Status:** ✓ Closed — Stale (20260626)
 **Priority:** Medium
 **Effort:** ~1 hour
 **Added:** 20260309
+**Closed:** 20260626
 **Target Phase:** Phase 15
 
 **Description:**
@@ -586,12 +609,15 @@ Stale import in `test_templates.py` causes a collection error. The entire file i
 **Why Deferred:**
 File doesn't block the suite (collection errors are isolated). Template behavior covered by other tests. Phase 15 test debt cleanup.
 
+**Closure Notes (20260626):**
+Architecture integration recon confirmed this item's premise is stale. `tests/test_templates.py`
+collects cleanly and all tests pass (`test_template_loading`, `test_template_validation`,
+`test_template_info`, `test_variable_substitution`, `test_section_structure`). Imports are current.
+Suite is green at 671 passed with 0 errors. No action required.
+
 **Acceptance Criteria:**
 
-- [ ] Stale import identified and removed or updated
-- [ ] `test_templates.py` collects and passes with 0 errors
-- [ ] No regression to existing test baseline
-
+- [x] Premise confirmed stale — test_templates.py collects cleanly and passes
 **Files Affected:**
 
 - `tests/test_templates.py`
@@ -617,7 +643,6 @@ Edge case — only triggers on token expiry, which is infrequent. No silent data
 - [ ] `_require_auth()` catches `RefreshError` from `google.auth.exceptions`
 - [ ] Raises clean `GDriveAuthError` with user-friendly message
 - [ ] No raw traceback on token expiry
-
 **Files Affected:**
 
 - `workmain/integrations/gdrive/auth.py`
@@ -672,7 +697,6 @@ Phase 13 primary path (Proxmox CPU) is sufficient. GPU offloading is a latency i
 - [ ] Fallback to Proxmox CPU host if configured GPU host unreachable
 - [ ] README includes GPU offloading setup instructions for Ollama on RTX 4070
 - [ ] Benchmark results documented (CPU vs GPU latency for Mistral 7B)
-
 **Files Affected:**
 
 - `workmain/ai/` (Ollama client)
@@ -756,7 +780,6 @@ Meetings are fetched for the full week and appended to every section's context i
 1. **Meeting-level tag** — Add a `visibility` or `tags` field to the Meeting model (e.g., `internal-only`, `client-report`, `both`). Prompt builder filters meetings the same way it filters notes.
 2. **Respect `data_sources`** — Prompt builder currently ignores `data_sources` for meetings. Wrap meeting fetch in a `"meetings" in data_sources` check.
 3. **Exclude meetings from weekly_client entirely** — Don't include meeting titles in weekly report prompts at all; meeting content is already captured in tagged notes.
-
 **Context:**
 Investigated 2026-03-27 after weekly report included AI-generated content derived from an "Internal Sync" meeting title. Note-level `internal-only` filtering confirmed working — issue is unfiltered meeting context in the prompt.
 
@@ -770,7 +793,6 @@ Workaround exists (internal meetings captured as internal-only notes). Requires 
 - [ ] If meeting tags added: Meeting model updated, migration written, CLI updated
 - [ ] If `data_sources` gating: `prompt_builder.py` updated
 - [ ] Tests updated to cover meeting filtering behavior
-
 **Files Affected:**
 
 - `workmain/ai/prompt_builder.py`
@@ -830,7 +852,6 @@ Advanced recurring meeting management features beyond basic creation and instanc
 2. **Skip Occurrence** — Mark a specific instance as skipped without deleting
 3. **Reschedule Instance** — Move a single occurrence to a different time
 4. **Recurring Templates** — Pre-defined patterns (daily standup, weekly review)
-
 **Proposed Commands:**
 
 ```bash
@@ -849,7 +870,6 @@ Core recurring functionality (create, view, delete) is complete and working. The
 - [x] Can reschedule single instance to different time/date
 - [x] Changes properly tracked in database
 - [x] UI clearly shows modified instances
-
 **Files Affected:**
 
 - `workmain/cli/commands/meetings.py`
@@ -872,7 +892,6 @@ Command groups that were placeholders in `interface.py`, removed in v1.1.0. Curr
 - **notifications** — ✓ Complete. `workmain notifications` group delivered in Phase 10 (v1.11.0).
 - **config** (Phase 14) — Settings like default tags, trigger times, Ollama host. Phase 14 setup wizard is the intended home.
 - **provider** (Low) — Overlaps with existing `providers` command. Likely redundant; needs audit.
-
 **Why Deferred:**
 `config` deferred to Phase 14. `provider` redundancy should be confirmed before any work is done.
 
@@ -908,7 +927,6 @@ Current behavior works correctly. Cosmetic CLI consistency issue only. Phase 15 
 - [ ] `clockify report save` follows the same subcommand pattern as `clockify sync`
 - [ ] `--help` output consistent with `clockify sync` format
 - [ ] No functional change to report behavior
-
 **Files Affected:**
 
 - `workmain/cli/commands/` (clockify-related command file)
@@ -957,7 +975,6 @@ environment file changes rather than a code rewrite.
 
 - `CapabilityBoundingSet=` and `AmbientCapabilities=` — kernel EPERM on WSL2
 - `LimitNPROC=64` — kernel EPERM when combined with other security directives on WSL2
-
 **Acceptance Criteria:**
 
 - [ ] Architecture decision documented before Phase 18 Gate 0
@@ -965,7 +982,6 @@ environment file changes rather than a code rewrite.
       interactive user logged in; notifications confirmed delivered
 - [ ] If Option B: install path documented; functional behaviour unchanged
 - [ ] WSL2 service unit exceptions resolved or documented for target platform
-
 **Files Affected:**
 
 - `deploy/workmain-notify.service`
@@ -1005,7 +1021,6 @@ is the earliest point where attendee management becomes user-facing.
 - [ ] Attendees surfaced in at least one user-facing output (meetings show, weekly report, etc.)
 - [ ] `--attendees` restored to `meetings create` with a compliant short form
 - [ ] Short form assigned in CLI_STANDARDS.md §5.3 reserved table
-
 **Files Affected:**
 
 - `workmain/cli/commands/meetings.py`
@@ -1015,11 +1030,11 @@ is the earliest point where attendee management becomes user-facing.
 
 #### Item 32 — Task Deduplication and Forwarding (Phase 13)
 
-**Status:** Open — Pending Step 3c investigation (reopened 20260623)
+**Status:** Open — Pending redesign (scope clarified 20260626)
 **Priority:** Low
-**Effort:** TBD — pending investigation
+**Effort:** TBD — pending design decision with Backlog Item 48
 **Added:** 20260528
-**Target Phase:** Phase 13 (scope TBD after Step 3c investigation)
+**Target Phase:** Phase 14 (design with Backlog Item 48)
 
 **Description:**
 When multiple active carry-forward notes appear to cover the same work item, Phase 13's
@@ -1028,14 +1043,28 @@ The surviving note keeps its `task_status` record (re-confirmed active); the dep
 note's record is set to dismissed with `forwarding_note_id` pointing to the surviving note.
 
 The `forwarding_note_id` column is already present in `task_status` as of v1.16.0 — no
-additional migration needed.
+additional migration needed. `TaskStatusRepository.set_forwarding()` exists at
+`task_status_repo.py:136–154` but has **zero callers**. `tasks show` has no
+forwarding/merge/dedup rendering.
 
 **Reopened:**
 Item 32 was incorrectly marked COMPLETE in Phase 13 Sprint 2. The Step 3c work that was
 delivered matches CF tasks to time entries (for completion/dismissal), which is a different
-problem from detecting semantically duplicate CF notes. Before this item can be properly
-scoped, a Step 3c investigation is needed to understand why CF tasks are not moving forward
-in practice — that finding may significantly reshape what this item needs to be.
+problem from detecting semantically duplicate CF notes.
+
+**Scope clarification (20260626 recon):**
+The shipped Step 3c is a **task↔time-entry matcher** — it scores each active `task_status`
+record against today's `TimeEntry` rows and presents `[c]omplete / [d]ismiss / [s]kip` per
+match. This is useful and should be retained. However, all four Item 32 acceptance criteria
+are **unmet**: (1) the comparison is task↔entry, not note↔note; (2) the prompt is
+complete/dismiss, not merge/skip; (3) `forwarding_note_id` is never set; (4) `tasks show`
+has no forwarding display. The delivered work solves an adjacent but different problem.
+
+The task↔time-entry matcher causes the runtime defect in Backlog Item 48 (uncancellable
+per-task Ollama loop on the handler thread). Item 32 redesign and Item 48 runtime fix must
+be designed together: the note↔note deduplicator replaces the current matcher as the actual
+Item 32 deliverable; the task↔time-entry matcher is fixed for cancellability under Item 48
+and may be retained as a separate step.
 
 **Why Deferred:**
 Requires the Mistral 7B intent parser (Phase 13 Item 19). The `forwarding_note_id` column
@@ -1043,10 +1072,10 @@ is a Phase 12 placeholder; no Phase 12 business logic uses it.
 
 **Acceptance Criteria:**
 
-- [ ] Mistral 7B intent parser detects semantically duplicate active CF tasks
+- [ ] Mistral 7B intent parser detects semantically duplicate active CF notes (note↔note comparison)
 - [ ] Step 3c surfaces merge candidates with [m]erge / [s]kip prompt
-- [ ] Dismissed note's task_status.forwarding_note_id set to surviving note ID
-- [ ] `tasks show` displays forwarding_note_id when set
+- [ ] Dismissed note's `task_status.forwarding_note_id` set to surviving note ID via `set_forwarding()`
+- [ ] `tasks show` displays `forwarding_note_id` when set
 
 ---
 
@@ -1104,7 +1133,6 @@ content as its source instead of raw data. The confirmed `content` field (or
   events rather than raw unfiltered data
 - **Consistency** — corrections made via `reports correct` (e.g., fixing a wrong client
   attribution) automatically flow into the weekly report without manual re-editing
-
 **Implementation notes:**
 
 - `get_confirmed_dailies(start_date, end_date)` already exists in `ReportsRepository`
@@ -1114,7 +1142,6 @@ content as its source instead of raw data. The confirmed `content` field (or
 - Use `corrected_content` when set (non-None); otherwise use `content`
 - The fallback path ensures backward compatibility for weeks where EOD wasn't run or
   reports were left unconfirmed
-
 **Why Deferred:**
 Requires Phase 13's Ollama integration work to be scoped alongside this — changing the
 prompt-building path for the weekly report is a meaningful refactor of `prompt_builder.py`
@@ -1126,7 +1153,6 @@ that should be done with full Phase 13 context rather than bolted on mid-phase.
   into `build_prompt()` when template frequency is `weekly`
 - `workmain/database/repositories/reports_repo.py` — `get_confirmed_dailies()` already
   present; no changes needed unless signature needs extension
-
 **Acceptance Criteria:**
 
 - [x] Weekly prompt uses confirmed/corrected daily content when all 5 weekdays have a
@@ -1167,7 +1193,6 @@ config-only — no Python edits needed. Verified end-to-end: setting
 - [x] `workmain providers list` model column reflects config value
 - [x] Changing model in `ai_settings.json` takes effect on next invocation
 - [x] Item 10 updated to reflect config-driven approach (docs/ai_settings_guide.md)
-
 **Files Affected:**
 
 - `workmain/ai/providers/claude.py` — `self.model = config.get('model', _FALLBACK_MODEL)`
@@ -1199,7 +1224,6 @@ a dedicated one-line-removal commit.
 - [x] `ProviderConfig` class removed from `base_provider.py`
 - [x] `ProviderConfig` removed from `workmain/ai/__init__.py` exports and `__all__`
 - [x] `grep -rn "ProviderConfig" workmain/` returns empty (no remaining imports)
-
 **Files Affected:**
 
 - `workmain/ai/base_provider.py`
@@ -1208,38 +1232,51 @@ a dedicated one-line-removal commit.
 
 #### Item 37 — Ollama Modelfile Tuning Workflow
 
-**Status:** Open — ongoing Sprint 2/3 maintenance
+**Status:** Open — Deferred to Phase 15
 **Priority:** Low
-**Effort:** ~30 min per rebuild
+**Effort:** ~3–4 hours (new capability) + ~30 min per rebuild cycle
 **Added:** 20260605
-**Target Phase:** Sprint 2/3 maintenance
+**Target Phase:** Phase 15
 
 **Description:**
-workmain-intent:latest Modelfile delivered in Phase 13 Sprint 1. As the action
-vocabulary grows in Sprint 2 and 3 (new action types, refined examples, tuned
-generation parameters), the Modelfile must be rebuilt after each schema update.
+The `workmain-intent:latest` Modelfile rebuild workflow is documented in the IaC repo and
+functions correctly. This item covers a separate, broader capability: **capturing response
+quality signals** to support iterative model tuning after 30 days of production usage.
 
-Long-term: consider fine-tuning on actual WorkmAIn usage data once sufficient
-real interaction logs are accumulated (post-Sprint 2 go-live). Fine-tuning on
-real inputs would significantly improve multi-tag inference (currently limited
-by 7B model size) and domain-specific phrasing recognition.
+Architecture integration recon (20260626) confirmed this is **greenfield** — no quality
+tracking scaffolding exists today. Specifically:
+
+- `confidence` scores from `parse_task_match()` are computed (threshold ≥ 0.7 at
+  `eod_workflow.py:500`) and then discarded — never written anywhere (`intent_parser.py:212`)
+- Parse failures are emitted as `logger.warning()` to the systemd journal only; they are
+  not counted, aggregated, or stored
+- There is no record of parse confidence, parse-failure rate, or timeout rate
+- The `cost_tracker.py` (`ai_costs` log) captures token counts but nothing about
+  correctness or latency failures
+The natural insertion point for quality signals is alongside the existing `ai_costs` logging
+in `cost_tracker.py` and the `parse` / `parse_task_match` call sites in `intent_parser.py`.
 
 **Why Deferred:**
-Requires real usage data from Sprint 2+ to have value. Fine-tuning on synthetic
-examples would not improve on the current prompt-engineered approach.
+Requires real production usage data to have tuning value. The Modelfile rebuild mechanics
+are already covered by the IaC workflow; this item is the analytics layer that tells you
+*when* and *what* to tune. Phase 15 is the appropriate point after sufficient usage data
+has accumulated from Phase 13/14 live operation.
 
 **Acceptance Criteria:**
 
-- [ ] Rebuild Modelfile after each Sprint 2/3 action schema change
-- [ ] `config/intent_parse_system_prompt.txt` versioning header kept in sync
-- [ ] `config_version` incremented and `model_built` date updated on each rebuild
-- [ ] Evaluate fine-tuning feasibility after 30 days of production usage
-
+- [ ] `confidence` score from `parse_task_match()` persisted alongside token cost in `ai_costs`
+      (or a parallel `ai_quality` log)
+- [ ] Parse failure count and timeout rate queryable from stored logs (not journal-only)
+- [ ] `workmain providers quality` (or similar) command surfaces parse success rate,
+      avg confidence, and timeout rate over a configurable date range
+- [ ] After 30 days of production usage: evaluate signals and determine if Modelfile
+      fine-tuning on real interaction data would improve multi-tag inference or domain phrasing
 **Files Affected:**
 
-- `config/intent_parse_system_prompt.txt`
-- `config/intent_parse_prompt.json`
-- `ollama-lxc/models/workmain-intent/Modelfile` (IaC repo)
+- `workmain/ai/intent_parser.py` — `parse()` and `parse_task_match()` call sites
+- `workmain/ai/cost_tracker.py` — extend to capture quality signals
+- `config/intent_parse_system_prompt.txt` (rebuild triggered by tuning, not this item)
+- `ollama-lxc/models/workmain-intent/Modelfile` (IaC repo — rebuild workflow already exists)
 
 ---
 
@@ -1269,7 +1306,6 @@ No Slack bot in Sprint 1. Sprint 2 is where the bot starts up and polls.
 - [ ] Bot startup sequence sends warm-up ping to workmain-intent:latest before poll loop
 - [ ] Warm-up ping is logged but not cost-tracked (no meaningful token count)
 - [ ] Cold-start latency after bot restart is ≤ 15s for first real user message
-
 **Files Affected:**
 
 - Sprint 2 Slack bot startup module (TBD)
@@ -1334,7 +1370,6 @@ Identification query confirmed 0 unreviewed stubs remaining.
 - [x] Tags updated to correct values via `workmain notes edit <id> --tags <tags>`
 - [x] Any notes confirmed as internal-only are verified, not just left by default
 - [x] Identification query returns 0 rows after re-tag (or only note id=7606)
-
 **Files Affected:**
 
 - `notes` table (data only — tag updates via `workmain notes edit`)
@@ -1370,7 +1405,6 @@ Premature configuration adds complexity without immediate benefit.
       to hardcoded defaults if config absent or key missing
 - [ ] All existing trigger IDs and behaviors preserved
 - [ ] `workmain notifications config` (Phase 14) exposes time settings
-
 **Files Affected:**
 
 - `workmain/daemon/scheduler.py`
@@ -1411,7 +1445,6 @@ consolidation point for similar CLI robustness tasks.
       download or staging write fails (exception caught or `success=False`)
 - [ ] `_run_clockify_step` correctly reports `FAILED` when the clockify command
       exits non-zero in daemon context
-
 **Files Affected:**
 
 - `workmain/cli/commands/clockify.py` (add `sys.exit(1)` on failure paths)
@@ -1451,7 +1484,6 @@ as a forward-compatible parameter.
 - [ ] `config_version` bumped and model rebuilt to new version
 - [ ] `action_executor._execute_create_time_entry` no longer extracts or attempts
       to pass a string `project` field
-
 **Files Affected:**
 
 - `config/intent_parse_system_prompt.txt`
@@ -1491,7 +1523,6 @@ remain.
       `meeting` from the action dict and pass a resolved `meeting_id` to the service
 - [ ] Ambiguous matches return a clarification `ActionResult` (T6 pattern)
 - [ ] Tests cover: exact match, fuzzy match, no match, ambiguous match
-
 **Files Affected:**
 
 - `workmain/database/repositories/meetings_repo.py` (non-interactive resolver)
@@ -1530,7 +1561,6 @@ schema wiring and model rebuild remain.
 - [ ] `config_version` bumped and model rebuilt
 - [ ] `action_executor._execute_create_time_entry` extracts `entry_date` (parsed to
       `date`) and `category` and passes them to `time_entry_service.create_time_entry()`
-
 **Files Affected:**
 
 - `config/intent_parse_system_prompt.txt`
@@ -1576,7 +1606,6 @@ Neither was in scope during the service layer work (v1.22.0).
 - [ ] Block Kit UX surfaces tag selection/input for Slack time entry creation
 - [ ] Slack-originated time entries correctly persist requested tags
 - [ ] New tests cover `tags` passthrough in action_executor adapter
-
 **Files Affected:**
 
 - `config/intent_parse_system_prompt.txt`
@@ -1638,7 +1667,6 @@ should be scoped as a coherent unit rather than patched ad-hoc.
       client prompt contain only client-safe content; `internal-only`,
       `carry-forward`, and `blocker`-tagged content is excluded before injection
 - [ ] Existing behavior (raw data fallback) preserved when no confirmed dailies exist
-
 **Files Affected:**
 
 - `workmain/ai/prompt_builder.py` — `build_weekly_prompt()` threshold + filtering logic
@@ -1677,8 +1705,6 @@ event handling. Deferred to Phase 14 as a coherent interactive UX package.
 
 **Acceptance Criteria:**
 
-- [ ] Cloudflare Tunnel or equivalent HTTPS interactivity endpoint
-      operational (prerequisite — homelab repo concern)
 - [ ] `correct_report` Slack action triggers a Block Kit modal
       pre-populated with current report content (`corrected_content`
       if set, otherwise `content`)
@@ -1692,10 +1718,610 @@ event handling. Deferred to Phase 14 as a coherent interactive UX package.
       content is never overwritten)
 - [ ] Graceful fallback if modal interaction times out or fails:
       existing `correction_note` flagging behaviour preserved
-
 **Files Affected:**
 
 - `workmain/orchestration/action_executor.py`
 - `workmain/slack/` (Block Kit modal handling — TBD)
 - Cloudflare Tunnel / interactivity endpoint configuration
   (homelab repo, not app repo)
+
+---
+
+#### Item 48 — 3c Timeout Loop: No Exit Condition, No Cancel Path
+
+**Status:** Open — Phase 13 Sprint 3 live testing defect
+**Priority:** High
+**Effort:** ~4–6 hours
+**Added:** 20260626
+**Target Phase:** Phase 14 (design with Backlog Item 32)
+
+**Description:**
+Step 3c (`task_match`) runs **in-process** on the daemon's Slack event-handler thread —
+not in a subprocess. `_run_task_match_step()` (`eod_workflow.py:419–514`) loops over every
+active `task_status` record and calls `IntentParser.parse_task_match()` once per task.
+Each call is bounded by the provider timeout (`ai_settings.json` → `providers.ollama.timeout
+= 30`), producing up to N × 30s of sequential blocking with no overall time budget.
+
+Three compounding defects observed in live testing (20260625):
+
+1. **No exit condition on timeout:** When Ollama stalls, the per-task loop retries until
+   all N tasks are exhausted. There is no overall step timeout budget, no retry cap, and no
+   short-circuit on repeated failures.
+2. **Cancel DM cannot reach Step 3c:** `CONTROL_STOP` is handled in
+   `SlackEodManager.handle_reply()`, which runs on the **same** inbound-message handler
+   thread as the step execution. While 3c is blocking inside `parse_task_match()`, no new
+   Slack DM can be processed — the cancel message sits in the socket queue until 3c returns
+   on its own.
+3. **Session broken after interrupt:** `CONTROL_RESUME` (`slack_eod.py:50`) skips the
+   current step (it calls `session.skipped.append(...)` then increments `current_step_idx`)
+   — it does not retry 3c. The `paused` flag is not persisted in `eod_session.json` (save
+   writes only 7 fields at lines 84–92; `load()` hard-codes `session.paused = False` at
+   line 121), so after a daemon restart the session cannot distinguish "paused at 3c" from
+   "not paused". `resume eod skip 3c` is unparseable — control words are exact set
+   membership matches; `CONTROL_SKIP = {"skip", "skip this"}` and `CONTROL_RESUME =
+   {"continue", "resume"}` do not include the phrase `skip 3c`.
+**Why Deferred:**
+The correct fix redesigns Step 3c's execution model: move the Ollama work off the handler
+thread (async or subprocess), add a per-task and per-step time budget, add a bounded
+iteration cap, and persist `paused` state properly. This redesign overlaps with Backlog
+Item 32 (note↔note dedup, the actual AC for Step 3c), so both must be designed together
+rather than patching the runtime defect in isolation.
+
+**Acceptance Criteria:**
+
+- [ ] Step 3c has an overall time budget (configurable, default ~60s) that terminates the
+      step gracefully when exceeded regardless of task count
+- [ ] Per-task Ollama calls have their own timeout; a single stalled call does not block
+      the entire step
+- [ ] Cancel DM (`stop` / `cancel` / `abort`) can interrupt Step 3c mid-execution
+- [ ] `eod_session.json` persists `paused` state; session correctly resumes at the
+      interrupted step after daemon restart
+- [ ] `resume` retries the current step (does not skip it); a separate `skip` or `skip
+      step` control skips if the user wants to bypass
+- [ ] `resume eod skip 3c` (or equivalent) parsed as a valid skip command
+**Files Affected:**
+
+- `workmain/workflows/eod_workflow.py` — `_run_task_match_step()` execution model
+- `workmain/slack/slack_eod.py` — `handle_reply()` CONTROL_RESUME / CONTROL_SKIP,
+  `save()` / `load()` paused-state persistence
+- `workmain/ai/intent_parser.py` — `parse_task_match()` timeout handling
+
+---
+
+#### Item 49 — T4 Suppression Window Hard-Coded Independent of Schedule Config
+
+**Status:** Open — Deferred to Phase 14
+**Priority:** Low
+**Effort:** ~2–3 hours
+**Added:** 20260626
+**Target Phase:** Phase 14 (schedule module authority refactor)
+
+**Description:**
+The T4 check-in suppression window is hard-coded as bare integer literals at
+`workmain/daemon/scheduler.py:344`:
+
+```python
+if fire_at.hour < 9 or fire_at.hour >= 18:
+    return
+```
+
+This `09:00–18:00` window is completely independent of the existing schedule
+config (`05:30` workday start, `14:30` EOD). No named constant, no config file,
+no connection to `ScheduleExceptionRepository` or `config/non_working_days.json`.
+
+Architecture integration recon (20260626) identified this as part of a broader
+pattern: "is today a working day / is now within working hours" is computed four
+different ways across four modules with four different data sources, none of which
+agree. The decision made during recon planning: `ScheduleExceptionRepository` (DB)
+is the canonical non-working-day authority; `config/non_working_days.json` is to be
+migrated into the DB and retired; the schedule module will grow `is_working_day(date)`
+and `is_working_hours(datetime)` methods that all callers (T4, inspection, weekly
+report, notification suppression) will use.
+
+This item covers wiring T4 to the unified schedule authority once it exists. The
+schedule module authority work itself is a prerequisite that may be delivered as a
+separate spec or bundled with Backlog Item 40 (configurable trigger times).
+
+**Why Deferred:**
+The correct fix requires the schedule module authority to exist first. Patching the
+`09:00–18:00` literal to `05:30–14:30` without fixing the underlying architectural
+gap would leave the four-way fragmentation in place.
+
+**Acceptance Criteria:**
+
+- [ ] `ScheduleExceptionRepository` is the single canonical non-working-day store;
+      `config/non_working_days.json` migrated into DB and retired (prerequisite)
+- [ ] Schedule module exposes `is_working_day(date) -> bool` and
+      `is_working_hours(datetime) -> bool` methods consuming DB exceptions + weekends
+- [ ] T4 suppression consults `is_working_day()` and `is_working_hours()` instead of
+      bare literals and the JSON file
+- [ ] No hard-coded `9` / `18` literals remain in `_reschedule_t4_checkin()`
+- [ ] A T4 suppression on a DB-managed holiday correctly suppresses; a date in the
+      retired JSON file (now in DB) is also suppressed
+**Files Affected:**
+
+- `workmain/daemon/scheduler.py` — `_reschedule_t4_checkin()`, `_load_non_working_days()`
+- `workmain/database/repositories/schedule_repository.py` — new `is_working_day()` /
+  `is_working_hours()` methods
+- `config/non_working_days.json` — migration target; to be retired
+
+---
+
+#### Item 50 — Morning Briefing Content
+
+**Status:** Open — Deferred to Phase 14
+**Priority:** Medium
+**Effort:** ~2–3 hours
+**Added:** 20260626
+**Target Phase:** Phase 14 (spec with Backlog Item 53)
+
+**Description:**
+The Phase 13 start-of-day Slack notification (`_send_morning_briefing()` in
+`workmain/daemon/scheduler.py:192–213`, registered at id `morning_briefing`) sends:
+
+```
+Good morning. WorkmAIn is running. N unresolved observation(s) from the last inspection.
+```
+
+This is a bare count read from `last_inspection.json` via `_count_unresolved_observations()`
+(`daemon.py:339–348`). It does not query today's meetings, carry-forward tasks, or
+observation details from any repository.
+
+`build_morning_briefing()` already exists in `workmain/slack/slack_eod.py:493` and can
+render a structured Slack briefing including today's meetings and carry-forward tasks — but
+it is **not** the function wired to the 05:30 job. The current job calls a simpler, separate
+function.
+
+Additionally, architecture integration recon (20260626) confirmed that two parallel
+start-of-day notifications fire at 05:30: the Phase 10 `job_workday_start` (terminal/OS
+delivery via `_enriched_notify()`) and the Phase 13 `morning_briefing` (Slack). These share
+no content generation and have no shared suppression. This dual-notification architecture
+will be resolved by Backlog Item 53 (notification delivery method refactor).
+
+**Why Deferred:**
+Content improvement depends on the delivery architecture decision (Backlog Item 53). Wiring
+`build_morning_briefing()` to the 05:30 job before the delivery consolidation is resolved
+risks duplicate work if the briefing job itself is restructured.
+
+**Acceptance Criteria:**
+
+- [ ] The 05:30 Slack notification uses `build_morning_briefing()` (or equivalent) to
+      render a structured briefing
+- [ ] Briefing includes: today's date, today's meetings (time + title), open
+      carry-forward tasks, and unresolved inspection observation detail (not just count)
+- [ ] Briefing is suppressed on DB-managed exception days (holiday / time-off) via
+      `ScheduleExceptionRepository`
+- [ ] Dual 05:30 notification resolved per Backlog Item 53 outcome
+**Files Affected:**
+
+- `workmain/daemon/scheduler.py` — `_send_morning_briefing()` / `morning_briefing` job
+- `workmain/slack/slack_eod.py` — `build_morning_briefing()`
+- `workmain/daemon/daemon.py` — `_count_unresolved_observations()` (may be superseded)
+
+---
+
+#### Item 51 — Architecture Integration Recon
+
+**Status:** ✓ COMPLETE — 20260626
+**Priority:** Medium
+**Effort:** ~2–3 hours
+**Added:** 20260626
+**Completed:** 20260626
+**Target Phase:** Phase 13/14 planning
+
+**Description:**
+Read-only audit of Phase 13's integration with existing schedule, notification, meeting,
+and prompt modules. Hypothesis: Phase 13 built parallel logic rather than integrating with
+existing infrastructure.
+
+**Resolution:**
+Hypothesis confirmed. Audit document delivered:
+`docs/dev/design/RECON_INTEGRATION_AUDIT_20260626.md`. Eight sections covering: schedule
+module ownership, Phase 13 integration audit (8 subsections), cancelled meeting filter,
+3c timeout loop, broken tests, Phase 12 checklist, Item 32 AC mismatch, and Item 37 scope.
+Seven open questions resolved in planning session 20260626. Findings drove Backlog Items
+48–57 and updates to Items 14, 15, 21, 32, 37, 47.
+
+**Acceptance Criteria:**
+
+- [x] Read-only audit document produced covering all 8 sections
+- [x] Seven open questions resolved with Ray
+- [x] Backlog updated to reflect findings
+
+---
+
+#### Item 52 — Cancelled Meetings Not Filtered from Inspection or Notification Schedule
+
+**Status:** Open — Deferred to Phase 14
+**Priority:** Medium
+**Effort:** ~2–3 hours
+**Added:** 20260626
+**Target Phase:** Phase 14
+
+**Description:**
+Cancelled meetings appear in inspection observations and the notification schedule display
+despite being correctly flagged as `is_cancelled = True` in the database.
+
+Architecture integration recon (20260626) identified three affected surfaces:
+
+1. **Inspection engine** (`workmain/daemon/inspection_engine.py` v1.0):
+   `_get_meetings_for_date()` (lines 265–277) builds a raw `session.query(Meeting)` filtered
+   only on `start_time` date range — it does not use `MeetingsRepository` and applies no
+   `is_cancelled` filter. Feeds `_check_time_gaps()` (TIME_GAP observations) and
+   `_check_missing_notes()` (MISSING_NOTES observations) for cancelled meetings.
+2. **Pre-meeting reminders** (`workmain/daemon/daemon.py` v1.13):
+   `_schedule_meeting_reminders()` (lines 252–296) calls `repo.get_by_date()` (line 268)
+   and loops without any `is_cancelled` check (lines 272–289). Cancelled meetings are
+   scheduled as pre-meeting reminders and displayed in `workmain notifications status`.
+3. **Notification status display** (`workmain/cli/commands/notifications.py` v1.1):
+   "Today's Schedule" block (lines 235–249) renders reminders from `scheduled_jobs.json`,
+   which is written by `_schedule_meeting_reminders()` above.
+`MeetingsRepository.get_by_date()` / `get_today()` are intentionally unfiltered (per repo
+v2.1 documentation) so that `workmain meetings today` and resolve surfaces can still show
+cancelled meetings. The fix must be a per-surface policy, not a blanket repo change.
+
+**Policy confirmed:**
+
+- **Show surfaces** (`meetings today`, `meetings show`) — keep `get_by_date()` unfiltered;
+  cancelled meetings visible by design.
+- **Inspect/notify surfaces** (inspection, pre-meeting reminders, notification status) —
+  exclude cancelled meetings.
+**Why Deferred:**
+Fix requires: (1) a new `get_active_for_date()` method on `MeetingsRepository`, (2)
+`InspectionEngine._get_meetings_for_date()` routed through the repository using the new
+method, (3) `_schedule_meeting_reminders()` applying the filter. Phase 14 consolidates
+these notification surface fixes.
+
+**Acceptance Criteria:**
+
+- [ ] `MeetingsRepository.get_active_for_date(date)` added — returns meetings for date
+      with `is_cancelled = False`
+- [ ] `InspectionEngine._get_meetings_for_date()` uses `get_active_for_date()` instead of
+      raw `session.query()`; cancelled meetings no longer generate TIME_GAP or
+      MISSING_NOTES observations
+- [ ] `_schedule_meeting_reminders()` uses `get_active_for_date()`; cancelled meetings
+      no longer scheduled as pre-meeting reminders
+- [ ] `workmain notifications status` "Today's Schedule" no longer shows cancelled meetings
+- [ ] `workmain meetings today` continues to display cancelled meetings (unaffected)
+- [ ] Tests cover both surfaces: cancelled meeting absent from inspection/notifications,
+      present in meetings today
+**Files Affected:**
+
+- `workmain/database/repositories/meetings_repo.py` — new `get_active_for_date()` method
+- `workmain/daemon/inspection_engine.py` — `_get_meetings_for_date()`
+- `workmain/daemon/daemon.py` — `_schedule_meeting_reminders()`
+
+---
+
+#### Item 53 — Notification Delivery Method Refactor
+
+**Status:** Open — Deferred to Phase 14
+**Priority:** Medium
+**Effort:** ~4–6 hours
+**Added:** 20260626
+**Target Phase:** Phase 14 (spec with Backlog Item 50)
+
+**Description:**
+The current delivery method enum (`terminal`, `os`, `email`) does not reflect the actual
+delivery surfaces available. Architecture integration recon (20260626) confirmed that Phase
+13 added Slack as a parallel delivery path without integrating it into the delivery method
+framework.
+
+**Required changes:**
+
+1. **Rename `os` → `wsl-notify`:** `os` is an opaque name for Windows toast notifications
+   via `wsl-notify-send`. Renaming to `wsl-notify` makes the requirement explicit. Requires
+   a DB migration for existing stored `notification_config.method = 'os'` values.
+2. **Retire `terminal`:** In a systemd service context, `terminal` output lands in
+   `journalctl` only — it is not a useful delivery channel. Option: remove entirely, or
+   repurpose as a log-only debug fallback.
+3. **Add `slack` as a first-class method:** The Phase 13 Slack delivery path
+   (`WorkmAInDaemon.post_message()` / `post_blocks()`) exists but is not exposed as a
+   selectable delivery method in `workmain notifications set`.
+4. **Decouple content generation from delivery:** Currently the Phase 10 notification
+   pipeline (content via `InspectionEngine` → `narrate()`) and the Phase 13 Slack path
+   (content via `_send_morning_briefing()`) are independent. Content should be assembled
+   once and rendered per the configured delivery channel.
+5. **Add graceful fallback:** If no delivery method is configured or available, log-only
+   mode prevents hard crashes in the notification path.
+**Updated `workmain notifications set` methods:** `wsl-notify`, `slack`, `email`, `none`
+
+**Why Deferred:**
+The delivery architecture decision must precede Backlog Item 50 (morning briefing content)
+since content wiring depends on knowing which delivery path is authoritative. Phase 14 is
+the natural consolidation point for notification infrastructure.
+
+**Acceptance Criteria:**
+
+- [ ] `os` renamed to `wsl-notify` in all code, config validation, and help text
+- [ ] DB migration converts existing `method = 'os'` → `method = 'wsl-notify'`
+- [ ] `slack` added as a valid delivery method; `workmain notifications set slack` stores
+      and activates Slack delivery
+- [ ] `terminal` removed from valid methods or repurposed as `none` / log-only fallback
+- [ ] `workmain notifications set` help text and `--help` updated to show current valid methods
+- [ ] Content generation decoupled from delivery: a single briefing assembly step renders
+      to the configured channel
+- [ ] `workmain notifications status` "Delivery method" field reflects the new method names
+**Files Affected:**
+
+- `workmain/cli/commands/notifications.py` — method validation, help text
+- `workmain/daemon/delivery.py` — delivery method enum and dispatch
+- `workmain/database/repositories/notifications_repo.py` — `NotificationConfigRepository`
+- Database migration (new file) — `method = 'os'` → `method = 'wsl-notify'`
+
+---
+
+#### Item 54 — Technical Debt: Warnings and Deprecations (Living List)
+
+**Status:** Open — Deferred to Phase 15
+**Priority:** Low
+**Effort:** TBD — grows as warnings are catalogued
+**Added:** 20260626
+**Target Phase:** Phase 15
+
+**Description:**
+A collection of non-critical warnings and deprecations that do not affect current
+functionality but will become failures on dependency upgrades. This is a **living list**
+item: Claude Code appends newly discovered warnings and deprecations to the appendix below
+as it encounters them during other work. This item is not closeable until the appendix
+is empty.
+
+**Known items (as of 20260626):**
+
+- `PytestReturnNotNoneWarning` (30 instances) — tests that `return True` or `return False`
+  instead of using `assert`. Per pytest warning: "will be an error in a future version of
+  pytest." Affected files: `tests/test_ai_clients.py`, `tests/test_ai_foundation.py`,
+  `tests/test_config_system.py`, `tests/test_templates.py`. Fix: replace `return True/False`
+  with `assert <condition>`.
+- SQLAlchemy deprecation warnings — surfacing during normal DB operations. Exact calls TBD
+  (to be catalogued by Claude Code when encountered).
+- Click deprecation warnings — surfacing in CLI commands. Exact parameters TBD (to be
+  catalogued by Claude Code when encountered).
+**Why Deferred:**
+No functional impact today. Addressed as a dedicated cleanup pass rather than fixing
+piecemeal during feature work (risk of introducing regressions mid-sprint). Phase 15
+technical debt pass is the appropriate consolidation point.
+
+**Process:**
+When Claude Code encounters a warning or deprecation in the course of other work, it adds
+an entry to the appendix below before proceeding. Entry format:
+
+```
+- [file:line or module] Warning type — brief description of the call or pattern
+```
+
+**Acceptance Criteria:**
+
+- [ ] All `PytestReturnNotNoneWarning` instances converted to `assert` statements
+- [ ] All SQLAlchemy deprecation warnings resolved
+- [ ] All Click deprecation warnings resolved
+- [ ] All appendix items resolved
+- [ ] `python -m pytest tests/` produces 0 warnings in the known-warning categories
+- [ ] Application startup and normal CLI operation produce 0 deprecation warnings
+**Appendix — discovered warnings (Claude Code appends here):**
+
+*(empty — items added as discovered)*
+
+---
+
+#### Item 55 — Clockify Bidirectional Reconciliation
+
+**Status:** Open — Deferred to Phase 14+
+**Priority:** Medium
+**Effort:** ~8–12 hours
+**Added:** 20260626
+**Target Phase:** Phase 14+ (replaces PC-1 scope)
+
+**Description:**
+Clockify and WorkmAIn can diverge in two directions that the existing `clockify sync`
+(push) command does not handle:
+
+**Pull direction (Clockify → WorkmAIn):** When a time entry is created or corrected
+directly in Clockify (because the CLI or Slack was unavailable, or a manual adjustment was
+made), WorkmAIn has no awareness. A reconcile pull detects entries in Clockify that are
+absent or different in WorkmAIn, imports or updates them, and then runs post-sync task
+matching to sign off any carry-forward tasks associated with the imported work.
+
+**Push direction (WorkmAIn → Clockify re-push):** Once a time entry is pushed via
+`clockify sync`, any subsequent modification to that entry in WorkmAIn (corrected content,
+duration change, category change) has no path back to Clockify. A reconcile push detects
+WorkmAIn entries that have been modified since their last push (via a dirty flag or
+`pushed_at` timestamp comparison) and re-pushes the delta.
+
+**Command structure** (following `clockify sync` subcommand pattern):
+
+```
+workmain clockify reconcile push [--date DATE]
+```
+
+WorkmAIn is the source of truth. Pushes modified WorkmAIn entries to Clockify.
+`--date` required when changes cross weekends, holidays, or billing periods.
+
+```
+workmain clockify reconcile pull [--date DATE]
+```
+
+Clockify is the source of truth. Pulls Clockify entries into WorkmAIn and runs
+post-sync task matching against carry-forward tasks.
+
+Both subcommands require explicit direction — there is no automatic two-way merge.
+Conflict resolution (entry exists in both with different values) is surfaced for user
+confirmation, not resolved automatically.
+
+**Why Deferred:**
+Replaces the original PC-1 (Clockify Reconciliation) scope, which was never implemented
+and was underspecified. The bidirectional design is more complex than PC-1's pull-only
+scope but correctly covers the actual failure modes observed in practice. Phase 14+ allows
+time to spec the dirty-flag/pushed_at mechanism and conflict resolution UX properly.
+
+**Acceptance Criteria:**
+
+- [ ] `workmain clockify reconcile push [--date DATE]` detects WorkmAIn entries modified
+      after last push and re-pushes them to Clockify
+- [ ] `workmain clockify reconcile pull [--date DATE]` detects Clockify entries absent or
+      different in WorkmAIn and imports/updates them
+- [ ] Post-pull task matching: after import, carry-forward tasks are checked for completion
+      against the newly imported entries (same matching logic as EOD Step 3c)
+- [ ] Conflict resolution: when both sides have modified the same entry, the user is
+      prompted to choose which side wins before any write occurs
+- [ ] `--date DATE` flag scopes reconciliation to a specific date; defaults to today
+- [ ] `TimeEntry` model has a `pushed_at` timestamp or equivalent dirty flag to detect
+      post-push modifications
+- [ ] `workmain clockify reconcile` with no subcommand shows help and valid subcommands
+**Files Affected:**
+
+- `workmain/cli/commands/clockify.py` — new `reconcile` command group + `push` / `pull`
+- `workmain/integrations/clockify/` — pull/delta logic (new)
+- `workmain/database/models.py` — `pushed_at` or dirty flag on `TimeEntry`
+- Database migration (new file) — `pushed_at` column on `time_entries`
+
+---
+
+#### Item 56 — workmain reports corrections Listing Command
+
+**Status:** Open — Deferred to Phase 14
+**Priority:** Low
+**Effort:** ~1–2 hours
+**Added:** 20260626
+**Target Phase:** Phase 14
+
+**Description:**
+Phase 12 Item PC-3 (Report Correction Propagation) is essentially complete as of v1.21.0,
+with one missing piece: a `workmain reports corrections` listing command. The existing
+commands cover:
+
+- `workmain reports save` — generates and saves a daily report (confirmed)
+- `workmain reports confirm <id>` — marks a report as confirmed
+- `workmain reports correct <id>` — opens report in editor, saves corrected content,
+  sets `status = 'corrected'`
+- `workmain reports list --status corrected` — filters by status
+What does not exist: a dedicated `workmain reports corrections [--date DATE]` command that
+provides a history view of corrected reports — showing which reports were corrected, when,
+what the original content was, what the correction was, and the `correction_note`.
+
+**Why Deferred:**
+The underlying data is already stored correctly (Phase 12 Decision 10: `content` preserved,
+`corrected_content` written alongside). The listing command is a display-only surface with
+no new data model requirements. Deferred to Phase 14 as a small completeness task.
+
+**Acceptance Criteria:**
+
+- [ ] `workmain reports corrections` lists all reports with `status = 'corrected'` in
+      reverse chronological order
+- [ ] `workmain reports corrections --date DATE` filters to a specific date or date range
+- [ ] Each entry shows: report ID, date, `correction_note`, and a preview of
+      `corrected_content`
+- [ ] `workmain reports corrections --full` shows complete `content` and `corrected_content`
+      side by side for each corrected report
+- [ ] Completes Phase 12 PC-3 acceptance criteria
+**Files Affected:**
+
+- `workmain/cli/commands/reports.py` — new `reports_corrections` command
+
+---
+
+#### Item 57 — DB Schema Test Coverage Audit and Restoration
+
+**Status:** Open — Deferred to Phase 15
+**Priority:** Low
+**Effort:** ~2–4 hours (after recon step)
+**Added:** 20260626
+**Target Phase:** Phase 15
+
+**Description:**
+`scripts-deprecated/test_database.py` is a pre-pytest script written before pytest was
+introduced to the project. It was moved to `scripts-deprecated/` (excluded from pytest
+collection per CLAUDE.md §6) rather than adapted to pytest conventions. It has never been
+translated into the active test suite.
+
+Architecture integration recon (20260626) confirmed that:
+
+- The active test suite has no `tests/test_database.py`
+- `tests/conftest.py` (v2.1) provides only a `db_session` fixture — no `engine` fixture
+- The suite is green at 671 passed with no schema-level test coverage
+It is unknown whether the deprecated script's coverage intent (likely: schema structure,
+column types, constraints, migration integrity) was ever replicated in other test files.
+
+**This item requires a recon step before any tests are written.** Claude Code must:
+
+1. Read `scripts-deprecated/test_database.py` and identify what it was testing
+2. Search the active test suite for equivalent coverage
+3. Document gaps before writing any new tests
+**Why Deferred:**
+No functional impact from missing schema tests today. Phase 15 test debt cleanup pass is
+the appropriate time to audit and restore coverage systematically rather than writing tests
+that may duplicate what already exists elsewhere.
+
+**Acceptance Criteria:**
+
+- [ ] `scripts-deprecated/test_database.py` read and coverage intent documented
+- [ ] Active test suite checked for equivalent schema-level coverage
+- [ ] Gaps documented before any new tests are written (recon-first gate)
+- [ ] Missing coverage implemented as proper pytest functions in `tests/test_database.py`
+- [ ] `engine` fixture added to `tests/conftest.py` if needed by new tests
+- [ ] New tests pass and do not duplicate existing coverage
+**Files Affected:**
+
+- `tests/test_database.py` (new file)
+- `tests/conftest.py` — `engine` fixture (if required)
+- `scripts-deprecated/test_database.py` (read-only reference; do not modify)
+
+---
+
+#### Item 58 — T4 Check-in Fires Regardless of Recent Activity
+
+**Status:** Open — Deferred to Phase 14
+**Priority:** Medium
+**Effort:** ~2–3 hours
+**Added:** 20260626
+**Target Phase:** Phase 14 (alongside Backlog Items 40 and 49)
+
+**Description:**
+The T4 random check-in notification (`What are you working on right now?`) uses elapsed
+time since the last T4 as its only suppression signal. It has no awareness of recent user
+activity. Observed in live testing (20260626): a T4 fired immediately after a time entry
+was logged — the user had just told the system what they were working on.
+
+T4 is intended as a **gap detector** — it fires when there has been a genuine period of
+silence with no notes, time entries, or meeting triggers. Recent activity within the T4
+scheduling window makes the check-in redundant and disruptive.
+
+`_reschedule_t4_checkin()` (`workmain/daemon/scheduler.py`) currently:
+
+1. Checks weekend and `non_working_days.json` (not the DB schedule exceptions — see
+   Backlog Item 49)
+2. Checks the hard-coded `09:00–18:00` window (see Backlog Item 49)
+3. Schedules a `DateTrigger` for `now + random.randint(30, 120)` minutes
+There is no step that queries `time_entries` or `notes` for recent activity before
+scheduling. The 30–120 minute random interval is the only gap detection mechanism, and it
+resets from the last T4 firing, not from the last time the user actually logged anything.
+
+**Correct behavior:** Before scheduling the next T4, query for any `time_entries` or
+`notes` created within the last N minutes (where N matches the T4 random interval,
+configurable via Backlog Item 40). If recent activity is found, skip the check-in and
+reschedule from the timestamp of the most recent activity instead of from `now`. This
+ensures T4 only fires when there is a genuine activity gap.
+
+**Why Deferred:**
+Fix requires the schedule module authority work (Backlog Item 49 prerequisite) to be in
+place so the activity-gap check uses the same working-day/working-hours authority as the
+rest of the suppression logic. Naturally grouped with Items 40 and 49 in Phase 14 since
+all three touch `_reschedule_t4_checkin()`.
+
+**Acceptance Criteria:**
+
+- [ ] Before scheduling a T4 check-in, query `time_entries` and `notes` for records
+      created within the last N minutes (N = T4 interval, default 120)
+- [ ] If recent activity found: suppress the check-in and reschedule from the most
+      recent activity timestamp rather than from `now`
+- [ ] If no recent activity: fire T4 as normal
+- [ ] Activity-gap query respects the working-day/working-hours authority (Backlog
+      Item 49 prerequisite) — no gap detection outside working hours
+- [ ] Confirmed time entries and notes both count as activity (not just note creation)
+- [ ] T4 suppression from recent activity is logged at DEBUG level for observability
+**Files Affected:**
+
+- `workmain/daemon/scheduler.py` — `_reschedule_t4_checkin()`
+- `workmain/database/repositories/notes_repo.py` — recent activity query (may reuse
+  existing method or require a new `get_recent(since=datetime)`)
+- `workmain/database/repositories/time_entries_repo.py` — same pattern
