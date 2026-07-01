@@ -1,7 +1,7 @@
 """
 WorkmAIn Time Entries Repository
-Time Entries Repository v1.9
-20260610
+Time Entries Repository v1.10
+20260701
 
 Data access layer for time entries with 24-hour time format.
 Handles all CRUD operations for the time_entries table.
@@ -23,6 +23,10 @@ Version History:
 - v1.9: Phase 13 DB Schema Sprint Gate 5 — create() takes note_id instead of
         description/tags; update() drops description/tags params; find_by_description_like()
         joins through notes.content; add get_by_note_id()
+- v1.10: Operations_Config_Correction_Sprint Gate 1 §1.0 — parse_time()/
+         parse_duration() bodies extracted to workmain.utils.time_parser;
+         both methods now one-line delegators, kept for backward
+         compatibility (13 existing call sites unchanged)
 """
 
 from datetime import date, datetime, time, timedelta
@@ -33,6 +37,8 @@ from sqlalchemy import func, and_, or_, desc
 from sqlalchemy.orm import Session
 
 from workmain.database.models import Note, TimeEntry, Project
+from workmain.utils.time_parser import parse_time as _parse_time
+from workmain.utils.time_parser import parse_duration_hours as _parse_duration_hours
 
 
 class TimeEntriesRepository:
@@ -591,129 +597,11 @@ class TimeEntriesRepository:
         ).limit(limit).all()
     
     def parse_duration(self, duration_str: str) -> float:
-        """
-        Parse duration string to hours.
-        
-        Args:
-            duration_str: Duration string (e.g., "1.5h", "2h", "30m", "1h30m")
-            
-        Returns:
-            Duration in hours as float
-            
-        Raises:
-            ValueError: If duration string is invalid
-        """
-        duration_str = duration_str.lower().strip()
-        
-        # Handle formats: 1.5h, 2h, 30m, 1h30m
-        hours = 0.0
-        minutes = 0.0
-        
-        # Check for hours
-        if 'h' in duration_str:
-            parts = duration_str.split('h')
-            try:
-                hours = float(parts[0])
-                # Check if there are minutes after hours
-                if len(parts) > 1 and parts[1]:
-                    remainder = parts[1].replace('m', '').strip()
-                    if remainder:
-                        minutes = float(remainder)
-            except ValueError:
-                raise ValueError(f"Invalid duration format: {duration_str}")
-        
-        # Check for minutes only
-        elif 'm' in duration_str:
-            try:
-                minutes = float(duration_str.replace('m', '').strip())
-            except ValueError:
-                raise ValueError(f"Invalid duration format: {duration_str}")
-        
-        # Try parsing as plain number (assume hours)
-        else:
-            try:
-                hours = float(duration_str)
-            except ValueError:
-                raise ValueError(
-                    f"Invalid duration format: {duration_str}. "
-                    "Expected format: 1.5h, 2h, 30m, or 1h30m"
-                )
-        
-        # Convert to total hours
-        total_hours = hours + (minutes / 60.0)
-        
-        return total_hours
-    
+        """Delegates to workmain.utils.time_parser.parse_duration_hours().
+        Kept for backward compatibility -- 13 existing call sites unchanged."""
+        return _parse_duration_hours(duration_str)
+
     def parse_time(self, time_str: str) -> time:
-        """
-        Parse time string to time object (24-hour format).
-        
-        Supports multiple formats:
-        - 24-hour with colon: "14:30", "09:00"
-        - 24-hour without colon: "1430", "0900", "930"
-        - 12-hour with colon: "2:30pm", "9:00am"
-        - 12-hour without colon: "230pm", "900am"
-        
-        Args:
-            time_str: Time string
-            
-        Returns:
-            time object in 24-hour format
-            
-        Raises:
-            ValueError: If time string is invalid
-        """
-        time_str = time_str.lower().strip()
-        
-        # Check for AM/PM
-        is_pm = 'pm' in time_str
-        is_am = 'am' in time_str
-        
-        # Remove am/pm markers
-        time_str = time_str.replace('am', '').replace('pm', '').strip()
-        
-        # Try parsing with colon first
-        if ':' in time_str:
-            try:
-                parsed = datetime.strptime(time_str, '%H:%M').time()
-                
-                # Convert 12-hour to 24-hour if needed
-                if is_pm and parsed.hour != 12:
-                    parsed = parsed.replace(hour=parsed.hour + 12)
-                elif is_am and parsed.hour == 12:
-                    parsed = parsed.replace(hour=0)
-                
-                return parsed
-            except ValueError:
-                pass
-        
-        # Try parsing without colon (military time or 12-hour without colon)
-        try:
-            # Pad to 4 digits if needed
-            if len(time_str) == 3:
-                time_str = '0' + time_str
-            elif len(time_str) == 1 or len(time_str) == 2:
-                time_str = time_str.zfill(2) + '00'
-            
-            if len(time_str) == 4:
-                hours = int(time_str[:2])
-                minutes = int(time_str[2:])
-                
-                # Validate
-                if hours > 23 or minutes > 59:
-                    raise ValueError("Invalid hours or minutes")
-                
-                # Convert 12-hour to 24-hour if needed
-                if is_pm and hours != 12:
-                    hours += 12
-                elif is_am and hours == 12:
-                    hours = 0
-                
-                return time(hours, minutes)
-        except (ValueError, IndexError):
-            pass
-        
-        raise ValueError(
-            f"Invalid time format: {time_str}. "
-            "Expected format: HH:MM (24hr) or H:MMam/pm (12hr)"
-        )
+        """Delegates to workmain.utils.time_parser.parse_time().
+        Kept for backward compatibility -- 13 existing call sites unchanged."""
+        return _parse_time(time_str)
