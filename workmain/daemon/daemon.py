@@ -1,7 +1,7 @@
 """
 WorkmAIn Notification Daemon
-daemon.py v1.14
-20260701
+daemon.py v1.15
+20260702
 
 Entry point for the always-on background daemon process.
 WorkmAInDaemon owns the Slack socket connection, EOD manager, and
@@ -55,6 +55,10 @@ Version History:
          (_enriched_notify(), _pre_meeting_reminder()) converged directly on
          ScheduleService.is_working_day(), reusing the session already
          opened in each function rather than a separate one
+- v1.15: Operations_Config_Correction_Sprint Gate 2 §2.3 — _schedule_meeting_reminders()
+         routed through MeetingsRepository.get_active_for_date() instead of
+         get_by_date() — cancelled meetings no longer scheduled for
+         pre-meeting reminders
 """
 
 import json
@@ -254,7 +258,7 @@ def _schedule_meeting_reminders(target_date: date, scheduler: BlockingScheduler)
     session = db.get_session()
     try:
         repo = MeetingsRepository(session)
-        meetings = repo.get_by_date(target_date)
+        meetings = repo.get_active_for_date(target_date)
         now = datetime.now()
         scheduled = 0
         reminder_list = []

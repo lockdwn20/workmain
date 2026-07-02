@@ -1,7 +1,7 @@
 """
 WorkmAIn Meetings Repository
-Meetings Repository v2.3
-20260512
+Meetings Repository v2.4
+20260702
 
 Data access layer for meetings with fuzzy matching and recurring detection.
 Handles all CRUD operations for the meetings table.
@@ -28,6 +28,10 @@ Version History:
         get_upcoming; get_by_date and fuzzy_match remain unfiltered for show/resolve
 - v2.2: Phase 11 Gate 5 — create() accepts client_id for attribution stamping
 - v2.3: Phase 11 Gate 6 — add get_for_date_client() for client-filtered report queries
+- v2.4: Operations_Config_Correction_Sprint Gate 2 §2.1 — add get_active_for_date(),
+        filtering is_cancelled for inspect/notify surfaces (InspectionEngine,
+        pre-meeting reminders); get_by_date()/get_today() remain unfiltered
+        for show surfaces (OQ2)
 """
 
 from datetime import datetime, date, time
@@ -278,6 +282,29 @@ class MeetingsRepository:
                 Meeting.start_time <= end_of_day
             )
         ).order_by(Meeting.start_time).all()
+
+    def get_active_for_date(self, target_date: date) -> List[Meeting]:
+        """
+        Get non-cancelled meetings on a specific date.
+
+        Inspect/notify surfaces only (InspectionEngine, pre-meeting
+        reminders) — show surfaces (get_by_date/get_today) remain
+        intentionally unfiltered by design (OQ2).
+
+        Args:
+            target_date: Date to retrieve meetings for
+
+        Returns:
+            List of non-cancelled Meeting objects
+        """
+        return (
+            self.session.query(Meeting)
+            .filter(Meeting.start_time >= datetime.combine(target_date, time.min))
+            .filter(Meeting.start_time < datetime.combine(target_date, time.max))
+            .filter(Meeting.is_cancelled.is_(False))
+            .order_by(Meeting.start_time.asc())
+            .all()
+        )
 
     def get_by_title_and_date(
         self,

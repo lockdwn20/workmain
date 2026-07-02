@@ -1,7 +1,7 @@
 """
 WorkmAIn Daemon Inspection Engine
-inspection_engine.py v1.1
-20260701
+inspection_engine.py v1.2
+20260702
 
 Deterministic rules engine. Inspects today's data and returns a list of
 structured Observation objects. No AI call at this layer — observations
@@ -29,6 +29,11 @@ Version History:
         eod_workflow.py:_run_pre_flight_inspection_step()) already wrap the
         call in a broad except Exception, matching this engine's existing
         "never blocks EOD" behavior.
+- v1.2: Operations_Config_Correction_Sprint Gate 2 §2.2 — _get_meetings_for_date()
+        removed; both call sites (_check_time_gaps(), _check_missing_notes())
+        now call MeetingsRepository(self.session).get_active_for_date(),
+        eliminating false TIME_GAP/MISSING_NOTES observations from cancelled
+        meetings
 """
 
 import os
@@ -36,11 +41,12 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import List
 
-from sqlalchemy import and_, func
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from workmain.daemon.models import Observation, ObservationType
-from workmain.database.models import Meeting, Note, TimeEntry
+from workmain.database.models import Note, TimeEntry
+from workmain.database.repositories.meetings_repo import MeetingsRepository
 from workmain.services.schedule_service import ScheduleService
 
 DEFAULT_EXPECTED_HOURS = 8.0
@@ -90,7 +96,7 @@ class InspectionEngine:
         Returns:
             List of TIME_GAP observations.
         """
-        meetings = self._get_meetings_for_date(target_date)
+        meetings = MeetingsRepository(self.session).get_active_for_date(target_date)
         observations = []
         for meeting in meetings:
             linked = (
@@ -195,7 +201,7 @@ class InspectionEngine:
         Returns:
             List of MISSING_NOTES observations.
         """
-        meetings = self._get_meetings_for_date(target_date)
+        meetings = MeetingsRepository(self.session).get_active_for_date(target_date)
         observations = []
         for meeting in meetings:
             non_condensed = (
@@ -272,18 +278,4 @@ class InspectionEngine:
                     },
                 ))
         return observations
-
-    def _get_meetings_for_date(self, target_date: date) -> list:
-        """Query all meetings whose start_time falls on target_date."""
-        start_of_day = datetime.combine(target_date, datetime.min.time())
-        end_of_day = datetime.combine(target_date, datetime.max.time())
-        return (
-            self.session.query(Meeting)
-            .filter(and_(
-                Meeting.start_time >= start_of_day,
-                Meeting.start_time <= end_of_day,
-            ))
-            .order_by(Meeting.start_time)
-            .all()
-        )
 
