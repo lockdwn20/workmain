@@ -1,6 +1,6 @@
 """
 WorkmAIn Notification Daemon
-daemon.py v1.16
+daemon.py v1.17
 20260702
 
 Entry point for the always-on background daemon process.
@@ -69,6 +69,18 @@ Version History:
          derived from narration); extra_body restored to its original
          prepend-to-summary semantics (f"{extra_body}\\n\\n{summary}"),
          not a replace-summary shortcut
+- v1.17: Operations_Config_Correction_Sprint Gate 4 §4.2 (Item #50,
+         additive-only diff) — _schedule_meeting_reminders() gains a
+         required daemon parameter, added to the existing
+         scheduler.add_job(_pre_meeting_reminder, ...) kwargs dict alongside
+         meeting_title; _pre_meeting_reminder() gains a required daemon
+         parameter, threaded to its deliver() call. Closes the one
+         deliver() caller outside Gate 3 Finding 1's scope (a dynamically-
+         scheduled one-shot job, not one of the eight cron jobs) — every
+         pre-meeting reminder previously no-op'd under notify_method=slack/
+         both. No other lines changed in either function — Gate 2's
+         get_active_for_date() and Gate 1's ScheduleService.is_working_day()
+         both confirmed still intact.
 """
 
 import json
@@ -246,7 +258,7 @@ def _enriched_notify(daemon, title: str, extra_body: str = '') -> None:
         session.close()
 
 
-def _pre_meeting_reminder(meeting_title: str) -> None:
+def _pre_meeting_reminder(meeting_title: str, daemon) -> None:
     """Deliver a 15-minute pre-meeting reminder for a single meeting."""
     db = get_db()
     session = db.get_session()
@@ -261,6 +273,7 @@ def _pre_meeting_reminder(meeting_title: str) -> None:
             title="Meeting in 15 min",
             body=f"Starting soon: {meeting_title}",
             method=config.method,
+            daemon=daemon,
         )
         logging.info("Pre-meeting reminder delivered: %s", meeting_title)
     except Exception:
@@ -269,7 +282,7 @@ def _pre_meeting_reminder(meeting_title: str) -> None:
         session.close()
 
 
-def _schedule_meeting_reminders(target_date: date, scheduler: BlockingScheduler) -> None:
+def _schedule_meeting_reminders(target_date: date, scheduler: BlockingScheduler, daemon) -> None:
     """Schedule one-shot pre-meeting reminders for all meetings on target_date.
 
     Removes any existing pre-meeting jobs before adding new ones.
@@ -300,7 +313,7 @@ def _schedule_meeting_reminders(target_date: date, scheduler: BlockingScheduler)
                 DateTrigger(run_date=fire_time),
                 id=f'pre_meeting_{meeting.id}',
                 replace_existing=True,
-                kwargs={'meeting_title': meeting.title or '(No Title)'},
+                kwargs={'meeting_title': meeting.title or '(No Title)', 'daemon': daemon},
             )
             scheduled += 1
             reminder_list.append({

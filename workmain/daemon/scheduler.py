@@ -1,6 +1,6 @@
 """
 WorkmAIn Daemon Scheduler
-scheduler.py v1.10
+scheduler.py v1.11
 20260702
 
 APScheduler job configuration. Trigger times and the T4 interval are
@@ -60,6 +60,21 @@ Version History:
          parameter, passed through to _enriched_notify(daemon, ...).
          job_workday_start's body is Gate 3 interim state only — Gate 4
          replaces it entirely.
+- v1.11: Operations_Config_Correction_Sprint Gate 4 §4.1 (Item #50) —
+         morning_briefing job registration and _send_morning_briefing()
+         removed entirely (dead code once its only registration is gone);
+         job_workday_start's body fully replaced (not extended) — no longer
+         calls _enriched_notify(), now assembles meetings
+         (MeetingsRepository.get_active_for_date()), active tasks
+         (TaskStatusRepository.get_filtered(status='active', limit=0)), and
+         unresolved_count (_count_unresolved_observations(), kept, call site
+         relocated here), then calls build_morning_briefing() and
+         deliver("", body, ...) — empty title so _deliver_slack() doesn't
+         stack a redundant bold line above the briefing's own header.
+         _schedule_meeting_reminders() call extended to
+         (target_date, _scheduler, daemon) — threads daemon through so
+         pre-meeting reminders can reach Slack (closes the one deliver()
+         caller Gate 3's Finding 1 didn't cover).
 """
 
 import functools
@@ -91,28 +106,44 @@ _scheduler: Optional[BlockingScheduler] = None
 # ---------------------------------------------------------------------------
 
 def job_workday_start(daemon: Any) -> None:
-    """05:30 Mon–Fri — workday start greeting and pre-meeting reminder scheduling.
-
-    Gate 3 interim state: still calls _enriched_notify() like the other four
-    relocated jobs (correct for this gate — matches Finding 1's diagnosis).
-    Gate 4 §4.1 fully replaces this body (not extends it) with
-    build_morning_briefing() content — the generic inspection-narration
-    content from _enriched_notify() is not the desired morning-briefing
-    content Item #50 exists to produce.
+    """05:30 Mon-Fri — consolidated morning briefing + pre-meeting reminder
+    scheduling. Surviving 05:30 job (Item #50) — the parallel
+    morning_briefing/_send_morning_briefing job is removed from
+    register_all_jobs() entirely; this job now owns both responsibilities.
+    Does NOT call _enriched_notify() — that path produces generic
+    inspection-narration content (correct for daily_closeout/weekly_draft/
+    eow/eod_prompt) and is not the desired morning-briefing content.
     """
-    from workmain.daemon.daemon import _enriched_notify, _schedule_meeting_reminders
+    from workmain.daemon.daemon import (
+        _count_unresolved_observations, _schedule_meeting_reminders,
+    )
+    from workmain.daemon.delivery import deliver
+    from workmain.database.repositories.meetings_repo import MeetingsRepository
+    from workmain.database.repositories.notification_repository import NotificationConfigRepository
+    from workmain.database.repositories.task_status_repo import TaskStatusRepository
+    from workmain.integrations.slack.slack_eod import build_morning_briefing
+
     logger.info("job_workday_start firing")
     db = get_db()
     session = db.get_session()
     try:
-        if not ScheduleService(session).is_working_day(date.today()):
-            logger.info("Notification suppressed — today is not a working day")
+        target_date = date.today()
+        if not ScheduleService(session).is_working_day(target_date):
+            logger.info("Morning briefing suppressed — today is not a working day")
             return
+
+        _schedule_meeting_reminders(target_date, _scheduler, daemon)
+
+        meetings = MeetingsRepository(session).get_active_for_date(target_date)
+        tasks = TaskStatusRepository(session).get_filtered(status='active', limit=0)
+        unresolved_count = _count_unresolved_observations()
+
+        body = build_morning_briefing(meetings, tasks, unresolved_count)
+        config = NotificationConfigRepository(session).get_config()
+        if config.enabled:
+            deliver("", body, config.method, daemon=daemon)
     finally:
         session.close()
-    if _scheduler is not None:
-        _schedule_meeting_reminders(date.today(), _scheduler)
-    _enriched_notify(daemon, "WorkmAIn - Good Morning")
 
 
 def job_daily_closeout(daemon: Any) -> None:
@@ -224,30 +255,6 @@ def scheduler_stop() -> None:
             logging.info("Scheduler stopped.")
         except Exception as e:
             logging.warning("scheduler_stop error: %s", e)
-
-
-def _send_morning_briefing(daemon: Any) -> None:
-    """T1 morning briefing — build summary and post to operator DM.
-
-    Called by the CronTrigger job registered in register_all_jobs().
-    Counts unresolved observations, builds a text summary, and posts it
-    via daemon.post_message(). Failure is logged but never re-raised so
-    the scheduler loop survives.
-    """
-    from workmain.daemon.daemon import _count_unresolved_observations
-    try:
-        unresolved = _count_unresolved_observations()
-        if unresolved:
-            msg = (
-                f"Good morning. WorkmAIn is running.\n"
-                f"{unresolved} unresolved observation(s) from the last inspection."
-            )
-        else:
-            msg = "Good morning. WorkmAIn is running. No outstanding observations."
-        daemon.post_message(msg)
-        logger.info("T1 morning briefing sent.")
-    except Exception as e:
-        logger.error("_send_morning_briefing error: %s", e)
 
 
 def _schedule_today_meeting_triggers(daemon: Any) -> None:
@@ -401,14 +408,15 @@ def _send_t4_checkin(daemon: Any) -> None:
 
 def register_all_jobs(daemon: Any) -> None:
     """Register every scheduled job. Single daemon-aware registration
-    surface — all eight jobs (five relocated here from build_scheduler(),
-    three already here) receive a daemon handle via functools.partial,
-    matching the pattern this function already used for morning_briefing,
-    t2t3_midnight_rescan, and t2t3_interval_rescan.
+    surface — every job receives a daemon handle via functools.partial,
+    matching the pattern this function already used for t2t3_midnight_rescan
+    and t2t3_interval_rescan.
 
     Must be called after build_scheduler() so _scheduler is set.
     Operations_Config_Correction_Sprint Gate 3 §3.1 — collapses the prior
     build_scheduler()/register_all_jobs() registration split (Finding 1).
+    Gate 4 §4.1 removes the separate morning_briefing job — job_workday_start
+    now owns both the workday-start greeting and the morning briefing.
 
     Args:
         daemon: WorkmAInDaemon instance (typed Any to avoid circular import).
@@ -473,15 +481,6 @@ def register_all_jobs(daemon: Any) -> None:
         replace_existing=True,
     )
     logging.info("Workday start / daily closeout / weekly draft / eow / eod prompt jobs registered")
-
-    # T1 — morning briefing 05:30 Mon–Fri
-    _scheduler.add_job(
-        functools.partial(_send_morning_briefing, daemon),
-        CronTrigger(day_of_week='mon-fri', hour=5, minute=30),
-        id='morning_briefing',
-        replace_existing=True,
-    )
-    logging.info("T1 morning briefing job registered (05:30 Mon-Fri)")
 
     # T2/T3 — midnight rescan (picks up next day's meetings at rollover)
     _scheduler.add_job(
