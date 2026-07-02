@@ -1,7 +1,7 @@
 """
 WorkmAIn Daemon Inspection Engine
-inspection_engine.py v1.0
-20260505
+inspection_engine.py v1.1
+20260701
 
 Deterministic rules engine. Inspects today's data and returns a list of
 structured Observation objects. No AI call at this layer — observations
@@ -19,10 +19,20 @@ Five checks:
 
 Version History:
 - v1.0: Phase 10 Gate 3 initial implementation
+- v1.1: Operations_Config_Correction_Sprint Gate 1 §1.5 — _previous_business_day()
+        removed; _check_carry_forward() now calls
+        ScheduleService(self.session).previous_working_day() directly.
+        Contract change: raises ValueError if no working day is found within
+        365 days (practically unreachable under normal schedule_exceptions
+        data) — left to propagate uncaught here since both real callers of
+        InspectionEngine.run() (daemon.py:_enriched_notify(),
+        eod_workflow.py:_run_pre_flight_inspection_step()) already wrap the
+        call in a broad except Exception, matching this engine's existing
+        "never blocks EOD" behavior.
 """
 
 import os
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from decimal import Decimal
 from typing import List
 
@@ -31,6 +41,7 @@ from sqlalchemy.orm import Session
 
 from workmain.daemon.models import Observation, ObservationType
 from workmain.database.models import Meeting, Note, TimeEntry
+from workmain.services.schedule_service import ScheduleService
 
 DEFAULT_EXPECTED_HOURS = 8.0
 COVERAGE_THRESHOLD = 0.75
@@ -218,7 +229,7 @@ class InspectionEngine:
         Returns:
             List of CARRY_FORWARD observations.
         """
-        prev_biz_day = self._previous_business_day(target_date)
+        prev_biz_day = ScheduleService(self.session).previous_working_day(target_date)
 
         prev_cf_notes = (
             self.session.query(Note)
@@ -276,10 +287,3 @@ class InspectionEngine:
             .all()
         )
 
-    @staticmethod
-    def _previous_business_day(d: date) -> date:
-        """Return the most recent Mon–Fri before d, skipping weekends."""
-        prev = d - timedelta(days=1)
-        while prev.weekday() >= 5:  # 5=Sat, 6=Sun
-            prev -= timedelta(days=1)
-        return prev

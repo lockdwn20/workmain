@@ -1,15 +1,11 @@
 """
 WorkmAIn Daemon Scheduler
-scheduler.py v1.8
-20260625
+scheduler.py v1.9
+20260701
 
-APScheduler job configuration. All trigger times are hardcoded in
-this file for Phase 10. Trigger time configuration is deferred to
-Phase 14 (Setup Wizard).
-
-When modifying this file in Phase 14, trigger times will be read
-from the database or config. The function signatures and job
-registration pattern should be preserved.
+APScheduler job configuration. Trigger times and the T4 interval are
+read from system_state config (Operations_Config_Correction_Sprint Gate 1)
+via ScheduleService and _load_trigger_times().
 
 Version History:
 - v1.0: Phase 10 Gate 8 initial implementation
@@ -36,20 +32,36 @@ Version History:
         non-working days, fire_at outside 09:00-18:00); add _send_t4_checkin(),
         _load_non_working_days(); initial _reschedule_t4_checkin() call in
         register_all_jobs()
+- v1.9: Operations_Config_Correction_Sprint Gate 1 §1.3 — _load_non_working_days()
+        removed; _reschedule_t4_checkin() weekend/exception-day check replaced
+        with ScheduleService.is_working_day(), working-hours window check
+        replaced with ScheduleService.is_working_hours(fire_at) (preserves the
+        existing "T4 must not fire after hours" guarantee — checks the computed
+        fire_at, not now), T4 interval literal replaced with
+        ScheduleService.get_t4_interval(); new _load_trigger_times(session)
+        helper reads the five trigger_time_* system_state keys;
+        build_scheduler()'s five CronTrigger registrations now use those
+        values instead of hardcoded literals. Job registration itself is
+        unchanged in this gate — still lives in build_scheduler() for these
+        five jobs; Gate 3 relocates registration (not the trigger-time read)
+        into register_all_jobs().
 """
 
 import functools
-import json
 import logging
 import random
 from datetime import date, datetime, timedelta
-from pathlib import Path
 from typing import Any, Optional
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
+from sqlalchemy.orm import Session
+
+from workmain.database.connection import get_db
+from workmain.database.repositories.system_state_repository import SystemStateRepository
+from workmain.services.schedule_service import ScheduleService
 
 logger = logging.getLogger(__name__)
 
@@ -65,13 +77,16 @@ _scheduler: Optional[BlockingScheduler] = None
 
 def job_workday_start() -> None:
     """05:30 Mon–Fri — workday start greeting and pre-meeting reminder scheduling."""
-    from workmain.daemon.daemon import (
-        _enriched_notify, _is_exception_day, _schedule_meeting_reminders,
-    )
+    from workmain.daemon.daemon import _enriched_notify, _schedule_meeting_reminders
     logger.info("job_workday_start firing")
-    if _is_exception_day(date.today()):
-        logger.info("Notification suppressed — today is a scheduled exception")
-        return
+    db = get_db()
+    session = db.get_session()
+    try:
+        if not ScheduleService(session).is_working_day(date.today()):
+            logger.info("Notification suppressed — today is not a working day")
+            return
+    finally:
+        session.close()
     if _scheduler is not None:
         _schedule_meeting_reminders(date.today(), _scheduler)
     _enriched_notify("WorkmAIn - Good Morning")
@@ -118,51 +133,94 @@ def job_eod_prompt() -> None:
 # Scheduler factory
 # ---------------------------------------------------------------------------
 
+def _load_trigger_times(session: Session) -> dict:
+    """Read all five trigger_time_* keys from system_state and parse each
+    'HH:MM' string into an (hour, minute) tuple. Falls back to the original
+    hardcoded literal on a missing or malformed value — matches
+    ScheduleService._get_configured_time()'s fallback-on-bad-data pattern
+    rather than raising.
+
+    Operations_Config_Correction_Sprint Gate 1 §1.3. Reused (not redefined)
+    by Gate 3 §3.1 once job registration relocates to register_all_jobs().
+    """
+    state = SystemStateRepository(session)
+    defaults = {
+        'trigger_time_workday_start': (5, 30),
+        'trigger_time_daily_closeout': (14, 0),
+        'trigger_time_weekly_draft': (14, 0),
+        'trigger_time_eow': (14, 0),
+        'trigger_time_eod_prompt': (14, 30),
+    }
+    result = {}
+    for key, default in defaults.items():
+        raw = state.get(key)
+        try:
+            hh, mm = raw.split(":")
+            result[key] = (int(hh), int(mm))
+        except (ValueError, AttributeError, TypeError):
+            result[key] = default
+    return result
+
+
 def build_scheduler() -> BlockingScheduler:
     """Build and return a configured BlockingScheduler.
 
-    All trigger times are US/Pacific (America/Los_Angeles).
+    All trigger times are US/Pacific (America/Los_Angeles), read from
+    system_state via _load_trigger_times() (Gate 1 §1.3).
     Pre-meeting reminders are added dynamically by job_workday_start
     and _schedule_meeting_reminders — not registered here.
 
     Sets the module-level _scheduler so job functions in this module
     can access it without a cross-module import.
     """
+    db = get_db()
+    session = db.get_session()
+    try:
+        trigger_times = _load_trigger_times(session)
+    finally:
+        session.close()
+
+    workday_start_hour, workday_start_minute = trigger_times['trigger_time_workday_start']
+    daily_closeout_hour, daily_closeout_minute = trigger_times['trigger_time_daily_closeout']
+    weekly_draft_hour, weekly_draft_minute = trigger_times['trigger_time_weekly_draft']
+    eow_hour, eow_minute = trigger_times['trigger_time_eow']
+    eod_prompt_hour, eod_prompt_minute = trigger_times['trigger_time_eod_prompt']
+
     global _scheduler
     scheduler = BlockingScheduler(timezone='America/Los_Angeles')
 
-    # 05:30 Mon–Fri — workday start
+    # Mon–Fri — workday start
     scheduler.add_job(
         job_workday_start,
-        CronTrigger(day_of_week='mon-fri', hour=5, minute=30),
+        CronTrigger(day_of_week='mon-fri', hour=workday_start_hour, minute=workday_start_minute),
         id='workday_start',
     )
 
-    # 14:00 Mon–Thu — daily closeout (enriched)
+    # Mon–Thu — daily closeout (enriched)
     scheduler.add_job(
         job_daily_closeout,
-        CronTrigger(day_of_week='mon-thu', hour=14, minute=0),
+        CronTrigger(day_of_week='mon-thu', hour=daily_closeout_hour, minute=daily_closeout_minute),
         id='daily_closeout',
     )
 
-    # 14:00 Thu — weekly draft reminder (additional)
+    # Thu — weekly draft reminder (additional)
     scheduler.add_job(
         job_weekly_draft,
-        CronTrigger(day_of_week='thu', hour=14, minute=0),
+        CronTrigger(day_of_week='thu', hour=weekly_draft_hour, minute=weekly_draft_minute),
         id='weekly_draft',
     )
 
-    # 14:00 Fri — end-of-week reminder
+    # Fri — end-of-week reminder
     scheduler.add_job(
         job_eow,
-        CronTrigger(day_of_week='fri', hour=14, minute=0),
+        CronTrigger(day_of_week='fri', hour=eow_hour, minute=eow_minute),
         id='eow',
     )
 
-    # 14:30 Mon–Fri — EOD prompt
+    # Mon–Fri — EOD prompt
     scheduler.add_job(
         job_eod_prompt,
-        CronTrigger(day_of_week='mon-fri', hour=14, minute=30),
+        CronTrigger(day_of_week='mon-fri', hour=eod_prompt_hour, minute=eod_prompt_minute),
         id='eod_prompt',
     )
 
@@ -309,40 +367,38 @@ def _send_t3(meeting_id: int, daemon: Any) -> None:
     _reschedule_t4_checkin(daemon)
 
 
-def _load_non_working_days() -> set:
-    """Load non-working days from config/non_working_days.json.
-
-    Returns empty set if file is absent or malformed. Failure is silent
-    so that a missing config never blocks T4 scheduling.
-    """
-    try:
-        data = json.loads(Path('config/non_working_days.json').read_text())
-        return set(data.get('non_working_days', []))
-    except (FileNotFoundError, json.JSONDecodeError, KeyError):
-        return set()
-
-
 def _reschedule_t4_checkin(daemon: Any) -> None:
-    """Schedule next T4 DateTrigger at now + random(30, 120) minutes.
+    """Schedule next T4 DateTrigger at now + a randomized delay (configured
+    via ScheduleService.get_t4_interval(), default 30-120 minutes).
 
-    Suppressed if: weekend; non-working day; fire_at outside 09:00–18:00.
+    Suppressed if: not a working day (weekend or schedule_exceptions,
+    per ScheduleService.is_working_day()); fire_at outside the configured
+    working-hours window (per ScheduleService.is_working_hours(fire_at) —
+    checks the computed future fire time, not now, preserving the existing
+    "T4 must not fire after hours" guarantee).
     Called from: daemon start, _send_t2(), _send_t3(), _send_t4_checkin().
-    End-of-day behaviour: if fire_at > 18:00, no job is scheduled — T4 stops
-    for the day. Next daemon start or next T2/T3 notification will reschedule.
-    This is intentional (T4 should not fire after working hours).
+    End-of-day behaviour: if fire_at falls outside working hours, no job is
+    scheduled — T4 stops for the day. Next daemon start or next T2/T3
+    notification will reschedule. This is intentional (T4 should not fire
+    after working hours).
     """
     if _scheduler is None:
         return
-    now = datetime.now()
-    if now.weekday() >= 5:
-        return
-    non_working = _load_non_working_days()
-    if now.date().isoformat() in non_working:
-        return
-    delay_minutes = random.randint(30, 120)
-    fire_at = now + timedelta(minutes=delay_minutes)
-    if fire_at.hour < 9 or fire_at.hour >= 18:
-        return   # end-of-day stop — intentional, not a bug
+
+    db = get_db()
+    session = db.get_session()
+    try:
+        schedule_service = ScheduleService(session)
+        now = datetime.now()
+        if not schedule_service.is_working_day(now.date()):
+            return
+        delay_minutes = random.randint(*schedule_service.get_t4_interval())
+        fire_at = now + timedelta(minutes=delay_minutes)
+        if not schedule_service.is_working_hours(fire_at):
+            return   # end-of-day stop — intentional, not a bug
+    finally:
+        session.close()
+
     _scheduler.add_job(
         lambda: _send_t4_checkin(daemon),
         trigger=DateTrigger(run_date=fire_at),

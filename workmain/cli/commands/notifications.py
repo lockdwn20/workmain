@@ -1,7 +1,7 @@
 """
 WorkmAIn Notifications Commands
-notifications.py v1.1
-20260506
+notifications.py v1.2
+20260701
 
 CLI command group: workmain notifications
 Owns delivery method configuration and notification delivery status.
@@ -17,6 +17,10 @@ Version History:
 - v1.0: Phase 10 Gate 7 initial implementation
 - v1.1: Add "Today's Schedule" section to status — shows remaining cron jobs and
         pre-meeting reminders so users can see upcoming notifications at a glance
+- v1.2: Operations_Config_Correction_Sprint Gate 1 §1.6 — _CRON_JOBS hardcoded
+        tuple replaced with _load_cron_jobs(session), which reads trigger
+        times from system_state via scheduler._load_trigger_times() so this
+        display reflects `workmain schedule set notification-time` changes
 """
 
 import json
@@ -131,24 +135,45 @@ def notifications_test(method: Optional[str]):
 # Schedule helpers for status display
 # ---------------------------------------------------------------------------
 
-# Fixed daily cron schedule — mirrors scheduler.py hardcoded triggers.
-# Each entry: (label, time, day_of_week) where day_of_week is a set of
-# isoweekday() integers (Mon=1 … Sun=7).
-_CRON_JOBS = [
-    ("Workday Start",   time(5, 30),  {1, 2, 3, 4, 5}),
-    ("Daily Closeout",  time(14, 0),  {1, 2, 3, 4}),
-    ("Weekly Draft",    time(14, 0),  {4}),
-    ("EOW Reminder",    time(14, 0),  {5}),
-    ("EOD Prompt",      time(14, 30), {1, 2, 3, 4, 5}),
-]
+# Daily cron schedule — day-of-week sets mirror scheduler.py's CronTrigger
+# day_of_week arguments (static); trigger times are read from system_state
+# via scheduler._load_trigger_times() rather than hardcoded here, so this
+# display always reflects whatever `workmain schedule set notification-time`
+# last configured. Each entry: (label, time, day_of_week) where day_of_week
+# is a set of isoweekday() integers (Mon=1 … Sun=7).
+def _load_cron_jobs(session) -> list:
+    """Return today's cron schedule as (label, time, day_of_week_set) tuples.
+    Reuses scheduler._load_trigger_times() for parsing/fallback rather than
+    duplicating that logic here — keys are seeded per Gate 1 §1.2."""
+    from workmain.daemon.scheduler import _load_trigger_times
+
+    trigger_times = _load_trigger_times(session)
+
+    def _t(key: str) -> time:
+        hh, mm = trigger_times[key]
+        return time(hh, mm)
+
+    return [
+        ("Workday Start",  _t('trigger_time_workday_start'),  {1, 2, 3, 4, 5}),
+        ("Daily Closeout", _t('trigger_time_daily_closeout'), {1, 2, 3, 4}),
+        ("Weekly Draft",   _t('trigger_time_weekly_draft'),   {4}),
+        ("EOW Reminder",   _t('trigger_time_eow'),            {5}),
+        ("EOD Prompt",     _t('trigger_time_eod_prompt'),     {1, 2, 3, 4, 5}),
+    ]
 
 
 def _remaining_cron_jobs(now: datetime) -> list:
     """Return today's cron slots as (label, time_str, is_past) tuples."""
+    db = get_db()
+    session = db.get_session()
+    try:
+        cron_jobs = _load_cron_jobs(session)
+    finally:
+        session.close()
     dow = now.isoweekday()
     today_time = now.time().replace(second=0, microsecond=0)
     slots = []
-    for label, slot_time, days in _CRON_JOBS:
+    for label, slot_time, days in cron_jobs:
         if dow not in days:
             continue
         slots.append((label, slot_time.strftime('%H:%M'), slot_time <= today_time))

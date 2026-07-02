@@ -1,7 +1,7 @@
 """
 WorkmAIn Notification Daemon
-daemon.py v1.13
-20260625
+daemon.py v1.14
+20260701
 
 Entry point for the always-on background daemon process.
 WorkmAInDaemon owns the Slack socket connection, EOD manager, and
@@ -50,6 +50,11 @@ Version History:
 - v1.13: Phase 13 Sprint 3 Gate 6 — _maybe_offer_eod_resume() and
          _send_eod_resume_offer() implemented; loads persisted T5 session on
          daemon start and injects into eod_manager._sessions
+- v1.14: Operations_Config_Correction_Sprint Gate 1 §1.4 — _is_exception_day()
+         removed (no thin wrapper retained); its two call sites
+         (_enriched_notify(), _pre_meeting_reminder()) converged directly on
+         ScheduleService.is_working_day(), reusing the session already
+         opened in each function rather than a separate one
 """
 
 import json
@@ -71,7 +76,7 @@ from workmain.daemon.inspection_engine import InspectionEngine
 from workmain.daemon.narration import narrate
 from workmain.database.connection import get_db
 from workmain.database.repositories.notification_repository import NotificationConfigRepository
-from workmain.database.repositories.schedule_repository import ScheduleExceptionRepository
+from workmain.services.schedule_service import ScheduleService
 import workmain.daemon.scheduler as _sched_module
 from workmain.daemon.scheduler import build_scheduler, register_all_jobs, scheduler_start, scheduler_stop
 from workmain.integrations.slack import auth
@@ -172,21 +177,6 @@ def _write_scheduled_jobs(reminders: list, target_date: date) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Schedule exception guard
-# ---------------------------------------------------------------------------
-
-def _is_exception_day(check_date: date) -> bool:
-    """Return True if check_date falls within any schedule exception."""
-    db = get_db()
-    session = db.get_session()
-    try:
-        repo = ScheduleExceptionRepository(session)
-        return repo.is_exception_date(check_date)
-    finally:
-        session.close()
-
-
-# ---------------------------------------------------------------------------
 # Notification helpers
 # ---------------------------------------------------------------------------
 
@@ -196,13 +186,13 @@ def _enriched_notify(title: str, extra_body: str = '') -> None:
     Shared logic for all enriched notification jobs. Writes last_inspection.json
     after each run so `notifications status` reflects the latest check.
     """
-    if _is_exception_day(date.today()):
-        logging.info("Notification suppressed — today is a scheduled exception")
-        return
-
     db = get_db()
     session = db.get_session()
     try:
+        if not ScheduleService(session).is_working_day(date.today()):
+            logging.info("Notification suppressed — today is not a working day")
+            return
+
         engine = InspectionEngine(session)
         observations = engine.run(date.today())
         summary = narrate(observations)
@@ -227,13 +217,12 @@ def _enriched_notify(title: str, extra_body: str = '') -> None:
 
 def _pre_meeting_reminder(meeting_title: str) -> None:
     """Deliver a 15-minute pre-meeting reminder for a single meeting."""
-    if _is_exception_day(date.today()):
-        logging.info("Pre-meeting reminder suppressed — today is a scheduled exception")
-        return
-
     db = get_db()
     session = db.get_session()
     try:
+        if not ScheduleService(session).is_working_day(date.today()):
+            logging.info("Pre-meeting reminder suppressed — today is not a working day")
+            return
         config = NotificationConfigRepository(session).get_config()
         if not config.enabled:
             return

@@ -382,57 +382,62 @@ class TestMeetingTriggers(unittest.TestCase):
 
 class TestT4Checkin(unittest.TestCase):
 
-    def _run_reschedule(self, now_dt, non_working=None, delay_minutes=30):
-        """Call _reschedule_t4_checkin with controlled datetime.now() and delay."""
+    def _run_reschedule(self, now_dt, is_working_day=True, is_working_hours=True,
+                        delay_minutes=30, t4_interval=(30, 120)):
+        """Call _reschedule_t4_checkin with a mocked ScheduleService, controlled
+        datetime.now(), and delay. Operations_Config_Correction_Sprint Gate 1
+        §1.3 moved the weekend/non-working-day and working-hours checks (plus
+        the T4 interval bounds) onto ScheduleService — mocked here rather than
+        exercising its real logic, which has its own dedicated coverage in
+        tests/test_schedule_service.py (Gate 7)."""
         import workmain.daemon.scheduler as sched_mod
         mock_scheduler = MagicMock()
         daemon = MagicMock()
-        nwd = non_working or set()
+        mock_service = MagicMock()
+        mock_service.is_working_day.return_value = is_working_day
+        mock_service.is_working_hours.return_value = is_working_hours
+        mock_service.get_t4_interval.return_value = t4_interval
         with patch.object(sched_mod, '_scheduler', mock_scheduler), \
-             patch('workmain.daemon.scheduler._load_non_working_days', return_value=nwd), \
+             patch('workmain.daemon.scheduler.get_db') as mock_get_db, \
+             patch('workmain.daemon.scheduler.ScheduleService', return_value=mock_service), \
              patch('workmain.daemon.scheduler.random') as mock_rand, \
              patch('workmain.daemon.scheduler.datetime') as mock_dt:
+            mock_get_db.return_value.get_session.return_value = MagicMock()
             mock_rand.randint.return_value = delay_minutes
             mock_dt.now.return_value = now_dt
             mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
             sched_mod._reschedule_t4_checkin(daemon)
-        return mock_scheduler
+        return mock_scheduler, mock_service
 
     def test_t4_suppressed_before_0900(self):
-        """fire_at < 09:00 → no job scheduled (08:00 + 30 min = 08:30)."""
+        """is_working_hours(fire_at) returning False (e.g. fire_at before
+        09:00) → no job scheduled."""
         now = datetime.now().replace(hour=8, minute=0, second=0, microsecond=0)
-        sched = self._run_reschedule(now, delay_minutes=30)
+        sched, service = self._run_reschedule(now, is_working_hours=False, delay_minutes=30)
         sched.add_job.assert_not_called()
 
     def test_t4_suppressed_after_1800(self):
-        """fire_at >= 18:00 → no job scheduled (17:31 + 30 min = 18:01)."""
+        """is_working_hours(fire_at) returning False (e.g. fire_at at or
+        after 18:00) → no job scheduled."""
         now = datetime.now().replace(hour=17, minute=31, second=0, microsecond=0)
-        sched = self._run_reschedule(now, delay_minutes=30)
+        sched, service = self._run_reschedule(now, is_working_hours=False, delay_minutes=30)
         sched.add_job.assert_not_called()
 
     def test_t4_suppressed_on_weekend(self):
-        """Saturday/Sunday → no job scheduled."""
+        """is_working_day() returning False (e.g. Saturday/Sunday) → no job scheduled."""
         today = date.today()
         days_until_sat = (5 - today.weekday()) % 7
         saturday = today + timedelta(days=days_until_sat if days_until_sat > 0 else 7)
         now = datetime(saturday.year, saturday.month, saturday.day, 10, 0)
-        sched = self._run_reschedule(now, delay_minutes=30)
+        sched, service = self._run_reschedule(now, is_working_day=False, delay_minutes=30)
         sched.add_job.assert_not_called()
 
     def test_t4_suppressed_on_non_working_day(self):
-        """Day in non_working_days set → no job scheduled."""
-        import workmain.daemon.scheduler as sched_mod
-        mock_scheduler = MagicMock()
-        daemon = MagicMock()
-        today = datetime.now().replace(hour=10, minute=0, second=0, microsecond=0)
-        nwd = {today.date().isoformat()}
-        with patch.object(sched_mod, '_scheduler', mock_scheduler), \
-             patch('workmain.daemon.scheduler._load_non_working_days', return_value=nwd), \
-             patch('workmain.daemon.scheduler.datetime') as mock_dt:
-            mock_dt.now.return_value = today
-            mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
-            sched_mod._reschedule_t4_checkin(daemon)
-        mock_scheduler.add_job.assert_not_called()
+        """is_working_day() returning False (e.g. a schedule_exceptions
+        holiday/timeoff range) → no job scheduled."""
+        now = datetime.now().replace(hour=10, minute=0, second=0, microsecond=0)
+        sched, service = self._run_reschedule(now, is_working_day=False, delay_minutes=30)
+        sched.add_job.assert_not_called()
 
     def test_t4_suppressed_during_active_t5_session(self):
         """_send_t4_checkin does not post DM if T5 EOD session is active."""
@@ -446,21 +451,12 @@ class TestT4Checkin(unittest.TestCase):
         mock_resched.assert_called_once_with(daemon)
 
     def test_t4_scheduled_in_30_to_120_min_window(self):
-        """fire_at is between 30 and 120 minutes from now when window is valid."""
-        import workmain.daemon.scheduler as sched_mod
-        mock_scheduler = MagicMock()
-        daemon = MagicMock()
+        """fire_at is between 30 and 120 minutes from now when window is valid;
+        interval bounds come from ScheduleService.get_t4_interval()."""
         now = datetime.now().replace(hour=10, minute=0, second=0, microsecond=0)
-        with patch.object(sched_mod, '_scheduler', mock_scheduler), \
-             patch('workmain.daemon.scheduler._load_non_working_days', return_value=set()), \
-             patch('workmain.daemon.scheduler.datetime') as mock_dt, \
-             patch('workmain.daemon.scheduler.random') as mock_rand:
-            mock_dt.now.return_value = now
-            mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
-            mock_rand.randint.return_value = 60
-            sched_mod._reschedule_t4_checkin(daemon)
-        mock_scheduler.add_job.assert_called_once()
-        mock_rand.randint.assert_called_once_with(30, 120)
+        sched, service = self._run_reschedule(now, delay_minutes=60, t4_interval=(30, 120))
+        sched.add_job.assert_called_once()
+        service.get_t4_interval.assert_called_once()
 
     def test_t4_rescheduled_when_t2_fires(self):
         """_send_t2 calls _reschedule_t4_checkin after posting."""
