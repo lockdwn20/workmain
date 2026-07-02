@@ -1,6 +1,6 @@
 """
 WorkmAIn Notification Daemon
-daemon.py v1.15
+daemon.py v1.16
 20260702
 
 Entry point for the always-on background daemon process.
@@ -59,6 +59,16 @@ Version History:
          routed through MeetingsRepository.get_active_for_date() instead of
          get_by_date() — cancelled meetings no longer scheduled for
          pre-meeting reminders
+- v1.16: Operations_Config_Correction_Sprint Gate 3 §3.5 (Finding 1 + a
+         second implementation-time correction) — _enriched_notify() takes
+         daemon as an explicit parameter (it was never a method, there was
+         no self) and passes it through to deliver(); content assembly
+         split into _assemble_notification_content(), which returns a
+         single summary str (narrate() has no (title, body) tuple return —
+         title has always been a required caller-supplied string, never
+         derived from narration); extra_body restored to its original
+         prepend-to-summary semantics (f"{extra_body}\\n\\n{summary}"),
+         not a replace-summary shortcut
 """
 
 import json
@@ -184,34 +194,51 @@ def _write_scheduled_jobs(reminders: list, target_date: date) -> None:
 # Notification helpers
 # ---------------------------------------------------------------------------
 
-def _enriched_notify(title: str, extra_body: str = '') -> None:
+def _assemble_notification_content(session, target_date: date) -> str:
+    """Run inspection + narration, return the summary body string — no
+    title. narrate() returns a single str; there was never a title derived
+    from it. Always runs regardless of whether delivery is enabled —
+    matches current behavior where last_inspection.json is written either
+    way."""
+    engine = InspectionEngine(session)
+    observations = engine.run(target_date)
+    summary = narrate(observations)
+    _write_last_inspection(observations, summary, target_date)
+    return summary
+
+
+def _enriched_notify(daemon, title: str, extra_body: str = '') -> None:
     """Run inspection engine + narration and deliver an enriched notification.
 
     Shared logic for all enriched notification jobs. Writes last_inspection.json
     after each run so `notifications status` reflects the latest check.
+
+    daemon is an explicit parameter (this function is not a method — there
+    is no self). title is required, matching the original contract exactly
+    — never optional, never derived from narrate(). extra_body, when
+    present, is PREPENDED to the summary (f"{extra_body}\\n\\n{summary}"),
+    not substituted for it.
     """
     db = get_db()
     session = db.get_session()
     try:
-        if not ScheduleService(session).is_working_day(date.today()):
+        target_date = date.today()
+        if not ScheduleService(session).is_working_day(target_date):
             logging.info("Notification suppressed — today is not a working day")
             return
 
-        engine = InspectionEngine(session)
-        observations = engine.run(date.today())
-        summary = narrate(observations)
-        _write_last_inspection(observations, summary, date.today())
+        summary = _assemble_notification_content(session, target_date)
 
         config = NotificationConfigRepository(session).get_config()
         if not config.enabled:
+            # Preserved from current behavior: assembly and last_inspection.json
+            # write already happened above; only the delivery call is skipped.
             logging.info("Notification suppressed — notifications disabled")
             return
 
-        body = summary
-        if extra_body:
-            body = f"{extra_body}\n\n{summary}"
+        body = f"{extra_body}\n\n{summary}" if extra_body else summary
 
-        deliver(title, body, method=config.method)
+        deliver(title, body, method=config.method, daemon=daemon)
         logging.info("Delivered enriched notification: %s", title)
     except Exception:
         logging.exception("Error in _enriched_notify(%s)", title)

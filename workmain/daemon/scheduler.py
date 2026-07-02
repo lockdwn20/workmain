@@ -1,7 +1,7 @@
 """
 WorkmAIn Daemon Scheduler
-scheduler.py v1.9
-20260701
+scheduler.py v1.10
+20260702
 
 APScheduler job configuration. Trigger times and the T4 interval are
 read from system_state config (Operations_Config_Correction_Sprint Gate 1)
@@ -45,6 +45,21 @@ Version History:
         unchanged in this gate — still lives in build_scheduler() for these
         five jobs; Gate 3 relocates registration (not the trigger-time read)
         into register_all_jobs().
+- v1.10: Operations_Config_Correction_Sprint Gate 3 §3.1 (Finding 1) —
+         build_scheduler() collapsed to pure scheduler construction, no job
+         registration/session/system_state access remains in it.
+         register_all_jobs(daemon) now registers all eight jobs (five
+         relocated: workday_start, daily_closeout, weekly_draft, eow,
+         eod_prompt; three pre-existing: morning_briefing,
+         t2t3_midnight_rescan, t2t3_interval_rescan), each via
+         functools.partial(fn, daemon), replace_existing=True applied
+         uniformly. _load_trigger_times() call relocated from
+         build_scheduler() into register_all_jobs() along with the
+         registrations it feeds. job_workday_start/job_daily_closeout/
+         job_weekly_draft/job_eow/job_eod_prompt each gain a daemon
+         parameter, passed through to _enriched_notify(daemon, ...).
+         job_workday_start's body is Gate 3 interim state only — Gate 4
+         replaces it entirely.
 """
 
 import functools
@@ -75,8 +90,16 @@ _scheduler: Optional[BlockingScheduler] = None
 # Job functions
 # ---------------------------------------------------------------------------
 
-def job_workday_start() -> None:
-    """05:30 Mon–Fri — workday start greeting and pre-meeting reminder scheduling."""
+def job_workday_start(daemon: Any) -> None:
+    """05:30 Mon–Fri — workday start greeting and pre-meeting reminder scheduling.
+
+    Gate 3 interim state: still calls _enriched_notify() like the other four
+    relocated jobs (correct for this gate — matches Finding 1's diagnosis).
+    Gate 4 §4.1 fully replaces this body (not extends it) with
+    build_morning_briefing() content — the generic inspection-narration
+    content from _enriched_notify() is not the desired morning-briefing
+    content Item #50 exists to produce.
+    """
     from workmain.daemon.daemon import _enriched_notify, _schedule_meeting_reminders
     logger.info("job_workday_start firing")
     db = get_db()
@@ -89,41 +112,44 @@ def job_workday_start() -> None:
         session.close()
     if _scheduler is not None:
         _schedule_meeting_reminders(date.today(), _scheduler)
-    _enriched_notify("WorkmAIn - Good Morning")
+    _enriched_notify(daemon, "WorkmAIn - Good Morning")
 
 
-def job_daily_closeout() -> None:
+def job_daily_closeout(daemon: Any) -> None:
     """14:00 Mon–Thu — daily closeout enriched notification."""
     from workmain.daemon.daemon import _enriched_notify
     logger.info("job_daily_closeout firing")
-    _enriched_notify("WorkmAIn - Daily Closeout")
+    _enriched_notify(daemon, "WorkmAIn - Daily Closeout")
 
 
-def job_weekly_draft() -> None:
+def job_weekly_draft(daemon: Any) -> None:
     """14:00 Thu — weekly draft reminder."""
     from workmain.daemon.daemon import _enriched_notify
     logger.info("job_weekly_draft firing")
     _enriched_notify(
+        daemon,
         "WorkmAIn - Weekly Draft",
         extra_body="Time to draft your weekly Slack update.",
     )
 
 
-def job_eow() -> None:
+def job_eow(daemon: Any) -> None:
     """14:00 Fri — end-of-week reminder."""
     from workmain.daemon.daemon import _enriched_notify
     logger.info("job_eow firing")
     _enriched_notify(
+        daemon,
         "WorkmAIn - End of Week",
         extra_body="Wrap up the week — weekly report and email due.",
     )
 
 
-def job_eod_prompt() -> None:
+def job_eod_prompt(daemon: Any) -> None:
     """14:30 Mon–Fri — EOD pipeline prompt."""
     from workmain.daemon.daemon import _enriched_notify
     logger.info("job_eod_prompt firing")
     _enriched_notify(
+        daemon,
         "WorkmAIn - EOD Reminder",
         extra_body="Time to run: workmain eod",
     )
@@ -165,65 +191,18 @@ def _load_trigger_times(session: Session) -> dict:
 def build_scheduler() -> BlockingScheduler:
     """Build and return a configured BlockingScheduler.
 
-    All trigger times are US/Pacific (America/Los_Angeles), read from
-    system_state via _load_trigger_times() (Gate 1 §1.3).
-    Pre-meeting reminders are added dynamically by job_workday_start
-    and _schedule_meeting_reminders — not registered here.
-
-    Sets the module-level _scheduler so job functions in this module
-    can access it without a cross-module import.
+    Pure scheduler construction only — no job registration, no session, no
+    system_state access of any kind. All jobs register via
+    register_all_jobs(daemon), called later in WorkmAInDaemon.start() once
+    the daemon is fully initialized — including the _load_trigger_times()
+    read that used to happen here at the end of Gate 1; that read moved
+    into register_all_jobs() along with the registrations it feeds (see
+    below). Job registration was previously split between this function and
+    register_all_jobs(); collapsed here per Operations_Config_Correction_Sprint
+    Gate 3, Finding 1 (daemon-handle provenance).
     """
-    db = get_db()
-    session = db.get_session()
-    try:
-        trigger_times = _load_trigger_times(session)
-    finally:
-        session.close()
-
-    workday_start_hour, workday_start_minute = trigger_times['trigger_time_workday_start']
-    daily_closeout_hour, daily_closeout_minute = trigger_times['trigger_time_daily_closeout']
-    weekly_draft_hour, weekly_draft_minute = trigger_times['trigger_time_weekly_draft']
-    eow_hour, eow_minute = trigger_times['trigger_time_eow']
-    eod_prompt_hour, eod_prompt_minute = trigger_times['trigger_time_eod_prompt']
-
     global _scheduler
     scheduler = BlockingScheduler(timezone='America/Los_Angeles')
-
-    # Mon–Fri — workday start
-    scheduler.add_job(
-        job_workday_start,
-        CronTrigger(day_of_week='mon-fri', hour=workday_start_hour, minute=workday_start_minute),
-        id='workday_start',
-    )
-
-    # Mon–Thu — daily closeout (enriched)
-    scheduler.add_job(
-        job_daily_closeout,
-        CronTrigger(day_of_week='mon-thu', hour=daily_closeout_hour, minute=daily_closeout_minute),
-        id='daily_closeout',
-    )
-
-    # Thu — weekly draft reminder (additional)
-    scheduler.add_job(
-        job_weekly_draft,
-        CronTrigger(day_of_week='thu', hour=weekly_draft_hour, minute=weekly_draft_minute),
-        id='weekly_draft',
-    )
-
-    # Fri — end-of-week reminder
-    scheduler.add_job(
-        job_eow,
-        CronTrigger(day_of_week='fri', hour=eow_hour, minute=eow_minute),
-        id='eow',
-    )
-
-    # Mon–Fri — EOD prompt
-    scheduler.add_job(
-        job_eod_prompt,
-        CronTrigger(day_of_week='mon-fri', hour=eod_prompt_hour, minute=eod_prompt_minute),
-        id='eod_prompt',
-    )
-
     _scheduler = scheduler
     return scheduler
 
@@ -421,13 +400,15 @@ def _send_t4_checkin(daemon: Any) -> None:
 
 
 def register_all_jobs(daemon: Any) -> None:
-    """Register all APScheduler jobs for the daemon.
-
-    Gate 3 version: T1 morning briefing + T2/T3 meeting triggers (rescan
-    at midnight and every 15 min) + initial trigger scan at start.
-    Gate 4 will add T4 random check-in.
+    """Register every scheduled job. Single daemon-aware registration
+    surface — all eight jobs (five relocated here from build_scheduler(),
+    three already here) receive a daemon handle via functools.partial,
+    matching the pattern this function already used for morning_briefing,
+    t2t3_midnight_rescan, and t2t3_interval_rescan.
 
     Must be called after build_scheduler() so _scheduler is set.
+    Operations_Config_Correction_Sprint Gate 3 §3.1 — collapses the prior
+    build_scheduler()/register_all_jobs() registration split (Finding 1).
 
     Args:
         daemon: WorkmAInDaemon instance (typed Any to avoid circular import).
@@ -440,6 +421,58 @@ def register_all_jobs(daemon: Any) -> None:
     if _scheduler.get_job('slack_poll'):
         _scheduler.remove_job('slack_poll')
         logging.info("Removed legacy slack_poll job.")
+
+    # Trigger-time read relocated from build_scheduler() (Gate 1 §1.3) along
+    # with the five registrations it feeds — build_scheduler() no longer
+    # holds a session or reads system_state at all.
+    db = get_db()
+    session = db.get_session()
+    try:
+        trigger_times = _load_trigger_times(session)
+    finally:
+        session.close()
+
+    workday_start_hour, workday_start_minute = trigger_times['trigger_time_workday_start']
+    daily_closeout_hour, daily_closeout_minute = trigger_times['trigger_time_daily_closeout']
+    weekly_draft_hour, weekly_draft_minute = trigger_times['trigger_time_weekly_draft']
+    eow_hour, eow_minute = trigger_times['trigger_time_eow']
+    eod_prompt_hour, eod_prompt_minute = trigger_times['trigger_time_eod_prompt']
+
+    # Relocated from build_scheduler() — registration and the trigger-time
+    # read that feeds it are both here now. replace_existing=True applied
+    # uniformly across all eight jobs in this function, matching the three
+    # pre-existing registrations below.
+    _scheduler.add_job(
+        functools.partial(job_workday_start, daemon),
+        CronTrigger(day_of_week='mon-fri', hour=workday_start_hour, minute=workday_start_minute),
+        id='workday_start',
+        replace_existing=True,
+    )
+    _scheduler.add_job(
+        functools.partial(job_daily_closeout, daemon),
+        CronTrigger(day_of_week='mon-thu', hour=daily_closeout_hour, minute=daily_closeout_minute),
+        id='daily_closeout',
+        replace_existing=True,
+    )
+    _scheduler.add_job(
+        functools.partial(job_weekly_draft, daemon),
+        CronTrigger(day_of_week='thu', hour=weekly_draft_hour, minute=weekly_draft_minute),
+        id='weekly_draft',
+        replace_existing=True,
+    )
+    _scheduler.add_job(
+        functools.partial(job_eow, daemon),
+        CronTrigger(day_of_week='fri', hour=eow_hour, minute=eow_minute),
+        id='eow',
+        replace_existing=True,
+    )
+    _scheduler.add_job(
+        functools.partial(job_eod_prompt, daemon),
+        CronTrigger(day_of_week='mon-fri', hour=eod_prompt_hour, minute=eod_prompt_minute),
+        id='eod_prompt',
+        replace_existing=True,
+    )
+    logging.info("Workday start / daily closeout / weekly draft / eow / eod prompt jobs registered")
 
     # T1 — morning briefing 05:30 Mon–Fri
     _scheduler.add_job(

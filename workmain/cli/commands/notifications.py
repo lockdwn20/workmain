@@ -1,7 +1,7 @@
 """
 WorkmAIn Notifications Commands
-notifications.py v1.2
-20260701
+notifications.py v1.3
+20260702
 
 CLI command group: workmain notifications
 Owns delivery method configuration and notification delivery status.
@@ -21,6 +21,11 @@ Version History:
         tuple replaced with _load_cron_jobs(session), which reads trigger
         times from system_state via scheduler._load_trigger_times() so this
         display reflects `workmain schedule set notification-time` changes
+- v1.3: Operations_Config_Correction_Sprint Gate 3 §3.4 — VALID_METHODS
+        changed to ('wsl-notify', 'slack', 'both'); email special-case
+        warning block removed (email was never implemented, no fallback
+        left once terminal retired); docstring examples updated; unused
+        rich.panel.Panel import removed
 """
 
 import json
@@ -31,7 +36,6 @@ from typing import Optional
 
 import click
 from rich.console import Console
-from rich.panel import Panel
 
 from workmain.database.connection import get_db
 from workmain.database.repositories.notification_repository import NotificationConfigRepository
@@ -39,7 +43,7 @@ from workmain.daemon.delivery import deliver
 
 console = Console()
 
-VALID_METHODS = ('terminal', 'os', 'email')
+VALID_METHODS = ('wsl-notify', 'slack', 'both')
 
 
 # ---------------------------------------------------------------------------
@@ -58,13 +62,13 @@ def notifications():
 @notifications.command('set')
 @click.argument('method', metavar='METHOD')
 def notifications_set(method: str):
-    """Set notification delivery method (terminal, os, email).
+    """Set notification delivery method (wsl-notify, slack, both).
 
     \b
     Examples:
-      workmain notifications set terminal
-      workmain notifications set os
-      workmain notifications set email
+      workmain notifications set wsl-notify
+      workmain notifications set slack
+      workmain notifications set both
     """
     if method not in VALID_METHODS:
         console.print(
@@ -79,12 +83,6 @@ def notifications_set(method: str):
         repo = NotificationConfigRepository(session)
         repo.set_method(method)
         console.print(f"[green]Notification method set to:[/green] {method}")
-        if method == 'email':
-            console.print(
-                "[yellow]⚠ Email notifications are available in Phase 13. "
-                "Method saved; terminal delivery will be used until Phase 13 "
-                "is complete.[/yellow]"
-            )
     finally:
         session.close()
 
@@ -103,8 +101,8 @@ def notifications_test(method: Optional[str]):
     \b
     Examples:
       workmain notifications test
-      workmain notifications test terminal
-      workmain notifications test os
+      workmain notifications test wsl-notify
+      workmain notifications test slack
     """
     if method is not None and method not in VALID_METHODS:
         console.print(
