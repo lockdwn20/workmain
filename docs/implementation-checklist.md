@@ -370,7 +370,7 @@ context is retained via the task_status / forwarding_note relationship. The
   marks status `corrected`
 - [x] Weekly report aggregation only pulls `confirmed` or `corrected` daily reports
 - [x] Corrected records flagged so original error does not reappear in weekly
-- [ ] `workmain reports corrections [--date DATE]` — listing/history command
+- [x] `workmain reports corrections [--date DATE]` — listing/history command
   → **Item #56, delivered in Operations_Config_Correction_Sprint Gate 6**
 
 ### Integration with Phase 10 Inspection Engine
@@ -388,8 +388,8 @@ context is retained via the task_status / forwarding_note relationship. The
 
 - [~] PC-1: Replaced by standalone hotfix Item #55
 - [x] PC-2: Task carry-forward with context history (note-first architecture)
-- [~] PC-3: Essentially complete — `workmain reports corrections` listing
-  delivered in Operations_Config_Correction_Sprint (#56)
+- [x] PC-3: Complete — `workmain reports corrections` listing delivered in
+  Operations_Config_Correction_Sprint Gate 6 (#56)
 
 ---
 
@@ -687,25 +687,25 @@ holds `eod_workflow.py`, which is unaffected by this path correction).
 
 ### Gate 6 — Quick Wins [Items #56, #41] + Phase 12 Reconciliation
 
-- [ ] `workmain reports corrections [--date DATE]` — listing/history command (#56)
+- [x] `workmain reports corrections [--date DATE]` — listing/history command (#56)
   Closes PC-3. Low effort — `report_correct` records exist, command missing.
-- [ ] Clockify command exit code fix on staging write failure — systemd EROFS causes
+- [x] Clockify command exit code fix on staging write failure — systemd EROFS causes
   silent failure; fix to exit non-zero (#41)
-- [ ] Phase 12 checklist updated in-repo:
+- [x] Phase 12 checklist updated in-repo:
   PC-1 formally marked replaced by #55 (hotfix); PC-2 marked delivered (different
-  design noted); PC-3 marked complete when #56 lands
+  design noted); PC-3 marked complete now that #56 has landed
 
 **Sprint deliverables:**
 
-- [ ] Unified schedule authority (`is_working_day()` / `is_working_hours()`)
-- [ ] `non_working_days.json` retired
-- [ ] Configurable trigger times backed by config store
-- [ ] Cancelled meetings excluded from inspection and pre-meeting reminders
-- [ ] Delivery method refactored (wsl-notify, slack first-class, content decoupled)
-- [ ] Morning briefing wired to full content
-- [ ] EOD Step 3c cancellable and correctly scoped (runtime + note↔note dedup)
-- [ ] `workmain reports corrections` listing command (PC-3 complete)
-- [ ] Clockify exit code fixed
+- [x] Unified schedule authority (`is_working_day()` / `is_working_hours()`)
+- [x] `non_working_days.json` retired
+- [x] Configurable trigger times backed by config store
+- [x] Cancelled meetings excluded from inspection and pre-meeting reminders
+- [x] Delivery method refactored (wsl-notify, slack first-class, content decoupled)
+- [x] Morning briefing wired to full content
+- [x] EOD Step 3c cancellable and correctly scoped (runtime + note↔note dedup)
+- [x] `workmain reports corrections` listing command (PC-3 complete)
+- [x] Clockify exit code fixed
 
 ---
 
@@ -1126,7 +1126,7 @@ Items that do not block packaging and are implemented on demand.
 | 9 | ✓ DONE | Complete pipeline, day-aware EOD, CLI standardization |
 | 10 | ✓ DONE | Daemon, inspection engine, enriched notifications |
 | 11 / 11.5 | ✓ DONE | Client management, recipient scoping, Slack config migration |
-| 12 | ⚠ PARTIAL | PC-2 ✓, PC-3 ~done (pending #56), PC-1 → hotfix #55 |
+| 12 | ⚠ PARTIAL | PC-2 ✓, PC-3 ✓ (#56 delivered), PC-1 → hotfix #55 |
 | 13 | ✓ DONE | Ollama/Mistral 7B, Socket Mode, T1–T6, Block Kit (v1.23.0) |
 | Ops_Config_Correction_Sprint | ⏳ NEXT | Daemon correctness, schedule authority, Step 3c, delivery refactor |
 | Slack_LLM_Completion_Sprint | ⏳ | Model rebuild, meeting_id/tags passthrough, weekly quality, travel use case |
@@ -1171,7 +1171,7 @@ Slack_Modal_Completion_Sprint):
 - Cancelled meetings do not generate TIME_GAP or MISSING_NOTES observations
 - EOD T5 loop closeable from Slack on phone — no CLI required
 - Weekly report day range aware of holidays; internal meetings excluded
-- `workmain reports corrections` listing available (PC-3 complete)
+- `workmain reports corrections` listing available (PC-3 complete) — delivered
 - Setup Wizard guides first-run configuration end-to-end
 
 **Phase 18 (Packaging):**
