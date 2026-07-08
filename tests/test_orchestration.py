@@ -1,7 +1,7 @@
 """
 WorkmAIn Orchestration Tests
-test_orchestration.py v1.0
-20260625
+test_orchestration.py v1.1
+20260708
 
 Tests for Phase 13 Sprint 3 deliverables: WorkmAInDaemon socket dispatch,
 Block Kit ConfirmationGate, T2/T3 meeting triggers, T4 random check-in,
@@ -12,6 +12,14 @@ No DB writes for unit tests — DB-touching tests use the db_session fixture.
 
 Version History:
 - v1.0: Phase 13 Sprint 3 Gate 7 — initial 42-test suite
+- v1.1: Operations_Config_Correction_Sprint Gate 7 — add
+        TestMorningBriefingContent (build_morning_briefing() includes
+        meetings/tasks), TestSingleStartOfDayNotification (Gate 4 Item #50
+        regression — only one 05:30 job registers), and
+        TestNotifyMethodSlackDelivery (Gate 3 Finding 1 regression —
+        notify_method=slack correctly reaches daemon.post_message for all
+        five relocated triggers: workday_start, daily_closeout,
+        weekly_draft, eow, eod_prompt)
 """
 
 import json
@@ -382,57 +390,62 @@ class TestMeetingTriggers(unittest.TestCase):
 
 class TestT4Checkin(unittest.TestCase):
 
-    def _run_reschedule(self, now_dt, non_working=None, delay_minutes=30):
-        """Call _reschedule_t4_checkin with controlled datetime.now() and delay."""
+    def _run_reschedule(self, now_dt, is_working_day=True, is_working_hours=True,
+                        delay_minutes=30, t4_interval=(30, 120)):
+        """Call _reschedule_t4_checkin with a mocked ScheduleService, controlled
+        datetime.now(), and delay. Operations_Config_Correction_Sprint Gate 1
+        §1.3 moved the weekend/non-working-day and working-hours checks (plus
+        the T4 interval bounds) onto ScheduleService — mocked here rather than
+        exercising its real logic, which has its own dedicated coverage in
+        tests/test_schedule_service.py (Gate 7)."""
         import workmain.daemon.scheduler as sched_mod
         mock_scheduler = MagicMock()
         daemon = MagicMock()
-        nwd = non_working or set()
+        mock_service = MagicMock()
+        mock_service.is_working_day.return_value = is_working_day
+        mock_service.is_working_hours.return_value = is_working_hours
+        mock_service.get_t4_interval.return_value = t4_interval
         with patch.object(sched_mod, '_scheduler', mock_scheduler), \
-             patch('workmain.daemon.scheduler._load_non_working_days', return_value=nwd), \
+             patch('workmain.daemon.scheduler.get_db') as mock_get_db, \
+             patch('workmain.daemon.scheduler.ScheduleService', return_value=mock_service), \
              patch('workmain.daemon.scheduler.random') as mock_rand, \
              patch('workmain.daemon.scheduler.datetime') as mock_dt:
+            mock_get_db.return_value.get_session.return_value = MagicMock()
             mock_rand.randint.return_value = delay_minutes
             mock_dt.now.return_value = now_dt
             mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
             sched_mod._reschedule_t4_checkin(daemon)
-        return mock_scheduler
+        return mock_scheduler, mock_service
 
     def test_t4_suppressed_before_0900(self):
-        """fire_at < 09:00 → no job scheduled (08:00 + 30 min = 08:30)."""
+        """is_working_hours(fire_at) returning False (e.g. fire_at before
+        09:00) → no job scheduled."""
         now = datetime.now().replace(hour=8, minute=0, second=0, microsecond=0)
-        sched = self._run_reschedule(now, delay_minutes=30)
+        sched, service = self._run_reschedule(now, is_working_hours=False, delay_minutes=30)
         sched.add_job.assert_not_called()
 
     def test_t4_suppressed_after_1800(self):
-        """fire_at >= 18:00 → no job scheduled (17:31 + 30 min = 18:01)."""
+        """is_working_hours(fire_at) returning False (e.g. fire_at at or
+        after 18:00) → no job scheduled."""
         now = datetime.now().replace(hour=17, minute=31, second=0, microsecond=0)
-        sched = self._run_reschedule(now, delay_minutes=30)
+        sched, service = self._run_reschedule(now, is_working_hours=False, delay_minutes=30)
         sched.add_job.assert_not_called()
 
     def test_t4_suppressed_on_weekend(self):
-        """Saturday/Sunday → no job scheduled."""
+        """is_working_day() returning False (e.g. Saturday/Sunday) → no job scheduled."""
         today = date.today()
         days_until_sat = (5 - today.weekday()) % 7
         saturday = today + timedelta(days=days_until_sat if days_until_sat > 0 else 7)
         now = datetime(saturday.year, saturday.month, saturday.day, 10, 0)
-        sched = self._run_reschedule(now, delay_minutes=30)
+        sched, service = self._run_reschedule(now, is_working_day=False, delay_minutes=30)
         sched.add_job.assert_not_called()
 
     def test_t4_suppressed_on_non_working_day(self):
-        """Day in non_working_days set → no job scheduled."""
-        import workmain.daemon.scheduler as sched_mod
-        mock_scheduler = MagicMock()
-        daemon = MagicMock()
-        today = datetime.now().replace(hour=10, minute=0, second=0, microsecond=0)
-        nwd = {today.date().isoformat()}
-        with patch.object(sched_mod, '_scheduler', mock_scheduler), \
-             patch('workmain.daemon.scheduler._load_non_working_days', return_value=nwd), \
-             patch('workmain.daemon.scheduler.datetime') as mock_dt:
-            mock_dt.now.return_value = today
-            mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
-            sched_mod._reschedule_t4_checkin(daemon)
-        mock_scheduler.add_job.assert_not_called()
+        """is_working_day() returning False (e.g. a schedule_exceptions
+        holiday/timeoff range) → no job scheduled."""
+        now = datetime.now().replace(hour=10, minute=0, second=0, microsecond=0)
+        sched, service = self._run_reschedule(now, is_working_day=False, delay_minutes=30)
+        sched.add_job.assert_not_called()
 
     def test_t4_suppressed_during_active_t5_session(self):
         """_send_t4_checkin does not post DM if T5 EOD session is active."""
@@ -446,21 +459,12 @@ class TestT4Checkin(unittest.TestCase):
         mock_resched.assert_called_once_with(daemon)
 
     def test_t4_scheduled_in_30_to_120_min_window(self):
-        """fire_at is between 30 and 120 minutes from now when window is valid."""
-        import workmain.daemon.scheduler as sched_mod
-        mock_scheduler = MagicMock()
-        daemon = MagicMock()
+        """fire_at is between 30 and 120 minutes from now when window is valid;
+        interval bounds come from ScheduleService.get_t4_interval()."""
         now = datetime.now().replace(hour=10, minute=0, second=0, microsecond=0)
-        with patch.object(sched_mod, '_scheduler', mock_scheduler), \
-             patch('workmain.daemon.scheduler._load_non_working_days', return_value=set()), \
-             patch('workmain.daemon.scheduler.datetime') as mock_dt, \
-             patch('workmain.daemon.scheduler.random') as mock_rand:
-            mock_dt.now.return_value = now
-            mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
-            mock_rand.randint.return_value = 60
-            sched_mod._reschedule_t4_checkin(daemon)
-        mock_scheduler.add_job.assert_called_once()
-        mock_rand.randint.assert_called_once_with(30, 120)
+        sched, service = self._run_reschedule(now, delay_minutes=60, t4_interval=(30, 120))
+        sched.add_job.assert_called_once()
+        service.get_t4_interval.assert_called_once()
 
     def test_t4_rescheduled_when_t2_fires(self):
         """_send_t2 calls _reschedule_t4_checkin after posting."""
@@ -728,6 +732,190 @@ class TestT5SessionPersistence(unittest.TestCase):
         self.assertIn('resume', msg.lower())
         # Session count unchanged
         self.assertEqual(len(manager._sessions), 1)
+
+
+# ---------------------------------------------------------------------------
+# Group 7 — Morning briefing content (Gate 4 Item #50)
+# ---------------------------------------------------------------------------
+
+class TestMorningBriefingContent(unittest.TestCase):
+    """build_morning_briefing() includes meetings and carry-forward tasks."""
+
+    def _meeting(self, title, hour=9, duration_hours=1.0):
+        m = MagicMock()
+        m.title = title
+        m.start_time = datetime(2099, 1, 5, hour, 0)
+        m.duration_hours = duration_hours
+        return m
+
+    def _task(self, content):
+        t = MagicMock()
+        t.id = 1
+        t.note = MagicMock()
+        t.note.content = content
+        return t
+
+    def test_meetings_included_in_briefing(self):
+        from workmain.integrations.slack.slack_eod import build_morning_briefing
+        meeting = self._meeting('Standup')
+        body = build_morning_briefing([meeting], [], 0)
+        self.assertIn('Standup', body)
+
+    def test_no_meetings_shows_placeholder(self):
+        from workmain.integrations.slack.slack_eod import build_morning_briefing
+        body = build_morning_briefing([], [], 0)
+        self.assertIn('No meetings scheduled today.', body)
+
+    def test_carry_forward_tasks_included(self):
+        from workmain.integrations.slack.slack_eod import build_morning_briefing
+        task = self._task('Write the spec')
+        body = build_morning_briefing([], [task], 0)
+        self.assertIn('Write the spec', body)
+        self.assertIn('Carry-forward tasks', body)
+
+    def test_no_tasks_omits_section_entirely(self):
+        from workmain.integrations.slack.slack_eod import build_morning_briefing
+        body = build_morning_briefing([], [], 0)
+        self.assertNotIn('Carry-forward tasks', body)
+
+    def test_unresolved_count_shown_when_nonzero(self):
+        from workmain.integrations.slack.slack_eod import build_morning_briefing
+        body = build_morning_briefing([], [], 3)
+        self.assertIn('3 flagged', body)
+
+    def test_unresolved_count_omitted_when_zero(self):
+        from workmain.integrations.slack.slack_eod import build_morning_briefing
+        body = build_morning_briefing([], [], 0)
+        self.assertNotIn('flagged', body)
+
+    def test_meetings_and_tasks_together(self):
+        from workmain.integrations.slack.slack_eod import build_morning_briefing
+        meeting = self._meeting('Design Review')
+        task = self._task('Finish the doc')
+        body = build_morning_briefing([meeting], [task], 1)
+        self.assertIn('Design Review', body)
+        self.assertIn('Finish the doc', body)
+        self.assertIn('1 flagged', body)
+
+
+# ---------------------------------------------------------------------------
+# Group 8 — Exactly one start-of-day notification (Gate 4 Item #50)
+# ---------------------------------------------------------------------------
+
+class TestSingleStartOfDayNotification(unittest.TestCase):
+    """register_all_jobs() registers exactly one 05:30-class job —
+    'workday_start' — never the retired parallel 'morning_briefing' job
+    (Gate 4 §4.1 consolidation)."""
+
+    def test_only_workday_start_job_registered(self):
+        import workmain.daemon.scheduler as sched_mod
+        mock_scheduler = MagicMock()
+        mock_scheduler.get_job.return_value = None
+        daemon = MagicMock()
+        mock_session = MagicMock()
+        with patch.object(sched_mod, '_scheduler', mock_scheduler), \
+             patch('workmain.daemon.scheduler.get_db') as mock_get_db, \
+             patch('workmain.daemon.scheduler._schedule_today_meeting_triggers'), \
+             patch('workmain.daemon.scheduler._reschedule_t4_checkin'):
+            mock_get_db.return_value.get_session.return_value = mock_session
+            sched_mod.register_all_jobs(daemon)
+        job_ids = [c.kwargs.get('id', '') for c in mock_scheduler.add_job.call_args_list]
+        self.assertIn('workday_start', job_ids)
+        self.assertNotIn('morning_briefing', job_ids)
+        # Exactly one job carries the workday-start responsibility
+        self.assertEqual(job_ids.count('workday_start'), 1)
+
+    def test_morning_briefing_function_no_longer_exists(self):
+        """_send_morning_briefing() was removed entirely as dead code once
+        its only registration was gone (Gate 4 §4.1)."""
+        import workmain.daemon.scheduler as sched_mod
+        self.assertFalse(hasattr(sched_mod, '_send_morning_briefing'))
+
+
+# ---------------------------------------------------------------------------
+# Group 9 — notify_method=slack delivers for all five relocated triggers
+# (Gate 3 Finding 1 direct regression coverage)
+# ---------------------------------------------------------------------------
+
+class TestNotifyMethodSlackDelivery(unittest.TestCase):
+    """Each of the five relocated triggers threads a daemon handle through
+    to deliver(method='slack', daemon=daemon) when notify_method=slack —
+    the exact gap Gate 3's Finding 1 fixed (job registration previously
+    split across two daemon-unaware/daemon-aware surfaces)."""
+
+    def _slack_config(self):
+        cfg = MagicMock()
+        cfg.method = 'slack'
+        cfg.enabled = True
+        return cfg
+
+    def _run_enriched_job(self, job_fn):
+        """Run one of the four _enriched_notify-based jobs with
+        notify_method=slack and capture the deliver() call."""
+        daemon = MagicMock()
+        mock_session = MagicMock()
+        with patch('workmain.daemon.daemon.get_db') as mock_get_db, \
+             patch('workmain.daemon.daemon.ScheduleService') as mock_svc_cls, \
+             patch('workmain.daemon.daemon.NotificationConfigRepository') as mock_cfg_cls, \
+             patch('workmain.daemon.daemon._assemble_notification_content', return_value='summary'), \
+             patch('workmain.daemon.daemon.deliver') as mock_deliver:
+            mock_get_db.return_value.get_session.return_value = mock_session
+            mock_svc_cls.return_value.is_working_day.return_value = True
+            mock_cfg_cls.return_value.get_config.return_value = self._slack_config()
+            job_fn(daemon)
+        return mock_deliver, daemon
+
+    def test_daily_closeout_delivers_via_slack(self):
+        import workmain.daemon.scheduler as sched_mod
+        mock_deliver, daemon = self._run_enriched_job(sched_mod.job_daily_closeout)
+        mock_deliver.assert_called_once()
+        self.assertEqual(mock_deliver.call_args.kwargs.get('daemon'), daemon)
+        self.assertEqual(mock_deliver.call_args.kwargs.get('method'), 'slack')
+
+    def test_weekly_draft_delivers_via_slack(self):
+        import workmain.daemon.scheduler as sched_mod
+        mock_deliver, daemon = self._run_enriched_job(sched_mod.job_weekly_draft)
+        mock_deliver.assert_called_once()
+        self.assertEqual(mock_deliver.call_args.kwargs.get('daemon'), daemon)
+        self.assertEqual(mock_deliver.call_args.kwargs.get('method'), 'slack')
+
+    def test_eow_delivers_via_slack(self):
+        import workmain.daemon.scheduler as sched_mod
+        mock_deliver, daemon = self._run_enriched_job(sched_mod.job_eow)
+        mock_deliver.assert_called_once()
+        self.assertEqual(mock_deliver.call_args.kwargs.get('daemon'), daemon)
+        self.assertEqual(mock_deliver.call_args.kwargs.get('method'), 'slack')
+
+    def test_eod_prompt_delivers_via_slack(self):
+        import workmain.daemon.scheduler as sched_mod
+        mock_deliver, daemon = self._run_enriched_job(sched_mod.job_eod_prompt)
+        mock_deliver.assert_called_once()
+        self.assertEqual(mock_deliver.call_args.kwargs.get('daemon'), daemon)
+        self.assertEqual(mock_deliver.call_args.kwargs.get('method'), 'slack')
+
+    def test_workday_start_delivers_via_slack(self):
+        """job_workday_start doesn't go through _enriched_notify — it
+        assembles its own content and calls deliver() directly (Gate 4)."""
+        import workmain.daemon.scheduler as sched_mod
+        daemon = MagicMock()
+        mock_session = MagicMock()
+        with patch('workmain.daemon.scheduler.get_db') as mock_get_db, \
+             patch('workmain.daemon.scheduler.ScheduleService') as mock_svc_cls, \
+             patch('workmain.daemon.daemon._count_unresolved_observations', return_value=0), \
+             patch('workmain.daemon.daemon._schedule_meeting_reminders'), \
+             patch('workmain.database.repositories.meetings_repo.MeetingsRepository') as mock_mtg_cls, \
+             patch('workmain.database.repositories.notification_repository.NotificationConfigRepository') as mock_cfg_cls, \
+             patch('workmain.database.repositories.task_status_repo.TaskStatusRepository') as mock_task_cls, \
+             patch('workmain.daemon.delivery.deliver') as mock_deliver:
+            mock_get_db.return_value.get_session.return_value = mock_session
+            mock_svc_cls.return_value.is_working_day.return_value = True
+            mock_mtg_cls.return_value.get_active_for_date.return_value = []
+            mock_task_cls.return_value.get_filtered.return_value = []
+            mock_cfg_cls.return_value.get_config.return_value = self._slack_config()
+            sched_mod.job_workday_start(daemon)
+        mock_deliver.assert_called_once()
+        self.assertEqual(mock_deliver.call_args[0][2], 'slack')
+        self.assertEqual(mock_deliver.call_args.kwargs.get('daemon'), daemon)
 
 
 if __name__ == '__main__':

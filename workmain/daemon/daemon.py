@@ -1,7 +1,7 @@
 """
 WorkmAIn Notification Daemon
-daemon.py v1.13
-20260625
+daemon.py v1.18
+20260707
 
 Entry point for the always-on background daemon process.
 WorkmAInDaemon owns the Slack socket connection, EOD manager, and
@@ -50,6 +50,44 @@ Version History:
 - v1.13: Phase 13 Sprint 3 Gate 6 — _maybe_offer_eod_resume() and
          _send_eod_resume_offer() implemented; loads persisted T5 session on
          daemon start and injects into eod_manager._sessions
+- v1.14: Operations_Config_Correction_Sprint Gate 1 §1.4 — _is_exception_day()
+         removed (no thin wrapper retained); its two call sites
+         (_enriched_notify(), _pre_meeting_reminder()) converged directly on
+         ScheduleService.is_working_day(), reusing the session already
+         opened in each function rather than a separate one
+- v1.15: Operations_Config_Correction_Sprint Gate 2 §2.3 — _schedule_meeting_reminders()
+         routed through MeetingsRepository.get_active_for_date() instead of
+         get_by_date() — cancelled meetings no longer scheduled for
+         pre-meeting reminders
+- v1.16: Operations_Config_Correction_Sprint Gate 3 §3.5 (Finding 1 + a
+         second implementation-time correction) — _enriched_notify() takes
+         daemon as an explicit parameter (it was never a method, there was
+         no self) and passes it through to deliver(); content assembly
+         split into _assemble_notification_content(), which returns a
+         single summary str (narrate() has no (title, body) tuple return —
+         title has always been a required caller-supplied string, never
+         derived from narration); extra_body restored to its original
+         prepend-to-summary semantics (f"{extra_body}\\n\\n{summary}"),
+         not a replace-summary shortcut
+- v1.17: Operations_Config_Correction_Sprint Gate 4 §4.2 (Item #50,
+         additive-only diff) — _schedule_meeting_reminders() gains a
+         required daemon parameter, added to the existing
+         scheduler.add_job(_pre_meeting_reminder, ...) kwargs dict alongside
+         meeting_title; _pre_meeting_reminder() gains a required daemon
+         parameter, threaded to its deliver() call. Closes the one
+         deliver() caller outside Gate 3 Finding 1's scope (a dynamically-
+         scheduled one-shot job, not one of the eight cron jobs) — every
+         pre-meeting reminder previously no-op'd under notify_method=slack/
+         both. No other lines changed in either function — Gate 2's
+         get_active_for_date() and Gate 1's ScheduleService.is_working_day()
+         both confirmed still intact.
+- v1.18: Operations_Config_Correction_Sprint Gate 5 §5.1 — post_message()/
+         post_blocks() pass-through wrappers changed from -> None to
+         -> Optional[str], returning the ts WorkmAInSocketClient now
+         captures; new update_message(ts, text) -> bool wrapper added.
+         Confirmed non-breaking across all 19 existing call sites (none
+         read a return value). Enables throttled Slack progress-message
+         editing for the EOD task-match/note-dedup substeps.
 """
 
 import json
@@ -71,7 +109,7 @@ from workmain.daemon.inspection_engine import InspectionEngine
 from workmain.daemon.narration import narrate
 from workmain.database.connection import get_db
 from workmain.database.repositories.notification_repository import NotificationConfigRepository
-from workmain.database.repositories.schedule_repository import ScheduleExceptionRepository
+from workmain.services.schedule_service import ScheduleService
 import workmain.daemon.scheduler as _sched_module
 from workmain.daemon.scheduler import build_scheduler, register_all_jobs, scheduler_start, scheduler_stop
 from workmain.integrations.slack import auth
@@ -172,52 +210,54 @@ def _write_scheduled_jobs(reminders: list, target_date: date) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Schedule exception guard
-# ---------------------------------------------------------------------------
-
-def _is_exception_day(check_date: date) -> bool:
-    """Return True if check_date falls within any schedule exception."""
-    db = get_db()
-    session = db.get_session()
-    try:
-        repo = ScheduleExceptionRepository(session)
-        return repo.is_exception_date(check_date)
-    finally:
-        session.close()
-
-
-# ---------------------------------------------------------------------------
 # Notification helpers
 # ---------------------------------------------------------------------------
 
-def _enriched_notify(title: str, extra_body: str = '') -> None:
+def _assemble_notification_content(session, target_date: date) -> str:
+    """Run inspection + narration, return the summary body string — no
+    title. narrate() returns a single str; there was never a title derived
+    from it. Always runs regardless of whether delivery is enabled —
+    matches current behavior where last_inspection.json is written either
+    way."""
+    engine = InspectionEngine(session)
+    observations = engine.run(target_date)
+    summary = narrate(observations)
+    _write_last_inspection(observations, summary, target_date)
+    return summary
+
+
+def _enriched_notify(daemon, title: str, extra_body: str = '') -> None:
     """Run inspection engine + narration and deliver an enriched notification.
 
     Shared logic for all enriched notification jobs. Writes last_inspection.json
     after each run so `notifications status` reflects the latest check.
-    """
-    if _is_exception_day(date.today()):
-        logging.info("Notification suppressed — today is a scheduled exception")
-        return
 
+    daemon is an explicit parameter (this function is not a method — there
+    is no self). title is required, matching the original contract exactly
+    — never optional, never derived from narrate(). extra_body, when
+    present, is PREPENDED to the summary (f"{extra_body}\\n\\n{summary}"),
+    not substituted for it.
+    """
     db = get_db()
     session = db.get_session()
     try:
-        engine = InspectionEngine(session)
-        observations = engine.run(date.today())
-        summary = narrate(observations)
-        _write_last_inspection(observations, summary, date.today())
+        target_date = date.today()
+        if not ScheduleService(session).is_working_day(target_date):
+            logging.info("Notification suppressed — today is not a working day")
+            return
+
+        summary = _assemble_notification_content(session, target_date)
 
         config = NotificationConfigRepository(session).get_config()
         if not config.enabled:
+            # Preserved from current behavior: assembly and last_inspection.json
+            # write already happened above; only the delivery call is skipped.
             logging.info("Notification suppressed — notifications disabled")
             return
 
-        body = summary
-        if extra_body:
-            body = f"{extra_body}\n\n{summary}"
+        body = f"{extra_body}\n\n{summary}" if extra_body else summary
 
-        deliver(title, body, method=config.method)
+        deliver(title, body, method=config.method, daemon=daemon)
         logging.info("Delivered enriched notification: %s", title)
     except Exception:
         logging.exception("Error in _enriched_notify(%s)", title)
@@ -225,15 +265,14 @@ def _enriched_notify(title: str, extra_body: str = '') -> None:
         session.close()
 
 
-def _pre_meeting_reminder(meeting_title: str) -> None:
+def _pre_meeting_reminder(meeting_title: str, daemon) -> None:
     """Deliver a 15-minute pre-meeting reminder for a single meeting."""
-    if _is_exception_day(date.today()):
-        logging.info("Pre-meeting reminder suppressed — today is a scheduled exception")
-        return
-
     db = get_db()
     session = db.get_session()
     try:
+        if not ScheduleService(session).is_working_day(date.today()):
+            logging.info("Pre-meeting reminder suppressed — today is not a working day")
+            return
         config = NotificationConfigRepository(session).get_config()
         if not config.enabled:
             return
@@ -241,6 +280,7 @@ def _pre_meeting_reminder(meeting_title: str) -> None:
             title="Meeting in 15 min",
             body=f"Starting soon: {meeting_title}",
             method=config.method,
+            daemon=daemon,
         )
         logging.info("Pre-meeting reminder delivered: %s", meeting_title)
     except Exception:
@@ -249,7 +289,7 @@ def _pre_meeting_reminder(meeting_title: str) -> None:
         session.close()
 
 
-def _schedule_meeting_reminders(target_date: date, scheduler: BlockingScheduler) -> None:
+def _schedule_meeting_reminders(target_date: date, scheduler: BlockingScheduler, daemon) -> None:
     """Schedule one-shot pre-meeting reminders for all meetings on target_date.
 
     Removes any existing pre-meeting jobs before adding new ones.
@@ -265,7 +305,7 @@ def _schedule_meeting_reminders(target_date: date, scheduler: BlockingScheduler)
     session = db.get_session()
     try:
         repo = MeetingsRepository(session)
-        meetings = repo.get_by_date(target_date)
+        meetings = repo.get_active_for_date(target_date)
         now = datetime.now()
         scheduled = 0
         reminder_list = []
@@ -280,7 +320,7 @@ def _schedule_meeting_reminders(target_date: date, scheduler: BlockingScheduler)
                 DateTrigger(run_date=fire_time),
                 id=f'pre_meeting_{meeting.id}',
                 replace_existing=True,
-                kwargs={'meeting_title': meeting.title or '(No Title)'},
+                kwargs={'meeting_title': meeting.title or '(No Title)', 'daemon': daemon},
             )
             scheduled += 1
             reminder_list.append({
@@ -413,19 +453,29 @@ class WorkmAInDaemon:
             self._socket_client.stop()
         scheduler_stop()
 
-    def post_message(self, text: str) -> None:
-        """Post plain text to operator DM."""
+    def post_message(self, text: str) -> Optional[str]:
+        """Post plain text to operator DM. Returns the message ts, or None
+        if the DM channel isn't resolved or the post failed."""
         if self._dm_channel and self._socket_client:
-            self._socket_client.post_message(self._dm_channel, text)
-        else:
-            logger.warning('WorkmAInDaemon.post_message: DM channel not resolved')
+            return self._socket_client.post_message(self._dm_channel, text)
+        logger.warning('WorkmAInDaemon.post_message: DM channel not resolved')
+        return None
 
-    def post_blocks(self, blocks: list, fallback_text: str) -> None:
-        """Post Block Kit message to operator DM."""
+    def post_blocks(self, blocks: list, fallback_text: str) -> Optional[str]:
+        """Post Block Kit message to operator DM. Returns the message ts, or
+        None if the DM channel isn't resolved or the post failed."""
         if self._dm_channel and self._socket_client:
-            self._socket_client.post_blocks(self._dm_channel, blocks, fallback_text)
-        else:
-            logger.warning('WorkmAInDaemon.post_blocks: DM channel not resolved')
+            return self._socket_client.post_blocks(self._dm_channel, blocks, fallback_text)
+        logger.warning('WorkmAInDaemon.post_blocks: DM channel not resolved')
+        return None
+
+    def update_message(self, ts: str, text: str) -> bool:
+        """Edit an existing operator DM message in place. Returns True on
+        success, False if the DM channel isn't resolved or the edit failed."""
+        if self._dm_channel and self._socket_client:
+            return self._socket_client.update_message(self._dm_channel, ts, text)
+        logger.warning('WorkmAInDaemon.update_message: DM channel not resolved')
+        return False
 
     def handle_message(self, event: dict) -> None:
         """Inbound DM message — update channel cache, dispatch."""

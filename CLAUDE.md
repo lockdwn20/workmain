@@ -1,18 +1,18 @@
 # CLAUDE.md - WorkmAIn Project Context
 
 WorkmAIn
-CLAUDE.md v3.0
-20260626
+CLAUDE.md v3.2
+20260701
 
 Version History:
+
 - v1.0: Initial (through Phase 5.1)
 - v2.0 (20260311): Updated through Phase 8; Phase 9/10 order swap; integrations added
 - v2.1 (20260320): Testing standards reference; scripts-deprecated/ directory
 - v2.2 (20260320): docs/ reorganization; Documentation Standards section
-- v3.0 (20260626): Major update — Phase 13 complete (v1.23.0, 671 tests). Added three-role
-  model (most critical addition), gate discipline, recon-before-spec rule. Updated stack
-  (Ollama, APScheduler, Slack Socket Mode), architecture (daemon/, workflows/), pitfalls,
-  and locked architecture decisions. Phase table removed — use implementation-checklist.md.
+- v3.0 (20260626): Major update — Phase 13 complete (v1.23.0, 671 tests). Added three-role model (most critical addition), gate discipline, recon-before-spec rule. Updated stack (Ollama, APScheduler, Slack Socket Mode), architecture (daemon/, workflows/), pitfalls, and locked architecture decisions. Phase table removed — use implementation-checklist.md.
+- v3.1 (20260701): Added Common Pitfall #12 — component-verified ≠ integration-verified. Recon confirming each piece exists/matches signature doesn't confirm the pieces work together; must trace handle/session provenance, diff drafted code against claimed references verbatim, and verify elided "unchanged" blocks. Surfaced by Operations_Config_Correction_Sprint Gate 3/5 cross-gate review.
+- v3.2 (20260701): Removed version numbers from Claude Desktop and Claude Code models to prevent confusion with Anthropic model updates
 
 ---
 
@@ -23,19 +23,24 @@ The recon audit (docs/dev/design/RECON_INTEGRATION_AUDIT_20260626.md) documented
 happens when design questions get resolved in-flow: parallel implementations, four
 independent "working day" definitions, two competing start-of-day notifications.
 
-### Role 1 — Claude Desktop / Sonnet 4.6 — Planner & Spec Keeper
+### Role 1 — Claude Desktop / Sonnet — Planner & Spec Keeper
+
 All design authority lives here. Writes all specs. Makes all architecture decisions.
 
-### Role 2 — Claude Code / Opus 4.8 — Spec Reviewer
+### Role 2 — Claude Code / Opus — Spec Reviewer
+
 Reviews every spec before implementation begins. If you are in this role: findings go
 BACK to Role 1, not forward. You do not implement.
 
-### Role 3 — Claude Code / Sonnet 4.6 — Implementer
+### Role 3 — Claude Code / Sonnet — Implementer
+
 Works from approved specs only. If you hit a design question mid-implementation: STOP
 at the current gate and surface to Ray. You do not make design decisions in-flow.
 
 ### The Critical Rule
+
 If you encounter anything the spec doesn't cover, or that requires a design decision:
+
 1. **STOP at the current gate** — do not proceed
 2. **Document the issue clearly** in chat
 3. **Tell Ray** — he will bring it to Claude Desktop (Role 1)
@@ -96,6 +101,7 @@ Socket Mode Handler  →  Intent Parser (Ollama)  →  Action Executor  →  Rep
 ```
 
 Key directories:
+
 - `workmain/cli/commands/` — CLI command modules
 - `workmain/database/repositories/` — Data access layer (repository pattern)
 - `workmain/database/models.py` — SQLAlchemy models
@@ -122,6 +128,7 @@ Key directories:
 ### 1. File Versioning
 
 Every Python file has a versioned header. When modifying any file you MUST:
+
 - Increment the version number
 - Update the date (YYYYMMDD)
 - Add a version history entry describing what changed
@@ -155,6 +162,7 @@ If a spec has numbered gates and you reach one: stop, report status, wait.
 ### 3. Decision Making — Stop and Surface
 
 When a design question arises or options exist:
+
 1. Present options with pros/cons
 2. State recommendation with rationale
 3. **STOP and WAIT** for explicit approval — never proceed without confirmation
@@ -261,6 +269,7 @@ Two files govern IntentParser. They own different things and must never duplicat
 `workmain-intent:latest` tag is intentional — documented Sprint 1 architecture decision.
 
 **Version bump workflow:**
+
 1. Edit `intent_parse_system_prompt.txt` (prompt content)
 2. Sync SYSTEM block to Modelfile in IaC repo
 3. Run `build_workmain_intent.sh` on Proxmox LXC
@@ -270,6 +279,7 @@ Two files govern IntentParser. They own different things and must never duplicat
 ### OLLAMA_KEEP_ALIVE
 
 Must be set in TWO places — both are required:
+
 1. Ollama systemd service override (IaC repo)
 2. `OllamaProvider` API request payload
 
@@ -324,6 +334,7 @@ These are made and closed. Do not re-open or work around them without Ray's expl
 9. **T4 `resume` is actually a skip** — `CONTROL_RESUME` in `slack_eod.py` skips the current step; it does not retry it
 10. **`correction_note` vs `corrected_content`** — different fields, different write paths; never conflate
 11. **Phase scope creep** — always check `docs/implementation-checklist.md` before assuming something belongs in the current phase. Most "Phase 14" backlog items are actually between-phase sprint work.
+12. **Component-verified ≠ integration-verified** — trace handle/session provenance at every call site, diff drafted code against any claimed reference verbatim (not just shape), and never accept an elided "unchanged" block without checking it against the recon's own quote.
 
 ---
 
@@ -337,6 +348,7 @@ These are made and closed. Do not re-open or work around them without Ray's expl
 | `docs/dev/hotfixes/` | Hotfix specs and handoffs | No — local only |
 
 Rules:
+
 - Dev artifacts always go in `docs/dev/<type>/` — never in `docs/` root
 - Filenames are never changed — directory is the type delimiter
 - Latest relevant handoff = most recently dated file in the appropriate subdir

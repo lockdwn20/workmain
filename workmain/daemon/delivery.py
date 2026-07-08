@@ -1,14 +1,13 @@
 """
 WorkmAIn Daemon Delivery Layer
-delivery.py v1.2
-20260508
+delivery.py v1.3
+20260702
 
 Handles notification delivery via three methods:
-  - 'os'       → wsl-notify-send (WSL) or notify-send (native Linux)
-  - 'terminal' → Rich console output
-  - 'email'    → Reserved (Phase 13); falls back to terminal with warning
+  - 'wsl-notify' → wsl-notify-send (WSL) or notify-send (native Linux)
+  - 'slack'      → Slack DM via daemon.post_message()
+  - 'both'       → wsl-notify + slack
 
-Fallback chain: os → terminal (never errors silently).
 WSL detection is performed once at import time and cached.
 wsl-notify-send is located via PATH first, then via a glob of common WSL
 mount paths — no PATH configuration required on the host.
@@ -20,19 +19,28 @@ Version History:
 - v1.2: Add _sanitize_for_windows() to replace em/en dashes before passing strings
         to wsl-notify-send.exe — Windows codepage garbles UTF-8 multi-byte chars;
         log subprocess stdout/stderr at WARNING so failures are visible in journal
+- v1.3: Operations_Config_Correction_Sprint Gate 3 §3.2 — 'os' renamed to
+        'wsl-notify'; 'terminal' method retired entirely (was always journald
+        logging under systemd, not a real fallback channel — _deliver_terminal()
+        and its Console/Panel echo removed, failures now log via standard
+        Python logging only); 'email' dropped (reserved, never implemented);
+        'slack' added as first-class method via _deliver_slack(), which
+        requires a daemon handle passed through by the caller — delivery.py
+        has none of its own. _deliver_slack() skips its bold-title prefix
+        when title is blank, so callers whose body already carries its own
+        header (the morning briefing, Gate 4) don't get a redundant title
+        line stacked above it.
 """
 
 import logging
-import os
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
-from rich.console import Console
-from rich.panel import Panel
+if TYPE_CHECKING:
+    from workmain.daemon.daemon import WorkmAInDaemon
 
-console = Console()
 logger = logging.getLogger(__name__)
 
 
@@ -87,37 +95,44 @@ def _sanitize_for_windows(text: str) -> str:
     return text.replace('—', ' - ').replace('–', ' - ')
 
 
-def deliver(title: str, body: str, method: str = 'terminal') -> None:
+def deliver(title: str, body: str, method: str = 'wsl-notify',
+            daemon: Optional['WorkmAInDaemon'] = None) -> None:
     """Deliver a notification using the specified method.
 
-    Falls back to terminal if OS delivery fails or is unavailable.
-    'email' method is reserved for Phase 13 — delivers via terminal
-    with a warning in Phase 10.
+    daemon is required when method is 'slack' or 'both' — provides
+    post_message()/post_blocks() access. delivery.py has no daemon handle
+    of its own; the caller passes one through.
 
     Args:
         title: Notification title.
         body: Notification body text.
-        method: One of 'terminal', 'os', 'email'.
+        method: One of 'wsl-notify', 'slack', 'both'.
+        daemon: WorkmAInDaemon instance, required for 'slack'/'both'.
     """
-    if method == 'os':
-        _deliver_os(title, body)
-    elif method == 'email':
-        console.print(
-            "[yellow]⚠ Email notifications are available in Phase 13. "
-            "Delivering via terminal.[/yellow]"
-        )
-        _deliver_terminal(title, body)
+    if method == 'wsl-notify':
+        _deliver_wsl_notify(title, body)
+    elif method == 'slack':
+        _deliver_slack(title, body, daemon)
+    elif method == 'both':
+        _deliver_wsl_notify(title, body)
+        _deliver_slack(title, body, daemon)
     else:
-        _deliver_terminal(title, body)
+        logger.warning("Unknown delivery method '%s' — falling back to wsl-notify", method)
+        _deliver_wsl_notify(title, body)
 
 
-def _deliver_os(title: str, body: str) -> None:
+def _deliver_wsl_notify(title: str, body: str) -> None:
+    # On failure (wsl-notify-send missing or erroring), log via standard
+    # Python logging at WARNING/ERROR. No separate "terminal" fallback path:
+    # the daemon runs under systemd with no attached TTY, so "terminal"
+    # delivery was always just logger calls landing in the journal. journalctl
+    # is the correct first troubleshooting step on any delivery failure.
     if NOTIFY_CMD is None:
         logger.warning(
             "OS notification tool not found (wsl-notify-send / notify-send). "
-            "Falling back to terminal."
+            "Notification not delivered: %s",
+            title,
         )
-        _deliver_terminal(title, body)
         return
 
     safe_title = _sanitize_for_windows(title)
@@ -136,13 +151,16 @@ def _deliver_os(title: str, body: str) -> None:
             logger.warning("wsl-notify-send stdout: %s", result.stdout.strip())
         if result.stderr.strip():
             logger.warning("wsl-notify-send stderr: %s", result.stderr.strip())
-        # Always echo to terminal as confirmation — OS toasts are ephemeral.
-        _deliver_terminal(title, body)
     except (subprocess.SubprocessError, subprocess.TimeoutExpired) as e:
-        logger.warning("OS notification failed (%s). Falling back to terminal.", e)
-        _deliver_terminal(title, body)
+        logger.error("OS notification failed (%s). Notification not delivered: %s", e, title)
 
 
-def _deliver_terminal(title: str, body: str) -> None:
-    console.print(Panel(body, title=f"[bold cyan]{title}[/bold cyan]",
-                        border_style="cyan"))
+def _deliver_slack(title: str, body: str, daemon: Optional['WorkmAInDaemon']) -> None:
+    if daemon is None:
+        logger.warning("Slack delivery requested but no daemon handle provided")
+        return
+    # Skip the bold-title prefix entirely when title is blank, so callers
+    # whose body already carries its own header (the morning briefing,
+    # Gate 4) don't get a redundant title line stacked above it.
+    text = f"*{title}*\n{body}" if title else body
+    daemon.post_message(text)

@@ -1,7 +1,7 @@
 """
 WorkmAIn Notification Config Repository
-notification_repository.py v2.0
-20260512
+notification_repository.py v2.1
+20260702
 
 Data access layer for notification configuration. Reads and writes
 system_state rows (keys: notify_method, notify_enabled). Public interface
@@ -16,6 +16,12 @@ Version History:
 - v2.0: Phase 11 Gate 2 — rewrote to delegate to system_state KV table;
         returns NotificationConfigData dataclass; NotificationConfig SQLAlchemy
         model removed (table dropped in migration 010)
+- v2.1: Operations_Config_Correction_Sprint Gate 3 §3.5 — stale 'terminal'
+        default (when notify_method key is absent) changed to 'wsl-notify',
+        a retired method — the live key always exists today (migrated in
+        this same gate), so this path was unreachable, but a future
+        system_state reset or fresh install would otherwise silently
+        default to a retired method
 """
 
 from dataclasses import dataclass
@@ -52,7 +58,7 @@ class NotificationConfigRepository:
         Returns:
             NotificationConfigData with method, enabled, updated_at.
         """
-        method = self._state.get('notify_method') or 'terminal'
+        method = self._state.get('notify_method') or 'wsl-notify'
         enabled = self._state.get_bool('notify_enabled', default=True)
 
         method_row = self.session.query(SystemState).filter_by(key='notify_method').first()
@@ -76,7 +82,7 @@ class NotificationConfigRepository:
         """Update the delivery method.
 
         Args:
-            method: One of 'terminal', 'os', 'email'.
+            method: One of 'wsl-notify', 'slack', 'both'.
 
         Returns:
             Updated NotificationConfigData.

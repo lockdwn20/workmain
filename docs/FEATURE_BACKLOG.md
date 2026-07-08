@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v5.29
-20260626
+Feature Backlog v5.30
+20260708
 
 # WorkmAIn Feature Backlog
 
@@ -79,6 +79,24 @@ Items deferred from various phases for future implementation.
   statistics updated.
 - v5.29 (20260626): Item 58 added — T4 check-in fires regardless of recent
   activity; register and statistics updated.
+- v5.30 (20260708): Operations_Config_Correction_Sprint (Gates 1-7) close-out.
+  Items 32, 40, 41, 49, 51 (already ✓), 52, 53 marked complete (40 with a
+  design-substitution annotation — system_state + `workmain schedule` CLI,
+  not the AC's literal `config/scheduler.json` + `workmain notifications
+  config`, per Locked Architecture Decision OQ1). Items 48, 50, 56 marked
+  partial complete with per-AC annotations of what shipped vs. what carried
+  forward (48: time budget deliberately not added, "skip 3c" phrase parsing
+  not built; 50: date line and observation detail — not just count — not
+  built; 56: date-range filtering, corrected_content preview, --full flag
+  not built). Item 58 explicitly left open/not-complete — its core AC
+  (activity-gap query before T4) was never implemented despite being named
+  in this sprint's own Gate 1 scope. Item 59 added (was never actually
+  created in Gate 1 despite the spec's Architecture table listing it as
+  added there) — narrowed scope per Ray's 20260629 decision: time-parser
+  extraction itself closed under Gate 1 §1.0; only the deliberately-deferred
+  local-system-time assumption confirmation remains, own planning session.
+  Register and statistics updated (Total 58→59, Complete 18→24, Partial
+  0→3, Open 37→29).
 
 ---
 
@@ -156,7 +174,7 @@ Build first, refactor later. See the complete picture before abstracting.
 | 29 | clockify report Subcommand Refactor | Low | Phase 15 | ~30 min | |
 | 30 | System Service Promotion for workmain-notify | Low | Phase 18 | ~4 hours | |
 | 31 | meetings create --attendees Restoration | Low | Phase 14 | ~30 min | |
-| 32 | Task Deduplication and Forwarding | Low | Phase 13 (TBD) | TBD | |
+| 32 | Task Deduplication and Forwarding | Low | Phase 13 (TBD) | TBD | ✓ |
 | 33 | correction_note Field Population | Low | Phase 13 | ~2 hrs | ✓ |
 | 34 | Weekly Report Prompt — Confirmed Daily Summaries as Context | Medium | Phase 13 | ~3–4 hrs | ✓ |
 | 35 | AI Model Config-Driven Selection | Medium | Phase 14 | ~2–3 hrs | ✓ |
@@ -164,61 +182,65 @@ Build first, refactor later. See the complete picture before abstracting.
 | 37 | Ollama Modelfile Tuning Workflow | Low | Sprint 2/3 maintenance | ~30 min/rebuild | |
 | 38 | Ollama Warm-Up Ping on Bot Startup | Medium | Sprint 2 Gate 0 | ~30 min | ✓ |
 | 39 | Re-tag Audit — 242 Gate 4 Stub Notes | Medium | Phase 13 (post-v1.20.0) | ~1–2 hrs | ✓ |
-| 40 | Daemon Scheduler — Configurable Trigger Times | Low | Phase 14 | ~1–2 hrs | |
-| 41 | Clockify Command Exits 0 on Staging Write Failure | Low | Phase 14 | ~30 min | |
+| 40 | Daemon Scheduler — Configurable Trigger Times | Low | Phase 14 | ~1–2 hrs | ✓ |
+| 41 | Clockify Command Exits 0 on Staging Write Failure | Low | Phase 14 | ~30 min | ✓ |
 | 42 | project_id Slack Schema Removal — create_time_entry | Low | next intent_parse rebuild | ~30 min | |
 | 43 | meeting_id Non-Interactive Linkage for create_note/create_time_entry | Medium | Phase 13 Sprint 3 (T6) | ~4–6 hrs | |
 | 44 | entry_date/category as IntentParser Schema Fields (Phase 2) | Low | next model rebuild | ~1–2 hrs | |
 | 45 | `tags` for `create_time_entry` via Slack | Medium | Phase 13 Sprint 3 | ~3h | |
 | 46 | `build_weekly_prompt()` Edge Cases — Short Weeks, Thursday Draft, Internal Pollution | Medium | Phase 13 | ~3–4 hrs | |
 | 47 | Block Kit modal — report correction from Slack | Medium | Phase 14 | ~6h | |
-| 48 | 3c Timeout Loop — No Exit Condition, No Cancel Path | High | Phase 14 | ~4–6 hrs | |
-| 49 | T4 Suppression Window Hard-Coded Independent of Schedule Config | Low | Phase 14 | ~2–3 hrs | |
-| 50 | Morning Briefing Content | Medium | Phase 14 | ~2–3 hrs | |
+| 48 | 3c Timeout Loop — No Exit Condition, No Cancel Path | High | Phase 14 | ~4–6 hrs | ~ |
+| 49 | T4 Suppression Window Hard-Coded Independent of Schedule Config | Low | Phase 14 | ~2–3 hrs | ✓ |
+| 50 | Morning Briefing Content | Medium | Phase 14 | ~2–3 hrs | ~ |
 | 51 | Architecture Integration Recon | Medium | — | ~2–3 hrs | ✓ |
-| 52 | Cancelled Meetings Not Filtered from Inspection or Notification Schedule | Medium | Phase 14 | ~2–3 hrs | |
-| 53 | Notification Delivery Method Refactor | Medium | Phase 14 | ~4–6 hrs | |
+| 52 | Cancelled Meetings Not Filtered from Inspection or Notification Schedule | Medium | Phase 14 | ~2–3 hrs | ✓ |
+| 53 | Notification Delivery Method Refactor | Medium | Phase 14 | ~4–6 hrs | ✓ |
 | 54 | Technical Debt — Warnings and Deprecations (Living List) | Low | Phase 15 | TBD | |
 | 55 | Clockify Bidirectional Reconciliation | Medium | Phase 14+ | ~8–12 hrs | |
-| 56 | workmain reports corrections Listing Command | Low | Phase 14 | ~1–2 hrs | |
+| 56 | workmain reports corrections Listing Command | Low | Phase 14 | ~1–2 hrs | ~ |
 | 57 | DB Schema Test Coverage Audit and Restoration | Low | Phase 15 | ~2–4 hrs | |
 | 58 | T4 Check-in Fires Regardless of Recent Activity | Medium | Phase 14 | ~2–3 hrs | |
+| 59 | Time Parser Timezone Assumption — Formal Confirmation | Low | Unscheduled | ~30 min | |
 
 ---
 
 ## Summary Statistics
 
-**Total Items:** 58 (Item 22 is a redirect — no separate deferred work; see Item 20)
-**Complete:** 18 (Items 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 33, 34, 35, 36, 38, 39, 51)
+**Total Items:** 59 (Item 22 is a redirect — no separate deferred work; see Item 20)
+**Complete:** 24 (Items 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 51, 52, 53)
+**Partial:** 3 (Items 48, 50, 56 — see item detail for unmet ACs carried forward)
 **Closed/Stale:** 2 (Items 14, 15 — premises resolved, suite green)
-**Open:** 37
+**Open:** 29
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Open (targeted) | 34 | 1, 2, 3, 4, 7, 8, 12, 16, 19, 23, 28, 29, 30, 31, 32, 37, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 52, 53, 54, 55, 56, 57, 58 |
+| Open (targeted) | 26 | 1, 2, 3, 4, 7, 8, 12, 16, 19, 23, 28, 29, 30, 31, 37, 42, 43, 44, 45, 46, 47, 54, 55, 57, 58, 59 |
+| Partial | 3 | 48, 50, 56 |
 | Conditional | 1 | 9 |
 | Indefinitely | 2 | 5, 6 |
-| Complete | 18 | 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 33, 34, 35, 36, 38, 39, 51 |
+| Complete | 24 | 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 51, 52, 53 |
 | Closed/Stale | 2 | 14, 15 |
 | Redirect | 1 | 22 → Item 20 |
 
 | Priority | Count | Items |
 |----------|-------|-------|
 | High | 2 | 23, 48 |
-| Medium | 12 | 2, 3, 7, 43, 45, 46, 47, 50, 52, 53, 55, 58 |
-| Low | 22 | 1, 4, 5, 6, 8, 12, 16, 19, 28, 29, 30, 31, 32, 37, 40, 41, 42, 44, 49, 54, 56, 57 |
+| Medium | 10 | 2, 3, 7, 43, 45, 46, 47, 50, 55, 58 |
+| Low | 19 | 1, 4, 5, 6, 8, 12, 16, 19, 28, 29, 30, 31, 37, 42, 44, 54, 56, 57, 59 |
 | Conditional | 1 | 9 |
 
 | Target Phase | Items |
 |-------------|-------|
 | Phase 11+ | 4, 28 |
-| Phase 13 | 32, 46 |
+| Phase 13 | 46 |
 | Phase 13 Sprint 3 | 43, 45 |
-| Phase 14 | 40, 41, 47, 48, 49, 50, 52, 53, 56, 58 |
+| Phase 14 | 47, 48, 50, 56, 58 |
 | Phase 14+ | 19, 31, 55 |
 | Phase 15 | 1, 2, 3, 7, 8, 12, 16, 23, 29, 37, 54, 57 |
 | Phase 18 | 30 |
 | Next model rebuild | 42, 44 |
+| Unscheduled | 59 |
 | Conditional | 9 |
 | Indefinitely | 5, 6 |
 
@@ -1030,7 +1052,7 @@ is the earliest point where attendee management becomes user-facing.
 
 #### Item 32 — Task Deduplication and Forwarding (Phase 13)
 
-**Status:** Open — Pending redesign (scope clarified 20260626)
+**Status:** ✓ Complete — Operations_Config_Correction_Sprint Gate 5 §5.4, v1.24.0 (20260708)
 **Priority:** Low
 **Effort:** TBD — pending design decision with Backlog Item 48
 **Added:** 20260528
@@ -1072,10 +1094,14 @@ is a Phase 12 placeholder; no Phase 12 business logic uses it.
 
 **Acceptance Criteria:**
 
-- [ ] Mistral 7B intent parser detects semantically duplicate active CF notes (note↔note comparison)
-- [ ] Step 3c surfaces merge candidates with [m]erge / [s]kip prompt
-- [ ] Dismissed note's `task_status.forwarding_note_id` set to surviving note ID via `set_forwarding()`
-- [ ] `tasks show` displays `forwarding_note_id` when set
+- [x] Mistral 7B intent parser detects semantically duplicate active CF notes (note↔note comparison) —
+      `IntentParser.parse_note_duplicate()`, mirrors `parse_task_match()`
+- [x] Step 3c surfaces merge candidates with [m]erge / [s]kip prompt — `_run_note_dedup_step()`
+      (`eod_workflow.py`, step key `note_dedup`, '3d')
+- [x] Dismissed note's `task_status.forwarding_note_id` set to surviving note ID —
+      via `set_forwarding_note()` (existing method name; `set_forwarding()` in the original AC
+      text was the pre-existing method's actual name), more-recent-note-wins merge direction
+- [x] `tasks show` displays `forwarding_note_id` when set
 
 ---
 
@@ -1379,7 +1405,14 @@ Identification query confirmed 0 unreviewed stubs remaining.
 
 #### Item 40 — Daemon Scheduler — Configurable Trigger Times
 
-**Status:** Open
+**Status:** ✓ Complete — Operations_Config_Correction_Sprint Gate 1, v1.24.0 (20260708).
+Delivered mechanism differs intentionally from the original AC text below: trigger times
+and the T4 interval are stored as `system_state` KV rows (not `config/scheduler.json`),
+read by `scheduler.py`'s `_load_trigger_times()` at `register_all_jobs()` time (not
+`build_scheduler()` — job registration itself relocated there in Gate 3), and exposed via
+`workmain schedule set`/`config show` (not `workmain notifications config`). This is a
+deliberate design substitution per Locked Architecture Decision OQ1 (DB/`system_state` as
+canonical config store, not a JSON file) — not a gap.
 **Priority:** Low
 **Effort:** ~1–2 hours
 **Added:** 20260611
@@ -1398,23 +1431,27 @@ Low operational urgency — current times work well for the target user's
 schedule. Phase 14 is the natural home for all user-configurable settings.
 Premature configuration adds complexity without immediate benefit.
 
-**Acceptance Criteria:**
+**Acceptance Criteria (original text — see substitution note above):**
 
-- [ ] `config/scheduler.json` defines trigger times with sensible defaults
-- [ ] `scheduler.py` reads from config at `build_scheduler()` time; falls back
-      to hardcoded defaults if config absent or key missing
-- [ ] All existing trigger IDs and behaviors preserved
-- [ ] `workmain notifications config` (Phase 14) exposes time settings
+- [~] `config/scheduler.json` defines trigger times with sensible defaults —
+      substituted: `system_state` KV rows (`trigger_time_*` keys), sensible defaults preserved
+- [~] `scheduler.py` reads from config at `build_scheduler()` time; falls back
+      to hardcoded defaults if config absent or key missing — substituted: reads at
+      `register_all_jobs()` time (`_load_trigger_times()`); fallback-on-bad-data behavior intact
+- [x] All existing trigger IDs and behaviors preserved
+- [~] `workmain notifications config` (Phase 14) exposes time settings —
+      substituted: `workmain schedule config show`
 **Files Affected:**
 
 - `workmain/daemon/scheduler.py`
-- `config/scheduler.json` (new file)
+- `workmain/services/schedule_service.py` (actual location of the config-reading authority)
+- `workmain/cli/commands/schedule.py` (actual CLI surface)
 
 ---
 
 #### Item 41 — Clockify Command Exits 0 on Staging Write Failure
 
-**Status:** Open
+**Status:** ✓ Complete — Operations_Config_Correction_Sprint Gate 6 §6.2, v1.24.0 (20260708)
 **Priority:** Low
 **Effort:** ~30 min
 **Added:** 20260612
@@ -1441,10 +1478,13 @@ consolidation point for similar CLI robustness tasks.
 
 **Acceptance Criteria:**
 
-- [ ] `workmain clockify report save daily` exits with code 1 when the report
-      download or staging write fails (exception caught or `success=False`)
-- [ ] `_run_clockify_step` correctly reports `FAILED` when the clockify command
-      exits non-zero in daemon context
+- [x] `workmain clockify report save daily` exits with code 1 when the report
+      download or staging write fails (exception caught or `success=False`) —
+      `click.ClickException` raised on both failure branches of `clockify_report_save()`
+- [x] `_run_clockify_step` correctly reports `FAILED` when the clockify command
+      exits non-zero in daemon context — pre-existing since Phase 13 Sprint 2 Gate 6
+      (`_is_interactive()` guard); now actually reachable since the command's exit code
+      is meaningful
 **Files Affected:**
 
 - `workmain/cli/commands/clockify.py` (add `sys.exit(1)` on failure paths)
@@ -1729,7 +1769,13 @@ event handling. Deferred to Phase 14 as a coherent interactive UX package.
 
 #### Item 48 — 3c Timeout Loop: No Exit Condition, No Cancel Path
 
-**Status:** Open — Phase 13 Sprint 3 live testing defect
+**Status:** ~ Partial — Operations_Config_Correction_Sprint Gate 5 §5.1, v1.24.0 (20260708).
+4/6 ACs met (cancellable via background thread + `threading.Event`; per-task timeout
+retained; `paused` persists across daemon restart; `resume` retries the step). 2 ACs
+carried forward, not implemented this sprint: an overall time budget was deliberately
+NOT added (Gate 5 design decision — cancellation + the existing 30s per-call Ollama
+timeout considered sufficient; see note below), and `"resume eod skip 3c"`-style phrase
+parsing was not built (control words remain exact-match against fixed sets).
 **Priority:** High
 **Effort:** ~4–6 hours
 **Added:** 20260626
@@ -1769,20 +1815,29 @@ rather than patching the runtime defect in isolation.
 
 **Acceptance Criteria:**
 
-- [ ] Step 3c has an overall time budget (configurable, default ~60s) that terminates the
-      step gracefully when exceeded regardless of task count
-- [ ] Per-task Ollama calls have their own timeout; a single stalled call does not block
-      the entire step
-- [ ] Cancel DM (`stop` / `cancel` / `abort`) can interrupt Step 3c mid-execution
-- [ ] `eod_session.json` persists `paused` state; session correctly resumes at the
-      interrupted step after daemon restart
-- [ ] `resume` retries the current step (does not skip it); a separate `skip` or `skip
-      step` control skips if the user wants to bypass
-- [ ] `resume eod skip 3c` (or equivalent) parsed as a valid skip command
+- [ ] **Carried forward, not implemented.** Step 3c has an overall time budget (configurable,
+      default ~60s) that terminates the step gracefully when exceeded regardless of task
+      count — Gate 5 §5.1 deliberately did not add one: cancellation via `threading.Event`
+      plus the existing per-call Ollama timeout were judged sufficient safeguards. Revisit
+      only if live use shows this insufficient.
+- [x] Per-task Ollama calls have their own timeout; a single stalled call does not block
+      the entire step — pre-existing 30s provider timeout, confirmed intact
+- [x] Cancel DM (`stop` / `cancel` / `abort`) can interrupt Step 3c mid-execution —
+      background thread + `threading.Event`, verified at runtime mid-flight (Gate 5 close-out)
+- [x] `eod_session.json` persists `paused` state; session correctly resumes at the
+      interrupted step after daemon restart — verified at runtime; note: persistence is
+      step-level, not mid-iteration (`session.save()` only happens before/after a
+      long-running step, never during it — a restart mid-execution restarts that step
+      from scratch, which is consistent with this AC's wording)
+- [x] `resume` retries the current step (does not skip it); a separate `skip` control
+      skips if the user wants to bypass — `CONTROL_RESUME` fixed in Gate 5 §5.3
+- [ ] **Carried forward, not implemented.** `resume eod skip 3c` (or equivalent) parsed as
+      a valid skip command — control words remain exact-match against fixed sets
+      (`CONTROL_SKIP`/`CONTROL_RESUME`); no compound-phrase parsing was added
 **Files Affected:**
 
 - `workmain/workflows/eod_workflow.py` — `_run_task_match_step()` execution model
-- `workmain/slack/slack_eod.py` — `handle_reply()` CONTROL_RESUME / CONTROL_SKIP,
+- `workmain/integrations/slack/slack_eod.py` — `handle_reply()` CONTROL_RESUME / CONTROL_SKIP,
   `save()` / `load()` paused-state persistence
 - `workmain/ai/intent_parser.py` — `parse_task_match()` timeout handling
 
@@ -1790,7 +1845,7 @@ rather than patching the runtime defect in isolation.
 
 #### Item 49 — T4 Suppression Window Hard-Coded Independent of Schedule Config
 
-**Status:** Open — Deferred to Phase 14
+**Status:** ✓ Complete — Operations_Config_Correction_Sprint Gate 1, v1.24.0 (20260708)
 **Priority:** Low
 **Effort:** ~2–3 hours
 **Added:** 20260626
@@ -1829,15 +1884,18 @@ gap would leave the four-way fragmentation in place.
 
 **Acceptance Criteria:**
 
-- [ ] `ScheduleExceptionRepository` is the single canonical non-working-day store;
-      `config/non_working_days.json` migrated into DB and retired (prerequisite)
-- [ ] Schedule module exposes `is_working_day(date) -> bool` and
-      `is_working_hours(datetime) -> bool` methods consuming DB exceptions + weekends
-- [ ] T4 suppression consults `is_working_day()` and `is_working_hours()` instead of
+- [x] `ScheduleExceptionRepository` is the single canonical non-working-day store;
+      `config/non_working_days.json` confirmed empty and deleted (no migration needed —
+      Gate 0/1 recon confirmed nothing to migrate)
+- [x] Schedule module exposes `is_working_day(date) -> bool` and
+      `is_working_hours(datetime) -> bool` methods consuming DB exceptions + weekends —
+      `ScheduleService` (`workmain/services/schedule_service.py`)
+- [x] T4 suppression consults `is_working_day()` and `is_working_hours()` instead of
       bare literals and the JSON file
-- [ ] No hard-coded `9` / `18` literals remain in `_reschedule_t4_checkin()`
-- [ ] A T4 suppression on a DB-managed holiday correctly suppresses; a date in the
-      retired JSON file (now in DB) is also suppressed
+- [x] No hard-coded `9` / `18` literals remain in `_reschedule_t4_checkin()`
+- [x] A T4 suppression on a DB-managed holiday correctly suppresses (covered by
+      `tests/test_schedule_service.py`); the retired JSON file no longer exists as a
+      suppression source
 **Files Affected:**
 
 - `workmain/daemon/scheduler.py` — `_reschedule_t4_checkin()`, `_load_non_working_days()`
@@ -1849,7 +1907,13 @@ gap would leave the four-way fragmentation in place.
 
 #### Item 50 — Morning Briefing Content
 
-**Status:** Open — Deferred to Phase 14
+**Status:** ~ Partial — Operations_Config_Correction_Sprint Gate 4, v1.24.0 (20260708).
+3/4 ACs met (`build_morning_briefing()` now wired to the 05:30 job; includes today's
+meetings and open carry-forward tasks; suppressed on DB-managed exception days; dual
+05:30 notification consolidated into one job per Item 53's delivery refactor). 1 AC
+carried forward, not implemented this sprint: the briefing still shows a bare unresolved
+observation *count*, not per-observation detail — the AC explicitly called for detail,
+not just count.
 **Priority:** Medium
 **Effort:** ~2–3 hours
 **Added:** 20260626
@@ -1885,18 +1949,24 @@ risks duplicate work if the briefing job itself is restructured.
 
 **Acceptance Criteria:**
 
-- [ ] The 05:30 Slack notification uses `build_morning_briefing()` (or equivalent) to
-      render a structured briefing
-- [ ] Briefing includes: today's date, today's meetings (time + title), open
-      carry-forward tasks, and unresolved inspection observation detail (not just count)
-- [ ] Briefing is suppressed on DB-managed exception days (holiday / time-off) via
-      `ScheduleExceptionRepository`
-- [ ] Dual 05:30 notification resolved per Backlog Item 53 outcome
+- [x] The 05:30 Slack notification uses `build_morning_briefing()` (or equivalent) to
+      render a structured briefing — wired in `job_workday_start()` (Gate 4)
+- [~] Briefing includes: today's date, today's meetings (time + title), open
+      carry-forward tasks, and unresolved inspection observation detail (not just count) —
+      meetings and carry-forward tasks delivered; **today's date is not rendered as its own
+      line, and the unresolved-observations section is still a bare count** ("N flagged
+      observation(s)"), not per-observation detail. Both sub-gaps carried forward.
+- [x] Briefing is suppressed on DB-managed exception days (holiday / time-off) via
+      `ScheduleExceptionRepository` — via `ScheduleService.is_working_day()` in `job_workday_start()`
+- [x] Dual 05:30 notification resolved per Backlog Item 53 outcome — consolidated into the
+      single `job_workday_start()` job (Item 50/53 both Gate 4/Gate 3 outcomes)
 **Files Affected:**
 
-- `workmain/daemon/scheduler.py` — `_send_morning_briefing()` / `morning_briefing` job
-- `workmain/slack/slack_eod.py` — `build_morning_briefing()`
-- `workmain/daemon/daemon.py` — `_count_unresolved_observations()` (may be superseded)
+- `workmain/daemon/scheduler.py` — `job_workday_start()` (was `_send_morning_briefing()` /
+  `morning_briefing` job, both removed as dead code once consolidated)
+- `workmain/integrations/slack/slack_eod.py` — `build_morning_briefing()`
+- `workmain/daemon/daemon.py` — `_count_unresolved_observations()` (retained, call site
+  relocated to `job_workday_start()`)
 
 ---
 
@@ -1932,7 +2002,7 @@ Seven open questions resolved in planning session 20260626. Findings drove Backl
 
 #### Item 52 — Cancelled Meetings Not Filtered from Inspection or Notification Schedule
 
-**Status:** Open — Deferred to Phase 14
+**Status:** ✓ Complete — Operations_Config_Correction_Sprint Gate 2, v1.24.0 (20260708)
 **Priority:** Medium
 **Effort:** ~2–3 hours
 **Added:** 20260626
@@ -1974,17 +2044,19 @@ these notification surface fixes.
 
 **Acceptance Criteria:**
 
-- [ ] `MeetingsRepository.get_active_for_date(date)` added — returns meetings for date
+- [x] `MeetingsRepository.get_active_for_date(date)` added — returns meetings for date
       with `is_cancelled = False`
-- [ ] `InspectionEngine._get_meetings_for_date()` uses `get_active_for_date()` instead of
+- [x] `InspectionEngine._get_meetings_for_date()` uses `get_active_for_date()` instead of
       raw `session.query()`; cancelled meetings no longer generate TIME_GAP or
       MISSING_NOTES observations
-- [ ] `_schedule_meeting_reminders()` uses `get_active_for_date()`; cancelled meetings
+- [x] `_schedule_meeting_reminders()` uses `get_active_for_date()`; cancelled meetings
       no longer scheduled as pre-meeting reminders
-- [ ] `workmain notifications status` "Today's Schedule" no longer shows cancelled meetings
-- [ ] `workmain meetings today` continues to display cancelled meetings (unaffected)
-- [ ] Tests cover both surfaces: cancelled meeting absent from inspection/notifications,
-      present in meetings today
+- [x] `workmain notifications status` "Today's Schedule" no longer shows cancelled meetings —
+      reads `scheduled_jobs.json`, written from the now-filtered reminder list
+- [x] `workmain meetings today` continues to display cancelled meetings (unaffected) —
+      `get_by_date()`/`get_today()` intentionally left unfiltered (OQ2)
+- [x] Tests cover both surfaces — `tests/test_meetings_repository.py`,
+      `tests/test_notification_engine.py::TestCancelledMeetingExclusion`
 **Files Affected:**
 
 - `workmain/database/repositories/meetings_repo.py` — new `get_active_for_date()` method
@@ -1995,7 +2067,7 @@ these notification surface fixes.
 
 #### Item 53 — Notification Delivery Method Refactor
 
-**Status:** Open — Deferred to Phase 14
+**Status:** ✓ Complete — Operations_Config_Correction_Sprint Gate 3, v1.24.0 (20260708)
 **Priority:** Medium
 **Effort:** ~4–6 hours
 **Added:** 20260626
@@ -2033,21 +2105,26 @@ the natural consolidation point for notification infrastructure.
 
 **Acceptance Criteria:**
 
-- [ ] `os` renamed to `wsl-notify` in all code, config validation, and help text
-- [ ] DB migration converts existing `method = 'os'` → `method = 'wsl-notify'`
-- [ ] `slack` added as a valid delivery method; `workmain notifications set slack` stores
+- [x] `os` renamed to `wsl-notify` in all code, config validation, and help text
+- [x] Existing `method = 'os'` converted to `method = 'wsl-notify'` — a one-time
+      `system_state` `UPDATE`, not a schema migration (`notification_config` table was
+      already dropped in migration 010; live config is `system_state.notify_method`)
+- [x] `slack` added as a valid delivery method; `workmain notifications set slack` stores
       and activates Slack delivery
-- [ ] `terminal` removed from valid methods or repurposed as `none` / log-only fallback
-- [ ] `workmain notifications set` help text and `--help` updated to show current valid methods
-- [ ] Content generation decoupled from delivery: a single briefing assembly step renders
-      to the configured channel
-- [ ] `workmain notifications status` "Delivery method" field reflects the new method names
+- [x] `terminal` removed from valid methods entirely (was always journald logging under
+      systemd, never a real fallback channel — not repurposed as log-only, deleted)
+- [x] `workmain notifications set` help text and `--help` updated to show current valid
+      methods — verified directly: docstring lists `(wsl-notify, slack, both)`
+- [x] Content generation decoupled from delivery: a single briefing assembly step renders
+      to the configured channel — `_assemble_notification_content()` /
+      `build_morning_briefing()` each render once, `deliver()` dispatches per method
+- [x] `workmain notifications status` "Delivery method" field reflects the new method
+      names — verified directly: prints `config.method` directly, no stale hardcoded label
 **Files Affected:**
 
 - `workmain/cli/commands/notifications.py` — method validation, help text
 - `workmain/daemon/delivery.py` — delivery method enum and dispatch
-- `workmain/database/repositories/notifications_repo.py` — `NotificationConfigRepository`
-- Database migration (new file) — `method = 'os'` → `method = 'wsl-notify'`
+- `workmain/database/repositories/notification_repository.py` — `NotificationConfigRepository`
 
 ---
 
@@ -2179,7 +2256,12 @@ time to spec the dirty-flag/pushed_at mechanism and conflict resolution UX prope
 
 #### Item 56 — workmain reports corrections Listing Command
 
-**Status:** Open — Deferred to Phase 14
+**Status:** ~ Partial — Operations_Config_Correction_Sprint Gate 6 §6.1, v1.24.0 (20260708).
+Gate 6 §6.1 intentionally scoped only the single-date listing command, following
+`report_confirm()`/`report_correct()`'s structural pattern — this was this sprint's own
+spec scoping, not a discovered implementation gap. Remaining ACs (date-range filtering,
+`corrected_content` preview, `--full` side-by-side view) carried forward as their own
+backlog note below, not implemented this sprint.
 **Priority:** Low
 **Effort:** ~1–2 hours
 **Added:** 20260626
@@ -2206,14 +2288,18 @@ no new data model requirements. Deferred to Phase 14 as a small completeness tas
 
 **Acceptance Criteria:**
 
-- [ ] `workmain reports corrections` lists all reports with `status = 'corrected'` in
+- [x] `workmain reports corrections` lists all reports with `status = 'corrected'` in
       reverse chronological order
-- [ ] `workmain reports corrections --date DATE` filters to a specific date or date range
-- [ ] Each entry shows: report ID, date, `correction_note`, and a preview of
-      `corrected_content`
-- [ ] `workmain reports corrections --full` shows complete `content` and `corrected_content`
-      side by side for each corrected report
-- [ ] Completes Phase 12 PC-3 acceptance criteria
+- [~] `workmain reports corrections --date DATE` filters to a specific date or date range —
+      single-date filtering only; date-range filtering not built (carried forward)
+- [ ] **Carried forward, not implemented.** Each entry shows: report ID, date,
+      `correction_note`, and a preview of `corrected_content` — the delivered table shows
+      `correction_note`, not a preview of `corrected_content` itself
+- [ ] **Carried forward, not implemented.** `workmain reports corrections --full` shows
+      complete `content` and `corrected_content` side by side for each corrected report —
+      no `--full` flag was built
+- [x] Completes Phase 12 PC-3 acceptance criteria — PC-3's own (narrower) ACs in
+      `docs/implementation-checklist.md` are satisfied by the listing command as delivered
 **Files Affected:**
 
 - `workmain/cli/commands/reports.py` — new `reports_corrections` command
@@ -2270,7 +2356,12 @@ that may duplicate what already exists elsewhere.
 
 #### Item 58 — T4 Check-in Fires Regardless of Recent Activity
 
-**Status:** Open — Deferred to Phase 14
+**Status:** Open — Not delivered by Operations_Config_Correction_Sprint (20260708). This
+item was named in Gate 1's own scope (grouped alongside Items 40/49, both of which Gate 1
+did deliver), but its core acceptance criterion — querying `time_entries`/`notes` for
+recent activity before scheduling T4, suppressing/rescheduling if found — was never
+implemented in any gate of this sprint. Explicitly not marked complete; carried forward to
+a future sprint as its own tracked item, unchanged in scope.
 **Priority:** Medium
 **Effort:** ~2–3 hours
 **Added:** 20260626
@@ -2325,3 +2416,44 @@ all three touch `_reschedule_t4_checkin()`.
 - `workmain/database/repositories/notes_repo.py` — recent activity query (may reuse
   existing method or require a new `get_recent(since=datetime)`)
 - `workmain/database/repositories/time_entries_repo.py` — same pattern
+
+---
+
+#### Item 59 — Time Parser Timezone Assumption — Formal Confirmation
+
+**Status:** Open — Deferred, own planning session
+**Priority:** Low
+**Effort:** ~30 min (documentation only)
+**Added:** 20260708
+**Target Phase:** Unscheduled (own planning session)
+
+**Description:**
+Drafted 20260629 alongside the Operations_Config_Correction_Sprint time-parser extraction
+(`workmain/utils/time_parser.py`, Gate 1 §1.0) and narrowed in scope at that time: the
+extraction itself (moving `parse_time()`/`parse_duration_hours()` out of
+`TimeEntriesRepository` as a non-breaking delegator shim) closed under Gate 1 — no
+outstanding work there. What remains open is a separate, deliberately-deferred question:
+formal confirmation and documentation of the assumption that **local-system-time is
+correct for all non-ICS-import paths** (i.e., no timezone conversion is needed anywhere
+`parse_time()`/`parse_duration_hours()` or the daemon's own datetime handling is used,
+outside of ICS calendar import, which has its own separate timezone handling). Ray
+confirmed this as the working assumption on 20260629; this item's remaining scope is
+writing that assumption down formally (in code comments, a docs/ reference, or both) so
+it is not tribal knowledge.
+
+**Why Deferred:**
+Low urgency — the assumption is already confirmed correct in practice; this is a
+documentation debt, not an open correctness question. Deferred to its own planning
+session rather than folded into this sprint's scope.
+
+**Acceptance Criteria:**
+- [ ] The local-system-time assumption is documented (code comment on the relevant
+      module(s), a docs/ reference, or both) — explicitly stating that non-ICS-import
+      datetime handling assumes local system time, with ICS import's separate timezone
+      handling called out as the one exception
+- [ ] Confirmed no other module silently assumes UTC or another timezone where local
+      system time is actually in effect
+
+**Files Affected:** (documentation only — no code changes expected)
+- `workmain/utils/time_parser.py`
+- `workmain/services/schedule_service.py`

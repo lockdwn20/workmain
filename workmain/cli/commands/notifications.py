@@ -1,7 +1,7 @@
 """
 WorkmAIn Notifications Commands
-notifications.py v1.1
-20260506
+notifications.py v1.3
+20260702
 
 CLI command group: workmain notifications
 Owns delivery method configuration and notification delivery status.
@@ -17,6 +17,15 @@ Version History:
 - v1.0: Phase 10 Gate 7 initial implementation
 - v1.1: Add "Today's Schedule" section to status — shows remaining cron jobs and
         pre-meeting reminders so users can see upcoming notifications at a glance
+- v1.2: Operations_Config_Correction_Sprint Gate 1 §1.6 — _CRON_JOBS hardcoded
+        tuple replaced with _load_cron_jobs(session), which reads trigger
+        times from system_state via scheduler._load_trigger_times() so this
+        display reflects `workmain schedule set notification-time` changes
+- v1.3: Operations_Config_Correction_Sprint Gate 3 §3.4 — VALID_METHODS
+        changed to ('wsl-notify', 'slack', 'both'); email special-case
+        warning block removed (email was never implemented, no fallback
+        left once terminal retired); docstring examples updated; unused
+        rich.panel.Panel import removed
 """
 
 import json
@@ -27,7 +36,6 @@ from typing import Optional
 
 import click
 from rich.console import Console
-from rich.panel import Panel
 
 from workmain.database.connection import get_db
 from workmain.database.repositories.notification_repository import NotificationConfigRepository
@@ -35,7 +43,7 @@ from workmain.daemon.delivery import deliver
 
 console = Console()
 
-VALID_METHODS = ('terminal', 'os', 'email')
+VALID_METHODS = ('wsl-notify', 'slack', 'both')
 
 
 # ---------------------------------------------------------------------------
@@ -54,13 +62,13 @@ def notifications():
 @notifications.command('set')
 @click.argument('method', metavar='METHOD')
 def notifications_set(method: str):
-    """Set notification delivery method (terminal, os, email).
+    """Set notification delivery method (wsl-notify, slack, both).
 
     \b
     Examples:
-      workmain notifications set terminal
-      workmain notifications set os
-      workmain notifications set email
+      workmain notifications set wsl-notify
+      workmain notifications set slack
+      workmain notifications set both
     """
     if method not in VALID_METHODS:
         console.print(
@@ -75,12 +83,6 @@ def notifications_set(method: str):
         repo = NotificationConfigRepository(session)
         repo.set_method(method)
         console.print(f"[green]Notification method set to:[/green] {method}")
-        if method == 'email':
-            console.print(
-                "[yellow]⚠ Email notifications are available in Phase 13. "
-                "Method saved; terminal delivery will be used until Phase 13 "
-                "is complete.[/yellow]"
-            )
     finally:
         session.close()
 
@@ -99,8 +101,8 @@ def notifications_test(method: Optional[str]):
     \b
     Examples:
       workmain notifications test
-      workmain notifications test terminal
-      workmain notifications test os
+      workmain notifications test wsl-notify
+      workmain notifications test slack
     """
     if method is not None and method not in VALID_METHODS:
         console.print(
@@ -131,24 +133,45 @@ def notifications_test(method: Optional[str]):
 # Schedule helpers for status display
 # ---------------------------------------------------------------------------
 
-# Fixed daily cron schedule — mirrors scheduler.py hardcoded triggers.
-# Each entry: (label, time, day_of_week) where day_of_week is a set of
-# isoweekday() integers (Mon=1 … Sun=7).
-_CRON_JOBS = [
-    ("Workday Start",   time(5, 30),  {1, 2, 3, 4, 5}),
-    ("Daily Closeout",  time(14, 0),  {1, 2, 3, 4}),
-    ("Weekly Draft",    time(14, 0),  {4}),
-    ("EOW Reminder",    time(14, 0),  {5}),
-    ("EOD Prompt",      time(14, 30), {1, 2, 3, 4, 5}),
-]
+# Daily cron schedule — day-of-week sets mirror scheduler.py's CronTrigger
+# day_of_week arguments (static); trigger times are read from system_state
+# via scheduler._load_trigger_times() rather than hardcoded here, so this
+# display always reflects whatever `workmain schedule set notification-time`
+# last configured. Each entry: (label, time, day_of_week) where day_of_week
+# is a set of isoweekday() integers (Mon=1 … Sun=7).
+def _load_cron_jobs(session) -> list:
+    """Return today's cron schedule as (label, time, day_of_week_set) tuples.
+    Reuses scheduler._load_trigger_times() for parsing/fallback rather than
+    duplicating that logic here — keys are seeded per Gate 1 §1.2."""
+    from workmain.daemon.scheduler import _load_trigger_times
+
+    trigger_times = _load_trigger_times(session)
+
+    def _t(key: str) -> time:
+        hh, mm = trigger_times[key]
+        return time(hh, mm)
+
+    return [
+        ("Workday Start",  _t('trigger_time_workday_start'),  {1, 2, 3, 4, 5}),
+        ("Daily Closeout", _t('trigger_time_daily_closeout'), {1, 2, 3, 4}),
+        ("Weekly Draft",   _t('trigger_time_weekly_draft'),   {4}),
+        ("EOW Reminder",   _t('trigger_time_eow'),            {5}),
+        ("EOD Prompt",     _t('trigger_time_eod_prompt'),     {1, 2, 3, 4, 5}),
+    ]
 
 
 def _remaining_cron_jobs(now: datetime) -> list:
     """Return today's cron slots as (label, time_str, is_past) tuples."""
+    db = get_db()
+    session = db.get_session()
+    try:
+        cron_jobs = _load_cron_jobs(session)
+    finally:
+        session.close()
     dow = now.isoweekday()
     today_time = now.time().replace(second=0, microsecond=0)
     slots = []
-    for label, slot_time, days in _CRON_JOBS:
+    for label, slot_time, days in cron_jobs:
         if dow not in days:
             continue
         slots.append((label, slot_time.strftime('%H:%M'), slot_time <= today_time))
