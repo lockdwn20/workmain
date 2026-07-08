@@ -7,6 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.24.0] - 2026-07-08
+
+### Added
+
+- `workmain/utils/time_parser.py` — `parse_time()`, `parse_duration_hours()`,
+  extracted from `TimeEntriesRepository` (non-breaking delegator shim, all 13
+  existing call sites untouched)
+- `ScheduleService` — single authority for `is_working_day()`,
+  `is_working_hours()`, `get_t4_interval()`, `previous_working_day()`
+- `MeetingsRepository.get_active_for_date()` — cancelled meetings excluded
+  from inspection and pre-meeting reminders; `get_by_date()`/`get_today()`
+  remain unfiltered by design for show surfaces (OQ2)
+- `wsl-notify` and `slack` as first-class delivery methods; content assembly
+  decoupled from delivery
+- `workmain schedule set`/`config` command surface — accepts flexible time
+  formats (`HH:MM`, `HHMM`, `H:MMam/pm`) via the extracted time parser;
+  `set task-match-interval`/`set note-dedup-interval` for EOD progress-message
+  throttling
+- Note-to-note duplicate detection step in EOD Step 3c (Item #32 actual
+  deliverable); existing task-to-entry matcher kept and runtime-fixed (#48) —
+  re-scoped from `time_entries` to `notes`, self-match exclusion, cancellable
+  via background thread + `threading.Event`, no time budget by design
+- `workmain reports corrections [--date DATE]` listing command (PC-3 complete,
+  Item #56)
+- `tests/test_time_parser.py`, `tests/test_schedule_service.py`,
+  `tests/test_meetings_repository.py`, `tests/test_delivery.py`,
+  `tests/test_clockify.py` (106 tests added across Gates 1-7; 671 → 777)
+
+### Changed
+
+- All daemon job registration consolidated into `register_all_jobs(daemon)` —
+  `build_scheduler()` is now pure scheduler construction; closes the
+  Phase-10/Phase-13 registration split and the daemon-handle provenance gap
+  that left slack/both delivery silently non-functional for five of eight
+  scheduled triggers
+- Single consolidated start-of-day notification (`job_workday_start`); wired
+  to full content (meetings, carry-forward tasks, unresolved observation
+  count) via `build_morning_briefing()`
+- `SlackEodSession.save()`/`load()` round-trip `paused`, `pending_action`,
+  `skip_targets`
+- `CONTROL_RESUME` retries the current step rather than skipping it
+- `handle_reply()` guards `CONTROL_SKIP`/`CONTROL_CONFIRM`/`CONTROL_RESUME`
+  against mutating session state while a long-running step is still in
+  flight; `CONTROL_STOP` remains unaffected
+- Clockify staging write failure now exits non-zero (`click.ClickException`)
+
+### Fixed
+
+- `parse_note_duplicate()` corrected to mirror `parse_task_match()` literally
+  — was non-functional as originally drafted (silently returned safe
+  defaults on every call)
+- `SlackEodSession.started_at` reverted to naive `datetime` — a
+  timezone-aware default would have crashed session resume on daemon restart
+- Task-match self-match exclusion — a same-day carry-forward note's own task
+  no longer sees itself in its candidate list (was previously a trivial
+  1.0-score self-match)
+
+### Removed
+
+- `config/non_working_days.json` — confirmed empty, migrated conceptually
+  into `schedule_exceptions`, retired
+- `delivery.py` `terminal`/`os`/`email` methods — retired (`terminal` was
+  always journald logging under systemd, never a real fallback channel)
+
 ## [1.23.1] - 2026-06-25
 
 ### Changed

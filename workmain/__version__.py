@@ -1,9 +1,36 @@
 """
 WorkmAIn Package Version
-Version v1.23.1
-20260625
+Version v1.24.0
+20260708
 
 Version History:
+- v1.24.0: Operations_Config_Correction_Sprint (Gates 1-7) — ScheduleService
+           unifies is_working_day()/is_working_hours()/get_t4_interval()/
+           previous_working_day() as single authority, replacing four
+           independent working-day implementations; time_parser.py extracted
+           (parse_time(), parse_duration_hours()) as a non-breaking delegator
+           shim; MeetingsRepository.get_active_for_date() excludes cancelled
+           meetings from inspection/pre-meeting reminders (show surfaces stay
+           unfiltered, OQ2); all daemon job registration consolidated into
+           register_all_jobs(daemon) (build_scheduler() now pure construction),
+           closing the Phase-10/Phase-13 registration split that left
+           slack/both delivery silently non-functional for five of eight
+           triggers; delivery.py refactored — 'os' renamed 'wsl-notify',
+           'terminal'/'email' retired, 'slack' first-class; duplicate 05:30
+           job consolidated into one full-content morning briefing; EOD Step
+           3c re-scoped from time_entries to notes with self-match exclusion
+           and made cancellable via background thread + threading.Event (no
+           time budget, by design); note-to-note duplicate detection step
+           added (Item #32 actual deliverable) with incremental new×existing
+           pairing scope and more-recent-note-wins merge; CONTROL_RESUME now
+           retries instead of skipping; workmain reports corrections
+           [--date DATE] listing command (PC-3 complete, Item #56); Clockify
+           staging write failure now exits non-zero (#41). 106 tests added
+           (777 total, 0 failed). daemon.py v1.18; scheduler.py v1.11;
+           slack_eod.py v1.7; socket_client.py v1.1; eod_workflow.py v1.6;
+           intent_parser.py v1.3; delivery.py v1.3; inspection_engine.py v1.2;
+           meetings_repo.py v2.4; schedule_service.py v1.1; time_parser.py v1.0;
+           reports.py v2.13; clockify.py v1.6; schedule.py v1.3; tasks.py v2.2.
 - v1.23.1: Hotfix docs — SLACK_SETUP.md v2.0: polling setup removed; full
            Socket Mode setup documented (App-Level Token, Socket Mode enable,
            Event Subscriptions message.im, Interactivity & Shortcuts, scope
@@ -400,7 +427,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.23.1"
-__version_info__ = (1, 23, 1)
+__version__ = "1.24.0"
+__version_info__ = (1, 24, 0)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
