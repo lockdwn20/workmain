@@ -1,7 +1,7 @@
 """
 WorkmAIn Notification Engine Tests
-test_notification_engine.py v1.1
-20260610
+test_notification_engine.py v1.2
+20260708
 
 Tests for the rules-based inspection engine (InspectionEngine) and the
 acknowledgment store (AcknowledgmentStore).
@@ -15,10 +15,21 @@ Sentinel dates used:
   SENTINEL_DATE     = 2099-01-15 (Wednesday)
   SENTINEL_PREV_BIZ = 2099-01-14 (Tuesday — previous business day)
 
+Note: this file is the actual home of InspectionEngine test coverage —
+the Operations_Config_Correction_Sprint Gate 7 spec refers to it as
+"tests/test_inspection_engine.py"; per CLAUDE.md's "Integration Over
+Separation" rule, Gate 2's cancelled-meeting-exclusion coverage was added
+here (TestCancelledMeetingExclusion) rather than creating a second,
+duplicate file under that name.
+
 Version History:
 - v1.0: Phase 10 Gate 3 — full suite per Gate 10 spec
 - v1.1: Phase 13 DB Schema Sprint Gate 5 — _time_entry() creates a Note first
         (note_id required on TimeEntry after migration 021)
+- v1.2: Operations_Config_Correction_Sprint Gate 7 — add
+        TestCancelledMeetingExclusion: cancelled meetings produce no
+        TIME_GAP/MISSING_NOTES observations (Gate 2 §2.2 regression coverage);
+        _meeting() helper gains an optional cancelled parameter
 """
 
 from datetime import date, datetime
@@ -39,12 +50,16 @@ SENTINEL_PREV_BIZ = date(2099, 1, 14)  # Tuesday
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _meeting(db_session, title: str, hour: int = 10):
+def _meeting(db_session, title: str, hour: int = 10, cancelled: bool = False):
     repo = MeetingsRepository(db_session)
-    return repo.create(
+    m = repo.create(
         title=title,
         start_time=datetime(2099, 1, 15, hour, 0, 0),
     )
+    if cancelled:
+        m.is_cancelled = True
+        db_session.commit()
+    return m
 
 
 def _note(db_session, content: str, tags: list, meeting_id=None,
@@ -193,6 +208,43 @@ class TestMissingNotesDetection:
         engine = InspectionEngine(db_session)
         obs = engine._check_missing_notes(SENTINEL_DATE)
         assert obs == []
+
+
+# ---------------------------------------------------------------------------
+# TestCancelledMeetingExclusion
+# ---------------------------------------------------------------------------
+
+class TestCancelledMeetingExclusion:
+    """Cancelled meetings produce no TIME_GAP/MISSING_NOTES observations
+    (Operations_Config_Correction_Sprint Gate 2 §2.2 — both checks route
+    through MeetingsRepository.get_active_for_date())."""
+
+    def test_cancelled_meeting_no_time_gap(self, db_session):
+        """Cancelled meeting with no time entry → no TIME_GAP (would have
+        flagged before Gate 2)."""
+        _meeting(db_session, 'Cancelled Standup', cancelled=True)
+        engine = InspectionEngine(db_session)
+        obs = engine._check_time_gaps(SENTINEL_DATE)
+        assert obs == []
+
+    def test_cancelled_meeting_no_missing_notes(self, db_session):
+        """Cancelled meeting with zero notes → no MISSING_NOTES (would have
+        flagged before Gate 2)."""
+        _meeting(db_session, 'Cancelled All Hands', cancelled=True)
+        engine = InspectionEngine(db_session)
+        obs = engine._check_missing_notes(SENTINEL_DATE)
+        assert obs == []
+
+    def test_active_meeting_still_flagged_alongside_cancelled(self, db_session):
+        """A cancelled meeting does not suppress observations for an active
+        meeting on the same date."""
+        _meeting(db_session, 'Cancelled', hour=9, cancelled=True)
+        _meeting(db_session, 'Active No Notes', hour=10)
+        engine = InspectionEngine(db_session)
+        obs = engine._check_missing_notes(SENTINEL_DATE)
+        titles = [o.data.get('meeting_title') for o in obs]
+        assert 'Active No Notes' in titles
+        assert 'Cancelled' not in titles
 
 
 # ---------------------------------------------------------------------------
