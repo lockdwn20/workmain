@@ -1,4 +1,0 @@
-{
-  "_comment": "ISO dates (YYYY-MM-DD) on which WorkmAIn triggers are suppressed. Add holidays and scheduled time off here.",
-  "non_working_days": []
-}

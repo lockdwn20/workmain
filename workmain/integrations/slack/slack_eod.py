@@ -1,7 +1,7 @@
 """
 WorkmAIn Slack EOD Surface
-Slack EOD Surface v1.5
-20260625
+Slack EOD Surface v1.7
+20260707
 
 Slack I/O surface for the T1 morning briefing and T5 EOD conversational
 workflow. Plain-text I/O in Sprint 2. Block Kit UX upgrade in Sprint 3.
@@ -23,6 +23,34 @@ Version History:
 - v1.5: Phase 13 Sprint 3 Gate 6 — SlackEodSession.save/load/clear(); started_at
         field; _SESSION_PATH constant; SlackEodManager calls save() after every
         step, clear() on complete/stop; handle_start_eod guard message updated
+- v1.6: Operations_Config_Correction_Sprint Gate 5 — §5.1: long-running
+        steps (task_match, note_dedup) dispatched to a background thread
+        (_run_step_async()/_run_step_thread()), extending the existing
+        fire-and-forget pattern from socket_client.py rather than
+        introducing new threading infrastructure; cancellation via
+        threading.Event, set by _abort_session() on CONTROL_STOP; the
+        cancelled thread stops mutating session state entirely once it
+        observes the event. _advance_step()'s four-way EodStepResult
+        handling factored into _handle_step_result(), shared by both the
+        synchronous loop and the background-thread continuation. §5.2:
+        SlackEodSession gains skip_targets (new field — round-trips the
+        original --skip value, which no prior field held) and
+        _step_thread/_cancel_event (runtime-only, not persisted);
+        save()/load() extended to round-trip paused and pending_action
+        (completeness fix). §5.3: CONTROL_RESUME now retries the current
+        step instead of skipping it.
+- v1.7: Operations_Config_Correction_Sprint Gate 5 §5.3a — handle_reply()
+        guard restored: CONTROL_CONFIRM/SKIP/RESUME now check
+        session.paused before mutating session state, closing the race
+        where any of the three could act while a long-running step
+        (task_match, note_dedup) is still executing, sync or background.
+        CONTROL_STOP deliberately excluded — cancellation stays on the one
+        existing stop/cancel_event path. Found during v1.6's implementation
+        verification, applied in-flow, reverted pending confirmation
+        (session.paused's False-throughout-execution behavior and the
+        CONTROL_SKIP | CONTROL_CONFIRM | CONTROL_RESUME frozenset union
+        both independently confirmed correct as originally written), now
+        restored exactly as first written.
 """
 
 from __future__ import annotations
@@ -30,6 +58,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import threading
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -48,6 +77,14 @@ CONTROL_CONFIRM = frozenset({
 CONTROL_SKIP = frozenset({"skip", "skip this"})
 CONTROL_STOP = frozenset({"stop", "abort", "cancel", "cancel eod"})
 CONTROL_RESUME = frozenset({"continue", "resume"})
+
+# Steps whose runners can run long (unbounded Ollama comparison loops) and
+# so are dispatched to a background thread rather than run inline on the
+# message-handler thread. Operations_Config_Correction_Sprint Gate 5 §5.1 —
+# extends the existing fire-and-forget threading.Thread pattern already used
+# for inbound Slack events (socket_client.py), not new threading
+# infrastructure.
+_LONG_RUNNING_STEPS = frozenset({'task_match', 'note_dedup'})
 
 
 # ---------------------------------------------------------------------------
@@ -70,8 +107,21 @@ class SlackEodSession:
     paused: bool
     completed: list
     skipped: list
+    skip_targets: list = field(default_factory=list)  # NEW (Gate 5 §5.2) —
+        # the original --skip argument's value, captured at session
+        # construction time. Distinct from `skipped` (runtime, populated
+        # during execution). Always [] today — the Slack surface has no
+        # mechanism to specify skip targets at 'start eod' time, unlike the
+        # CLI's --skip flag; this field exists so the round-trip is correct
+        # if that ever changes, not because it holds anything today.
     pending_action: Optional[dict] = None
     started_at: datetime = field(default_factory=datetime.now)
+
+    # Runtime-only — not persisted, not compared/repr'd. Set by
+    # SlackEodManager when a long-running step (task_match, note_dedup) is
+    # dispatched to a background thread (Gate 5 §5.1).
+    _step_thread: Optional[threading.Thread] = field(default=None, repr=False, compare=False)
+    _cancel_event: Optional[threading.Event] = field(default=None, repr=False, compare=False)
 
     # Class-level constant — excluded from __init__/__repr__/__eq__ by ClassVar
     _SESSION_PATH: ClassVar[Path] = Path(
@@ -89,6 +139,9 @@ class SlackEodSession:
             'completed': self.completed,
             'skipped': self.skipped,
             'started_at': self.started_at.isoformat(),
+            'paused': self.paused,
+            'pending_action': self.pending_action,
+            'skip_targets': self.skip_targets,
         }
         self._SESSION_PATH.write_text(json.dumps(payload, indent=2))
         self._SESSION_PATH.chmod(0o600)
@@ -114,12 +167,15 @@ class SlackEodSession:
             session.completed = list(data['completed'])
             session.skipped = list(data['skipped'])
             session.started_at = started_at
+            session.paused = data.get('paused', False)
+            session.pending_action = data.get('pending_action')
+            session.skip_targets = data.get('skip_targets', [])
             session.steps = get_step_sequence(
                 weekday=session.target_date.weekday(),
-                skip=[],
+                skip=session.skip_targets,
             )
-            session.paused = False
-            session.pending_action = None
+            session._step_thread = None
+            session._cancel_event = None
             return session
 
         except (KeyError, ValueError, json.JSONDecodeError):
@@ -140,8 +196,11 @@ class SlackEodManager:
     """Manages active T5 EOD sessions keyed by Slack user_id.
 
     Drives the eod_workflow step sequence via Slack DMs. Interactive steps
-    (review, task_match) use non_interactive=True to receive PAUSED results
-    instead of blocking stdin.
+    (review, task_match, note_dedup) use non_interactive=True to receive
+    PAUSED results instead of blocking stdin. Long-running steps
+    (_LONG_RUNNING_STEPS — task_match, note_dedup) run on a background
+    thread via _run_step_async()/_run_step_thread(), cancellable through
+    CONTROL_STOP (Operations_Config_Correction_Sprint Gate 5 §5.1).
 
     One active session per user. A new 'start eod' while a session is active
     offers to resume or abort.
@@ -180,6 +239,8 @@ class SlackEodManager:
             paused=False,
             completed=[],
             skipped=[],
+            skip_targets=[],  # Slack has no mechanism to specify skip
+                # targets at 'start eod' time — always empty here.
         )
         self._sessions[user_id] = session
         self._send(channel_id, "Starting EOD workflow...")
@@ -209,9 +270,30 @@ class SlackEodManager:
             # Neither — cancel pending, fall through to control word check
             logger.info("EOD pending action cancelled by new message user=%s", user_id)
 
-        # Control words
+        # Control words. CONTROL_STOP always acts, regardless of whether a
+        # step is paused or actively running in a background thread — it's
+        # the one control word explicitly meant to interrupt anytime.
         if normalized in CONTROL_STOP:
             self._abort_session(user_id, session)
+            return
+
+        # CONTROL_CONFIRM/SKIP/RESUME all assume a step is genuinely paused
+        # and waiting for a reply. session.paused is False both while a
+        # synchronous step is running and while a long-running step's
+        # background thread (Gate 5 §5.1) is in flight — in either case
+        # there is no result yet to confirm/skip/resume, and mutating
+        # session.completed/skipped/current_step_idx here would race
+        # whatever eventually produces that result. Matches the existing
+        # fallback branch below, which already gates free-text corrections
+        # on session.paused the same way. CONTROL_STOP is deliberately
+        # excluded from this union — cancellation during a running step
+        # stays on the one existing stop/cancel_event path above, not
+        # duplicated here (Gate 5 §5.3a).
+        if normalized in (CONTROL_SKIP | CONTROL_CONFIRM | CONTROL_RESUME) and not session.paused:
+            self._send(
+                session.channel_id,
+                "Still working on the current step — reply 'stop' to cancel, or wait for it to finish.",
+            )
             return
 
         if normalized in CONTROL_SKIP:
@@ -235,10 +317,9 @@ class SlackEodManager:
 
         if normalized in CONTROL_RESUME:
             if session.current_step_idx < len(session.steps):
-                # Resume from a FAILED step — skip it
-                step = session.steps[session.current_step_idx]
-                session.skipped.append(step['key'])
-                session.current_step_idx += 1
+                # Resume from a FAILED/PAUSED step — retry it, do not skip
+                # (Operations_Config_Correction_Sprint Gate 5 §5.3;
+                # CONTROL_SKIP above remains the explicit skip action).
                 session.paused = False
                 self._advance_step(session)
             return
@@ -262,11 +343,25 @@ class SlackEodManager:
         Loops through COMPLETED and SKIPPED results automatically.
         Returns (waits for reply) on PAUSED or FAILED.
         Sends completion summary when all steps are done.
+
+        Long-running steps (task_match, note_dedup — Operations_Config_
+        Correction_Sprint Gate 5 §5.1) are dispatched to a background
+        thread instead of run inline: this method spawns the thread and
+        returns immediately so the calling message-handler thread can
+        process subsequent DMs (e.g. 'stop'), exactly as any other inbound
+        Slack event already does (socket_client.py's fire-and-forget
+        dispatch). The background thread resumes this same loop via a
+        recursive _advance_step() call once its step completes.
         """
         from workmain.workflows.eod_workflow import run_step, EodStepStatus
 
         while session.current_step_idx < len(session.steps):
             step = session.steps[session.current_step_idx]
+
+            if step['key'] in _LONG_RUNNING_STEPS:
+                self._run_step_async(session, step)
+                return
+
             try:
                 result = run_step(
                     step,
@@ -290,59 +385,147 @@ class SlackEodManager:
                 session.save()
                 return
 
-            if result.status == EodStepStatus.COMPLETED:
-                session.completed.append(step['key'])
-                session.current_step_idx += 1
-                msg = result.message or f"Step {step['num']} — {step['desc']} complete."
-                self._send_blocks(
-                    session.channel_id,
-                    blocks=[{"type": "section", "text": {"type": "mrkdwn", "text": f"*✓ {msg}*"}}],
-                    fallback_text=f"✓ {msg}",
-                )
-                session.save()
-                # Loop to next step automatically
-
-            elif result.status == EodStepStatus.SKIPPED:
-                session.skipped.append(step['key'])
-                session.current_step_idx += 1
-                session.save()
-                # Advance silently
-
-            elif result.status == EodStepStatus.PAUSED:
-                session.paused = True
-                pause_msg = result.pause_reason or result.message or f"Step {step['num']} requires your input."
-                hint = result.pause_resume_hint or "Reply when ready."
-                self._send_blocks(
-                    session.channel_id,
-                    blocks=[
-                        {"type": "section", "text": {"type": "mrkdwn", "text": pause_msg}},
-                        {"type": "context", "elements": [{"type": "mrkdwn", "text": hint}]},
-                    ],
-                    fallback_text=f"{pause_msg}\n{hint}",
-                )
-                session.save()
+            if not self._handle_step_result(session, step, result):
                 return
-
-            elif result.status == EodStepStatus.FAILED:
-                session.paused = True
-                error_detail = result.error or "Unknown error."
-                header = f"⚠ Step {step['num']} ({step['desc']}) failed: {error_detail}"
-                footer = "Reply 'continue' to skip this step or 'stop' to abort EOD."
-                self._send_blocks(
-                    session.channel_id,
-                    blocks=[
-                        {"type": "section", "text": {"type": "mrkdwn", "text": header}},
-                        {"type": "context", "elements": [{"type": "mrkdwn", "text": footer}]},
-                    ],
-                    fallback_text=f"{header}\n{footer}",
-                )
-                session.save()
-                return
+            # else: _handle_step_result() already advanced current_step_idx —
+            # loop continues to the next step
 
         # All steps done
         SlackEodSession.clear()
         self._send_completion_summary(session)
         del self._sessions[session.user_id]
+
+    def _handle_step_result(self, session: SlackEodSession, step: dict, result) -> bool:
+        """Apply one EodStepResult to session state and notify Slack.
+
+        Shared by _advance_step()'s synchronous loop and _run_step_thread()'s
+        background-thread continuation (Gate 5 §5.1) — the four-way status
+        handling is identical either way; only how the result was obtained
+        differs.
+
+        Returns:
+            True if the step sequence should continue to the next step
+            (COMPLETED/SKIPPED), False if it should stop and wait for a
+            reply (PAUSED/FAILED).
+        """
+        from workmain.workflows.eod_workflow import EodStepStatus
+
+        if result.status == EodStepStatus.COMPLETED:
+            session.completed.append(step['key'])
+            session.current_step_idx += 1
+            msg = result.message or f"Step {step['num']} — {step['desc']} complete."
+            self._send_blocks(
+                session.channel_id,
+                blocks=[{"type": "section", "text": {"type": "mrkdwn", "text": f"*✓ {msg}*"}}],
+                fallback_text=f"✓ {msg}",
+            )
+            session.save()
+            return True
+
+        elif result.status == EodStepStatus.SKIPPED:
+            session.skipped.append(step['key'])
+            session.current_step_idx += 1
+            session.save()
+            return True
+
+        elif result.status == EodStepStatus.PAUSED:
+            session.paused = True
+            pause_msg = result.pause_reason or result.message or f"Step {step['num']} requires your input."
+            hint = result.pause_resume_hint or "Reply when ready."
+            self._send_blocks(
+                session.channel_id,
+                blocks=[
+                    {"type": "section", "text": {"type": "mrkdwn", "text": pause_msg}},
+                    {"type": "context", "elements": [{"type": "mrkdwn", "text": hint}]},
+                ],
+                fallback_text=f"{pause_msg}\n{hint}",
+            )
+            session.save()
+            return False
+
+        elif result.status == EodStepStatus.FAILED:
+            session.paused = True
+            error_detail = result.error or "Unknown error."
+            header = f"⚠ Step {step['num']} ({step['desc']}) failed: {error_detail}"
+            footer = "Reply 'continue' to skip this step or 'stop' to abort EOD."
+            self._send_blocks(
+                session.channel_id,
+                blocks=[
+                    {"type": "section", "text": {"type": "mrkdwn", "text": header}},
+                    {"type": "context", "elements": [{"type": "mrkdwn", "text": footer}]},
+                ],
+                fallback_text=f"{header}\n{footer}",
+            )
+            session.save()
+            return False
+
+        # Unrecognized status — treat as a stop, do not silently loop forever.
+        logger.error("EOD step '%s' returned unrecognized status: %s", step['key'], result.status)
+        session.paused = True
+        session.save()
+        return False
+
+    def _run_step_async(self, session: SlackEodSession, step: dict) -> None:
+        """Spawn a background thread for a long-running step.
+
+        Not new threading infrastructure — extends the same daemon=True
+        fire-and-forget pattern socket_client.py already uses twice
+        (message handler, block-action handler). Returns immediately.
+        """
+        cancel_event = threading.Event()
+        session._cancel_event = cancel_event
+        thread = threading.Thread(
+            target=self._run_step_thread,
+            args=(session, step, cancel_event),
+            daemon=True,
+        )
+        session._step_thread = thread
+        thread.start()
+
+    def _run_step_thread(self, session: SlackEodSession, step: dict, cancel_event: threading.Event) -> None:
+        """Runs in a background thread. Executes the step, then — unless
+        cancelled — applies its result exactly as the synchronous path
+        would and continues the step sequence.
+
+        Once cancel_event is set, this thread must not mutate session state
+        at all: the thread that handled 'stop' (_abort_session()) already
+        owns cleanup and has already sent the abort message. Touching
+        session/self._sessions here after that point would race it.
+        """
+        from workmain.workflows.eod_workflow import run_step
+
+        try:
+            result = run_step(
+                step,
+                dry_run=False,
+                target_date=session.target_date,
+                non_interactive=True,
+                cancel_event=cancel_event,
+                daemon=self._daemon,
+            )
+        except Exception as e:
+            if cancel_event.is_set():
+                return
+            logger.error("EOD step '%s' raised unexpectedly: %s", step['key'], e)
+            header = f"⚠ Step {step['num']} ({step['desc']}) failed: {e}"
+            footer = "Reply 'continue' to skip this step or 'stop' to abort EOD."
+            self._send_blocks(
+                session.channel_id,
+                blocks=[
+                    {"type": "section", "text": {"type": "mrkdwn", "text": header}},
+                    {"type": "context", "elements": [{"type": "mrkdwn", "text": footer}]},
+                ],
+                fallback_text=f"{header}\n{footer}",
+            )
+            session.paused = True
+            session.save()
+            return
+
+        if cancel_event.is_set():
+            return
+
+        if self._handle_step_result(session, step, result):
+            self._advance_step(session)
 
     def _reprompt_current_step(self, session: SlackEodSession) -> None:
         """Re-run the current step and re-send its PAUSED message (after a correction)."""
@@ -423,7 +606,16 @@ class SlackEodManager:
     # ------------------------------------------------------------------
 
     def _abort_session(self, user_id: str, session: SlackEodSession) -> None:
-        """Abort an active session and send a summary."""
+        """Abort an active session and send a summary.
+
+        Signals _cancel_event first, if a long-running step is in flight
+        (Gate 5 §5.1) — the background thread checks this and stops
+        mutating session state entirely once it sees it, so it's safe for
+        this method to immediately own cleanup (delete the session, send
+        the abort message) without waiting for that thread to finish.
+        """
+        if session._cancel_event is not None:
+            session._cancel_event.set()
         SlackEodSession.clear()
         completed_str = ", ".join(session.completed) if session.completed else "—"
         skipped_str = ", ".join(session.skipped) if session.skipped else "—"

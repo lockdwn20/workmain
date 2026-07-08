@@ -1,7 +1,7 @@
 """
 WorkmAIn Notifications Command Tests
-test_notifications_commands.py v2.0
-20260512
+test_notifications_commands.py v2.1
+20260702
 
 Tests for NotificationConfigRepository and the notifications CLI command group.
 CLI-level tests (notifications test, notifications status) use CliRunner with
@@ -16,6 +16,11 @@ Version History:
 - v2.0: Phase 11 Gate 2 — updated for NotificationConfigData dataclass and
         system_state-backed repository; removed NotificationConfig model
         references and id=1 row assertions
+- v2.1: Operations_Config_Correction_Sprint Gate 4 — retired method names
+        ('terminal', 'os', 'email') replaced with the Gate 3 VALID_METHODS
+        set ('wsl-notify', 'slack', 'both') throughout; fixes
+        test_default_config_row_exists, which started failing once the live
+        notify_method value was migrated in Gate 3
 """
 
 import json
@@ -51,26 +56,26 @@ class TestNotificationConfig:
         repo = NotificationConfigRepository(db_session)
         config = repo.get_config()
         assert isinstance(config, NotificationConfigData)
-        assert config.method in ('terminal', 'os', 'email')
+        assert config.method in ('wsl-notify', 'slack', 'both')
         assert isinstance(config.enabled, bool)
 
-    def test_set_method_terminal(self, db_session):
-        """set_method('terminal') stores the value correctly."""
+    def test_set_method_wsl_notify(self, db_session):
+        """set_method('wsl-notify') stores the value correctly."""
         repo = NotificationConfigRepository(db_session)
-        repo.set_method('terminal')
-        assert repo.get_config().method == 'terminal'
+        repo.set_method('wsl-notify')
+        assert repo.get_config().method == 'wsl-notify'
 
-    def test_set_method_os(self, db_session):
-        """set_method('os') stores the value correctly."""
+    def test_set_method_slack(self, db_session):
+        """set_method('slack') stores the value correctly."""
         repo = NotificationConfigRepository(db_session)
-        repo.set_method('os')
-        assert repo.get_config().method == 'os'
+        repo.set_method('slack')
+        assert repo.get_config().method == 'slack'
 
-    def test_set_method_email(self, db_session):
-        """set_method('email') stores the value without error."""
+    def test_set_method_both(self, db_session):
+        """set_method('both') stores the value without error."""
         repo = NotificationConfigRepository(db_session)
-        repo.set_method('email')
-        assert repo.get_config().method == 'email'
+        repo.set_method('both')
+        assert repo.get_config().method == 'both'
 
     def test_enable_sets_enabled_true(self, db_session):
         """set_enabled(True) marks notifications as enabled."""
@@ -106,11 +111,11 @@ class TestNotificationConfigRepository:
     def test_set_method_updates_not_inserts(self, db_session):
         """Calling set_method() twice updates the value — only one key per method."""
         repo = NotificationConfigRepository(db_session)
-        repo.set_method('terminal')
-        repo.set_method('os')
+        repo.set_method('wsl-notify')
+        repo.set_method('slack')
         count = db_session.query(SystemState).filter_by(key='notify_method').count()
         assert count == 1
-        assert repo.get_config().method == 'os'
+        assert repo.get_config().method == 'slack'
 
 
 # ---------------------------------------------------------------------------

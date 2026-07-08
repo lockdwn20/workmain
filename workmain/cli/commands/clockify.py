@@ -1,8 +1,8 @@
 """
 WorkmAIn CLI
 Clockify Command Group
-v1.5
-20260401
+v1.6
+20260708
 
 CLI commands for Clockify report retrieval, sync, and connection status.
 
@@ -24,6 +24,10 @@ Version History:
 - v1.5: CLI Standardization Sprint Part 1 (WU-4) — version bump confirming clockify
         conflicts resolved in WU-1: sync pull -b (not -s), sync push --all has no
         short form (deliberate friction)
+- v1.6: Operations_Config_Correction_Sprint Gate 6 (#41) — clockify_report_save()
+        now raises click.ClickException on both failure branches (download-failed
+        and exception paths) so staging write failures exit non-zero instead of
+        silently succeeding
 """
 
 import calendar
@@ -248,9 +252,13 @@ def clockify_report_save(period: str, start, end):
             console.print(f"  [dim]Staged for Drive upload (Phase 7)[/dim]\n")
         else:
             console.print("\n✗ [red]Download failed[/red]\n")
+            raise click.ClickException("Clockify report download failed")
 
+    except click.ClickException:
+        raise
     except Exception as e:
         console.print(f"\n[red]✗ Error downloading report: {str(e)}[/red]\n")
+        raise click.ClickException(str(e))
 
 
 @clockify.group('sync')

@@ -1,14 +1,18 @@
 """
 WorkmAIn Schedule Commands
-schedule.py v1.1
-20260506
+schedule.py v1.3
+20260707
 
 CLI command group: workmain schedule
-Owns calendar exceptions — when the daemon should not fire notifications.
+Owns calendar exceptions (when the daemon should not fire notifications)
+and schedule/notification timing configuration.
 
 Subgroups:
   workmain schedule holiday <subcommand>  — named holiday management
   workmain schedule timeoff <subcommand>  — personal time-off ranges
+  workmain schedule set <subcommand>      — trigger times, working hours, T4 interval,
+                                             EOD progress intervals
+  workmain schedule config show           — display current timing configuration
 
 Resolves CLI_STANDARDS.md V8 (add-holiday) and V9 (add-timeoff) — commands
 built correctly under the schedule group from day one.
@@ -17,6 +21,16 @@ Version History:
 - v1.0: Phase 10 Gate 6 initial implementation
 - v1.1: Fix CLI standards violations — --date/-d, --start/-b, --end/-e options;
         --title/-l on both add commands (replace --notes/-N); delete verb
+- v1.2: Operations_Config_Correction_Sprint Gate 1 §1.7 — set/config subgroups
+        added (notification-time, working-hours, t4-interval, config show);
+        set notification-time/working-hours use workmain.utils.time_parser.
+        parse_time() (Gate 1 §1.0), accepting HH:MM and HHMM alike; error
+        idiom matches this file's existing console.print(f"[red]✗ ...[/red]")
+        + return convention throughout
+- v1.3: Operations_Config_Correction_Sprint Gate 5 §5.6 — set task-match-interval/
+        note-dedup-interval added (Slack progress-message throttle intervals
+        for the EOD task-match/note-dedup substeps); config show displays
+        both alongside existing trigger times/working hours/T4 interval
 """
 
 from datetime import datetime, date as date_type
@@ -29,8 +43,13 @@ from rich.table import Table
 
 from workmain.database.connection import get_db
 from workmain.database.repositories.schedule_repository import ScheduleExceptionRepository
+from workmain.database.repositories.system_state_repository import SystemStateRepository
+from workmain.services.schedule_service import ScheduleService
+from workmain.utils.time_parser import parse_time
 
 console = Console()
+
+KNOWN_TRIGGERS = ('workday_start', 'daily_closeout', 'weekly_draft', 'eow', 'eod_prompt')
 
 
 # ---------------------------------------------------------------------------
@@ -358,6 +377,222 @@ def timeoff_delete(identifier: str):
 
         repo.delete(exc.id)
         console.print("[green]Time off deleted.[/green]")
+    finally:
+        session.close()
+
+
+# ---------------------------------------------------------------------------
+# schedule set subgroup
+# ---------------------------------------------------------------------------
+
+@schedule.group()
+def set():
+    """Configure schedule and notification timing properties."""
+
+
+@set.command(name='notification-time')
+@click.argument('trigger')
+@click.argument('hhmm')
+def set_notification_time(trigger: str, hhmm: str) -> None:
+    """Set the fire time for a daemon trigger.
+
+    Accepts HH:MM, HHMM, or H:MMam/pm — same flexible parsing used
+    throughout the rest of the app (workmain.utils.time_parser.parse_time).
+
+    Examples:
+      workmain schedule set notification-time workday_start 05:30
+      workmain schedule set notification-time eod_prompt 1430
+    """
+    if trigger not in KNOWN_TRIGGERS:
+        console.print(
+            f"[red]✗ Unknown trigger '{trigger}'. "
+            f"Valid triggers: {', '.join(KNOWN_TRIGGERS)}[/red]"
+        )
+        return
+    try:
+        parsed_time = parse_time(hhmm)
+    except ValueError:
+        console.print(
+            f"[red]✗ '{hhmm}' is not a valid time. "
+            f"Use HH:MM, HHMM, or H:MMam/pm[/red]"
+        )
+        return
+    # Normalize to HH:MM for storage — ScheduleService._get_configured_time()
+    # reads system_state values via raw.split(":"), so storage format must
+    # remain strict HH:MM regardless of how flexibly the CLI accepted input.
+    normalized = parsed_time.strftime('%H:%M')
+
+    db = get_db()
+    session = db.get_session()
+    try:
+        state = SystemStateRepository(session)
+        state.set(f'trigger_time_{trigger}', normalized)
+        console.print(f"[green]{trigger} trigger time set to:[/green] {normalized}")
+    finally:
+        session.close()
+
+
+@set.command(name='working-hours')
+@click.argument('start')
+@click.argument('end')
+def set_working_hours(start: str, end: str) -> None:
+    """Set the daemon's working-hours window for T4 check-ins.
+
+    Accepts HH:MM, HHMM, or H:MMam/pm for both arguments.
+
+    Examples:
+      workmain schedule set working-hours 09:00 18:00
+      workmain schedule set working-hours 0900 1800
+    """
+    try:
+        start_time = parse_time(start)
+    except ValueError:
+        console.print(f"[red]✗ '{start}' is not a valid time. Use HH:MM, HHMM, or H:MMam/pm[/red]")
+        return
+    try:
+        end_time = parse_time(end)
+    except ValueError:
+        console.print(f"[red]✗ '{end}' is not a valid time. Use HH:MM, HHMM, or H:MMam/pm[/red]")
+        return
+    # Inverted-window guard — an inverted window would silently make
+    # is_working_hours() always return False.
+    if start_time >= end_time:
+        console.print(
+            f"[red]✗ Start ({start_time.strftime('%H:%M')}) must be before "
+            f"end ({end_time.strftime('%H:%M')})[/red]"
+        )
+        return
+
+    db = get_db()
+    session = db.get_session()
+    try:
+        state = SystemStateRepository(session)
+        state.set('working_hours_start', start_time.strftime('%H:%M'))
+        state.set('working_hours_end', end_time.strftime('%H:%M'))
+        console.print(
+            f"[green]Working hours set to:[/green] "
+            f"{start_time.strftime('%H:%M')} - {end_time.strftime('%H:%M')}"
+        )
+    finally:
+        session.close()
+
+
+@set.command(name='t4-interval')
+@click.argument('min_minutes', type=int)
+@click.argument('max_minutes', type=int)
+def set_t4_interval(min_minutes: int, max_minutes: int) -> None:
+    """Set the T4 randomized check-in delay window, in minutes.
+
+    Examples:
+      workmain schedule set t4-interval 30 120
+    """
+    if min_minutes < 0 or min_minutes >= max_minutes:
+        console.print(
+            f"[red]✗ Min ({min_minutes}) must be positive and "
+            f"less than max ({max_minutes})[/red]"
+        )
+        return
+
+    db = get_db()
+    session = db.get_session()
+    try:
+        state = SystemStateRepository(session)
+        state.set('t4_interval_min', str(min_minutes))
+        state.set('t4_interval_max', str(max_minutes))
+        console.print(f"[green]T4 interval set to:[/green] {min_minutes}-{max_minutes} minutes")
+    finally:
+        session.close()
+
+
+@set.command(name='task-match-interval')
+@click.argument('seconds', type=int)
+def set_task_match_interval(seconds: int) -> None:
+    """Set the Slack progress-message throttle interval for the EOD task-match substep.
+
+    Examples:
+      workmain schedule set task-match-interval 10
+    """
+    if seconds < 1:
+        console.print(f"[red]✗ Seconds ({seconds}) must be positive[/red]")
+        return
+
+    db = get_db()
+    session = db.get_session()
+    try:
+        state = SystemStateRepository(session)
+        state.set('task_match_progress_interval', str(seconds))
+        console.print(f"[green]Task-match progress interval set to:[/green] {seconds}s")
+    finally:
+        session.close()
+
+
+@set.command(name='note-dedup-interval')
+@click.argument('seconds', type=int)
+def set_note_dedup_interval(seconds: int) -> None:
+    """Set the Slack progress-message throttle interval for the EOD note-dedup substep.
+
+    Examples:
+      workmain schedule set note-dedup-interval 10
+    """
+    if seconds < 1:
+        console.print(f"[red]✗ Seconds ({seconds}) must be positive[/red]")
+        return
+
+    db = get_db()
+    session = db.get_session()
+    try:
+        state = SystemStateRepository(session)
+        state.set('note_dedup_progress_interval', str(seconds))
+        console.print(f"[green]Note-dedup progress interval set to:[/green] {seconds}s")
+    finally:
+        session.close()
+
+
+# ---------------------------------------------------------------------------
+# schedule config subgroup
+# ---------------------------------------------------------------------------
+
+@schedule.group()
+def config():
+    """View current schedule and notification timing configuration."""
+
+
+@config.command(name='show')
+def config_show() -> None:
+    """Display current trigger times, working hours, and T4 interval.
+
+    Examples:
+      workmain schedule config show
+    """
+    db = get_db()
+    session = db.get_session()
+    try:
+        state = SystemStateRepository(session)
+        schedule_service = ScheduleService(session)
+
+        table = Table(show_header=True, header_style="bold cyan", box=box.SIMPLE)
+        table.add_column("Trigger")
+        table.add_column("Time")
+        for trigger in KNOWN_TRIGGERS:
+            raw = state.get(f'trigger_time_{trigger}')
+            table.add_row(trigger, raw or "[dim]not set[/dim]")
+
+        min_minutes, max_minutes = schedule_service.get_t4_interval()
+        task_match_interval = schedule_service.get_task_match_interval()
+        note_dedup_interval = schedule_service.get_note_dedup_interval()
+
+        console.print("\n[bold cyan]Trigger Times[/bold cyan]")
+        console.print(table)
+        console.print("\n[bold cyan]Working Hours[/bold cyan]")
+        console.print(
+            f"  {state.get('working_hours_start') or '09:00'} - "
+            f"{state.get('working_hours_end') or '18:00'}"
+        )
+        console.print("\n[bold cyan]T4 Check-in Interval[/bold cyan]")
+        console.print(f"  {min_minutes}-{max_minutes} minutes")
+        console.print("\n[bold cyan]EOD Progress Intervals[/bold cyan]")
+        console.print(f"  Task match:  {task_match_interval}s")
+        console.print(f"  Note dedup:  {note_dedup_interval}s")
     finally:
         session.close()
 

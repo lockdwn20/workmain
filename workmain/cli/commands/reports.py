@@ -1,7 +1,7 @@
 """
 WorkmAIn Report Commands - Phase 4 Implementation
-Report Commands v2.12
-20260623
+Report Commands v2.13
+20260708
 
 Static action-first command structure — template is an argument.
 
@@ -12,6 +12,7 @@ Commands:
 - reports list / history       # list reports from DB (history is alias)
 - reports show <id|file>       # show by DB id (int) or filename (str)
 - reports resend <id>          # recreate email draft from stored report
+- reports corrections [-d DATE] # list reports with status 'corrected'
 - reports costs
 
 Version History:
@@ -59,6 +60,8 @@ Version History:
          and client_id_filter through to generator.preview_report()
 - v2.12: Hotfix items-33-34-incomplete-impl — reports show (ID path) now displays
          correction_note below the content panel when the field is non-empty (Item 33)
+- v2.13: Operations_Config_Correction_Sprint Gate 6 (#56) — reports corrections
+         [--date/-d DATE] listing command added; closes PC-3
 """
 
 import os
@@ -583,6 +586,83 @@ def report_correct(identifier: str):
         console.print(
             f"[green]✓ Report correction saved:[/green] {report.report_type} {report.report_date}"
         )
+    finally:
+        session.close()
+
+
+@reports.command('corrections')
+@click.option('-d', '--date', 'date_str', default=None, metavar='YYYY-MM-DD',
+              help='Filter by report date')
+def report_corrections(date_str: Optional[str]):
+    """
+    List reports with status 'corrected'.
+
+    Shows the correction note for each corrected report, optionally
+    filtered to a single report date.
+
+    \b
+    Examples:
+      workmain reports corrections
+      workmain reports corrections --date 2026-05-27
+    """
+    db = get_db()
+    session = db.get_session()
+
+    try:
+        filter_date = None
+        if date_str:
+            try:
+                filter_date = date.fromisoformat(date_str)
+            except ValueError:
+                console.print(f"[red]✗ Invalid date: '{date_str}' — expected YYYY-MM-DD[/red]")
+                raise SystemExit(1)
+
+        q = session.query(Report).filter(Report.status == 'corrected')
+        if filter_date:
+            q = q.filter(Report.report_date == filter_date)
+
+        rows = q.order_by(Report.report_date.desc(), Report.id.desc()).all()
+
+        if not rows:
+            console.print("\n[yellow]No corrected reports found.[/yellow]\n")
+            return
+
+        title = f"Report Corrections ({len(rows)})"
+        if filter_date:
+            title += f" — {filter_date}"
+
+        table = Table(
+            title=f"\n{title}",
+            show_header=True,
+            header_style="bold cyan",
+            box=box.ROUNDED
+        )
+        table.add_column("ID", style="dim", justify="right")
+        table.add_column("Type", style="cyan")
+        table.add_column("Date", style="green")
+        table.add_column("Corrected", style="dim")
+        table.add_column("Note", style="yellow")
+
+        for r in rows:
+            corrected_str = r.updated_at.strftime('%Y-%m-%d %H:%M') if r.updated_at else "—"
+            note_preview = (r.correction_note or "")[:60]
+
+            table.add_row(
+                str(r.id),
+                r.report_type or "—",
+                str(r.report_date) if r.report_date else "—",
+                corrected_str,
+                note_preview or "—"
+            )
+
+        console.print(table)
+        console.print()
+
+    except SystemExit:
+        raise
+    except Exception as e:
+        console.print(f"[red]✗ Failed to list corrections: {e}[/red]")
+
     finally:
         session.close()
 
