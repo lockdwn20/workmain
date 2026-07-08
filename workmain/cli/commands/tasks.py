@@ -1,7 +1,7 @@
 """
 WorkmAIn Tasks CLI Commands
-Tasks Commands v2.1
-20260528
+Tasks Commands v2.2
+20260707
 
 CLI commands for task lifecycle management (carry-forward notes).
 Replaces the single 'carryover' command with a full lifecycle group:
@@ -17,6 +17,9 @@ Version History:
         task_status integration via TaskStatusRepository
 - v2.1: Hotfix — always show ID column in tasks list; use short-form tags to fix
         Rich markup stripping of [tag-name] bracket format
+- v2.2: Operations_Config_Correction_Sprint Gate 5 §5.5 — tasks show
+        displays forwarding_note_id when set (populated by the note-dedup
+        merge action, §5.4)
 """
 
 import click
@@ -328,6 +331,8 @@ def task_show(identifier: str):
         if ts.completed_at:
             label = 'Completed' if ts.status == 'completed' else 'Dismissed'
             console.print(f"  {label}:  {ts.completed_at.strftime('%Y-%m-%d %H:%M')}")
+        if ts.forwarding_note_id:
+            console.print(f"  Forwards to: note #{ts.forwarding_note_id}")
         if note.tags:
             console.print(f"  Tags:      {note.display_tags}")
         if note.meeting:

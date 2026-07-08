@@ -1,7 +1,7 @@
 """
 WorkmAIn Slack Socket Client
-slack/socket_client.py v1.0
-20260625
+slack/socket_client.py v1.1
+20260707
 
 WorkmAInSocketClient wraps slack_sdk.socket_mode.SocketModeClient.
 Delivers inbound events (DMs and block_actions) to WorkmAInDaemon via
@@ -10,12 +10,19 @@ deduplication with a 60-second eviction window.
 
 Version History:
 - v1.0: Phase 13 Sprint 3 Gate 1 — initial implementation
+- v1.1: Operations_Config_Correction_Sprint Gate 5 §5.1 — post_message()/
+        post_blocks() changed from -> None to -> Optional[str], now
+        returning the chat_postMessage ts previously discarded (needed so
+        callers can later edit the message in place); new update_message()
+        added via chat_update, mirroring the existing swallow-and-log error
+        convention. Confirmed non-breaking across all 19 existing call
+        sites — none read a return value.
 """
 
 import logging
 import threading
 import time
-from typing import Callable
+from typing import Callable, Optional
 
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
@@ -32,8 +39,9 @@ class WorkmAInSocketClient:
     Public interface:
       start()                          — connect (non-blocking background thread)
       stop()                           — disconnect cleanly
-      post_message(channel, text)      — plain text DM
-      post_blocks(channel, blocks, fallback_text) — Block Kit message
+      post_message(channel, text)      — plain text DM; returns message ts or None
+      post_blocks(channel, blocks, fallback_text) — Block Kit message; returns ts or None
+      update_message(channel, ts, text) — edit an existing message in place
     """
 
     def __init__(
@@ -67,23 +75,46 @@ class WorkmAInSocketClient:
         except Exception as e:
             logger.warning("WorkmAInSocketClient stop error: %s", e)
 
-    def post_message(self, channel: str, text: str) -> None:
-        """Post a plain text message to a channel."""
+    def post_message(self, channel: str, text: str) -> Optional[str]:
+        """Post a plain text message to a channel.
+
+        Returns:
+            The message ts on success, None on failure (logged, not raised —
+            matches this class's existing swallow convention; unlike
+            SlackClient.post_message(), which raises).
+        """
         try:
-            self._web_client.chat_postMessage(channel=channel, text=text)
+            response = self._web_client.chat_postMessage(channel=channel, text=text)
+            return response["ts"]
         except SlackApiError as e:
             logger.warning("post_message failed (channel=%s): %s", channel, e)
+            return None
 
-    def post_blocks(self, channel: str, blocks: list, fallback_text: str) -> None:
-        """Post a Block Kit message to a channel."""
+    def post_blocks(self, channel: str, blocks: list, fallback_text: str) -> Optional[str]:
+        """Post a Block Kit message to a channel. Returns ts on success, None on failure."""
         try:
-            self._web_client.chat_postMessage(
+            response = self._web_client.chat_postMessage(
                 channel=channel,
                 text=fallback_text,
                 blocks=blocks,
             )
+            return response["ts"]
         except SlackApiError as e:
             logger.warning("post_blocks failed (channel=%s): %s", channel, e)
+            return None
+
+    def update_message(self, channel: str, ts: str, text: str) -> bool:
+        """Edit an existing message in place via chat.update.
+
+        Returns:
+            True on success, False on failure (logged, not raised).
+        """
+        try:
+            self._web_client.chat_update(channel=channel, ts=ts, text=text)
+            return True
+        except SlackApiError as e:
+            logger.warning("update_message failed (channel=%s, ts=%s): %s", channel, ts, e)
+            return False
 
     # ------------------------------------------------------------------
     # Internal event handling

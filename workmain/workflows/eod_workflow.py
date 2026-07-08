@@ -1,8 +1,8 @@
 """
 WorkmAIn EOD Workflow Service Layer
 workmain/workflows/eod_workflow.py
-v1.4
-20260612
+v1.6
+20260708
 
 Surface-agnostic EOD workflow step runners. Returns EodStepResult objects
 instead of bool so any I/O surface (CLI or Slack) can interpret results.
@@ -28,6 +28,30 @@ Version History:
         step runners that use subprocess now return FAILED (not COMPLETED) when
         subprocess exits non-zero in daemon/non-TTY context; report and weekly
         report steps skip the interactive review loop when non-interactive
+- v1.5: Operations_Config_Correction_Sprint Gate 5 — §5.0: _run_task_match_step()
+        re-scoped from TimeEntry rows to Note rows (notes are the actual
+        source of truth); _keyword_score_match() renamed entries->notes,
+        return key entry->note. §5.1: cancel_event + daemon params added to
+        _run_task_match_step() and run_step()'s conditional dispatch
+        (mirrors the existing non_interactive introspection pattern);
+        per-task/per-step time budget never existed in this file and is not
+        being added — cancellation + the existing per-call Ollama timeout
+        (30s) are the safeguard; throttled Slack progress messaging added
+        (journald every iteration, Slack edit at a configurable interval).
+        §5.4: new _run_note_dedup_step() (step key note_dedup, '3d') — the
+        actual Item #32 deliverable; new _keyword_note_dedup_match() helper;
+        incremental pairing scope (today's new notes x the active
+        carry-forward pool, plus new x new — not full all-pairs); more-
+        recent-note-wins merge direction; wired into _build_step_sequence().
+- v1.6: Operations_Config_Correction_Sprint Gate 5 §5.0 — self-match
+        exclusion in _run_task_match_step(): TaskStatus rows are created
+        eagerly when a note gains the carry-forward tag, so a same-day
+        carry-forward note's own task could see itself in notes_today and
+        score a trivial perfect match against itself. candidate_notes now
+        excludes ts.note_id once, upstream of both the LLM and keyword
+        fallback scoring paths (not patched into each separately) — found
+        during implementation verification, confirmed via live data before
+        any code was written.
 """
 
 import inspect as _inspect
@@ -37,6 +61,8 @@ import re
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 from dataclasses import dataclass
 from datetime import date, datetime
 from enum import Enum
@@ -205,25 +231,42 @@ def _score_match(task_tokens: set, entry_tokens: set) -> float:
     return len(task_tokens & entry_tokens) / len(task_tokens)
 
 
-def _keyword_score_match(task, entries: list) -> dict:
-    """Score a carry-forward task against time entries using keyword overlap.
+def _keyword_score_match(task, notes: list) -> dict:
+    """Score a carry-forward task against today's notes using keyword overlap.
 
-    Returns dict with keys: score (float 0.0–1.0), entry (TimeEntry|None).
+    Returns dict with keys: score (float 0.0-1.0), note (Note|None).
     """
-    note = task.note
-    if not note or not note.content:
-        return {"score": 0.0, "entry": None}
-    task_tokens = _tokenize(note.content)
+    task_note = task.note
+    if not task_note or not task_note.content:
+        return {"score": 0.0, "note": None}
+    task_tokens = _tokenize(task_note.content)
     best_score = 0.0
-    best_entry = None
-    for entry in entries:
-        if not entry.note or not entry.note.content:
+    best_note = None
+    for note in notes:
+        if not note.content:
             continue
-        score = _score_match(task_tokens, _tokenize(entry.note.content))
+        score = _score_match(task_tokens, _tokenize(note.content))
         if score > best_score:
             best_score = score
-            best_entry = entry
-    return {"score": best_score, "entry": best_entry}
+            best_note = note
+    return {"score": best_score, "note": best_note}
+
+
+def _keyword_note_dedup_match(note_a: str, note_b: str) -> dict:
+    """Score two carry-forward notes against each other using keyword
+    overlap. Fallback path when Ollama is unavailable for note dedup
+    (Operations_Config_Correction_Sprint Gate 5 §5.4). Reuses
+    _tokenize()/_score_match() — the same primitives _keyword_score_match()
+    uses — but symmetrically (min of both directional scores), since
+    duplicate detection compares two peer notes rather than matching one
+    task against many candidates.
+
+    Returns dict with keys: score (float 0.0-1.0).
+    """
+    tokens_a = _tokenize(note_a)
+    tokens_b = _tokenize(note_b)
+    score = min(_score_match(tokens_a, tokens_b), _score_match(tokens_b, tokens_a))
+    return {"score": score}
 
 
 # ---------------------------------------------------------------------------
@@ -416,16 +459,27 @@ def _run_pre_flight_inspection_step(dry_run: bool, target_date: date) -> EodStep
         session.close()
 
 
-def _run_task_match_step(dry_run: bool, target_date: date, non_interactive: bool = False) -> EodStepResult:
-    """Step 3c: Match active carry-forward tasks against today's time entries.
+def _run_task_match_step(dry_run: bool, target_date: date, non_interactive: bool = False,
+                          cancel_event: Optional[threading.Event] = None,
+                          daemon: Any = None) -> EodStepResult:
+    """Step 3c: Match active carry-forward tasks against today's notes.
 
     Skips silently if Step 3b did not flag CF observations or no active tasks.
     Never blocks EOD — always returns COMPLETED.
+
+    Operations_Config_Correction_Sprint Gate 5: re-scoped from time_entries
+    to notes (§5.0) — every TimeEntry was already just an indirection to a
+    Note, and a note entered directly with no linked time entry was
+    previously invisible to this step. cancel_event, checked once per
+    comparison, stops the loop early if set (§5.1) — the per-call Ollama
+    timeout (30s) plus this cancellation check replace the removed overall
+    time budget. daemon, when provided (Slack context only), is used to
+    post/edit a throttled progress message; None in CLI context.
     """
     if dry_run:
         print(
             f"  Would match active carry-forward tasks against "
-            f"time entries for {target_date}"
+            f"notes for {target_date}"
         )
         return EodStepResult(status=EodStepStatus.COMPLETED)
 
@@ -452,7 +506,7 @@ def _run_task_match_step(dry_run: bool, target_date: date, non_interactive: bool
     session = db.get_session()
     try:
         from workmain.database.repositories.task_status_repo import TaskStatusRepository
-        from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+        from workmain.database.repositories.notes_repo import NotesRepository
 
         task_repo = TaskStatusRepository(session)
         active_tasks = task_repo.get_filtered(status='active')
@@ -461,12 +515,14 @@ def _run_task_match_step(dry_run: bool, target_date: date, non_interactive: bool
             print("  No active tasks — skipping task match")
             return EodStepResult(status=EodStepStatus.COMPLETED)
 
-        time_repo = TimeEntriesRepository(session)
-        entries = time_repo.get_by_date(target_date)
+        note_repo = NotesRepository(session)
+        notes_today = note_repo.get_by_date(target_date)
 
-        if not entries:
-            print("  No time entries for today — skipping task match")
+        if not notes_today:
+            print("  No notes for today — skipping task match")
             return EodStepResult(status=EodStepStatus.COMPLETED)
+
+        notes_by_id = {n.id: n for n in notes_today}
 
         # Check Ollama availability — semantic matching when available, keyword fallback otherwise
         ollama_available = False
@@ -488,24 +544,62 @@ def _run_task_match_step(dry_run: bool, target_date: date, non_interactive: bool
         except Exception:
             pass
 
-        entries_by_id = {e.id: e for e in entries}
+        # Throttled Slack progress message — posted once, edited in place.
+        # progress_ts stays None in CLI context (daemon is None) or if the
+        # initial post fails; either way, per-iteration print() below still
+        # provides progress (and reaches journald under systemd).
+        total = len(active_tasks)
+        progress_ts = None
+        progress_interval = 10
+        if daemon is not None:
+            from workmain.services.schedule_service import ScheduleService
+            progress_interval = ScheduleService(session).get_task_match_interval()
+            progress_ts = daemon.post_message(f"Checking 0/{total}...")
+            if progress_ts is None:
+                print("  ⚠ Progress post to Slack failed — continuing without Slack updates")
+        last_progress_update = time.monotonic()
 
         candidates = []
-        for ts in active_tasks:
+        for i, ts in enumerate(active_tasks, 1):
+            if cancel_event is not None and cancel_event.is_set():
+                print(f"  Task match cancelled at {i}/{total}")
+                return EodStepResult(status=EodStepStatus.SKIPPED, message="Task match cancelled.")
+
+            print(f"  Checking {i}/{total}...")
+            if progress_ts is not None:
+                now = time.monotonic()
+                if now - last_progress_update >= progress_interval:
+                    daemon.update_message(progress_ts, f"Checking {i}/{total}...")
+                    last_progress_update = now
+
             if not ts.note or not ts.note.content:
                 continue
 
+            # Self-match exclusion (Operations_Config_Correction_Sprint
+            # Gate 5 §5.0): TaskStatus rows are created eagerly when a note
+            # gains the carry-forward tag, so a note tagged carry-forward
+            # earlier the same day this step runs already has an active
+            # TaskStatus — and notes_today is unfiltered, so that task's own
+            # note would otherwise sit in its own candidate list and score a
+            # trivial perfect match against itself. Filtered once, upstream
+            # of both scoring paths, not patched separately into each.
+            candidate_notes = [n for n in notes_today if n.id != ts.note_id]
+            if not candidate_notes:
+                # This task's only same-day note is its own — nothing left
+                # to compare against.
+                continue
+
             if ollama_available:
-                result = intent_parser.parse_task_match(ts, entries)
+                result = intent_parser.parse_task_match(ts, candidate_notes)
                 if result["confidence"] < 0.7:
                     continue
-                matched_entry = entries_by_id.get(result["entry_id"])
-                candidates.append((result["confidence"], ts, matched_entry))
+                matched_note = notes_by_id.get(result["note_id"])
+                candidates.append((result["confidence"], ts, matched_note))
             else:
-                result = _keyword_score_match(ts, entries)
+                result = _keyword_score_match(ts, candidate_notes)
                 if result["score"] < 0.2:
                     continue
-                candidates.append((result["score"], ts, result["entry"]))
+                candidates.append((result["score"], ts, result["note"]))
 
         candidates.sort(key=lambda x: x[0], reverse=True)
 
@@ -515,12 +609,12 @@ def _run_task_match_step(dry_run: bool, target_date: date, non_interactive: bool
 
         if non_interactive:
             lines = [f"Found {len(candidates)} carry-forward task match(es):"]
-            for score, ts, entry in candidates:
+            for score, ts, note in candidates:
                 confidence = "high" if score >= 0.5 else "medium"
                 note_preview = (ts.note.content or '')[:80]
-                entry_preview = ((entry.note.content if entry and entry.note else '') or '')[:80]
+                match_preview = ((note.content if note else '') or '')[:80]
                 lines.append(f"• Task: {note_preview}")
-                lines.append(f"  Matches: {entry_preview} ({confidence} confidence)")
+                lines.append(f"  Matches: {match_preview} ({confidence} confidence)")
             lines.append("Use 'update task X as complete/dismissed' to resolve, then reply 'yes' when done.")
             formatted = "\n".join(lines)
             return EodStepResult(
@@ -536,17 +630,17 @@ def _run_task_match_step(dry_run: bool, target_date: date, non_interactive: bool
         n_dismissed = 0
         n_skipped = 0
 
-        for score, ts, entry in candidates:
+        for score, ts, note in candidates:
             confidence = "high" if score >= 0.5 else "medium"
             note_content = ts.note.content or ''
-            entry_desc = (entry.note.content if (entry and entry.note) else '') or ''
+            match_desc = (note.content if note else '') or ''
             note_preview = note_content[:80] + ('…' if len(note_content) > 80 else '')
-            entry_preview = entry_desc[:80] + ('…' if len(entry_desc) > 80 else '')
+            match_preview = match_desc[:80] + ('…' if len(match_desc) > 80 else '')
 
             print("─" * 57)
             print(f"  Match found ({confidence} confidence — {score:.2f}):")
-            print(f"  Task:       {note_preview}")
-            print(f"  Time entry: {entry_preview}")
+            print(f"  Task: {note_preview}")
+            print(f"  Note: {match_preview}")
             print()
 
             try:
@@ -560,9 +654,9 @@ def _run_task_match_step(dry_run: bool, target_date: date, non_interactive: bool
 
             if raw in ('c', 'complete'):
                 task_repo.set_completed(ts.note_id)
-                if entry and hasattr(entry, 'note_id') and entry.note_id:
+                if note and note.id:
                     try:
-                        task_repo.set_forwarding_note(ts.id, entry.note_id)
+                        task_repo.set_forwarding_note(ts.id, note.id)
                     except Exception:
                         pass
                 session.commit()
@@ -589,6 +683,220 @@ def _run_task_match_step(dry_run: bool, target_date: date, non_interactive: bool
 
     except Exception as e:
         print(f"  ⚠ Task match step failed ({e}) — continuing")
+        return EodStepResult(status=EodStepStatus.COMPLETED)
+
+    finally:
+        session.close()
+
+
+def _run_note_dedup_step(dry_run: bool, target_date: date, non_interactive: bool = False,
+                          cancel_event: Optional[threading.Event] = None,
+                          daemon: Any = None) -> EodStepResult:
+    """Step 3d: Detect semantically duplicate active carry-forward notes —
+    compares note pairs to each other, not tasks against notes (the
+    separate, kept _run_task_match_step() substep). The actual Item #32
+    deliverable (Operations_Config_Correction_Sprint Gate 5 §5.4).
+
+    Incremental pairing scope, not full all-pairs: candidates are drawn from
+    the active carry-forward pool, partitioned into notes created today
+    (target_date) and notes created on a prior day. A pair is a candidate
+    only if at least one note in the pair was created today — new x
+    existing pairs, plus new x new pairs — excluding existing x existing
+    pairs entirely, since those were already evaluated in a prior day's run.
+
+    Merge direction: the more recently created note survives; the older
+    note is dismissed, its forwarding_note_id set to the survivor.
+
+    Never blocks EOD — always returns COMPLETED (matching
+    _run_task_match_step()'s "never blocks EOD" contract).
+    """
+    if dry_run:
+        print(f"  Would compare today's new carry-forward notes against the active pool for {target_date}")
+        return EodStepResult(status=EodStepStatus.COMPLETED)
+
+    db = get_db()
+    session = db.get_session()
+    try:
+        from workmain.database.repositories.task_status_repo import TaskStatusRepository
+
+        task_repo = TaskStatusRepository(session)
+        active_tasks = task_repo.get_filtered(status='active', limit=0)
+
+        if not active_tasks:
+            print("  No active carry-forward tasks — skipping note dedup")
+            return EodStepResult(status=EodStepStatus.COMPLETED)
+
+        today_tasks = []
+        existing_tasks = []
+        for ts in active_tasks:
+            if not ts.note or not ts.note.content:
+                continue
+            if ts.note.created_date == target_date:
+                today_tasks.append(ts)
+            else:
+                existing_tasks.append(ts)
+
+        if not today_tasks:
+            print("  No new carry-forward notes today — skipping note dedup")
+            return EodStepResult(status=EodStepStatus.COMPLETED)
+
+        # Candidate pairs: new x existing, plus new x new (C(new, 2)).
+        # existing x existing is excluded — already evaluated in a prior run.
+        pairs = [(a, b) for a in today_tasks for b in existing_tasks]
+        for i in range(len(today_tasks)):
+            for j in range(i + 1, len(today_tasks)):
+                pairs.append((today_tasks[i], today_tasks[j]))
+
+        if not pairs:
+            print("  No candidate pairs to compare — skipping note dedup")
+            return EodStepResult(status=EodStepStatus.COMPLETED)
+
+        # Check Ollama availability — semantic matching when available, keyword fallback otherwise
+        ollama_available = False
+        intent_parser = None
+        try:
+            from workmain.ai.providers.ollama import OllamaProvider
+            from workmain.ai.base_provider import ProviderStatus
+            import os as _os
+            _probe = OllamaProvider({
+                "model": "workmain-intent:latest",
+                "host": _os.environ.get("OLLAMA_HOST", "workmain-ollama.lab.haloschaos.com"),
+                "port": int(_os.environ.get("OLLAMA_PORT", "11434")),
+                "timeout": 15,
+            })
+            if _probe.check_availability() == ProviderStatus.AVAILABLE:
+                from workmain.ai.intent_parser import IntentParser
+                intent_parser = IntentParser()
+                ollama_available = True
+        except Exception:
+            pass
+
+        # Throttled Slack progress message — same mechanism as task match,
+        # independent interval (this loop's iteration count differs
+        # structurally — up to ~n²/2 at scale, vs. linear for task match).
+        total = len(pairs)
+        progress_ts = None
+        progress_interval = 10
+        if daemon is not None:
+            from workmain.services.schedule_service import ScheduleService
+            progress_interval = ScheduleService(session).get_note_dedup_interval()
+            progress_ts = daemon.post_message(f"Comparing 0/{total}...")
+            if progress_ts is None:
+                print("  ⚠ Progress post to Slack failed — continuing without Slack updates")
+        last_progress_update = time.monotonic()
+
+        duplicates_found = []
+        for i, (ts_a, ts_b) in enumerate(pairs, 1):
+            if cancel_event is not None and cancel_event.is_set():
+                print(f"  Note dedup cancelled at {i}/{total}")
+                return EodStepResult(status=EodStepStatus.SKIPPED, message="Note dedup cancelled.")
+
+            print(f"  Comparing {i}/{total}...")
+            if progress_ts is not None:
+                now = time.monotonic()
+                if now - last_progress_update >= progress_interval:
+                    daemon.update_message(progress_ts, f"Comparing {i}/{total}...")
+                    last_progress_update = now
+
+            note_a, note_b = ts_a.note, ts_b.note
+
+            if ollama_available:
+                result = intent_parser.parse_note_duplicate(note_a.content, note_b.content)
+                if not result["duplicate"] or result["confidence"] < 0.7:
+                    continue
+            else:
+                result = _keyword_note_dedup_match(note_a.content, note_b.content)
+                if result["score"] < 0.5:
+                    continue
+
+            duplicates_found.append((ts_a, ts_b))
+
+        if not duplicates_found:
+            print("  No duplicate notes found")
+            return EodStepResult(status=EodStepStatus.COMPLETED)
+
+        if non_interactive:
+            lines = [f"Found {len(duplicates_found)} duplicate note pair(s):"]
+            for ts_a, ts_b in duplicates_found:
+                preview_a = (ts_a.note.content or '')[:80]
+                preview_b = (ts_b.note.content or '')[:80]
+                lines.append(f"• {preview_a}")
+                lines.append(f"  ~ {preview_b}")
+            lines.append(
+                "Reply describing which note is the duplicate "
+                "(e.g. '<note> is a duplicate of <note>') to resolve, then reply 'yes' when done."
+            )
+            formatted = "\n".join(lines)
+            return EodStepResult(
+                status=EodStepStatus.PAUSED,
+                pause_reason=formatted,
+                pause_resume_hint="Reply 'yes' when done resolving duplicates.",
+            )
+
+        print(f"  Found {len(duplicates_found)} duplicate pair(s) to review:")
+        print()
+
+        n_merged = 0
+        n_skipped = 0
+        dismissed_this_run = set()
+
+        for ts_a, ts_b in duplicates_found:
+            note_a, note_b = ts_a.note, ts_b.note
+            if note_a.id in dismissed_this_run or note_b.id in dismissed_this_run:
+                continue
+
+            preview_a = note_a.content[:80] + ('…' if len(note_a.content) > 80 else '')
+            preview_b = note_b.content[:80] + ('…' if len(note_b.content) > 80 else '')
+
+            print("─" * 57)
+            print("  Duplicate found:")
+            print(f"  Note A: {preview_a}")
+            print(f"  Note B: {preview_b}")
+            print()
+
+            try:
+                raw = _prompt_choice("  [m]erge   [s]kip (Enter)", default='s')
+            except (EOFError, KeyboardInterrupt):
+                n_skipped += 1
+                continue
+
+            if raw in ('m', 'merge'):
+                # More recent note survives; older note dismissed (Gate 5
+                # §5.4 locked rule — confirmed by Ray).
+                if note_a.created_at >= note_b.created_at:
+                    surviving_note, dismissed_note = note_a, note_b
+                else:
+                    surviving_note, dismissed_note = note_b, note_a
+
+                dismissed_task_status = task_repo.get_by_note_id(dismissed_note.id)
+                if dismissed_task_status is None:
+                    print(f"  ⚠ No task_status found for note {dismissed_note.id} — skipping merge")
+                    n_skipped += 1
+                    continue
+
+                try:
+                    task_repo.set_forwarding_note(dismissed_task_status.id, surviving_note.id)
+                    task_repo.set_dismissed(dismissed_note.id)
+                    session.commit()
+                    dismissed_this_run.add(dismissed_note.id)
+                    print(f"  ✓ Merged — note {dismissed_note.id} now forwards to note {surviving_note.id}")
+                    n_merged += 1
+                except ValueError as e:
+                    # Do not silently pass here — the existing task-match/
+                    # deduplicate_task callers do; this step surfaces it.
+                    print(f"  ⚠ Merge failed: {e}")
+                    session.rollback()
+                    n_skipped += 1
+            else:
+                n_skipped += 1
+
+        print("─" * 57)
+        print()
+        print(f"  Note dedup review complete. {n_merged} merged, {n_skipped} skipped.")
+        return EodStepResult(status=EodStepStatus.COMPLETED)
+
+    except Exception as e:
+        print(f"  ⚠ Note dedup step failed ({e}) — continuing")
         return EodStepResult(status=EodStepStatus.COMPLETED)
 
     finally:
@@ -1130,6 +1438,7 @@ def _build_step_sequence(weekday: int, skip: list) -> list:
         ('review',                '3',  'Review time entries',                              _run_review_step),
         ('pre_flight_inspection', '3b', 'Run pre-flight inspection',                        _run_pre_flight_inspection_step),
         ('task_match',            '3c', 'Resolve carry-forward tasks',                      _run_task_match_step),
+        ('note_dedup',            '3d', 'Detect duplicate carry-forward notes',              _run_note_dedup_step),
         ('report',                '4a', 'Generate report (reports save daily_internal)',    _run_report_step),
         ('email',                 '4b', 'Create email draft (email save daily_internal)',   _run_email_step),
         ('clockify',              '5',  'Pull Clockify PDF (clockify report save daily)',   _run_clockify_step),
@@ -1172,18 +1481,31 @@ def get_step_sequence(weekday: int, skip: list) -> list:
     return _build_step_sequence(weekday, skip)
 
 
-def run_step(step: dict, dry_run: bool, target_date: date, non_interactive: bool = False) -> EodStepResult:
+def run_step(step: dict, dry_run: bool, target_date: date, non_interactive: bool = False,
+             cancel_event: Optional[threading.Event] = None, daemon: Any = None) -> EodStepResult:
     """Dispatch to the step runner for this step dict.
 
     Returns EodStepResult. The CLI surface renders result.message and
     handles PAUSED states interactively via click/rich. The Slack surface
     passes non_interactive=True so interactive steps return PAUSED instead
     of blocking on stdin.
+
+    cancel_event/daemon are passed through only to runners that declare
+    those parameters (task_match, note_dedup — Operations_Config_Correction_
+    Sprint Gate 5 §5.1), matching the existing non_interactive introspection
+    pattern rather than adding them unconditionally to every runner's
+    signature.
     """
     runner = step['runner']
-    if non_interactive and 'non_interactive' in _inspect.signature(runner).parameters:
-        return runner(dry_run, target_date, non_interactive=True)
-    return runner(dry_run, target_date)
+    params = _inspect.signature(runner).parameters
+    kwargs = {}
+    if non_interactive and 'non_interactive' in params:
+        kwargs['non_interactive'] = True
+    if cancel_event is not None and 'cancel_event' in params:
+        kwargs['cancel_event'] = cancel_event
+    if daemon is not None and 'daemon' in params:
+        kwargs['daemon'] = daemon
+    return runner(dry_run, target_date, **kwargs)
 
 
 __all__ = [

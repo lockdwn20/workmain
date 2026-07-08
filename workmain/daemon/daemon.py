@@ -1,7 +1,7 @@
 """
 WorkmAIn Notification Daemon
-daemon.py v1.17
-20260702
+daemon.py v1.18
+20260707
 
 Entry point for the always-on background daemon process.
 WorkmAInDaemon owns the Slack socket connection, EOD manager, and
@@ -81,6 +81,13 @@ Version History:
          both. No other lines changed in either function — Gate 2's
          get_active_for_date() and Gate 1's ScheduleService.is_working_day()
          both confirmed still intact.
+- v1.18: Operations_Config_Correction_Sprint Gate 5 §5.1 — post_message()/
+         post_blocks() pass-through wrappers changed from -> None to
+         -> Optional[str], returning the ts WorkmAInSocketClient now
+         captures; new update_message(ts, text) -> bool wrapper added.
+         Confirmed non-breaking across all 19 existing call sites (none
+         read a return value). Enables throttled Slack progress-message
+         editing for the EOD task-match/note-dedup substeps.
 """
 
 import json
@@ -446,19 +453,29 @@ class WorkmAInDaemon:
             self._socket_client.stop()
         scheduler_stop()
 
-    def post_message(self, text: str) -> None:
-        """Post plain text to operator DM."""
+    def post_message(self, text: str) -> Optional[str]:
+        """Post plain text to operator DM. Returns the message ts, or None
+        if the DM channel isn't resolved or the post failed."""
         if self._dm_channel and self._socket_client:
-            self._socket_client.post_message(self._dm_channel, text)
-        else:
-            logger.warning('WorkmAInDaemon.post_message: DM channel not resolved')
+            return self._socket_client.post_message(self._dm_channel, text)
+        logger.warning('WorkmAInDaemon.post_message: DM channel not resolved')
+        return None
 
-    def post_blocks(self, blocks: list, fallback_text: str) -> None:
-        """Post Block Kit message to operator DM."""
+    def post_blocks(self, blocks: list, fallback_text: str) -> Optional[str]:
+        """Post Block Kit message to operator DM. Returns the message ts, or
+        None if the DM channel isn't resolved or the post failed."""
         if self._dm_channel and self._socket_client:
-            self._socket_client.post_blocks(self._dm_channel, blocks, fallback_text)
-        else:
-            logger.warning('WorkmAInDaemon.post_blocks: DM channel not resolved')
+            return self._socket_client.post_blocks(self._dm_channel, blocks, fallback_text)
+        logger.warning('WorkmAInDaemon.post_blocks: DM channel not resolved')
+        return None
+
+    def update_message(self, ts: str, text: str) -> bool:
+        """Edit an existing operator DM message in place. Returns True on
+        success, False if the DM channel isn't resolved or the edit failed."""
+        if self._dm_channel and self._socket_client:
+            return self._socket_client.update_message(self._dm_channel, ts, text)
+        logger.warning('WorkmAInDaemon.update_message: DM channel not resolved')
+        return False
 
     def handle_message(self, event: dict) -> None:
         """Inbound DM message — update channel cache, dispatch."""

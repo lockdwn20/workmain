@@ -1,7 +1,7 @@
 """
 WorkmAIn Schedule Service
-schedule_service.py v1.0
-20260701
+schedule_service.py v1.1
+20260707
 
 Single authority for "is this a working day" and "is this within working
 hours." Replaces four independent implementations that each computed this
@@ -9,6 +9,11 @@ differently with different data sources.
 
 Version History:
 - v1.0: Initial implementation — Operations_Config_Correction_Sprint Gate 1
+- v1.1: Operations_Config_Correction_Sprint Gate 5 §5.6 — get_task_match_interval()/
+        get_note_dedup_interval() added, same shape as get_t4_interval() but
+        each returns a single int (seconds), not a min/max pair. Two
+        independent settings — the task-match and note-dedup EOD substeps
+        have structurally different iteration counts.
 """
 
 from datetime import date, datetime, time
@@ -24,12 +29,16 @@ DEFAULT_WORKING_HOURS_START = time(9, 0)
 DEFAULT_WORKING_HOURS_END = time(18, 0)
 DEFAULT_T4_INTERVAL_MIN = 30
 DEFAULT_T4_INTERVAL_MAX = 120
+DEFAULT_TASK_MATCH_INTERVAL = 10
+DEFAULT_NOTE_DEDUP_INTERVAL = 10
 MAX_LOOKBACK_DAYS = 365  # previous_working_day() safety bound — see note below
 
 KEY_WORKING_HOURS_START = "working_hours_start"
 KEY_WORKING_HOURS_END = "working_hours_end"
 KEY_T4_INTERVAL_MIN = "t4_interval_min"
 KEY_T4_INTERVAL_MAX = "t4_interval_max"
+KEY_TASK_MATCH_INTERVAL = "task_match_progress_interval"
+KEY_NOTE_DEDUP_INTERVAL = "note_dedup_progress_interval"
 
 
 class ScheduleService:
@@ -70,6 +79,27 @@ class ScheduleService:
             return (min_val, max_val)
         except (TypeError, ValueError):
             return (DEFAULT_T4_INTERVAL_MIN, DEFAULT_T4_INTERVAL_MAX)
+
+    def get_task_match_interval(self) -> int:
+        """Throttle interval (seconds) between Slack progress-message edits
+        for the task-match EOD substep. Independent setting from
+        get_note_dedup_interval() — the two loops have structurally
+        different iteration counts."""
+        raw = self._state.get(KEY_TASK_MATCH_INTERVAL)
+        try:
+            return int(raw) if raw is not None else DEFAULT_TASK_MATCH_INTERVAL
+        except (TypeError, ValueError):
+            return DEFAULT_TASK_MATCH_INTERVAL
+
+    def get_note_dedup_interval(self) -> int:
+        """Throttle interval (seconds) between Slack progress-message edits
+        for the note-dedup EOD substep. Independent setting from
+        get_task_match_interval()."""
+        raw = self._state.get(KEY_NOTE_DEDUP_INTERVAL)
+        try:
+            return int(raw) if raw is not None else DEFAULT_NOTE_DEDUP_INTERVAL
+        except (TypeError, ValueError):
+            return DEFAULT_NOTE_DEDUP_INTERVAL
 
     def _get_configured_time(self, key: str, default: time) -> time:
         raw = self._state.get(key)

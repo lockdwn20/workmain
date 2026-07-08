@@ -72,38 +72,39 @@ class TestEodStepResult(unittest.TestCase):
 class TestGetStepSequence(unittest.TestCase):
     """Tests for get_step_sequence / _build_step_sequence step counts and keys."""
 
-    def test_monday_returns_nine_steps(self):
+    def test_monday_returns_ten_steps(self):
         steps = get_step_sequence(MONDAY, [])
         keys = [s['key'] for s in steps]
-        self.assertEqual(len(steps), 9)
+        self.assertEqual(len(steps), 10)
         self.assertIn('pre_flight_inspection', keys)
         self.assertIn('task_match', keys)
+        self.assertIn('note_dedup', keys)
         self.assertNotIn('weekly', keys)
         self.assertNotIn('weekly_report', keys)
 
-    def test_thursday_returns_ten_steps(self):
+    def test_thursday_returns_eleven_steps(self):
         steps = get_step_sequence(THURSDAY, [])
         keys = [s['key'] for s in steps]
-        self.assertEqual(len(steps), 10)
+        self.assertEqual(len(steps), 11)
         self.assertIn('weekly', keys)
 
-    def test_friday_returns_eleven_steps(self):
+    def test_friday_returns_twelve_steps(self):
         steps = get_step_sequence(FRIDAY, [])
         keys = [s['key'] for s in steps]
-        self.assertEqual(len(steps), 11)
+        self.assertEqual(len(steps), 12)
         self.assertIn('weekly_report', keys)
         self.assertIn('weekly_email', keys)
 
-    def test_skip_weekly_thursday_returns_nine_steps(self):
+    def test_skip_weekly_thursday_returns_ten_steps(self):
         steps = get_step_sequence(THURSDAY, ['weekly'])
         keys = [s['key'] for s in steps]
-        self.assertEqual(len(steps), 9)
+        self.assertEqual(len(steps), 10)
         self.assertNotIn('weekly', keys)
 
-    def test_skip_weekly_friday_returns_nine_steps(self):
+    def test_skip_weekly_friday_returns_ten_steps(self):
         steps = get_step_sequence(FRIDAY, ['weekly'])
         keys = [s['key'] for s in steps]
-        self.assertEqual(len(steps), 9)
+        self.assertEqual(len(steps), 10)
         self.assertNotIn('weekly_report', keys)
         self.assertNotIn('weekly_email', keys)
 
@@ -135,7 +136,7 @@ class TestRunStep(unittest.TestCase):
 
     def test_run_step_dry_run_all_return_completed(self):
         """All step runners return COMPLETED in dry-run mode."""
-        steps = get_step_sequence(FRIDAY, [])  # Friday has all 11 steps
+        steps = get_step_sequence(FRIDAY, [])  # Friday has all 12 steps
         for step in steps:
             result = run_step(step, dry_run=True, target_date=SENTINEL_DATE)
             self.assertEqual(
@@ -215,7 +216,10 @@ class TestTokenizeAndScore(unittest.TestCase):
         score = _score_match(set(), {'any', 'tokens'})
         self.assertAlmostEqual(score, 0.0)
 
-    def test_keyword_score_match_returns_best_entry(self):
+    def test_keyword_score_match_returns_best_note(self):
+        """Gate 5 §5.0: _keyword_score_match() compares notes directly now
+        (task-to-entry rescoped to task-to-note) — candidates are Note
+        objects, not TimeEntry-wrapping objects with a .note indirection."""
         class FakeNote:
             def __init__(self, content):
                 self.content = content
@@ -224,19 +228,15 @@ class TestTokenizeAndScore(unittest.TestCase):
             def __init__(self, content):
                 self.note = FakeNote(content)
 
-        class FakeEntry:
-            def __init__(self, content):
-                self.note = FakeNote(content)
-
         task = FakeTask("XSOAR migration review")
-        entries = [
-            FakeEntry("email triage"),
-            FakeEntry("XSOAR migration work completed"),
+        notes = [
+            FakeNote("email triage"),
+            FakeNote("XSOAR migration work completed"),
         ]
-        result = _keyword_score_match(task, entries)
+        result = _keyword_score_match(task, notes)
         self.assertGreater(result["score"], 0.0)
-        self.assertIsNotNone(result["entry"])
-        self.assertEqual(result["entry"].note.content, "XSOAR migration work completed")
+        self.assertIsNotNone(result["note"])
+        self.assertEqual(result["note"].content, "XSOAR migration work completed")
 
 
 if __name__ == '__main__':

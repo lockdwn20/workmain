@@ -1,7 +1,7 @@
 """
 WorkmAIn Schedule Commands
-schedule.py v1.2
-20260701
+schedule.py v1.3
+20260707
 
 CLI command group: workmain schedule
 Owns calendar exceptions (when the daemon should not fire notifications)
@@ -10,7 +10,8 @@ and schedule/notification timing configuration.
 Subgroups:
   workmain schedule holiday <subcommand>  — named holiday management
   workmain schedule timeoff <subcommand>  — personal time-off ranges
-  workmain schedule set <subcommand>      — trigger times, working hours, T4 interval
+  workmain schedule set <subcommand>      — trigger times, working hours, T4 interval,
+                                             EOD progress intervals
   workmain schedule config show           — display current timing configuration
 
 Resolves CLI_STANDARDS.md V8 (add-holiday) and V9 (add-timeoff) — commands
@@ -26,6 +27,10 @@ Version History:
         parse_time() (Gate 1 §1.0), accepting HH:MM and HHMM alike; error
         idiom matches this file's existing console.print(f"[red]✗ ...[/red]")
         + return convention throughout
+- v1.3: Operations_Config_Correction_Sprint Gate 5 §5.6 — set task-match-interval/
+        note-dedup-interval added (Slack progress-message throttle intervals
+        for the EOD task-match/note-dedup substeps); config show displays
+        both alongside existing trigger times/working hours/T4 interval
 """
 
 from datetime import datetime, date as date_type
@@ -499,6 +504,50 @@ def set_t4_interval(min_minutes: int, max_minutes: int) -> None:
         session.close()
 
 
+@set.command(name='task-match-interval')
+@click.argument('seconds', type=int)
+def set_task_match_interval(seconds: int) -> None:
+    """Set the Slack progress-message throttle interval for the EOD task-match substep.
+
+    Examples:
+      workmain schedule set task-match-interval 10
+    """
+    if seconds < 1:
+        console.print(f"[red]✗ Seconds ({seconds}) must be positive[/red]")
+        return
+
+    db = get_db()
+    session = db.get_session()
+    try:
+        state = SystemStateRepository(session)
+        state.set('task_match_progress_interval', str(seconds))
+        console.print(f"[green]Task-match progress interval set to:[/green] {seconds}s")
+    finally:
+        session.close()
+
+
+@set.command(name='note-dedup-interval')
+@click.argument('seconds', type=int)
+def set_note_dedup_interval(seconds: int) -> None:
+    """Set the Slack progress-message throttle interval for the EOD note-dedup substep.
+
+    Examples:
+      workmain schedule set note-dedup-interval 10
+    """
+    if seconds < 1:
+        console.print(f"[red]✗ Seconds ({seconds}) must be positive[/red]")
+        return
+
+    db = get_db()
+    session = db.get_session()
+    try:
+        state = SystemStateRepository(session)
+        state.set('note_dedup_progress_interval', str(seconds))
+        console.print(f"[green]Note-dedup progress interval set to:[/green] {seconds}s")
+    finally:
+        session.close()
+
+
 # ---------------------------------------------------------------------------
 # schedule config subgroup
 # ---------------------------------------------------------------------------
@@ -529,6 +578,8 @@ def config_show() -> None:
             table.add_row(trigger, raw or "[dim]not set[/dim]")
 
         min_minutes, max_minutes = schedule_service.get_t4_interval()
+        task_match_interval = schedule_service.get_task_match_interval()
+        note_dedup_interval = schedule_service.get_note_dedup_interval()
 
         console.print("\n[bold cyan]Trigger Times[/bold cyan]")
         console.print(table)
@@ -539,6 +590,9 @@ def config_show() -> None:
         )
         console.print("\n[bold cyan]T4 Check-in Interval[/bold cyan]")
         console.print(f"  {min_minutes}-{max_minutes} minutes")
+        console.print("\n[bold cyan]EOD Progress Intervals[/bold cyan]")
+        console.print(f"  Task match:  {task_match_interval}s")
+        console.print(f"  Note dedup:  {note_dedup_interval}s")
     finally:
         session.close()
 

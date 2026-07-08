@@ -1,8 +1,8 @@
 """
 WorkmAIn Intent Parser
 workmain/ai/intent_parser.py
-v1.2
-20260611
+v1.3
+20260707
 
 Parses natural language input (Slack DM messages) into structured action JSON
 using Mistral 7B via OllamaProvider (workmain-intent:latest).
@@ -18,6 +18,13 @@ Version History:
 - v1.1: Gate 3 — wire ai_costs tracking for intent_parse interactions
 - v1.2: Phase 13 Sprint 2 Gate 1c — parse_task_match() added for Item 32 semantic
         deduplication; structured query, separate from general parse() path
+- v1.3: Operations_Config_Correction_Sprint Gate 5 — parse_task_match()
+        re-scoped from TimeEntry rows to Note rows (§5.0: notes are the
+        actual source of truth; a note with no linked time entry was
+        previously invisible), return key entry_id -> note_id;
+        parse_note_duplicate() added for the actual Item #32 deliverable
+        (note-to-note dedup), mirrors parse_task_match()'s call pattern
+        exactly (§5.4)
 """
 
 import json
@@ -148,44 +155,49 @@ class IntentParser:
 
         return result
 
-    def parse_task_match(self, task, entries: list) -> dict:
-        """Determine if a carry-forward task was completed based on today's time entries.
+    def parse_task_match(self, task, notes: list) -> dict:
+        """Determine if a carry-forward task was completed based on today's notes.
 
         Targeted structured query — not a free-text intent parse. Asks whether
-        the task was likely completed based on the provided entries and returns a
+        the task was likely completed based on the provided notes and returns a
         structured match result.
+
+        Operations_Config_Correction_Sprint Gate 5 §5.0: re-scoped from
+        TimeEntry rows to Note rows — every TimeEntry was already just an
+        indirection to a Note, and this compares against the actual source
+        of truth directly now.
 
         Args:
             task: TaskStatus object (task.note.content is the task description)
-            entries: List of TimeEntry objects for the target date
+            notes: List of Note objects for the target date
 
         Returns:
             dict with keys:
                 matched (bool): True if task appears completed/worked on
                 confidence (float): 0.0–1.0 confidence score
-                entry_id (int|None): ID of the best-matching time entry, or None
+                note_id (int|None): ID of the best-matching note, or None
         """
         task_content = task.note.content if task.note else ""
-        if not task_content or not entries:
-            return {"matched": False, "confidence": 0.0, "entry_id": None}
+        if not task_content or not notes:
+            return {"matched": False, "confidence": 0.0, "note_id": None}
 
-        entries_text = "\n".join(
-            f"- ID {e.id}: {e.note.content} ({e.duration_hours}h)"
-            for e in entries
-            if e.note and e.note.content
+        notes_text = "\n".join(
+            f"- ID {n.id}: {n.content}"
+            for n in notes
+            if n.content
         )
-        if not entries_text:
-            return {"matched": False, "confidence": 0.0, "entry_id": None}
+        if not notes_text:
+            return {"matched": False, "confidence": 0.0, "note_id": None}
 
         prompt = (
             f"Given this carry-forward task:\nTask: {task_content}\n\n"
-            f"And today's time entries:\n{entries_text}\n\n"
+            f"And today's notes:\n{notes_text}\n\n"
             "Did the user complete or work on this task today? "
             "Return ONLY a JSON object with:\n"
             '- matched: boolean (true if task appears completed/worked on)\n'
             '- confidence: float 0.0-1.0\n'
-            '- entry_id: integer (ID of best-matching entry) or null\n\n'
-            'Example: {"matched": true, "confidence": 0.85, "entry_id": 42}'
+            '- note_id: integer (ID of best-matching note) or null\n\n'
+            'Example: {"matched": true, "confidence": 0.85, "note_id": 42}'
         )
 
         request = GenerationRequest(
@@ -210,11 +222,56 @@ class IntentParser:
             return {
                 "matched": bool(result.get("matched", False)),
                 "confidence": float(result.get("confidence", 0.0)),
-                "entry_id": result.get("entry_id"),
+                "note_id": result.get("note_id"),
             }
         except (json.JSONDecodeError, ValueError) as e:
             logger.warning("parse_task_match failed to parse response: %s", e)
-            return {"matched": False, "confidence": 0.0, "entry_id": None}
+            return {"matched": False, "confidence": 0.0, "note_id": None}
         except Exception as e:
             logger.warning("parse_task_match error: %s", e)
-            return {"matched": False, "confidence": 0.0, "entry_id": None}
+            return {"matched": False, "confidence": 0.0, "note_id": None}
+
+    def parse_note_duplicate(self, note_a: str, note_b: str) -> dict:
+        """Ask Mistral whether two carry-forward notes describe the same
+        underlying item. Mirrors parse_task_match()'s body exactly — unpack,
+        .content, inline fence-strip, coercion.
+
+        Operations_Config_Correction_Sprint Gate 5 §5.4 — Item #32's actual
+        deliverable (note-to-note dedup, not the task-to-note matcher above).
+
+        Returns:
+            dict with keys:
+                duplicate (bool): True if the two notes describe the same item
+                confidence (float): 0.0-1.0 confidence score
+                note_id (int|None): unused by callers today: kept for
+                    parity with parse_task_match()'s shape
+        """
+        request = GenerationRequest(
+            system_prompt=None,
+            prompt=f"Are these two notes describing the same item?\n\nNote A: {note_a}\nNote B: {note_b}",
+            max_tokens=64,
+        )
+        try:
+            response, _ = self._provider_manager.generate(
+                request, provider_override=ProviderType.OLLAMA
+            )
+            raw = response.content.strip()
+
+            if raw.startswith("```"):
+                lines = raw.splitlines()
+                raw = "\n".join(
+                    l for l in lines if not l.strip().startswith("```")
+                ).strip()
+
+            result = json.loads(raw)
+            return {
+                "duplicate": bool(result.get("duplicate", False)),
+                "confidence": float(result.get("confidence", 0.0)),
+                "note_id": result.get("note_id"),
+            }
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.warning("parse_note_duplicate: malformed response: %s", e)
+            return {"duplicate": False, "confidence": 0.0, "note_id": None}
+        except Exception as e:
+            logger.warning("parse_note_duplicate: provider error: %s", e)
+            return {"duplicate": False, "confidence": 0.0, "note_id": None}
