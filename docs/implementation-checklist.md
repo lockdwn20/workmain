@@ -361,7 +361,7 @@ context is retained via the task_status / forwarding_note relationship. The
 - [x] `workmain tasks carryover` shows context per task
 - [ ] Optional carry-forward reason (`--reason TEXT`) — not delivered; deferred
 
-### PC-3 — Report Correction Propagation — ESSENTIALLY COMPLETE
+### PC-3 — Report Correction Propagation — COMPLETE
 
 - [x] `confirmed` / `corrected` status field on `reports` table
 - [x] Daily report marked `unconfirmed` on generation
