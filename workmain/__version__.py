@@ -1,9 +1,18 @@
 """
 WorkmAIn Package Version
-Version v1.24.0
-20260708
+Version v1.24.1
+20260709
 
 Version History:
+- v1.24.1: Hotfix Item #58 — T4 activity-gap suppression. _send_t4_checkin()
+           now suppresses the check-in DM (and reschedules) if a Note or
+           TimeEntry was created within the last t4_max minutes at actual
+           fire time; no recent activity fires the DM as before.
+           NotesRepository/TimeEntriesRepository gain
+           get_most_recent_since(since); TimeEntriesRepository.create() gains
+           a created_at override mirroring NotesRepository's existing pattern.
+           _reschedule_t4_checkin() unchanged. 14 new tests (777 → 791).
+           notes_repo.py v2.1; time_entries_repo.py v1.11; scheduler.py v1.12.
 - v1.24.0: Operations_Config_Correction_Sprint (Gates 1-7) — ScheduleService
            unifies is_working_day()/is_working_hours()/get_t4_interval()/
            previous_working_day() as single authority, replacing four
@@ -427,7 +436,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.24.0"
-__version_info__ = (1, 24, 0)
+__version__ = "1.24.1"
+__version_info__ = (1, 24, 1)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"

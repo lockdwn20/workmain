@@ -497,16 +497,114 @@ class TestT4Checkin(unittest.TestCase):
             sched_mod._send_t3(1, daemon)
         mock_resched.assert_called_once_with(daemon)
 
+    def _run_send_t4_checkin(self, daemon, note_hit=None, entry_hit=None,
+                              t4_interval=(30, 90)):
+        """Call _send_t4_checkin with the activity-gap dependencies mocked.
+        Item #58 — NotesRepository/TimeEntriesRepository are imported locally
+        inside _send_t4_checkin(), so they must be patched at their source
+        modules (Opus Finding A), not as scheduler-module attributes."""
+        import workmain.daemon.scheduler as sched_mod
+        mock_service = MagicMock()
+        mock_service.get_t4_interval.return_value = t4_interval
+        with patch('workmain.database.repositories.notes_repo.NotesRepository') as mock_notes_cls, \
+             patch('workmain.database.repositories.time_entries_repo.TimeEntriesRepository') as mock_entries_cls, \
+             patch('workmain.daemon.scheduler.get_db') as mock_get_db, \
+             patch('workmain.daemon.scheduler.ScheduleService', return_value=mock_service), \
+             patch('workmain.daemon.scheduler._reschedule_t4_checkin') as mock_resched:
+            mock_get_db.return_value.get_session.return_value = MagicMock()
+            mock_notes_cls.return_value.get_most_recent_since.return_value = note_hit
+            mock_entries_cls.return_value.get_most_recent_since.return_value = entry_hit
+            sched_mod._send_t4_checkin(daemon)
+        return mock_resched
+
     def test_t4_rescheduled_after_firing(self):
         """_send_t4_checkin reschedules the next window after posting the DM."""
+        daemon = MagicMock()
+        daemon._eod_manager._sessions = {}
+        daemon._eod_manager.has_session.return_value = False
+        mock_resched = self._run_send_t4_checkin(daemon, note_hit=None, entry_hit=None)
+        daemon.post_message.assert_called_once_with('What are you working on right now?')
+        mock_resched.assert_called_once_with(daemon)
+
+    def test_t4_checkin_fires_normally_with_no_recent_activity(self):
+        """No recent Note or TimeEntry → DM sent, reschedule called (AC 3)."""
+        daemon = MagicMock()
+        daemon._eod_manager._sessions = {}
+        daemon._eod_manager.has_session.return_value = False
+        mock_resched = self._run_send_t4_checkin(daemon, note_hit=None, entry_hit=None)
+        daemon.post_message.assert_called_once_with('What are you working on right now?')
+        mock_resched.assert_called_once_with(daemon)
+
+    def test_t4_checkin_suppressed_by_recent_note(self):
+        """Recent Note found → DM suppressed, reschedule called (AC 1/2/5)."""
+        daemon = MagicMock()
+        daemon._eod_manager._sessions = {}
+        daemon._eod_manager.has_session.return_value = False
+        note = MagicMock()
+        note.created_at = datetime.now()
+        mock_resched = self._run_send_t4_checkin(daemon, note_hit=note, entry_hit=None)
+        daemon.post_message.assert_not_called()
+        mock_resched.assert_called_once_with(daemon)
+
+    def test_t4_checkin_suppressed_by_recent_time_entry(self):
+        """Recent TimeEntry found → DM suppressed, reschedule called (AC 1/2/5)."""
+        daemon = MagicMock()
+        daemon._eod_manager._sessions = {}
+        daemon._eod_manager.has_session.return_value = False
+        entry = MagicMock()
+        entry.created_at = datetime.now()
+        mock_resched = self._run_send_t4_checkin(daemon, note_hit=None, entry_hit=entry)
+        daemon.post_message.assert_not_called()
+        mock_resched.assert_called_once_with(daemon)
+
+    def test_t4_checkin_suppression_logs_debug(self):
+        """Suppression path logs at DEBUG level (AC 6)."""
         import workmain.daemon.scheduler as sched_mod
         daemon = MagicMock()
         daemon._eod_manager._sessions = {}
         daemon._eod_manager.has_session.return_value = False
-        with patch('workmain.daemon.scheduler._reschedule_t4_checkin') as mock_resched:
+        note = MagicMock()
+        note.created_at = datetime.now()
+        mock_service = MagicMock()
+        mock_service.get_t4_interval.return_value = (30, 90)
+        with patch('workmain.database.repositories.notes_repo.NotesRepository') as mock_notes_cls, \
+             patch('workmain.database.repositories.time_entries_repo.TimeEntriesRepository') as mock_entries_cls, \
+             patch('workmain.daemon.scheduler.get_db') as mock_get_db, \
+             patch('workmain.daemon.scheduler.ScheduleService', return_value=mock_service), \
+             patch('workmain.daemon.scheduler._reschedule_t4_checkin'), \
+             self.assertLogs('workmain.daemon.scheduler', level='DEBUG') as log_ctx:
+            mock_get_db.return_value.get_session.return_value = MagicMock()
+            mock_notes_cls.return_value.get_most_recent_since.return_value = note
+            mock_entries_cls.return_value.get_most_recent_since.return_value = None
             sched_mod._send_t4_checkin(daemon)
-        daemon.post_message.assert_called_once_with('What are you working on right now?')
-        mock_resched.assert_called_once_with(daemon)
+        self.assertTrue(any('suppressed' in msg for msg in log_ctx.output))
+
+    def test_t4_checkin_suppression_logs_latest_of_both(self):
+        """When both Note and TimeEntry are recent, the debug log reflects the
+        later of the two timestamps (observability-only, non-blocking)."""
+        import workmain.daemon.scheduler as sched_mod
+        daemon = MagicMock()
+        daemon._eod_manager._sessions = {}
+        daemon._eod_manager.has_session.return_value = False
+        earlier = datetime.now().replace(hour=9, minute=0, second=0, microsecond=0)
+        later = datetime.now().replace(hour=9, minute=45, second=0, microsecond=0)
+        note = MagicMock()
+        note.created_at = earlier
+        entry = MagicMock()
+        entry.created_at = later
+        mock_service = MagicMock()
+        mock_service.get_t4_interval.return_value = (30, 90)
+        with patch('workmain.database.repositories.notes_repo.NotesRepository') as mock_notes_cls, \
+             patch('workmain.database.repositories.time_entries_repo.TimeEntriesRepository') as mock_entries_cls, \
+             patch('workmain.daemon.scheduler.get_db') as mock_get_db, \
+             patch('workmain.daemon.scheduler.ScheduleService', return_value=mock_service), \
+             patch('workmain.daemon.scheduler._reschedule_t4_checkin'), \
+             self.assertLogs('workmain.daemon.scheduler', level='DEBUG') as log_ctx:
+            mock_get_db.return_value.get_session.return_value = MagicMock()
+            mock_notes_cls.return_value.get_most_recent_since.return_value = note
+            mock_entries_cls.return_value.get_most_recent_since.return_value = entry
+            sched_mod._send_t4_checkin(daemon)
+        self.assertTrue(any(later.strftime('%H:%M') in msg for msg in log_ctx.output))
 
 
 # ---------------------------------------------------------------------------
