@@ -1,6 +1,6 @@
 WorkmAIn
-GIT_WORKFLOW_STANDARDS v1.3
-20260505
+GIT_WORKFLOW_STANDARDS v1.5
+20260709
 
 # WorkmAIn Git Workflow Standards
 
@@ -15,6 +15,28 @@ These rules are permanent and apply to all future work.
 - v1.1 (20260319): Added hotfix → feature branch exception
 - v1.2 (20260410): Updated dev → main cadence (after every feature merge, not phase completion); added explicit branch deletion rules and cleanup commands
 - v1.3 (20260505): Explicit GitHub PR requirement for dev → main; never local merge
+- v1.4 (20260709): Clarified hotfix file-count scope limit to **application files
+  only** (`workmain/**/*.py`, `config/*`, `templates/*`) — test files (`tests/**`),
+  `__version__.py`, and `CHANGELOG.md` no longer count toward the limit, since they
+  are mandatory companions to any properly-tested change and previously made full
+  compliance impossible by construction. Clarified that file count is a proxy for
+  scope, not the test itself — a bundled-unrelated-concerns fix should escalate
+  regardless of count. Prompted by Item #58 hotfix (3 production files, 8 total
+  including tests/version/changelog, which read as escalation-triggering under the
+  prior wording despite being correctly scoped). Also corrected a footer
+  version/date mismatch left over from the v1.3 revision.
+- v1.5 (20260709): Added `chore/*` branch category for documentation/process-only
+  changes, so doc updates (standards documents, `docs/**`) no longer need to ride a
+  `hotfix/*` branch alongside unrelated code changes, or be justified under
+  `hotfix/*`'s "small corrections" language. Same branch-from/merge-to topology as
+  `hotfix/*` (from `main`, to both `main` and `dev`), but explicitly exempt from the
+  application version bump / `CHANGELOG.md` entry / `git tag` requirement, since a
+  doc-only change is not an application release — the affected document's own
+  internal version header still gets bumped per its own convention. Strictly scoped
+  to non-application files; anything touching `workmain/**`, `config/*`,
+  `templates/*`, `tests/**`, or `CHANGELOG.md` itself remains `hotfix/*` or
+  `feature/*` regardless of size. Prompted directly by this revision's own history —
+  the v1.4 change rode the Item #58 hotfix commit before being split out.
 
 ---
 
@@ -27,6 +49,7 @@ main        — production-stable. Direct commits NEVER permitted.
 dev         — integration branch. All feature work merges here first.
 feature/*   — full phase or major feature work. Branches from dev, merges to dev.
 hotfix/*    — targeted fixes only. Branches from main, merges to main AND dev.
+chore/*     — documentation/process-only changes. Branches from main, merges to main AND dev.
 ```
 
 ---
@@ -85,7 +108,14 @@ hotfix/*    — targeted fixes only. Branches from main, merges to main AND dev.
 - Naming: `hotfix/<descriptor>` e.g. `hotfix/staging-eod`
 - Branch from: `main`
 - Merge to: `main` AND `dev` (both, in that order)
-- Must be minimal scope — if fix grows beyond 3 files, escalate to a feature branch
+- Must be minimal scope — if the fix touches more than 3 **application** files
+  (`workmain/**/*.py`, `config/*`, `templates/*`), escalate to a feature branch.
+  Test files (`tests/**`), `__version__.py`, and `CHANGELOG.md` are expected
+  companions to any properly-tested change and do not count toward this limit.
+- File count is a proxy, not the actual test. The real question is whether the fix
+  is one traceable root cause (one AC, one bug) or bundles multiple unrelated
+  concerns — if a hotfix spec starts needing internal design decisions about
+  unrelated pieces, that's the signal to split it, regardless of file count.
 - **Delete the branch immediately after both merges are complete**
 - Example workflow:
   ```bash
@@ -139,6 +169,43 @@ git push origin --delete hotfix/some-fix                 # delete remote
 
 # Fix travels with the feature branch through dev → main
 ```
+
+---
+
+### `chore/*`
+- Used for: documentation-only and process/tooling changes — standards documents
+  (`CLAUDE.md`, `CLI_STANDARDS.md`, `GIT_WORKFLOW_STANDARDS.md`, `TESTING_STANDARDS.md`,
+  `PROJECT_CUSTOM_INSTRUCTIONS.md`), `docs/**`, and non-behavioral dev-tooling files
+  (`.gitignore`, editor/CI config). **Never** application code, `config/*`,
+  `templates/*`, `tests/**`, or `CHANGELOG.md` itself — a change touching any of those
+  is a `hotfix/*` or `feature/*`, however small, not a `chore/*`.
+- Naming: `chore/<short-descriptor>` e.g. `chore/git-workflow-hotfix-scope-clarification`
+- Branch from: `main`
+- Merge to: `main` AND `dev` (both, in that order) — same topology as `hotfix/*`
+- Must be minimal scope — one document, or one tightly-related set of documents edited
+  for a single reason. Do not bundle unrelated document changes into one `chore/*`
+  branch.
+- **No application version bump, no `CHANGELOG.md` entry, no `git tag`.** A doc-only
+  chore is not an application release, so none of the `main`-merge requirements above
+  that are specific to shipping application code apply here. Still bump the affected
+  document's own internal version header and changelog block, per that document's own
+  versioning convention (e.g. `GIT_WORKFLOW_STANDARDS.md` v1.4 → v1.5).
+- Delete the branch immediately after both merges are complete
+- Example workflow:
+  ```bash
+  git checkout main
+  git pull
+  git checkout -b chore/some-doc-update
+  # ... doc-only edit; bump the document's own version header/changelog ...
+  git checkout main
+  git merge --no-ff chore/some-doc-update
+  git push
+  git checkout dev
+  git merge --no-ff chore/some-doc-update
+  git push
+  git branch -d chore/some-doc-update                    # delete local
+  git push origin --delete chore/some-doc-update         # delete remote
+  ```
 
 ---
 
@@ -199,8 +266,10 @@ chore(staging): rename output/ to staging/ across all references
 | Hotfix → main               | Patch bump (x.x.N+1)     | 1.3.0 → 1.3.1   |
 | Feature/phase → dev → main  | Minor bump (x.N+1.0)     | 1.3.1 → 1.4.0   |
 | Breaking change             | Major bump (N+1.0.0)     | 1.4.0 → 2.0.0   |
+| Chore → main                | **None** — not an application release; see `chore/*` branch rules | — |
 
-Always update `__version__.py` AND `CHANGELOG.md` together on every merge to main.
+Always update `__version__.py` AND `CHANGELOG.md` together on every merge to main
+**that ships application code** — `chore/*` merges are explicitly exempt (see above).
 
 ---
 
@@ -212,7 +281,8 @@ Before writing any code in any session:
 2. `git branch` — confirm which branch you are on
 3. Determine work type:
    - Full phase or multi-gate feature → `feature/*` from `dev`
-   - Targeted fix → `hotfix/*` from `main`
+   - Targeted fix (application code) → `hotfix/*` from `main`
+   - Documentation/process-only change, no application code → `chore/*` from `main`
 4. Create the appropriate branch before writing any code
 5. Never work directly on `main` or `dev`
 
@@ -229,9 +299,12 @@ Before writing any code in any session:
 - Start writing code before creating the appropriate branch
 - Leave a branch alive after it has been merged
 - Let `dev` sit ahead of `main` after a feature merge is verified stable
+- Use `chore/*` for any change that touches application code, `config/*`,
+  `templates/*`, `tests/**`, or `CHANGELOG.md` — those belong on `hotfix/*` or
+  `feature/*` regardless of size
 
 ---
 
 END OF GIT WORKFLOW STANDARDS
 WorkmAIn — Standing Instruction for Claude Code
-v1.2 — 20260410
+v1.5 — 20260709
