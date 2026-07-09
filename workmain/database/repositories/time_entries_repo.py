@@ -1,7 +1,7 @@
 """
 WorkmAIn Time Entries Repository
-Time Entries Repository v1.10
-20260701
+Time Entries Repository v1.11
+20260709
 
 Data access layer for time entries with 24-hour time format.
 Handles all CRUD operations for the time_entries table.
@@ -27,6 +27,9 @@ Version History:
          parse_duration() bodies extracted to workmain.utils.time_parser;
          both methods now one-line delegators, kept for backward
          compatibility (13 existing call sites unchanged)
+- v1.11: Hotfix Item #58 — create() accepts created_at override, mirroring
+         NotesRepository.create()'s pattern; add get_most_recent_since() for
+         T4 activity-gap suppression
 """
 
 from datetime import date, datetime, time, timedelta
@@ -99,6 +102,7 @@ class TimeEntriesRepository:
         client_id: Optional[int] = None,
         clockify_id: Optional[str] = None,
         synced_at: Optional[datetime] = None,
+        created_at: Optional[datetime] = None,
     ) -> TimeEntry:
         """
         Create a new time entry.
@@ -114,6 +118,8 @@ class TimeEntriesRepository:
             client_id: Optional client ID for attribution (None = internal mode)
             clockify_id: Optional Clockify entry ID (set on pull import)
             synced_at: Optional sync timestamp (set on pull import, atomic with clockify_id)
+            created_at: Override creation timestamp (Item #58 — lets tests seed
+                        recency-window fixtures without relying on wall-clock time)
 
         Returns:
             Created TimeEntry object
@@ -131,6 +137,7 @@ class TimeEntriesRepository:
             client_id=client_id,
             clockify_id=clockify_id,
             synced_at=synced_at,
+            created_at=created_at or datetime.now(),
         )
 
         self.session.add(time_entry)
@@ -595,7 +602,16 @@ class TimeEntriesRepository:
             desc(TimeEntry.entry_date),
             desc(TimeEntry.entry_time)
         ).limit(limit).all()
-    
+
+    def get_most_recent_since(self, since: datetime) -> Optional[TimeEntry]:
+        """Most recently created TimeEntry with created_at >= since, or None."""
+        return (
+            self.session.query(TimeEntry)
+            .filter(TimeEntry.created_at >= since)
+            .order_by(desc(TimeEntry.created_at))
+            .first()
+        )
+
     def parse_duration(self, duration_str: str) -> float:
         """Delegates to workmain.utils.time_parser.parse_duration_hours().
         Kept for backward compatibility -- 13 existing call sites unchanged."""
