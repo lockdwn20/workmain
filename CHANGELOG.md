@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.24.1] - 2026-07-09
+
+### Added
+
+- `NotesRepository.get_most_recent_since(since)` / `TimeEntriesRepository.get_most_recent_since(since)`
+  — most recently created row with `created_at >= since`, or `None`
+- `TimeEntriesRepository.create()` — `created_at` override parameter, mirroring
+  `NotesRepository.create()`'s existing pattern
+- `tests/test_time_entries_repo.py` (new file); 14 new tests total (777 → 791)
+
+### Fixed
+
+- Item #58 — T4 check-in no longer fires while the user has logged recent
+  activity. `_send_t4_checkin()` now checks `notes`/`time_entries` for
+  activity within the last `t4_max` minutes (default 90) at actual fire time;
+  on a hit, the DM is suppressed and `_reschedule_t4_checkin()` is called
+  again unmodified — no fixed interval, a fresh random delay is drawn on
+  every cycle including suppressed ones. Named in
+  Operations_Config_Correction_Sprint Gate 1's own scope but never delivered
+  until now (see `HOTFIX_ITEM58_ACTIVITY_GAP_SPEC_v1_2.md`).
+
 ## [1.24.0] - 2026-07-08
 
 ### Added

@@ -1,7 +1,7 @@
 """
 WorkmAIn Daemon Scheduler
-scheduler.py v1.11
-20260702
+scheduler.py v1.12
+20260709
 
 APScheduler job configuration. Trigger times and the T4 interval are
 read from system_state config (Operations_Config_Correction_Sprint Gate 1)
@@ -75,6 +75,13 @@ Version History:
          (target_date, _scheduler, daemon) — threads daemon through so
          pre-meeting reminders can reach Slack (closes the one deliver()
          caller Gate 3's Finding 1 didn't cover).
+- v1.12: Hotfix Item #58 — _send_t4_checkin() gains activity-gap suppression:
+         checks NotesRepository/TimeEntriesRepository for activity within the
+         last t4_max minutes at actual fire time; on a hit, suppresses the DM
+         and calls the unmodified _reschedule_t4_checkin() again rather than
+         computing a fire_at from the activity timestamp (see
+         HOTFIX_ITEM58_ACTIVITY_GAP_SPEC_v1_2.md Design Note C).
+         _reschedule_t4_checkin() itself is unchanged.
 """
 
 import functools
@@ -395,13 +402,46 @@ def _reschedule_t4_checkin(daemon: Any) -> None:
 
 
 def _send_t4_checkin(daemon: Any) -> None:
-    """T4 — Send check-in DM and reschedule next window."""
+    """T4 — Send check-in DM and reschedule next window.
+
+    Item #58 — suppressed if a Note or TimeEntry was created within the last
+    t4_max minutes (activity-gap suppression). Existence-only check; no
+    fire_at recomputation — suppression simply re-runs the already-correct
+    _reschedule_t4_checkin(), which always draws a fresh future delay.
+    """
     if any(
         daemon._eod_manager.has_session(uid)
         for uid in list(daemon._eod_manager._sessions)
     ):
         _reschedule_t4_checkin(daemon)
         return
+
+    from workmain.database.repositories.notes_repo import NotesRepository
+    from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+
+    db = get_db()
+    session = db.get_session()
+    try:
+        _, t4_max = ScheduleService(session).get_t4_interval()
+        since = datetime.now() - timedelta(minutes=t4_max)
+        recent_note = NotesRepository(session).get_most_recent_since(since)
+        recent_entry = TimeEntriesRepository(session).get_most_recent_since(since)
+        # Captured before close — avoids reading attributes off a detached
+        # instance after the session closes.
+        recent_note_at = recent_note.created_at if recent_note else None
+        recent_entry_at = recent_entry.created_at if recent_entry else None
+    finally:
+        session.close()
+
+    if recent_note_at or recent_entry_at:
+        candidates = [t for t in (recent_note_at, recent_entry_at) if t is not None]
+        logger.debug(
+            'T4 check-in suppressed — recent activity at %s',
+            max(candidates).strftime('%H:%M'),
+        )
+        _reschedule_t4_checkin(daemon)
+        return
+
     daemon.post_message('What are you working on right now?')
     _reschedule_t4_checkin(daemon)
 

@@ -1,7 +1,7 @@
 """
 WorkmAIn Notes Repository
-Notes Repository v2.0
-20260610
+Notes Repository v2.1
+20260709
 
 Data access layer for notes with tag filtering and full-text search.
 Handles all CRUD operations for the notes table.
@@ -23,12 +23,14 @@ Version History:
 - v2.0: Phase 13 DB Schema Sprint Gate 2 — H-3: add _validate_client_project_consistency()
         guard; wire into create() and update(); add client_id param to update();
         update source docstring with all 5 valid values
+- v2.1: Hotfix Item #58 — add get_most_recent_since() for T4 activity-gap
+        suppression; add desc to sqlalchemy import
 """
 
 from datetime import date, datetime
 from typing import List, Optional, Tuple
 
-from sqlalchemy import func, and_, or_, any_
+from sqlalchemy import func, and_, or_, any_, desc
 from sqlalchemy.orm import Session
 
 from workmain.database.models import Note, Meeting, Project
@@ -227,7 +229,16 @@ class NotesRepository:
                 query = query.filter(~Note.tags.op('@>')([tag]))
         
         return query.order_by(Note.created_at).all()
-    
+
+    def get_most_recent_since(self, since: datetime) -> Optional[Note]:
+        """Most recently created Note with created_at >= since, or None."""
+        return (
+            self.session.query(Note)
+            .filter(Note.created_at >= since)
+            .order_by(desc(Note.created_at))
+            .first()
+        )
+
     def get_for_date_client(
         self,
         start_date: date,
