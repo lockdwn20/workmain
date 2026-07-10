@@ -1,8 +1,13 @@
 WorkmAIn
-Implementation Checklist v3.3
-20260708
+Implementation Checklist v3.4
+20260710
 
 Version History:
+- v3.4 (20260710): Item 58 (T4 activity-gap suppression) flipped to [x] — hotfix
+  (be79997, v1.24.1) live-verified 20260710 following recon that resolved an
+  apparent regression to a stale daemon process, not a code defect (see
+  `GIT_WORKFLOW_STANDARDS.md` v1.6). Full detail in `docs/FEATURE_BACKLOG.md`
+  v5.31.
 - v3.3 (20260708): Operations_Config_Correction_Sprint close-out (v1.24.0).
   Gates 1-4, 6, 7 checklist items flipped to [x] against verified delivered
   code (not the spec's say-so alone — several discrepancies found and
@@ -766,8 +771,7 @@ holds `eod_workflow.py`, which is unaffected by this path correction).
   delivered per this gate's own scoped spec; date-range/content-preview/`--full`
   carried forward (Backlog #56)
 - [x] Clockify exit code fixed
-- [ ] **Not delivered this sprint.** T4 activity-gap suppression (Backlog #58) —
-  named in Gate 1's own scope, never implemented in any gate
+- [x] T4 activity-gap suppression (Backlog #58) — Complete
 
 ---
 
