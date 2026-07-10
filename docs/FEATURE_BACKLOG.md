@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v5.30
-20260708
+Feature Backlog v5.31
+20260710
 
 # WorkmAIn Feature Backlog
 
@@ -97,6 +97,12 @@ Items deferred from various phases for future implementation.
   local-system-time assumption confirmation remains, own planning session.
   Register and statistics updated (Total 58→59, Complete 18→24, Partial
   0→3, Open 37→29).
+- v5.31 (20260710): Item 58 marked complete — hotfix (be79997, v1.24.1) live-verified
+  20260710 following recon that resolved an apparent regression to a stale daemon
+  process, not a code defect (see GIT_WORKFLOW_STANDARDS.md v1.6). AC2's
+  reschedule-anchor sub-clause annotated as a deliberate existence-only-check scope
+  reduction — practical suppression effect is equivalent. Register and statistics
+  updated (Complete 24→25, Open 29→28).
 
 ---
 
@@ -200,7 +206,7 @@ Build first, refactor later. See the complete picture before abstracting.
 | 55 | Clockify Bidirectional Reconciliation | Medium | Phase 14+ | ~8–12 hrs | |
 | 56 | workmain reports corrections Listing Command | Low | Phase 14 | ~1–2 hrs | ~ |
 | 57 | DB Schema Test Coverage Audit and Restoration | Low | Phase 15 | ~2–4 hrs | |
-| 58 | T4 Check-in Fires Regardless of Recent Activity | Medium | Phase 14 | ~2–3 hrs | |
+| 58 | T4 Check-in Activity-Gap Suppression | Medium | — | ~2–3 hrs | ✓ |
 | 59 | Time Parser Timezone Assumption — Formal Confirmation | Low | Unscheduled | ~30 min | |
 
 ---
@@ -208,18 +214,18 @@ Build first, refactor later. See the complete picture before abstracting.
 ## Summary Statistics
 
 **Total Items:** 59 (Item 22 is a redirect — no separate deferred work; see Item 20)
-**Complete:** 24 (Items 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 51, 52, 53)
+**Complete:** 25 (Items 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 51, 52, 53, 58)
 **Partial:** 3 (Items 48, 50, 56 — see item detail for unmet ACs carried forward)
 **Closed/Stale:** 2 (Items 14, 15 — premises resolved, suite green)
-**Open:** 29
+**Open:** 28
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Open (targeted) | 26 | 1, 2, 3, 4, 7, 8, 12, 16, 19, 23, 28, 29, 30, 31, 37, 42, 43, 44, 45, 46, 47, 54, 55, 57, 58, 59 |
+| Open (targeted) | 25 | 1, 2, 3, 4, 7, 8, 12, 16, 19, 23, 28, 29, 30, 31, 37, 42, 43, 44, 45, 46, 47, 54, 55, 57, 59 |
 | Partial | 3 | 48, 50, 56 |
 | Conditional | 1 | 9 |
 | Indefinitely | 2 | 5, 6 |
-| Complete | 24 | 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 51, 52, 53 |
+| Complete | 25 | 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 51, 52, 53, 58 |
 | Closed/Stale | 2 | 14, 15 |
 | Redirect | 1 | 22 → Item 20 |
 
@@ -2354,18 +2360,15 @@ that may duplicate what already exists elsewhere.
 
 ---
 
-#### Item 58 — T4 Check-in Fires Regardless of Recent Activity
+#### Item 58 — T4 Check-in Activity-Gap Suppression
 
-**Status:** Open — Not delivered by Operations_Config_Correction_Sprint (20260708). This
-item was named in Gate 1's own scope (grouped alongside Items 40/49, both of which Gate 1
-did deliver), but its core acceptance criterion — querying `time_entries`/`notes` for
-recent activity before scheduling T4, suppressing/rescheduling if found — was never
-implemented in any gate of this sprint. Explicitly not marked complete; carried forward to
-a future sprint as its own tracked item, unchanged in scope.
+**Status:** ✓ Complete — hotfix/item-58-activity-gap-suppression, v1.24.1 (20260709);
+live-verified 20260710 (see Post-implementation note — an apparent same-day regression
+traced to a stale daemon process, not a code defect)
 **Priority:** Medium
 **Effort:** ~2–3 hours
 **Added:** 20260626
-**Target Phase:** Phase 14 (alongside Backlog Items 40 and 49)
+**Completed:** 20260710
 
 **Description:**
 The T4 random check-in notification (`What are you working on right now?`) uses elapsed
@@ -2393,29 +2396,50 @@ configurable via Backlog Item 40). If recent activity is found, skip the check-i
 reschedule from the timestamp of the most recent activity instead of from `now`. This
 ensures T4 only fires when there is a genuine activity gap.
 
-**Why Deferred:**
-Fix requires the schedule module authority work (Backlog Item 49 prerequisite) to be in
-place so the activity-gap check uses the same working-day/working-hours authority as the
-rest of the suppression logic. Naturally grouped with Items 40 and 49 in Phase 14 since
-all three touch `_reschedule_t4_checkin()`.
-
 **Acceptance Criteria:**
 
-- [ ] Before scheduling a T4 check-in, query `time_entries` and `notes` for records
-      created within the last N minutes (N = T4 interval, default 120)
-- [ ] If recent activity found: suppress the check-in and reschedule from the most
-      recent activity timestamp rather than from `now`
-- [ ] If no recent activity: fire T4 as normal
-- [ ] Activity-gap query respects the working-day/working-hours authority (Backlog
-      Item 49 prerequisite) — no gap detection outside working hours
-- [ ] Confirmed time entries and notes both count as activity (not just note creation)
-- [ ] T4 suppression from recent activity is logged at DEBUG level for observability
-**Files Affected:**
+- [x] Before scheduling a T4 check-in, query `time_entries` and `notes` for records
+      created within the last N minutes (N = `t4_max`, via
+      `ScheduleService.get_t4_interval()`) — `_send_t4_checkin()` calls
+      `NotesRepository.get_most_recent_since()` / `TimeEntriesRepository.get_most_recent_since()`
+- [x] If recent activity found: suppress the check-in — live-verified 20260710
+      (09:32 note; T4 fired 10:39; no DM sent, silent reschedule to 11:51)
+      **Reschedule-anchor sub-clause — deliberate, reviewed design change
+      (spec v1.1, Design Note C):** v1.0 attempted literal timestamp-based
+      recomputation and failed Opus review — Finding 1 (`fire_at` could land
+      in the past, since `most_recent` is bounded in the past by
+      construction) and Finding 2 (inverted suppression direction). A fixed
+      offset from the activity timestamp would also make the interval
+      deterministic/learnable, violating the explicit "must stay random"
+      requirement. v1.1 instead re-evaluates every cycle via the unmodified
+      `_reschedule_t4_checkin()`, which still draws a fresh, fully random
+      `[t4_min, t4_max]` delay each time — same practical guarantee (T4 never
+      reaches the user without at least `t4_max` minutes since last logged
+      activity), via a re-evaluate-every-cycle loop instead of a single-shot
+      calculation. Approved by Ray 20260709.
+- [x] If no recent activity: fire T4 as normal — original 20260626 failure case;
+      confirmed unchanged by code inspection (else branch)
+- [x] Activity-gap query respects the working-day/working-hours authority —
+      enforced upstream: `_send_t4_checkin()` only runs via a job scheduled by
+      `_reschedule_t4_checkin()`, which already gates on
+      `ScheduleService.is_working_day()` / `is_working_hours(fire_at)`
+- [x] Confirmed time entries and notes both count as activity — both repositories
+      queried; either satisfies suppression
+- [x] T4 suppression from recent activity is logged at DEBUG level for
+      observability — `logger.debug('T4 check-in suppressed — recent activity at %s', ...)`
 
-- `workmain/daemon/scheduler.py` — `_reschedule_t4_checkin()`
-- `workmain/database/repositories/notes_repo.py` — recent activity query (may reuse
-  existing method or require a new `get_recent(since=datetime)`)
-- `workmain/database/repositories/time_entries_repo.py` — same pattern
+**Post-implementation note (20260710):** A same-day apparent regression was reported
+after this hotfix merged (`be79997`, 2026-07-09) — a T4 firing sent the DM despite
+in-window activity. Recon traced this to `workmain-notify.service` running
+continuously since 2026-07-08, a full day before the fix existed; the process was
+never restarted after the merge and was running pre-fix code. Not a defect in this
+implementation. Resolved by service restart (20260710 08:43:53). The underlying
+deploy-process gap is addressed separately in `GIT_WORKFLOW_STANDARDS.md` v1.6.
+
+**Files Affected:**
+- `workmain/daemon/scheduler.py` — `_send_t4_checkin()`
+- `workmain/database/repositories/notes_repo.py` — `get_most_recent_since()`
+- `workmain/database/repositories/time_entries_repo.py` — `get_most_recent_since()`
 
 ---
 
