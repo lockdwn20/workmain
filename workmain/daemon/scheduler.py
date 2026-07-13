@@ -1,7 +1,7 @@
 """
 WorkmAIn Daemon Scheduler
-scheduler.py v1.12
-20260709
+scheduler.py v1.13
+20260713
 
 APScheduler job configuration. Trigger times and the T4 interval are
 read from system_state config (Operations_Config_Correction_Sprint Gate 1)
@@ -82,6 +82,9 @@ Version History:
          computing a fire_at from the activity timestamp (see
          HOTFIX_ITEM58_ACTIVITY_GAP_SPEC_v1_2.md Design Note C).
          _reschedule_t4_checkin() itself is unchanged.
+- v1.13: Item #50 hotfix — job_workday_start() calls _get_unresolved_observations()
+         (replacing _count_unresolved_observations()) and threads target_date
+         into build_morning_briefing() as a new required first argument.
 """
 
 import functools
@@ -122,7 +125,7 @@ def job_workday_start(daemon: Any) -> None:
     eow/eod_prompt) and is not the desired morning-briefing content.
     """
     from workmain.daemon.daemon import (
-        _count_unresolved_observations, _schedule_meeting_reminders,
+        _get_unresolved_observations, _schedule_meeting_reminders,
     )
     from workmain.daemon.delivery import deliver
     from workmain.database.repositories.meetings_repo import MeetingsRepository
@@ -143,9 +146,9 @@ def job_workday_start(daemon: Any) -> None:
 
         meetings = MeetingsRepository(session).get_active_for_date(target_date)
         tasks = TaskStatusRepository(session).get_filtered(status='active', limit=0)
-        unresolved_count = _count_unresolved_observations()
+        observations = _get_unresolved_observations()
 
-        body = build_morning_briefing(meetings, tasks, unresolved_count)
+        body = build_morning_briefing(target_date, meetings, tasks, observations)
         config = NotificationConfigRepository(session).get_config()
         if config.enabled:
             deliver("", body, config.method, daemon=daemon)

@@ -1,7 +1,7 @@
 """
 WorkmAIn Slack EOD Surface
-Slack EOD Surface v1.7
-20260707
+Slack EOD Surface v1.8
+20260713
 
 Slack I/O surface for the T1 morning briefing and T5 EOD conversational
 workflow. Plain-text I/O in Sprint 2. Block Kit UX upgrade in Sprint 3.
@@ -51,6 +51,11 @@ Version History:
         CONTROL_SKIP | CONTROL_CONFIRM | CONTROL_RESUME frozenset union
         both independently confirmed correct as originally written), now
         restored exactly as first written.
+- v1.8: Item #50 hotfix — build_morning_briefing() gains a required
+        target_date first parameter (rendered as its own line via
+        format_date_display()) and replaces the unresolved_count int
+        parameter with an observations list, rendered as `[type] message`
+        bullets instead of a bare count.
 """
 
 from __future__ import annotations
@@ -63,6 +68,8 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import ClassVar, Dict, Optional
+
+from workmain.utils.date_format import format_date_display
 
 logger = logging.getLogger(__name__)
 
@@ -682,20 +689,24 @@ class SlackEodManager:
 # T1 Morning Briefing
 # ---------------------------------------------------------------------------
 
-def build_morning_briefing(meetings: list, tasks: list, unresolved_count: int) -> str:
+def build_morning_briefing(target_date: date, meetings: list, tasks: list,
+                            observations: list) -> str:
     """Build the T1 morning briefing plain-text string.
 
     Args:
-        meetings:          Non-cancelled Meeting objects for today, sorted by
-                           start_time ascending.
-        tasks:             Active TaskStatus objects (all statuses == 'active').
-        unresolved_count:  Count of unacknowledged daemon observations from
-                           yesterday's last_inspection.json. 0 means omit section.
+        target_date: The date this briefing is for (rendered as its own line).
+        meetings:     Non-cancelled Meeting objects for today, sorted by
+                      start_time ascending.
+        tasks:        Active TaskStatus objects (all statuses == 'active').
+        observations: Unacknowledged observation dicts from yesterday's
+                      last_inspection.json, each with 'type' and 'message'.
+                      Empty list means omit the section.
 
     Returns:
         Plain-text morning briefing suitable for a Slack DM.
     """
     lines = ["☀ Good morning. Here's your day:"]
+    lines.append(format_date_display(target_date))
 
     # Meetings section — always shown; message varies when empty
     lines.append("")
@@ -717,13 +728,12 @@ def build_morning_briefing(meetings: list, tasks: list, unresolved_count: int) -
             preview = content[:120] + ("…" if len(content) > 120 else "")
             lines.append(f"• {preview}")
 
-    # Unresolved observations — omitted when count is zero
-    if unresolved_count:
-        plural = "s" if unresolved_count != 1 else ""
+    # Unresolved observations — omitted entirely when empty
+    if observations:
         lines.append("")
-        lines.append(
-            f"Yesterday's unresolved items: {unresolved_count} flagged "
-            f"observation{plural} (run workmain eod to review)"
-        )
+        lines.append("🔍 Unresolved from yesterday's inspection:")
+        for obs in observations:
+            lines.append(f"• [{obs['type']}] {obs['message']}")
+        lines.append("(run workmain eod to review)")
 
     return "\n".join(lines)
