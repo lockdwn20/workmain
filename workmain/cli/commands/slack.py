@@ -1,8 +1,8 @@
 """
 WorkmAIn CLI
 Slack Command Group
-slack.py v1.6
-20260611
+slack.py v1.7
+20260713
 
 CLI commands for posting reports to Slack.
 
@@ -30,6 +30,8 @@ Version History:
         update slack status/auth/setup channel display to use same resolution order
 - v1.6: Phase 13 Sprint 2 Gate 3 — add `slack set operator-user-id` command for
         inbound DM polling setup
+- v1.7: Item #50 hotfix — remove private _format_date_display(), import
+        format_date_display() from workmain.utils.date_format instead
 """
 
 import os
@@ -62,6 +64,7 @@ from workmain.integrations.slack.client import (
     format_for_slack,
     get_slack_client,
 )
+from workmain.utils.date_format import format_date_display
 
 
 console = Console()
@@ -107,11 +110,6 @@ def get_draft_date_range(anchor: date) -> tuple:
     """
     monday = anchor - timedelta(days=anchor.weekday())  # weekday() Mon=0
     return monday, anchor
-
-
-def _format_date_display(d: date) -> str:
-    """Format date as 'Mon 09 Mar 2026'."""
-    return d.strftime("%a %d %b %Y")
 
 
 def _staged_report_path(anchor: date) -> Path:
@@ -622,8 +620,8 @@ def slack_post(
     monday, _ = get_draft_date_range(anchor)
     start_str = monday.strftime("%Y-%m-%d")
     end_str = anchor.strftime("%Y-%m-%d")
-    monday_display = _format_date_display(monday)
-    anchor_display = _format_date_display(anchor)
+    monday_display = format_date_display(monday)
+    anchor_display = format_date_display(anchor)
 
     # -----------------------------------------------------------------------
     # Step 0: Report generation / stale check

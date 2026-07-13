@@ -1,9 +1,24 @@
 """
 WorkmAIn Package Version
-Version v1.24.1
-20260709
+Version v1.24.2
+20260713
 
 Version History:
+- v1.24.2: Hotfix Item #50 — morning briefing content. build_morning_briefing()
+           renders a target_date line and per-observation [type] message
+           detail instead of a bare unresolved count.
+           workmain/utils/date_format.py (new): format_date_display()
+           extracted from cli/commands/slack.py's private helper (both call
+           sites migrated). daemon.py: _count_unresolved_observations()
+           retired, replaced by _get_unresolved_observations() (returns
+           per-observation type+message dicts). scheduler.py:
+           job_workday_start() wires target_date + observation detail into
+           build_morning_briefing(). Closes Item #50's two remaining ACs
+           in FEATURE_BACKLOG.md v5.31. Backlog Item #60 added (last_inspection.json
+           duplicate-writer consolidation + freshness validation — scoped,
+           not implemented in this hotfix). 6 new tests (791 → 797).
+           date_format.py v1.0; slack.py v1.7; daemon.py v1.19;
+           scheduler.py v1.13; slack_eod.py v1.8.
 - v1.24.1: Hotfix Item #58 — T4 activity-gap suppression. _send_t4_checkin()
            now suppresses the check-in DM (and reschedules) if a Note or
            TimeEntry was created within the last t4_max minutes at actual
@@ -436,7 +451,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.24.1"
-__version_info__ = (1, 24, 1)
+__version__ = "1.24.2"
+__version_info__ = (1, 24, 2)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
