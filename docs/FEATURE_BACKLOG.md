@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v5.31
-20260710
+Feature Backlog v5.32
+20260713
 
 # WorkmAIn Feature Backlog
 
@@ -103,6 +103,12 @@ Items deferred from various phases for future implementation.
   reschedule-anchor sub-clause annotated as a deliberate existence-only-check scope
   reduction — practical suppression effect is equivalent. Register and statistics
   updated (Complete 24→25, Open 29→28).
+- v5.32 (20260713): Item 60 added — consolidate `last_inspection.json` duplicate
+  writers (`daemon.py`/`eod_workflow.py`) and add freshness validation on read.
+  Surfaced during Item #50 hotfix's Gate 0 recon and spec review (Opus Finding 5);
+  scoped as standalone, next after Item #50's close-out. Item #50's AC boxes not
+  yet updated — deferred to post-live-verification per project standard. Register
+  and statistics updated (Total 59→60, Open 28→29).
 
 ---
 
@@ -208,20 +214,21 @@ Build first, refactor later. See the complete picture before abstracting.
 | 57 | DB Schema Test Coverage Audit and Restoration | Low | Phase 15 | ~2–4 hrs | |
 | 58 | T4 Check-in Activity-Gap Suppression | Medium | — | ~2–3 hrs | ✓ |
 | 59 | Time Parser Timezone Assumption — Formal Confirmation | Low | Unscheduled | ~30 min | |
+| 60 | Consolidate `last_inspection.json` Writers and Add Freshness Validation | High | None (standalone) | ~5–7 hrs | |
 
 ---
 
 ## Summary Statistics
 
-**Total Items:** 59 (Item 22 is a redirect — no separate deferred work; see Item 20)
+**Total Items:** 60 (Item 22 is a redirect — no separate deferred work; see Item 20)
 **Complete:** 25 (Items 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 51, 52, 53, 58)
 **Partial:** 3 (Items 48, 50, 56 — see item detail for unmet ACs carried forward)
 **Closed/Stale:** 2 (Items 14, 15 — premises resolved, suite green)
-**Open:** 28
+**Open:** 29
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Open (targeted) | 25 | 1, 2, 3, 4, 7, 8, 12, 16, 19, 23, 28, 29, 30, 31, 37, 42, 43, 44, 45, 46, 47, 54, 55, 57, 59 |
+| Open (targeted) | 26 | 1, 2, 3, 4, 7, 8, 12, 16, 19, 23, 28, 29, 30, 31, 37, 42, 43, 44, 45, 46, 47, 54, 55, 57, 59, 60 |
 | Partial | 3 | 48, 50, 56 |
 | Conditional | 1 | 9 |
 | Indefinitely | 2 | 5, 6 |
@@ -231,7 +238,7 @@ Build first, refactor later. See the complete picture before abstracting.
 
 | Priority | Count | Items |
 |----------|-------|-------|
-| High | 2 | 23, 48 |
+| High | 3 | 23, 48, 60 |
 | Medium | 10 | 2, 3, 7, 43, 45, 46, 47, 50, 55, 58 |
 | Low | 19 | 1, 4, 5, 6, 8, 12, 16, 19, 28, 29, 30, 31, 37, 42, 44, 54, 56, 57, 59 |
 | Conditional | 1 | 9 |
@@ -247,10 +254,11 @@ Build first, refactor later. See the complete picture before abstracting.
 | Phase 18 | 30 |
 | Next model rebuild | 42, 44 |
 | Unscheduled | 59 |
+| None (standalone, next) | 60 |
 | Conditional | 9 |
 | Indefinitely | 5, 6 |
 
-**Total Deferred Effort (open items):** ~118–137 hours (Item 54 TBD — effort grows as warnings are catalogued)
+**Total Deferred Effort (open items):** ~123–144 hours (Item 54 TBD — effort grows as warnings are catalogued)
 
 ---
 
@@ -2481,3 +2489,92 @@ session rather than folded into this sprint's scope.
 **Files Affected:** (documentation only — no code changes expected)
 - `workmain/utils/time_parser.py`
 - `workmain/services/schedule_service.py`
+
+---
+
+#### Item 60 — Consolidate `last_inspection.json` Writers and Add Freshness Validation
+
+**Status:** Open — Next (scheduled immediately following Item #50 hotfix close-out)
+**Priority:** High
+**Effort:** ~5–7 hours (own recon will refine this estimate)
+**Added:** 20260713
+**Target Phase:** None — standalone hotfix, no phase assignment
+
+**Description:**
+Two related problems in how `last_inspection.json` is produced and
+consumed, both surfaced during Item #50's Gate 0 recon and spec review,
+combined here since both are fundamentally about the same file's
+lifecycle:
+
+1. **Duplicate writers.** `workmain/daemon/daemon.py` and
+   `workmain/workflows/eod_workflow.py` each contain their own
+   `_write_last_inspection()` function, independently implementing
+   identical writes to `last_inspection.json`. The two implementations
+   currently agree on schema by coincidence, not by shared contract —
+   nothing enforces that agreement if either is changed in isolation. Same
+   root-cause pattern named in `RECON_INTEGRATION_AUDIT_20260626.md` as the
+   origin of the broader correction-sprint series — parallel
+   implementations of the same concern drifting apart because nothing
+   forces convergence, the same pattern `ScheduleService` was built to
+   eliminate for four independent working-day implementations.
+2. **No freshness validation on read.** No reader of `last_inspection.json`
+   (`_get_unresolved_observations()` added by Item #50, `notifications
+   status`, or any other consumer) checks the file's `run_at`/`target_date`
+   against the current date before treating its contents as current. If
+   the daemon was down for a period and the file is several days stale, a
+   consuming surface will confidently render old detail under a label like
+   "yesterday's inspection" with no indication it's stale. Pre-existing
+   (the old bare-count text had the same blindness), not a regression from
+   Item #50 — but Item #50 makes it more visible by rendering concrete
+   per-observation detail instead of a vague count, which is what surfaced
+   it during that hotfix's Opus review.
+
+Fix direction: extract a single shared writer (naming/location TBD — own
+recon), both callers converge on it; add a recency check at the point data
+is read, with consuming surfaces either omitting stale sections or flagging
+them explicitly rather than silently presenting old data as current. Mirrors
+the `ScheduleService` precedent for the writer piece.
+
+**Why Deferred:**
+Item #50's hotfix only needed to read `last_inspection.json`, not write it,
+and both existing writers already emit compatible data — so Item #50 could
+proceed without touching either writer or fixing the freshness gap.
+Bundling either into that hotfix would have violated the
+one-root-cause-per-hotfix principle. Both pieces are grouped into this one
+item — rather than split further — because a freshness check has to live
+somewhere in the read/write contract this item is already establishing,
+and splitting them would mean touching the same file twice for two pieces
+of the same underlying concern.
+
+**Acceptance Criteria:**
+
+- [ ] A single shared writer function exists for `last_inspection.json`
+      (location/name determined by this item's own recon)
+- [ ] Both `daemon.py`'s and `eod_workflow.py`'s call sites converge on the
+      shared writer — no independent duplicate implementation remains in
+      either file
+- [ ] `last_inspection.json`'s on-disk schema is unchanged from the
+      reader's perspective (no breakage to `_get_unresolved_observations()`
+      or `notifications status`), or any schema change is deliberate and
+      every reader is updated to match
+- [ ] Readers of `last_inspection.json` validate `run_at`/`target_date`
+      against the current date before rendering content as current
+- [ ] When data is stale beyond whatever recency window this item's recon
+      defines, the consuming surface omits the section or renders an
+      explicit staleness indicator rather than silently presenting old data
+- [ ] All current readers of `last_inspection.json` are enumerated and
+      covered by the freshness check (`_get_unresolved_observations()` at
+      minimum; recon to confirm whether `notifications status` or others
+      also read this file and need the same treatment)
+- [ ] Full test suite passes with coverage exercising both writer call
+      paths (the `_enriched_notify()` job path and the `workmain eod` CLI
+      pre-flight path) and the new freshness-check behavior (fresh data
+      renders normally, stale data is caught)
+
+**Files Affected:**
+
+- `workmain/daemon/daemon.py` — `_write_last_inspection()`,
+  `_get_unresolved_observations()` (from Item #50)
+- `workmain/workflows/eod_workflow.py` — `_write_last_inspection()`
+- `workmain/cli/commands/notifications.py` — confirm in recon whether
+  `status` reads this file and needs the same freshness treatment

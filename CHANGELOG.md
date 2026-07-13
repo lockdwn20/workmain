@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.24.2] - 2026-07-13
+
+### Added
+
+- `workmain/utils/date_format.py` — `format_date_display()`, extracted from
+  `cli/commands/slack.py`'s private `_format_date_display()` (both existing
+  call sites migrated)
+- `daemon._get_unresolved_observations()` — returns per-observation
+  `{'type', 'message'}` dicts from `last_inspection.json`, replacing
+  `_count_unresolved_observations()`'s bare count
+- `tests/test_utils_date_format.py` (new file); 6 new tests total (791 → 797)
+
+### Changed
+
+- `build_morning_briefing()` — new required `target_date` first parameter
+  (rendered as its own date line); `unresolved_count: int` parameter replaced
+  with `observations: list`, rendered as `[type] message` bullets instead of
+  a bare count. Section fully omitted when `observations` is empty (parity
+  with old zero-count omission behavior).
+- Closes Item #50's two remaining ACs in `FEATURE_BACKLOG.md` v5.31
+
+### Fixed
+
+- Morning briefing's unresolved-observations input was left as a leftover
+  count-only value when meetings/tasks were wired to real data in the prior
+  sprint's Gate 4, and no date was ever threaded into the briefing at all.
+  Both symptoms shared one root cause: incomplete content-assembly relative
+  to Item #50's own AC.
+
 ## [1.24.1] - 2026-07-09
 
 ### Added

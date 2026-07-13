@@ -1,7 +1,7 @@
 """
 WorkmAIn Notification Daemon
-daemon.py v1.18
-20260707
+daemon.py v1.19
+20260713
 
 Entry point for the always-on background daemon process.
 WorkmAInDaemon owns the Slack socket connection, EOD manager, and
@@ -88,6 +88,9 @@ Version History:
          Confirmed non-breaking across all 19 existing call sites (none
          read a return value). Enables throttled Slack progress-message
          editing for the EOD task-match/note-dedup substeps.
+- v1.19: Item #50 hotfix — _count_unresolved_observations() retired,
+         replaced with _get_unresolved_observations() returning
+         per-observation {'type', 'message'} dicts instead of a bare count.
 """
 
 import json
@@ -376,16 +379,30 @@ def _warmup_ollama() -> None:
 # Morning briefing helpers
 # ---------------------------------------------------------------------------
 
-def _count_unresolved_observations() -> int:
-    """Return count of unacknowledged observations from last_inspection.json."""
+def _get_unresolved_observations() -> list:
+    """Return unacknowledged observations from last_inspection.json.
+
+    Each dict has keys 'type' and 'message', matching the on-disk schema
+    written by _write_last_inspection() (this module) and eod_workflow.py's
+    own writer of the same name — the JSON does not retain the original
+    Observation.data dict, so a dict of exactly these two fields is the
+    full-fidelity representation available, not a simplified shortcut.
+
+    Replaces _count_unresolved_observations(), which discarded
+    per-observation detail and returned only a count.
+    """
     path = _daemon_state_path('last_inspection.json')
     if not path.exists():
-        return 0
+        return []
     try:
         data = json.loads(path.read_text())
-        return sum(1 for o in data.get('observations', []) if not o.get('acknowledged'))
+        return [
+            {'type': o['type'], 'message': o['message']}
+            for o in data.get('observations', [])
+            if not o.get('acknowledged')
+        ]
     except Exception:
-        return 0
+        return []
 
 
 # ---------------------------------------------------------------------------

@@ -856,44 +856,64 @@ class TestMorningBriefingContent(unittest.TestCase):
     def test_meetings_included_in_briefing(self):
         from workmain.integrations.slack.slack_eod import build_morning_briefing
         meeting = self._meeting('Standup')
-        body = build_morning_briefing([meeting], [], 0)
+        body = build_morning_briefing(date(2099, 1, 5), [meeting], [], [])
         self.assertIn('Standup', body)
 
     def test_no_meetings_shows_placeholder(self):
         from workmain.integrations.slack.slack_eod import build_morning_briefing
-        body = build_morning_briefing([], [], 0)
+        body = build_morning_briefing(date(2099, 1, 5), [], [], [])
         self.assertIn('No meetings scheduled today.', body)
 
     def test_carry_forward_tasks_included(self):
         from workmain.integrations.slack.slack_eod import build_morning_briefing
         task = self._task('Write the spec')
-        body = build_morning_briefing([], [task], 0)
+        body = build_morning_briefing(date(2099, 1, 5), [], [task], [])
         self.assertIn('Write the spec', body)
         self.assertIn('Carry-forward tasks', body)
 
     def test_no_tasks_omits_section_entirely(self):
         from workmain.integrations.slack.slack_eod import build_morning_briefing
-        body = build_morning_briefing([], [], 0)
+        body = build_morning_briefing(date(2099, 1, 5), [], [], [])
         self.assertNotIn('Carry-forward tasks', body)
 
-    def test_unresolved_count_shown_when_nonzero(self):
+    def test_unresolved_observations_shown_when_present(self):
         from workmain.integrations.slack.slack_eod import build_morning_briefing
-        body = build_morning_briefing([], [], 3)
-        self.assertIn('3 flagged', body)
+        observations = [{'type': 'coverage', 'message': 'Gap detected 14:00-15:00'}]
+        body = build_morning_briefing(date(2099, 1, 5), [], [], observations)
+        self.assertIn('[coverage] Gap detected 14:00-15:00', body)
+        self.assertIn('Unresolved from yesterday', body)
 
-    def test_unresolved_count_omitted_when_zero(self):
+    def test_unresolved_observations_omitted_when_empty(self):
         from workmain.integrations.slack.slack_eod import build_morning_briefing
-        body = build_morning_briefing([], [], 0)
-        self.assertNotIn('flagged', body)
+        body = build_morning_briefing(date(2099, 1, 5), [], [], [])
+        self.assertNotIn('Unresolved from yesterday', body)
 
     def test_meetings_and_tasks_together(self):
         from workmain.integrations.slack.slack_eod import build_morning_briefing
         meeting = self._meeting('Design Review')
         task = self._task('Finish the doc')
-        body = build_morning_briefing([meeting], [task], 1)
+        observations = [{'type': 'tag_anomaly', 'message': 'Untagged note found'}]
+        body = build_morning_briefing(date(2099, 1, 5), [meeting], [task], observations)
         self.assertIn('Design Review', body)
         self.assertIn('Finish the doc', body)
-        self.assertIn('1 flagged', body)
+        self.assertIn('[tag_anomaly] Untagged note found', body)
+
+    def test_date_line_renders(self):
+        from workmain.integrations.slack.slack_eod import build_morning_briefing
+        from workmain.utils.date_format import format_date_display
+        target_date = date(2099, 1, 5)
+        body = build_morning_briefing(target_date, [], [], [])
+        self.assertIn(format_date_display(target_date), body.splitlines())
+
+    def test_multiple_observations_each_get_own_bullet(self):
+        from workmain.integrations.slack.slack_eod import build_morning_briefing
+        observations = [
+            {'type': 'coverage', 'message': 'Gap detected 14:00-15:00'},
+            {'type': 'tag_anomaly', 'message': 'Untagged note found'},
+        ]
+        body = build_morning_briefing(date(2099, 1, 5), [], [], observations)
+        self.assertIn('• [coverage] Gap detected 14:00-15:00', body)
+        self.assertIn('• [tag_anomaly] Untagged note found', body)
 
 
 # ---------------------------------------------------------------------------
@@ -999,7 +1019,7 @@ class TestNotifyMethodSlackDelivery(unittest.TestCase):
         mock_session = MagicMock()
         with patch('workmain.daemon.scheduler.get_db') as mock_get_db, \
              patch('workmain.daemon.scheduler.ScheduleService') as mock_svc_cls, \
-             patch('workmain.daemon.daemon._count_unresolved_observations', return_value=0), \
+             patch('workmain.daemon.daemon._get_unresolved_observations', return_value=[]), \
              patch('workmain.daemon.daemon._schedule_meeting_reminders'), \
              patch('workmain.database.repositories.meetings_repo.MeetingsRepository') as mock_mtg_cls, \
              patch('workmain.database.repositories.notification_repository.NotificationConfigRepository') as mock_cfg_cls, \
