@@ -1,7 +1,7 @@
 """
 WorkmAIn Notification Daemon
-daemon.py v1.19
-20260713
+daemon.py v1.20
+20260716
 
 Entry point for the always-on background daemon process.
 WorkmAInDaemon owns the Slack socket connection, EOD manager, and
@@ -91,6 +91,12 @@ Version History:
 - v1.19: Item #50 hotfix — _count_unresolved_observations() retired,
          replaced with _get_unresolved_observations() returning
          per-observation {'type', 'message'} dicts instead of a bare count.
+- v1.20: Item #60 Gate 1 — _write_last_inspection() deleted; its call site
+         in _assemble_notification_content() repointed to
+         state_io.write_last_inspection(). _daemon_state_path() kept as a
+         re-export (_daemon_state_path = state_io.daemon_state_path) —
+         _write_scheduled_jobs() and _get_unresolved_observations() still
+         call it directly.
 """
 
 import json
@@ -110,6 +116,7 @@ from slack_sdk import WebClient
 from workmain.daemon.delivery import deliver
 from workmain.daemon.inspection_engine import InspectionEngine
 from workmain.daemon.narration import narrate
+from workmain.daemon import state_io
 from workmain.database.connection import get_db
 from workmain.database.repositories.notification_repository import NotificationConfigRepository
 from workmain.services.schedule_service import ScheduleService
@@ -178,28 +185,7 @@ def _register_signal_handlers(on_shutdown: Callable) -> None:
 # State file helpers
 # ---------------------------------------------------------------------------
 
-def _daemon_state_path(filename: str) -> Path:
-    """Return the path for a daemon state file under WORKMAIN_STATE_DIR/daemon/."""
-    state_dir = Path(os.environ.get('WORKMAIN_STATE_DIR', '~/.workmain')).expanduser()
-    return state_dir / 'daemon' / filename
-
-
-def _write_last_inspection(observations: list, summary: str,
-                            target_date: date) -> None:
-    """Write inspection results to the daemon state file for status display.
-
-    Shared format with eod.py — both write last_inspection.json.
-    """
-    payload = {
-        'run_at': datetime.now().isoformat(timespec='seconds'),
-        'target_date': str(target_date),
-        'observations': [
-            {'type': o.type.value, 'message': o.message, 'acknowledged': o.acknowledged}
-            for o in observations
-        ],
-        'summary': summary,
-    }
-    _daemon_state_path('last_inspection.json').write_text(json.dumps(payload, indent=2))
+_daemon_state_path = state_io.daemon_state_path
 
 
 def _write_scheduled_jobs(reminders: list, target_date: date) -> None:
@@ -225,7 +211,7 @@ def _assemble_notification_content(session, target_date: date) -> str:
     engine = InspectionEngine(session)
     observations = engine.run(target_date)
     summary = narrate(observations)
-    _write_last_inspection(observations, summary, target_date)
+    state_io.write_last_inspection(observations, summary, target_date)
     return summary
 
 

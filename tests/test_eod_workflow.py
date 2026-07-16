@@ -1,7 +1,7 @@
 """
 WorkmAIn EOD Workflow Tests
-test_eod_workflow v1.2
-20260708
+test_eod_workflow v1.3
+20260716
 
 Tests for workmain/workflows/eod_workflow.py — the surface-agnostic service
 layer extracted from cli/commands/eod.py in Phase 13 Sprint 2 Gate 2.
@@ -21,6 +21,11 @@ Version History:
         mid-loop, "no time budget" completion, note-dedup pairing scope and
         merge direction/forwarding_note_id, and SlackEodManager's
         CONTROL_RESUME retry + handle_reply() mid-flight guard.
+- v1.3: Item #60 Gate 1 (Rule 11) — module-level _write_cf_state_file()
+        converted to route through state_io.write_last_inspection();
+        tmp_dir param dropped (5 call sites updated) since the shared
+        writer resolves WORKMAIN_STATE_DIR from the environment, which
+        monkeypatch.setenv() already scopes to tmp_path in every caller.
 """
 
 import threading
@@ -31,6 +36,8 @@ from unittest.mock import patch, MagicMock
 import pytest
 
 from workmain.ai.base_provider import ProviderStatus
+from workmain.daemon.models import Observation, ObservationType
+from workmain.daemon import state_io
 from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.task_status_repo import TaskStatusRepository
 from workmain.workflows.eod_workflow import (
@@ -258,22 +265,14 @@ class TestTokenizeAndScore(unittest.TestCase):
 # Gate 5 §5.0/§5.4 — real-DB coverage (db_session fixture)
 # ---------------------------------------------------------------------------
 
-def _write_cf_state_file(tmp_dir, target_date: date) -> None:
+def _write_cf_state_file(target_date: date) -> None:
     """Write a last_inspection.json with a carry-forward observation for
     target_date — satisfies _run_task_match_step()'s entry condition."""
-    import json
-    from pathlib import Path
-    state_path = Path(tmp_dir) / 'daemon' / 'last_inspection.json'
-    state_path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {
-        'run_at': '2099-01-01T09:00:00',
-        'target_date': str(target_date),
-        'observations': [
-            {'type': 'carry_forward', 'message': 'CF item.', 'acknowledged': False}
-        ],
-        'summary': 'Sentinel summary.',
-    }
-    state_path.write_text(json.dumps(payload))
+    state_io.write_last_inspection(
+        [Observation(type=ObservationType.CARRY_FORWARD, message='CF item.')],
+        '',
+        target_date,
+    )
 
 
 def _cf_note_with_task(db_session, content: str, on_date: date):
@@ -306,7 +305,7 @@ class TestTaskMatchSelfExclusion:
         """A task whose only same-day note is its own → no self-match,
         result is COMPLETED with no candidates (not a trivial 1.0 match)."""
         monkeypatch.setenv('WORKMAIN_STATE_DIR', str(tmp_path))
-        _write_cf_state_file(str(tmp_path), SENTINEL_DATE)
+        _write_cf_state_file(SENTINEL_DATE)
         _cf_note_with_task(db_session, "Write the integration spec", SENTINEL_DATE)
 
         with self._force_keyword_fallback(), \
@@ -329,7 +328,7 @@ class TestTaskMatchSelfExclusion:
         loop and could call parse_task_match() legitimately, making the
         assert_not_called() below unreliable."""
         monkeypatch.setenv('WORKMAIN_STATE_DIR', str(tmp_path))
-        _write_cf_state_file(str(tmp_path), SENTINEL_DATE)
+        _write_cf_state_file(SENTINEL_DATE)
         _, ts = _cf_note_with_task(db_session, "Write the integration spec", SENTINEL_DATE)
 
         mock_parser = MagicMock()
@@ -350,7 +349,7 @@ class TestTaskMatchSelfExclusion:
         """Self-exclusion is scoped per-task — a second active task with a
         genuine (non-self) same-day note can still match normally."""
         monkeypatch.setenv('WORKMAIN_STATE_DIR', str(tmp_path))
-        _write_cf_state_file(str(tmp_path), SENTINEL_DATE)
+        _write_cf_state_file(SENTINEL_DATE)
         # Task whose only same-day note is itself — excluded, no match.
         _cf_note_with_task(db_session, "Self only, no other notes", SENTINEL_DATE)
         # A second active task (from a prior day) with genuine overlap
@@ -379,7 +378,7 @@ class TestTaskMatchCancellationAndNoTimeBudget:
 
     def test_cancel_event_set_before_loop_stops_immediately(self, tmp_path, db_session, monkeypatch):
         monkeypatch.setenv('WORKMAIN_STATE_DIR', str(tmp_path))
-        _write_cf_state_file(str(tmp_path), SENTINEL_DATE)
+        _write_cf_state_file(SENTINEL_DATE)
         _cf_note_with_task(db_session, "Some task content", SENTINEL_DATE)
         cancel_event = threading.Event()
         cancel_event.set()
@@ -403,7 +402,7 @@ class TestTaskMatchCancellationAndNoTimeBudget:
         production active tasks (unscoped by date) would otherwise inflate
         the count this test asserts on."""
         monkeypatch.setenv('WORKMAIN_STATE_DIR', str(tmp_path))
-        _write_cf_state_file(str(tmp_path), SENTINEL_DATE)
+        _write_cf_state_file(SENTINEL_DATE)
         sentinel_tasks = [
             _cf_note_with_task(db_session, f"Unrelated task content {i}", SENTINEL_DATE)[1]
             for i in range(5)

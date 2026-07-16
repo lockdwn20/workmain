@@ -1,8 +1,8 @@
 """
 WorkmAIn EOD Workflow Service Layer
 workmain/workflows/eod_workflow.py
-v1.6
-20260708
+v1.7
+20260716
 
 Surface-agnostic EOD workflow step runners. Returns EodStepResult objects
 instead of bool so any I/O surface (CLI or Slack) can interpret results.
@@ -52,6 +52,9 @@ Version History:
         fallback scoring paths (not patched into each separately) — found
         during implementation verification, confirmed via live data before
         any code was written.
+- v1.7: Item #60 Gate 1 — module-level _write_last_inspection() deleted;
+        its call site in _run_pre_flight_inspection_step() repointed to
+        state_io.write_last_inspection().
 """
 
 import inspect as _inspect
@@ -79,6 +82,7 @@ def _resolve_workmain_bin() -> str:
 
 _WORKMAIN_BIN = _resolve_workmain_bin()
 
+from workmain.daemon import state_io
 from workmain.database.connection import get_db
 from workmain.database.repositories.meetings_repo import MeetingsRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
@@ -180,29 +184,6 @@ def _eod_edit_in_editor(content: str) -> Optional[str]:
     finally:
         if tmp_path:
             Path(tmp_path).unlink(missing_ok=True)
-
-
-# ---------------------------------------------------------------------------
-# last_inspection.json writer (moved from eod.py)
-# ---------------------------------------------------------------------------
-
-def _write_last_inspection(observations: list, summary: str,
-                            target_date: date) -> None:
-    """Write inspection results to daemon state file for status display."""
-    state_dir = Path(os.environ.get('WORKMAIN_STATE_DIR', '~/.workmain')).expanduser()
-    path = state_dir / 'daemon' / 'last_inspection.json'
-    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-
-    payload = {
-        'run_at': datetime.now().isoformat(timespec='seconds'),
-        'target_date': str(target_date),
-        'observations': [
-            {'type': o.type.value, 'message': o.message, 'acknowledged': o.acknowledged}
-            for o in observations
-        ],
-        'summary': summary,
-    }
-    path.write_text(json.dumps(payload, indent=2))
 
 
 # ---------------------------------------------------------------------------
@@ -439,7 +420,7 @@ def _run_pre_flight_inspection_step(dry_run: bool, target_date: date) -> EodStep
         engine = InspectionEngine(session)
         observations = engine.run(target_date)
         summary = narrate(observations)
-        _write_last_inspection(observations, summary, target_date)
+        state_io.write_last_inspection(observations, summary, target_date)
 
         if observations:
             print(f"  Pre-flight: {len(observations)} item(s) flagged")
