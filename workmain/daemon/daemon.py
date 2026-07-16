@@ -1,6 +1,6 @@
 """
 WorkmAIn Notification Daemon
-daemon.py v1.20
+daemon.py v1.21
 20260716
 
 Entry point for the always-on background daemon process.
@@ -97,6 +97,13 @@ Version History:
          re-export (_daemon_state_path = state_io.daemon_state_path) —
          _write_scheduled_jobs() and _get_unresolved_observations() still
          call it directly.
+- v1.21: Item #60 Gate 2 — _get_unresolved_observations() gains a required
+         acceptable_dates param and returns (observations, notice) instead
+         of a bare list; notice is non-None when the state file is stale
+         or missing, so job_workday_start() can render an explicit notice
+         instead of silently showing zero observations. Reads via
+         state_io.read_last_inspection()/matches_target_date() instead of
+         its own path/JSON handling.
 """
 
 import json
@@ -365,30 +372,34 @@ def _warmup_ollama() -> None:
 # Morning briefing helpers
 # ---------------------------------------------------------------------------
 
-def _get_unresolved_observations() -> list:
-    """Return unacknowledged observations from last_inspection.json.
+def _get_unresolved_observations(acceptable_dates: list) -> tuple:
+    """Return (observations, notice) from last_inspection.json.
 
-    Each dict has keys 'type' and 'message', matching the on-disk schema
-    written by _write_last_inspection() (this module) and eod_workflow.py's
-    own writer of the same name — the JSON does not retain the original
-    Observation.data dict, so a dict of exactly these two fields is the
-    full-fidelity representation available, not a simplified shortcut.
+    acceptable_dates are plain date values (Item #60 Rule 5 — this function
+    stays session-free; freshness date computation happens in
+    job_workday_start(), which already holds a session).
 
-    Replaces _count_unresolved_observations(), which discarded
-    per-observation detail and returned only a count.
+    observations is a list of {'type', 'message'} dicts (matching the
+    on-disk schema written by state_io.write_last_inspection() — the JSON
+    does not retain the original Observation.data dict, so this is the
+    full-fidelity representation available, not a simplified shortcut),
+    non-empty only when the file's target_date matches one of
+    acceptable_dates. notice is None when fresh, otherwise an explicit
+    string naming why no observations are being rendered (Rules 3/4) — the
+    caller must never silently render zero observations for a stale or
+    missing file.
     """
-    path = _daemon_state_path('last_inspection.json')
-    if not path.exists():
-        return []
-    try:
-        data = json.loads(path.read_text())
+    payload = state_io.read_last_inspection()
+    if payload is None:
+        return [], "No inspection data available."
+    if any(state_io.matches_target_date(payload, d) for d in acceptable_dates):
         return [
             {'type': o['type'], 'message': o['message']}
-            for o in data.get('observations', [])
+            for o in payload.get('observations', [])
             if not o.get('acknowledged')
-        ]
-    except Exception:
-        return []
+        ], None
+    last_known = payload.get('target_date', 'an unknown date')
+    return [], f"Inspection data unavailable — last recorded {last_known}."
 
 
 # ---------------------------------------------------------------------------
