@@ -1,5 +1,5 @@
 WorkmAIn
-Feature Backlog v5.34
+Feature Backlog v5.35
 20260717
 
 # WorkmAIn Feature Backlog
@@ -130,6 +130,11 @@ Items deferred from various phases for future implementation.
   `previous_working_day()`); AC4/AC5 still require inducing their conditions
   directly. Register and statistics updated (Complete 25→26, Partial 4→3 —
   48, 56, 60 remain).
+- v5.35 (20260717): Item 56 marked ✓ Complete — hotfix/item-56-reports-corrections
+  (v1.25.1) delivered the search/type/limit/`--all`/sort-order/window rework and the
+  `reports show` corrected-content panel carried forward from the v1.24.0 partial
+  delivery. All 11 spec ACs live-verified against real corrected-report data. Register
+  and statistics updated (Complete 26→27, Partial 3→2 — 48, 60 remain).
 
 ---
 
@@ -231,7 +236,7 @@ Build first, refactor later. See the complete picture before abstracting.
 | 53 | Notification Delivery Method Refactor | Medium | Phase 14 | ~4–6 hrs | ✓ |
 | 54 | Technical Debt — Warnings and Deprecations (Living List) | Low | Phase 15 | TBD | |
 | 55 | Clockify Bidirectional Reconciliation | Medium | Phase 14+ | ~8–12 hrs | |
-| 56 | workmain reports corrections Listing Command | Low | Phase 14 | ~1–2 hrs | ~ |
+| 56 | workmain reports corrections Listing Command | Low | Phase 14 | ~1–2 hrs | ✓ |
 | 57 | DB Schema Test Coverage Audit and Restoration | Low | Phase 15 | ~2–4 hrs | |
 | 58 | T4 Check-in Activity-Gap Suppression | Medium | — | ~2–3 hrs | ✓ |
 | 59 | Time Parser Timezone Assumption — Formal Confirmation | Low | Unscheduled | ~30 min | |
@@ -242,18 +247,18 @@ Build first, refactor later. See the complete picture before abstracting.
 ## Summary Statistics
 
 **Total Items:** 60 (Item 22 is a redirect — no separate deferred work; see Item 20)
-**Complete:** 26 (Items 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 50, 51, 52, 53, 58)
-**Partial:** 3 (Items 48, 56, 60 — see item detail for unmet ACs / pending verification)
+**Complete:** 27 (Items 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 50, 51, 52, 53, 56, 58)
+**Partial:** 2 (Items 48, 60 — see item detail for unmet ACs / pending verification)
 **Closed/Stale:** 2 (Items 14, 15 — premises resolved, suite green)
 **Open:** 28
 
 | Status | Count | Items |
 |--------|-------|-------|
 | Open (targeted) | 25 | 1, 2, 3, 4, 7, 8, 12, 16, 19, 23, 28, 29, 30, 31, 37, 42, 43, 44, 45, 46, 47, 54, 55, 57, 59 |
-| Partial | 3 | 48, 56, 60 |
+| Partial | 2 | 48, 60 |
 | Conditional | 1 | 9 |
 | Indefinitely | 2 | 5, 6 |
-| Complete | 26 | 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 50, 51, 52, 53, 58 |
+| Complete | 27 | 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 50, 51, 52, 53, 56, 58 |
 | Closed/Stale | 2 | 14, 15 |
 | Redirect | 1 | 22 → Item 20 |
 
@@ -2306,53 +2311,44 @@ time to spec the dirty-flag/pushed_at mechanism and conflict resolution UX prope
 
 #### Item 56 — workmain reports corrections Listing Command
 
-**Status:** ~ Partial — Operations_Config_Correction_Sprint Gate 6 §6.1, v1.24.0 (20260708).
-Gate 6 §6.1 intentionally scoped only the single-date listing command, following
-`report_confirm()`/`report_correct()`'s structural pattern — this was this sprint's own
-spec scoping, not a discovered implementation gap. Remaining ACs (date-range filtering,
-`corrected_content` preview, `--full` side-by-side view) carried forward as their own
-backlog note below, not implemented this sprint.
+**Status:** ✓ Complete — hotfix/item-56-reports-corrections, v1.25.1 (20260717);
+live-verified 20260717 (Ray ran `reports corrections` with real corrected-report data
+and `reports show <id>` against a corrected report; both confirmed working as intended)
 **Priority:** Low
-**Effort:** ~1–2 hours
+**Effort:** ~1–2 hours (original) + this hotfix
 **Added:** 20260626
-**Target Phase:** Phase 14
+**Completed:** 20260717
+**Target Phase:** Between-Phase Integration Sprint (pre-Phase 14)
 
 **Description:**
-Phase 12 Item PC-3 (Report Correction Propagation) is essentially complete as of v1.21.0,
-with one missing piece: a `workmain reports corrections` listing command. The existing
-commands cover:
-
-- `workmain reports save` — generates and saves a daily report (confirmed)
-- `workmain reports confirm <id>` — marks a report as confirmed
-- `workmain reports correct <id>` — opens report in editor, saves corrected content,
-  sets `status = 'corrected'`
-- `workmain reports list --status corrected` — filters by status
-What does not exist: a dedicated `workmain reports corrections [--date DATE]` command that
-provides a history view of corrected reports — showing which reports were corrected, when,
-what the original content was, what the correction was, and the `correction_note`.
+Extends the v1.24.0 single-date `reports corrections` listing with a default 7-day
+window (by `updated_at`), search (`correction_note` only, lifts the window), validated
+type filter (does not lift the window), configurable limit, and an unbounded `--all`
+bypass — mirroring `notes_list`'s window/limit/lift mechanics directly. Fixes sort order
+to correction recency (`updated_at`) instead of `report_date`; moves display off a
+truncated Rich Table onto a full-text block format matching `notes list`. Adds
+`ReportsRepository.get_filtered()`. Separately extends `reports show <id>` to render
+`corrected_content` alongside `content` when present, closing the diff/comparison gap
+identified during this item's recon (see
+`RECON_SPEC_REPORT_CORRECTION_DATA_INTEGRITY_20260717.md` — original content was never
+at risk; the gap was display-only).
 
 **Why Deferred:**
-The underlying data is already stored correctly (Phase 12 Decision 10: `content` preserved,
-`corrected_content` written alongside). The listing command is a display-only surface with
-no new data model requirements. Deferred to Phase 14 as a small completeness task.
+The v1.24.0 sprint (Operations_Config_Correction_Sprint Gate 6 §6.1) intentionally scoped
+only the single-date listing command, following `report_confirm()`/`report_correct()`'s
+structural pattern. Remaining ACs (search, type filter, limit, `--all`, sort order,
+`reports show` diff view) were carried forward as their own hotfix, specced and delivered
+as `HOTFIX_ITEM56_REPORTS_CORRECTIONS_SPEC_v1_2.md` once prioritized.
 
-**Acceptance Criteria:**
+**Acceptance Criteria:** See `HOTFIX_ITEM56_REPORTS_CORRECTIONS_SPEC_v1_2.md` (AC1–AC11).
+All 11 live-verified 20260717.
 
-- [x] `workmain reports corrections` lists all reports with `status = 'corrected'` in
-      reverse chronological order
-- [~] `workmain reports corrections --date DATE` filters to a specific date or date range —
-      single-date filtering only; date-range filtering not built (carried forward)
-- [ ] **Carried forward, not implemented.** Each entry shows: report ID, date,
-      `correction_note`, and a preview of `corrected_content` — the delivered table shows
-      `correction_note`, not a preview of `corrected_content` itself
-- [ ] **Carried forward, not implemented.** `workmain reports corrections --full` shows
-      complete `content` and `corrected_content` side by side for each corrected report —
-      no `--full` flag was built
-- [x] Completes Phase 12 PC-3 acceptance criteria — PC-3's own (narrower) ACs in
-      `docs/implementation-checklist.md` are satisfied by the listing command as delivered
 **Files Affected:**
 
-- `workmain/cli/commands/reports.py` — new `reports_corrections` command
+- `workmain/cli/commands/reports.py` — `reports_corrections` rewritten;
+  `_validate_report_type()` extracted; `format_correction_display()` added;
+  `report_show()` gains the corrected-content panel
+- `workmain/database/repositories/reports_repo.py` — `get_filtered()` added
 
 ---
 
