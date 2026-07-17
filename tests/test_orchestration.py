@@ -1,7 +1,7 @@
 """
 WorkmAIn Orchestration Tests
-test_orchestration.py v1.1
-20260708
+test_orchestration.py v1.2
+20260716
 
 Tests for Phase 13 Sprint 3 deliverables: WorkmAInDaemon socket dispatch,
 Block Kit ConfirmationGate, T2/T3 meeting triggers, T4 random check-in,
@@ -20,6 +20,14 @@ Version History:
         notify_method=slack correctly reaches daemon.post_message for all
         five relocated triggers: workday_start, daily_closeout,
         weekly_draft, eow, eod_prompt)
+- v1.2: Item #60 Gate 2 — TestNotifyMethodSlackDelivery.
+        test_workday_start_delivers_via_slack's _get_unresolved_observations
+        patch retargeted to the new (observations, notice) tuple return;
+        new Group 10 (TestGetUnresolvedObservationsBranches,
+        TestJobWorkdayStartFreshnessAcceptableDates,
+        TestJobWorkdayStartNoticeSplice, TestPreviousWorkingDayGuard)
+        covers the T1 freshness gate added in daemon.py v1.21/
+        scheduler.py v1.14.
 """
 
 import json
@@ -32,6 +40,9 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
 from unittest.mock import MagicMock, patch, call
+
+# Sentinel date: far future ensures no real DB/production data matches
+SENTINEL_DATE = date(2099, 1, 1)
 
 
 # ---------------------------------------------------------------------------
@@ -1019,7 +1030,7 @@ class TestNotifyMethodSlackDelivery(unittest.TestCase):
         mock_session = MagicMock()
         with patch('workmain.daemon.scheduler.get_db') as mock_get_db, \
              patch('workmain.daemon.scheduler.ScheduleService') as mock_svc_cls, \
-             patch('workmain.daemon.daemon._get_unresolved_observations', return_value=[]), \
+             patch('workmain.daemon.daemon._get_unresolved_observations', return_value=([], None)), \
              patch('workmain.daemon.daemon._schedule_meeting_reminders'), \
              patch('workmain.database.repositories.meetings_repo.MeetingsRepository') as mock_mtg_cls, \
              patch('workmain.database.repositories.notification_repository.NotificationConfigRepository') as mock_cfg_cls, \
@@ -1034,6 +1045,185 @@ class TestNotifyMethodSlackDelivery(unittest.TestCase):
         mock_deliver.assert_called_once()
         self.assertEqual(mock_deliver.call_args[0][2], 'slack')
         self.assertEqual(mock_deliver.call_args.kwargs.get('daemon'), daemon)
+
+
+# ---------------------------------------------------------------------------
+# Group 10 — Item #60 Gate 2: T1 freshness gate
+# ---------------------------------------------------------------------------
+
+class TestGetUnresolvedObservationsBranches:
+    """Direct (unpatched) coverage of daemon._get_unresolved_observations()'s
+    three branches: fresh, stale-with-notice, no-file-with-notice."""
+
+    def test_fresh_match_returns_observations_no_notice(self, tmp_path, monkeypatch):
+        from workmain.daemon import daemon as daemon_mod
+        from workmain.daemon import state_io
+        from workmain.daemon.models import Observation, ObservationType
+
+        monkeypatch.setenv('WORKMAIN_STATE_DIR', str(tmp_path))
+        state_io.write_last_inspection(
+            [Observation(type=ObservationType.CARRY_FORWARD, message='CF item.')],
+            'Summary.', SENTINEL_DATE,
+        )
+        observations, notice = daemon_mod._get_unresolved_observations([SENTINEL_DATE])
+        assert notice is None
+        assert observations == [{'type': 'carry_forward', 'message': 'CF item.'}]
+
+    def test_stale_returns_notice_naming_last_recorded_date(self, tmp_path, monkeypatch):
+        from workmain.daemon import daemon as daemon_mod
+        from workmain.daemon import state_io
+
+        monkeypatch.setenv('WORKMAIN_STATE_DIR', str(tmp_path))
+        state_io.write_last_inspection([], 'Summary.', SENTINEL_DATE)
+        observations, notice = daemon_mod._get_unresolved_observations([date(2099, 1, 2)])
+        assert observations == []
+        assert notice == f"Inspection data unavailable — last recorded {SENTINEL_DATE}."
+
+    def test_missing_file_returns_no_data_notice(self, tmp_path, monkeypatch):
+        from workmain.daemon import daemon as daemon_mod
+
+        monkeypatch.setenv('WORKMAIN_STATE_DIR', str(tmp_path))
+        observations, notice = daemon_mod._get_unresolved_observations([SENTINEL_DATE])
+        assert observations == []
+        assert notice == "No inspection data available."
+
+
+class TestJobWorkdayStartFreshnessAcceptableDates(unittest.TestCase):
+    """AC3 — job_workday_start() treats the state file as fresh when its
+    target_date matches schedule.previous_working_day(target_date), not
+    just target_date itself. previous_working_day() is mocked here (this
+    file mocks DB access throughout — the real skip-weekend/skip-holiday
+    logic is covered in test_schedule_service.py); SENTINEL_MONDAY/
+    SENTINEL_TUESDAY are reused from there for the two AC3 narratives."""
+
+    def _run(self, target_date, previous_working_day, state_file_date):
+        import workmain.daemon.scheduler as sched_mod
+        daemon = MagicMock()
+        mock_session = MagicMock()
+        with patch('workmain.daemon.scheduler.get_db') as mock_get_db, \
+             patch('workmain.daemon.scheduler.date') as mock_date_cls, \
+             patch('workmain.daemon.scheduler.ScheduleService') as mock_svc_cls, \
+             patch('workmain.daemon.daemon._schedule_meeting_reminders'), \
+             patch('workmain.database.repositories.meetings_repo.MeetingsRepository') as mock_mtg_cls, \
+             patch('workmain.database.repositories.notification_repository.NotificationConfigRepository') as mock_cfg_cls, \
+             patch('workmain.database.repositories.task_status_repo.TaskStatusRepository') as mock_task_cls, \
+             patch('workmain.daemon.state_io.read_last_inspection') as mock_read, \
+             patch('workmain.daemon.delivery.deliver') as mock_deliver:
+            mock_get_db.return_value.get_session.return_value = mock_session
+            mock_date_cls.today.return_value = target_date
+            mock_svc_cls.return_value.is_working_day.return_value = True
+            mock_svc_cls.return_value.previous_working_day.return_value = previous_working_day
+            mock_mtg_cls.return_value.get_active_for_date.return_value = []
+            mock_task_cls.return_value.get_filtered.return_value = []
+            mock_read.return_value = {
+                'target_date': str(state_file_date),
+                'observations': [
+                    {'type': 'carry_forward', 'message': 'CF item.', 'acknowledged': False}
+                ],
+            }
+            cfg = MagicMock(enabled=True, method='slack')
+            mock_cfg_cls.return_value.get_config.return_value = cfg
+            sched_mod.job_workday_start(daemon)
+        return mock_deliver.call_args[0][1]
+
+    def test_friday_state_file_fresh_on_monday(self):
+        """T1 fires Monday; Friday's inspection (the previous working day
+        across the weekend) is treated as fresh — no stale notice."""
+        from tests.test_schedule_service import SENTINEL_MONDAY
+        friday = date(2099, 1, 2)  # the Friday immediately before SENTINEL_MONDAY
+        body = self._run(target_date=SENTINEL_MONDAY, previous_working_day=friday,
+                          state_file_date=friday)
+        self.assertNotIn("Inspection data unavailable", body)
+        self.assertNotIn("No inspection data available", body)
+        self.assertIn("CF item.", body)
+
+    def test_pre_holiday_workday_state_file_fresh_after_holiday(self):
+        """T1 fires Tuesday, the workday after a recorded Monday holiday;
+        the last actual working day's inspection (Friday, skipping the
+        holiday) is treated as fresh."""
+        from tests.test_schedule_service import SENTINEL_TUESDAY
+        friday = date(2099, 1, 2)  # last workday before the SENTINEL_MONDAY holiday
+        body = self._run(target_date=SENTINEL_TUESDAY, previous_working_day=friday,
+                          state_file_date=friday)
+        self.assertNotIn("Inspection data unavailable", body)
+        self.assertNotIn("No inspection data available", body)
+        self.assertIn("CF item.", body)
+
+
+class TestJobWorkdayStartNoticeSplice(unittest.TestCase):
+    """AC4/AC5 — job_workday_start() prepends the notice to the briefing
+    body when _get_unresolved_observations() returns one; leaves the body
+    untouched when notice is None."""
+
+    def _run(self, notice):
+        import workmain.daemon.scheduler as sched_mod
+        daemon = MagicMock()
+        mock_session = MagicMock()
+        with patch('workmain.daemon.scheduler.get_db') as mock_get_db, \
+             patch('workmain.daemon.scheduler.ScheduleService') as mock_svc_cls, \
+             patch('workmain.daemon.daemon._get_unresolved_observations', return_value=([], notice)), \
+             patch('workmain.daemon.daemon._schedule_meeting_reminders'), \
+             patch('workmain.database.repositories.meetings_repo.MeetingsRepository') as mock_mtg_cls, \
+             patch('workmain.database.repositories.notification_repository.NotificationConfigRepository') as mock_cfg_cls, \
+             patch('workmain.database.repositories.task_status_repo.TaskStatusRepository') as mock_task_cls, \
+             patch('workmain.integrations.slack.slack_eod.build_morning_briefing',
+                   return_value='BRIEFING_BODY') as mock_build, \
+             patch('workmain.daemon.delivery.deliver') as mock_deliver:
+            mock_get_db.return_value.get_session.return_value = mock_session
+            mock_svc_cls.return_value.is_working_day.return_value = True
+            mock_svc_cls.return_value.previous_working_day.return_value = date.today()
+            mock_mtg_cls.return_value.get_active_for_date.return_value = []
+            mock_task_cls.return_value.get_filtered.return_value = []
+            cfg = MagicMock(enabled=True, method='slack')
+            mock_cfg_cls.return_value.get_config.return_value = cfg
+            sched_mod.job_workday_start(daemon)
+        return mock_deliver.call_args[0][1]
+
+    def test_notice_prepended_when_present(self):
+        body = self._run("Inspection data unavailable — last recorded 2099-01-01.")
+        self.assertTrue(
+            body.startswith("Inspection data unavailable — last recorded 2099-01-01.\n\n")
+        )
+        self.assertIn("BRIEFING_BODY", body)
+
+    def test_body_unchanged_when_notice_none(self):
+        body = self._run(None)
+        self.assertEqual(body, "BRIEFING_BODY")
+
+
+class TestPreviousWorkingDayGuard(unittest.TestCase):
+    """Rule 7 (F3) — a previous_working_day() failure (pathological
+    schedule_exceptions) must not crash job_workday_start(); it falls back
+    to acceptable_dates=[target_date] and logs a warning, and the
+    briefing still sends."""
+
+    def test_value_error_falls_back_to_today_only_and_logs_warning(self):
+        import workmain.daemon.scheduler as sched_mod
+        daemon = MagicMock()
+        mock_session = MagicMock()
+        with patch('workmain.daemon.scheduler.get_db') as mock_get_db, \
+             patch('workmain.daemon.scheduler.ScheduleService') as mock_svc_cls, \
+             patch('workmain.daemon.scheduler.logger') as mock_logger, \
+             patch('workmain.daemon.daemon._get_unresolved_observations',
+                   return_value=([], None)) as mock_get_obs, \
+             patch('workmain.daemon.daemon._schedule_meeting_reminders'), \
+             patch('workmain.database.repositories.meetings_repo.MeetingsRepository') as mock_mtg_cls, \
+             patch('workmain.database.repositories.notification_repository.NotificationConfigRepository') as mock_cfg_cls, \
+             patch('workmain.database.repositories.task_status_repo.TaskStatusRepository') as mock_task_cls, \
+             patch('workmain.daemon.delivery.deliver') as mock_deliver:
+            mock_get_db.return_value.get_session.return_value = mock_session
+            mock_svc_cls.return_value.is_working_day.return_value = True
+            mock_svc_cls.return_value.previous_working_day.side_effect = ValueError("pathological")
+            mock_mtg_cls.return_value.get_active_for_date.return_value = []
+            mock_task_cls.return_value.get_filtered.return_value = []
+            cfg = MagicMock(enabled=True, method='slack')
+            mock_cfg_cls.return_value.get_config.return_value = cfg
+            sched_mod.job_workday_start(daemon)
+
+        mock_deliver.assert_called_once()
+        mock_logger.warning.assert_called_once()
+        acceptable_dates_arg = mock_get_obs.call_args[0][0]
+        self.assertEqual(acceptable_dates_arg, [date.today()])
 
 
 if __name__ == '__main__':

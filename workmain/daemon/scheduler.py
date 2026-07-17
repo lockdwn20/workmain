@@ -1,7 +1,7 @@
 """
 WorkmAIn Daemon Scheduler
-scheduler.py v1.13
-20260713
+scheduler.py v1.14
+20260716
 
 APScheduler job configuration. Trigger times and the T4 interval are
 read from system_state config (Operations_Config_Correction_Sprint Gate 1)
@@ -85,6 +85,14 @@ Version History:
 - v1.13: Item #50 hotfix — job_workday_start() calls _get_unresolved_observations()
          (replacing _count_unresolved_observations()) and threads target_date
          into build_morning_briefing() as a new required first argument.
+- v1.14: Item #60 Gate 2 — job_workday_start() computes acceptable_dates
+         ([target_date, previous_working_day(target_date)], the latter
+         guarded by try/except ValueError with a warning-logged fallback
+         to today-only) and passes it to _get_unresolved_observations(),
+         which now returns (observations, notice); notice, when present,
+         is prepended to the briefing body. ScheduleService(session) is
+         now held in a local (schedule) so previous_working_day() reuses
+         the same instance as the is_working_day() check.
 """
 
 import functools
@@ -138,7 +146,8 @@ def job_workday_start(daemon: Any) -> None:
     session = db.get_session()
     try:
         target_date = date.today()
-        if not ScheduleService(session).is_working_day(target_date):
+        schedule = ScheduleService(session)
+        if not schedule.is_working_day(target_date):
             logger.info("Morning briefing suppressed — today is not a working day")
             return
 
@@ -146,9 +155,21 @@ def job_workday_start(daemon: Any) -> None:
 
         meetings = MeetingsRepository(session).get_active_for_date(target_date)
         tasks = TaskStatusRepository(session).get_filtered(status='active', limit=0)
-        observations = _get_unresolved_observations()
+
+        acceptable_dates = [target_date]
+        try:
+            acceptable_dates.append(schedule.previous_working_day(target_date))
+        except ValueError:
+            logger.warning(
+                "previous_working_day() failed — schedule_exceptions may be "
+                "pathological; freshness check limited to today only"
+            )
+
+        observations, notice = _get_unresolved_observations(acceptable_dates)
 
         body = build_morning_briefing(target_date, meetings, tasks, observations)
+        if notice:
+            body = f"{notice}\n\n{body}"
         config = NotificationConfigRepository(session).get_config()
         if config.enabled:
             deliver("", body, config.method, daemon=daemon)
