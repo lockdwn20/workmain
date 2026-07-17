@@ -1,6 +1,6 @@
 """
 WorkmAIn Report Commands - Phase 4 Implementation
-Report Commands v2.14
+Report Commands v2.15
 20260717
 
 Static action-first command structure — template is an argument.
@@ -73,6 +73,10 @@ Version History:
          ReportsRepository.get_filtered() instead of querying the ORM
          directly. Extracted _validate_report_type() from _report_list_impl
          (shared by reports list/history and reports corrections).
+- v2.15: Hotfix Item #56 Gate 3 — reports show <id> (ID path only) renders
+         corrected_content in a "Corrected Version" panel, between the
+         original content panel and the correction_note line, when
+         non-null. No change to the filename path.
 """
 
 import os
@@ -753,6 +757,12 @@ def report_show(target: str):
                 title=f"[bold]{title}[/bold]",
                 border_style="green"
             ))
+            if report.corrected_content:
+                console.print(Panel(
+                    report.corrected_content,
+                    title="[bold]Corrected Version[/bold]",
+                    border_style="yellow"
+                ))
             if report.correction_note:
                 console.print(f"  [yellow]Correction note:[/yellow] {report.correction_note}")
             console.print()

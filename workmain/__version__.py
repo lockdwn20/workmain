@@ -1,9 +1,21 @@
 """
 WorkmAIn Package Version
-Version v1.25.0
-20260716
+Version v1.25.1
+20260717
 
 Version History:
+- v1.25.1: Hotfix Item #56 — reports corrections listing rewritten:
+           default 7-day window on updated_at (mirrors notes_list), new
+           --search/-s (correction_note only, lifts window), --limit/-n
+           (default 20), --type/-R (validated, does not lift window),
+           --all (bypasses window+limit); sort fixed to updated_at DESC
+           (was report_date DESC); display moved from a 60-char-truncated
+           Rich Table to a full-text block format. New
+           ReportsRepository.get_filtered(); _validate_report_type()
+           extracted from _report_list_impl (shared with reports
+           list/history). reports show <id> (ID path) now also renders
+           corrected_content in a "Corrected Version" panel when present.
+           25 new tests (815 → 840). reports_repo.py v1.5; reports.py v2.15.
 - v1.25.0: Item #60 — consolidated the two independent last_inspection.json
            writers (daemon.py, eod_workflow.py) into workmain/daemon/state_io.py
            (new: write_last_inspection(), read_last_inspection(),
@@ -466,7 +478,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.25.0"
-__version_info__ = (1, 25, 0)
+__version__ = "1.25.1"
+__version_info__ = (1, 25, 1)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
