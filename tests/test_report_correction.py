@@ -1,7 +1,7 @@
 """
 WorkmAIn Report Correction Tests
-test_report_correction v1.1
-20260623
+test_report_correction v1.2
+20260717
 
 Tests for PC-3 — report status fields, confirm/correct commands,
 --status filter on reports list, and weekly aggregation filter.
@@ -19,6 +19,8 @@ Covers:
   - EOD Step 4a: report starts as unconfirmed after generation
   - build_weekly_prompt(): fallback when partial/no confirmed week, substitutive
     path when all 5 weekdays confirmed, corrected_content preference (Item 34)
+  - ReportsRepository.get_filtered(): status/type/date/updated_after floor/
+    search/limit, sort order (Item 56 Gate 1)
 
 Uses db_session fixture for repo/model tests.
 Uses unittest.TestCase with real sessions for CLI command tests that need
@@ -28,6 +30,8 @@ Version History:
 - v1.0: Phase 12 Gate 7 — initial implementation
 - v1.1: Hotfix items-33-34-incomplete-impl follow-up — add TestBuildWeeklyPrompt
         (4 tests covering Item 34 behavioral fixes)
+- v1.2: Hotfix Item #56 Gate 1 — add TestGetFiltered (get_filtered() coverage:
+        status/type/date/updated_after floor/search/limit/sort order)
 """
 
 import unittest
@@ -74,6 +78,34 @@ def _seed_report(session, report_type='daily_internal', report_date=None,
     )
     if status:
         r.status = status
+    session.add(r)
+    session.flush()
+    session.refresh(r)
+    return r
+
+
+def _seed_report_full(session, report_type='daily_internal', report_date=None,
+                       content=_SAMPLE_CONTENT, status=None, correction_note=None,
+                       corrected_content=None, updated_at=None) -> Report:
+    """Insert a Report row with correction/timestamp fields set at construction.
+
+    All fields land in the single INSERT (not a later UPDATE), so this avoids
+    the updated_at onupdate=datetime.now trap (Design Rule 16) — required for
+    any test asserting a specific, scrambled updated_at ordering.
+    """
+    r = Report(
+        report_type=report_type,
+        report_date=report_date or SENTINEL_DATE_UNCONFIRMED,
+        content=content,
+    )
+    if status:
+        r.status = status
+    if correction_note is not None:
+        r.correction_note = correction_note
+    if corrected_content is not None:
+        r.corrected_content = corrected_content
+    if updated_at is not None:
+        r.updated_at = updated_at
     session.add(r)
     session.flush()
     session.refresh(r)
@@ -224,6 +256,127 @@ class TestGetConfirmedDailies:
         results = repo.get_confirmed_dailies(date(2099, 10, 5), date(2099, 10, 7))
         ids = [r.id for r in results]
         assert ids.index(r2.id) < ids.index(r3.id) < ids.index(r1.id)
+
+
+# ---------------------------------------------------------------------------
+# Reports repo — get_filtered() (Hotfix Item #56 Gate 1)
+# ---------------------------------------------------------------------------
+
+class TestGetFiltered:
+    """ReportsRepository.get_filtered() — status/type/date/updated_after/search/limit/sort."""
+
+    def test_get_filtered_by_status(self, db_session):
+        """status='corrected' returns only corrected rows."""
+        r_conf = _seed_report_full(db_session, report_date=date(2099, 11, 20),
+                                   status='confirmed')
+        r_corr = _seed_report_full(db_session, report_date=date(2099, 11, 21),
+                                   status='corrected')
+        results = get_reports_repository(db_session).get_filtered(status='corrected')
+        ids = [r.id for r in results]
+        assert r_corr.id in ids
+        assert r_conf.id not in ids
+
+    def test_get_filtered_by_report_type(self, db_session):
+        """report_type filter returns only matching-type rows."""
+        r_daily = _seed_report_full(db_session, report_type='daily_internal',
+                                    report_date=date(2099, 11, 22), status='corrected')
+        r_weekly = _seed_report_full(db_session, report_type='weekly_client',
+                                     report_date=date(2099, 11, 22), status='corrected')
+        results = get_reports_repository(db_session).get_filtered(report_type='daily_internal')
+        ids = [r.id for r in results]
+        assert r_daily.id in ids
+        assert r_weekly.id not in ids
+
+    def test_get_filtered_by_report_date(self, db_session):
+        """report_date filter matches only that exact subject date."""
+        r_match = _seed_report_full(db_session, report_date=date(2099, 11, 23),
+                                    status='corrected')
+        r_other = _seed_report_full(db_session, report_date=date(2099, 11, 24),
+                                    status='corrected')
+        results = get_reports_repository(db_session).get_filtered(report_date=date(2099, 11, 23))
+        ids = [r.id for r in results]
+        assert r_match.id in ids
+        assert r_other.id not in ids
+
+    def test_get_filtered_updated_after_floor(self, db_session):
+        """updated_after applies a >= floor on updated_at; before excluded, on/after included."""
+        floor = date(2099, 11, 15)
+        r_before = _seed_report_full(db_session, report_date=date(2099, 11, 25),
+                                     status='corrected',
+                                     updated_at=datetime(2099, 11, 14, 12, 0))
+        r_on = _seed_report_full(db_session, report_date=date(2099, 11, 26),
+                                 status='corrected',
+                                 updated_at=datetime(2099, 11, 15, 0, 0))
+        r_after = _seed_report_full(db_session, report_date=date(2099, 11, 27),
+                                    status='corrected',
+                                    updated_at=datetime(2099, 11, 16, 9, 0))
+        results = get_reports_repository(db_session).get_filtered(updated_after=floor)
+        ids = [r.id for r in results]
+        assert r_before.id not in ids
+        assert r_on.id in ids
+        assert r_after.id in ids
+
+    def test_get_filtered_search_matches_correction_note_only(self, db_session):
+        """search matches correction_note only — content/corrected_content matches are excluded."""
+        term = 'GATE1SEARCHNOTE'
+        r_note_match = _seed_report_full(db_session, report_date=date(2099, 11, 28),
+                                         status='corrected',
+                                         correction_note=f'{term} in the note',
+                                         content='unrelated content')
+        r_content_only = _seed_report_full(db_session, report_date=date(2099, 11, 29),
+                                           status='corrected',
+                                           correction_note='unrelated note',
+                                           content=f'{term} in the content')
+        results = get_reports_repository(db_session).get_filtered(search=term)
+        ids = [r.id for r in results]
+        assert r_note_match.id in ids
+        assert r_content_only.id not in ids
+
+    def test_get_filtered_search_case_insensitive(self, db_session):
+        """search is case-insensitive (ILIKE)."""
+        r = _seed_report_full(db_session, report_date=date(2099, 11, 30), status='corrected',
+                              correction_note='MixedCaseGate1Term here')
+        results = get_reports_repository(db_session).get_filtered(search='mixedcasegate1term')
+        ids = [r.id for r in results]
+        assert r.id in ids
+
+    def test_get_filtered_limit_caps_results(self, db_session):
+        """limit caps the number of rows returned."""
+        term = 'GATE1LIMITTERM'
+        for i in range(5):
+            _seed_report_full(db_session, report_date=date(2099, 12, 1 + i),
+                              status='corrected', correction_note=f'{term} row {i}')
+        unbounded = get_reports_repository(db_session).get_filtered(search=term)
+        assert len(unbounded) == 5
+        capped = get_reports_repository(db_session).get_filtered(search=term, limit=2)
+        assert len(capped) == 2
+
+    def test_get_filtered_limit_none_returns_unbounded(self, db_session):
+        """limit=None (default) returns every matching row, no cap."""
+        term = 'GATE1UNBOUNDEDTERM'
+        for i in range(3):
+            _seed_report_full(db_session, report_date=date(2099, 12, 10 + i),
+                              status='corrected', correction_note=f'{term} row {i}')
+        results = get_reports_repository(db_session).get_filtered(search=term, limit=None)
+        assert len(results) == 3
+
+    def test_get_filtered_orders_by_updated_at_desc(self, db_session):
+        """Sort is updated_at DESC, id DESC — not report_date. report_date and
+        updated_at are deliberately scrambled so this fails if the old
+        report_date-based sort were still in effect."""
+        term = 'GATE1SORTTERM'
+        r_a = _seed_report_full(db_session, report_date=date(2099, 11, 1), status='corrected',
+                                correction_note=f'{term} A',
+                                updated_at=datetime(2099, 11, 3, 10, 0))
+        r_b = _seed_report_full(db_session, report_date=date(2099, 11, 2), status='corrected',
+                                correction_note=f'{term} B',
+                                updated_at=datetime(2099, 11, 2, 10, 0))
+        r_c = _seed_report_full(db_session, report_date=date(2099, 11, 3), status='corrected',
+                                correction_note=f'{term} C',
+                                updated_at=datetime(2099, 11, 1, 10, 0))
+        results = get_reports_repository(db_session).get_filtered(search=term)
+        ids = [r.id for r in results]
+        assert ids == [r_a.id, r_b.id, r_c.id]
 
 
 # ---------------------------------------------------------------------------

@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.25.1] - 2026-07-17
+
+### Added
+
+- `ReportsRepository.get_filtered()` — status/report_type/report_date/
+  `updated_after` floor/`search` (ILIKE, `correction_note` only)/`limit`;
+  ordered `updated_at` DESC, `id` DESC; additive only, no changes to
+  `list_reports()` or any other existing method
+- `_validate_report_type()` (`reports.py`) — extracted from
+  `_report_list_impl`'s inline `VALID_REPORT_TYPES` check; shared by
+  `reports list`/`history` and `reports corrections`
+- `format_correction_display()` (`reports.py`) — plain-text per-row
+  formatter for `reports corrections`, replacing the truncated Rich Table
+- `reports corrections` gains `-s/--search`, `-n/--limit` (default 20),
+  `-R/--type` (validated, does not lift the window), `--all` (bypasses
+  window and limit)
+- `reports show <id>` (ID path) renders `corrected_content` in a
+  "Corrected Version" panel, between the content panel and the
+  `correction_note` line, when non-null
+- `tests/test_reports_corrections.py` (new file); 25 new tests total
+  (815 → 840)
+
+### Changed
+
+- `reports corrections` — default window is now 7 days on `updated_at`
+  (correction recency), mirroring `notes_list`'s window/lift mechanics
+  exactly; sort fixed to `updated_at` DESC, `id` DESC (was `report_date`
+  DESC); now calls `ReportsRepository.get_filtered()` instead of querying
+  the ORM directly; display moved from a 60-char-truncated Rich Table to
+  a full-text block format grouped by correction date
+
+### Fixed
+
+- `reports corrections` previously sorted by `report_date` (subject date)
+  instead of correction recency, had no search/type/limit filters, and
+  truncated `correction_note` to 60 characters in a Rich Table — see
+  `HOTFIX_ITEM56_REPORTS_CORRECTIONS_SPEC_v1_2.md`. Closes Item #56.
+
 ## [1.25.0] - 2026-07-16
 
 ### Added
