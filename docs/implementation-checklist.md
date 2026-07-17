@@ -1,8 +1,17 @@
 WorkmAIn
-Implementation Checklist v3.4
-20260710
+Implementation Checklist v3.5
+20260716
 
 Version History:
+- v3.5 (20260716): Item 60 (consolidate `last_inspection.json` writers, add T1
+  freshness gate) shipped as a standalone hotfix — v1.25.0, 3 gates, PR #24,
+  tag v1.25.0. Never part of any sprint's own gate scope (discovered and
+  scoped after Operations_Config_Correction_Sprint closed), so no checklist
+  body section exists for it — full detail lives in `docs/FEATURE_BACKLOG.md`
+  v5.33, Item 60. Marked `~` (code-complete, not yet live-verified) there,
+  same distinction as Items #48/#50/#56 — the implementation spec's AC3–AC5
+  require an actual 05:30 `job_workday_start()` run to be observed before
+  full close-out.
 - v3.4 (20260710): Item 58 (T4 activity-gap suppression) flipped to [x] — hotfix
   (be79997, v1.24.1) live-verified 20260710 following recon that resolved an
   apparent regression to a stale daemon process, not a code defect (see
