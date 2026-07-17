@@ -1,7 +1,7 @@
 """
 WorkmAIn Notifications Command Tests
-test_notifications_commands.py v2.1
-20260702
+test_notifications_commands.py v2.2
+20260716
 
 Tests for NotificationConfigRepository and the notifications CLI command group.
 CLI-level tests (notifications test, notifications status) use CliRunner with
@@ -21,6 +21,10 @@ Version History:
         set ('wsl-notify', 'slack', 'both') throughout; fixes
         test_default_config_row_exists, which started failing once the live
         notify_method value was migrated in Gate 3
+- v2.2: Item #60 Gate 3 — new test_status_corrupt_inspection_file,
+        regression coverage for the missing/corrupt/stale three-way
+        distinction notifications.py's status command preserves (Rule 8,
+        AC8) across the state_io.matches_target_date() swap.
 """
 
 import json
@@ -184,3 +188,21 @@ class TestNotificationsStatusCommand:
         result = self._run_status(tmp_path)
         assert result.exit_code == 0
         assert 'Only 3.0h logged' in result.output
+
+    def test_status_corrupt_inspection_file(self, tmp_path):
+        """status shows the red corrupt-file diagnostic — distinct from the
+        missing-file message — when the file exists but fails JSON decode.
+        Item #60 Gate 3 (Rule 8) regression: notifications.py's own
+        try/except (json.JSONDecodeError, OSError) around this read is
+        untouched by the state_io.matches_target_date() swap, so this
+        three-way distinction must still hold. Uses invalid-JSON-but-valid-
+        UTF-8 content — invalid UTF-8 bytes would raise UnicodeDecodeError,
+        outside this narrow catch tuple, and would fail for the wrong
+        reason."""
+        daemon_dir = tmp_path / 'daemon'
+        daemon_dir.mkdir(mode=0o700)
+        (daemon_dir / 'last_inspection.json').write_text('{not json')
+        result = self._run_status(tmp_path)
+        assert result.exit_code == 0
+        assert 'Could not read inspection state file' in result.output
+        assert 'Daemon may not be active' not in result.output

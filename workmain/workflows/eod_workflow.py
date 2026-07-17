@@ -1,7 +1,7 @@
 """
 WorkmAIn EOD Workflow Service Layer
 workmain/workflows/eod_workflow.py
-v1.7
+v1.8
 20260716
 
 Surface-agnostic EOD workflow step runners. Returns EodStepResult objects
@@ -55,10 +55,14 @@ Version History:
 - v1.7: Item #60 Gate 1 — module-level _write_last_inspection() deleted;
         its call site in _run_pre_flight_inspection_step() repointed to
         state_io.write_last_inspection().
+- v1.8: Item #60 Gate 3 (Rule 9) — _run_task_match_step()'s inline
+        last_inspection.json path build + try/except Exception: pass
+        replaced with state_io.read_last_inspection() /
+        matches_target_date(). No three-way distinction to preserve here
+        (unlike notifications.py) — full migration, not a one-line swap.
 """
 
 import inspect as _inspect
-import json
 import os
 import re
 import subprocess
@@ -464,20 +468,13 @@ def _run_task_match_step(dry_run: bool, target_date: date, non_interactive: bool
         )
         return EodStepResult(status=EodStepStatus.COMPLETED)
 
-    state_dir = Path(os.environ.get('WORKMAIN_STATE_DIR', '~/.workmain')).expanduser()
-    state_path = state_dir / 'daemon' / 'last_inspection.json'
-
     has_cf_observations = False
-    if state_path.exists():
-        try:
-            payload = json.loads(state_path.read_text())
-            if payload.get('target_date') == str(target_date):
-                for obs in payload.get('observations', []):
-                    if obs.get('type') == 'carry_forward':
-                        has_cf_observations = True
-                        break
-        except Exception:
-            pass
+    payload = state_io.read_last_inspection()
+    if payload is not None and state_io.matches_target_date(payload, target_date):
+        for obs in payload.get('observations', []):
+            if obs.get('type') == 'carry_forward':
+                has_cf_observations = True
+                break
 
     if not has_cf_observations:
         print("  No carry-forward items flagged — skipping task match")
