@@ -1,8 +1,13 @@
 WorkmAIn
-Implementation Checklist v3.5
-20260716
+Implementation Checklist v3.6
+20260717
 
 Version History:
+- v3.6 (20260717): T1 morning briefing's "Unresolved observation count" line
+  flipped from bare-count-gap wording to reflect Item #50's live-verified
+  close-out (date line + per-observation detail, hotfix v1.24.2, confirmed
+  20260717 against real Slack output). Full detail in
+  `docs/FEATURE_BACKLOG.md` v5.34, Item 50.
 - v3.5 (20260716): Item 60 (consolidate `last_inspection.json` writers, add T1
   freshness gate) shipped as a standalone hotfix — v1.25.0, 3 gates, PR #24,
   tag v1.25.0. Never part of any sprint's own gate scope (discovered and
@@ -486,8 +491,9 @@ No unsupervised database writes.
   Operations_Config_Correction_Sprint Gate 4**
 - [x] Pending tasks with carry-forward context — same wiring
   → **Item #50, wired in Operations_Config_Correction_Sprint Gate 4**
-- [x] Unresolved observation count — still a bare count, not per-observation detail;
-  Item #50 marked **partial** in `FEATURE_BACKLOG.md` for this specific gap
+- [x] Unresolved observation detail (not just a count), plus a rendered date
+  line — delivered hotfix v1.24.2, live-verified 20260717 → **Item #50,
+  now ✓ Complete in `FEATURE_BACKLOG.md`**
 
 **T2 — Meeting Start Notification ✓ (Sprint 3 — v1.23.0)**
 
