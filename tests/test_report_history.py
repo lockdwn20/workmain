@@ -1,7 +1,7 @@
 """
 WorkmAIn Report History Tests
-test_report_history v1.2
-20260623
+test_report_history v1.3
+20260717
 
 Tests for reports history, show, and resend commands (Phase 9 Gate 3).
 Uses db_session fixture from conftest.py. Seeds Report rows per test
@@ -14,6 +14,9 @@ Version History:
         TestReportView class updated: all ['view', ...] invocations → ['show', ...]
 - v1.2: Hotfix items-33-34-incomplete-impl follow-up — add
         test_show_displays_correction_note_when_set (Item 33)
+- v1.3: Hotfix Item #56 Gate 3 — add test_show_displays_corrected_content_when_present,
+        test_show_omits_corrected_panel_when_corrected_content_is_null,
+        test_show_displays_both_panels_and_note_together
 """
 
 import os
@@ -195,6 +198,49 @@ class TestReportView(unittest.TestCase):
         result = self.runner.invoke(reports, ['show', str(r.id)])
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn('Wrong client attribution', result.output)
+
+    def test_show_displays_corrected_content_when_present(self):
+        """reports show <id> renders a 'Corrected Version' panel when corrected_content is set."""
+        r = self._seed('daily_internal', date(2099, 6, 2), 'Original body content.')
+        r.corrected_content = 'Corrected body content, revised.'
+        self.session.commit()
+
+        result = self.runner.invoke(reports, ['show', str(r.id)])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn('Corrected Version', result.output)
+        self.assertIn('Corrected body content, revised.', result.output)
+
+    def test_show_omits_corrected_panel_when_corrected_content_is_null(self):
+        """reports show <id> shows content + note only (no empty second panel) when
+        corrected_content is null — today's behavior, unchanged by this hotfix."""
+        r = self._seed('daily_internal', date(2099, 6, 3), 'Plain body content.')
+        r.correction_note = 'Minor wording fix'
+        self.session.commit()
+
+        result = self.runner.invoke(reports, ['show', str(r.id)])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn('Plain body content.', result.output)
+        self.assertIn('Minor wording fix', result.output)
+        self.assertNotIn('Corrected Version', result.output)
+
+    def test_show_displays_both_panels_and_note_together(self):
+        """reports show <id> with content, corrected_content, and correction_note all set
+        renders content panel, then corrected panel, then the note line, in that order."""
+        r = self._seed('daily_internal', date(2099, 6, 4), 'Original body content.')
+        r.corrected_content = 'Corrected body content.'
+        r.correction_note = 'Fixed tone and client name'
+        self.session.commit()
+
+        result = self.runner.invoke(reports, ['show', str(r.id)])
+        self.assertEqual(result.exit_code, 0, result.output)
+        pos_content = result.output.find('Original body content.')
+        pos_corrected = result.output.find('Corrected body content.')
+        pos_note = result.output.find('Fixed tone and client name')
+        self.assertGreater(pos_content, -1)
+        self.assertGreater(pos_corrected, -1)
+        self.assertGreater(pos_note, -1)
+        self.assertLess(pos_content, pos_corrected)
+        self.assertLess(pos_corrected, pos_note)
 
 
 class TestReportResend(unittest.TestCase):

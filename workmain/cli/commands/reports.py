@@ -1,7 +1,7 @@
 """
 WorkmAIn Report Commands - Phase 4 Implementation
-Report Commands v2.13
-20260708
+Report Commands v2.15
+20260717
 
 Static action-first command structure — template is an argument.
 
@@ -12,7 +12,8 @@ Commands:
 - reports list / history       # list reports from DB (history is alias)
 - reports show <id|file>       # show by DB id (int) or filename (str)
 - reports resend <id>          # recreate email draft from stored report
-- reports corrections [-d DATE] # list reports with status 'corrected'
+- reports corrections [-d DATE] [-s SEARCH] [-n LIMIT] [-R TYPE] [--all]
+                                # list reports with status 'corrected'
 - reports costs
 
 Version History:
@@ -62,6 +63,20 @@ Version History:
          correction_note below the content panel when the field is non-empty (Item 33)
 - v2.13: Operations_Config_Correction_Sprint Gate 6 (#56) — reports corrections
          [--date/-d DATE] listing command added; closes PC-3
+- v2.14: Hotfix Item #56 Gate 2 — reports corrections rewritten: adds
+         --search/-s (correction_note only, lifts window), --limit/-n
+         (default 20), --type/-R (validated, does not lift window), --all
+         (bypasses window+limit); default 7-day window on updated_at,
+         mirroring notes_list; sort fixed to updated_at DESC (was
+         report_date DESC); display moved from truncated Rich Table to
+         plain-text block format (format_correction_display); now calls
+         ReportsRepository.get_filtered() instead of querying the ORM
+         directly. Extracted _validate_report_type() from _report_list_impl
+         (shared by reports list/history and reports corrections).
+- v2.15: Hotfix Item #56 Gate 3 — reports show <id> (ID path only) renders
+         corrected_content in a "Corrected Version" panel, between the
+         original content panel and the correction_note line, when
+         non-null. No change to the filename path.
 """
 
 import os
@@ -381,15 +396,25 @@ def report_send(template: str):
     )
 
 
+def _validate_report_type(report_type: Optional[str]) -> None:
+    """Validate report_type against VALID_REPORT_TYPES; exit(1) on an unknown value.
+
+    Extracted from _report_list_impl's inline check (Hotfix Item #56 Gate 2,
+    Design Rule 10) — same message and exit behavior, shared by reports
+    list/history and reports corrections. No-op when report_type is falsy.
+    """
+    if report_type and report_type not in VALID_REPORT_TYPES:
+        console.print(f"[red]Error: Unknown report type '{report_type}'. Valid types: {', '.join(VALID_REPORT_TYPES)}[/red]")
+        raise SystemExit(1)
+
+
 def _report_list_impl(
     limit: int,
     report_type: Optional[str],
     status_filter: Optional[str] = None,
 ) -> None:
     """Shared implementation for 'list' and 'history' commands."""
-    if report_type and report_type not in VALID_REPORT_TYPES:
-        console.print(f"[red]Error: Unknown report type '{report_type}'. Valid types: {', '.join(VALID_REPORT_TYPES)}[/red]")
-        raise SystemExit(1)
+    _validate_report_type(report_type)
 
     if status_filter and status_filter not in VALID_REPORT_STATUSES:
         console.print(
@@ -590,21 +615,48 @@ def report_correct(identifier: str):
         session.close()
 
 
+def format_correction_display(report) -> str:
+    """Format a corrected report for plain-text block display (Hotfix Item #56)."""
+    corrected_str = report.updated_at.strftime('%Y-%m-%d %H:%M') if report.updated_at else '—'
+    lines = [f"[#{report.id}] {report.report_type} — {report.report_date} (corrected {corrected_str})"]
+    lines.append(f"  {report.correction_note or '(no note)'}")
+    return "\n".join(lines)
+
+
 @reports.command('corrections')
 @click.option('-d', '--date', 'date_str', default=None, metavar='YYYY-MM-DD',
               help='Filter by report date')
-def report_corrections(date_str: Optional[str]):
+@click.option('-s', '--search', default=None, help='Search correction notes')
+@click.option('-n', '--limit', 'limit_opt', type=int, default=None,
+              help='Maximum results [default: 20]')
+@click.option('-R', '--type', 'report_type', default=None,
+              help='Filter by report type')
+@click.option('--all', 'show_all', is_flag=True, default=False,
+              help='Show all results, no window, no limit')
+def report_corrections(date_str: Optional[str], search: Optional[str], limit_opt: Optional[int],
+                       report_type: Optional[str], show_all: bool):
     """
     List reports with status 'corrected'.
 
-    Shows the correction note for each corrected report, optionally
-    filtered to a single report date.
+    Shows the correction note for each corrected report.
+
+    \b
+    Default behavior (no flags): last 7 days (by correction date), limit 20,
+    most recent correction first. When --search is provided without --date,
+    no window is applied so the full history is searchable. --type alone
+    does not lift the window.
 
     \b
     Examples:
       workmain reports corrections
       workmain reports corrections --date 2026-05-27
+      workmain reports corrections --search "client name"
+      workmain reports corrections --type daily_internal
+      workmain reports corrections --limit 50
+      workmain reports corrections --all
     """
+    _validate_report_type(report_type)
+
     db = get_db()
     session = db.get_session()
 
@@ -617,46 +669,50 @@ def report_corrections(date_str: Optional[str]):
                 console.print(f"[red]✗ Invalid date: '{date_str}' — expected YYYY-MM-DD[/red]")
                 raise SystemExit(1)
 
-        q = session.query(Report).filter(Report.status == 'corrected')
-        if filter_date:
-            q = q.filter(Report.report_date == filter_date)
+        window_start = None
+        if not show_all and not filter_date and not search:
+            window_start = datetime.now().date() - timedelta(days=7)
 
-        rows = q.order_by(Report.report_date.desc(), Report.id.desc()).all()
+        effective_limit = None if show_all else (limit_opt if limit_opt is not None else 20)
+
+        rows = get_reports_repository(session).get_filtered(
+            status='corrected',
+            report_type=report_type,
+            report_date=filter_date,
+            updated_after=window_start,
+            search=search,
+            limit=effective_limit,
+        )
 
         if not rows:
             console.print("\n[yellow]No corrected reports found.[/yellow]\n")
             return
 
-        title = f"Report Corrections ({len(rows)})"
-        if filter_date:
-            title += f" — {filter_date}"
+        if search:
+            header = f"Corrections matching '{search}'"
+        elif filter_date:
+            header = f"Corrections — {filter_date}"
+        elif show_all:
+            header = "Report Corrections — all"
+        elif report_type:
+            header = f"Corrections — type {report_type}"
+        else:
+            header = "Report Corrections — last 7 days"
 
-        table = Table(
-            title=f"\n{title}",
-            show_header=True,
-            header_style="bold cyan",
-            box=box.ROUNDED
-        )
-        table.add_column("ID", style="dim", justify="right")
-        table.add_column("Type", style="cyan")
-        table.add_column("Date", style="green")
-        table.add_column("Corrected", style="dim")
-        table.add_column("Note", style="yellow")
+        click.echo(f"\n{header} ({len(rows)}):\n")
+        click.echo("=" * 60)
 
+        current_date = None
         for r in rows:
-            corrected_str = r.updated_at.strftime('%Y-%m-%d %H:%M') if r.updated_at else "—"
-            note_preview = (r.correction_note or "")[:60]
-
-            table.add_row(
-                str(r.id),
-                r.report_type or "—",
-                str(r.report_date) if r.report_date else "—",
-                corrected_str,
-                note_preview or "—"
-            )
-
-        console.print(table)
-        console.print()
+            row_date = r.updated_at.date() if r.updated_at else None
+            if row_date != current_date:
+                if current_date is not None:
+                    click.echo("=" * 60)
+                click.echo(f"\n[{row_date}]")
+                click.echo("-" * 60)
+                current_date = row_date
+            click.echo(format_correction_display(r))
+            click.echo("-" * 60)
 
     except SystemExit:
         raise
@@ -701,6 +757,12 @@ def report_show(target: str):
                 title=f"[bold]{title}[/bold]",
                 border_style="green"
             ))
+            if report.corrected_content:
+                console.print(Panel(
+                    report.corrected_content,
+                    title="[bold]Corrected Version[/bold]",
+                    border_style="yellow"
+                ))
             if report.correction_note:
                 console.print(f"  [yellow]Correction note:[/yellow] {report.correction_note}")
             console.print()

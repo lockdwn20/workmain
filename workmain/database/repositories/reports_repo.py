@@ -1,7 +1,7 @@
 """
 WorkmAIn Reports Repository
-Reports Repository v1.4
-20260611
+Reports Repository v1.5
+20260717
 
 Repository for managing generated reports in the database.
 
@@ -18,6 +18,8 @@ Version History:
 - v1.3: Phase 12 Gate 4 — list_reports() gains status parameter; get_confirmed_dailies()
         added as Phase 13 weekly aggregation infrastructure (PC-3)
 - v1.4: Phase 13 Sprint 2 Gate 1b — set_correction_note() added (Item 33)
+- v1.5: Hotfix Item #56 Gate 1 — get_filtered() added for reports corrections
+        listing (status/type/date/updated_after floor/search/limit)
 """
 
 from datetime import date, datetime
@@ -207,6 +209,40 @@ class ReportsRepository:
             return
         report.correction_note = note
         self.session.commit()
+
+    def get_filtered(
+        self,
+        status: Optional[str] = None,
+        report_type: Optional[str] = None,
+        report_date: Optional[date] = None,
+        updated_after: Optional[date] = None,
+        search: Optional[str] = None,
+        limit: Optional[int] = None,
+    ) -> List[Report]:
+        """
+        Filtered report query for corrections listing.
+
+        Ordered by updated_at DESC, id DESC (correction recency, not
+        report_date). updated_after applies a >= floor on updated_at
+        (used for the default 7-day window; None = no floor). search
+        matches correction_note only (ILIKE). limit=None returns
+        unbounded results.
+        """
+        q = self.session.query(Report)
+        if status:
+            q = q.filter(Report.status == status)
+        if report_type:
+            q = q.filter(Report.report_type == report_type)
+        if report_date:
+            q = q.filter(Report.report_date == report_date)
+        if updated_after:
+            q = q.filter(Report.updated_at >= updated_after)
+        if search:
+            q = q.filter(Report.correction_note.ilike(f'%{search}%'))
+        q = q.order_by(Report.updated_at.desc(), Report.id.desc())
+        if limit is not None:
+            q = q.limit(limit)
+        return q.all()
 
     def get_cost_summary(
         self,
