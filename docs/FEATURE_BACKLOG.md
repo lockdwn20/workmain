@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v5.33
-20260716
+Feature Backlog v5.34
+20260717
 
 # WorkmAIn Feature Backlog
 
@@ -119,6 +119,17 @@ Items deferred from various phases for future implementation.
   rule. Not yet observed. Register and statistics not yet updated to Complete —
   will move on live-verification close-out, matching Item #50's own precedent
   for this same distinction.
+- v5.34 (20260717): Item 50 marked ✓ Complete — all three content ACs
+  (date line, per-observation detail, zero-observation section omission)
+  carried forward since the Operations_Config_Correction_Sprint Gate 4 partial
+  close-out are now live-verified against real Slack output and
+  `last_inspection.json`, not just test-verified (Wed 15 Jul and Fri 17 Jul
+  05:30 runs). Item 60's Status expanded from a single Pending flag into a
+  full per-AC breakdown of the implementation spec's AC1–AC9 — AC3 confirmed
+  for its same-week sub-case (Fri 17 Jul run matched Thursday's file via
+  `previous_working_day()`); AC4/AC5 still require inducing their conditions
+  directly. Register and statistics updated (Complete 25→26, Partial 4→3 —
+  48, 56, 60 remain).
 
 ---
 
@@ -214,7 +225,7 @@ Build first, refactor later. See the complete picture before abstracting.
 | 47 | Block Kit modal — report correction from Slack | Medium | Phase 14 | ~6h | |
 | 48 | 3c Timeout Loop — No Exit Condition, No Cancel Path | High | Phase 14 | ~4–6 hrs | ~ |
 | 49 | T4 Suppression Window Hard-Coded Independent of Schedule Config | Low | Phase 14 | ~2–3 hrs | ✓ |
-| 50 | Morning Briefing Content | Medium | Phase 14 | ~2–3 hrs | ~ |
+| 50 | Morning Briefing Content | Medium | Phase 14 | ~2–3 hrs | ✓ |
 | 51 | Architecture Integration Recon | Medium | — | ~2–3 hrs | ✓ |
 | 52 | Cancelled Meetings Not Filtered from Inspection or Notification Schedule | Medium | Phase 14 | ~2–3 hrs | ✓ |
 | 53 | Notification Delivery Method Refactor | Medium | Phase 14 | ~4–6 hrs | ✓ |
@@ -231,18 +242,18 @@ Build first, refactor later. See the complete picture before abstracting.
 ## Summary Statistics
 
 **Total Items:** 60 (Item 22 is a redirect — no separate deferred work; see Item 20)
-**Complete:** 25 (Items 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 51, 52, 53, 58)
-**Partial:** 4 (Items 48, 50, 56, 60 — see item detail for unmet ACs / pending verification)
+**Complete:** 26 (Items 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 50, 51, 52, 53, 58)
+**Partial:** 3 (Items 48, 56, 60 — see item detail for unmet ACs / pending verification)
 **Closed/Stale:** 2 (Items 14, 15 — premises resolved, suite green)
 **Open:** 28
 
 | Status | Count | Items |
 |--------|-------|-------|
 | Open (targeted) | 25 | 1, 2, 3, 4, 7, 8, 12, 16, 19, 23, 28, 29, 30, 31, 37, 42, 43, 44, 45, 46, 47, 54, 55, 57, 59 |
-| Partial | 4 | 48, 50, 56, 60 |
+| Partial | 3 | 48, 56, 60 |
 | Conditional | 1 | 9 |
 | Indefinitely | 2 | 5, 6 |
-| Complete | 25 | 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 51, 52, 53, 58 |
+| Complete | 26 | 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 50, 51, 52, 53, 58 |
 | Closed/Stale | 2 | 14, 15 |
 | Redirect | 1 | 22 → Item 20 |
 
@@ -1931,16 +1942,26 @@ gap would leave the four-way fragmentation in place.
 
 #### Item 50 — Morning Briefing Content
 
-**Status:** ~ Partial — Operations_Config_Correction_Sprint Gate 4, v1.24.0 (20260708).
-3/4 ACs met (`build_morning_briefing()` now wired to the 05:30 job; includes today's
-meetings and open carry-forward tasks; suppressed on DB-managed exception days; dual
-05:30 notification consolidated into one job per Item 53's delivery refactor). 1 AC
-carried forward, not implemented this sprint: the briefing still shows a bare unresolved
-observation *count*, not per-observation detail — the AC explicitly called for detail,
-not just count.
+**Status:** ✓ Complete — content ACs shipped as hotfix v1.24.2 (`Hotfix Item #50 —
+morning briefing content`), live-verified 20260717. All three content ACs carried
+forward from the original Phase 13 / Operations_Config_Correction_Sprint Gate 4
+partial close-out are now live-verified, not just test-verified:
+date line confirmed via Slack, Wed 15 Jul 2026 05:30 run (`Wed 15 Jul 2026` on its
+own line, matching `format_date_display()`'s `"%a %d %b %Y"` exactly);
+per-observation detail confirmed via the same run (`[time_gap]`, `[coverage]`,
+`[missing_notes]` entries with real message text, not a count); zero-observation
+section omission confirmed via Fri 17 Jul 2026 05:30 run cross-checked against
+`~/.workmain/daemon/last_inspection.json` at time of that run
+(`target_date: "2026-07-16"`, `observations: []`) — no "Unresolved from
+yesterday's inspection" section rendered at all, not a "None" placeholder, matching
+the `if observations:` guard in `build_morning_briefing()`. All remaining ACs
+(signature migration, `_count_unresolved_observations()` removal, `date_format.py`
+extraction, test suite) were already closed at v1.24.2 ship time per that hotfix's
+own spec.
 **Priority:** Medium
 **Effort:** ~2–3 hours
 **Added:** 20260626
+**Completed:** 20260717
 **Target Phase:** Phase 14 (spec with Backlog Item 53)
 
 **Description:**
@@ -1975,22 +1996,27 @@ risks duplicate work if the briefing job itself is restructured.
 
 - [x] The 05:30 Slack notification uses `build_morning_briefing()` (or equivalent) to
       render a structured briefing — wired in `job_workday_start()` (Gate 4)
-- [~] Briefing includes: today's date, today's meetings (time + title), open
+- [x] Briefing includes: today's date, today's meetings (time + title), open
       carry-forward tasks, and unresolved inspection observation detail (not just count) —
-      meetings and carry-forward tasks delivered; **today's date is not rendered as its own
-      line, and the unresolved-observations section is still a bare count** ("N flagged
-      observation(s)"), not per-observation detail. Both sub-gaps carried forward.
+      meetings and carry-forward tasks delivered Gate 4; date line and per-observation
+      detail delivered hotfix v1.24.2; all four live-verified 20260717 (see Status)
 - [x] Briefing is suppressed on DB-managed exception days (holiday / time-off) via
       `ScheduleExceptionRepository` — via `ScheduleService.is_working_day()` in `job_workday_start()`
 - [x] Dual 05:30 notification resolved per Backlog Item 53 outcome — consolidated into the
       single `job_workday_start()` job (Item 50/53 both Gate 4/Gate 3 outcomes)
+
 **Files Affected:**
 
 - `workmain/daemon/scheduler.py` — `job_workday_start()` (was `_send_morning_briefing()` /
   `morning_briefing` job, both removed as dead code once consolidated)
-- `workmain/integrations/slack/slack_eod.py` — `build_morning_briefing()`
-- `workmain/daemon/daemon.py` — `_count_unresolved_observations()` (retained, call site
-  relocated to `job_workday_start()`)
+- `workmain/integrations/slack/slack_eod.py` — `build_morning_briefing()` (v1.24.2:
+  required `target_date` first param, `observations: list` replaces `unresolved_count: int`)
+- `workmain/daemon/daemon.py` — `_count_unresolved_observations()` retired at v1.24.2,
+  replaced by `_get_unresolved_observations()` (per-observation dicts, not a count);
+  further changed at v1.25.0 (Item #60) to take `acceptable_dates` and return
+  `(observations, notice)` — see Item 60
+- `workmain/utils/date_format.py` (new, v1.24.2) — `format_date_display()`, extracted
+  from `cli/commands/slack.py`'s private helper
 
 ---
 
@@ -2504,15 +2530,15 @@ session rather than folded into this sprint's scope.
 
 #### Item 60 — Consolidate `last_inspection.json` Writers and Add Freshness Validation
 
-**Status:** ~ Code Complete, Live Verification Pending — v1.25.0 (20260716, PR #24,
-tag v1.25.0). All 6 ACs below are met and test-verified (797 baseline plus 18
-new tests, 815 passed total). The implementation spec
+**Status:** ~ Code Complete, Live Verification Partial — v1.25.0 (20260716, PR #24,
+tag v1.25.0). All 6 ACs below (this item's own) are met and test-verified (797
+baseline plus 18 new tests, 815 passed total). The implementation spec
 (`BACKLOG_ITEM60_INSPECTION_STATE_IMPLEMENTATION_SPEC_v1_2.md`) layered three
-additional ACs (AC3–AC5) on top of this item's own six, requiring a real 05:30
-`job_workday_start()` run to be observed live — a fresh-data case and an
-induced-stale case — before this item moves to full Complete, per standing
-project rule (AC verification before close-out). Not yet observed. Daemon
-restarted post-merge; `ActiveEnterTimestamp` confirmed 20260716 22:33:36 PDT,
+additional ACs (AC3–AC5) requiring a real 05:30 `job_workday_start()` run to be
+observed live. As of 20260717: AC3 confirmed for one of its three sub-cases
+(same-week previous-working-day match); AC4 and AC5 not yet attempted — see
+**Live Verification Status** below for the full per-AC breakdown. Daemon
+restarted post-merge 20260716; `ActiveEnterTimestamp` confirmed 22:33:36 PDT,
 postdating the merge commit.
 **Priority:** High
 **Effort:** ~5–7 hours (own recon will refine this estimate)
@@ -2592,6 +2618,42 @@ of the same underlying concern.
 - [x] Full test suite passes with coverage exercising both writer call
       paths and the new freshness-check behavior (fresh data renders
       normally, stale data is caught) — 797 → 815, 0 regressions
+
+**Live Verification Status (implementation spec's AC3–AC5, tracked separately
+from this item's own six ACs above):**
+
+- [x] AC1 — Single shared writer, no duplicate writer body remains (test/grep-verified)
+- [x] AC2 — Directory creation via shared writer on both call paths (test-verified)
+- [~] AC3 — Briefing renders observations normally when the state file matches
+      today or the previous working day, including weekend and holiday
+      crossings. **Confirmed for one sub-case:** Fri 17 Jul 2026 05:30 run
+      correctly matched Thursday's (16 Jul) file via the
+      `previous_working_day(today)` candidate — verified directly against
+      `last_inspection.json`, not inferred. **Not yet observed:** the
+      weekend-crossing sub-case (Friday's file accepted on Monday) and the
+      holiday/schedule-exception-crossing sub-case. Note for whoever picks
+      this up: the "file matches `today`" sub-case may be structurally
+      near-unobservable in real operation, since nothing writes a same-day
+      file before T1 fires at 05:30 — not a gap to chase, just worth knowing
+      if this AC is ever reworded.
+- [ ] AC4 — Explicit notice naming the last recorded date when the file is
+      stale. Not yet attempted — requires inducing the condition (backdate
+      `last_inspection.json`'s `target_date`) and observing the briefing.
+- [ ] AC5 — Explicit "No inspection data available" notice when no file
+      exists. Not yet attempted — requires inducing the condition (remove
+      the file) and observing the briefing.
+- [x] AC6 — `eod_workflow.py` Step 3c and `notifications.py`'s freshness
+      comparison unchanged behavior (test-verified)
+- [x] AC7 — Full suite passes, 0 regressions, 797 → 815 (test-verified)
+- [x] AC8 — `notifications.py status` still distinguishes missing vs.
+      corrupt file (test-verified, new regression test)
+- [x] AC9 — `previous_working_day()` failure doesn't crash the briefing
+      (test-verified, guard test)
+
+**Next step:** induce AC4 and AC5's conditions directly rather than waiting
+for them to occur naturally, since they're safe to test on demand. AC3's
+remaining sub-cases (weekend, holiday) will occur naturally — Monday 20 Jul
+gives the weekend-crossing case for free.
 
 **Files Affected:**
 
