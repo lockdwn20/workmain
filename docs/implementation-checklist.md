@@ -1,8 +1,13 @@
 WorkmAIn
-Implementation Checklist v3.6
+Implementation Checklist v3.7
 20260717
 
 Version History:
+- v3.7 (20260717): PC-3's `reports corrections` line and Deliverables bullet
+  updated to reflect Item #56's full close-out — hotfix v1.25.1 delivered
+  the search/type/limit/`--all`/window/sort-order rework and the `reports
+  show` corrected-content panel, live-verified 20260717. Full detail in
+  `docs/FEATURE_BACKLOG.md` v5.35, Item 56.
 - v3.6 (20260717): T1 morning briefing's "Unresolved observation count" line
   flipped from bare-count-gap wording to reflect Item #50's live-verified
   close-out (date line + per-observation detail, hotfix v1.24.2, confirmed
@@ -404,8 +409,11 @@ context is retained via the task_status / forwarding_note relationship. The
   marks status `corrected`
 - [x] Weekly report aggregation only pulls `confirmed` or `corrected` daily reports
 - [x] Corrected records flagged so original error does not reappear in weekly
-- [x] `workmain reports corrections [--date DATE]` — listing/history command
-  → **Item #56, delivered in Operations_Config_Correction_Sprint Gate 6**
+- [x] `workmain reports corrections` — search/type/limit/`--all`/window,
+  sort by correction recency, full-text block display; `reports show <id>`
+  renders `corrected_content` alongside `content` — delivered hotfix
+  v1.25.1, live-verified 20260717 → **Item #56, now ✓ Complete in
+  `FEATURE_BACKLOG.md`**
 
 ### Integration with Phase 10 Inspection Engine
 
@@ -423,7 +431,9 @@ context is retained via the task_status / forwarding_note relationship. The
 - [~] PC-1: Replaced by standalone hotfix Item #55
 - [x] PC-2: Task carry-forward with context history (note-first architecture)
 - [x] PC-3: Complete — `workmain reports corrections` listing delivered in
-  Operations_Config_Correction_Sprint Gate 6 (#56)
+  Operations_Config_Correction_Sprint Gate 6 (#56); search/type/limit/`--all`/
+  sort-order/diff-view follow-up delivered hotfix v1.25.1 (#56, now fully
+  closed)
 
 ---
 
