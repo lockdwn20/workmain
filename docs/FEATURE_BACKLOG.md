@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v5.32
-20260713
+Feature Backlog v5.33
+20260716
 
 # WorkmAIn Feature Backlog
 
@@ -109,6 +109,16 @@ Items deferred from various phases for future implementation.
   scoped as standalone, next after Item #50's close-out. Item #50's AC boxes not
   yet updated — deferred to post-live-verification per project standard. Register
   and statistics updated (Total 59→60, Open 28→29).
+- v5.33 (20260716): Item 60 marked ~ Code Complete, Live Verification Pending —
+  shipped in v1.25.0 (3 gates, PR #24, tag v1.25.0). All 6 of this item's own
+  ACs met and test-verified. The implementation spec
+  (`BACKLOG_ITEM60_INSPECTION_STATE_IMPLEMENTATION_SPEC_v1_2.md`) imposed three
+  additional, stricter ACs (AC3–AC5) requiring an actual 05:30
+  `job_workday_start()` run to be observed live — fresh case and induced-stale
+  case — before this item can be marked fully Complete, per standing project
+  rule. Not yet observed. Register and statistics not yet updated to Complete —
+  will move on live-verification close-out, matching Item #50's own precedent
+  for this same distinction.
 
 ---
 
@@ -214,7 +224,7 @@ Build first, refactor later. See the complete picture before abstracting.
 | 57 | DB Schema Test Coverage Audit and Restoration | Low | Phase 15 | ~2–4 hrs | |
 | 58 | T4 Check-in Activity-Gap Suppression | Medium | — | ~2–3 hrs | ✓ |
 | 59 | Time Parser Timezone Assumption — Formal Confirmation | Low | Unscheduled | ~30 min | |
-| 60 | Consolidate `last_inspection.json` Writers and Add Freshness Validation | High | None (standalone) | ~5–7 hrs | |
+| 60 | Consolidate `last_inspection.json` Writers and Add Freshness Validation | High | None (standalone) | ~5–7 hrs | ~ |
 
 ---
 
@@ -222,14 +232,14 @@ Build first, refactor later. See the complete picture before abstracting.
 
 **Total Items:** 60 (Item 22 is a redirect — no separate deferred work; see Item 20)
 **Complete:** 25 (Items 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 51, 52, 53, 58)
-**Partial:** 3 (Items 48, 50, 56 — see item detail for unmet ACs carried forward)
+**Partial:** 4 (Items 48, 50, 56, 60 — see item detail for unmet ACs / pending verification)
 **Closed/Stale:** 2 (Items 14, 15 — premises resolved, suite green)
-**Open:** 29
+**Open:** 28
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Open (targeted) | 26 | 1, 2, 3, 4, 7, 8, 12, 16, 19, 23, 28, 29, 30, 31, 37, 42, 43, 44, 45, 46, 47, 54, 55, 57, 59, 60 |
-| Partial | 3 | 48, 50, 56 |
+| Open (targeted) | 25 | 1, 2, 3, 4, 7, 8, 12, 16, 19, 23, 28, 29, 30, 31, 37, 42, 43, 44, 45, 46, 47, 54, 55, 57, 59 |
+| Partial | 4 | 48, 50, 56, 60 |
 | Conditional | 1 | 9 |
 | Indefinitely | 2 | 5, 6 |
 | Complete | 25 | 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 51, 52, 53, 58 |
@@ -2494,7 +2504,16 @@ session rather than folded into this sprint's scope.
 
 #### Item 60 — Consolidate `last_inspection.json` Writers and Add Freshness Validation
 
-**Status:** Open — Next (scheduled immediately following Item #50 hotfix close-out)
+**Status:** ~ Code Complete, Live Verification Pending — v1.25.0 (20260716, PR #24,
+tag v1.25.0). All 6 ACs below are met and test-verified (797 baseline plus 18
+new tests, 815 passed total). The implementation spec
+(`BACKLOG_ITEM60_INSPECTION_STATE_IMPLEMENTATION_SPEC_v1_2.md`) layered three
+additional ACs (AC3–AC5) on top of this item's own six, requiring a real 05:30
+`job_workday_start()` run to be observed live — a fresh-data case and an
+induced-stale case — before this item moves to full Complete, per standing
+project rule (AC verification before close-out). Not yet observed. Daemon
+restarted post-merge; `ActiveEnterTimestamp` confirmed 20260716 22:33:36 PDT,
+postdating the merge commit.
 **Priority:** High
 **Effort:** ~5–7 hours (own recon will refine this estimate)
 **Added:** 20260713
@@ -2548,33 +2567,44 @@ of the same underlying concern.
 
 **Acceptance Criteria:**
 
-- [ ] A single shared writer function exists for `last_inspection.json`
-      (location/name determined by this item's own recon)
-- [ ] Both `daemon.py`'s and `eod_workflow.py`'s call sites converge on the
+- [x] A single shared writer function exists for `last_inspection.json` —
+      `workmain/daemon/state_io.py` (new), `write_last_inspection()`
+- [x] Both `daemon.py`'s and `eod_workflow.py`'s call sites converge on the
       shared writer — no independent duplicate implementation remains in
-      either file
-- [ ] `last_inspection.json`'s on-disk schema is unchanged from the
-      reader's perspective (no breakage to `_get_unresolved_observations()`
-      or `notifications status`), or any schema change is deliberate and
-      every reader is updated to match
-- [ ] Readers of `last_inspection.json` validate `run_at`/`target_date`
-      against the current date before rendering content as current
-- [ ] When data is stale beyond whatever recency window this item's recon
-      defines, the consuming surface omits the section or renders an
-      explicit staleness indicator rather than silently presenting old data
-- [ ] All current readers of `last_inspection.json` are enumerated and
-      covered by the freshness check (`_get_unresolved_observations()` at
-      minimum; recon to confirm whether `notifications status` or others
-      also read this file and need the same treatment)
-- [ ] Full test suite passes with coverage exercising both writer call
-      paths (the `_enriched_notify()` job path and the `workmain eod` CLI
-      pre-flight path) and the new freshness-check behavior (fresh data
-      renders normally, stale data is caught)
+      either file (Gate 1, grep-confirmed)
+- [x] `last_inspection.json`'s on-disk schema is unchanged from the
+      reader's perspective — `_get_unresolved_observations()` and
+      `notifications status` both continue to read the same shape
+- [x] Readers of `last_inspection.json` validate `run_at`/`target_date`
+      against the current date before rendering content as current —
+      `state_io.matches_target_date()`, used by all three readers
+- [x] When data is stale beyond the fresh window, the consuming surface
+      omits the section or renders an explicit staleness indicator rather
+      than silently presenting old data — T1 renders an explicit notice
+      (Gate 2); code-complete and unit-tested. The literal live 05:30
+      daemon render (implementation spec's AC3–AC5) has not yet been
+      observed — see Status above.
+- [x] All current readers of `last_inspection.json` are enumerated and
+      covered by the freshness check — `_get_unresolved_observations()`
+      (T1, Gate 2), `notifications status` (Gate 3, one-line swap,
+      three-way missing/corrupt/stale distinction preserved), and
+      `eod_workflow.py` Step 3c (Gate 3, full migration)
+- [x] Full test suite passes with coverage exercising both writer call
+      paths and the new freshness-check behavior (fresh data renders
+      normally, stale data is caught) — 797 → 815, 0 regressions
 
 **Files Affected:**
 
-- `workmain/daemon/daemon.py` — `_write_last_inspection()`,
-  `_get_unresolved_observations()` (from Item #50)
-- `workmain/workflows/eod_workflow.py` — `_write_last_inspection()`
-- `workmain/cli/commands/notifications.py` — confirm in recon whether
-  `status` reads this file and needs the same freshness treatment
+- `workmain/daemon/state_io.py` (new, v1.0) — `daemon_state_path()`,
+  `write_last_inspection()`, `read_last_inspection()`, `matches_target_date()`
+- `workmain/daemon/daemon.py` (v1.21) — `_write_last_inspection()` deleted;
+  `_get_unresolved_observations()` gains `acceptable_dates`, returns
+  `(observations, notice)`
+- `workmain/daemon/scheduler.py` (v1.14) — `job_workday_start()` computes
+  `acceptable_dates`, splices the notice into the briefing body
+- `workmain/workflows/eod_workflow.py` (v1.8) — `_write_last_inspection()`
+  deleted; Step 3c migrated to `state_io`
+- `workmain/cli/commands/notifications.py` (v1.4) — `status` command's
+  freshness comparison line only
+- `tests/test_state_io.py` (new), `tests/test_eod_workflow.py`,
+  `tests/test_orchestration.py`, `tests/test_notifications_commands.py`
