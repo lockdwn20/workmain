@@ -1,7 +1,7 @@
 """
 WorkmAIn Notifications Commands
-notifications.py v1.3
-20260702
+notifications.py v1.4
+20260716
 
 CLI command group: workmain notifications
 Owns delivery method configuration and notification delivery status.
@@ -26,6 +26,13 @@ Version History:
         warning block removed (email was never implemented, no fallback
         left once terminal retired); docstring examples updated; unused
         rich.panel.Panel import removed
+- v1.4: Item #60 Gate 3 (Rule 8) — status command's freshness comparison
+        line only: `payload.get('target_date') != str(date.today())`
+        replaced with `not state_io.matches_target_date(payload,
+        date.today())`. Path resolution, .exists() check, and the
+        missing/corrupt/stale three-way message handling are untouched —
+        preserves the red corrupt-file diagnostic as distinct from the
+        missing-file message.
 """
 
 import json
@@ -37,6 +44,7 @@ from typing import Optional
 import click
 from rich.console import Console
 
+from workmain.daemon import state_io
 from workmain.database.connection import get_db
 from workmain.database.repositories.notification_repository import NotificationConfigRepository
 from workmain.daemon.delivery import deliver
@@ -236,7 +244,7 @@ def notifications_status():
 
         if payload is None:
             console.print("  [red]✗ Could not read inspection state file.[/red]")
-        elif payload.get('target_date') != str(date.today()):
+        elif not state_io.matches_target_date(payload, date.today()):
             console.print(
                 "  [dim]No inspection has run today. Daemon may not be active.[/dim]"
             )
