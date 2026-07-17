@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.25.0] - 2026-07-16
+
+### Added
+
+- `workmain/daemon/state_io.py` (new) — `daemon_state_path()`,
+  `write_last_inspection()`, `read_last_inspection()`, `matches_target_date()`,
+  the shared last_inspection.json read/write primitives consolidating what
+  were two independent writers in `daemon.py` and `eod_workflow.py`
+- `tests/test_state_io.py` (new file); 18 new tests total (797 → 815)
+
+### Changed
+
+- `daemon._get_unresolved_observations()` — now takes a required
+  `acceptable_dates` param and returns `(observations, notice)` instead of a
+  bare list; `notice` is non-`None` when the state file is stale or missing
+- `scheduler.job_workday_start()` — computes `acceptable_dates` as
+  `[target_date, previous_working_day(target_date)]` (the latter guarded by
+  `try/except ValueError`, falling back to today-only with a logged warning
+  on failure); prepends the notice to the briefing body when present instead
+  of silently rendering zero observations
+- `notifications.py` `status` command and `eod_workflow.py` Step 3c
+  (`_run_task_match_step()`) — freshness comparisons refactored onto
+  `state_io.matches_target_date()`; no behavior change to either
+- `_daemon_state_path()` kept as a re-export
+  (`_daemon_state_path = state_io.daemon_state_path`) — still used by
+  `_write_scheduled_jobs()` and `_get_unresolved_observations()`
+
+### Fixed
+
+- T1 morning briefing previously rendered zero observations silently
+  whenever `last_inspection.json` was stale or missing (no freshness check
+  existed); it now renders an explicit notice naming the actual last
+  recorded date, or "No inspection data available"
+
 ## [1.24.2] - 2026-07-13
 
 ### Added

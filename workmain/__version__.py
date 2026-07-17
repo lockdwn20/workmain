@@ -1,9 +1,24 @@
 """
 WorkmAIn Package Version
-Version v1.24.2
-20260713
+Version v1.25.0
+20260716
 
 Version History:
+- v1.25.0: Item #60 — consolidated the two independent last_inspection.json
+           writers (daemon.py, eod_workflow.py) into workmain/daemon/state_io.py
+           (new: write_last_inspection(), read_last_inspection(),
+           matches_target_date()). Added a T1 morning-briefing freshness gate:
+           _get_unresolved_observations() now takes acceptable_dates and returns
+           (observations, notice); job_workday_start() computes acceptable_dates
+           as [target_date, previous_working_day(target_date)] (ValueError-guarded,
+           falls back to today-only with a logged warning), and an explicit notice
+           is rendered instead of silently showing zero observations when the
+           state file is stale or missing. notifications.py status and
+           eod_workflow.py Step 3c refactored onto the shared comparison
+           primitive with no behavior change. state_io.py v1.0; daemon.py v1.21;
+           scheduler.py v1.14; eod_workflow.py v1.8; notifications.py v1.4.
+           18 new tests (797 -> 815). See
+           BACKLOG_ITEM60_INSPECTION_STATE_IMPLEMENTATION_SPEC_v1_2.md.
 - v1.24.2: Hotfix Item #50 — morning briefing content. build_morning_briefing()
            renders a target_date line and per-observation [type] message
            detail instead of a bare unresolved count.
@@ -451,7 +466,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.24.2"
-__version_info__ = (1, 24, 2)
+__version__ = "1.25.0"
+__version_info__ = (1, 25, 0)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
