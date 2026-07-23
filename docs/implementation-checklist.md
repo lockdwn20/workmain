@@ -1,8 +1,14 @@
 WorkmAIn
-Implementation Checklist v3.7
-20260717
+Implementation Checklist v3.8
+20260722
 
 Version History:
+- v3.8 (20260722): Item 60 fully closed — all implementation-spec live-
+  verification items (AC3 weekend-crossing, AC4 stale-date notice, AC5
+  missing-file notice) confirmed by Ray. No checklist body section exists
+  for Item 60 (never part of any sprint's own gate scope), so this is a
+  version-history-only update. Full detail in `docs/FEATURE_BACKLOG.md`
+  v5.36, Item 60.
 - v3.7 (20260717): PC-3's `reports corrections` line and Deliverables bullet
   updated to reflect Item #56's full close-out — hotfix v1.25.1 delivered
   the search/type/limit/`--all`/window/sort-order rework and the `reports
