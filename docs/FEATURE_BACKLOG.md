@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v5.35
-20260717
+Feature Backlog v5.36
+20260722
 
 # WorkmAIn Feature Backlog
 
@@ -135,6 +135,17 @@ Items deferred from various phases for future implementation.
   `reports show` corrected-content panel carried forward from the v1.24.0 partial
   delivery. All 11 spec ACs live-verified against real corrected-report data. Register
   and statistics updated (Complete 26→27, Partial 3→2 — 48, 60 remain).
+- v5.36 (20260722): Item 60 marked ✓ Complete — the implementation spec's remaining
+  live-verification items all confirmed by Ray: AC3's weekend-crossing sub-case
+  (correct message received over a weekend period), AC4 (stale-date notice, induced
+  via an incorrect `target_date`), and AC5 (missing-file notice, induced by removing
+  the file). AC3's holiday-crossing sub-case was not separately observed live —
+  accepted as equivalent to the weekend-crossing confirmation since both exercise the
+  same `ScheduleService.previous_working_day()` code path, already covered by
+  `test_schedule_service.py` and this item's own Gate 2 mocked test
+  (`test_pre_holiday_workday_state_file_fresh_after_holiday`); per Ray's explicit
+  close-out decision, not a silently-dropped gap. Register and statistics updated
+  (Complete 27→28, Partial 2→1 — 48 remains).
 
 ---
 
@@ -240,25 +251,25 @@ Build first, refactor later. See the complete picture before abstracting.
 | 57 | DB Schema Test Coverage Audit and Restoration | Low | Phase 15 | ~2–4 hrs | |
 | 58 | T4 Check-in Activity-Gap Suppression | Medium | — | ~2–3 hrs | ✓ |
 | 59 | Time Parser Timezone Assumption — Formal Confirmation | Low | Unscheduled | ~30 min | |
-| 60 | Consolidate `last_inspection.json` Writers and Add Freshness Validation | High | None (standalone) | ~5–7 hrs | ~ |
+| 60 | Consolidate `last_inspection.json` Writers and Add Freshness Validation | High | None (standalone) | ~5–7 hrs | ✓ |
 
 ---
 
 ## Summary Statistics
 
 **Total Items:** 60 (Item 22 is a redirect — no separate deferred work; see Item 20)
-**Complete:** 27 (Items 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 50, 51, 52, 53, 56, 58)
-**Partial:** 2 (Items 48, 60 — see item detail for unmet ACs / pending verification)
+**Complete:** 28 (Items 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 50, 51, 52, 53, 56, 58, 60)
+**Partial:** 1 (Item 48 — see item detail for unmet ACs)
 **Closed/Stale:** 2 (Items 14, 15 — premises resolved, suite green)
 **Open:** 28
 
 | Status | Count | Items |
 |--------|-------|-------|
 | Open (targeted) | 25 | 1, 2, 3, 4, 7, 8, 12, 16, 19, 23, 28, 29, 30, 31, 37, 42, 43, 44, 45, 46, 47, 54, 55, 57, 59 |
-| Partial | 2 | 48, 60 |
+| Partial | 1 | 48 |
 | Conditional | 1 | 9 |
 | Indefinitely | 2 | 5, 6 |
-| Complete | 27 | 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 50, 51, 52, 53, 56, 58 |
+| Complete | 28 | 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 50, 51, 52, 53, 56, 58, 60 |
 | Closed/Stale | 2 | 14, 15 |
 | Redirect | 1 | 22 → Item 20 |
 
@@ -2526,19 +2537,22 @@ session rather than folded into this sprint's scope.
 
 #### Item 60 — Consolidate `last_inspection.json` Writers and Add Freshness Validation
 
-**Status:** ~ Code Complete, Live Verification Partial — v1.25.0 (20260716, PR #24,
-tag v1.25.0). All 6 ACs below (this item's own) are met and test-verified (797
-baseline plus 18 new tests, 815 passed total). The implementation spec
-(`BACKLOG_ITEM60_INSPECTION_STATE_IMPLEMENTATION_SPEC_v1_2.md`) layered three
-additional ACs (AC3–AC5) requiring a real 05:30 `job_workday_start()` run to be
-observed live. As of 20260717: AC3 confirmed for one of its three sub-cases
-(same-week previous-working-day match); AC4 and AC5 not yet attempted — see
-**Live Verification Status** below for the full per-AC breakdown. Daemon
-restarted post-merge 20260716; `ActiveEnterTimestamp` confirmed 22:33:36 PDT,
-postdating the merge commit.
+**Status:** ✓ Complete — v1.25.0 (20260716, PR #24, tag v1.25.0), live-verified
+20260722. All 6 of this item's own ACs met and test-verified (797 baseline plus
+18 new tests, 815 passed total). The implementation spec's three additional ACs
+(AC3–AC5, requiring a real 05:30 `job_workday_start()` run) are now confirmed:
+AC3's same-week previous-working-day sub-case confirmed 20260717 (Fri run
+matched Thursday's file); AC3's weekend-crossing sub-case, AC4 (stale-date
+notice), and AC5 (missing-file notice) all confirmed by Ray — correct message
+received in each of the three induced/naturally-occurring cases (weekend
+period, incorrect `target_date` in `last_inspection.json`, and the file
+missing entirely). See **Live Verification Status** below for the full
+per-AC record. Daemon restarted post-merge 20260716; `ActiveEnterTimestamp`
+confirmed 22:33:36 PDT, postdating the merge commit.
 **Priority:** High
 **Effort:** ~5–7 hours (own recon will refine this estimate)
 **Added:** 20260713
+**Completed:** 20260722
 **Target Phase:** None — standalone hotfix, no phase assignment
 
 **Description:**
@@ -2603,9 +2617,9 @@ of the same underlying concern.
 - [x] When data is stale beyond the fresh window, the consuming surface
       omits the section or renders an explicit staleness indicator rather
       than silently presenting old data — T1 renders an explicit notice
-      (Gate 2); code-complete and unit-tested. The literal live 05:30
-      daemon render (implementation spec's AC3–AC5) has not yet been
-      observed — see Status above.
+      (Gate 2); confirmed both by test and by live 05:30 daemon render
+      (implementation spec's AC3–AC5, live-verified 20260722 — see Status
+      above)
 - [x] All current readers of `last_inspection.json` are enumerated and
       covered by the freshness check — `_get_unresolved_observations()`
       (T1, Gate 2), `notifications status` (Gate 3, one-line swap,
@@ -2620,24 +2634,28 @@ from this item's own six ACs above):**
 
 - [x] AC1 — Single shared writer, no duplicate writer body remains (test/grep-verified)
 - [x] AC2 — Directory creation via shared writer on both call paths (test-verified)
-- [~] AC3 — Briefing renders observations normally when the state file matches
+- [x] AC3 — Briefing renders observations normally when the state file matches
       today or the previous working day, including weekend and holiday
-      crossings. **Confirmed for one sub-case:** Fri 17 Jul 2026 05:30 run
-      correctly matched Thursday's (16 Jul) file via the
-      `previous_working_day(today)` candidate — verified directly against
-      `last_inspection.json`, not inferred. **Not yet observed:** the
-      weekend-crossing sub-case (Friday's file accepted on Monday) and the
-      holiday/schedule-exception-crossing sub-case. Note for whoever picks
-      this up: the "file matches `today`" sub-case may be structurally
-      near-unobservable in real operation, since nothing writes a same-day
-      file before T1 fires at 05:30 — not a gap to chase, just worth knowing
-      if this AC is ever reworded.
-- [ ] AC4 — Explicit notice naming the last recorded date when the file is
-      stale. Not yet attempted — requires inducing the condition (backdate
-      `last_inspection.json`'s `target_date`) and observing the briefing.
-- [ ] AC5 — Explicit "No inspection data available" notice when no file
-      exists. Not yet attempted — requires inducing the condition (remove
-      the file) and observing the briefing.
+      crossings. Same-week `previous_working_day()` sub-case confirmed
+      20260717 (Fri run matched Thursday's file, verified directly against
+      `last_inspection.json`). Weekend-crossing sub-case confirmed by Ray
+      20260722 (correct message received over a weekend period). The
+      holiday/schedule-exception-crossing sub-case was not separately
+      observed live — mechanism is the same `ScheduleService.previous_working_day()`
+      code path already covered by `test_schedule_service.py`'s dedicated
+      unit tests and this item's own Gate 2 mocked coverage
+      (`test_pre_holiday_workday_state_file_fresh_after_holiday`), so this is
+      accepted as equivalent rather than a live-observation gap, per Ray's
+      close-out decision. The "file matches `today`" sub-case remains
+      structurally near-unobservable in real operation (nothing writes a
+      same-day file before T1 fires at 05:30) — noted for the record, not a
+      gap to chase.
+- [x] AC4 — Explicit notice naming the last recorded date when the file is
+      stale. Confirmed by Ray 20260722 — induced via an incorrect
+      `target_date` in `last_inspection.json`; correct notice received.
+- [x] AC5 — Explicit "No inspection data available" notice when no file
+      exists. Confirmed by Ray 20260722 — induced by removing the file;
+      correct notice received.
 - [x] AC6 — `eod_workflow.py` Step 3c and `notifications.py`'s freshness
       comparison unchanged behavior (test-verified)
 - [x] AC7 — Full suite passes, 0 regressions, 797 → 815 (test-verified)
@@ -2645,11 +2663,6 @@ from this item's own six ACs above):**
       corrupt file (test-verified, new regression test)
 - [x] AC9 — `previous_working_day()` failure doesn't crash the briefing
       (test-verified, guard test)
-
-**Next step:** induce AC4 and AC5's conditions directly rather than waiting
-for them to occur naturally, since they're safe to test on demand. AC3's
-remaining sub-cases (weekend, holiday) will occur naturally — Monday 20 Jul
-gives the weekend-crossing case for free.
 
 **Files Affected:**
 
