@@ -1,7 +1,7 @@
 """
 WorkmAIn EOD Workflow Tests
-test_eod_workflow v1.3
-20260716
+test_eod_workflow v1.4
+20260724
 
 Tests for workmain/workflows/eod_workflow.py — the surface-agnostic service
 layer extracted from cli/commands/eod.py in Phase 13 Sprint 2 Gate 2.
@@ -26,6 +26,14 @@ Version History:
         tmp_dir param dropped (5 call sites updated) since the shared
         writer resolves WORKMAIN_STATE_DIR from the environment, which
         monkeypatch.setenv() already scopes to tmp_path in every caller.
+- v1.4: Item #61 Gate 1 — new TestReportReviewStepCollapse: covers the
+        collapsed _run_report_review_step via its two public thin
+        wrappers (_run_report_step/_run_weekly_report_step, now imported
+        directly). Real committed-session pattern (mirrors
+        test_reports_corrections.py's documented db_session-invisibility
+        finding — the step runner opens its own get_db() session
+        internally, so a db_session-fixture-flushed row would never be
+        visible to it).
 """
 
 import threading
@@ -39,6 +47,7 @@ from workmain.ai.base_provider import ProviderStatus
 from workmain.daemon.models import Observation, ObservationType
 from workmain.daemon import state_io
 from workmain.database.repositories.notes_repo import NotesRepository
+from workmain.database.repositories.system_state_repository import SystemStateRepository
 from workmain.database.repositories.task_status_repo import TaskStatusRepository
 from workmain.workflows.eod_workflow import (
     EodStepStatus,
@@ -47,6 +56,8 @@ from workmain.workflows.eod_workflow import (
     run_step,
     _build_step_sequence,
     _run_review_step,
+    _run_report_step,
+    _run_weekly_report_step,
     _run_task_match_step,
     _run_note_dedup_step,
     _tokenize,
@@ -620,6 +631,152 @@ class TestHandleReplyMidFlightGuard:
         manager.handle_reply('U1', 'stop')
         assert 'U1' not in manager._sessions
         assert session._cancel_event.is_set()
+
+
+# Distinct from the module's SENTINEL_DATE to avoid any collision with
+# other report-seeding test files (test_reports_commands.py,
+# test_report_correction.py, etc.) that also key off date(2099, 1, 1).
+GATE1_SENTINEL_DATE = date(2098, 11, 3)
+
+
+class TestReportReviewStepCollapse(unittest.TestCase):
+    """Item #61 Gate 1 (Design Rules 1-2) — collapsed _run_report_review_step,
+    exercised through its two public thin wrappers. Covers G2's re-review
+    behavior (daily and weekly), the G1 no-active-client guard (weekly
+    only), and the daily-fatal/weekly-non-fatal generation-error split
+    (generation_error_fatal).
+
+    Real committed-session pattern (mirrors test_reports_corrections.py) —
+    _run_report_review_step opens its own get_db() session internally, so
+    a db_session-fixture-flushed row would be invisible to it (same root
+    cause documented there: separate session/connection, not the same
+    committed transaction).
+    """
+
+    def setUp(self):
+        from dotenv import load_dotenv
+        load_dotenv()
+        from workmain.database.connection import get_db
+        from workmain.database.models import Report
+        self._Report = Report
+        db = get_db()
+        self.session = db.get_session()
+        self._seeded_ids: list[int] = []
+
+    def tearDown(self):
+        for rid in self._seeded_ids:
+            self.session.query(self._Report).filter(self._Report.id == rid).delete()
+        self.session.commit()
+        self.session.close()
+
+    def _seed(self, report_type, status, report_date=GATE1_SENTINEL_DATE,
+              content='Sentinel content for Item 61 Gate 1 tests.'):
+        r = self._Report(
+            report_type=report_type,
+            report_date=report_date,
+            content=content,
+            status=status,
+        )
+        self.session.add(r)
+        self.session.commit()
+        self.session.refresh(r)
+        self._seeded_ids.append(r.id)
+        return r
+
+    # --- G2: existing confirmed/corrected report re-opens for review ---
+
+    def test_daily_g2_existing_confirmed_report_skips_generation_and_reviews(self):
+        self._seed('daily_internal', 'confirmed')
+        with patch('workmain.workflows.eod_workflow._is_interactive', return_value=True), \
+             patch('workmain.workflows.eod_workflow.subprocess.run') as mock_run, \
+             patch('workmain.workflows.eod_workflow._prompt_choice', return_value='s'):
+            result = _run_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
+        mock_run.assert_not_called()
+        self.assertEqual(result.status, EodStepStatus.COMPLETED)
+
+    def test_weekly_g2_existing_corrected_report_skips_generation_and_reviews(self):
+        self._seed('weekly_client', 'corrected')
+        with patch('workmain.workflows.eod_workflow._is_interactive', return_value=True), \
+             patch('workmain.workflows.eod_workflow.subprocess.run') as mock_run, \
+             patch('workmain.workflows.eod_workflow._prompt_choice', return_value='s'), \
+             patch.object(SystemStateRepository, 'get_int', return_value=1):
+            result = _run_weekly_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
+        mock_run.assert_not_called()
+        self.assertEqual(result.status, EodStepStatus.COMPLETED)
+
+    def test_g2_confirmed_report_on_different_date_does_not_short_circuit(self):
+        """G2 matches the exact date only — a confirmed report on a
+        different date must not suppress generation for target_date."""
+        self._seed('daily_internal', 'confirmed',
+                    report_date=date(2098, 11, 4))
+        with patch('workmain.workflows.eod_workflow._is_interactive', return_value=True), \
+             patch('workmain.workflows.eod_workflow.subprocess.run',
+                   return_value=MagicMock(returncode=0)) as mock_run, \
+             patch('workmain.workflows.eod_workflow._prompt_choice', return_value='s'):
+            _run_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
+        mock_run.assert_called_once()
+
+    def test_g2_non_interactive_confirmed_report_returns_completed_no_menu(self):
+        """AC5 — Slack EOD (surface #5) non-interactive path is unaffected:
+        still returns COMPLETED with no menu when a confirmed report
+        already exists for the exact date."""
+        self._seed('daily_internal', 'confirmed')
+        with patch('workmain.workflows.eod_workflow._is_interactive', return_value=False), \
+             patch('workmain.workflows.eod_workflow.subprocess.run') as mock_run, \
+             patch('workmain.workflows.eod_workflow._prompt_choice') as mock_choice:
+            result = _run_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
+        mock_run.assert_not_called()
+        mock_choice.assert_not_called()
+        self.assertEqual(result.status, EodStepStatus.COMPLETED)
+        self.assertIn('already confirmed', result.message)
+
+    # --- G1 (weekly-only, unchanged): no active client skips entirely ---
+
+    def test_weekly_g1_no_active_client_skips_without_generating(self):
+        with patch.object(SystemStateRepository, 'get_int', return_value=None), \
+             patch('workmain.workflows.eod_workflow.subprocess.run') as mock_run:
+            result = _run_weekly_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
+        mock_run.assert_not_called()
+        self.assertEqual(result.status, EodStepStatus.COMPLETED)
+
+    # --- generation_error_fatal split (daily fatal / weekly non-fatal) ---
+
+    def test_daily_generation_error_always_fatal(self):
+        """generation_error_fatal=True — daily FAILED even when
+        interactive (unchanged from pre-collapse behavior)."""
+        with patch('workmain.workflows.eod_workflow._is_interactive', return_value=True), \
+             patch('workmain.workflows.eod_workflow.subprocess.run',
+                   side_effect=OSError('boom')):
+            result = _run_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
+        self.assertEqual(result.status, EodStepStatus.FAILED)
+
+    def test_weekly_generation_error_non_fatal_when_interactive(self):
+        """generation_error_fatal=False — weekly stays COMPLETED
+        ("non-fatal in CLI") interactively (unchanged)."""
+        with patch('workmain.workflows.eod_workflow._is_interactive', return_value=True), \
+             patch('workmain.workflows.eod_workflow.subprocess.run',
+                   side_effect=OSError('boom')), \
+             patch.object(SystemStateRepository, 'get_int', return_value=1):
+            result = _run_weekly_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
+        self.assertEqual(result.status, EodStepStatus.COMPLETED)
+
+    def test_weekly_generation_error_fatal_when_non_interactive(self):
+        with patch('workmain.workflows.eod_workflow._is_interactive', return_value=False), \
+             patch('workmain.workflows.eod_workflow.subprocess.run',
+                   side_effect=OSError('boom')), \
+             patch.object(SystemStateRepository, 'get_int', return_value=1):
+            result = _run_weekly_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
+        self.assertEqual(result.status, EodStepStatus.FAILED)
+
+    # --- AC1: both wrappers delegate to the same shared implementation ---
+
+    def test_wrappers_delegate_to_shared_implementation(self):
+        import inspect
+        from workmain.workflows import eod_workflow
+        daily_src = inspect.getsource(eod_workflow._run_report_step)
+        weekly_src = inspect.getsource(eod_workflow._run_weekly_report_step)
+        self.assertIn('_run_report_review_step', daily_src)
+        self.assertIn('_run_report_review_step', weekly_src)
 
 
 if __name__ == '__main__':

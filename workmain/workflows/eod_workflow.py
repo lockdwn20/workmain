@@ -1,8 +1,8 @@
 """
 WorkmAIn EOD Workflow Service Layer
 workmain/workflows/eod_workflow.py
-v1.8
-20260716
+v1.9
+20260724
 
 Surface-agnostic EOD workflow step runners. Returns EodStepResult objects
 instead of bool so any I/O surface (CLI or Slack) can interpret results.
@@ -60,6 +60,15 @@ Version History:
         replaced with state_io.read_last_inspection() /
         matches_target_date(). No three-way distinction to preserve here
         (unlike notifications.py) — full migration, not a one-line swap.
+- v1.9: Item #61 Gate 1 (Design Rules 1-2) — _run_report_step and
+        _run_weekly_report_step collapsed into shared
+        _run_report_review_step(report_type, label, require_active_client,
+        generation_error_fatal); both public names become thin wrappers,
+        signatures unchanged, no caller changes. G2 no longer short-circuits
+        on an existing confirmed/corrected report — generation is skipped
+        but the existing report is loaded into the same reload +
+        [v/e/c/s] menu; G3 non-interactive guard evaluated after this
+        point, unchanged.
 """
 
 import inspect as _inspect
@@ -881,76 +890,113 @@ def _run_note_dedup_step(dry_run: bool, target_date: date, non_interactive: bool
         session.close()
 
 
-def _run_report_step(dry_run: bool, target_date: date) -> EodStepResult:
-    """Step 4a: Generate daily report with pre-check and interactive review menu."""
+def _run_report_review_step(
+    dry_run: bool,
+    target_date: date,
+    *,
+    report_type: str,
+    label: str,
+    require_active_client: bool,
+    generation_error_fatal: bool,
+) -> EodStepResult:
+    """Shared generate-or-reuse + interactive review step for daily/weekly reports.
+
+    G2: an existing confirmed/corrected report for the exact date being
+    reviewed skips generation but is loaded into the same reload +
+    [v/e/c/s] menu used after a fresh generation — it is not silently
+    skipped. G3 (non-interactive guard) is evaluated after this point,
+    exactly as before, so the Slack EOD (surface #5) path is unaffected.
+    """
     date_str = target_date.isoformat()
-    cmd = [_WORKMAIN_BIN, 'reports', 'save', 'daily_internal', '--date', date_str]
+    cmd = [_WORKMAIN_BIN, 'reports', 'save', report_type, '--date', date_str]
 
     if dry_run:
-        print(f"  Would run: workmain reports save daily_internal --date {date_str}")
+        print(f"  Would run: workmain reports save {report_type} --date {date_str}")
         print("  Would present: [v]iew / [e]dit / [c]onfirm / [s]kip menu")
         return EodStepResult(status=EodStepStatus.COMPLETED)
 
-    # Pre-check: skip generation if confirmed/corrected report already exists
+    if require_active_client:
+        db = get_db()
+        session = db.get_session()
+        try:
+            active_client_id = SystemStateRepository(session).get_int('active_client_id')
+        finally:
+            session.close()
+
+        if active_client_id is None:
+            print(
+                "  Weekly client report skipped — no active client set.\n"
+                "  Run 'workmain clients set active <name>' to switch client context,\n"
+                "  then 'workmain reports save weekly_client' to generate the report."
+            )
+            return EodStepResult(status=EodStepStatus.COMPLETED)
+
+    # Pre-check: is there already a confirmed/corrected report for this exact date?
     db = get_db()
     session = db.get_session()
     try:
         from workmain.database.repositories.reports_repo import get_reports_repository
         repo = get_reports_repository(session)
         existing = repo.list_reports(
-            report_type='daily_internal',
+            report_type=report_type,
             start_date=target_date,
             end_date=target_date,
         )
-        for r in existing:
-            if r.status in ('confirmed', 'corrected'):
-                print(
-                    f"  Daily report already confirmed for {date_str} — "
-                    f"skipping generation"
-                )
-                return EodStepResult(status=EodStepStatus.COMPLETED)
+        already_reviewed = any(r.status in ('confirmed', 'corrected') for r in existing)
     finally:
         session.close()
 
-    # Generate report
-    try:
-        result = subprocess.run(cmd)
-        if result.returncode != 0:
-            print()
-            print(f"  ⚠ Report generation returned exit code {result.returncode}")
-            if not _is_interactive():
-                return EodStepResult(
-                    status=EodStepStatus.FAILED,
-                    error=f"Report generation failed (exit code {result.returncode})",
-                )
-            action = _prompt_choice("  Continue? [r]etry / [s]kip", default='s')
-            if action == 'r':
-                result = subprocess.run(cmd)
-                if result.returncode != 0:
-                    print("  ✗ Retry failed")
+    if already_reviewed:
+        print(
+            f"  {label} report already confirmed for {date_str} — "
+            f"skipping generation, opening for re-review"
+        )
+    else:
+        # Generate report
+        try:
+            result = subprocess.run(cmd)
+            if result.returncode != 0:
+                print()
+                print(f"  ⚠ {label} report generation returned exit code {result.returncode}")
+                if not _is_interactive():
                     return EodStepResult(
                         status=EodStepStatus.FAILED,
-                        error="Report generation retry failed"
+                        error=f"{label} report generation failed (exit code {result.returncode})",
                     )
-    except Exception as e:
-        print(f"  ✗ Report step error: {e}")
-        return EodStepResult(status=EodStepStatus.FAILED, error=str(e))
+                action = _prompt_choice("  Continue? [r]etry / [s]kip", default='s')
+                if action == 'r':
+                    result = subprocess.run(cmd)
+                    if result.returncode != 0:
+                        print("  ✗ Retry failed")
+                        return EodStepResult(
+                            status=EodStepStatus.FAILED,
+                            error=f"{label} report generation retry failed",
+                        )
+        except Exception as e:
+            print(f"  ✗ {label} report step error: {e}")
+            if generation_error_fatal:
+                return EodStepResult(status=EodStepStatus.FAILED, error=str(e))
+            if not _is_interactive():
+                return EodStepResult(status=EodStepStatus.FAILED, error=str(e))
+            return EodStepResult(status=EodStepStatus.COMPLETED)  # Non-fatal in CLI
 
-    # Non-interactive: report generated, skip the interactive review loop
+    # Non-interactive: skip the interactive review loop
     if not _is_interactive():
+        verb = "already confirmed" if already_reviewed else "generated"
         return EodStepResult(
             status=EodStepStatus.COMPLETED,
-            message="Daily report generated — review with: workmain reports history",
+            message=f"{label} report {verb} — review with: workmain reports history",
         )
 
-    # Load the new report for review
+    # Load the report for review — freshly generated, or the existing
+    # confirmed/corrected row when generation was skipped above.
     db = get_db()
     session = db.get_session()
     try:
         from workmain.database.repositories.reports_repo import get_reports_repository
         repo = get_reports_repository(session)
         reports = repo.list_reports(
-            report_type='daily_internal',
+            report_type=report_type,
             start_date=target_date,
             end_date=target_date,
             limit=1,
@@ -958,8 +1004,8 @@ def _run_report_step(dry_run: bool, target_date: date) -> EodStepResult:
 
         if not reports:
             print(
-                "  ⚠ Could not load report for review — "
-                "report saved as unconfirmed"
+                f"  ⚠ Could not load {label.lower()} report for review — "
+                f"report saved as unconfirmed"
             )
             return EodStepResult(status=EodStepStatus.COMPLETED)
 
@@ -967,10 +1013,11 @@ def _run_report_step(dry_run: bool, target_date: date) -> EodStepResult:
         content = report.content or ''
         preview = content[:200] + '…' if len(content) > 200 else content
 
+        preview_header = f"─── {label} Report Preview ───"
         print()
-        print("─── Daily Report Preview ───")
+        print(preview_header)
         print(preview)
-        print("────────────────────────────")
+        print('─' * len(preview_header))
         print()
 
         while True:
@@ -980,10 +1027,11 @@ def _run_report_step(dry_run: bool, target_date: date) -> EodStepResult:
             )
 
             if choice == 'v':
+                view_header = f"─── {label} Report — Full View ───"
                 print()
-                print("─── Daily Report — Full View ───")
+                print(view_header)
                 print(content)
-                print("────────────────────────────────")
+                print('─' * len(view_header))
                 print()
                 continue
 
@@ -1007,7 +1055,7 @@ def _run_report_step(dry_run: bool, target_date: date) -> EodStepResult:
                     if correction_note_text:
                         repo.set_correction_note(report.id, correction_note_text)
                         print("  Correction note saved.")
-                    print("  ✓ Daily report saved with corrections.")
+                    print(f"  ✓ {label} report saved with corrections.")
                 else:
                     print("  No changes detected.")
                 break
@@ -1016,27 +1064,41 @@ def _run_report_step(dry_run: bool, target_date: date) -> EodStepResult:
                 report.status = 'confirmed'
                 report.updated_at = datetime.now()
                 session.commit()
-                print("  ✓ Daily report confirmed.")
+                print(f"  ✓ {label} report confirmed.")
                 break
 
             else:  # s or any other input
                 print()
-                print(
-                    "  ⚠ Daily report left unconfirmed — it will not appear "
-                    "in the weekly draft until confirmed."
-                )
+                if report_type == 'daily_internal':
+                    print(
+                        "  ⚠ Daily report left unconfirmed — it will not appear "
+                        "in the weekly draft until confirmed."
+                    )
+                else:
+                    print(f"  ⚠ {label} report left unconfirmed.")
                 break
 
         return EodStepResult(status=EodStepStatus.COMPLETED)
 
     except Exception as e:
         print(
-            f"  ⚠ Report review failed ({e}) — report saved but review skipped"
+            f"  ⚠ {label} report review failed ({e}) — report saved but review skipped"
         )
         return EodStepResult(status=EodStepStatus.COMPLETED)
 
     finally:
         session.close()
+
+
+def _run_report_step(dry_run: bool, target_date: date) -> EodStepResult:
+    """Step 4a: thin wrapper — daily_internal generation + interactive review menu."""
+    return _run_report_review_step(
+        dry_run, target_date,
+        report_type='daily_internal',
+        label='Daily',
+        require_active_client=False,
+        generation_error_fatal=True,
+    )
 
 
 def _run_email_step(dry_run: bool, target_date: date) -> EodStepResult:
@@ -1191,176 +1253,14 @@ def _run_slack_weekly_step(dry_run: bool, target_date: date) -> EodStepResult:
 
 
 def _run_weekly_report_step(dry_run: bool, target_date: date) -> EodStepResult:
-    """Friday step A: Generate weekly client report with pre-check and review menu."""
-    date_str = target_date.isoformat()
-    cmd = [_WORKMAIN_BIN, 'reports', 'save', 'weekly_client', '--date', date_str]
-
-    if dry_run:
-        print(f"  Would run: workmain reports save weekly_client --date {date_str}")
-        print("  Would present: [v]iew / [e]dit / [c]onfirm / [s]kip menu")
-        return EodStepResult(status=EodStepStatus.COMPLETED)
-
-    # Skip guard: weekly client report requires an active client context
-    db = get_db()
-    session = db.get_session()
-    try:
-        active_client_id = SystemStateRepository(session).get_int('active_client_id')
-    finally:
-        session.close()
-
-    if active_client_id is None:
-        print(
-            "  Weekly client report skipped — no active client set.\n"
-            "  Run 'workmain clients set active <name>' to switch client context,\n"
-            "  then 'workmain reports save weekly_client' to generate the report."
-        )
-        return EodStepResult(status=EodStepStatus.COMPLETED)
-
-    # Pre-check: skip generation if confirmed/corrected report already exists
-    db = get_db()
-    session = db.get_session()
-    try:
-        from workmain.database.repositories.reports_repo import get_reports_repository
-        repo = get_reports_repository(session)
-        existing = repo.list_reports(
-            report_type='weekly_client',
-            start_date=target_date,
-            end_date=target_date,
-        )
-        for r in existing:
-            if r.status in ('confirmed', 'corrected'):
-                print(
-                    f"  Weekly report already confirmed for {date_str} — "
-                    f"skipping generation"
-                )
-                return EodStepResult(status=EodStepStatus.COMPLETED)
-    finally:
-        session.close()
-
-    # Generate report
-    try:
-        result = subprocess.run(cmd)
-        if result.returncode != 0:
-            print()
-            print(f"  ⚠ Weekly report generation returned exit code {result.returncode}")
-            if not _is_interactive():
-                return EodStepResult(
-                    status=EodStepStatus.FAILED,
-                    error=f"Weekly report generation failed (exit code {result.returncode})",
-                )
-            action = _prompt_choice("  Continue? [r]etry / [s]kip", default='s')
-            if action == 'r':
-                result = subprocess.run(cmd)
-                if result.returncode != 0:
-                    print("  ✗ Retry failed")
-                    return EodStepResult(
-                        status=EodStepStatus.FAILED,
-                        error="Weekly report generation retry failed",
-                    )
-    except Exception as e:
-        print(f"  ✗ Weekly report step error: {e}")
-        if not _is_interactive():
-            return EodStepResult(status=EodStepStatus.FAILED, error=str(e))
-        return EodStepResult(status=EodStepStatus.COMPLETED)  # Non-fatal in CLI
-
-    # Non-interactive: report generated, skip the interactive review loop
-    if not _is_interactive():
-        return EodStepResult(
-            status=EodStepStatus.COMPLETED,
-            message="Weekly client report generated — review with: workmain reports history",
-        )
-
-    # Load the new report for review
-    db = get_db()
-    session = db.get_session()
-    try:
-        from workmain.database.repositories.reports_repo import get_reports_repository
-        repo = get_reports_repository(session)
-        reports = repo.list_reports(
-            report_type='weekly_client',
-            start_date=target_date,
-            end_date=target_date,
-            limit=1,
-        )
-
-        if not reports:
-            print(
-                "  ⚠ Could not load weekly report for review — "
-                "report saved as unconfirmed"
-            )
-            return EodStepResult(status=EodStepStatus.COMPLETED)
-
-        report = reports[0]
-        content = report.content or ''
-        preview = content[:200] + '…' if len(content) > 200 else content
-
-        print()
-        print("─── Weekly Report Preview ───")
-        print(preview)
-        print("─────────────────────────────")
-        print()
-
-        while True:
-            choice = _prompt_choice(
-                "  Review: [v]iew / [e]dit / [c]onfirm / [s]kip",
-                default='s',
-            )
-
-            if choice == 'v':
-                print()
-                print("─── Weekly Report — Full View ───")
-                print(content)
-                print("─────────────────────────────────")
-                print()
-                continue
-
-            elif choice == 'e':
-                source = report.corrected_content if report.corrected_content else content
-                edited = _eod_edit_in_editor(source)
-                if edited is not None and edited != source:
-                    report.corrected_content = edited
-                    report.status = 'corrected'
-                    report.updated_at = datetime.now()
-                    session.commit()
-                    fp = (report.report_metadata or {}).get('file_path')
-                    if fp:
-                        try:
-                            Path(fp).write_text(edited, encoding='utf-8')
-                        except Exception as stage_err:
-                            print(f"  ⚠ DB saved; staging file update failed: {stage_err}")
-                    correction_note_text = _prompt_raw(
-                        "  Add a correction note (optional, Enter to skip): "
-                    ).strip()
-                    if correction_note_text:
-                        repo.set_correction_note(report.id, correction_note_text)
-                        print("  Correction note saved.")
-                    print("  ✓ Weekly report saved with corrections.")
-                else:
-                    print("  No changes detected.")
-                break
-
-            elif choice == 'c':
-                report.status = 'confirmed'
-                report.updated_at = datetime.now()
-                session.commit()
-                print("  ✓ Weekly report confirmed.")
-                break
-
-            else:  # s or any other input
-                print()
-                print("  ⚠ Weekly report left unconfirmed.")
-                break
-
-        return EodStepResult(status=EodStepStatus.COMPLETED)
-
-    except Exception as e:
-        print(
-            f"  ⚠ Weekly report review failed ({e}) — report saved but review skipped"
-        )
-        return EodStepResult(status=EodStepStatus.COMPLETED)
-
-    finally:
-        session.close()
+    """Friday step A: thin wrapper — weekly_client generation + interactive review menu."""
+    return _run_report_review_step(
+        dry_run, target_date,
+        report_type='weekly_client',
+        label='Weekly',
+        require_active_client=True,
+        generation_error_fatal=False,
+    )
 
 
 def _run_weekly_email_step(dry_run: bool, target_date: date) -> EodStepResult:
