@@ -1,7 +1,7 @@
 """
 WorkmAIn Report Correction Tests
-test_report_correction v1.2
-20260717
+test_report_correction v1.3
+20260724
 
 Tests for PC-3 — report status fields, confirm/correct commands,
 --status filter on reports list, and weekly aggregation filter.
@@ -21,6 +21,11 @@ Covers:
     path when all 5 weekdays confirmed, corrected_content preference (Item 34)
   - ReportsRepository.get_filtered(): status/type/date/updated_after floor/
     search/limit, sort order (Item 56 Gate 1)
+  - ReportsRepository.apply_correction(): corrected_content/status write,
+    note delegation to set_correction_note() (Item 61 Gate 2)
+  - reports correct (CLI): now routed through edit_in_editor() +
+    apply_correction() — same observable behavior, new write path (Item 61
+    Gate 2)
 
 Uses db_session fixture for repo/model tests.
 Uses unittest.TestCase with real sessions for CLI command tests that need
@@ -32,11 +37,20 @@ Version History:
         (4 tests covering Item 34 behavioral fixes)
 - v1.2: Hotfix Item #56 Gate 1 — add TestGetFiltered (get_filtered() coverage:
         status/type/date/updated_after floor/search/limit/sort order)
+- v1.3: Item #61 Gate 2 — add TestApplyCorrection (repo-level, db_session
+        fixture) and TestReportCorrectCLI (CLI-level, real committed
+        session, mirrors TestReportConfirmCLI). Placed here rather than in
+        the spec-named tests/test_reports_repo.py / test_reports_commands.py
+        — neither file exists in this repo; this file is the established
+        home for both ReportsRepository- and reports-CLI-level coverage
+        (see module docstring). Deviation noted in the Gate 2 commit.
 """
 
+import os
 import unittest
 from datetime import date, datetime, timedelta
-from unittest.mock import patch
+from pathlib import Path
+from unittest.mock import patch, MagicMock
 
 import pytest
 from click.testing import CliRunner
@@ -550,6 +564,144 @@ class TestEodStep4aPreCheck:
         r = _seed_report(db_session, report_type='daily_internal',
                          report_date=date(2099, 12, 3))
         assert r.status == 'unconfirmed'
+
+
+# ---------------------------------------------------------------------------
+# ReportsRepository.apply_correction() — Item #61 Gate 2, Design Rule 4
+# ---------------------------------------------------------------------------
+
+class TestApplyCorrection:
+    """ReportsRepository.apply_correction() — sole write path for
+    corrected_content + status='corrected' (+ optional correction_note)."""
+
+    def test_sets_corrected_content_and_status(self, db_session):
+        r = _seed_report(db_session, report_date=date(2098, 12, 1))
+        repo = get_reports_repository(db_session)
+        repo.apply_correction(r.id, 'Edited body.')
+        db_session.refresh(r)
+        assert r.corrected_content == 'Edited body.'
+        assert r.status == 'corrected'
+
+    def test_note_truthy_delegates_to_set_correction_note(self, db_session):
+        r = _seed_report(db_session, report_date=date(2098, 12, 2))
+        repo = get_reports_repository(db_session)
+        repo.apply_correction(r.id, 'Edited body.', note='Fixed a typo')
+        db_session.refresh(r)
+        assert r.correction_note == 'Fixed a typo'
+
+    def test_note_none_leaves_correction_note_unset(self, db_session):
+        r = _seed_report(db_session, report_date=date(2098, 12, 3))
+        repo = get_reports_repository(db_session)
+        repo.apply_correction(r.id, 'Edited body.', note=None)
+        db_session.refresh(r)
+        assert r.correction_note is None
+
+    def test_note_empty_after_strip_is_no_op(self, db_session):
+        """Whitespace-only note reuses set_correction_note()'s existing
+        no-op-on-empty behavior rather than writing a blank string."""
+        r = _seed_report(db_session, report_date=date(2098, 12, 4))
+        repo = get_reports_repository(db_session)
+        repo.apply_correction(r.id, 'Edited body.', note='   ')
+        db_session.refresh(r)
+        assert r.correction_note is None
+
+    def test_unknown_report_id_is_a_no_op(self, db_session):
+        repo = get_reports_repository(db_session)
+        repo.apply_correction(999999999, 'Edited body.')  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# reports correct (CLI) — Item #61 Gate 2: now routed through
+# workmain/utils/editor.py:edit_in_editor() + apply_correction()
+# ---------------------------------------------------------------------------
+
+class TestReportCorrectCLI(unittest.TestCase):
+    """CLI tests for 'workmain reports correct' with real committed data —
+    mirrors TestReportConfirmCLI's pattern. $EDITOR is mocked by patching
+    workmain.utils.editor.subprocess.run with a side effect that writes
+    new content into the temp file edit_in_editor() reads back."""
+
+    def setUp(self):
+        from dotenv import load_dotenv
+        load_dotenv()
+        from workmain.database.connection import get_db
+        db = get_db()
+        self.session = db.get_session()
+        self._seeded_ids: list = []
+        self.runner = CliRunner()
+
+    def tearDown(self):
+        for rid in self._seeded_ids:
+            self.session.query(Report).filter(Report.id == rid).delete()
+        self.session.commit()
+        self.session.close()
+
+    def _seed(self, report_date=None, content=_SAMPLE_CONTENT):
+        r = Report(
+            report_type='daily_internal',
+            report_date=report_date or date(2098, 12, 10),
+            content=content,
+        )
+        self.session.add(r)
+        self.session.commit()
+        self.session.refresh(r)
+        self._seeded_ids.append(r.id)
+        return r
+
+    @staticmethod
+    def _fake_editor_run(new_content):
+        def _run(args, check=False, **kwargs):
+            Path(args[1]).write_text(new_content)
+            return MagicMock(returncode=0)
+        return _run
+
+    def test_correct_saves_via_apply_correction(self):
+        r = self._seed(report_date=date(2098, 12, 10))
+        with patch.dict(os.environ, {'EDITOR': 'fake-editor'}), \
+             patch('workmain.utils.editor.subprocess.run',
+                   side_effect=self._fake_editor_run('Edited content.')):
+            result = self.runner.invoke(reports, ['correct', str(r.id)])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.session.refresh(r)
+        self.assertEqual(r.corrected_content, 'Edited content.')
+        self.assertEqual(r.status, 'corrected')
+        # Design Rule 5 — report_correct() still never passes a note
+        self.assertIsNone(r.correction_note)
+
+    def test_correct_editor_unset_leaves_report_unchanged(self):
+        r = self._seed(report_date=date(2098, 12, 11))
+        with patch.dict(os.environ, {'EDITOR': ''}):
+            result = self.runner.invoke(reports, ['correct', str(r.id)])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.session.refresh(r)
+        self.assertEqual(r.status, 'unconfirmed')
+        self.assertIsNone(r.corrected_content)
+
+    def test_correct_no_changes_detected_leaves_status_unconfirmed(self):
+        r = self._seed(report_date=date(2098, 12, 12), content='Same content.')
+        with patch.dict(os.environ, {'EDITOR': 'fake-editor'}), \
+             patch('workmain.utils.editor.subprocess.run',
+                   side_effect=self._fake_editor_run('Same content.')):
+            result = self.runner.invoke(reports, ['correct', str(r.id)])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.session.refresh(r)
+        self.assertEqual(r.status, 'unconfirmed')
+
+    def test_correct_updates_staging_file_mirror(self):
+        """AC9 — staging-file mirror write is unchanged at this call site."""
+        import tempfile
+        tmp_dir = tempfile.mkdtemp()
+        staged_path = str(Path(tmp_dir) / 'staged_report.md')
+        Path(staged_path).write_text('Original staged content.')
+        r = self._seed(report_date=date(2098, 12, 13))
+        r.report_metadata = {'file_path': staged_path}
+        self.session.commit()
+        with patch.dict(os.environ, {'EDITOR': 'fake-editor'}), \
+             patch('workmain.utils.editor.subprocess.run',
+                   side_effect=self._fake_editor_run('Edited staged content.')):
+            result = self.runner.invoke(reports, ['correct', str(r.id)])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(Path(staged_path).read_text(), 'Edited staged content.')
 
 
 # ---------------------------------------------------------------------------

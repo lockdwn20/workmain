@@ -1,7 +1,7 @@
 """
 WorkmAIn Report Commands - Phase 4 Implementation
-Report Commands v2.15
-20260717
+Report Commands v2.16
+20260724
 
 Static action-first command structure — template is an argument.
 
@@ -77,11 +77,16 @@ Version History:
          corrected_content in a "Corrected Version" panel, between the
          original content panel and the correction_note line, when
          non-null. No change to the filename path.
+- v2.16: Item #61 Gate 2 (Design Rules 3-5) — private _edit_in_editor()
+         removed in favor of workmain/utils/editor.py:edit_in_editor();
+         report_correct() now writes corrected_content/status through
+         ReportsRepository.apply_correction() instead of setting fields
+         directly. Still passes no note (known, previously-deferred gap —
+         Design Rule 5, unchanged). os/tempfile imports dropped (no longer
+         used in this file).
 """
 
-import os
 import subprocess
-import tempfile
 import click
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -98,6 +103,7 @@ from workmain.database.repositories.system_state_repository import SystemStateRe
 from workmain.database.repositories.reports_repo import get_reports_repository
 from workmain.ai import get_report_generator, ReportFormat, ProviderType
 from workmain.utils.date_utils import resolve_date_window, format_date_window_label
+from workmain.utils.editor import edit_in_editor
 
 VALID_REPORT_TYPES = ['daily_internal', 'weekly_client']
 VALID_REPORT_STATUSES = ('unconfirmed', 'confirmed', 'corrected', 'all')
@@ -154,38 +160,6 @@ def _resolve_report(session, identifier: str):
         console.print(f"[red]✗ No report found for {target_date}[/red]")
         raise SystemExit(1)
     return report
-
-
-def _edit_in_editor(content: str) -> Optional[str]:
-    """Open content in $EDITOR and return edited text, or None on failure.
-
-    Args:
-        content: Text to pre-populate in the editor.
-
-    Returns:
-        Edited string, or None if $EDITOR unset or editor call failed.
-    """
-    editor = os.environ.get('EDITOR')
-    if not editor:
-        console.print(
-            "[red]✗ $EDITOR is not set. "
-            "Export EDITOR=vim (or nano, etc.) and retry.[/red]"
-        )
-        return None
-
-    tmp_path = None
-    try:
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
-            tmp_path = f.name
-            f.write(content)
-        subprocess.run([editor, tmp_path], check=True)
-        return Path(tmp_path).read_text()
-    except subprocess.CalledProcessError as e:
-        console.print(f"[red]✗ Editor failed: {e}[/red]")
-        return None
-    finally:
-        if tmp_path:
-            Path(tmp_path).unlink(missing_ok=True)
 
 
 def get_client_filter(
@@ -592,24 +566,26 @@ def report_correct(identifier: str):
     try:
         report = _resolve_report(session, identifier)
         current = report.corrected_content if report.corrected_content else report.content
-        edited = _edit_in_editor(current or '')
+        edited = edit_in_editor(
+            current or '',
+            report_fn=lambda msg: console.print(f"[red]✗ {msg}[/red]"),
+        )
         if edited is None:
             return
         if edited == current:
             console.print("[yellow]No changes detected — report status unchanged.[/yellow]")
             return
-        report.corrected_content = edited
-        report.status = 'corrected'
-        report.updated_at = datetime.now()
-        session.commit()
+        report_type, report_date, report_id = report.report_type, report.report_date, report.id
         fp = (report.report_metadata or {}).get('file_path')
+        repo = get_reports_repository(session)
+        repo.apply_correction(report_id, edited)  # no note — reports.py never prompts for one
         if fp:
             try:
                 Path(fp).write_text(edited, encoding='utf-8')
             except Exception as stage_err:
                 console.print(f"[yellow]⚠ DB saved; staging file update failed: {stage_err}[/yellow]")
         console.print(
-            f"[green]✓ Report correction saved:[/green] {report.report_type} {report.report_date}"
+            f"[green]✓ Report correction saved:[/green] {report_type} {report_date}"
         )
     finally:
         session.close()

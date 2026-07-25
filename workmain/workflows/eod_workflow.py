@@ -1,7 +1,7 @@
 """
 WorkmAIn EOD Workflow Service Layer
 workmain/workflows/eod_workflow.py
-v1.9
+v1.10
 20260724
 
 Surface-agnostic EOD workflow step runners. Returns EodStepResult objects
@@ -69,14 +69,19 @@ Version History:
         but the existing report is loaded into the same reload +
         [v/e/c/s] menu; G3 non-interactive guard evaluated after this
         point, unchanged.
+- v1.10: Item #61 Gate 2 (Design Rules 3-4) — private _eod_edit_in_editor()
+        removed in favor of workmain/utils/editor.py:edit_in_editor(); the
+        [e]dit branch now writes corrected_content/status/correction_note
+        through a single ReportsRepository.apply_correction(report_id,
+        edited, note=...) call instead of setting fields directly and
+        calling set_correction_note() separately. os/tempfile imports
+        dropped (no longer used in this file).
 """
 
 import inspect as _inspect
-import os
 import re
 import subprocess
 import sys
-import tempfile
 import threading
 import time
 from dataclasses import dataclass
@@ -99,6 +104,7 @@ from workmain.daemon import state_io
 from workmain.database.connection import get_db
 from workmain.database.repositories.meetings_repo import MeetingsRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
+from workmain.utils.editor import edit_in_editor
 
 
 # ---------------------------------------------------------------------------
@@ -170,33 +176,6 @@ def _is_interactive() -> bool:
     """
     return sys.stdin.isatty()
 
-
-# ---------------------------------------------------------------------------
-# Editor helper (adapted from eod.py — uses print() instead of console.print)
-# ---------------------------------------------------------------------------
-
-def _eod_edit_in_editor(content: str) -> Optional[str]:
-    """Open $EDITOR with content. Returns edited text, or None if EDITOR not set."""
-    editor = os.environ.get('EDITOR', '').strip()
-    if not editor:
-        print(
-            '  ⚠ $EDITOR not set — cannot open editor. '
-            'Set EDITOR in your shell profile.'
-        )
-        return None
-    tmp_path = None
-    try:
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as tmp:
-            tmp.write(content)
-            tmp_path = tmp.name
-        subprocess.run([editor, tmp_path], check=True)
-        return Path(tmp_path).read_text()
-    except Exception as e:
-        print(f'  ⚠ Editor error: {e}')
-        return None
-    finally:
-        if tmp_path:
-            Path(tmp_path).unlink(missing_ok=True)
 
 
 # ---------------------------------------------------------------------------
@@ -1037,23 +1016,19 @@ def _run_report_review_step(
 
             elif choice == 'e':
                 source = report.corrected_content if report.corrected_content else content
-                edited = _eod_edit_in_editor(source)
+                edited = edit_in_editor(source, report_fn=lambda msg: print(f"  ⚠ {msg}"))
                 if edited is not None and edited != source:
-                    report.corrected_content = edited
-                    report.status = 'corrected'
-                    report.updated_at = datetime.now()
-                    session.commit()
+                    correction_note_text = _prompt_raw(
+                        "  Add a correction note (optional, Enter to skip): "
+                    ).strip()
+                    repo.apply_correction(report.id, edited, note=correction_note_text or None)
                     fp = (report.report_metadata or {}).get('file_path')
                     if fp:
                         try:
                             Path(fp).write_text(edited, encoding='utf-8')
                         except Exception as stage_err:
                             print(f"  ⚠ DB saved; staging file update failed: {stage_err}")
-                    correction_note_text = _prompt_raw(
-                        "  Add a correction note (optional, Enter to skip): "
-                    ).strip()
                     if correction_note_text:
-                        repo.set_correction_note(report.id, correction_note_text)
                         print("  Correction note saved.")
                     print(f"  ✓ {label} report saved with corrections.")
                 else:

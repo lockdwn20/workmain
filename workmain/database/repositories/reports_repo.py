@@ -1,7 +1,7 @@
 """
 WorkmAIn Reports Repository
-Reports Repository v1.5
-20260717
+Reports Repository v1.6
+20260724
 
 Repository for managing generated reports in the database.
 
@@ -20,6 +20,11 @@ Version History:
 - v1.4: Phase 13 Sprint 2 Gate 1b — set_correction_note() added (Item 33)
 - v1.5: Hotfix Item #56 Gate 1 — get_filtered() added for reports corrections
         listing (status/type/date/updated_after floor/search/limit)
+- v1.6: Item #61 Gate 2 (Design Rule 4) — apply_correction() added as the
+        sole write path for corrected_content + status='corrected' (+
+        optional correction_note) from CLI/EOD call sites; delegates to
+        set_correction_note() internally when note is truthy, which stays
+        alive as an internal implementation detail.
 """
 
 from datetime import date, datetime
@@ -192,6 +197,37 @@ class ReportsRepository:
             .all()
         )
     
+    def apply_correction(
+        self,
+        report_id: int,
+        edited_body: str,
+        note: Optional[str] = None,
+    ) -> None:
+        """Sole write path for corrected_content + status='corrected' (+
+        optional correction_note) from all in-scope CLI/EOD call sites
+        (Item #61 Design Rule 4).
+
+        DB-only — no filesystem I/O; the staging-file mirror write stays
+        at each call site, unchanged. When note is truthy, delegates to
+        set_correction_note() internally rather than writing
+        correction_note directly, reusing its existing no-op-on-empty
+        behavior instead of duplicating it.
+
+        Args:
+            report_id: ID of the report being corrected.
+            edited_body: New corrected_content text.
+            note: Optional correction note describing what changed.
+        """
+        report = self.get_by_id(report_id)
+        if report is None:
+            return
+        report.corrected_content = edited_body
+        report.status = 'corrected'
+        report.updated_at = datetime.now()
+        self.session.commit()
+        if note:
+            self.set_correction_note(report_id, note)
+
     def set_correction_note(self, report_id: int, note: str) -> None:
         """Populate reports.correction_note for a corrected report.
 
