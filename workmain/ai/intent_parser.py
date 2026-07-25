@@ -1,8 +1,8 @@
 """
 WorkmAIn Intent Parser
 workmain/ai/intent_parser.py
-v1.3
-20260707
+v1.4
+20260725
 
 Parses natural language input (Slack DM messages) into structured action JSON
 using Mistral 7B via OllamaProvider (workmain-intent:latest).
@@ -25,6 +25,12 @@ Version History:
         parse_note_duplicate() added for the actual Item #32 deliverable
         (note-to-note dedup), mirrors parse_task_match()'s call pattern
         exactly (§5.4)
+- v1.4: Hotfix Item #62 Gate 2 — parse_task_match()/parse_note_duplicate()
+        set generation_options={"raw": True} (bypasses the Modelfile SYSTEM
+        block, prompt ~2,400 -> ~600 tokens); bare except Exception removed
+        so ProviderError propagates to the caller (Step 3c/3d own the
+        keyword-fallback decision now); malformed-output catch widened to
+        include TypeError (null confidence coercion)
 """
 
 import json
@@ -176,6 +182,9 @@ class IntentParser:
                 matched (bool): True if task appears completed/worked on
                 confidence (float): 0.0–1.0 confidence score
                 note_id (int|None): ID of the best-matching note, or None
+
+        Raises ProviderError if the provider call fails; caller is
+        responsible for fallback.
         """
         task_content = task.note.content if task.note else ""
         if not task_content or not notes:
@@ -204,31 +213,29 @@ class IntentParser:
             system_prompt=None,
             prompt=prompt,
             max_tokens=64,
+            generation_options={"raw": True},
         )
 
+        response, _ = self._provider_manager.generate(
+            request, provider_override=ProviderType.OLLAMA
+        )
+        raw = response.content.strip()
+
+        if raw.startswith("```"):
+            lines = raw.splitlines()
+            raw = "\n".join(
+                l for l in lines if not l.strip().startswith("```")
+            ).strip()
+
         try:
-            response, _ = self._provider_manager.generate(
-                request, provider_override=ProviderType.OLLAMA
-            )
-            raw = response.content.strip()
-
-            if raw.startswith("```"):
-                lines = raw.splitlines()
-                raw = "\n".join(
-                    l for l in lines if not l.strip().startswith("```")
-                ).strip()
-
             result = json.loads(raw)
             return {
                 "matched": bool(result.get("matched", False)),
                 "confidence": float(result.get("confidence", 0.0)),
                 "note_id": result.get("note_id"),
             }
-        except (json.JSONDecodeError, ValueError) as e:
+        except (json.JSONDecodeError, ValueError, TypeError) as e:
             logger.warning("parse_task_match failed to parse response: %s", e)
-            return {"matched": False, "confidence": 0.0, "note_id": None}
-        except Exception as e:
-            logger.warning("parse_task_match error: %s", e)
             return {"matched": False, "confidence": 0.0, "note_id": None}
 
     def parse_note_duplicate(self, note_a: str, note_b: str) -> dict:
@@ -245,33 +252,34 @@ class IntentParser:
                 confidence (float): 0.0-1.0 confidence score
                 note_id (int|None): unused by callers today: kept for
                     parity with parse_task_match()'s shape
+
+        Raises ProviderError if the provider call fails; caller is
+        responsible for fallback.
         """
         request = GenerationRequest(
             system_prompt=None,
             prompt=f"Are these two notes describing the same item?\n\nNote A: {note_a}\nNote B: {note_b}",
             max_tokens=64,
+            generation_options={"raw": True},
         )
+        response, _ = self._provider_manager.generate(
+            request, provider_override=ProviderType.OLLAMA
+        )
+        raw = response.content.strip()
+
+        if raw.startswith("```"):
+            lines = raw.splitlines()
+            raw = "\n".join(
+                l for l in lines if not l.strip().startswith("```")
+            ).strip()
+
         try:
-            response, _ = self._provider_manager.generate(
-                request, provider_override=ProviderType.OLLAMA
-            )
-            raw = response.content.strip()
-
-            if raw.startswith("```"):
-                lines = raw.splitlines()
-                raw = "\n".join(
-                    l for l in lines if not l.strip().startswith("```")
-                ).strip()
-
             result = json.loads(raw)
             return {
                 "duplicate": bool(result.get("duplicate", False)),
                 "confidence": float(result.get("confidence", 0.0)),
                 "note_id": result.get("note_id"),
             }
-        except (json.JSONDecodeError, ValueError) as e:
+        except (json.JSONDecodeError, ValueError, TypeError) as e:
             logger.warning("parse_note_duplicate: malformed response: %s", e)
-            return {"duplicate": False, "confidence": 0.0, "note_id": None}
-        except Exception as e:
-            logger.warning("parse_note_duplicate: provider error: %s", e)
             return {"duplicate": False, "confidence": 0.0, "note_id": None}
