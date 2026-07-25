@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.26.1] - 2026-07-25
+
+### Fixed
+
+- Hotfix Item #62 — `parse_task_match()`/`parse_note_duplicate()`
+  total-failure stabilization. EOD Step 3c (carry-forward task matching)
+  timed out on every item in production: the novel ~2,400-token
+  task-match/note-dedup prompt exceeded Ollama's 30s socket timeout on CPU
+  inference, a bare `TimeoutError` bypassed provider-error wrapping so it
+  was never caught as a `ProviderError`, and the `/api/tags` availability
+  probe kept the keyword-matching fallback structurally unreachable
+- `OllamaProvider.generate()` now supports a per-call `raw: true` mode
+  (`generation_options={"raw": True}`), popped out of the options dict
+  into the top-level payload key — bypasses the Modelfile-baked SYSTEM
+  block for callers that opt in. `parse_task_match()` and
+  `parse_note_duplicate()` set it (prompt drops from ~2,400 to ~600
+  tokens); `IntentParser.parse()` (Slack path) is unchanged — it still
+  requires the baked SYSTEM block
+- Bare `TimeoutError` in `OllamaProvider.generate()` now wraps into
+  `ProviderUnavailableError` (`from e`), joining the existing
+  `urllib.error.URLError` handling in the provider-error hierarchy
+- `parse_task_match()`/`parse_note_duplicate()` no longer swallow
+  provider failures into a silent no-match dict — a `ProviderError`
+  propagates to the caller. Malformed-output handling widened to
+  `(json.JSONDecodeError, ValueError, TypeError)` to also catch
+  `float(None)` on a null confidence value
+- EOD Step 3c/3d (`_run_task_match_step()`/`_run_note_dedup_step()`) each
+  demote their own local `ollama_available` flag to `False` on the first
+  `ProviderError` from a generate call, print a CLI-visible warning
+  (including the exception's cause chain), and fall through to the
+  keyword matcher for the item that raised and every remaining item in
+  that step's loop — no item is silently skipped
+
+### Added
+
+- `tests/test_intent_parser.py`: `TestParseTaskMatchAndNoteDuplicateRawMode`
+  (6 tests); `tests/test_eod_workflow.py`: `TestProviderErrorDemotion`
+  (4 tests); `tests/test_ollama_provider.py`: 3 tests for raw-mode payload
+  placement and timeout wrapping — 13 new tests total (869 → 882)
+
 ## [1.26.0] - 2026-07-25
 
 ### Added
