@@ -1,8 +1,8 @@
 # CLAUDE.md - WorkmAIn Project Context
 
 WorkmAIn
-CLAUDE.md v3.2
-20260701
+CLAUDE.md v3.3
+20260725
 
 Version History:
 
@@ -13,6 +13,10 @@ Version History:
 - v3.0 (20260626): Major update — Phase 13 complete (v1.23.0, 671 tests). Added three-role model (most critical addition), gate discipline, recon-before-spec rule. Updated stack (Ollama, APScheduler, Slack Socket Mode), architecture (daemon/, workflows/), pitfalls, and locked architecture decisions. Phase table removed — use implementation-checklist.md.
 - v3.1 (20260701): Added Common Pitfall #12 — component-verified ≠ integration-verified. Recon confirming each piece exists/matches signature doesn't confirm the pieces work together; must trace handle/session provenance, diff drafted code against claimed references verbatim, and verify elided "unchanged" blocks. Surfaced by Operations_Config_Correction_Sprint Gate 3/5 cross-gate review.
 - v3.2 (20260701): Removed version numbers from Claude Desktop and Claude Code models to prevent confusion with Anthropic model updates
+- v3.3 (20260725): Item #61 Gate 5 — corrected the `correction_note` write-path line under
+  Report Correction Fields: it named only `action_executor._execute_correct_report`, omitting
+  that the EOD `[e]dit` path (daily and weekly) writes it too. `corrected_content` line
+  unchanged — already accurate. `chore/claude-md-correction-note-accuracy`, doc-only.
 
 ---
 
@@ -288,7 +292,8 @@ Must be set in TWO places — both are required:
 - `corrected_content` (TEXT): full edited report text. Written only by the $EDITOR path
   (`workmain reports correct` CLI and eod_workflow `[e]dit` branch). Never by action_executor.
 - `correction_note` (TEXT): correction description/intent. Written by
-  `action_executor._execute_correct_report` (Slack/intent path). Phase 12 Decision 21 placeholder.
+  `action_executor._execute_correct_report` (Slack/intent flag path) and the EOD
+  `[e]dit` path, for both daily and weekly reports. Phase 12 Decision 21 placeholder.
 
 These are different fields serving different purposes. Never conflate them.
 
