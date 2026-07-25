@@ -1,13 +1,15 @@
 """
 WorkmAIn OllamaProvider Tests
-test_ollama_provider v1.0
-20260605
+test_ollama_provider v1.1
+20260725
 
 Unit tests for OllamaProvider generate(), check_availability(), and _build_prompt().
 All HTTP calls are mocked — no real network calls in this suite.
 
 Version History:
 - v1.0: Gate 1 Phase 13 Sprint 1 — initial suite (10 tests)
+- v1.1: Hotfix Item #62 Gate 1 — raw-mode payload placement and TimeoutError
+        wrapping tests (3 new)
 """
 
 import json
@@ -132,6 +134,50 @@ class TestGenerate:
                 assert False, "Expected ProviderUnavailableError"
             except ProviderUnavailableError:
                 pass
+
+    def test_generate_raw_flag_promoted_to_top_level(self):
+        """generation_options={'raw': True} → top-level payload['raw'], absent from options."""
+        gen_resp = _generate_response("Parsed action")
+
+        with patch.object(OllamaProvider, "check_availability", return_value=ProviderStatus.AVAILABLE), \
+             patch("urllib.request.urlopen", return_value=gen_resp) as mock_urlopen:
+            p = _make_provider()
+            request = GenerationRequest(prompt="test", generation_options={"raw": True})
+            p.generate(request)
+
+        sent_req = mock_urlopen.call_args[0][0]
+        payload = json.loads(sent_req.data)
+        assert payload["raw"] is True
+        assert "raw" not in payload["options"]
+
+    def test_generate_no_raw_by_default(self):
+        """No generation_options → no 'raw' key anywhere in the payload."""
+        gen_resp = _generate_response("Parsed action")
+
+        with patch.object(OllamaProvider, "check_availability", return_value=ProviderStatus.AVAILABLE), \
+             patch("urllib.request.urlopen", return_value=gen_resp) as mock_urlopen:
+            p = _make_provider()
+            request = GenerationRequest(prompt="test")
+            p.generate(request)
+
+        sent_req = mock_urlopen.call_args[0][0]
+        payload = json.loads(sent_req.data)
+        assert "raw" not in payload
+        assert "raw" not in payload["options"]
+
+    def test_generate_timeout_wrapped(self):
+        """TimeoutError during POST → ProviderUnavailableError with __cause__ set."""
+        tags_resp = _tags_response(["mistral:latest"])
+        timeout_error = TimeoutError("timed out")
+
+        with patch("urllib.request.urlopen", side_effect=[tags_resp, timeout_error]):
+            p = _make_provider()
+            request = GenerationRequest(prompt="test")
+            try:
+                p.generate(request)
+                assert False, "Expected ProviderUnavailableError"
+            except ProviderUnavailableError as e:
+                assert e.__cause__ is timeout_error
 
 
 class TestBuildPrompt:
