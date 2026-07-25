@@ -1,18 +1,20 @@
 """
 WorkmAIn Tests
 Slack Integration Tests
-test_slack.py v1.0
-20260310
+test_slack.py v1.1
+20260724
 
 Integration tests for Phase 8 Slack integration.
 
 Test classes:
-- TestSlackReportsIntegration — real DB, reports table
-- TestSlackAuth               — token loading
-- TestFormatForSlack          — markdown conversion
-- TestDraftDateRange          — date range calculation
-- TestSlackClient             — mocked Slack API
-- TestDraftLabel              — DRAFT label prepend behaviour
+- TestSlackReportsIntegration      — real DB, reports table
+- TestSlackAuth                    — token loading
+- TestFormatForSlack                — markdown conversion
+- TestDraftDateRange                — date range calculation
+- TestSlackClient                   — mocked Slack API
+- TestDraftLabel                    — DRAFT label prepend behaviour
+- TestSlackPostWeeklySharedRunner   — slack_post() driving the shared
+  eod_workflow review runner + separate delivery step (Item #61 Gate 4)
 
 All Slack API calls are mocked via unittest.mock.patch.
 No real API calls are made in these tests.
@@ -22,13 +24,20 @@ by conftest.py.
 
 Version History:
 - v1.0: Initial implementation (Phase 8 Gate 5) — 18 test cases
+- v1.1: Item #61 Gate 4 — add TestSlackPostWeeklySharedRunner (real
+        committed session, mirrors test_report_correction.py's CLI-level
+        classes). Placed here rather than the spec-named
+        tests/test_slack_commands.py — that file doesn't exist in this
+        repo. Deviation noted, same pattern as Item #61 Gate 2.
 """
 
 import os
+import unittest
 from datetime import date
 from unittest.mock import MagicMock, patch
 
 import pytest
+from click.testing import CliRunner
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -45,7 +54,7 @@ from workmain.integrations.slack.client import (
     already_posted,
     format_for_slack,
 )
-from workmain.cli.commands.slack import get_draft_date_range
+from workmain.cli.commands.slack import get_draft_date_range, slack
 
 
 # ---------------------------------------------------------------------------
@@ -334,3 +343,196 @@ class TestDraftLabel:
         # Cleanup
         db_session.delete(row)
         db_session.commit()
+
+
+# ---------------------------------------------------------------------------
+# TestSlackPostWeeklySharedRunner — Item #61 Gate 4
+# ---------------------------------------------------------------------------
+
+class TestSlackPostWeeklySharedRunner(unittest.TestCase):
+    """Item #61 Gate 4 (Design Rules 9-11) — slack_post() now drives the
+    shared eod_workflow._run_report_review_step() runner, then a separate
+    post-review delivery step. The review runner itself is mocked to a
+    no-op here (its own generate-or-reuse + [v/e/c/s] menu is already
+    covered by TestReportReviewStepCollapse/TestReportReviewStepEditBranch
+    in test_eod_workflow.py) — these tests seed the Report row directly to
+    represent what that runner would have produced, then exercise only
+    slack_post()'s delivery-step logic.
+
+    Placed here (test_slack.py) rather than the spec-named
+    tests/test_slack_commands.py — that file doesn't exist in this repo;
+    test_slack.py is the established home for slack.py CLI coverage. Same
+    filename-deviation pattern as Item #61 Gate 2
+    (see tests/test_report_correction.py's docstring).
+
+    Real committed-session pattern (mirrors test_report_correction.py's
+    CLI-level classes) — slack_post() opens its own get_db() session, so
+    a db_session-fixture-flushed row would be invisible to it.
+    """
+
+    def setUp(self):
+        from workmain.database.connection import get_db
+        db = get_db()
+        self.session = db.get_session()
+        self._seeded_ids: list = []
+        self.runner = CliRunner()
+
+    def tearDown(self):
+        for rid in self._seeded_ids:
+            self.session.query(Report).filter(Report.id == rid).delete()
+        self.session.commit()
+        self.session.close()
+
+    def _seed(self, report_date, status='unconfirmed', content='Weekly content.',
+              corrected_content=None):
+        r = Report(
+            report_type='weekly_client',
+            report_date=report_date,
+            content=content,
+            status=status,
+        )
+        if corrected_content is not None:
+            r.corrected_content = corrected_content
+        self.session.add(r)
+        self.session.commit()
+        self.session.refresh(r)
+        self._seeded_ids.append(r.id)
+        return r
+
+    def _invoke(self, date_str, input_text=None, extra_args=None):
+        args = ['post', 'weekly', '-d', date_str, '--channel', '#gate4-test']
+        if extra_args:
+            args += extra_args
+        with patch('workmain.cli.commands.slack.get_token', return_value='xoxb-fake'), \
+             patch('workmain.workflows.eod_workflow._run_report_review_step') as mock_runner, \
+             patch('workmain.cli.commands.slack.load_slack_config',
+                   return_value={'workspace_name': 'Test WS'}), \
+             patch('workmain.cli.commands.slack.SlackClient') as mock_client_cls:
+            mock_client = MagicMock()
+            mock_client.post_message.return_value = 'test-ts-gate4'
+            mock_client_cls.return_value = mock_client
+            result = self.runner.invoke(
+                slack, args, input=input_text, catch_exceptions=False,
+            )
+        return result, mock_client, mock_runner
+
+    def test_uses_shared_runner_no_duplicate_logic(self):
+        """No duplicate generate/edit/upsert logic remains in slack_post()."""
+        import inspect
+        from workmain.cli.commands import slack as slack_module
+        src = inspect.getsource(slack_module.slack_post.callback)
+        self.assertIn('_run_report_review_step', src)
+        self.assertNotIn('_edit_in_editor', src)
+        self.assertNotIn('_run_generation', src)
+
+    def test_regenerate_flag_removed(self):
+        result = self.runner.invoke(slack, ['post', 'weekly', '--help'])
+        self.assertNotIn('--regenerate', result.output)
+
+    def test_posts_only_when_confirmed(self):
+        d = date(2098, 10, 1)
+        self._seed(d, status='confirmed', content='Confirmed weekly content.')
+        result, mock_client, mock_runner = self._invoke('20981001', input_text='y\n')
+        self.assertEqual(result.exit_code, 0, result.output)
+        mock_runner.assert_called_once()
+        mock_client.post_message.assert_called_once()
+        _, posted_content = mock_client.post_message.call_args[0]
+        self.assertIn('Confirmed weekly content.', posted_content)
+
+    def test_no_post_offered_when_unconfirmed(self):
+        """A [s]kip (or any non-confirmed exit) from the review runner
+        offers no post — matches prior default-to-no-post behavior."""
+        d = date(2098, 10, 2)
+        self._seed(d, status='unconfirmed', content='Unconfirmed weekly content.')
+        result, mock_client, mock_runner = self._invoke('20981002')
+        self.assertEqual(result.exit_code, 0, result.output)
+        mock_client.post_message.assert_not_called()
+        self.assertIn('no message posted', result.output.lower())
+
+    def test_declining_the_post_prompt_sends_nothing(self):
+        d = date(2098, 10, 3)
+        self._seed(d, status='confirmed', content='Content.')
+        result, mock_client, mock_runner = self._invoke('20981003', input_text='n\n')
+        self.assertEqual(result.exit_code, 0, result.output)
+        mock_client.post_message.assert_not_called()
+
+    def test_posts_corrected_content_over_content(self):
+        d = date(2098, 10, 4)
+        self._seed(d, status='corrected', content='Original.',
+                  corrected_content='Corrected weekly content.')
+        result, mock_client, mock_runner = self._invoke('20981004', input_text='y\n')
+        self.assertEqual(result.exit_code, 0, result.output)
+        _, posted_content = mock_client.post_message.call_args[0]
+        self.assertIn('Corrected weekly content.', posted_content)
+        self.assertNotIn('Original.', posted_content)
+
+    def test_slack_fields_persist_on_same_row_no_second_row(self):
+        d = date(2098, 10, 5)
+        r = self._seed(d, status='confirmed', content='Content.')
+        result, mock_client, mock_runner = self._invoke('20981005', input_text='y\n')
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.session.refresh(r)
+        self.assertEqual(r.slack_message_ts, 'test-ts-gate4')
+        self.assertEqual(r.slack_channel, '#gate4-test')
+        self.assertEqual(r.slack_workspace_name, 'Test WS')
+        rows = self.session.query(Report).filter(
+            Report.report_type == 'weekly_client', Report.report_date == d,
+        ).all()
+        self.assertEqual(len(rows), 1)
+
+    def test_already_posted_blocks_without_force(self):
+        d = date(2098, 10, 11)
+        r = self._seed(d, status='confirmed', content='Content.')
+        r.slack_message_ts = 'existing-ts'
+        self.session.commit()
+        result, mock_client, mock_runner = self._invoke('20981011', input_text='y\n')
+        self.assertEqual(result.exit_code, 0, result.output)
+        mock_client.post_message.assert_not_called()
+        self.assertIn('already posted', result.output.lower())
+
+    def test_force_reposts_when_already_posted(self):
+        d = date(2098, 10, 12)
+        r = self._seed(d, status='confirmed', content='Content.')
+        r.slack_message_ts = 'existing-ts'
+        self.session.commit()
+        result, mock_client, mock_runner = self._invoke(
+            '20981012', input_text='y\n', extra_args=['--force'],
+        )
+        self.assertEqual(result.exit_code, 0, result.output)
+        mock_client.post_message.assert_called_once()
+
+    def test_thursday_and_friday_produce_independent_rows(self):
+        """Regression guard against the discarded anchor-date design —
+        Thursday's draft and Friday's weekly review remain two independent
+        rows on their own actual dates, no lookup between them."""
+        thursday = date(2098, 10, 8)
+        friday = date(2098, 10, 9)
+        self._seed(thursday, status='confirmed', content='Thursday content.')
+        self._seed(friday, status='confirmed', content='Friday content.')
+        result_thu, _, _ = self._invoke('20981008', input_text='y\n')
+        result_fri, _, _ = self._invoke('20981009', input_text='y\n')
+        self.assertEqual(result_thu.exit_code, 0, result_thu.output)
+        self.assertEqual(result_fri.exit_code, 0, result_fri.output)
+        rows = self.session.query(Report).filter(
+            Report.report_type == 'weekly_client',
+            Report.report_date.in_([thursday, friday]),
+        ).all()
+        self.assertEqual(len(rows), 2)
+        contents = {r.report_date: (r.corrected_content or r.content) for r in rows}
+        self.assertIn('Thursday content.', contents[thursday])
+        self.assertIn('Friday content.', contents[friday])
+
+    def test_dry_run_no_side_effects(self):
+        with patch('workmain.cli.commands.slack.get_token', return_value='xoxb-fake'), \
+             patch('workmain.workflows.eod_workflow._run_report_review_step') as mock_runner, \
+             patch('workmain.cli.commands.slack.SlackClient') as mock_client_cls:
+            result = self.runner.invoke(
+                slack,
+                ['post', 'weekly', '-d', '20981010', '--channel', '#gate4-test', '--dry-run'],
+                catch_exceptions=False,
+            )
+        self.assertEqual(result.exit_code, 0, result.output)
+        mock_runner.assert_not_called()
+        mock_client_cls.assert_not_called()
+        self.assertIn('DRY RUN', result.output)
+        self.assertIn('#gate4-test', result.output)

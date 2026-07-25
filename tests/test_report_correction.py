@@ -1,7 +1,7 @@
 """
 WorkmAIn Report Correction Tests
-test_report_correction v1.2
-20260717
+test_report_correction v1.4
+20260724
 
 Tests for PC-3 — report status fields, confirm/correct commands,
 --status filter on reports list, and weekly aggregation filter.
@@ -14,13 +14,19 @@ Covers:
   - reports list --status: filters by unconfirmed/confirmed/corrected/all
   - reports list (no flag): existing behavior preserved (shows all)
   - reports list --status invalid: validation error
-  - get_confirmed_dailies(): weekly aggregation filter
   - EOD Step 4a pre-check: skips generation if confirmed/corrected report exists
   - EOD Step 4a: report starts as unconfirmed after generation
-  - build_weekly_prompt(): fallback when partial/no confirmed week, substitutive
-    path when all 5 weekdays confirmed, corrected_content preference (Item 34)
+  - weekly_client generation via build_prompt(): always template-formatted
+    and correctly tag-filtered regardless of daily_internal confirmation
+    state; get_confirmed_dailies()/build_weekly_prompt() retired (Item 61
+    Gate 3, resolving Item 34/46 as a side effect)
   - ReportsRepository.get_filtered(): status/type/date/updated_after floor/
     search/limit, sort order (Item 56 Gate 1)
+  - ReportsRepository.apply_correction(): corrected_content/status write,
+    note delegation to set_correction_note() (Item 61 Gate 2)
+  - reports correct (CLI): now routed through edit_in_editor() +
+    apply_correction() — same observable behavior, new write path (Item 61
+    Gate 2)
 
 Uses db_session fixture for repo/model tests.
 Uses unittest.TestCase with real sessions for CLI command tests that need
@@ -32,11 +38,29 @@ Version History:
         (4 tests covering Item 34 behavioral fixes)
 - v1.2: Hotfix Item #56 Gate 1 — add TestGetFiltered (get_filtered() coverage:
         status/type/date/updated_after floor/search/limit/sort order)
+- v1.3: Item #61 Gate 2 — add TestApplyCorrection (repo-level, db_session
+        fixture) and TestReportCorrectCLI (CLI-level, real committed
+        session, mirrors TestReportConfirmCLI). Placed here rather than in
+        the spec-named tests/test_reports_repo.py / test_reports_commands.py
+        — neither file exists in this repo; this file is the established
+        home for both ReportsRepository- and reports-CLI-level coverage
+        (see module docstring). Deviation noted in the Gate 2 commit.
+- v1.4: Item #61 Gate 3 — TestGetConfirmedDailies and TestBuildWeeklyPrompt
+        deleted outright (both assert behavior this gate removes, not
+        adaptable). Replaced with TestWeeklyClientPromptGeneration: real
+        weekly_client.json template + real NotesRepository query proving
+        build_prompt() output is template-formatted and correctly
+        tag-filtered regardless of daily_internal Report row confirmation
+        state (zero/partial/full week), that internal-only/info-only notes
+        never surface (AC12), and that daily_internal generation is
+        unaffected (regression guard).
 """
 
+import os
 import unittest
 from datetime import date, datetime, timedelta
-from unittest.mock import patch
+from pathlib import Path
+from unittest.mock import patch, MagicMock
 
 import pytest
 from click.testing import CliRunner
@@ -49,7 +73,7 @@ from workmain.database.repositories.reports_repo import (
 )
 from workmain.cli.commands.reports import reports
 
-# Sentinel Mon–Fri week for build_weekly_prompt() tests (first Monday of June 2099)
+# Sentinel Mon–Fri week for weekly_client prompt generation tests (first Monday of June 2099)
 _d = date(2099, 6, 1)
 while _d.weekday() != 0:
     _d += timedelta(days=1)
@@ -205,57 +229,6 @@ class TestListReportsStatusFilter:
         assert r_unconf.id in ids
         assert r_conf.id in ids
         assert r_corr.id in ids
-
-
-# ---------------------------------------------------------------------------
-# Weekly aggregation — get_confirmed_dailies
-# ---------------------------------------------------------------------------
-
-class TestGetConfirmedDailies:
-    """get_confirmed_dailies() returns only confirmed/corrected daily reports."""
-
-    def test_includes_confirmed_and_corrected(self, db_session):
-        """get_confirmed_dailies() includes confirmed and corrected daily reports."""
-        r_conf = _seed_report(db_session, report_type='daily_internal',
-                              report_date=date(2099, 10, 1), status='confirmed')
-        r_corr = _seed_report(db_session, report_type='daily_internal',
-                              report_date=date(2099, 10, 2), status='corrected')
-        repo = get_reports_repository(db_session)
-        results = repo.get_confirmed_dailies(date(2099, 10, 1), date(2099, 10, 2))
-        ids = [r.id for r in results]
-        assert r_conf.id in ids
-        assert r_corr.id in ids
-
-    def test_excludes_unconfirmed(self, db_session):
-        """get_confirmed_dailies() excludes unconfirmed daily reports."""
-        r_unconf = _seed_report(db_session, report_type='daily_internal',
-                                report_date=date(2099, 10, 3), status=None)
-        repo = get_reports_repository(db_session)
-        results = repo.get_confirmed_dailies(date(2099, 10, 3), date(2099, 10, 3))
-        ids = [r.id for r in results]
-        assert r_unconf.id not in ids
-
-    def test_excludes_non_daily_report_type(self, db_session):
-        """get_confirmed_dailies() only returns daily_internal type reports."""
-        r_weekly = _seed_report(db_session, report_type='weekly_client',
-                                report_date=date(2099, 10, 4), status='confirmed')
-        repo = get_reports_repository(db_session)
-        results = repo.get_confirmed_dailies(date(2099, 10, 4), date(2099, 10, 4))
-        ids = [r.id for r in results]
-        assert r_weekly.id not in ids
-
-    def test_ordered_by_report_date_ascending(self, db_session):
-        """get_confirmed_dailies() returns reports in ascending date order."""
-        r1 = _seed_report(db_session, report_type='daily_internal',
-                          report_date=date(2099, 10, 7), status='confirmed')
-        r2 = _seed_report(db_session, report_type='daily_internal',
-                          report_date=date(2099, 10, 5), status='confirmed')
-        r3 = _seed_report(db_session, report_type='daily_internal',
-                          report_date=date(2099, 10, 6), status='confirmed')
-        repo = get_reports_repository(db_session)
-        results = repo.get_confirmed_dailies(date(2099, 10, 5), date(2099, 10, 7))
-        ids = [r.id for r in results]
-        assert ids.index(r2.id) < ids.index(r3.id) < ids.index(r1.id)
 
 
 # ---------------------------------------------------------------------------
@@ -553,22 +526,59 @@ class TestEodStep4aPreCheck:
 
 
 # ---------------------------------------------------------------------------
-# build_weekly_prompt() — Item 34 behavioral coverage
+# ReportsRepository.apply_correction() — Item #61 Gate 2, Design Rule 4
 # ---------------------------------------------------------------------------
 
-class TestBuildWeeklyPrompt(unittest.TestCase):
-    """
-    Tests for PromptBuilder.build_weekly_prompt() covering the three behaviors
-    fixed in hotfix items-33-34-incomplete-impl (Item 34):
+class TestApplyCorrection:
+    """ReportsRepository.apply_correction() — sole write path for
+    corrected_content + status='corrected' (+ optional correction_note)."""
 
-    1. Falls back to raw build_prompt() result when any weekday lacks a confirmed daily.
-    2. Replaces raw data with lean confirmed summaries when all 5 weekdays are confirmed.
-    3. Prefers corrected_content over content in the lean confirmed-path prompt.
+    def test_sets_corrected_content_and_status(self, db_session):
+        r = _seed_report(db_session, report_date=date(2098, 12, 1))
+        repo = get_reports_repository(db_session)
+        repo.apply_correction(r.id, 'Edited body.')
+        db_session.refresh(r)
+        assert r.corrected_content == 'Edited body.'
+        assert r.status == 'corrected'
 
-    build_prompt() is patched to isolate the weekly-prompt logic from template
-    loading and DB data queries.  Confirmed dailies are committed via a real session
-    so the method's internal get_db() call can find them.
-    """
+    def test_note_truthy_delegates_to_set_correction_note(self, db_session):
+        r = _seed_report(db_session, report_date=date(2098, 12, 2))
+        repo = get_reports_repository(db_session)
+        repo.apply_correction(r.id, 'Edited body.', note='Fixed a typo')
+        db_session.refresh(r)
+        assert r.correction_note == 'Fixed a typo'
+
+    def test_note_none_leaves_correction_note_unset(self, db_session):
+        r = _seed_report(db_session, report_date=date(2098, 12, 3))
+        repo = get_reports_repository(db_session)
+        repo.apply_correction(r.id, 'Edited body.', note=None)
+        db_session.refresh(r)
+        assert r.correction_note is None
+
+    def test_note_empty_after_strip_is_no_op(self, db_session):
+        """Whitespace-only note reuses set_correction_note()'s existing
+        no-op-on-empty behavior rather than writing a blank string."""
+        r = _seed_report(db_session, report_date=date(2098, 12, 4))
+        repo = get_reports_repository(db_session)
+        repo.apply_correction(r.id, 'Edited body.', note='   ')
+        db_session.refresh(r)
+        assert r.correction_note is None
+
+    def test_unknown_report_id_is_a_no_op(self, db_session):
+        repo = get_reports_repository(db_session)
+        repo.apply_correction(999999999, 'Edited body.')  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# reports correct (CLI) — Item #61 Gate 2: now routed through
+# workmain/utils/editor.py:edit_in_editor() + apply_correction()
+# ---------------------------------------------------------------------------
+
+class TestReportCorrectCLI(unittest.TestCase):
+    """CLI tests for 'workmain reports correct' with real committed data —
+    mirrors TestReportConfirmCLI's pattern. $EDITOR is mocked by patching
+    workmain.utils.editor.subprocess.run with a side effect that writes
+    new content into the temp file edit_in_editor() reads back."""
 
     def setUp(self):
         from dotenv import load_dotenv
@@ -577,6 +587,7 @@ class TestBuildWeeklyPrompt(unittest.TestCase):
         db = get_db()
         self.session = db.get_session()
         self._seeded_ids: list = []
+        self.runner = CliRunner()
 
     def tearDown(self):
         for rid in self._seeded_ids:
@@ -584,75 +595,182 @@ class TestBuildWeeklyPrompt(unittest.TestCase):
         self.session.commit()
         self.session.close()
 
-    def _seed(self, report_date, content='Day content', corrected_content=None):
+    def _seed(self, report_date=None, content=_SAMPLE_CONTENT):
         r = Report(
             report_type='daily_internal',
-            report_date=report_date,
+            report_date=report_date or date(2098, 12, 10),
             content=content,
-            status='confirmed',
         )
-        if corrected_content is not None:
-            r.corrected_content = corrected_content
         self.session.add(r)
         self.session.commit()
         self.session.refresh(r)
         self._seeded_ids.append(r.id)
         return r
 
-    def _make_builder(self):
-        return PromptBuilder(self.session)
+    @staticmethod
+    def _fake_editor_run(new_content):
+        def _run(args, check=False, **kwargs):
+            Path(args[1]).write_text(new_content)
+            return MagicMock(returncode=0)
+        return _run
 
-    def test_fallback_when_no_confirmed_dailies(self):
-        """build_weekly_prompt returns raw build_prompt() user_prompt when no confirmed dailies exist."""
-        builder = self._make_builder()
-        with patch.object(builder, 'build_prompt', return_value=('SYS', 'RAW')) as mock_bp:
-            _, user = builder.build_weekly_prompt(
-                template_name='daily_internal',
-                report_date=_WEEKLY_SENTINEL_MON,
-            )
-        mock_bp.assert_called_once()
-        self.assertEqual(user, 'RAW')
+    def test_correct_saves_via_apply_correction(self):
+        r = self._seed(report_date=date(2098, 12, 10))
+        with patch.dict(os.environ, {'EDITOR': 'fake-editor'}), \
+             patch('workmain.utils.editor.subprocess.run',
+                   side_effect=self._fake_editor_run('Edited content.')):
+            result = self.runner.invoke(reports, ['correct', str(r.id)])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.session.refresh(r)
+        self.assertEqual(r.corrected_content, 'Edited content.')
+        self.assertEqual(r.status, 'corrected')
+        # Design Rule 5 — report_correct() still never passes a note
+        self.assertIsNone(r.correction_note)
 
-    def test_fallback_when_partial_week_confirmed(self):
-        """build_weekly_prompt falls back to raw data when any weekday lacks a confirmed daily."""
-        # Seed Mon–Thu only; Friday is absent
-        for i in range(4):
-            self._seed(_WEEKLY_SENTINEL_MON + timedelta(days=i))
-        builder = self._make_builder()
-        with patch.object(builder, 'build_prompt', return_value=('SYS', 'RAW')):
-            _, user = builder.build_weekly_prompt(
-                template_name='daily_internal',
-                report_date=_WEEKLY_SENTINEL_MON,
-            )
-        self.assertEqual(user, 'RAW')
+    def test_correct_editor_unset_leaves_report_unchanged(self):
+        r = self._seed(report_date=date(2098, 12, 11))
+        with patch.dict(os.environ, {'EDITOR': ''}):
+            result = self.runner.invoke(reports, ['correct', str(r.id)])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.session.refresh(r)
+        self.assertEqual(r.status, 'unconfirmed')
+        self.assertIsNone(r.corrected_content)
 
-    def test_substitutive_when_all_five_confirmed(self):
-        """build_weekly_prompt replaces raw data with lean confirmed summaries when all 5 weekdays confirmed."""
+    def test_correct_no_changes_detected_leaves_status_unconfirmed(self):
+        r = self._seed(report_date=date(2098, 12, 12), content='Same content.')
+        with patch.dict(os.environ, {'EDITOR': 'fake-editor'}), \
+             patch('workmain.utils.editor.subprocess.run',
+                   side_effect=self._fake_editor_run('Same content.')):
+            result = self.runner.invoke(reports, ['correct', str(r.id)])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.session.refresh(r)
+        self.assertEqual(r.status, 'unconfirmed')
+
+    def test_correct_updates_staging_file_mirror(self):
+        """AC9 — staging-file mirror write is unchanged at this call site."""
+        import tempfile
+        tmp_dir = tempfile.mkdtemp()
+        staged_path = str(Path(tmp_dir) / 'staged_report.md')
+        Path(staged_path).write_text('Original staged content.')
+        r = self._seed(report_date=date(2098, 12, 13))
+        r.report_metadata = {'file_path': staged_path}
+        self.session.commit()
+        with patch.dict(os.environ, {'EDITOR': 'fake-editor'}), \
+             patch('workmain.utils.editor.subprocess.run',
+                   side_effect=self._fake_editor_run('Edited staged content.')):
+            result = self.runner.invoke(reports, ['correct', str(r.id)])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(Path(staged_path).read_text(), 'Edited staged content.')
+
+
+# ---------------------------------------------------------------------------
+# weekly_client generation via build_prompt() — Item #61 Gate 3
+# ---------------------------------------------------------------------------
+
+class TestWeeklyClientPromptGeneration:
+    """Replaces the deleted TestBuildWeeklyPrompt (Item #61 Gate 3):
+    build_weekly_prompt() and its confirmed-substitutive branch are retired
+    outright, not modified. Weekly generation now always goes through
+    build_prompt(), which resolves the Mon-Fri window via _get_date_range()
+    (frequency: "weekly") and applies each section's real tag_filter from
+    templates/reports/weekly_client.json — completely independent of any
+    daily_internal Report row's confirmation status. Coverage below proves
+    that directly by varying/omitting Report-row confirmation state while
+    holding the underlying Notes fixed, using the real template and a real
+    NotesRepository query (db_session fixture — PromptBuilder is
+    constructed with the passed session directly, so fixture-flushed notes
+    are visible to its internal queries; no cross-session issue here,
+    unlike the CliRunner cases documented elsewhere in this file).
+    """
+
+    def _seed_note(self, db_session, content, tags, note_date):
+        from workmain.database.repositories.notes_repo import NotesRepository
+        repo = NotesRepository(db_session)
+        created_at = datetime.combine(note_date, datetime.min.time().replace(hour=10))
+        return repo.create(content=content, tags=tags, created_at=created_at)
+
+    def _seed_daily_report(self, db_session, report_date, status):
+        return _seed_report(db_session, report_type='daily_internal',
+                            report_date=report_date, status=status)
+
+    def test_fully_confirmed_week_produces_template_formatted_output(self, db_session):
+        """Before Gate 3, an all-5-confirmed week took the lean substitutive
+        dump instead of the template. It must now produce the same
+        template-formatted output as any other week."""
+        mon = _WEEKLY_SENTINEL_MON
+        self._seed_note(db_session, 'GATE3GENTEMPLATE shipped the client dashboard.',
+                        ['client-report'], mon)
         for i in range(5):
-            self._seed(_WEEKLY_SENTINEL_MON + timedelta(days=i), content=f'Confirmed day {i}')
-        builder = self._make_builder()
-        with patch.object(builder, 'build_prompt', return_value=('SYS', 'RAW')):
-            _, user = builder.build_weekly_prompt(
-                template_name='daily_internal',
-                report_date=_WEEKLY_SENTINEL_MON,
-            )
-        self.assertNotEqual(user, 'RAW')
-        self.assertIn('Confirmed day 0', user)
+            self._seed_daily_report(db_session, mon + timedelta(days=i), status='confirmed')
 
-    def test_corrected_content_preferred_over_content(self):
-        """build_weekly_prompt uses corrected_content in the confirmed path, not the original content."""
-        self._seed(
-            _WEEKLY_SENTINEL_MON,
-            content='Original content',
-            corrected_content='Corrected version',
+        builder = PromptBuilder(db_session)
+        _, user_prompt = builder.build_prompt(
+            template_name='weekly_client', report_date=mon,
         )
-        for i in range(1, 5):
-            self._seed(_WEEKLY_SENTINEL_MON + timedelta(days=i))
-        builder = self._make_builder()
-        with patch.object(builder, 'build_prompt', return_value=('SYS', 'RAW')):
-            _, user = builder.build_weekly_prompt(
-                template_name='daily_internal',
-                report_date=_WEEKLY_SENTINEL_MON,
-            )
-        self.assertIn('Corrected version', user)
-        self.assertNotIn('Original content', user)
+        assert '# Report Generation Request' in user_prompt
+        assert '## 1. What are you working on?' in user_prompt
+        assert 'GATE3GENTEMPLATE shipped the client dashboard.' in user_prompt
+
+    def test_zero_confirmed_dailies_still_produces_template_formatted_output(self, db_session):
+        """No daily_internal Report rows exist at all for the week — output
+        must be identical in shape to the fully-confirmed case."""
+        mon = _WEEKLY_SENTINEL_MON + timedelta(days=14)
+        self._seed_note(db_session, 'GATE3GENZERO shipped the client dashboard.',
+                        ['client-report'], mon)
+
+        builder = PromptBuilder(db_session)
+        _, user_prompt = builder.build_prompt(
+            template_name='weekly_client', report_date=mon,
+        )
+        assert '## 1. What are you working on?' in user_prompt
+        assert 'GATE3GENZERO shipped the client dashboard.' in user_prompt
+
+    def test_partial_week_confirmed_produces_template_formatted_output(self, db_session):
+        """Partial week (some weekdays confirmed, some not) — already worked
+        pre-Gate-3 via the fallback path; regression guard."""
+        mon = _WEEKLY_SENTINEL_MON + timedelta(days=28)
+        self._seed_note(db_session, 'GATE3GENPARTIAL shipped the client dashboard.',
+                        ['client-report'], mon)
+        for i in range(3):  # Mon-Wed confirmed, Thu-Fri absent
+            self._seed_daily_report(db_session, mon + timedelta(days=i), status='confirmed')
+
+        builder = PromptBuilder(db_session)
+        _, user_prompt = builder.build_prompt(
+            template_name='weekly_client', report_date=mon,
+        )
+        assert '## 1. What are you working on?' in user_prompt
+        assert 'GATE3GENPARTIAL shipped the client dashboard.' in user_prompt
+
+    def test_internal_only_and_info_only_notes_never_appear(self, db_session):
+        """AC12 — internal-only/info-only never surface in weekly_client
+        output, regardless of confirmation state (fully-confirmed week)."""
+        mon = _WEEKLY_SENTINEL_MON + timedelta(days=42)
+        self._seed_note(db_session, 'GATE3GENTAG clientvisible marker.',
+                        ['client-report'], mon)
+        self._seed_note(db_session, 'GATE3GENTAG internalonly marker.',
+                        ['internal-only'], mon)
+        self._seed_note(db_session, 'GATE3GENTAG infoonly marker.',
+                        ['info-only'], mon)
+        for i in range(5):
+            self._seed_daily_report(db_session, mon + timedelta(days=i), status='confirmed')
+
+        builder = PromptBuilder(db_session)
+        _, user_prompt = builder.build_prompt(
+            template_name='weekly_client', report_date=mon,
+        )
+        assert 'GATE3GENTAG clientvisible marker.' in user_prompt
+        assert 'GATE3GENTAG internalonly marker.' not in user_prompt
+        assert 'GATE3GENTAG infoonly marker.' not in user_prompt
+
+    def test_daily_internal_generation_unaffected(self, db_session):
+        """Regression guard — Design Rule 6 only retires the weekly_client
+        path; daily_internal generation is untouched."""
+        d = _WEEKLY_SENTINEL_MON + timedelta(days=56)
+        self._seed_note(db_session, 'GATE3GENDAILY internal-only daily content.',
+                        ['internal-only'], d)
+
+        builder = PromptBuilder(db_session)
+        _, user_prompt = builder.build_prompt(
+            template_name='daily_internal', report_date=d,
+        )
+        assert 'GATE3GENDAILY internal-only daily content.' in user_prompt
