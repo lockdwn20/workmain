@@ -1,7 +1,7 @@
 """
 WorkmAIn EOD Workflow Tests
-test_eod_workflow v1.5
-20260724
+test_eod_workflow v1.6
+20260725
 
 Tests for workmain/workflows/eod_workflow.py — the surface-agnostic service
 layer extracted from cli/commands/eod.py in Phase 13 Sprint 2 Gate 2.
@@ -39,6 +39,13 @@ Version History:
         path for both report types (with and without a correction note,
         and the no-changes-detected no-op). Real committed-session
         pattern, same rationale as v1.4.
+- v1.6: Hotfix Item #62 Gate 3 — new TestProviderErrorDemotion: covers the
+        ProviderError demotion restructure in _run_task_match_step() and
+        _run_note_dedup_step() (exactly one LLM call before demotion, all
+        remaining items via keyword fallback including the one that
+        raised, healthy-path regression, and per-step independence of the
+        two steps' demotion state). Real committed-session pattern, same
+        rationale as v1.2's Gate 5 coverage.
 """
 
 import threading
@@ -48,7 +55,7 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from workmain.ai.base_provider import ProviderStatus
+from workmain.ai.base_provider import ProviderStatus, ProviderError
 from workmain.daemon.models import Observation, ObservationType
 from workmain.daemon import state_io
 from workmain.database.repositories.notes_repo import NotesRepository
@@ -68,6 +75,7 @@ from workmain.workflows.eod_workflow import (
     _tokenize,
     _score_match,
     _keyword_score_match,
+    _keyword_note_dedup_match,
     _WORKMAIN_BIN,
 )
 
@@ -539,6 +547,169 @@ class TestNoteDedupMergeDirection:
         assert ts_old.status == 'dismissed'
         assert ts_old.forwarding_note_id == note_new.id
         assert ts_new.status == 'active'
+
+
+class TestProviderErrorDemotion:
+    """Hotfix Item #62 Gate 3 (Fix 3): Step 3c/3d demote ollama_available to
+    False on the first ProviderError from a generate call and fall through
+    to the keyword matcher for the item that raised and all remaining
+    items — never silently skipped. Demotion is per-step local."""
+
+    def test_task_match_demotes_on_provider_error(self, tmp_path, db_session, monkeypatch, capsys):
+        """3 tasks, parse_task_match raises on the first call: exactly one
+        LLM call total, all 3 tasks (including the first) scored by the
+        keyword matcher, and the demotion warning printed."""
+        monkeypatch.setenv('WORKMAIN_STATE_DIR', str(tmp_path))
+        _write_cf_state_file(SENTINEL_DATE)
+        tasks = [
+            _cf_note_with_task(db_session, f"Task {i}", SENTINEL_DATE)[1]
+            for i in range(3)
+        ]
+
+        mock_parser = MagicMock()
+        mock_parser.parse_task_match.side_effect = ProviderError("boom")
+
+        keyword_calls = []
+        real_keyword = _keyword_score_match
+
+        def _counting_keyword(task, notes):
+            keyword_calls.append(task.id)
+            return real_keyword(task, notes)
+
+        with patch('workmain.ai.providers.ollama.OllamaProvider.check_availability',
+                   return_value=ProviderStatus.AVAILABLE), \
+             patch('workmain.ai.intent_parser.IntentParser', return_value=mock_parser), \
+             patch('workmain.workflows.eod_workflow._keyword_score_match',
+                   side_effect=_counting_keyword), \
+             patch('workmain.database.repositories.task_status_repo.TaskStatusRepository.get_filtered',
+                   return_value=tasks), \
+             patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
+            mock_get_db.return_value.get_session.return_value = db_session
+            result = _run_task_match_step(
+                dry_run=False, target_date=SENTINEL_DATE, non_interactive=True,
+            )
+
+        assert mock_parser.parse_task_match.call_count == 1
+        assert sorted(keyword_calls) == sorted(t.id for t in tasks)
+        assert result.status in (EodStepStatus.COMPLETED, EodStepStatus.PAUSED)
+        assert 'falling back to keyword matching' in capsys.readouterr().out
+
+    def test_task_match_llm_path_unchanged_when_healthy(self, tmp_path, db_session, monkeypatch):
+        """No error: every task goes through parse_task_match; the keyword
+        matcher is never invoked."""
+        monkeypatch.setenv('WORKMAIN_STATE_DIR', str(tmp_path))
+        _write_cf_state_file(SENTINEL_DATE)
+        tasks = [
+            _cf_note_with_task(db_session, f"Task {i}", SENTINEL_DATE)[1]
+            for i in range(3)
+        ]
+
+        mock_parser = MagicMock()
+        mock_parser.parse_task_match.return_value = {
+            "matched": False, "confidence": 0.0, "note_id": None,
+        }
+
+        with patch('workmain.ai.providers.ollama.OllamaProvider.check_availability',
+                   return_value=ProviderStatus.AVAILABLE), \
+             patch('workmain.ai.intent_parser.IntentParser', return_value=mock_parser), \
+             patch('workmain.workflows.eod_workflow._keyword_score_match') as mock_keyword, \
+             patch('workmain.database.repositories.task_status_repo.TaskStatusRepository.get_filtered',
+                   return_value=tasks), \
+             patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
+            mock_get_db.return_value.get_session.return_value = db_session
+            result = _run_task_match_step(
+                dry_run=False, target_date=SENTINEL_DATE, non_interactive=True,
+            )
+
+        assert mock_parser.parse_task_match.call_count == 3
+        mock_keyword.assert_not_called()
+        assert result.status == EodStepStatus.COMPLETED
+
+    def test_note_dedup_demotes_on_provider_error(self, tmp_path, db_session, monkeypatch, capsys):
+        """Mirror of the task-match demotion test for Step 3d: 3 today
+        tasks (C(3,2)=3 pairs), parse_note_duplicate raises on the first
+        pair — exactly one LLM call, all 3 pairs (including the one that
+        raised) scored by the keyword matcher."""
+        monkeypatch.setenv('WORKMAIN_STATE_DIR', str(tmp_path))
+        today_tasks = [
+            _cf_note_with_task(db_session, f"Today task {i}", SENTINEL_DATE)[1]
+            for i in range(3)
+        ]
+
+        mock_parser = MagicMock()
+        mock_parser.parse_note_duplicate.side_effect = ProviderError("boom")
+
+        keyword_calls = []
+        real_keyword = _keyword_note_dedup_match
+
+        def _counting_keyword(note_a, note_b):
+            keyword_calls.append((note_a, note_b))
+            return real_keyword(note_a, note_b)
+
+        with patch('workmain.ai.providers.ollama.OllamaProvider.check_availability',
+                   return_value=ProviderStatus.AVAILABLE), \
+             patch('workmain.ai.intent_parser.IntentParser', return_value=mock_parser), \
+             patch('workmain.workflows.eod_workflow._keyword_note_dedup_match',
+                   side_effect=_counting_keyword), \
+             patch('workmain.database.repositories.task_status_repo.TaskStatusRepository.get_filtered',
+                   return_value=today_tasks), \
+             patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
+            mock_get_db.return_value.get_session.return_value = db_session
+            result = _run_note_dedup_step(
+                dry_run=False, target_date=SENTINEL_DATE, non_interactive=True,
+            )
+
+        assert mock_parser.parse_note_duplicate.call_count == 1
+        assert len(keyword_calls) == 3
+        assert result.status in (EodStepStatus.COMPLETED, EodStepStatus.PAUSED)
+        assert 'falling back to keyword matching' in capsys.readouterr().out
+
+    def test_note_dedup_independent_of_task_match_demotion(self, tmp_path, db_session, monkeypatch):
+        """3c demoted in its own run does not carry into a separate 3d
+        run — each step holds its own local ollama_available (Design Rule
+        6)."""
+        monkeypatch.setenv('WORKMAIN_STATE_DIR', str(tmp_path))
+        _write_cf_state_file(SENTINEL_DATE)
+        task = _cf_note_with_task(db_session, "Some task", SENTINEL_DATE)[1]
+
+        mock_parser_3c = MagicMock()
+        mock_parser_3c.parse_task_match.side_effect = ProviderError("boom")
+
+        with patch('workmain.ai.providers.ollama.OllamaProvider.check_availability',
+                   return_value=ProviderStatus.AVAILABLE), \
+             patch('workmain.ai.intent_parser.IntentParser', return_value=mock_parser_3c), \
+             patch('workmain.database.repositories.task_status_repo.TaskStatusRepository.get_filtered',
+                   return_value=[task]), \
+             patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
+            mock_get_db.return_value.get_session.return_value = db_session
+            _run_task_match_step(
+                dry_run=False, target_date=SENTINEL_DATE, non_interactive=True,
+            )
+
+        today_tasks = [
+            _cf_note_with_task(db_session, f"Dedup task {i}", SENTINEL_DATE)[1]
+            for i in range(2)
+        ]
+        mock_parser_3d = MagicMock()
+        mock_parser_3d.parse_note_duplicate.return_value = {
+            "duplicate": False, "confidence": 0.0, "note_id": None,
+        }
+
+        with patch('workmain.ai.providers.ollama.OllamaProvider.check_availability',
+                   return_value=ProviderStatus.AVAILABLE), \
+             patch('workmain.ai.intent_parser.IntentParser', return_value=mock_parser_3d), \
+             patch('workmain.workflows.eod_workflow._keyword_note_dedup_match') as mock_keyword, \
+             patch('workmain.database.repositories.task_status_repo.TaskStatusRepository.get_filtered',
+                   return_value=today_tasks), \
+             patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
+            mock_get_db.return_value.get_session.return_value = db_session
+            result = _run_note_dedup_step(
+                dry_run=False, target_date=SENTINEL_DATE, non_interactive=True,
+            )
+
+        mock_parser_3d.parse_note_duplicate.assert_called()
+        mock_keyword.assert_not_called()
+        assert result.status == EodStepStatus.COMPLETED
 
 
 # ---------------------------------------------------------------------------
