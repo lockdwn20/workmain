@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v5.36
-20260722
+Feature Backlog v5.37
+20260725
 
 # WorkmAIn Feature Backlog
 
@@ -146,6 +146,15 @@ Items deferred from various phases for future implementation.
   (`test_pre_holiday_workday_state_file_fresh_after_holiday`); per Ray's explicit
   close-out decision, not a silently-dropped gap. Register and statistics updated
   (Complete 27→28, Partial 2→1 — 48 remains).
+- v5.37 (20260725): Item 61 added and marked ✓ Complete (v1.26.0, 4 gates +
+  a fifth doc-only chore/* gate, 840→869 tests, live-verified AC15/AC16
+  same day) — collapses the daily/weekly EOD report review runners into one
+  parametrized implementation, extracts shared $EDITOR helper and
+  `apply_correction()`, retires `build_weekly_prompt()`'s
+  confirmed-substitutive branch, wires Thursday's Slack draft onto the
+  shared review runner. Item 46 closed — folded into Item 61, now a
+  redirect (was Open, targeting Phase 13). Register and statistics updated
+  (Total 60→61, Complete 28→29, Open 28→27, Redirect 1→2).
 
 ---
 
@@ -237,7 +246,7 @@ Build first, refactor later. See the complete picture before abstracting.
 | 43 | meeting_id Non-Interactive Linkage for create_note/create_time_entry | Medium | Phase 13 Sprint 3 (T6) | ~4–6 hrs | |
 | 44 | entry_date/category as IntentParser Schema Fields (Phase 2) | Low | next model rebuild | ~1–2 hrs | |
 | 45 | `tags` for `create_time_entry` via Slack | Medium | Phase 13 Sprint 3 | ~3h | |
-| 46 | `build_weekly_prompt()` Edge Cases — Short Weeks, Thursday Draft, Internal Pollution | Medium | Phase 13 | ~3–4 hrs | |
+| 46 | `build_weekly_prompt()` Edge Cases — Short Weeks, Thursday Draft, Internal Pollution | — | → Item 61 | — | |
 | 47 | Block Kit modal — report correction from Slack | Medium | Phase 14 | ~6h | |
 | 48 | 3c Timeout Loop — No Exit Condition, No Cancel Path | High | Phase 14 | ~4–6 hrs | ~ |
 | 49 | T4 Suppression Window Hard-Coded Independent of Schedule Config | Low | Phase 14 | ~2–3 hrs | ✓ |
@@ -252,38 +261,38 @@ Build first, refactor later. See the complete picture before abstracting.
 | 58 | T4 Check-in Activity-Gap Suppression | Medium | — | ~2–3 hrs | ✓ |
 | 59 | Time Parser Timezone Assumption — Formal Confirmation | Low | Unscheduled | ~30 min | |
 | 60 | Consolidate `last_inspection.json` Writers and Add Freshness Validation | High | None (standalone) | ~5–7 hrs | ✓ |
+| 61 | Report Review & Weekly Generation Unification | Medium | Between-Phase | ~8–10 hrs | ✓ |
 
 ---
 
 ## Summary Statistics
 
-**Total Items:** 60 (Item 22 is a redirect — no separate deferred work; see Item 20)
-**Complete:** 28 (Items 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 50, 51, 52, 53, 56, 58, 60)
+**Total Items:** 61 (Items 22 and 46 are redirects — no separate deferred work; see Items 20 and 61 respectively)
+**Complete:** 29 (Items 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 50, 51, 52, 53, 56, 58, 60, 61)
 **Partial:** 1 (Item 48 — see item detail for unmet ACs)
 **Closed/Stale:** 2 (Items 14, 15 — premises resolved, suite green)
-**Open:** 28
+**Open:** 27
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Open (targeted) | 25 | 1, 2, 3, 4, 7, 8, 12, 16, 19, 23, 28, 29, 30, 31, 37, 42, 43, 44, 45, 46, 47, 54, 55, 57, 59 |
+| Open (targeted) | 24 | 1, 2, 3, 4, 7, 8, 12, 16, 19, 23, 28, 29, 30, 31, 37, 42, 43, 44, 45, 47, 54, 55, 57, 59 |
 | Partial | 1 | 48 |
 | Conditional | 1 | 9 |
 | Indefinitely | 2 | 5, 6 |
-| Complete | 28 | 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 50, 51, 52, 53, 56, 58, 60 |
+| Complete | 29 | 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 50, 51, 52, 53, 56, 58, 60, 61 |
 | Closed/Stale | 2 | 14, 15 |
-| Redirect | 1 | 22 → Item 20 |
+| Redirect | 2 | 22 → Item 20, 46 → Item 61 |
 
 | Priority | Count | Items |
 |----------|-------|-------|
 | High | 3 | 23, 48, 60 |
-| Medium | 10 | 2, 3, 7, 43, 45, 46, 47, 50, 55, 58 |
+| Medium | 10 | 2, 3, 7, 43, 45, 47, 50, 55, 58, 61 |
 | Low | 19 | 1, 4, 5, 6, 8, 12, 16, 19, 28, 29, 30, 31, 37, 42, 44, 54, 56, 57, 59 |
 | Conditional | 1 | 9 |
 
 | Target Phase | Items |
 |-------------|-------|
 | Phase 11+ | 4, 28 |
-| Phase 13 | 46 |
 | Phase 13 Sprint 3 | 43, 45 |
 | Phase 14 | 47, 48, 50, 56, 58 |
 | Phase 14+ | 19, 31, 55 |
@@ -292,6 +301,7 @@ Build first, refactor later. See the complete picture before abstracting.
 | Next model rebuild | 42, 44 |
 | Unscheduled | 59 |
 | None (standalone, next) | 60 |
+| Between-Phase | 61 |
 | Conditional | 9 |
 | Indefinitely | 5, 6 |
 
@@ -1707,62 +1717,12 @@ Neither was in scope during the service layer work (v1.22.0).
 
 #### Item 46 — `build_weekly_prompt()` Edge Cases: Short Weeks, Thursday Draft, Internal Content Pollution
 
-**Status:** Open — Deferred to Phase 13
-**Priority:** Medium
-**Effort:** ~3–4 hours
-**Added:** 20260623
-**Target Phase:** Phase 13
-
-**Description:**
-Three known gaps in `build_weekly_prompt()` (introduced v2.1, partially corrected
-v2.2 in hotfix items-33-34-incomplete-impl) that were not addressed during the
-Item 34 work and require a coordinated fix:
-
-**Gap 1 — Short work weeks:**
-The confirmed-path condition is `weekdays_covered == {0, 1, 2, 3, 4}`. If Monday
-is a bank holiday and EOD was only run Tue–Fri, `weekdays_covered = {1, 2, 3, 4}`,
-which always falls back to raw data regardless of how many confirmed dailies exist.
-Any week with a holiday or unworked day is permanently blocked from the confirmed
-path.
-
-**Gap 2 — Thursday draft weekly:**
-On Thursday EOD the pipeline posts a Slack draft weekly report. At that point only
-Mon–Thu confirmed dailies exist (Friday hasn't run yet), so `weekdays_covered`
-never equals `{0, 1, 2, 3, 4}` and the confirmed path is unreachable. The Thursday
-draft always uses raw data even if Mon–Thu are fully confirmed.
-
-**Gap 3 — Internal content pollution:**
-`get_confirmed_dailies()` returns `daily_internal` reports. Those reports are built
-from all non-`client-report`/non-`info-only` notes — meaning they contain
-`internal-only`, `carry-forward`, and `blocker` tagged content that should never
-appear in a client-facing weekly report. Injecting confirmed daily summaries
-verbatim into the `weekly_client` prompt risks leaking internal information to the
-client.
-
-**Why Deferred:**
-Gaps 1 and 2 require a decision on the correct fallback threshold (count-based vs.
-date-range-aware vs. day-of-week-aware). Gap 3 requires either: (a) filtering the
-confirmed daily content before injection using tag-aware stripping, or (b) a
-separate `daily_client` report type whose content is safe to forward. Both
-approaches have downstream implications for the EOD pipeline and report schema that
-should be scoped as a coherent unit rather than patched ad-hoc.
-
-**Acceptance Criteria:**
-
-- [ ] Short work weeks: confirmed path activates when all *actual working days* in
-      the Mon–Fri range have a confirmed daily (e.g., 4 confirmed dailies on a
-      Monday-holiday week satisfies the threshold)
-- [ ] Thursday draft: confirmed path available for Thu EOD draft using the confirmed
-      dailies that exist at that point (Mon–Thu), without requiring Friday
-- [ ] Internal content filtering: confirmed daily summaries injected into the weekly
-      client prompt contain only client-safe content; `internal-only`,
-      `carry-forward`, and `blocker`-tagged content is excluded before injection
-- [ ] Existing behavior (raw data fallback) preserved when no confirmed dailies exist
-**Files Affected:**
-
-- `workmain/ai/prompt_builder.py` — `build_weekly_prompt()` threshold + filtering logic
-- `workmain/database/repositories/reports_repo.py` — `get_confirmed_dailies()` may
-  need a `client_safe=True` variant or the caller handles filtering
+**Status:** Closed — folded into Item #61
+**Note:** All three gaps (confirmed-path weekday-coverage gating,
+Thursday-draft-unreachable-confirmed-path, internal content pollution via
+unfiltered daily-body injection) are resolved by Item #61 removing the
+code path that caused all three, rather than by the gap-by-gap patches
+originally envisioned. Superseded, not independently implemented.
 
 ---
 
@@ -2679,3 +2639,64 @@ from this item's own six ACs above):**
   freshness comparison line only
 - `tests/test_state_io.py` (new), `tests/test_eod_workflow.py`,
   `tests/test_orchestration.py`, `tests/test_notifications_commands.py`
+
+---
+
+#### Item 61 — Report Review & Weekly Generation Unification (Daily/Weekly EOD, reports correct, Slack draft weekly)
+
+**Status:** ✓ Complete — v1.26.0 (20260725), live-verified 20260725. All 18
+ACs met and test-verified. AC15 (daily and weekly G2 re-review menu
+presenting `[v/e/c/s]` against the existing confirmed/corrected report,
+interactive CLI EOD) and AC16 (Thursday `slack post weekly` and a later
+Friday weekly review producing correctly-templated/tag-filtered output as
+two independent rows, with Slack delivery only following a
+confirmed/corrected review) both confirmed live by Ray, same day. Full
+suite 840 → 869 (29 new tests), 0 regressions, across all 4 gates. A
+fifth, doc-only `chore/*` gate corrected `CLAUDE.md`'s `correction_note`
+write-path line (AC17) — merged to `main` and `dev` independently ahead
+of the feature merge.
+**Priority:** Medium
+**Effort:** ~8-10 hours
+**Added:** 20260724
+**Completed:** 20260725
+**Target Phase:** Between-Phase (prerequisite to Slack_Modal_Completion_Sprint)
+**Description:** Collapses the near-verbatim duplicate daily/weekly EOD
+report review runners into one parametrized implementation; extracts a
+single shared $EDITOR helper and a new ReportsRepository.apply_correction()
+method used by both EOD edit branches, `reports correct`, and the Thursday
+Slack draft-weekly edit; redesigns the G2 already-confirmed/corrected
+pre-check to offer re-review instead of silently skipping; retires
+build_weekly_prompt()'s confirmed-substitutive branch, which discarded the
+weekly_client template's structure and its per-section tag filtering
+whenever all five weekdays were confirmed — resolving Backlog Item #46 in
+full as a consequence rather than patching each of its three gaps
+individually; wires the Thursday Slack draft onto the same shared review
+runner Friday uses, with Slack delivery decoupled as a post-review step.
+Surfaced by `RECON_REPORT_REVIEW_FLOWS_20260724.md`, deepened by
+`RECON_SPEC_ITEM46_WEEKLY_PROMPT_BUILDER_20260724.md` and a follow-up
+verbatim Q&A round. Explicitly does not add cross-date/anchor logic
+between Thursday's and Friday's reports — decided against; they remain
+independent rows on independent dates.
+
+**Deviations from the spec's own Test Plan (both confirmed with Ray as
+they came up, not silently substituted):**
+
+- Gate 2 and Gate 4 name `tests/test_reports_repo.py`,
+  `tests/test_reports_commands.py`, and `tests/test_slack_commands.py` —
+  none of these files exist in this repo. New coverage went into the
+  established homes instead: `tests/test_report_correction.py` (Gates 2
+  and 3) and `tests/test_slack.py` (Gate 4).
+- Gate 4's `--regenerate` CLI flag was removed entirely rather than kept
+  as a no-op — its staleness-prompt justification has no equivalent under
+  G2's confirmed-report re-review design. `--force`/REPOST guard kept,
+  relocated to the post-review delivery step. `--dry-run` now
+  short-circuits before the review runner with caller-specific wording
+  instead of previewing staged file content.
+
+**Acceptance Criteria:** See spec `FEATURE_ITEM61_REPORT_REVIEW_AND_WEEKLY_GENERATION_UNIFICATION_SPEC_v1_2.md` — all 18 ACs (AC1–AC18) verified against delivered code, not assumed from the spec's own say-so (CLAUDE.md Pitfall #6).
+**Files Affected:** `workmain/workflows/eod_workflow.py` (v1.10),
+`workmain/cli/commands/reports.py` (v2.16),
+`workmain/database/repositories/reports_repo.py` (v1.7),
+`workmain/utils/editor.py` (new, v1.0), `workmain/ai/prompt_builder.py` (v2.3),
+`workmain/ai/report_generator.py` (v1.15), `workmain/cli/commands/slack.py` (v1.8),
+`CLAUDE.md` (v3.3, separate chore/* branch).

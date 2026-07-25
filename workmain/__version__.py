@@ -1,9 +1,28 @@
 """
 WorkmAIn Package Version
-Version v1.25.1
-20260717
+Version v1.26.0
+20260725
 
 Version History:
+- v1.26.0: Item #61 — Report Review & Weekly Generation Unification.
+           _run_report_step/_run_weekly_report_step (eod_workflow.py)
+           collapsed into one parametrized _run_report_review_step(); G2
+           redesigned to offer re-review of an existing confirmed/corrected
+           report instead of silently skipping. New shared
+           workmain/utils/editor.py:edit_in_editor() and
+           ReportsRepository.apply_correction() replace three independent
+           $EDITOR/write-path implementations (reports.py, eod_workflow.py
+           x2, slack.py). build_weekly_prompt() and
+           get_confirmed_dailies() removed outright — weekly generation
+           always goes through build_prompt(), resolving Backlog Item #46
+           in full as a side effect. slack post weekly rewritten onto the
+           same shared review runner Friday's weekly EOD review uses, with
+           Slack delivery decoupled as a post-review step. 4 gates + a
+           fifth doc-only chore/* gate (CLAUDE.md correction_note
+           accuracy). 840 -> 869 tests (29 new), 0 regressions.
+           Live-verified 20260725 (AC15: daily/weekly G2 re-review menu;
+           AC16: Thursday/Friday independent rows, tag-filtered output,
+           delivery-only-on-confirmed).
 - v1.25.1: Hotfix Item #56 — reports corrections listing rewritten:
            default 7-day window on updated_at (mirrors notes_list), new
            --search/-s (correction_note only, lifts window), --limit/-n
@@ -478,7 +497,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.25.1"
-__version_info__ = (1, 25, 1)
+__version__ = "1.26.0"
+__version_info__ = (1, 26, 0)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"

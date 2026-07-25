@@ -7,6 +7,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.26.0] - 2026-07-25
+
+### Added
+
+- `workmain/utils/editor.py` — `edit_in_editor(seed_text, report_fn)`, the
+  single shared `$EDITOR` helper replacing three independent copies
+  (`reports.py:_edit_in_editor`, `eod_workflow.py:_eod_edit_in_editor`,
+  `slack.py:_edit_in_editor`); failure/output rendering stays per-caller
+  via the `report_fn` callback
+- `ReportsRepository.apply_correction(report_id, edited_body, note=None)`
+  — sole write path for `corrected_content` + `status='corrected'` (+
+  optional `correction_note`) from all in-scope CLI/EOD call sites;
+  delegates to `set_correction_note()` internally when `note` is truthy
+- `eod_workflow._run_report_review_step()` — shared parametrized
+  generate-or-reuse + interactive `[v/e/c/s]` review implementation behind
+  both `_run_report_step` and `_run_weekly_report_step`, and now also
+  `slack.py:slack_post()`
+- `tests/test_report_correction.py`: `TestApplyCorrection`,
+  `TestReportCorrectCLI`, `TestWeeklyClientPromptGeneration`;
+  `tests/test_eod_workflow.py`: `TestReportReviewStepCollapse`,
+  `TestReportReviewStepEditBranch`; `tests/test_slack.py`:
+  `TestSlackPostWeeklySharedRunner` — 29 new tests total (840 → 869)
+
+### Changed
+
+- G2 (the already-confirmed/corrected pre-check in the EOD report review
+  step) no longer short-circuits with a silent skip. Generation is skipped
+  but the existing report is loaded into the same reload +
+  `[v/e/c/s]` menu used after a fresh generation, for both daily and
+  weekly reports. G3 (non-interactive guard) unchanged — the Slack EOD
+  (bidirectional daemon) non-interactive path is unaffected
+- `reports.py:report_correct()` and both EOD `[e]dit` branches now write
+  through `edit_in_editor()` + `apply_correction()` instead of setting
+  `corrected_content`/`status`/`correction_note` directly
+- `slack.py:slack_post()` — the entire generate → preview → `[y/n/e]` →
+  own-editor → upsert-with-no-status sequence replaced by a call to the
+  shared review runner (parametrized identically to weekly's Friday
+  config), followed by a separate delivery step that posts only when the
+  review ends `confirmed`/`corrected`; updates
+  `slack_message_ts`/`slack_channel`/`slack_workspace_name` on the same
+  row the review produced — no second upsert, no second row. A Thursday
+  draft and a later Friday weekly review remain two independent rows on
+  their own actual dates — no anchor-date/cross-row lookup was added
+  (explicitly decided against)
+- `report_generator.generate_report()` — the `weekly_client`-only branch
+  collapses to a single unconditional `build_prompt()` call for every
+  template type
+
+### Fixed
+
+- Weekly `weekly_client` generation no longer takes a lean
+  "confirmed-substitutive" path that discarded the template's structure
+  and per-section tag filtering whenever all five weekdays' daily reports
+  were confirmed — that path leaked `internal-only`/`info-only` content
+  into client-facing output and was unreachable from the Thursday Slack
+  draft regardless. Weekly generation now always goes through
+  `build_prompt()`, the already-correct, already tag-filtered,
+  already week-scoped path. Resolves Backlog Item #46 in full (all three
+  gaps) as a side effect of removing the code path that caused them, not
+  by patching each gap individually
+
+### Removed
+
+- `PromptBuilder.build_weekly_prompt()` and
+  `ReportsRepository.get_confirmed_dailies()` — the confirmed-substitutive
+  branch and its only production caller
+- `reports.py:_edit_in_editor`, `eod_workflow.py:_eod_edit_in_editor`,
+  `slack.py:_edit_in_editor` — superseded by the shared
+  `workmain/utils/editor.py:edit_in_editor()`
+- `slack.py`'s `_run_generation()`, `_staged_report_path()`,
+  `_show_preview()`, and the `slack post weekly --regenerate` flag — the
+  staged-file staleness check and its own generate/preview logic have no
+  equivalent under the shared review runner's G2 confirmed-report
+  re-review design
+
 ## [1.25.1] - 2026-07-17
 
 ### Added

@@ -1,8 +1,8 @@
 """
 WorkmAIn CLI
 Slack Command Group
-slack.py v1.7
-20260713
+slack.py v1.8
+20260724
 
 CLI commands for posting reports to Slack.
 
@@ -12,7 +12,7 @@ Commands:
 - slack status                          # Auth state + recent Slack posts
 - slack set channel <channel>           # Set Slack channel for the active client
 - slack set workspace                   # Show workspace config file path (informational)
-- slack post PERIOD [flags]             # Generate → preview → post; PERIOD=weekly|daily|monthly
+- slack post PERIOD [flags]             # Generate/review (shared runner) → post; PERIOD=weekly|daily|monthly
 
 Version History:
 - v1.0: Initial implementation (Phase 8 Gate 3/4)
@@ -32,18 +32,37 @@ Version History:
         inbound DM polling setup
 - v1.7: Item #50 hotfix — remove private _format_date_display(), import
         format_date_display() from workmain.utils.date_format instead
+- v1.8: Item #61 Gate 4 (Design Rules 9-11) — slack_post()'s entire
+        generate → preview → [y/n/e] → own-editor → upsert-with-no-status
+        sequence replaced by a call to the shared
+        eod_workflow._run_report_review_step() (report_type='weekly_client',
+        label='Weekly', require_active_client=True,
+        generation_error_fatal=False) — the same runner Friday's weekly EOD
+        review uses. Slack delivery is now a separate step after the
+        review runner completes, firing only when the resulting status is
+        confirmed/corrected; posts report.corrected_content or
+        report.content and updates slack_message_ts/slack_channel/
+        slack_workspace_name on that same row (no second upsert, no second
+        row). --regenerate removed (its staleness-prompt logic has no
+        equivalent under G2's confirmed-report re-review design; confirmed
+        with Ray). --force/already_posted() REPOST guard kept, relocated
+        to the delivery step. --dry-run now short-circuits before the
+        review runner with a caller-specific message (still zero side
+        effects) instead of previewing staged file content. Removed:
+        _run_generation(), _staged_report_path(), _show_preview(),
+        _edit_in_editor() (Design Rule 3 — deferred here from Gate 2, now
+        dead), _PROJECT_ROOT/_STAGING_REPORTS (no longer referenced).
+        _run_slack_weekly_step (eod_workflow.py) traced and confirmed to
+        need no changes (Design Rule 11) — it only shells this command as
+        a subprocess with no --date.
 """
 
-import os
-import subprocess
-import tempfile
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
 import click
 from rich.console import Console
-from rich.panel import Panel
 from rich.rule import Rule
 from rich.table import Table
 
@@ -68,10 +87,6 @@ from workmain.utils.date_format import format_date_display
 
 
 console = Console()
-
-# Project root: workmain/cli/commands/slack.py → 4 parents up
-_PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
-_STAGING_REPORTS = _PROJECT_ROOT / "staging" / "reports"
 
 
 # ---------------------------------------------------------------------------
@@ -110,31 +125,6 @@ def get_draft_date_range(anchor: date) -> tuple:
     """
     monday = anchor - timedelta(days=anchor.weekday())  # weekday() Mon=0
     return monday, anchor
-
-
-def _staged_report_path(anchor: date) -> Path:
-    """Return the expected staged report path for a given anchor date."""
-    return _STAGING_REPORTS / f"weekly_client_{anchor.strftime('%Y-%m-%d')}.md"
-
-
-def _run_generation(anchor: date) -> tuple:
-    """
-    Generate the weekly_client report for anchor date via Python API.
-
-    Returns:
-        (success: bool, error_message: str)
-    """
-    from workmain.ai import get_report_generator
-    db = get_db()
-    session = db.get_session()
-    try:
-        generator = get_report_generator(session)
-        generator.generate_report(template_name="weekly_client", report_date=anchor)
-        return True, ""
-    except Exception as e:
-        return False, str(e)
-    finally:
-        session.close()
 
 
 def _resolve_client_channel(session) -> Optional[str]:
@@ -555,20 +545,23 @@ def slack_setup():
 @click.option("--channel", default=None,
               help="Override the default channel for this post.")
 @click.option("--dry-run", is_flag=True, default=False,
-              help="Show preview and exit — no message sent, no DB record.")
+              help="Show what would happen — no message sent, no DB record.")
 @click.option("--force", is_flag=True, default=False,
               help="Post even if this date was already posted (REPOST).")
-@click.option("--regenerate", is_flag=True, default=False,
-              help="Force report regeneration — skip stale-file prompt.")
 def slack_post(
     period: str,
     date_str: Optional[str],
     channel: Optional[str],
     dry_run: bool,
     force: bool,
-    regenerate: bool,
 ):
     """Post a report period draft to Slack (PERIOD: weekly, daily, monthly).
+
+    Generation and review are handled by the same interactive [v/e/c/s]
+    menu the EOD weekly report step uses (Item #61 Gate 4) — this command
+    drives that flow, then offers to post the confirmed/corrected result
+    to Slack as a separate step. A [s]kip (or any non-confirmed exit)
+    posts nothing, matching prior default-to-no-post behavior.
 
     \b
     Examples:
@@ -618,105 +611,61 @@ def slack_post(
     # -----------------------------------------------------------------------
     anchor = _parse_date_arg(date_str)
     monday, _ = get_draft_date_range(anchor)
-    start_str = monday.strftime("%Y-%m-%d")
     end_str = anchor.strftime("%Y-%m-%d")
     monday_display = format_date_display(monday)
     anchor_display = format_date_display(anchor)
 
-    # -----------------------------------------------------------------------
-    # Step 0: Report generation / stale check
-    # -----------------------------------------------------------------------
-    staged_path = _staged_report_path(anchor)
-
-    if dry_run and not staged_path.exists():
+    if dry_run:
         console.print(
-            f"\n[yellow][DRY RUN][/yellow] No staged report found — would generate "
-            f"weekly_client for week ending {end_str}"
+            f"\n[yellow][DRY RUN][/yellow] Would generate and review the "
+            f"weekly_client report for {end_str}, then prompt to post to "
+            f"{target_channel}."
         )
-        console.print("[yellow][DRY RUN][/yellow] Cannot preview content without a staged report.")
+        console.print("[yellow][DRY RUN][/yellow] No message sent. No database record created.")
         return
 
-    report_content = None
-
-    if regenerate:
-        console.print(
-            f"\nGenerating weekly draft "
-            f"({monday_display} – {anchor_display})..."
-        )
-        console.print(f"  workmain reports save weekly_client  (date: {end_str})")
-        ok, err = _run_generation(anchor)
-        if not ok:
-            console.print(f"\n[red]✗ Report generation failed:[/red] {err}")
-            choice = click.prompt("Retry or skip? [r/s]", default="s")
-            if choice.lower() == "r":
-                ok, err = _run_generation(anchor)
-                if not ok:
-                    console.print(f"[red]✗ Retry failed:[/red] {err}")
-                    return
-            else:
-                console.print("Skipping. No post made.")
-                return
-        console.print(f"[green]✓ Report generated:[/green] staging/reports/weekly_client_{end_str}.md")
-
-    elif not staged_path.exists():
-        console.print(
-            f"\nNo staged report found for week ending {end_str}."
-        )
-        console.print(
-            f"Generating weekly draft ({monday_display} – {anchor_display})..."
-        )
-        console.print(f"  workmain reports save weekly_client  (date: {end_str})")
-        ok, err = _run_generation(anchor)
-        if not ok:
-            console.print(f"\n[red]✗ Report generation failed:[/red] {err}")
-            choice = click.prompt("Retry or skip? [r/s]", default="s")
-            if choice.lower() == "r":
-                ok, err = _run_generation(anchor)
-                if not ok:
-                    console.print(f"[red]✗ Retry failed:[/red] {err}")
-                    return
-            else:
-                console.print("Skipping. No post made.")
-                return
-        console.print(f"[green]✓ Report generated:[/green] staging/reports/weekly_client_{end_str}.md")
-
-    else:
-        # Staged report exists — check freshness (skipped in dry-run per spec §4.7)
-        file_date = date.fromtimestamp(staged_path.stat().st_mtime)
-        today = date.today()
-        if file_date < today and not dry_run:
-            console.print(
-                f"\n[yellow]⚠ Staged report is from a prior day "
-                f"(staged: {file_date}, today: {today}).[/yellow]"
-            )
-            console.print("  It may not reflect today's notes and time entries.")
-            choice = click.prompt("  Regenerate? [y]es / [n]o (use existing)", default="n")
-            if choice.lower() == "y":
-                ok, err = _run_generation(anchor)
-                if not ok:
-                    console.print(f"\n[red]✗ Report generation failed:[/red] {err}")
-                    return
-                console.print(
-                    f"[green]✓ Report regenerated:[/green] "
-                    f"staging/reports/weekly_client_{end_str}.md"
-                )
-        # else: same-day file — use silently
-
-    # Read the staged report content
-    if not staged_path.exists():
-        console.print(f"\n[red]✗ Staged report not found at {staged_path}[/red]")
-        return
-    report_content = staged_path.read_text()
+    # -----------------------------------------------------------------------
+    # Generate-or-reuse + interactive [v/e/c/s] review (Item #61 Gate 4,
+    # Design Rule 9) — same shared runner the EOD weekly step uses.
+    # -----------------------------------------------------------------------
+    from workmain.workflows.eod_workflow import _run_report_review_step
+    _run_report_review_step(
+        dry_run=False,
+        target_date=anchor,
+        report_type='weekly_client',
+        label='Weekly',
+        require_active_client=True,
+        generation_error_fatal=False,
+    )
 
     # -----------------------------------------------------------------------
-    # Duplicate check
+    # Delivery — separate step after the review runner completes (Design
+    # Rule 10). Fires only when review ended confirmed/corrected; updates
+    # the same row the review produced — no second upsert, no second row.
     # -----------------------------------------------------------------------
-    cfg = load_slack_config()
-    workspace_name = cfg.get("workspace_name", "")
-
     db = get_db()
     session = db.get_session()
     try:
+        from workmain.database.repositories.reports_repo import get_reports_repository
+        repo = get_reports_repository(session)
+        reports = repo.list_reports(
+            report_type='weekly_client',
+            start_date=anchor,
+            end_date=anchor,
+            limit=1,
+        )
+        report = reports[0] if reports else None
+
+        if report is None or report.status not in ('confirmed', 'corrected'):
+            console.print(
+                "\n[yellow]No confirmed/corrected weekly report for "
+                f"{end_str} — no message posted.[/yellow]"
+            )
+            return
+
+        cfg = load_slack_config()
+        workspace_name = cfg.get("workspace_name", "")
+
         if already_posted(session, anchor) and not force:
             console.print(
                 f"\n[yellow]⚠ Weekly draft for {end_str} was already posted "
@@ -724,204 +673,35 @@ def slack_post(
             )
             console.print("  Use [bold]--force[/bold] to post again.")
             return
-        repost = already_posted(session, anchor) and force
-    finally:
-        session.close()
 
-    # -----------------------------------------------------------------------
-    # Preview
-    # -----------------------------------------------------------------------
-    _show_preview(
-        report_content=report_content,
-        monday_display=monday_display,
-        anchor_display=anchor_display,
-        anchor_date_str=end_str,
-        staged_path=staged_path,
-        target_channel=target_channel,
-        workspace_name=workspace_name,
-        repost=repost,
-    )
-
-    if dry_run:
-        draft_content = (
-            f"*[DRAFT — For Review]* Week of {monday_display}–{anchor_display}\n\n"
-            + format_for_slack(report_content)
-        )
-        console.print(f"\n[yellow][DRY RUN][/yellow] Would post to {target_channel} ({workspace_name})")
-        console.print(f"[yellow][DRY RUN][/yellow] Period:         {monday_display} – {anchor_display}")
-        console.print(
-            f"[yellow][DRY RUN][/yellow] Content length: {len(draft_content)} characters "
-            f"(including DRAFT label)"
-        )
-        console.print("[yellow][DRY RUN][/yellow] No message sent. No database record created.")
-        return
-
-    # -----------------------------------------------------------------------
-    # Approval prompt
-    # -----------------------------------------------------------------------
-    choice = click.prompt(
-        f"\nPost to {target_channel}? [y]es / [n]o / [e]dit",
-        default="n",
-    )
-
-    if choice.lower() == "n":
-        console.print("Cancelled. No message posted.")
-        return
-
-    if choice.lower() == "e":
-        report_content = _edit_in_editor(report_content)
-        if report_content is None:
-            return
-        # Show updated preview
-        _show_preview(
-            report_content=report_content,
-            monday_display=monday_display,
-            anchor_display=anchor_display,
-            anchor_date_str=end_str,
-            staged_path=staged_path,
-            target_channel=target_channel,
-            workspace_name=workspace_name,
-            repost=repost,
-        )
-        final = click.prompt(
-            f"\nPost edited content to {target_channel}? [y]es / [n]o",
+        post_choice = click.prompt(
+            f"\nPost Weekly to {target_channel}? [y]es / [n]o",
             default="n",
         )
-        if final.lower() != "y":
+        if post_choice.lower() != "y":
             console.print("Cancelled. No message posted.")
             return
 
-    if choice.lower() not in ("y", "e"):
-        console.print("Cancelled. No message posted.")
-        return
+        report_content = report.corrected_content or report.content
+        draft_header = f"*[DRAFT — For Review]* Week of {monday_display}–{anchor_display}\n\n"
+        slack_content = draft_header + format_for_slack(report_content)
 
-    # -----------------------------------------------------------------------
-    # Post to Slack
-    # -----------------------------------------------------------------------
-    draft_header = f"*[DRAFT — For Review]* Week of {monday_display}–{anchor_display}\n\n"
-    slack_content = draft_header + format_for_slack(report_content)
+        try:
+            client = SlackClient(token)
+            message_ts = client.post_message(target_channel, slack_content)
+        except SlackClientError as e:
+            console.print(f"\n[red]✗ Slack post failed:[/red] {e}")
+            return
 
-    try:
-        client = SlackClient(token)
-        message_ts = client.post_message(target_channel, slack_content)
-    except SlackClientError as e:
-        console.print(f"\n[red]✗ Slack post failed:[/red] {e}")
-        return
-
-    # -----------------------------------------------------------------------
-    # Upsert reports row
-    # -----------------------------------------------------------------------
-    db = get_db()
-    session = db.get_session()
-    try:
-        from workmain.database.repositories.system_state_repository import SystemStateRepository
-        active_client_id = SystemStateRepository(session).get_int('active_client_id')
-
-        existing = session.query(Report).filter(
-            Report.report_type == "weekly_client",
-            Report.report_date == anchor,
-        ).first()
-
-        if existing:
-            existing.slack_message_ts = message_ts
-            existing.slack_channel = target_channel
-            existing.slack_workspace_name = workspace_name
-        else:
-            new_row = Report(
-                report_type="weekly_client",
-                report_date=anchor,
-                content=report_content,
-                slack_message_ts=message_ts,
-                slack_channel=target_channel,
-                slack_workspace_name=workspace_name,
-                client_id=active_client_id,
-            )
-            session.add(new_row)
-
+        report.slack_message_ts = message_ts
+        report.slack_channel = target_channel
+        report.slack_workspace_name = workspace_name
         session.commit()
-        db_updated = True
-    except Exception as e:
-        session.rollback()
-        console.print(f"[yellow]⚠ DB update failed:[/yellow] {e}")
-        db_updated = False
+
+        console.print(f"\n[green]✓ Posted to {target_channel}[/green]")
+        console.print(f"  Workspace:  {workspace_name}")
+        console.print(f"  Period:     {monday_display} – {anchor_display}")
+        console.print(f"  Timestamp:  {message_ts}")
+        console.print("  Report record updated (reports table)")
     finally:
         session.close()
-
-    # -----------------------------------------------------------------------
-    # Confirmation
-    # -----------------------------------------------------------------------
-    console.print(f"\n[green]✓ Posted to {target_channel}[/green]")
-    console.print(f"  Workspace:  {workspace_name}")
-    console.print(f"  Period:     {monday_display} – {anchor_display}")
-    console.print(f"  Timestamp:  {message_ts}")
-    if db_updated:
-        console.print("  Report record updated (reports table)")
-
-
-# ---------------------------------------------------------------------------
-# Helpers for post-weekly
-# ---------------------------------------------------------------------------
-
-def _show_preview(
-    report_content: str,
-    monday_display: str,
-    anchor_display: str,
-    anchor_date_str: str,
-    staged_path: Path,
-    target_channel: str,
-    workspace_name: str,
-    repost: bool,
-) -> None:
-    """Render the Rich preview box for the weekly draft."""
-    if repost:
-        title_line = f"WEEKLY DRAFT PREVIEW — REPOST (already posted {anchor_date_str})"
-    else:
-        title_line = "WEEKLY DRAFT PREVIEW — FOR REVIEW"
-
-    header = (
-        f"{title_line}\n"
-        f"Period:  {monday_display} – {anchor_display}\n"
-        f"File:    staging/reports/weekly_client_{anchor_date_str}.md\n"
-        f"Target:  {target_channel} ({workspace_name})"
-    )
-    console.print(Panel(header, style="bold blue"))
-
-    lines = report_content.splitlines()
-    if len(lines) > 50:
-        preview_lines = lines[:40]
-        remaining = len(lines) - 40
-        console.print("\n".join(preview_lines))
-        console.print(
-            f"\n[dim]... [{remaining} more lines — full content will be posted] ...[/dim]"
-        )
-    else:
-        console.print(report_content)
-
-
-def _edit_in_editor(content: str) -> Optional[str]:
-    """Open $EDITOR with content; return updated content or None on cancel."""
-    editor = os.environ.get("EDITOR", "").strip()
-    if not editor:
-        console.print("\n[yellow]$EDITOR not set.[/yellow] Set it with: export EDITOR=nano")
-        choice = click.prompt("Cannot open editor. Post as-is? [y/n]", default="n")
-        if choice.lower() == "y":
-            return content
-        console.print("Cancelled. No message posted.")
-        return None
-
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".md", delete=False
-    ) as tmp:
-        tmp.write(content)
-        tmp_path = tmp.name
-
-    try:
-        subprocess.run([editor, tmp_path], check=True)
-        updated = Path(tmp_path).read_text()
-    except Exception as e:
-        console.print(f"[red]✗ Editor error:[/red] {e}")
-        updated = content
-    finally:
-        Path(tmp_path).unlink(missing_ok=True)
-
-    return updated

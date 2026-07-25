@@ -1,7 +1,7 @@
 """
 WorkmAIn Reports Repository
-Reports Repository v1.5
-20260717
+Reports Repository v1.7
+20260724
 
 Repository for managing generated reports in the database.
 
@@ -20,6 +20,15 @@ Version History:
 - v1.4: Phase 13 Sprint 2 Gate 1b — set_correction_note() added (Item 33)
 - v1.5: Hotfix Item #56 Gate 1 — get_filtered() added for reports corrections
         listing (status/type/date/updated_after floor/search/limit)
+- v1.6: Item #61 Gate 2 (Design Rule 4) — apply_correction() added as the
+        sole write path for corrected_content + status='corrected' (+
+        optional correction_note) from CLI/EOD call sites; delegates to
+        set_correction_note() internally when note is truthy, which stays
+        alive as an internal implementation detail.
+- v1.7: Item #61 Gate 3 (Design Rule 8) — get_confirmed_dailies() removed.
+        Its single production caller (prompt_builder.build_weekly_prompt())
+        was removed in the same gate, retiring the confirmed-substitutive
+        weekly branch; no other production caller existed.
 """
 
 from datetime import date, datetime
@@ -164,34 +173,37 @@ class ReportsRepository:
 
         return query.all()
 
-    def get_confirmed_dailies(
+    def apply_correction(
         self,
-        start_date: date,
-        end_date: date,
-    ) -> List[Report]:
-        """Return confirmed or corrected daily_internal reports for a date range.
+        report_id: int,
+        edited_body: str,
+        note: Optional[str] = None,
+    ) -> None:
+        """Sole write path for corrected_content + status='corrected' (+
+        optional correction_note) from all in-scope CLI/EOD call sites
+        (Item #61 Design Rule 4).
 
-        PC-3 Phase 12: weekly aggregation should only draw from confirmed/corrected
-        daily reports. Phase 13 weekly context builder should call this method
-        instead of querying raw notes/time_entries for the week.
+        DB-only — no filesystem I/O; the staging-file mirror write stays
+        at each call site, unchanged. When note is truthy, delegates to
+        set_correction_note() internally rather than writing
+        correction_note directly, reusing its existing no-op-on-empty
+        behavior instead of duplicating it.
 
         Args:
-            start_date: Start of date range (inclusive).
-            end_date: End of date range (inclusive).
-
-        Returns:
-            List of Report objects ordered by report_date ASC.
+            report_id: ID of the report being corrected.
+            edited_body: New corrected_content text.
+            note: Optional correction note describing what changed.
         """
-        return (
-            self.session.query(Report)
-            .filter(Report.report_type == 'daily_internal')
-            .filter(Report.status.in_(['confirmed', 'corrected']))
-            .filter(Report.report_date >= start_date)
-            .filter(Report.report_date <= end_date)
-            .order_by(Report.report_date.asc())
-            .all()
-        )
-    
+        report = self.get_by_id(report_id)
+        if report is None:
+            return
+        report.corrected_content = edited_body
+        report.status = 'corrected'
+        report.updated_at = datetime.now()
+        self.session.commit()
+        if note:
+            self.set_correction_note(report_id, note)
+
     def set_correction_note(self, report_id: int, note: str) -> None:
         """Populate reports.correction_note for a corrected report.
 

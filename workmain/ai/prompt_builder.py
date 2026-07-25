@@ -1,7 +1,7 @@
 """
 WorkmAIn AI Prompt Builder
-Prompt Builder v2.2
-20260623
+Prompt Builder v2.3
+20260724
 
 Dynamic prompt construction for AI report generation.
 
@@ -46,6 +46,19 @@ Version History:
         (2) substitutive path — when all 5 Mon–Fri weekdays are confirmed, lean
         user_prompt replaces raw DB data entirely (token reduction);
         (3) fallback to raw build_prompt() when any weekday lacks a confirmed daily
+- v2.3: Item #61 Gate 3 (Design Rules 6-7) — build_weekly_prompt() removed
+        entirely, retiring the confirmed-substitutive branch outright. Per
+        RECON_SPEC_ITEM46_WEEKLY_PROMPT_BUILDER_20260724.md, build_prompt()
+        (via _get_section_data()) already resolves the correct Mon–Fri
+        window for any frequency: "weekly" template and already applies
+        each section's exact tag_filter include/exclude lists — nothing
+        new was built, weekly generation now always takes the path that
+        already ran on every Thursday call. Resolves Backlog Item #46 in
+        full (weekday-coverage gating, Thursday-draft-unreachable-confirmed
+        path, and internal-content pollution via unfiltered daily-body
+        injection) as a side effect of removing the code path that caused
+        all three. get_db/ReportsRepository imports dropped (no longer
+        used in this file — that was the method's only caller of either).
 
 Workflow:
 1. Load template structure
@@ -67,11 +80,9 @@ from workmain.templates_engine import (
     TemplateLoader,
     StyleAdapter
 )
-from workmain.database.connection import get_db
 from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
 from workmain.database.repositories.meetings_repo import MeetingsRepository
-from workmain.database.repositories.reports_repo import ReportsRepository
 
 
 class PromptBuilder:
@@ -156,75 +167,6 @@ class PromptBuilder:
         
         return system_prompt, user_prompt
     
-    def build_weekly_prompt(
-        self,
-        template_name: str,
-        report_date: date,
-        section_name: Optional[str] = None,
-        filter_client: bool = False,
-        client_id: Optional[int] = None,
-    ) -> Tuple[str, str]:
-        """Build the weekly client report prompt with confirmed daily context.
-
-        Fetches confirmed/corrected daily_internal reports for the Mon–Fri week
-        containing report_date via ReportsRepository.get_confirmed_dailies().
-
-        When all 5 weekdays (Mon–Fri) have a confirmed or corrected daily report,
-        the raw DB data query is skipped entirely and the user prompt is built solely
-        from confirmed daily summaries — reducing token count. corrected_content is
-        preferred over content when set on any given day's report.
-
-        When any weekday lacks a confirmed daily, falls back to build_prompt() with
-        the full raw notes/time_entries/meetings data query unchanged.
-
-        Args:
-            template_name: Name of template to use (expected: weekly_client)
-            report_date: Date for the report
-            section_name: Optional — generate only this section
-            filter_client: When True, restrict data queries to client_id records
-            client_id: Client ID for filtering
-
-        Returns:
-            Tuple of (system_prompt, user_prompt)
-        """
-        week_start = report_date - timedelta(days=report_date.weekday())
-        week_end = week_start + timedelta(days=4)  # Mon–Fri
-
-        db = get_db()
-        session = db.get_session()
-        try:
-            reports_repo = ReportsRepository(session)
-            confirmed = reports_repo.get_confirmed_dailies(week_start, week_end)
-        finally:
-            session.close()
-
-        system_prompt, raw_user_prompt = self.build_prompt(
-            template_name=template_name,
-            report_date=report_date,
-            section_name=section_name,
-            filter_client=filter_client,
-            client_id=client_id,
-        )
-
-        weekdays_covered = {r.report_date.weekday() for r in confirmed}
-        if weekdays_covered != {0, 1, 2, 3, 4}:
-            return system_prompt, raw_user_prompt
-
-        lines = [
-            "## Confirmed Daily Summaries",
-            "Use the following confirmed daily reports as the source of truth for this week.",
-            "Do not infer additional work beyond what is stated here.",
-            "",
-        ]
-        for report in confirmed:
-            day_label = report.report_date.strftime("%A %Y-%m-%d")
-            content = report.corrected_content if report.corrected_content else report.content
-            lines.append(f"### {day_label}")
-            lines.append(content or "")
-            lines.append("")
-
-        return system_prompt, "\n".join(lines)
-
     def _build_system_prompt(
         self,
         template: Dict[str, Any],
