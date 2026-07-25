@@ -1,6 +1,6 @@
 WorkmAIn
-GIT_WORKFLOW_STANDARDS v1.6
-20260710
+GIT_WORKFLOW_STANDARDS v1.7
+20260725
 
 # WorkmAIn Git Workflow Standards
 
@@ -11,7 +11,6 @@ These rules are permanent and apply to all future work.
 ---
 
 ## Version History
-
 - v1.0 (20260306): Initial standards
 - v1.1 (20260319): Added hotfix → feature branch exception
 - v1.2 (20260410): Updated dev → main cadence (after every feature merge, not phase completion); added explicit branch deletion rules and cleanup commands
@@ -46,6 +45,15 @@ These rules are permanent and apply to all future work.
   since 2026-07-08, predating the 2026-07-09 hotfix merge by ~25 hours — the
   fix was correct and present in `dev`/`main` the whole time; it just was
   never loaded into the running process.
+- v1.7 (20260725): Added the GitHub Release object as a required release step —
+  `git tag v<version>` + `git push --tags` alone is NOT a complete release. A
+  corresponding GitHub Release (visible under the repo's Releases tab, title
+  format `v<version> — <n>`) must be created for every tag on `main`, e.g.
+  `gh release create v<version> --generate-notes`. Added to the `main` branch
+  rules, both the `feature/*` and `hotfix/*` example workflows, and the
+  Must-Never-Do list. Prompted by the step being skipped for v1.25.0, v1.25.1,
+  and initially v1.26.0 — every prior tag back to v1.11.1 had a Release object,
+  and the gap was only caught by manual inspection of the Releases tab.
 
 ---
 
@@ -53,7 +61,7 @@ These rules are permanent and apply to all future work.
 
 WorkmAIn uses a three-tier branching model:
 
-```markdown
+```
 main        — production-stable. Direct commits NEVER permitted.
 dev         — integration branch. All feature work merges here first.
 feature/*   — full phase or major feature work. Branches from dev, merges to dev.
@@ -76,12 +84,10 @@ process. This applies to `feature/*` and `hotfix/*` merges — never to
 `chore/*`, which by definition never touches application code.
 
 **Restart after every `dev` merge that touches `workmain/**` or `config/*`:**
-
 ```bash
 systemctl --user restart workmain-notify.service
 systemctl --user show workmain-notify.service --property=ActiveEnterTimestamp
 ```
-
 Confirm the new `ActiveEnterTimestamp` postdates the merge commit before
 considering the change deployed — don't just confirm the restart command
 ran without error.
@@ -91,14 +97,21 @@ ran without error.
 ## Branch Rules
 
 ### `main`
-
 - **Never commit directly to main.**
 - Only receives merges from: `dev` (after each feature merge) or `hotfix/*` (targeted fixes)
 - Every merge to main must bump `__version__.py` and update `CHANGELOG.md`
 - Tag every merge to main: `git tag v<version>`
+- **Create the GitHub Release object for every tag.** The tag alone is not a
+  complete release — every `v<version>` tag on `main` must have a corresponding
+  GitHub Release (Releases tab, title format `v<version> — <n>`):
+  ```bash
+  gh release create v<version> --generate-notes
+  ```
+  A release is not done until both the tag is pushed AND the Release object
+  exists. Verify with `gh release view v<version>` before reporting the
+  release complete.
 
 ### `dev`
-
 - Integration branch — always equal to or one feature ahead of main
 - Receives merges from `feature/*` branches
 - Claude Code may commit directly to `dev` only for trivial version/changelog updates
@@ -110,7 +123,6 @@ ran without error.
   then `git pull origin main` locally.
 
 ### `feature/*`
-
 - Used for: full phases, major features, multi-gate implementations
 - Naming: `feature/<descriptor>` e.g. `feature/phase-7-gdocs`
 - Branch from: `dev`
@@ -118,7 +130,6 @@ ran without error.
 - One feature branch per phase
 - **Delete the branch immediately after merge — the tag on main is the permanent record**
 - Example workflow:
-
   ```bash
   git checkout dev
   git pull
@@ -140,10 +151,11 @@ ran without error.
   git pull origin main
   git tag v<version>
   git push --tags
+  gh release create v<version> --generate-notes    # tag alone is NOT a release
+  gh release view v<version>                       # verify the Release object exists
   ```
 
 ### `hotfix/*`
-
 - Used for: targeted bug fixes, small corrections, config/path changes
 - Naming: `hotfix/<descriptor>` e.g. `hotfix/staging-eod`
 - Branch from: `main`
@@ -158,7 +170,6 @@ ran without error.
   unrelated pieces, that's the signal to split it, regardless of file count.
 - **Delete the branch immediately after both merges are complete**
 - Example workflow:
-
   ```bash
   git checkout main
   git pull
@@ -168,6 +179,8 @@ ran without error.
   git merge --no-ff hotfix/staging-eod
   git tag v<version>
   git push && git push --tags
+  gh release create v<version> --generate-notes    # tag alone is NOT a release
+  gh release view v<version>                       # verify the Release object exists
   git checkout dev
   git merge --no-ff hotfix/staging-eod
   git push
@@ -182,12 +195,11 @@ When a hotfix is a direct prerequisite for a feature branch (i.e. it cannot
 ship independently because it has no standalone value, and the feature branch
 depends on it), the following alternative flow is permitted:
 
-```markdown
+```
 hotfix/* → feature/* → dev → main
 ```
 
 **Rules for this exception:**
-
 - The hotfix branch MUST still branch from `main`
 - The fix MUST be minimal scope (single file or targeted correction)
 - The deviation MUST be documented explicitly in the feature spec
@@ -197,7 +209,6 @@ hotfix/* → feature/* → dev → main
   separate patch version)
 
 **Example:**
-
 ```bash
 # Branch hotfix from main
 git checkout main && git checkout -b hotfix/some-fix
@@ -215,7 +226,6 @@ git push origin --delete hotfix/some-fix                 # delete remote
 ```
 
 ### `chore/*`
-
 - Used for: documentation-only and process/tooling changes — standards documents
   (`CLAUDE.md`, `CLI_STANDARDS.md`, `GIT_WORKFLOW_STANDARDS.md`, `TESTING_STANDARDS.md`,
   `PROJECT_CUSTOM_INSTRUCTIONS.md`), `docs/**`, and non-behavioral dev-tooling files
@@ -229,14 +239,14 @@ git push origin --delete hotfix/some-fix                 # delete remote
 - Must be minimal scope — one document, or one tightly-related set of documents edited
   for a single reason. Do not bundle unrelated document changes into one `chore/*`
   branch.
-- **No application version bump, no `CHANGELOG.md` entry, no `git tag`.** A doc-only
-  chore is not an application release, so none of the `main`-merge requirements above
-  that are specific to shipping application code apply here. Still bump the affected
-  document's own internal version header and changelog block, per that document's own
-  versioning convention (e.g. `GIT_WORKFLOW_STANDARDS.md` v1.5 → v1.6).
+- **No application version bump, no `CHANGELOG.md` entry, no `git tag`, no GitHub
+  Release.** A doc-only chore is not an application release, so none of the
+  `main`-merge requirements above that are specific to shipping application code
+  apply here. Still bump the affected document's own internal version header and
+  changelog block, per that document's own versioning convention (e.g.
+  `GIT_WORKFLOW_STANDARDS.md` v1.6 → v1.7).
 - Delete the branch immediately after both merges are complete
 - Example workflow:
-
   ```bash
   git checkout main
   git pull
@@ -263,7 +273,6 @@ permanent historical record — not branches.
 There are no exceptions. If a branch is merged, it has no further purpose.
 
 **Why tags are sufficient:**
-
 - `git tag v1.9.0` on main marks exactly what shipped and when
 - `CHANGELOG.md` records what was in scope
 - The branch adds no information that the tag and commit history don't already have
@@ -288,7 +297,7 @@ git branch -a
 
 ## Commit Message Standard
 
-```markdown
+```
 <type>(<scope>): <short description>
 
 <optional body — what and why, not how>
@@ -297,8 +306,7 @@ git branch -a
 Types: `feat`, `fix`, `refactor`, `chore`, `docs`, `test`
 
 Examples:
-
-```markdown
+```
 feat(gdocs): add staging folder structure with gitkeep files
 fix(eod): replace report daily --send with report save + email save
 chore(staging): rename output/ to staging/ across all references
@@ -350,9 +358,12 @@ Before writing any code in any session:
 - Report a `dev` merge as deployed/live without confirming
   `workmain-notify.service` was restarted afterward and its
   `ActiveEnterTimestamp` postdates the merge commit
+- Report a release as complete after pushing the tag without creating and
+  verifying the corresponding GitHub Release object (`gh release create` +
+  `gh release view`)
 
 ---
 
 END OF GIT WORKFLOW STANDARDS
 WorkmAIn — Standing Instruction for Claude Code
-v1.6 — 20260710
+v1.7 — 20260725
