@@ -1,13 +1,15 @@
 """
 WorkmAIn IntentParser Tests
-test_intent_parser v1.0
-20260605
+test_intent_parser v1.1
+20260725
 
 Unit tests for IntentParser.parse() — all Ollama/DB calls mocked.
 No real network or database access in this suite.
 
 Version History:
 - v1.0: Gate 3 Phase 13 Sprint 1 — initial suite (12 tests)
+- v1.1: Hotfix Item #62 Gate 2 — parse_task_match()/parse_note_duplicate()
+        raw-mode wiring and ProviderError propagation coverage (6 new tests)
 """
 
 import json
@@ -22,6 +24,7 @@ from workmain.ai.intent_parser import IntentParser, IntentParseError, PROMPT_CON
 from workmain.ai.base_provider import (
     GenerationResponse,
     ProviderType,
+    ProviderError,
     ProviderUnavailableError,
 )
 
@@ -197,3 +200,74 @@ class TestIntentParserConfig:
                     IntentParser()
         finally:
             os.unlink(tmp_path)
+
+
+# ---------------------------------------------------------------------------
+# Hotfix Item #62 Gate 2 — raw mode wiring + ProviderError propagation
+# ---------------------------------------------------------------------------
+
+from types import SimpleNamespace
+
+
+def _make_task(content: str = "Fix the widget"):
+    return SimpleNamespace(note=SimpleNamespace(content=content))
+
+
+def _make_notes():
+    return [SimpleNamespace(id=1, content="Fixed the widget today")]
+
+
+class TestParseTaskMatchAndNoteDuplicateRawMode:
+    """Hotfix Item #62 Gate 2 — Design Rules 1, 2, 5, 8."""
+
+    def test_parse_task_match_sets_raw(self):
+        """GenerationRequest passed to the provider manager carries raw: True."""
+        manager = _mock_manager(json.dumps(
+            {"matched": True, "confidence": 0.9, "note_id": 1}
+        ))
+        parser = _make_parser(manager)
+        parser.parse_task_match(_make_task(), _make_notes())
+        request = manager.generate.call_args[0][0]
+        assert request.generation_options == {"raw": True}
+
+    def test_parse_note_duplicate_sets_raw(self):
+        """GenerationRequest passed to the provider manager carries raw: True."""
+        manager = _mock_manager(json.dumps(
+            {"duplicate": True, "confidence": 0.9, "note_id": None}
+        ))
+        parser = _make_parser(manager)
+        parser.parse_note_duplicate("Note A text", "Note B text")
+        request = manager.generate.call_args[0][0]
+        assert request.generation_options == {"raw": True}
+
+    def test_parse_task_match_propagates_provider_error(self):
+        """ProviderError from the provider manager propagates — no no-match dict."""
+        manager = MagicMock()
+        manager.generate.side_effect = ProviderError("x")
+        parser = _make_parser(manager)
+        with pytest.raises(ProviderError):
+            parser.parse_task_match(_make_task(), _make_notes())
+
+    def test_parse_note_duplicate_propagates_provider_error(self):
+        """ProviderError from the provider manager propagates — no no-match dict."""
+        manager = MagicMock()
+        manager.generate.side_effect = ProviderError("x")
+        parser = _make_parser(manager)
+        with pytest.raises(ProviderError):
+            parser.parse_note_duplicate("Note A text", "Note B text")
+
+    def test_parse_task_match_null_confidence_returns_no_match(self):
+        """JSON null confidence -> TypeError on float(None) -> no-match dict."""
+        payload = json.dumps({"matched": True, "confidence": None, "note_id": 1})
+        manager = _mock_manager(payload)
+        parser = _make_parser(manager)
+        result = parser.parse_task_match(_make_task(), _make_notes())
+        assert result == {"matched": False, "confidence": 0.0, "note_id": None}
+
+    def test_parse_sets_no_raw(self):
+        """parse()'s GenerationRequest has no raw key — pins Design Rule 2."""
+        manager = _mock_manager('{"action": "unknown", "follow_up": "?"}')
+        parser = _make_parser(manager)
+        parser.parse("hey")
+        request = manager.generate.call_args[0][0]
+        assert not (request.generation_options and request.generation_options.get("raw"))

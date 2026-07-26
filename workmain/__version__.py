@@ -1,9 +1,28 @@
 """
 WorkmAIn Package Version
-Version v1.26.0
+Version v1.26.1
 20260725
 
 Version History:
+- v1.26.1: Hotfix Item #62 — parse_task_match/parse_note_duplicate total-
+           failure stabilization. Step 3c task matching timed out on every
+           item: novel ~2,400-token prompts (task-match/note-dedup) exceeded
+           the 30s socket timeout on CPU inference; a bare TimeoutError
+           bypassed provider-error wrapping; the /api/tags probe kept the
+           keyword fallback structurally unreachable. Fixes: (1) per-call
+           raw: true mode on OllamaProvider.generate() bypasses the
+           Modelfile-baked SYSTEM block for parse_task_match()/
+           parse_note_duplicate() only (prompt ~2,400 -> ~600 tokens;
+           IntentParser.parse()'s Slack path unchanged); (2) bare
+           TimeoutError wrapped into ProviderUnavailableError (from e);
+           (3) parse_task_match()/parse_note_duplicate() propagate
+           ProviderError instead of swallowing it; Step 3c/3d each demote
+           their own local ollama_available on the first ProviderError and
+           fall through to the keyword matcher for the item that raised and
+           all remaining items, with a CLI-visible warning. 13 new tests
+           (869 -> 882). ollama.py v1.4; intent_parser.py v1.4;
+           eod_workflow.py v1.11. See
+           HOTFIX_ITEM62_PARSE_TASK_MATCH_STABILIZATION_SPEC_v1_1.md.
 - v1.26.0: Item #61 — Report Review & Weekly Generation Unification.
            _run_report_step/_run_weekly_report_step (eod_workflow.py)
            collapsed into one parametrized _run_report_review_step(); G2
@@ -497,7 +516,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.26.0"
-__version_info__ = (1, 26, 0)
+__version__ = "1.26.1"
+__version_info__ = (1, 26, 1)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
