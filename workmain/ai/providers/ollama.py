@@ -1,7 +1,7 @@
 """
 WorkmAIn AI Ollama Provider
-Ollama Provider v1.3
-20260624
+Ollama Provider v1.4
+20260725
 
 Ollama local inference provider — Mistral 7B on Proxmox via REST API.
 
@@ -14,6 +14,9 @@ Version History:
         Modelfile owns temperature/top_p/top_k/repeat_penalty; timeout default 120s
 - v1.3: Hotfix ollama-keep-alive — add keep_alive: -1 to /api/generate payload so
         model stays resident in VRAM after each call; reduce default timeout 120→30s
+- v1.4: Hotfix Item #62 Gate 1 — generation_options["raw"] popped to top-level
+        payload key (opt-in per-request, bypasses Modelfile SYSTEM block); bare
+        TimeoutError wrapped into ProviderUnavailableError with cause chain
 """
 
 import json
@@ -67,6 +70,7 @@ class OllamaProvider(BaseProvider):
         options = {"num_predict": request.max_tokens or 512}
         if request.generation_options:
             options.update(request.generation_options)
+        raw_mode = bool(options.pop("raw", False))
 
         payload = {
             "model": self._model,
@@ -75,6 +79,8 @@ class OllamaProvider(BaseProvider):
             "keep_alive": -1,
             "options": options,
         }
+        if raw_mode:
+            payload["raw"] = True
 
         try:
             data = json.dumps(payload).encode("utf-8")
@@ -101,6 +107,10 @@ class OllamaProvider(BaseProvider):
             )
         except urllib.error.URLError as e:
             raise ProviderUnavailableError(f"Ollama request failed: {e}") from e
+        except TimeoutError as e:
+            raise ProviderUnavailableError(
+                f"Ollama generation timed out after {self._timeout}s"
+            ) from e
 
     def _build_prompt(self, request: GenerationRequest) -> str:
         """Format prompt in Mistral [INST] instruction format."""

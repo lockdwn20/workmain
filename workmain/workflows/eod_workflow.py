@@ -1,8 +1,8 @@
 """
 WorkmAIn EOD Workflow Service Layer
 workmain/workflows/eod_workflow.py
-v1.10
-20260724
+v1.11
+20260725
 
 Surface-agnostic EOD workflow step runners. Returns EodStepResult objects
 instead of bool so any I/O surface (CLI or Slack) can interpret results.
@@ -76,6 +76,16 @@ Version History:
         edited, note=...) call instead of setting fields directly and
         calling set_correction_note() separately. os/tempfile imports
         dropped (no longer used in this file).
+- v1.11: Hotfix Item #62 Gate 3 (Fix 3) — _run_task_match_step() and
+        _run_note_dedup_step() restructured so a ProviderError from
+        parse_task_match()/parse_note_duplicate() demotes ollama_available
+        to False (per-step, local) and falls through to the keyword matcher
+        for the item that raised and all remaining items in that step's
+        loop; a CLI-visible warning is printed with the exception's cause
+        chain. Demotion keys on exception type, never message substrings
+        (ProviderManager re-wraps into a generic ProviderError). Probe
+        blocks and the outer body-level except Exception handlers
+        unchanged.
 """
 
 import inspect as _inspect
@@ -510,6 +520,8 @@ def _run_task_match_step(dry_run: bool, target_date: date, non_interactive: bool
         except Exception:
             pass
 
+        from workmain.ai.base_provider import ProviderError
+
         # Throttled Slack progress message — posted once, edited in place.
         # progress_ts stays None in CLI context (daemon is None) or if the
         # initial post fails; either way, per-iteration print() below still
@@ -556,16 +568,27 @@ def _run_task_match_step(dry_run: bool, target_date: date, non_interactive: bool
                 continue
 
             if ollama_available:
-                result = intent_parser.parse_task_match(ts, candidate_notes)
-                if result["confidence"] < 0.7:
+                try:
+                    result = intent_parser.parse_task_match(ts, candidate_notes)
+                except ProviderError as e:
+                    ollama_available = False
+                    print(
+                        f"  ⚠ Ollama generation failed ({e}); falling back to "
+                        f"keyword matching for this and remaining tasks. "
+                        f"Cause: {e.__cause__}"
+                    )
+                else:
+                    if result["confidence"] < 0.7:
+                        continue
+                    matched_note = notes_by_id.get(result["note_id"])
+                    candidates.append((result["confidence"], ts, matched_note))
                     continue
-                matched_note = notes_by_id.get(result["note_id"])
-                candidates.append((result["confidence"], ts, matched_note))
-            else:
-                result = _keyword_score_match(ts, candidate_notes)
-                if result["score"] < 0.2:
-                    continue
-                candidates.append((result["score"], ts, result["note"]))
+            # keyword path — reached when ollama_available is False at loop
+            # entry OR immediately after demotion for the item that raised
+            result = _keyword_score_match(ts, candidate_notes)
+            if result["score"] < 0.2:
+                continue
+            candidates.append((result["score"], ts, result["note"]))
 
         candidates.sort(key=lambda x: x[0], reverse=True)
 
@@ -737,6 +760,8 @@ def _run_note_dedup_step(dry_run: bool, target_date: date, non_interactive: bool
         except Exception:
             pass
 
+        from workmain.ai.base_provider import ProviderError
+
         # Throttled Slack progress message — same mechanism as task match,
         # independent interval (this loop's iteration count differs
         # structurally — up to ~n²/2 at scale, vs. linear for task match).
@@ -767,14 +792,25 @@ def _run_note_dedup_step(dry_run: bool, target_date: date, non_interactive: bool
             note_a, note_b = ts_a.note, ts_b.note
 
             if ollama_available:
-                result = intent_parser.parse_note_duplicate(note_a.content, note_b.content)
-                if not result["duplicate"] or result["confidence"] < 0.7:
+                try:
+                    result = intent_parser.parse_note_duplicate(note_a.content, note_b.content)
+                except ProviderError as e:
+                    ollama_available = False
+                    print(
+                        f"  ⚠ Ollama generation failed ({e}); falling back to "
+                        f"keyword matching for this and remaining pairs. "
+                        f"Cause: {e.__cause__}"
+                    )
+                else:
+                    if not result["duplicate"] or result["confidence"] < 0.7:
+                        continue
+                    duplicates_found.append((ts_a, ts_b))
                     continue
-            else:
-                result = _keyword_note_dedup_match(note_a.content, note_b.content)
-                if result["score"] < 0.5:
-                    continue
-
+            # keyword path — reached when ollama_available is False at loop
+            # entry OR immediately after demotion for the pair that raised
+            result = _keyword_note_dedup_match(note_a.content, note_b.content)
+            if result["score"] < 0.5:
+                continue
             duplicates_found.append((ts_a, ts_b))
 
         if not duplicates_found:
