@@ -1,5 +1,5 @@
 WorkmAIn
-Feature Backlog v5.37
+Feature Backlog v5.38
 20260725
 
 # WorkmAIn Feature Backlog
@@ -155,6 +155,23 @@ Items deferred from various phases for future implementation.
   shared review runner. Item 46 closed — folded into Item 61, now a
   redirect (was Open, targeting Phase 13). Register and statistics updated
   (Total 60→61, Complete 28→29, Open 28→27, Redirect 1→2).
+- v5.38 (20260725): Applied 20260725 planning + Item 62 close-out sessions.
+  Added Items 62–68 (register rows + full entries). Item 62 marked ✓
+  Complete (v1.26.1) — AC1/AC4/AC5/AC6/AC7 met and live-verified; AC2
+  superseded by new Item 65 (prompt prefix-cache reordering — root cause of
+  the residual per-item stragglers raw mode alone didn't fix); AC3/AC8
+  carried to new Item 66 (raw-mode output quality — non-JSON output and a
+  false 1.00-confidence candidate observed live, plus the never-run induced
+  timeout test and staged-pair AC8 check). Item 65 entered directly as Open
+  (its trigger — live stragglers — was already met at write time, so no
+  separate Conditional stage was needed). Items 23, 43, 31 closed per
+  planning decisions D5/D3/D9: Item 23 resolved by architecture (recon
+  confirmed meetings never enter either report prompt — exclusion is
+  structurally moot, not implemented); Item 43 superseded by new Item 63
+  (redirect, same pattern as 46 → 61); Item 31 won't-implement (attendee
+  tracking overcome by events; `Meeting.attendees` column left intact).
+  Register and statistics updated (Total 61→68, Complete 29→30, Open
+  27→30, Closed/Stale 2→4, Redirect 2→3).
 
 ---
 
@@ -223,7 +240,7 @@ Build first, refactor later. See the complete picture before abstracting.
 | 20 | Multi-Client Data Attribution | — | Phase 11 | — | ✓ |
 | 21 | Cloudflare Tunnel / Slack Events API | Low | — | ~3–4 hrs | ✓ |
 | 22 | Active Client Context Data Model | — | → Item 20 | — | |
-| 23 | Meeting Visibility / Tagging | Medium | Phase 15 | ~3–5 hrs | |
+| 23 | Meeting Visibility / Tagging | Medium | Phase 15 | ~3–5 hrs | ✓ |
 | 24 | tasks carryover Group Review | — | Phase 12 | — | ✓ |
 | 25 | reports costs + providers costs Audit | — | Phase 12 | — | ✓ |
 | 26 | Name-or-ID Rule (Edit/Delete) | — | Phase 14 | — | ✓ |
@@ -231,7 +248,7 @@ Build first, refactor later. See the complete picture before abstracting.
 | 28 | Placeholder Command Groups | Low | Phase 11+ | varies | |
 | 29 | clockify report Subcommand Refactor | Low | Phase 15 | ~30 min | |
 | 30 | System Service Promotion for workmain-notify | Low | Phase 18 | ~4 hours | |
-| 31 | meetings create --attendees Restoration | Low | Phase 14 | ~30 min | |
+| 31 | meetings create --attendees Restoration | Low | Phase 14 | ~30 min | ✓ |
 | 32 | Task Deduplication and Forwarding | Low | Phase 13 (TBD) | TBD | ✓ |
 | 33 | correction_note Field Population | Low | Phase 13 | ~2 hrs | ✓ |
 | 34 | Weekly Report Prompt — Confirmed Daily Summaries as Context | Medium | Phase 13 | ~3–4 hrs | ✓ |
@@ -243,7 +260,7 @@ Build first, refactor later. See the complete picture before abstracting.
 | 40 | Daemon Scheduler — Configurable Trigger Times | Low | Phase 14 | ~1–2 hrs | ✓ |
 | 41 | Clockify Command Exits 0 on Staging Write Failure | Low | Phase 14 | ~30 min | ✓ |
 | 42 | project_id Slack Schema Removal — create_time_entry | Low | next intent_parse rebuild | ~30 min | |
-| 43 | meeting_id Non-Interactive Linkage for create_note/create_time_entry | Medium | Phase 13 Sprint 3 (T6) | ~4–6 hrs | |
+| 43 | meeting_id Non-Interactive Linkage for create_note/create_time_entry | — | → Item 63 | — | |
 | 44 | entry_date/category as IntentParser Schema Fields (Phase 2) | Low | next model rebuild | ~1–2 hrs | |
 | 45 | `tags` for `create_time_entry` via Slack | Medium | Phase 13 Sprint 3 | ~3h | |
 | 46 | `build_weekly_prompt()` Edge Cases — Short Weeks, Thursday Draft, Internal Pollution | — | → Item 61 | — | |
@@ -262,50 +279,65 @@ Build first, refactor later. See the complete picture before abstracting.
 | 59 | Time Parser Timezone Assumption — Formal Confirmation | Low | Unscheduled | ~30 min | |
 | 60 | Consolidate `last_inspection.json` Writers and Add Freshness Validation | High | None (standalone) | ~5–7 hrs | ✓ |
 | 61 | Report Review & Weekly Generation Unification | Medium | Between-Phase | ~8–10 hrs | ✓ |
+| 62 | parse_task_match/parse_note_duplicate Total-Failure Stabilization | High | Hotfix | ~3–4 hrs | ✓ |
+| 63 | create_meeting_notes — Slack Meeting-Note Capture | High | Slack_LLM Sprint G2 | TBD | |
+| 64 | Slack Clarification Loop (Stateful Follow-Up) | Medium | Post-sprint | TBD | |
+| 65 | Task-Match Prompt Prefix-Cache Reordering | Medium | Unscheduled | TBD | |
+| 66 | Raw-Mode Task-Match Output Quality | High | Pre-sprint hotfix or sprint gate | TBD | |
+| 67 | Step 3c Attempt-Set Silent limit=20 Cap | High | Integration Sprint (Step 3c) | Small | |
+| 68 | notes show Tag Display Anomaly | Low | Unscheduled | Unknown | |
 
 ---
 
 ## Summary Statistics
 
-**Total Items:** 61 (Items 22 and 46 are redirects — no separate deferred work; see Items 20 and 61 respectively)
-**Complete:** 29 (Items 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 50, 51, 52, 53, 56, 58, 60, 61)
+**Total Items:** 68 (Items 22, 43, and 46 are redirects — no separate deferred work; see Items 20, 63, and 61 respectively)
+**Complete:** 30 (Items 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 50, 51, 52, 53, 56, 58, 60, 61, 62)
 **Partial:** 1 (Item 48 — see item detail for unmet ACs)
-**Closed/Stale:** 2 (Items 14, 15 — premises resolved, suite green)
-**Open:** 27
+**Closed/Stale:** 4 (Items 14, 15 — premises resolved, suite green; Item 23 — resolved by architecture; Item 31 — won't implement)
+**Open:** 30
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Open (targeted) | 24 | 1, 2, 3, 4, 7, 8, 12, 16, 19, 23, 28, 29, 30, 31, 37, 42, 43, 44, 45, 47, 54, 55, 57, 59 |
+| Open (targeted) | 27 | 1, 2, 3, 4, 7, 8, 12, 16, 19, 28, 29, 30, 37, 42, 44, 45, 47, 54, 55, 57, 59, 63, 64, 65, 66, 67, 68 |
 | Partial | 1 | 48 |
 | Conditional | 1 | 9 |
 | Indefinitely | 2 | 5, 6 |
-| Complete | 29 | 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 50, 51, 52, 53, 56, 58, 60, 61 |
-| Closed/Stale | 2 | 14, 15 |
-| Redirect | 2 | 22 → Item 20, 46 → Item 61 |
+| Complete | 30 | 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 50, 51, 52, 53, 56, 58, 60, 61, 62 |
+| Closed/Stale | 4 | 14, 15, 23, 31 |
+| Redirect | 3 | 22 → Item 20, 43 → Item 63, 46 → Item 61 |
 
 | Priority | Count | Items |
 |----------|-------|-------|
-| High | 3 | 23, 48, 60 |
-| Medium | 10 | 2, 3, 7, 43, 45, 47, 50, 55, 58, 61 |
-| Low | 19 | 1, 4, 5, 6, 8, 12, 16, 19, 28, 29, 30, 31, 37, 42, 44, 54, 56, 57, 59 |
+| High | 7 | 23, 48, 60, 62, 63, 66, 67 |
+| Medium | 12 | 2, 3, 7, 43, 45, 47, 50, 55, 58, 61, 64, 65 |
+| Low | 20 | 1, 4, 5, 6, 8, 12, 16, 19, 28, 29, 30, 31, 37, 42, 44, 54, 56, 57, 59, 68 |
 | Conditional | 1 | 9 |
 
 | Target Phase | Items |
 |-------------|-------|
 | Phase 11+ | 4, 28 |
-| Phase 13 Sprint 3 | 43, 45 |
+| Phase 13 Sprint 3 | 45 |
 | Phase 14 | 47, 48, 50, 56, 58 |
-| Phase 14+ | 19, 31, 55 |
-| Phase 15 | 1, 2, 3, 7, 8, 12, 16, 23, 29, 37, 54, 57 |
+| Phase 14+ | 19, 55 |
+| Phase 15 | 1, 2, 3, 7, 8, 12, 16, 29, 37, 54, 57 |
 | Phase 18 | 30 |
 | Next model rebuild | 42, 44 |
-| Unscheduled | 59 |
+| Unscheduled | 59, 65, 68 |
 | None (standalone, next) | 60 |
 | Between-Phase | 61 |
+| Hotfix | 62 |
+| Slack_LLM Sprint G2 | 63 |
+| Post-sprint | 64 |
+| Pre-sprint hotfix or sprint gate | 66 |
+| Integration Sprint (Step 3c) | 67 |
 | Conditional | 9 |
 | Indefinitely | 5, 6 |
 
-**Total Deferred Effort (open items):** ~123–144 hours (Item 54 TBD — effort grows as warnings are catalogued)
+**Total Deferred Effort (open items):** ~123–144 hours (Item 54 TBD — effort
+grows as warnings are catalogued; Items 63, 64, 65, 66, 68 also TBD/Unknown
+— not yet reflected in this range; Item 67 ~small code change but design
+question on scope not yet resolved)
 
 ---
 
@@ -849,7 +881,7 @@ The design decision (Option A — active client context switch) was approved 202
 
 #### Item 23 — Meeting Visibility / Tagging for Report Prompt Context
 
-**Status:** Open — Deferred
+**Status:** Closed — Resolved by Architecture (20260725, D5)
 **Priority:** High (same structural gap resolved for time entries in Phase 13 DB Schema Sprint)
 **Effort:** ~3–5 hours
 **Added:** 20260327
@@ -857,6 +889,12 @@ The design decision (Option A — active client context switch) was approved 202
 
 **Description:**
 Meetings are fetched for the full week and appended to every section's context in the AI prompt without filtering. Because meetings have no tag equivalent, internal meetings (e.g., "Splunk Normalization Project - Internal Sync") are exposed when generating client-facing reports (`weekly_client`), potentially causing AI-generated content about internal discussions.
+
+Meetings enter no report prompt (recon 20260725 §4); exclusion problem
+structurally impossible under current wiring. One regression test pinning
+`include_meetings == False` for both templates lands in
+Slack_LLM_Completion_Sprint Gate 3. Mon–Fri weekly range documented as
+accepted behavior.
 
 **Options to evaluate:**
 
@@ -1075,7 +1113,7 @@ environment file changes rather than a code rewrite.
 
 #### Item 31 — meetings create --attendees CLI Option Restoration
 
-**Status:** Open — Deferred to Phase 14
+**Status:** Closed — Won't Implement (20260725, D9)
 **Priority:** Low (feature-complete for current use case; CLI option removed as dead code)
 **Effort:** ~30 min
 **Added:** 20260526
@@ -1093,6 +1131,10 @@ are **fully intact** — no data layer was changed. Restoration is a CLI-only ta
 When the meetings display or export surface is built (Phase 14+ UI or reporting), restore
 the `--attendees` option with a proper short form that does not conflict with §5.3 reserved
 flags (note: `-a` conflicts with the `--all` pattern; a new assignment is needed).
+
+Attendee tracking overcome by events; no justifiable use case; `-a`
+conflicts with §5.3 `--all`. `Meeting.attendees` column and repo parameter
+left intact as harmless; removal deferred to a future schema hygiene pass.
 
 **Why Deferred:**
 The CLI option had no wired functionality. Restoring it has zero value until attendees are
@@ -1595,7 +1637,7 @@ as a forward-compatible parameter.
 
 #### Item 43 — meeting_id Non-Interactive Linkage for create_note / create_time_entry
 
-**Status:** Open — Deferred to Phase 13 Sprint 3 (T6)
+**Status:** Closed — Superseded by Item 63 (20260725, D3)
 **Priority:** Medium
 **Effort:** ~4–6 hrs
 **Added:** 20260612
@@ -1609,6 +1651,10 @@ path: given a meeting title or fuzzy description extracted from a Slack message,
 it to a `Meeting.id` without `click.confirm`/`click.prompt`. The current
 `fuzzy_match_meeting()` and `interactive_meeting_picker()` helpers are built entirely
 around interactive CLI I/O and cannot be used in daemon context.
+
+Time-window auto-link design rejected (meeting always named in message
+header; time-of-entry must not factor in). Redirected to Item 63, same
+pattern as 46 → 61.
 
 **Why Deferred:**
 Non-interactive meeting resolution is most naturally built as part of Sprint 3 T6
@@ -2700,3 +2746,255 @@ they came up, not silently substituted):**
 `workmain/utils/editor.py` (new, v1.0), `workmain/ai/prompt_builder.py` (v2.3),
 `workmain/ai/report_generator.py` (v1.15), `workmain/cli/commands/slack.py` (v1.8),
 `CLAUDE.md` (v3.3, separate chore/* branch).
+
+---
+
+#### Item 62 — parse_task_match/parse_note_duplicate Total-Failure Stabilization
+
+**Status:** ✓ Complete — v1.26.1 (20260725). AC1/AC4/AC5/AC6/AC7 met and
+live-verified; AC2 superseded by Item 65 (prompt prefix-cache reordering);
+AC3/AC8 carried to Item 66 (raw-mode output quality). Per Item 48
+precedent — closed Complete with specific unmet/carried ACs documented
+rather than blocking close-out on ACs whose root cause needs further
+design work.
+**Priority:** High
+**Effort:** ~3–4 hrs (actual: 4 gates + live verification, one weekend day)
+**Added:** 20260725
+**Completed:** 20260725
+**Target Phase:** Hotfix (pre-Slack_LLM_Completion_Sprint)
+
+**Description:**
+Step 3c task matching timed out on every item in production: novel
+~2,400-token prompts (Modelfile-baked ~1,800-token SYSTEM block riding
+every call) exceeded the 30 s socket timeout on LXC CPU inference; a bare
+`TimeoutError` bypassed provider-error wrapping and provider-manager
+fallback entirely; the one-shot `/api/tags` availability probe kept the
+keyword-matching fallback structurally unreachable. Shipped: per-call raw
+mode (`generation_options={"raw": True}`, popped into the top-level
+payload key) bypassing the SYSTEM block for `parse_task_match()`/
+`parse_note_duplicate()` only — `IntentParser.parse()`'s Slack path is
+unchanged; bare `TimeoutError` wrapped into `ProviderUnavailableError`
+(`from e`); `parse_task_match()`/`parse_note_duplicate()` propagate
+`ProviderError` instead of swallowing it into a no-match dict; Step 3c/3d
+each demote their own local `ollama_available` on the first
+`ProviderError` and fall through to the keyword matcher for the item that
+raised and all remaining items, with a CLI-visible warning carrying the
+exception's cause chain. The daily `--skip task_match` workaround is
+retired.
+
+**AC Disposition (20260725, live verification):**
+
+- AC1 ✓ — live-verified ×2: full `workmain eod` runs, no `--skip
+  task_match`, no total-failure hang.
+- AC2 ✗ as written — stragglers still hit the full 30 s on every live run;
+  Fix 3's demotion absorbed them as designed rather than eliminating them.
+  Root cause (novel-prompt `prompt_eval`, zero KV prefix-cache reuse across
+  per-task calls) superseded to Item 65.
+- AC3 CARRIED to Item 66 — the spec's induced `config/ai_settings.json`
+  `timeout: 1` test was never run; natural demotion observed live ×3 (Step
+  3c only — Step 3d's demotion path has zero live proof to date).
+- AC4 ✓ — confirmed by Ray: live Slack time-entry message, normal
+  confirmation-gate behavior, post-deploy.
+- AC5 ✓ — 882 passed (869 baseline + 13 new), 0 regressions.
+- AC6 ✓ — merge commit 2026-07-25 17:29:04 PDT; daemon
+  `ActiveEnterTimestamp` 2026-07-25 17:30:18 PDT.
+- AC7 ✓ — tag `v1.26.1` pushed; GitHub Release created:
+  <https://github.com/lockdwn20/workmain/releases/tag/v1.26.1>
+- AC8 ✗ NOT RUN, not failed — no natural known-completed task cleared 0.7
+  confidence via the LLM path live; evidence suggests a staged pair would
+  never actually enter the attempt pool (Item 66 Gate 0 recon ask (f)).
+  Carried to Item 66 verbatim.
+
+**Acceptance Criteria:** See spec
+`HOTFIX_ITEM62_PARSE_TASK_MATCH_STABILIZATION_SPEC_v1_1.md` — disposition
+recorded in the spec's own AC checklist and above.
+**Files Affected:** `workmain/ai/providers/ollama.py` (v1.4),
+`workmain/ai/intent_parser.py` (v1.4), `workmain/workflows/eod_workflow.py`
+(v1.11), `tests/test_ollama_provider.py`, `tests/test_intent_parser.py`,
+`tests/test_eod_workflow.py`, `workmain/__version__.py`, `CHANGELOG.md`
+
+---
+
+#### Item 63 — create_meeting_notes: Slack Meeting-Note Capture (CLI Editor-Flow Parity)
+
+**Status:** Open — Slack_LLM_Completion_Sprint Gate 2
+**Priority:** High
+**Effort:** TBD at sprint spec
+**Added:** 20260725
+**Target Phase:** Slack_LLM_Completion_Sprint (Gate 2, centerpiece)
+
+**Description:**
+New action type replicating the CLI `notes log -m <meeting>` editor
+workflow from Slack. Design locked per D4: header line names the meeting;
+optional date annotation for notes belonging to a different day
+(resolution = title + stated date, default today); one note per line;
+hashtag short-forms (#ilo #cf #ifo #crt #both #blk) mapped to full tag
+names via schema examples; executor resolves the meeting non-interactively,
+creates each line as its own note with tags + `meeting_id`; existing EOD
+condensation pipeline untouched. Tailored confirmation preview required
+(matched meeting title AND date + the N notes with tags) before any write;
+zero/ambiguous match → clarification `ActionResult`. Supersedes Item 43.
+Cascade per recon 20260725 §6. Bonus riding the Gate 2 rebuild: hashtag
+short-forms also work for standalone `create_note`.
+
+**Why Deferred:**
+Centerpiece of Slack_LLM_Completion_Sprint; requires its own sprint spec
+(recon already complete: `RECON_SPEC_SLACK_LLM_COMPLETION_SPRINT_20260725.md`).
+
+**Acceptance Criteria:** Defined in sprint spec.
+**Files Affected:** `config/intent_parse_system_prompt.txt` (+ Modelfile
+rebuild), `workmain/orchestration/action_executor.py`,
+`workmain/orchestration/confirmation_gate.py`, tests
+
+---
+
+#### Item 64 — Slack Clarification Loop (Stateful Follow-Up)
+
+**Status:** Open — Deferred to post-sprint (own feature/*)
+**Priority:** Medium
+**Effort:** TBD — needs its own planning pass (recon-before-spec applies)
+**Added:** 20260725
+**Target Phase:** Post-Slack_LLM_Completion_Sprint — v1.28.0
+
+**Description:**
+Pending-question state per user; merge-reply-and-reparse; evict on success
+or unrelated message. Current behavior is single-turn only: no
+pending-question state, no confidence metric anywhere (recon 20260725 §5).
+Independent of all sprint work (no schema, no rebuild).
+
+**Why Deferred:**
+Ray has open design questions — planning pass required before spec (D8).
+
+**Acceptance Criteria:** Defined at spec time.
+**Files Affected:** `workmain/daemon/daemon.py`, `workmain/ai/intent_parser.py`
+(TBD at recon)
+
+---
+
+#### Item 65 — Task-Match Prompt Prefix-Cache Reordering
+
+**Status:** Open (escalated from Conditional 20260725 — trigger met)
+**Priority:** Medium
+**Effort:** TBD
+**Added:** 20260725
+**Target Phase:** Unscheduled — sequencing decision at sprint planning
+(candidate: with or after Item 66, same surfaces)
+
+**Description:**
+Post-Item 62 live runs show per-item 30 s stragglers even in raw mode:
+with the distinct task line first in the prompt, Ollama's KV prefix cache
+gets zero reuse across the N per-task calls and every call pays full novel
+`prompt_eval` (measured: 35.04 s novel vs 0.25 s cached — recon 20260725
+§1 Q8). Redesign: shared notes block first, per-task portion last;
+self-match exclusion by instruction ("ignore note ID X") instead of list
+removal. Match-quality impact of instruction-based exclusion must be
+validated. Absorbs Item 62's AC2 residual (typical latency fine;
+stragglers currently handled by demotion only).
+
+**Why Deferred:**
+Sequencing decision needed at sprint planning — shares surfaces with Item
+66 (`workmain/ai/intent_parser.py`); may be worth doing together.
+
+**Acceptance Criteria:** Defined at spec time; must include straggler-rate
+measurement before/after.
+**Files Affected:** `workmain/ai/intent_parser.py`
+
+---
+
+#### Item 66 — Raw-Mode Task-Match Output Quality
+
+**Status:** Open
+**Priority:** High
+**Effort:** TBD after Gate 0 recon
+**Added:** 20260725
+**Target Phase:** Pre-sprint hotfix OR sprint gate — sequencing decision at
+sprint-planning session (touches the same intent-parse surfaces the sprint
+rebuilds)
+
+**Description:**
+Raw mode (Item 62 Fix 1) removed the Modelfile SYSTEM block's JSON
+enforcement from `task_match`/`note_dedup` calls. Live evidence
+(20260725, two runs): ~1-in-5 LLM calls return non-JSON ("Expecting value:
+line 1 column 1"); one false 1.00-confidence candidate (unrelated
+task/note pair; non-deterministic across identical runs — LLM path, not
+keyword). Inherits from Item 62: AC8 (raw-mode correctness — a
+known-completed task detected ≥ 0.7 — never run; staged pair likely never
+entered the attempt pool) and AC3 (induced-timeout test — only practical
+live exercise of Step 3d's demotion path). Gate 0 recon asks: (e)
+`_keyword_score_match` internals — metric, can it emit 1.00; (f) mechanism
+and timing of CF-note → active TaskStatus creation. Design directions
+logged, NOT decided: Ollama `format: "json"` via `generation_options` and
+prompt reinforcement; plan B = abandon raw mode, per-request timeout
+override for these calls (legitimate now that diagnosis and demotion
+exist; D1 rejected timeout-alone without them).
+
+**Why Deferred:**
+Needs its own Gate 0 recon before a design direction can be picked.
+
+**Acceptance Criteria:** Defined at spec time; must include Item 62's
+carried AC3 and AC8 verbatim.
+**Files Affected:** `workmain/ai/intent_parser.py`,
+`workmain/ai/providers/ollama.py`, `workmain/workflows/eod_workflow.py`
+(TBD at recon)
+
+---
+
+#### Item 67 — Step 3c Attempt-Set Silent limit=20 Cap
+
+**Status:** Open
+**Priority:** High
+**Effort:** Small (code); design question on correct scope
+**Added:** 20260725
+**Target Phase:** Between-Phase Integration Sprint (Step 3c redesign, with
+Items 48/32) unless promoted to standalone hotfix
+
+**Description:**
+Step 3c builds its attempt set via `task_repo.get_filtered(status='active')`
+with the default `limit=20`, silently truncating to the 20
+most-recently-created active tasks (`Note.created_at DESC`). Step 3d passes
+`limit=0` (unlimited) — asymmetric. At the current 120+ active-task
+population, ~100 tasks are never evaluated on any run, with no indication.
+Recon basis: 20260725 Addendum B (a). Fix scope is a design call (unlimited
+vs deliberate windowing vs pagination) — interacts with per-call latency
+(Items 65/66), so belongs with the Step 3c redesign unless operationally
+urgent.
+
+**Why Deferred:**
+Interacts with the Step 3c latency work (Items 65/66) and the existing
+Item 48 redesign — belongs with that work unless it becomes operationally
+urgent sooner.
+
+**Acceptance Criteria:** Defined at spec time; must include a visible
+indication whenever the attempt set is smaller than the active population.
+**Files Affected:** `workmain/workflows/eod_workflow.py`,
+`workmain/database/repositories/task_status_repo.py`
+
+---
+
+#### Item 68 — notes show Tag Display Anomaly
+
+**Status:** Open — awaiting reproduction
+**Priority:** Low
+**Effort:** Unknown (mechanism unexplained)
+**Added:** 20260725
+**Target Phase:** Unscheduled
+
+**Description:**
+Observed 20260725: `workmain notes show 28229` rendered an empty Tags
+field for a note that `workmain notes today` showed with [carry-forward]
+[internal-only] — same row, same session. Recon (20260725 Addendum B (d))
+finds the two commands' tag loading and rendering code-identical (both
+read the scalar `Note.tags` ARRAY column via `display_tags`), and the show
+path should print '(none)' for empty tags — the observed output printed
+nothing, fitting neither branch. Mechanism UNEXPLAINED; do not implement
+against a guessed cause. Next step: attempt reproduction; if reproduced,
+capture exact command, output, and a direct DB query of the row's tags
+column in the same window.
+
+**Why Deferred:**
+Root cause unexplained; needs reproduction before any fix can be scoped.
+
+**Acceptance Criteria:** Root cause identified with evidence; both
+commands render identical tags for the same note; regression test.
+**Files Affected:** `workmain/cli/commands/notes.py` (suspected; TBD at
+diagnosis)
