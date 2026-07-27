@@ -1,5 +1,5 @@
 WorkmAIn
-Feature Backlog v5.39
+Feature Backlog v5.40
 20260725
 
 # WorkmAIn Feature Backlog
@@ -196,6 +196,29 @@ Items deferred from various phases for future implementation.
   Task_Match_Data_Integrity Sprint (v1.28.0) → Slack_LLM_Completion_
   Sprint (v1.29.0) → Item 64 (v1.30.0). Register and statistics updated
   (Total 68→70, Open 30→32).
+- v5.40 (20260727): Item 69 scope/shape lock session. Section K recon
+  addendum (write-path parameter surface, appended to
+  RECON_SPEC_TASK_MATCH_DATA_INTEGRITY_SPRINT_20260725.md) reviewed;
+  two framing corrections in the recon ask accepted (paired-write set,
+  meeting_id column). Goal reframed per Ray's correction: Item 69 is
+  write-path integrity for ALL fields/tags, not a cf-specific fix — cf's
+  TaskStatus hook is the loudest symptom, not the only one. Scope locked:
+  full convergence, all twelve surfaces including the eight
+  TimeEntry-paired ones (supersedes Role 1's earlier Note-path-only
+  lean). Shape locked: small family of converged functions matching
+  natural fault lines (pure-note / task-shaped paired-write /
+  meeting-shaped paired-write / Clockify), not one universal signature.
+  Clockify (#12) converges too, with per-import tag UX decided at spec
+  time (supersedes Role 1's earlier "except Clockify" lean). Two live
+  data-quality bugs confirmed by source and folded into scope: #7's
+  `source` silently defaults 'ad-hoc' instead of 'meeting'; #4/#9 (shared
+  `NoteCondenser.condense_meeting()`) unconditionally tags output
+  ['both'] regardless of source-note tag composition — confirmed
+  currently live and wrong, Ray ruled acceptable to sit until Item 69
+  lands rather than fast-tracked. Item 69 effort re-estimated ~14–20 hrs
+  (was ~8–12 hrs, pre-Section-K). No register/statistics count changes —
+  item count, status, and priority unchanged; only Item 69's own block
+  and the effort total are revised.
 
 ---
 
@@ -3047,52 +3070,97 @@ diagnosis)
 
 **Status:** Open — next in execution order (standalone feature branch)
 **Priority:** High
-**Effort:** ~8–12 hrs (refine after Section K recon)
-**Added:** 20260725
+**Effort:** ~14–20 hrs (revised 20260727, post-Section-K; was ~8–12 hrs)
+**Added:** 20260725 (scope/shape locked 20260727)
 **Target Phase:** Standalone feature (v1.27.0), precedes
 Task_Match_Data_Integrity Sprint
 
 **Description:**
 Gate 0 recon (sprint recon §H) census: twelve live note-write surfaces;
-ten bypass the service layer (direct `NotesRepository.create()` calls);
-`notes_service` and `time_entry_service` are siblings that both bottom
-out at the repo, so the service layer is not currently a convergence
-point (would cover 2 of 12). Five surfaces admit a `carry-forward` tag
-(`notes add`, `notes log`, `time add` ×3, Slack note); only `notes add`
-fires the CF→TaskStatus hook — the hook has fired exactly ONCE in live
-history (2026-06-24, via a manual `notes edit` re-tag); the 147 Feb–May
-task rows are migration-015 backfill (sprint recon §I2, correcting #66
-recon §F). Ray's DQ1 ruling (20260725): Option B — converge ALL
-note-write surfaces onto the service layer (the architecturally correct
-seam), then place the CF→TaskStatus creation hook and tag-transition
-authority (`ensure_active` / `set_dismissed_by_tag_removal`) in the
-converged service path, removing the CLI-layer duplicates in `notes.py`.
-Document as a CLAUDE.md contract. Forward-compatible by construction:
-Item 45 (Slack time-entry tags) and Item 63 (create_meeting_notes)
-inherit correct task creation with zero additional wiring. The eight
-direct-repo bypass call sites to converge are enumerated verbatim at
-sprint recon §H4; tag-transition surface inventory at §H5.
+ten bypass the service layer. Section K recon (20260727, appended to the
+same file) mapped the complete parameter surface of all twelve call
+sites plus both existing services' full current signatures — the
+definitive input for the converged API design. Five surfaces admit a
+`carry-forward` tag (`notes add`, `notes log`, `time add` ×3, Slack
+note); only `notes add` fires the CF→TaskStatus hook.
+
+Section K review (with Ray) established this is not a `cf`-specific
+problem: report-routing tags (`ilo`/`cr`/`ifo`/`both`/`blk`) are equally
+inconsistently applied across the twelve surfaces. Four surfaces
+(`#2`,`#4`,`#8`,`#9`) hard-code `tags=['both']` regardless of actual
+content; `#12` (Clockify import) hard-codes `['internal-only']` with no
+per-entry override; `#11` (Slack time entry) has no tags field in the
+schema at all. Two live data-quality bugs were confirmed by source
+during this review and folded into scope: `#7` (`time add`'s optional
+"additional note" prompt) silently omits `source`, defaulting to
+`'ad-hoc'` instead of `'meeting'` like every sibling surface; `#4`/`#9`
+(the shared `NoteCondenser.condense_meeting()` call, fired both
+automatically after `notes log -m` and via the standalone `meetings
+condense` command) unconditionally tags its output `['both']` regardless
+of the actual tag composition of the source notes it condensed —
+confirmed live and currently wrong, meaning genuinely internal-only
+meeting content can already reach the client weekly report today,
+independent of `cf`.
+
+Ray's ruling (20260727): full convergence, all twelve surfaces including
+the eight TimeEntry-paired ones — every `TimeEntry` has a backing `Note`;
+the two write paths are not separable for this goal. Shape: a small
+family of converged functions matching the natural fault lines Section K
+exposed, not one universal signature — meeting-shaped writes
+(`#2`,`#4`≡`#9`,`#5`,`#8`,`#9`) set `meeting_id` on both the Note and the
+TimeEntry and use `source='meeting'`/`'condensed'`; task-shaped writes
+(`#6`,`#11`) never route `meeting_id` to the Note and hard-code
+`source='task'` — these are genuinely different write patterns, not
+variations of one. Clockify (`#12`) converges too, with per-import tag
+UX (prompt per entry vs. once per sync run vs. other) decided at spec
+time rather than excepted from convergence — the "too much work"
+reasoning behind never offering per-import tags predates convergence
+giving every write path a `tags` parameter regardless.
+
+Place the CF→TaskStatus creation hook and tag-transition authority
+(`ensure_active` / `set_dismissed_by_tag_removal`) in the converged path,
+removing the CLI-layer duplicates in `notes.py`. Document as a CLAUDE.md
+contract. Forward-compatible by construction: Item 45 (Slack time-entry
+tags) and Item 63 (`create_meeting_notes`) inherit correct task creation
+AND correct report-tag handling with zero additional wiring — relevant
+because the upcoming Slack_LLM_Completion_Sprint is what introduces real
+tag support to `#11`/`#10`, and building that on the current broken
+foundation would just repeat the problem. Full parameter-surface mapping
+(K1–K6, including the superset table and the client_id-NULL/
+created_at-backdate/clockify-fields gaps the converged API must add) is
+in Section K of the sprint recon.
 
 **Why Deferred:**
-Not deferred — next in execution order. Requires Section K recon first
-(both services' full current signatures + the parameter surface each of
-the twelve call sites passes: created_at overrides, client_id,
-meeting_id, source values, tag defaults) so the converged service API is
-designed against the complete contract.
+Not deferred — next in execution order, ready for spec. Section K recon
+complete (20260727); scope, shape, and Clockify disposition all locked
+by Ray the same session (see SESSION_HANDOFF_ITEM69_SCOPE_LOCK_20260727.md,
+decisions WPC3–WPC6).
 
 **Acceptance Criteria:** Defined at spec time; must include: no direct
-`NotesRepository.create()` callers remain outside the service layer; a
+`NotesRepository.create()` callers remain outside the service layer,
+across all twelve surfaces including the eight TimeEntry-paired ones; a
 CF-tagged note created on ANY CF-capable surface produces an active
-TaskStatus row; CF tag transitions are handled on every tag-mutating
-surface; CLAUDE.md contract added; live verification via each of Ray's
-real capture surfaces (`notes log -m`, `time add`, Slack).
+TaskStatus row; every report-routing tag (`ilo`/`cr`/`ifo`/`both`/`blk`),
+not just `cf`, is caller-specifiable wherever the underlying content
+genuinely varies — the four hard-coded-`['both']` surfaces and Clockify's
+hard-coded `['internal-only']` gain real tag control, not just CF
+handling; `#7`'s `source` defaults to `'meeting'` on the additional-note
+path, matching its sibling surfaces; the condensed-summary output tag
+(`#4`/`#9`) reflects the actual tag composition of the notes it
+condensed rather than an unconditional `['both']`; CF tag transitions
+are handled on every tag-mutating surface; CLAUDE.md contract added;
+live verification via each of Ray's real capture surfaces (`notes log
+-m`, `time add`, Slack), plus explicit verification that each
+previously-hard-coded surface now carries a content-accurate tag.
 **Files Affected:** `workmain/services/notes_service.py`,
-`workmain/services/time_entry_service.py`,
-`workmain/cli/commands/notes.py`, `workmain/cli/commands/time.py`,
-`workmain/cli/commands/meetings.py`,
+`workmain/services/time_entry_service.py` (plus any new converged
+function modules under `workmain/services/`, exact structure decided at
+spec time per the small-family shape), `workmain/cli/commands/notes.py`,
+`workmain/cli/commands/time.py`, `workmain/cli/commands/meetings.py`,
 `workmain/integrations/clockify/sync.py`,
 `workmain/orchestration/action_executor.py`,
-`workmain/database/repositories/notes_repo.py` (callers only)
+`workmain/database/repositories/notes_repo.py` (callers only),
+`workmain/ai/note_condenser.py` (the `#4`/`#9` output-tag fix)
 
 ---
 
