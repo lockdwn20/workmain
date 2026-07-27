@@ -1,5 +1,5 @@
 WorkmAIn
-Feature Backlog v5.38
+Feature Backlog v5.39
 20260725
 
 # WorkmAIn Feature Backlog
@@ -172,6 +172,30 @@ Items deferred from various phases for future implementation.
   tracking overcome by events; `Meeting.attendees` column left intact).
   Register and statistics updated (Total 61→68, Complete 29→30, Open
   27→30, Closed/Stale 2→4, Redirect 2→3).
+- v5.39 (20260725): Task-match planning session close-out. Two Gate 0
+  recons completed (RECON_SPEC_ITEM66_TASK_MATCH_QUALITY_20260725.md,
+  RECON_SPEC_TASK_MATCH_DATA_INTEGRITY_SPRINT_20260725.md — the latter
+  materially corrects the former's Section F: the 147 Feb–May task rows
+  are migration-015 backfill, not live hook output; the CF→TaskStatus
+  hook has fired exactly once ever; the true orphan population is 30 and
+  growing). Item 69 added — Note Write-Path Convergence (service-layer
+  unification of all 12 note-write surfaces + canonical CF hook; Ray's
+  DQ1 = Option B, own feature branch, v1.27.0, precedes the sprint).
+  Item 70 added — Task Pool Data Repair (30-orphan backfill via
+  migration-015 logic + one-time gated dismissal of the 142 stale
+  backfill rows; explicitly NOT CLI features per Ray's ruling that bulk
+  is a one-time special situation). Item 66 rescoped to
+  Task_Match_Data_Integrity Sprint Gate 3 (match quality; recon asks
+  (e)/(f) answered — false 1.00 is LLM-path, keyword scorer is
+  deterministic; path-attribution blindness added to scope). Item 67
+  rescoped/absorbed into sprint Gate 1 (tasks command block correction —
+  CLI list cap, --all semantics, header honesty, docstring, carryover
+  disposition, plus the Step 3c attempt-set cap). Item 65 target updated
+  (revisit after sprint Gate 3). No dismissal-reason column; no bulk
+  complete/dismiss CLI. Execution order: 69 (v1.27.0) →
+  Task_Match_Data_Integrity Sprint (v1.28.0) → Slack_LLM_Completion_
+  Sprint (v1.29.0) → Item 64 (v1.30.0). Register and statistics updated
+  (Total 68→70, Open 30→32).
 
 ---
 
@@ -282,24 +306,26 @@ Build first, refactor later. See the complete picture before abstracting.
 | 62 | parse_task_match/parse_note_duplicate Total-Failure Stabilization | High | Hotfix | ~3–4 hrs | ✓ |
 | 63 | create_meeting_notes — Slack Meeting-Note Capture | High | Slack_LLM Sprint G2 | TBD | |
 | 64 | Slack Clarification Loop (Stateful Follow-Up) | Medium | Post-sprint | TBD | |
-| 65 | Task-Match Prompt Prefix-Cache Reordering | Medium | Unscheduled | TBD | |
-| 66 | Raw-Mode Task-Match Output Quality | High | Pre-sprint hotfix or sprint gate | TBD | |
-| 67 | Step 3c Attempt-Set Silent limit=20 Cap | High | Integration Sprint (Step 3c) | Small | |
+| 65 | Task-Match Prompt Prefix-Cache Reordering | Medium | Unscheduled (post-Sprint G3) | TBD | |
+| 66 | Raw-Mode Task-Match Output Quality | High | Task_Match Sprint G3 | TBD | |
+| 67 | tasks Command Block Correction (incl. Step 3c limit cap) | High | Task_Match Sprint G1 | ~3–5 hrs | |
 | 68 | notes show Tag Display Anomaly | Low | Unscheduled | Unknown | |
+| 69 | Note Write-Path Convergence — Service-Layer Unification + Canonical CF Hook | High | Standalone feature (next) | ~8–12 hrs | |
+| 70 | Task Pool Data Repair — Orphan Backfill + Stale Dismissal | High | Task_Match Sprint G2 | ~2–3 hrs | |
 
 ---
 
 ## Summary Statistics
 
-**Total Items:** 68 (Items 22, 43, and 46 are redirects — no separate deferred work; see Items 20, 63, and 61 respectively)
+**Total Items:** 70 (Items 22, 43, and 46 are redirects — no separate deferred work; see Items 20, 63, and 61 respectively)
 **Complete:** 30 (Items 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 50, 51, 52, 53, 56, 58, 60, 61, 62)
 **Partial:** 1 (Item 48 — see item detail for unmet ACs)
 **Closed/Stale:** 4 (Items 14, 15 — premises resolved, suite green; Item 23 — resolved by architecture; Item 31 — won't implement)
-**Open:** 30
+**Open:** 32
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Open (targeted) | 27 | 1, 2, 3, 4, 7, 8, 12, 16, 19, 28, 29, 30, 37, 42, 44, 45, 47, 54, 55, 57, 59, 63, 64, 65, 66, 67, 68 |
+| Open (targeted) | 29 | 1, 2, 3, 4, 7, 8, 12, 16, 19, 28, 29, 30, 37, 42, 44, 45, 47, 54, 55, 57, 59, 63, 64, 65, 66, 67, 68, 69, 70 |
 | Partial | 1 | 48 |
 | Conditional | 1 | 9 |
 | Indefinitely | 2 | 5, 6 |
@@ -309,7 +335,7 @@ Build first, refactor later. See the complete picture before abstracting.
 
 | Priority | Count | Items |
 |----------|-------|-------|
-| High | 7 | 23, 48, 60, 62, 63, 66, 67 |
+| High | 9 | 23, 48, 60, 62, 63, 66, 67, 69, 70 |
 | Medium | 12 | 2, 3, 7, 43, 45, 47, 50, 55, 58, 61, 64, 65 |
 | Low | 20 | 1, 4, 5, 6, 8, 12, 16, 19, 28, 29, 30, 31, 37, 42, 44, 54, 56, 57, 59, 68 |
 | Conditional | 1 | 9 |
@@ -329,15 +355,16 @@ Build first, refactor later. See the complete picture before abstracting.
 | Hotfix | 62 |
 | Slack_LLM Sprint G2 | 63 |
 | Post-sprint | 64 |
-| Pre-sprint hotfix or sprint gate | 66 |
-| Integration Sprint (Step 3c) | 67 |
+| Standalone feature (next) | 69 |
+| Task_Match Sprint G1 | 67 |
+| Task_Match Sprint G2 | 70 |
+| Task_Match Sprint G3 | 66 |
 | Conditional | 9 |
 | Indefinitely | 5, 6 |
 
-**Total Deferred Effort (open items):** ~123–144 hours (Item 54 TBD — effort
+**Total Deferred Effort (open items):** ~134–161 hours (Item 54 TBD — effort
 grows as warnings are catalogued; Items 63, 64, 65, 66, 68 also TBD/Unknown
-— not yet reflected in this range; Item 67 ~small code change but design
-question on scope not yet resolved)
+— not yet reflected in this range)
 
 ---
 
@@ -2877,8 +2904,9 @@ Ray has open design questions — planning pass required before spec (D8).
 **Priority:** Medium
 **Effort:** TBD
 **Added:** 20260725
-**Target Phase:** Unscheduled — sequencing decision at sprint planning
-(candidate: with or after Item 66, same surfaces)
+**Target Phase:** Unscheduled — revisit after Task_Match_Data_Integrity
+Sprint Gate 3 (Item 66); schedule only if per-item straggler latency
+persists once output quality is fixed
 
 **Description:**
 Post-Item 62 live runs show per-item 30 s stragglers even in raw mode:
@@ -2903,33 +2931,37 @@ measurement before/after.
 
 #### Item 66 — Raw-Mode Task-Match Output Quality
 
-**Status:** Open
+**Status:** Open — Task_Match_Data_Integrity Sprint Gate 3
 **Priority:** High
 **Effort:** TBD after Gate 0 recon
 **Added:** 20260725
-**Target Phase:** Pre-sprint hotfix OR sprint gate — sequencing decision at
-sprint-planning session (touches the same intent-parse surfaces the sprint
-rebuilds)
+**Target Phase:** Task_Match_Data_Integrity Sprint Gate 3 (v1.28.0)
 
 **Description:**
 Raw mode (Item 62 Fix 1) removed the Modelfile SYSTEM block's JSON
 enforcement from `task_match`/`note_dedup` calls. Live evidence
-(20260725, two runs): ~1-in-5 LLM calls return non-JSON ("Expecting value:
-line 1 column 1"); one false 1.00-confidence candidate (unrelated
-task/note pair; non-deterministic across identical runs — LLM path, not
-keyword). Inherits from Item 62: AC8 (raw-mode correctness — a
-known-completed task detected ≥ 0.7 — never run; staged pair likely never
-entered the attempt pool) and AC3 (induced-timeout test — only practical
-live exercise of Step 3d's demotion path). Gate 0 recon asks: (e)
-`_keyword_score_match` internals — metric, can it emit 1.00; (f) mechanism
-and timing of CF-note → active TaskStatus creation. Design directions
-logged, NOT decided: Ollama `format: "json"` via `generation_options` and
-prompt reinforcement; plan B = abandon raw mode, per-request timeout
-override for these calls (legitimate now that diagnosis and demotion
-exist; D1 rejected timeout-alone without them).
+(20260725, two runs): ~1-in-5 LLM calls return non-JSON ("Expecting
+value: line 1 column 1"); one false 1.00-confidence candidate. Gate 0
+recon COMPLETE (RECON_SPEC_ITEM66_TASK_MATCH_QUALITY_20260725.md §E, as
+corrected by the sprint recon §I): the false 1.00 is definitively the
+LLM path — the keyword scorer is score-deterministic and never runs
+while Ollama is up; the model emits a bare `confidence: 1.0` under
+sampling. Scope: JSON compliance (primary: Ollama `format: "json"` via
+`generation_options` + client-side prompt reinforcement; plan B
+pre-authorized: abandon raw + per-request timeout override); a
+path-attribution tag on match candidates (keyword vs LLM — currently
+indistinguishable in UI and logs, recon §E4); a spec-time decision on
+confidence-1.00 handling (clamp / distrust threshold / display-raw);
+Item 62's carried AC3 (induced-timeout test, incl. Step 3d demotion —
+zero live proof) and AC8 (raw-mode correctness in REAL flow — requires
+Items 69 and 70 so today's carry-forwards actually populate the attempt
+pool).
 
 **Why Deferred:**
-Needs its own Gate 0 recon before a design direction can be picked.
+Sequenced behind Item 69 (write-path convergence) and sprint Gates 1–2:
+AC8 real-flow verification is impossible until CF notes from Ray's
+actual capture surfaces produce TaskStatus rows and the pool is
+repaired.
 
 **Acceptance Criteria:** Defined at spec time; must include Item 62's
 carried AC3 and AC8 verbatim.
@@ -2939,35 +2971,45 @@ carried AC3 and AC8 verbatim.
 
 ---
 
-#### Item 67 — Step 3c Attempt-Set Silent limit=20 Cap
+#### Item 67 — tasks Command Block Correction (incl. Step 3c limit cap)
 
-**Status:** Open
+**Status:** Open — Task_Match_Data_Integrity Sprint Gate 1
 **Priority:** High
-**Effort:** Small (code); design question on correct scope
-**Added:** 20260725
-**Target Phase:** Between-Phase Integration Sprint (Step 3c redesign, with
-Items 48/32) unless promoted to standalone hotfix
+**Effort:** ~3–5 hrs
+**Added:** 20260725 (rescoped 20260725, sprint planning)
+**Target Phase:** Task_Match_Data_Integrity Sprint Gate 1 (v1.28.0)
 
 **Description:**
-Step 3c builds its attempt set via `task_repo.get_filtered(status='active')`
-with the default `limit=20`, silently truncating to the 20
-most-recently-created active tasks (`Note.created_at DESC`). Step 3d passes
-`limit=0` (unlimited) — asymmetric. At the current 120+ active-task
-population, ~100 tasks are never evaluated on any run, with no indication.
-Recon basis: 20260725 Addendum B (a). Fix scope is a design call (unlimited
-vs deliberate windowing vs pagination) — interacts with per-call latency
-(Items 65/66), so belongs with the Step 3c redesign unless operationally
-urgent.
+Originally scoped as Step 3c's silent `get_filtered` default `limit=20`
+cap. Gate 0 recon (sprint recon §G/§J) showed the same defect and worse
+on the CLI surface, making the `tasks` command block unusable as an
+access surface outside EOD at real data volume (143 active): `tasks
+list` caps at 20 with a header that misreports the true match count
+("20 found" = post-limit `len(results)`); `--all` broadens status only
+and leaves the cap (contradicting §5.3's documented `--all` precedent of
+"bypass the default filter"); `-n 0` is the only uncapped path and is
+undocumented in help; the deprecated `carryover` is the only
+discoverable uncapped active view; the `list` docstring falsely claims
+"all active tasks" (§6.5 violation); no non-deprecated command answers
+"show me all my open tasks." Scope: correct `list` semantics (`--all`,
+cap behavior, truncation-honest headers), fix the docstring, resolve
+`carryover`'s disposition, and fix Step 3c's attempt-set call. Explicitly
+OUT of scope per Ray (20260725): bulk complete/dismiss (bulk is a
+one-time special situation — Item 70) and a dismissal-reason column.
+Spec-time decisions: exact `--all`/default-limit semantics; carryover
+retire-vs-repurpose; whether CLI `complete` gains optional forwarding-
+note parity with EOD `[c]` (lean: no).
 
 **Why Deferred:**
-Interacts with the Step 3c latency work (Items 65/66) and the existing
-Item 48 redesign — belongs with that work unless it becomes operationally
-urgent sooner.
+Sprint Gate 1 — must precede Gate 2 (Item 70's stale-dismissal review
+needs a truthful task listing to review against).
 
 **Acceptance Criteria:** Defined at spec time; must include a visible
-indication whenever the attempt set is smaller than the active population.
-**Files Affected:** `workmain/workflows/eod_workflow.py`,
-`workmain/database/repositories/task_status_repo.py`
+indication whenever a listing is smaller than the matching population,
+and §6.5-accurate help text for every command in the group.
+**Files Affected:** `workmain/cli/commands/tasks.py`,
+`workmain/database/repositories/task_status_repo.py`,
+`workmain/workflows/eod_workflow.py`
 
 ---
 
@@ -2998,3 +3040,96 @@ Root cause unexplained; needs reproduction before any fix can be scoped.
 commands render identical tags for the same note; regression test.
 **Files Affected:** `workmain/cli/commands/notes.py` (suspected; TBD at
 diagnosis)
+
+---
+
+#### Item 69 — Note Write-Path Convergence — Service-Layer Unification + Canonical CF Hook
+
+**Status:** Open — next in execution order (standalone feature branch)
+**Priority:** High
+**Effort:** ~8–12 hrs (refine after Section K recon)
+**Added:** 20260725
+**Target Phase:** Standalone feature (v1.27.0), precedes
+Task_Match_Data_Integrity Sprint
+
+**Description:**
+Gate 0 recon (sprint recon §H) census: twelve live note-write surfaces;
+ten bypass the service layer (direct `NotesRepository.create()` calls);
+`notes_service` and `time_entry_service` are siblings that both bottom
+out at the repo, so the service layer is not currently a convergence
+point (would cover 2 of 12). Five surfaces admit a `carry-forward` tag
+(`notes add`, `notes log`, `time add` ×3, Slack note); only `notes add`
+fires the CF→TaskStatus hook — the hook has fired exactly ONCE in live
+history (2026-06-24, via a manual `notes edit` re-tag); the 147 Feb–May
+task rows are migration-015 backfill (sprint recon §I2, correcting #66
+recon §F). Ray's DQ1 ruling (20260725): Option B — converge ALL
+note-write surfaces onto the service layer (the architecturally correct
+seam), then place the CF→TaskStatus creation hook and tag-transition
+authority (`ensure_active` / `set_dismissed_by_tag_removal`) in the
+converged service path, removing the CLI-layer duplicates in `notes.py`.
+Document as a CLAUDE.md contract. Forward-compatible by construction:
+Item 45 (Slack time-entry tags) and Item 63 (create_meeting_notes)
+inherit correct task creation with zero additional wiring. The eight
+direct-repo bypass call sites to converge are enumerated verbatim at
+sprint recon §H4; tag-transition surface inventory at §H5.
+
+**Why Deferred:**
+Not deferred — next in execution order. Requires Section K recon first
+(both services' full current signatures + the parameter surface each of
+the twelve call sites passes: created_at overrides, client_id,
+meeting_id, source values, tag defaults) so the converged service API is
+designed against the complete contract.
+
+**Acceptance Criteria:** Defined at spec time; must include: no direct
+`NotesRepository.create()` callers remain outside the service layer; a
+CF-tagged note created on ANY CF-capable surface produces an active
+TaskStatus row; CF tag transitions are handled on every tag-mutating
+surface; CLAUDE.md contract added; live verification via each of Ray's
+real capture surfaces (`notes log -m`, `time add`, Slack).
+**Files Affected:** `workmain/services/notes_service.py`,
+`workmain/services/time_entry_service.py`,
+`workmain/cli/commands/notes.py`, `workmain/cli/commands/time.py`,
+`workmain/cli/commands/meetings.py`,
+`workmain/integrations/clockify/sync.py`,
+`workmain/orchestration/action_executor.py`,
+`workmain/database/repositories/notes_repo.py` (callers only)
+
+---
+
+#### Item 70 — Task Pool Data Repair — Orphan Backfill + Stale Dismissal
+
+**Status:** Open — Task_Match_Data_Integrity Sprint Gate 2
+**Priority:** High
+**Effort:** ~2–3 hrs
+**Added:** 20260725
+**Target Phase:** Task_Match_Data_Integrity Sprint Gate 2 (v1.28.0)
+
+**Description:**
+One-time gated data repair, two operations (sprint recon §I): (1)
+backfill the 30 orphaned CF-tagged notes (task 16 / meeting 14 / ad-hoc
+0; May 3, Jun 11, Jul 16 — growing) using migration 015's exact
+idempotent `INSERT … SELECT … ON CONFLICT (note_id) DO NOTHING` logic
+as a data-only migration, run AFTER Item 69 lands so it is a one-time
+catch-up, not a recurring band-aid — with an explicit spec note on the
+`created_at = notes.created_at` copy so the timeline signal stays
+interpretable; (2) one-time reviewed dismissal of the 142 stale
+backfill-era active tasks (note dates Feb–May, per §I4), executed as a
+gated operation with a preview of affected rows and Ray's explicit
+approval — NOT as a CLI bulk capability (Ray, 20260725: bulk is a
+one-time special situation; no reason column needed). Exit state: the
+active pool contains only genuinely live carry-forwards, and Step 3c/3d
+operate on real data for the first time.
+
+**Why Deferred:**
+Sprint Gate 2 — sequenced after Item 69 (backfill into a pipeline that
+still orphans is pointless) and after Gate 1/Item 67 (the dismissal
+review needs a truthful task listing).
+
+**Acceptance Criteria:** Defined at spec time; must include: orphan
+count = 0 post-backfill (all-dates query); active pool contains no
+pre-2026-06 backfill rows Ray did not explicitly retain; DB migration
+human-approval gate observed; post-repair `workmain eod` Step 3c/3d run
+against the live pool.
+**Files Affected:** `workmain/database/migrations/` (new NNN data-only
+migration), one-time dismissal operation (mechanism decided at spec —
+migration vs. reviewed script)
