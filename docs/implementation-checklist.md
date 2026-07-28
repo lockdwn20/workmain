@@ -1,8 +1,11 @@
 WorkmAIn
-Implementation Checklist v3.10
+Implementation Checklist v3.11
 20260728
 
 Version History:
+- v3.11 (20260728): Item 69 and Task_Match_Data_Integrity Sprint inserted
+  into the pre-Phase-14 chain per TM6, correcting the original 20260629
+  ordering.
 - v3.10 (20260728): Item 69 (Note Write-Path Convergence) shipped —
   v1.27.0, 7 gates, 882→921 tests, live-verified 20260728. Not part of
   any sprint's own gate scope (own feature branch, own spec), so this is
@@ -133,22 +136,30 @@ Version History:
 ## PROJECT TIMELINE OVERVIEW
 
 **v1.23.0 delivered:** Phases 1–13 complete (CLI + Bidirectional Slack via Socket Mode)
-**Remaining:** Three correction sprints → Phase 14 (Setup Wizard) → Phase 15 (Testing &
-Docs) → Phase 18 (Packaging). Phases 16/17 deferred post-packaging.
+**Remaining:** Item 69 (complete, v1.27.0) → Task_Match_Data_Integrity
+Sprint → Slack_LLM_Completion_Sprint → Slack_Modal_Completion_Sprint →
+Phase 14 (Setup Wizard) → Phase 15 (Testing & Docs) → Phase 18
+(Packaging). Phases 16/17 deferred post-packaging.
 
-**Sprint series continuity:** Operations_Config_Correction_Sprint,
-Slack_LLM_Completion_Sprint, and Slack_Modal_Completion_Sprint are three sequential
-sprints in one continuous push toward the Pre-Phase 14 Gate. Each sprint's spec
-document states what preceded it and what the series is collectively driving
-toward. Role 3 (Implementer) should treat each gate as part of this continuous
-forward push — not an isolated unit of work — and carry that context across
-sprint boundaries even though each sprint has its own spec document and its own
-session.
+**Sprint series continuity:** Operations_Config_Correction_Sprint
+(complete, partial delivery), Item 69 (complete), Task_Match_Data_Integrity
+Sprint, Slack_LLM_Completion_Sprint, and Slack_Modal_Completion_Sprint are
+one continuous push toward the Pre-Phase 14 Gate. Task_Match_Data_Integrity
+Sprint was inserted ahead of Slack_LLM_Completion_Sprint per
+`SESSION_HANDOFF_TASK_MATCH_PLANNING_20260725.md` decision TM6, which
+supersedes this document's original (20260629) ordering. Each sprint's
+spec document states what preceded it and what the series is collectively
+driving toward. Role 3 (Implementer) should treat each gate as part of
+this continuous forward push — not an isolated unit of work — and carry
+that context across sprint boundaries even though each sprint has its own
+spec document and its own session.
 
-**Packaging-ready gate:** System must work reliably end-to-end via both CLI and Slack
-before Phase 14 (Setup Wizard) begins. That means: daemon operationally correct, EOD
-closeable from Slack without CLI fallback, weekly report quality acceptable.
-Operations_Config_Correction_Sprint, Slack_LLM_Completion_Sprint, and
+**Packaging-ready gate:** System must work reliably end-to-end both CLI
+and Slack before Phase 14 (Setup Wizard) begins. That means: daemon
+operationally correct, write path converged and CF-hook-covered, task
+pool trustworthy, EOD closeable from Slack without CLI fallback, weekly
+report quality acceptable. Operations_Config_Correction_Sprint, Item 69,
+Task_Match_Data_Integrity Sprint, Slack_LLM_Completion_Sprint, and
 Slack_Modal_Completion_Sprint together satisfy this gate.
 
 **Item #55 (Clockify Bidirectional Reconciliation):** Standalone hotfix — no phase
@@ -820,15 +831,69 @@ holds `eod_workflow.py`, which is unaffected by this path correction).
 
 ---
 
-## SLACK_LLM_COMPLETION_SPRINT (Follows Operations_Config_Correction_Sprint)
+## TASK_MATCH_DATA_INTEGRITY_SPRINT (Follows Item 69, precedes Slack_LLM_Completion_Sprint)
+
+**Goal**: Make the CF→TaskStatus pipeline trustworthy end-to-end — an
+honest `tasks` command block, a repaired task pool (orphan backfill +
+one-time stale-row dismissal), and real match quality (JSON compliance,
+path attribution, confidence handling) — now that Item 69 has converged
+the write path onto a single, hook-covered service layer.
+
+**Sprint series continuity:** Inserted between Item 69 (Note Write-Path
+Convergence, v1.27.0, complete) and Slack_LLM_Completion_Sprint per
+`SESSION_HANDOFF_TASK_MATCH_PLANNING_20260725.md` decision TM6 — this
+sprint now precedes Slack_LLM_Completion_Sprint rather than following it,
+superseding this document's earlier (20260629) sprint ordering.
+
+**Packaging-ready gate contribution:** The task list Ray actually sees
+(`workmain tasks list`) reflects real, current, correctly-matched data —
+not a stale one-time backfill snapshot — before Phase 14 begins.
+
+### Gate 1 — `tasks` Command Block Correction [Item #67]
+
+- [ ] CLI list cap made honest — header reflects actual returned count
+  vs. total, not a silent truncation
+- [ ] `--all` semantics clarified/corrected
+- [ ] Docstring deviation vs. `CLI_STANDARDS.md` fixed
+- [ ] Deprecated `carryover` command disposition decided (retire vs.
+  repurpose)
+- [ ] Step 3c attempt-set cap addressed
+
+### Gate 2 — Task Pool Data Repair [Item #70]
+
+- [ ] 30-orphan backfill (CF notes with no TaskStatus row) via
+  migration-015 logic, one-time gated operation
+- [ ] 142 stale backfill rows reviewed and dismissed, one-time gated
+  operation with explicit approval (not a bulk CLI feature — Ray: "bulk
+  is a one time special situation")
+
+### Gate 3 — Match Quality [Item #66]
+
+- [ ] JSON compliance on raw-mode task-match output
+- [ ] Path-attribution tag (LLM vs. keyword-fallback) surfaced
+- [ ] Confidence-1.00 handling decided (clamp / distrust threshold /
+  display-raw + path tag)
+- [ ] Carries Item #62's AC3/AC8 verification in real flow
+
+**Recon:** `RECON_SPEC_TASK_MATCH_DATA_INTEGRITY_SPRINT_20260725.md`
+§H/I/J, `RECON_SPEC_ITEM66_TASK_MATCH_QUALITY_20260725.md` §E/G (§F
+superseded, see that document's own banner).
+
+---
+
+## SLACK_LLM_COMPLETION_SPRINT (Follows Task_Match_Data_Integrity Sprint)
 
 **Goal**: Complete the Slack interface so EOD is fully closeable from Slack
 without CLI fallback. Enables travel use case — daemon on Proxmox, Ollama on LXC,
 user on phone with Slack only. No WSL, no WireGuard routing required.
 
-**Sprint series continuity:** Second of three sequential sprints (preceded by
-Operations_Config_Correction_Sprint, followed by Slack_Modal_Completion_Sprint)
-driving toward the Pre-Phase 14 Gate.
+**Sprint series continuity:** Third in the sequence (preceded by
+Operations_Config_Correction_Sprint, Item 69, and Task_Match_Data_Integrity
+Sprint; followed by Slack_Modal_Completion_Sprint) driving toward the
+Pre-Phase 14 Gate. Originally specced as second-of-three (20260629);
+reordered behind Task_Match_Data_Integrity Sprint per
+`SESSION_HANDOFF_TASK_MATCH_PLANNING_20260725.md` decision TM6 — the
+sprint's own internal Gates 1–4 and D-decisions are unchanged.
 
 **Packaging-ready gate contribution:** Slack interface usable as the primary
 interface for daily operations and travel.
