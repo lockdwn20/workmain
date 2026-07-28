@@ -1,7 +1,7 @@
 """
 WorkmAIn Time Entry Service
-Time Entry Service v1.0
-20260612
+Time Entry Service v1.1
+20260728
 
 Service layer for time entry creation. Shared by the CLI (time add non-meeting
 path) and action_executor (create_time_entry). Handles client_id resolution,
@@ -10,6 +10,10 @@ note-first pattern (v1.20.0).
 
 Version History:
 - v1.0: Initial implementation
+- v1.1: Item 69 Gate 3 — create_time_entry() now applies the CF->TaskStatus
+        hook (apply_cf_hook_on_create, imported from notes_service) after the
+        linked note is created, so a carry-forward-tagged time entry gets an
+        active task the same way every other create-path surface does
 """
 
 from datetime import date, datetime, time as time_type
@@ -19,6 +23,7 @@ from workmain.database.models import TimeEntry
 from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
+from workmain.services.notes_service import apply_cf_hook_on_create
 from workmain.utils.tag_utils import get_tag_system
 from workmain.services.exceptions import InvalidTagsError, MissingStartTimeError
 
@@ -88,6 +93,7 @@ def create_time_entry(
         client_id=active_client_id,
         created_at=note_created_at,
     )
+    apply_cf_hook_on_create(session, note)
 
     return TimeEntriesRepository(session).create(
         note_id=note.id,

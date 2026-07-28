@@ -1,7 +1,7 @@
 """
 WorkmAIn Action Executor Tests
-test_action_executor v1.2
-20260624
+test_action_executor v1.3
+20260728
 
 Tests for workmain/orchestration/action_executor.py and
 workmain/orchestration/confirmation_gate.py.
@@ -16,6 +16,8 @@ Version History:
 - v1.2: Gate 3 — confirm_report and correct_report fix tests: idempotency guard,
         updated_at stamp, corrected_content isolation, status transition table,
         empty correction guard, and no-report-today cases
+- v1.3: Item 69 Gate 3 (#11) — CF-tagged create_time_entry action creates an
+        active task via the relocated hook; verification only, no source change
 """
 
 import unittest
@@ -352,6 +354,33 @@ class TestActionExecutorCreateTimeEntry:
         entry = TimeEntriesRepository(db_session).get_by_id(result.entity_id)
         assert entry.client_id == client.id
         assert entry.note.client_id == client.id
+
+    def test_create_time_entry_slack_cf_note_creates_task(self, db_session):
+        """Item 69 Gate 3 (#11): _execute_create_time_entry already reads
+        action.get("tags") and forwards it to time_entry_service.create_time_entry()
+        (action_executor.py:122-130) — that plumbing predates this gate. Only the
+        LLM-facing schema (config/intent_parse_system_prompt.txt) omits a tags
+        field for create_time_entry today, so no live Slack/Ollama turn produces
+        this action dict yet. This exercises the code-level path directly to
+        confirm a carry-forward tag on a Slack-originated time entry now creates
+        an active task via the relocated CF hook (Design Rule 2/3), not a
+        documented gap — the dict-level plumbing genuinely supports it."""
+        from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+        from workmain.database.repositories.task_status_repo import TaskStatusRepository
+
+        executor = ActionExecutor(db_session)
+        result = executor.execute({
+            "action": "create_time_entry",
+            "description": "Follow up with vendor on contract terms",
+            "duration_minutes": 30,
+            "start_time": "10:00",
+            "tags": ["carry-forward"],
+        })
+        assert result.success is True
+        entry = TimeEntriesRepository(db_session).get_by_id(result.entity_id)
+        ts = TaskStatusRepository(db_session).get_by_note_id(entry.note_id)
+        assert ts is not None
+        assert ts.status == "active"
 
 
 @pytest.mark.usefixtures("db_session")

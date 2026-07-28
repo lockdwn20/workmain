@@ -1,7 +1,7 @@
 """
 WorkmAIn Time Entry Service Tests
-test_time_entry_service v1.0
-20260612
+test_time_entry_service v1.1
+20260728
 
 Tests for workmain/services/time_entry_service.py.
 
@@ -10,6 +10,7 @@ Sentinel date 2099-01-01 is used for backdating assertions.
 
 Version History:
 - v1.0: Intent action service layer Gate 5
+- v1.1: Item 69 Gate 3 — CF hook coverage for create_time_entry()
 """
 
 import pytest
@@ -18,6 +19,7 @@ from datetime import date, time
 from workmain.database.models import Client
 from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
+from workmain.database.repositories.task_status_repo import TaskStatusRepository
 from workmain.services import time_entry_service
 from workmain.services.exceptions import InvalidTagsError, MissingStartTimeError
 
@@ -201,3 +203,27 @@ class TestTimeEntryServiceCreateTimeEntry:
             entry_time=_DEFAULT_TIME,
         )
         assert entry.note.source == "task"
+
+    def test_create_time_entry_fires_cf_hook(self, db_session):
+        """Item 69 Gate 3: create_time_entry() applies apply_cf_hook_on_create,
+        the same relocated hook every other create-path surface uses."""
+        entry = time_entry_service.create_time_entry(
+            db_session,
+            description="Follow up on vendor contract",
+            duration_hours=0.5,
+            entry_time=_DEFAULT_TIME,
+            tags=["carry-forward"],
+        )
+        ts = TaskStatusRepository(db_session).get_by_note_id(entry.note.id)
+        assert ts is not None
+        assert ts.status == "active"
+
+    def test_create_time_entry_no_hook_without_carry_forward(self, db_session):
+        entry = time_entry_service.create_time_entry(
+            db_session,
+            description="No CF tag here",
+            duration_hours=0.5,
+            entry_time=_DEFAULT_TIME,
+        )
+        ts = TaskStatusRepository(db_session).get_by_note_id(entry.note.id)
+        assert ts is None
