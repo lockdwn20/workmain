@@ -1,6 +1,6 @@
 """
 WorkmAIn Notes CLI Commands
-Notes Commands v4.5
+Notes Commands v4.6
 20260728
 
 Unified notes command group. Consolidates note (write) and notes (read) groups
@@ -66,6 +66,12 @@ Version History:
         hard-coded tags=['both'] replaced with a real interactive tag prompt
         (Design Rule 11); unused notes_repo/active_client_id locals removed from
         notes_add
+- v4.6: Item 69 Gate 5 — notes log's condensation flow (#4) converges its direct
+        notes_repo.create()/time_repo.create() writes onto notes_service.create_note()
+        + time_entry_service.create_paired_time_entry(); hard-coded tags=['both']
+        replaced with note_condenser's computed resolved_tags (Design Rule 8); unused
+        notes_repo/active_client_id locals removed from notes_log; SystemStateRepository
+        import removed (no longer used anywhere in this file)
 """
 
 import click
@@ -82,7 +88,6 @@ from rich import box
 from workmain.database.connection import get_db
 from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.meetings_repo import MeetingsRepository
-from workmain.database.repositories.system_state_repository import SystemStateRepository
 from workmain.database.repositories.ai_costs_repo import get_ai_cost_repository
 from workmain.utils.tag_utils import parse_tags, get_tag_system
 from workmain.services import notes_service, time_entry_service
@@ -580,9 +585,7 @@ def notes_log(meeting: str):
     """
     db = get_db()
     session = db.get_session()
-    notes_repo = NotesRepository(session)
     meetings_repo = MeetingsRepository(session)
-    active_client_id = SystemStateRepository(session).get_int('active_client_id')
 
     try:
         # Resolve meeting by ID or fuzzy title match (Item 26 Direction B fix)
@@ -730,16 +733,16 @@ def notes_log(meeting: str):
                 _provider_display = _rc.primary_provider.value.capitalize() if _rc else 'AI'
                 click.echo(f"\nSending to {_provider_display}...")
                 condenser = get_note_condenser(session)
-                summary = condenser.condense_meeting(meeting_obj)
+                summary, resolved_tags = condenser.condense_meeting(meeting_obj)
                 click.echo(f"✓ Condensed: \"{summary}\"")
 
                 # Create note from condensed summary
-                condensed_note = notes_repo.create(
+                condensed_note = notes_service.create_note(
+                    session,
                     content=summary,
-                    tags=['both'],
+                    tags=resolved_tags,
                     meeting_id=meeting_obj.id,
                     source='condensed',
-                    client_id=active_client_id,
                 )
                 click.echo(f"✓ Note created (ID: {condensed_note.id})")
 
@@ -759,14 +762,13 @@ def notes_log(meeting: str):
                         meeting_obj.end_time - meeting_obj.start_time
                     ).total_seconds() / 3600
 
-                    entry = time_repo.create(
-                        note_id=condensed_note.id,
+                    entry = time_entry_service.create_paired_time_entry(
+                        session,
+                        condensed_note,
                         duration_hours=duration_hours,
                         entry_date=meeting_obj.start_time.date(),
                         entry_time=meeting_obj.start_time.time(),
                         category='meeting',
-                        meeting_id=meeting_obj.id,
-                        client_id=active_client_id,
                     )
                     click.echo(f"✓ Time entry created (ID: {entry.id}, {duration_hours:.2f}h)")
 

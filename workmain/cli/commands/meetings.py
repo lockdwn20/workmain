@@ -1,6 +1,6 @@
 """
 WorkmAIn Meeting CLI Commands
-Meeting Commands v4.6
+Meeting Commands v4.7
 20260728
 
 CLI commands for meeting management.
@@ -64,6 +64,12 @@ Version History:
         notes_service.create_note() + time_entry_service.create_paired_time_entry();
         hard-coded tags=['both'] replaced with a real interactive tag prompt (Design
         Rule 11); fixes the client_id-NULL omission on both the Note and TimeEntry (K3)
+- v4.7: Item 69 Gate 5 — meetings condense (#9) converges its direct
+        notes_repo.create()/time_repo.create() writes onto notes_service.create_note()
+        + time_entry_service.create_paired_time_entry(); hard-coded tags=['both']
+        replaced with note_condenser's computed resolved_tags (Design Rule 8); fixes
+        the client_id-NULL omission on the Note as a side effect of routing through
+        create_note()
 """
 
 import click
@@ -929,7 +935,7 @@ def meetings_condense(meeting_title: str):
         condenser = get_note_condenser(session)
 
         try:
-            summary = condenser.condense_meeting(meeting)
+            summary, resolved_tags = condenser.condense_meeting(meeting)
 
             # Get cost from last condensation.
             # end_report() clears _current_report, so read from _last_completed.
@@ -948,13 +954,13 @@ def meetings_condense(meeting_title: str):
             console.print(f"[dim]Cost: ${total_cost:.6f} ({total_tokens} tokens)[/dim]")
 
             # Create a note from the condensed summary
-            from workmain.database.repositories.notes_repo import NotesRepository
-            notes_repo = NotesRepository(session)
-            condensed_note = notes_repo.create(
+            from workmain.services import notes_service, time_entry_service
+            condensed_note = notes_service.create_note(
+                session,
                 content=summary,
-                tags=['both'],
+                tags=resolved_tags,
                 meeting_id=meeting.id,
-                source='condensed'
+                source='condensed',
             )
             console.print(f"[green]✓ Note created (ID: {condensed_note.id})[/green]")
 
@@ -978,13 +984,13 @@ def meetings_condense(meeting_title: str):
                     meeting.end_time - meeting.start_time
                 ).total_seconds() / 3600
 
-                entry = time_repo.create(
-                    note_id=condensed_note.id,
+                entry = time_entry_service.create_paired_time_entry(
+                    session,
+                    condensed_note,
                     duration_hours=duration_hours,
                     entry_date=meeting.start_time.date(),
                     entry_time=meeting.start_time.time(),
                     category='meeting',
-                    meeting_id=meeting.id,
                 )
                 console.print(f"[green]✓ Time entry created (ID: {entry.id}, {duration_hours:.2f}h)[/green]")
 
