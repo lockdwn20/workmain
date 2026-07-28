@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v5.40
-20260725
+Feature Backlog v5.41
+20260728
 
 # WorkmAIn Feature Backlog
 
@@ -219,6 +219,27 @@ Items deferred from various phases for future implementation.
   (was ~8–12 hrs, pre-Section-K). No register/statistics count changes —
   item count, status, and priority unchanged; only Item 69's own block
   and the effort total are revised.
+- v5.41 (20260728): Item 69 (Note Write-Path Convergence) shipped —
+  v1.27.0, 7 gates (pure-note family + CF hook relocation; tag-transition
+  convergence; task-shaped hook wiring; meeting-shaped family +
+  `create_paired_time_entry()`; condensed-summary tag fix; Clockify
+  family; CLAUDE.md contract + close-out audit), 882→921 tests (39 new),
+  0 regressions, live-verified 20260728 (CF hook via `notes log -m`/`time
+  add`/Slack; real tags on #2/#8/#12; #7 source fix; #4/#9 condensed tag
+  reflects actual source composition; Clockify `client_id` stamped). All
+  twelve H3 note-write surfaces now converge on
+  `notes_service.create_note()`/`time_entry_service.create_time_entry()`/
+  `time_entry_service.create_paired_time_entry()`, confirmed via a
+  two-part close-out grep — zero direct `NotesRepository.create()`/
+  `TimeEntriesRepository.create()` callers remain outside the service
+  layer. PR #26, tag v1.27.0. Register and statistics updated (Complete
+  30→31, Open 32→31). Also reconciled "Total Deferred Effort (open
+  items)" against the register's own current numbers, at Ray's explicit
+  request after flagging it as out-of-scope was correctly pushed back on:
+  ~134–161 hours → ~64–77 hours — the prior figure had drifted from the
+  register independent of Item 69 and did not reconcile even before this
+  item's completion; see the Summary Statistics section for the excluded
+  (TBD/Unknown/varies) items and full method.
 
 ---
 
@@ -333,7 +354,7 @@ Build first, refactor later. See the complete picture before abstracting.
 | 66 | Raw-Mode Task-Match Output Quality | High | Task_Match Sprint G3 | TBD | |
 | 67 | tasks Command Block Correction (incl. Step 3c limit cap) | High | Task_Match Sprint G1 | ~3–5 hrs | |
 | 68 | notes show Tag Display Anomaly | Low | Unscheduled | Unknown | |
-| 69 | Note Write-Path Convergence — Service-Layer Unification + Canonical CF Hook | High | Standalone feature (next) | ~8–12 hrs | |
+| 69 | Note Write-Path Convergence — Service-Layer Unification + Canonical CF Hook | High | Standalone feature (v1.27.0) | ~14–20 hrs | ✓ |
 | 70 | Task Pool Data Repair — Orphan Backfill + Stale Dismissal | High | Task_Match Sprint G2 | ~2–3 hrs | |
 
 ---
@@ -341,18 +362,18 @@ Build first, refactor later. See the complete picture before abstracting.
 ## Summary Statistics
 
 **Total Items:** 70 (Items 22, 43, and 46 are redirects — no separate deferred work; see Items 20, 63, and 61 respectively)
-**Complete:** 30 (Items 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 50, 51, 52, 53, 56, 58, 60, 61, 62)
+**Complete:** 31 (Items 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 50, 51, 52, 53, 56, 58, 60, 61, 62, 69)
 **Partial:** 1 (Item 48 — see item detail for unmet ACs)
 **Closed/Stale:** 4 (Items 14, 15 — premises resolved, suite green; Item 23 — resolved by architecture; Item 31 — won't implement)
-**Open:** 32
+**Open:** 31
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Open (targeted) | 29 | 1, 2, 3, 4, 7, 8, 12, 16, 19, 28, 29, 30, 37, 42, 44, 45, 47, 54, 55, 57, 59, 63, 64, 65, 66, 67, 68, 69, 70 |
+| Open (targeted) | 28 | 1, 2, 3, 4, 7, 8, 12, 16, 19, 28, 29, 30, 37, 42, 44, 45, 47, 54, 55, 57, 59, 63, 64, 65, 66, 67, 68, 70 |
 | Partial | 1 | 48 |
 | Conditional | 1 | 9 |
 | Indefinitely | 2 | 5, 6 |
-| Complete | 30 | 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 50, 51, 52, 53, 56, 58, 60, 61, 62 |
+| Complete | 31 | 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 50, 51, 52, 53, 56, 58, 60, 61, 62, 69 |
 | Closed/Stale | 4 | 14, 15, 23, 31 |
 | Redirect | 3 | 22 → Item 20, 43 → Item 63, 46 → Item 61 |
 
@@ -378,16 +399,22 @@ Build first, refactor later. See the complete picture before abstracting.
 | Hotfix | 62 |
 | Slack_LLM Sprint G2 | 63 |
 | Post-sprint | 64 |
-| Standalone feature (next) | 69 |
+| Standalone feature (v1.27.0) | 69 |
 | Task_Match Sprint G1 | 67 |
 | Task_Match Sprint G2 | 70 |
 | Task_Match Sprint G3 | 66 |
 | Conditional | 9 |
 | Indefinitely | 5, 6 |
 
-**Total Deferred Effort (open items):** ~134–161 hours (Item 54 TBD — effort
-grows as warnings are catalogued; Items 63, 64, 65, 66, 68 also TBD/Unknown
-— not yet reflected in this range)
+**Total Deferred Effort (open items):** ~64–77 hours — reconciled 20260728
+against the register's own current numbers (sum of every Open/Partial/
+Conditional/Indefinitely item's stated effort range: Items 1–9, 12, 16, 19,
+29, 30, 42, 44–48, 55, 57, 59, 67, 70). Corrects the prior ~134–161 figure,
+which had drifted from the register and did not reconcile even before
+Item 69's completion. Excluded from the sum (no clean one-time numeric
+estimate): Item 28 (varies), Item 37 (recurring per-rebuild cost, not a
+one-time total), Item 54 (TBD — grows as warnings are catalogued), Items
+63, 64, 65, 66 (TBD), Item 68 (Unknown).
 
 ---
 
@@ -3068,7 +3095,7 @@ diagnosis)
 
 #### Item 69 — Note Write-Path Convergence — Service-Layer Unification + Canonical CF Hook
 
-**Status:** Open — next in execution order (standalone feature branch)
+**Status:** ✓ Complete (v1.27.0, 2026-07-28)
 **Priority:** High
 **Effort:** ~14–20 hrs (revised 20260727, post-Section-K; was ~8–12 hrs)
 **Added:** 20260725 (scope/shape locked 20260727)
@@ -3131,10 +3158,31 @@ created_at-backdate/clockify-fields gaps the converged API must add) is
 in Section K of the sprint recon.
 
 **Why Deferred:**
-Not deferred — next in execution order, ready for spec. Section K recon
-complete (20260727); scope, shape, and Clockify disposition all locked
-by Ray the same session (see SESSION_HANDOFF_ITEM69_SCOPE_LOCK_20260727.md,
-decisions WPC3–WPC6).
+Not deferred — implemented as a standalone feature immediately after
+scope/shape lock. Section K recon complete (20260727); scope, shape, and
+Clockify disposition all locked by Ray the same session (see
+SESSION_HANDOFF_ITEM69_SCOPE_LOCK_20260727.md, decisions WPC3–WPC6).
+
+**Resolution (20260728):** Spec `FEATURE_ITEM69_WRITE_PATH_CONVERGENCE_SPEC_v1_2.md`
+(two Opus review rounds, approved by Ray) implemented across 7 gates on
+`feature/write-path-convergence` from `dev`: G1 pure-note family + CF hook
+relocation (create path); G2 tag-transition convergence (update path) —
+`notes edit` converged onto a single `notes_service.update_note()` call;
+G3 task-shaped hook wiring (#6/#11 — already routed through the service,
+inherited the hook with zero source change); G4 meeting-shaped family
+(#2/#5/#8) + new `time_entry_service.create_paired_time_entry()`, fixing
+the `client_id`-NULL omission on #5/#8; G5 condensed-summary tag fix
+(#4/#9) via new `note_condenser._compute_condensed_tags()` — mixed
+internal+client-facing sources conservatively collapse to
+`['internal-only']`, all-info-only sources resolve to `['info-only']`; G6
+Clockify family (#12) — interactive per-entry tag prompt, `client_id`
+auto-stamped, closing the last of five NULL-`client_id` surfaces; G7
+CLAUDE.md contract ("Note Write-Path Convergence — Source of Truth"), a
+two-part close-out audit (confirmed zero direct `NotesRepository.create()`/
+`TimeEntriesRepository.create()` callers remain outside the service layer),
+and the version bump. 39 new tests (882→921), 0 regressions. All
+live-verification items confirmed by Ray same day. PR #26, tag v1.27.0,
+daemon restarted and `ActiveEnterTimestamp` confirmed postdating the merge.
 
 **Acceptance Criteria:** Defined at spec time; must include: no direct
 `NotesRepository.create()` callers remain outside the service layer,
@@ -3152,15 +3200,15 @@ are handled on every tag-mutating surface; CLAUDE.md contract added;
 live verification via each of Ray's real capture surfaces (`notes log
 -m`, `time add`, Slack), plus explicit verification that each
 previously-hard-coded surface now carries a content-accurate tag.
-**Files Affected:** `workmain/services/notes_service.py`,
-`workmain/services/time_entry_service.py` (plus any new converged
-function modules under `workmain/services/`, exact structure decided at
-spec time per the small-family shape), `workmain/cli/commands/notes.py`,
-`workmain/cli/commands/time.py`, `workmain/cli/commands/meetings.py`,
-`workmain/integrations/clockify/sync.py`,
-`workmain/orchestration/action_executor.py`,
-`workmain/database/repositories/notes_repo.py` (callers only),
-`workmain/ai/note_condenser.py` (the `#4`/`#9` output-tag fix)
+**Files Affected:** `workmain/services/notes_service.py` (v1.0→v1.2),
+`workmain/services/time_entry_service.py` (v1.0→v1.2),
+`workmain/cli/commands/notes.py` (v4.2→v4.6),
+`workmain/cli/commands/time.py` (v1.7→v1.9),
+`workmain/cli/commands/meetings.py` (v4.5→v4.7),
+`workmain/integrations/clockify/sync.py` (v1.4→v1.5),
+`workmain/ai/note_condenser.py` (v2.1→v2.2), `CLAUDE.md`,
+`workmain/__version__.py`, `CHANGELOG.md`, 8 test files (7 new + 1
+extended)
 
 ---
 
