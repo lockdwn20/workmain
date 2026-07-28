@@ -1,6 +1,6 @@
 """
 WorkmAIn Notes Service
-Notes Service v1.1
+Notes Service v1.2
 20260728
 
 Service layer for note creation. Shared by the CLI (notes add) and
@@ -14,6 +14,10 @@ Version History:
         TaskStatus hook relocated verbatim from notes.py (Phase 12 Gate 3),
         now the single source of truth for both the create and tag-transition
         paths (Design Rules 2/3)
+- v1.2: Item 69 Gate 2 — add update_note(), a general single-call note update
+        (content/tags/meeting_id/project_id) that applies the CF-transition
+        hook when tags change; converges notes edit onto this instead of a
+        direct NotesRepository.update() call plus a CLI-layer duplicate hook
 """
 
 from datetime import datetime
@@ -103,3 +107,56 @@ def create_note(
     )
     apply_cf_hook_on_create(session, note)
     return note
+
+
+def update_note(
+    session,
+    note_id: int,
+    content: Optional[str] = None,
+    tags: Optional[List[str]] = None,
+    meeting_id: Optional[int] = None,
+    project_id: Optional[int] = None,
+) -> Note:
+    """General note update; applies the CF-transition hook when tags change.
+
+    Single repo call — relies on NotesRepository.update()'s existing
+    None-means-unchanged partial-update semantics. Do not split this into
+    per-field update calls (Design Rule, Item 69 Gate 2).
+
+    Args:
+        session: SQLAlchemy session (caller manages lifecycle).
+        note_id: Note to update.
+        content: New content, or None to leave unchanged.
+        tags: New full-name tags, or None to leave unchanged. Invalid values
+              raise InvalidTagsError.
+        meeting_id: New meeting ID, or None to leave unchanged.
+        project_id: New project ID, or None to leave unchanged.
+
+    Returns:
+        The updated Note ORM object.
+
+    Raises:
+        InvalidTagsError: If any tag is outside the configured vocabulary.
+    """
+    existing = NotesRepository(session).get_by_id(note_id)
+    old_tags = list(existing.tags or [])
+
+    if tags is not None:
+        tag_system = get_tag_system()
+        _, invalid = tag_system.validate_full_names(tags)
+        if invalid:
+            valid_vocab = tag_system.get_valid_full_names()
+            raise InvalidTagsError(invalid_tags=invalid, valid_tags=valid_vocab)
+
+    updated_note = NotesRepository(session).update(
+        note_id=note_id,
+        content=content,
+        tags=tags,
+        meeting_id=meeting_id,
+        project_id=project_id,
+    )
+
+    if tags is not None:
+        apply_cf_hook_on_tag_update(session, note_id, old_tags, tags)
+
+    return updated_note

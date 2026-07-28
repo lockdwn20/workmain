@@ -1,6 +1,6 @@
 """
 WorkmAIn Notes CLI Commands
-Notes Commands v4.3
+Notes Commands v4.4
 20260728
 
 Unified notes command group. Consolidates note (write) and notes (read) groups
@@ -57,6 +57,9 @@ Version History:
         notes_service.create_note() itself); notes log per-line create (#3) now routes
         through notes_service.create_note() instead of a direct NotesRepository.create()
         call
+- v4.4: Item 69 Gate 2 — notes edit converges its single notes_repo.update() call plus
+        CLI-layer CF-transition hook block onto one notes_service.update_note() call;
+        TaskStatusRepository import removed (no longer used directly in this file)
 """
 
 import click
@@ -74,7 +77,6 @@ from workmain.database.connection import get_db
 from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.meetings_repo import MeetingsRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
-from workmain.database.repositories.task_status_repo import TaskStatusRepository
 from workmain.database.repositories.ai_costs_repo import get_ai_cost_repository
 from workmain.utils.tag_utils import parse_tags, get_tag_system
 from workmain.services import notes_service
@@ -451,7 +453,6 @@ def notes_edit(identifier: str, content: Optional[str], tags: Optional[str],
         if not note:
             return
         note_id = note.id
-        old_tags = list(note.tags or [])
 
         # Check age and warn
         age_info = notes_repo.get_note_age_warning(note_id)
@@ -485,8 +486,9 @@ def notes_edit(identifier: str, content: Optional[str], tags: Optional[str],
                 click.echo("Cancelled.")
                 return
 
-        updated = notes_repo.update(
-            note_id=note_id,
+        updated = notes_service.update_note(
+            session,
+            note_id,
             content=content,
             tags=new_tags,
             meeting_id=meeting_id if meeting else None,
@@ -497,14 +499,6 @@ def notes_edit(identifier: str, content: Optional[str], tags: Optional[str],
             click.echo(f"✓ Note {note_id} updated")
             if new_tags:
                 click.echo(f"  Tags: {updated.display_tags}")
-            if new_tags is not None:
-                task_repo = TaskStatusRepository(session)
-                if 'carry-forward' in new_tags and 'carry-forward' not in old_tags:
-                    task_repo.ensure_active(note_id)
-                    session.commit()
-                elif 'carry-forward' not in new_tags and 'carry-forward' in old_tags:
-                    task_repo.set_dismissed_by_tag_removal(note_id)
-                    session.commit()
         else:
             click.echo(f"✗ Update failed")
 
