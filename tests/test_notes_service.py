@@ -1,7 +1,7 @@
 """
 WorkmAIn Notes Service Tests
-test_notes_service v1.0
-20260612
+test_notes_service v1.1
+20260728
 
 Tests for workmain/services/notes_service.py.
 
@@ -9,13 +9,16 @@ All DB tests use the db_session fixture (transaction rolled back after each test
 
 Version History:
 - v1.0: Intent action service layer Gate 5
+- v1.1: Item 69 Gate 1 — add TestCreateNoteCfHook (CF->TaskStatus hook now fires
+        from create_note() itself) and TestCreateNoteBackdate (created_at param)
 """
 
 import pytest
-from datetime import date
+from datetime import date, datetime
 
 from workmain.database.models import Client
 from workmain.database.repositories.system_state_repository import SystemStateRepository
+from workmain.database.repositories.task_status_repo import TaskStatusRepository
 from workmain.services import notes_service
 from workmain.services.exceptions import InvalidTagsError
 
@@ -124,3 +127,41 @@ class TestNotesServiceCreateNote:
             project_id=None,
         )
         assert note.project_id is None
+
+
+class TestCreateNoteCfHook:
+    """Item 69 Gate 1 — CF->TaskStatus hook relocated into create_note() itself
+    (apply_cf_hook_on_create), replacing the CLI-layer duplicate in notes.py."""
+
+    def test_create_note_fires_cf_hook_when_carry_forward_tagged(self, db_session):
+        note = notes_service.create_note(
+            db_session,
+            content="Sentinel CF hook note 2099",
+            tags=["carry-forward"],
+        )
+        ts = TaskStatusRepository(db_session).get_by_note_id(note.id)
+        assert ts is not None
+        assert ts.status == "active"
+
+    def test_create_note_no_hook_without_carry_forward(self, db_session):
+        note = notes_service.create_note(
+            db_session,
+            content="Sentinel non-CF note 2099",
+            tags=["internal-only"],
+        )
+        ts = TaskStatusRepository(db_session).get_by_note_id(note.id)
+        assert ts is None
+
+
+class TestCreateNoteBackdate:
+    """Item 69 Gate 1 — created_at backdate param, forwarded to
+    NotesRepository.create() (already supported at the repo layer)."""
+
+    def test_create_note_backdates_created_at(self, db_session):
+        backdated = datetime(2026, 7, 1, 9, 0)
+        note = notes_service.create_note(
+            db_session,
+            content="Sentinel backdated note 2099",
+            created_at=backdated,
+        )
+        assert note.created_at == backdated

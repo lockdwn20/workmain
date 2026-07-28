@@ -1,7 +1,7 @@
 """
 WorkmAIn Notes CLI Commands
-Notes Commands v4.2
-20260612
+Notes Commands v4.3
+20260728
 
 Unified notes command group. Consolidates note (write) and notes (read) groups
 from note.py into a single group with all subcommands.
@@ -53,6 +53,10 @@ Version History:
         notes log (condensation flow); fix entry.description=summary → entry.note_id
 - v4.2: Intent action service layer — notes add delegates to notes_service.create_note()
         for client_id stamping and tag validation; meeting path unchanged
+- v4.3: Item 69 Gate 1 — notes add's CLI-layer CF hook block removed (now fires from
+        notes_service.create_note() itself); notes log per-line create (#3) now routes
+        through notes_service.create_note() instead of a direct NotesRepository.create()
+        call
 """
 
 import click
@@ -371,10 +375,6 @@ def notes_add(text: Optional[str], tags: Optional[str], meeting: Optional[str],
             meeting_id=meeting_id,
             project_id=project,
         )
-
-        if 'carry-forward' in (note.tags or []):
-            TaskStatusRepository(session).ensure_active(note.id)
-            session.commit()
 
         # Success message
         click.echo(f"✓ Note added (ID: {note.id})")
@@ -698,12 +698,12 @@ def notes_log(meeting: str):
                     click.echo(f"      Ignored: {', '.join(invalid)}")
 
                 try:
-                    note = notes_repo.create(
+                    note = notes_service.create_note(
+                        session,
                         content=clean_text,
-                        tags=note_tags if note_tags else ['internal-only'],
-                        meeting_id=meeting_obj.id,
+                        tags=note_tags or ['internal-only'],
                         source='meeting',
-                        client_id=active_client_id,
+                        meeting_id=meeting_obj.id,
                     )
                     created_count += 1
                     click.echo(f"  ✓ {note.display_tags} {clean_text[:60]}")

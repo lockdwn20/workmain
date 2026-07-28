@@ -1,7 +1,7 @@
 """
 WorkmAIn Time CLI Commands
-Time Commands v1.7
-20260612
+Time Commands v1.8
+20260728
 
 CLI commands for time tracking with 24-hour format support and Clockify sync.
 Replaces track.py — `track` and `time` groups merged into a single `time` group.
@@ -27,6 +27,9 @@ Version History:
         display references updated from entry.description to entry.note.content
 - v1.7: Intent action service layer — time add non-meeting path delegates to
         time_entry_service.create_time_entry(); meeting path unchanged
+- v1.8: Item 69 Gate 1 — additional-note-on-meeting path (time add) routes through
+        notes_service.create_note() instead of a direct NotesRepository.create() call;
+        fixes silently-defaulted source ('ad-hoc' → 'meeting', Design Rule 12)
 """
 
 import click
@@ -358,9 +361,12 @@ def time_add(description: Optional[str], duration: str, time: str,
 
             if click.confirm(f"\nAdd additional notes to this meeting?", default=False):
                 note_content = click.prompt("Enter note content")
-                extra_note = notes_repo.create(
+                from workmain.services import notes_service
+                extra_note = notes_service.create_note(
+                    session,
                     content=note_content,
                     tags=note_tags,
+                    source='meeting',
                     meeting_id=meeting_obj.id,
                     created_at=note_created_at,
                 )
