@@ -1,12 +1,12 @@
 """
 WorkmAIn Time Entry Service
-Time Entry Service v1.1
+Time Entry Service v1.2
 20260728
 
 Service layer for time entry creation. Shared by the CLI (time add non-meeting
-path) and action_executor (create_time_entry). Handles client_id resolution,
-tag validation, defaults, and the linked-note creation required by the
-note-first pattern (v1.20.0).
+path, meeting-shaped surfaces) and action_executor (create_time_entry). Handles
+client_id resolution, tag validation, defaults, and the linked-note creation
+required by the note-first pattern (v1.20.0).
 
 Version History:
 - v1.0: Initial implementation
@@ -14,12 +14,17 @@ Version History:
         hook (apply_cf_hook_on_create, imported from notes_service) after the
         linked note is created, so a carry-forward-tagged time entry gets an
         active task the same way every other create-path surface does
+- v1.2: Item 69 Gate 4 — new create_paired_time_entry(): the TimeEntry half
+        of a meeting/condensed/Clockify Note+TimeEntry pair. Derives
+        meeting_id and client_id from the already-created Note (Design
+        Rules 4 and 9) so the pair cannot diverge, fixing the NULL-client_id
+        omission on #5/#8 (and #9/#12 in later gates)
 """
 
 from datetime import date, datetime, time as time_type
 from typing import Optional, List
 
-from workmain.database.models import TimeEntry
+from workmain.database.models import Note, TimeEntry
 from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
@@ -104,4 +109,32 @@ def create_time_entry(
         client_id=active_client_id,
         meeting_id=meeting_id,
         project_id=project_id,
+    )
+
+
+def create_paired_time_entry(
+    session,
+    note: Note,
+    duration_hours: float,
+    entry_date: date,
+    entry_time: time_type,
+    category: Optional[str] = None,
+    project_id: Optional[int] = None,
+    clockify_id: Optional[str] = None,
+) -> TimeEntry:
+    """Create the TimeEntry half of a Note+TimeEntry pair. meeting_id and
+    client_id are derived from the already-created note (Design Rules
+    4 and 9) so the pair cannot diverge. synced_at is stamped whenever
+    clockify_id is supplied."""
+    return TimeEntriesRepository(session).create(
+        note_id=note.id,
+        duration_hours=duration_hours,
+        entry_date=entry_date,
+        entry_time=entry_time,
+        category=category,
+        project_id=project_id,
+        meeting_id=note.meeting_id,
+        client_id=note.client_id,
+        clockify_id=clockify_id,
+        synced_at=datetime.now() if clockify_id else None,
     )

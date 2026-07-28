@@ -1,6 +1,6 @@
 """
 WorkmAIn Time CLI Commands
-Time Commands v1.8
+Time Commands v1.9
 20260728
 
 CLI commands for time tracking with 24-hour format support and Clockify sync.
@@ -30,6 +30,10 @@ Version History:
 - v1.8: Item 69 Gate 1 — additional-note-on-meeting path (time add) routes through
         notes_service.create_note() instead of a direct NotesRepository.create() call;
         fixes silently-defaulted source ('ad-hoc' → 'meeting', Design Rule 12)
+- v1.9: Item 69 Gate 4 — time add's primary meeting-path note+time entry (#5)
+        converges its direct notes_repo.create()/repo.create() writes onto
+        notes_service.create_note() + time_entry_service.create_paired_time_entry();
+        fixes the note's client_id-NULL omission (K3)
 """
 
 import click
@@ -296,9 +300,8 @@ def time_add(description: Optional[str], duration: str, time: str,
                         return
 
         # Parse tags and determine primary note parameters
-        from workmain.database.repositories.notes_repo import NotesRepository
         from workmain.utils.tag_utils import parse_tags
-        notes_repo = NotesRepository(session)
+        from workmain.services import notes_service, time_entry_service
 
         note_tags = ['internal-only']  # Default tag
         if tags:
@@ -311,28 +314,28 @@ def time_add(description: Optional[str], duration: str, time: str,
                 note_tags = parsed_tags
 
         if meeting_obj:
-            # Meeting path — unchanged (meeting_id linkage deferred to Part 2/3)
+            # Meeting path — converged onto create_note() + create_paired_time_entry()
+            # (Item 69 Gate 4); also fixes the note's client_id-NULL omission
             primary_content = notes if notes else description
-            note = notes_repo.create(
+            note = notes_service.create_note(
+                session,
                 content=primary_content,
                 tags=note_tags,
                 source='meeting',
                 meeting_id=meeting_obj.id,
                 created_at=note_created_at,
             )
-            entry = repo.create(
-                note_id=note.id,
+            entry = time_entry_service.create_paired_time_entry(
+                session,
+                note,
                 duration_hours=duration_hours,
                 entry_date=entry_date,
                 entry_time=entry_time,
                 category=category,
                 project_id=project,
-                meeting_id=meeting_obj.id,
-                client_id=active_client_id,
             )
         else:
             # Non-meeting path — delegate to service (handles client_id + tag validation)
-            from workmain.services import time_entry_service
             entry = time_entry_service.create_time_entry(
                 session,
                 description=description,
@@ -361,7 +364,6 @@ def time_add(description: Optional[str], duration: str, time: str,
 
             if click.confirm(f"\nAdd additional notes to this meeting?", default=False):
                 note_content = click.prompt("Enter note content")
-                from workmain.services import notes_service
                 extra_note = notes_service.create_note(
                     session,
                     content=note_content,

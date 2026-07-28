@@ -1,6 +1,6 @@
 """
 WorkmAIn Notes CLI Commands
-Notes Commands v4.4
+Notes Commands v4.5
 20260728
 
 Unified notes command group. Consolidates note (write) and notes (read) groups
@@ -60,6 +60,12 @@ Version History:
 - v4.4: Item 69 Gate 2 — notes edit converges its single notes_repo.update() call plus
         CLI-layer CF-transition hook block onto one notes_service.update_note() call;
         TaskStatusRepository import removed (no longer used directly in this file)
+- v4.5: Item 69 Gate 4 — notes add's meeting time-entry follow-on (#2) converges its
+        direct notes_repo.create()/time_repo.create() writes onto
+        notes_service.create_note() + time_entry_service.create_paired_time_entry();
+        hard-coded tags=['both'] replaced with a real interactive tag prompt
+        (Design Rule 11); unused notes_repo/active_client_id locals removed from
+        notes_add
 """
 
 import click
@@ -79,7 +85,7 @@ from workmain.database.repositories.meetings_repo import MeetingsRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
 from workmain.database.repositories.ai_costs_repo import get_ai_cost_repository
 from workmain.utils.tag_utils import parse_tags, get_tag_system
-from workmain.services import notes_service
+from workmain.services import notes_service, time_entry_service
 from workmain.utils.date_utils import resolve_date_window, format_date_window_label
 
 console = Console()
@@ -311,9 +317,7 @@ def notes_add(text: Optional[str], tags: Optional[str], meeting: Optional[str],
     """
     db = get_db()
     session = db.get_session()
-    notes_repo = NotesRepository(session)
     meetings_repo = MeetingsRepository(session)
-    active_client_id = SystemStateRepository(session).get_int('active_client_id')
 
     try:
         # Get meeting ID if specified
@@ -393,29 +397,31 @@ def notes_add(text: Optional[str], tags: Optional[str], meeting: Optional[str],
                 f"\nCreate time entry for this meeting ({meeting_duration:.2f}h)?",
                 default=True
             ):
-                from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
-                time_repo = TimeEntriesRepository(session)
-
                 time_description = click.prompt(
                     "Description",
                     default=f"Meeting: {note.meeting.title}"
                 )
 
-                te_note = notes_repo.create(
+                click.echo("Add tags inline: #ilo #cf (blank for internal-only)")
+                tag_input = click.prompt("Tags", default="", show_default=False)
+                _, te_tags, te_invalid = parse_tags(tag_input, apply_default=True)
+                if te_invalid:
+                    click.echo(f"  ⚠️  Invalid tags ignored: {', '.join(te_invalid)}")
+
+                te_note = notes_service.create_note(
+                    session,
                     content=time_description,
-                    tags=['both'],
+                    tags=te_tags,
                     source='meeting',
                     meeting_id=note.meeting.id,
-                    client_id=active_client_id,
                 )
-                time_repo.create(
-                    note_id=te_note.id,
+                time_entry_service.create_paired_time_entry(
+                    session,
+                    te_note,
                     duration_hours=meeting_duration,
                     entry_date=note.meeting.start_time.date(),
                     entry_time=note.meeting.start_time.time(),
                     category='meeting',
-                    meeting_id=note.meeting.id,
-                    client_id=active_client_id,
                 )
 
                 click.echo(f"✓ Time entry created: {meeting_duration:.2f}h - {time_description}")
