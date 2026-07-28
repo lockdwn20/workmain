@@ -7,6 +7,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.27.0] - 2026-07-28
+
+### Added
+
+- `notes_service.apply_cf_hook_on_create(session, note)` and
+  `apply_cf_hook_on_tag_update(session, note_id, old_tags, new_tags)` —
+  the sole remaining callers of `TaskStatusRepository.ensure_active()`/
+  `.set_dismissed_by_tag_removal()` in the codebase, relocated verbatim
+  from the `notes.py` CLI layer. `time_entry_service.py` imports both.
+- `notes_service.create_note()` gains a `created_at: Optional[datetime]`
+  parameter, forwarded to `NotesRepository.create()` (repo already
+  supported it; the gap was service-layer only)
+- `notes_service.update_note()` — general note update (content, tags,
+  meeting_id, project_id) issuing one repo call and firing the
+  CF-transition hook when tags change; replaces `notes edit`'s prior
+  split update calls
+- `time_entry_service.create_paired_time_entry(session, note, ...)` — the
+  TimeEntry half of a meeting/condensed/Clockify Note+TimeEntry pair.
+  `meeting_id` and `client_id` are derived from the already-created
+  `Note`, never independently resolved, so the pair cannot diverge
+- `note_condenser._compute_condensed_tags(source_notes)` — classifies a
+  condensed summary's output tags from the actual tag composition of the
+  notes it condensed (mixed internal + client-facing sources
+  conservatively collapse to `['internal-only']`; all-info-only or
+  no-routing-tag sources resolve to `['info-only']`; a lone `['both']`
+  source now correctly votes on both axes). `condense_meeting()`'s two
+  return paths (early "Attended `<Meeting>`" fallback and the AI-summary
+  path) both now return `(summary, resolved_tags)`
+- Interactive per-entry tag prompts added to surfaces #2 (meeting
+  time-entry follow-on), #8 (meetings-flow time-entry note), and #12
+  (Clockify import pull), mirroring `notes log`'s existing per-line
+  prompt. Clockify's prompt is gated on `pull_entries(interactive=...)`
+  threaded through to `_import_clockify_entry()`; a non-interactive pull
+  skips the prompt and applies the standard `['internal-only']` default
+  rather than blocking
+
+### Changed
+
+- All twelve H3 note-write surfaces now route through
+  `notes_service.create_note()`, `time_entry_service.create_time_entry()`,
+  or `time_entry_service.create_paired_time_entry()` — no file outside
+  `notes_service.py`/`time_entry_service.py` calls
+  `NotesRepository.create()`/`TimeEntriesRepository.create()` directly
+  (verified via Gate 7's two-part close-out audit)
+- `client_id` (auto-resolved active client) now stamps consistently on
+  every paired-write surface, including Clockify import — fixes the
+  NULL-on-five-surfaces divergence (#5, #7, #8, #9, #12)
+- #2/#8/#12's hard-coded `tags=['both']`/`tags=['internal-only']`
+  literals replaced with the caller-specified tag from the new prompts
+- #7's additional-note `source` now defaults to `'meeting'` — was
+  silently `'ad-hoc'` via omission
+- CLAUDE.md: new "Note Write-Path Convergence — Source of Truth"
+  subsection under Key Design Decisions; corrected the stale "671
+  passing" test-suite reference in the Architecture section to 921
+
+### Fixed
+
+- #4/#9's condensed-summary output tag now reflects the actual tag
+  composition of the notes it condensed, instead of an unconditional
+  `['both']` regardless of source-note audience
+
 ## [1.26.1] - 2026-07-25
 
 ### Fixed

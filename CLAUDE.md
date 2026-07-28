@@ -120,7 +120,7 @@ Key directories:
 - `workmain/utils/` — Tag utils, time parser, encryption, validators
 - `config/` — JSON configs; intent_parse_system_prompt.txt
 - `staging/` — Staged report outputs (not `output/` — that directory does not exist)
-- `tests/` — Pytest suite (671 passing); fixtures/, mocks/
+- `tests/` — Pytest suite (921 passing); fixtures/, mocks/
 - `scripts-deprecated/` — Legacy scripts; excluded from test collection; do NOT add to it
 - `docs/` — Living references (standards, backlog, checklist)
 - `docs/dev/` — Gitignored dev artifacts: handoffs/, specs/, hotfixes/
@@ -310,6 +310,26 @@ These are different fields serving different purposes. Never conflate them.
 `notes.created_date` (DB-computed from `created_at::DATE`, never written by app code) and
 `time_entries.entry_date` (explicit write at creation) serve the same conceptual role but
 are named differently. Do not rename either — blast radius ~55 references across ~12 files.
+
+### Note Write-Path Convergence — Source of Truth
+
+All note and paired-TimeEntry creation goes through the service layer:
+
+- `notes_service.create_note()` — pure-note writes; also the first half
+  of every paired write.
+- `time_entry_service.create_time_entry()` — task-shaped paired write
+  (source='task', meeting_id never reaches the Note — intentional).
+- `time_entry_service.create_paired_time_entry()` — the TimeEntry half
+  of a meeting/condensed/Clockify pair; derives meeting_id/client_id
+  from the already-created Note.
+
+No file outside notes_service.py calls TaskStatusRepository.ensure_active
+or .set_dismissed_by_tag_removal directly. The CF->TaskStatus hook fires
+from notes_service.apply_cf_hook_on_create() (on any create call) and
+notes_service.apply_cf_hook_on_tag_update() (on any tag-mutating update,
+e.g. `notes edit` via update_note()). No direct NotesRepository.create() /
+TimeEntriesRepository.create() call should exist outside
+notes_service.py / time_entry_service.py.
 
 ---
 
