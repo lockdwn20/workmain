@@ -1,8 +1,14 @@
 WorkmAIn
-Implementation Checklist v3.9
-20260725
+Implementation Checklist v3.10
+20260728
 
 Version History:
+- v3.10 (20260728): Item 69 (Note Write-Path Convergence) shipped —
+  v1.27.0, 7 gates, 882→921 tests, live-verified 20260728. Not part of
+  any sprint's own gate scope (own feature branch, own spec), so this is
+  a version-history-only update plus a FINAL TIMELINE SUMMARY row — no
+  dedicated body section, matching Item 60's and Item 61's precedent.
+  Full detail in `docs/FEATURE_BACKLOG.md` v5.41, Item 69.
 - v3.9 (20260725): Item 61 (Report Review & Weekly Generation Unification)
   shipped — v1.26.0, 4 gates + a fifth doc-only chore/* gate, 840→869
   tests, live-verified 20260725. Not part of any sprint's own gate scope
@@ -1235,6 +1241,7 @@ Items that do not block packaging and are implemented on demand.
 | 13 | ✓ DONE | Ollama/Mistral 7B, Socket Mode, T1–T6, Block Kit (v1.23.0) |
 | Ops_Config_Correction_Sprint | ⚠ PARTIAL | Schedule authority, cancelled-meeting filter, delivery refactor, morning briefing, Step 3c/#32 delivered (v1.24.0); #58 activity-gap detection not delivered, carried forward |
 | Item #61 — Report Review & Weekly Generation Unification | ✓ DONE | Collapsed daily/weekly EOD review runners, shared $EDITOR helper + `apply_correction()`, retired `build_weekly_prompt()` substitutive branch (closes #46), Thursday Slack draft on shared runner (v1.26.0) |
+| Item #69 — Note Write-Path Convergence | ✓ DONE | Converged all 12 note-write surfaces onto `create_note()`/`create_time_entry()`/`create_paired_time_entry()`; CF→TaskStatus hook relocated to service layer; #2/#8/#12 real tags, #4/#9 condensed-tag fix, #7 source fix, client_id auto-stamped incl. Clockify (v1.27.0) |
 | Slack_LLM_Completion_Sprint | ⏳ | Model rebuild, meeting_id/tags passthrough, weekly quality, travel use case |
 | Slack_Modal_Completion_Sprint | ⏳ | Block Kit modal — full report correction, closes T5 Slack loop |
 | 14 | ⏳ | Setup Wizard, config command group, initial data import |
