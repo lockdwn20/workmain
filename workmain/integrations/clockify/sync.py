@@ -1,8 +1,8 @@
 """
 WorkmAIn Clockify Integration
 Sync Engine
-v1.4
-20260610
+v1.5
+20260728
 
 Bidirectional sync between WorkmAIn and Clockify with conflict resolution.
 
@@ -16,17 +16,26 @@ Version History:
         TimeEntry with note_id; push path reads entry.note.content and entry.note.tags
 - v1.4: Fix Clockify push: WorkmAIn tags (e.g. internal-only) are internal classification
         tags with no Clockify UUID equivalent; pass tags=None to avoid 400 tag errors
+- v1.5: Item 69 Gate 6 — write-path convergence (#12). _import_clockify_entry() routes
+        through notes_service.create_note() + time_entry_service.create_paired_time_entry()
+        instead of direct repo.create() calls; client_id now auto-stamped via create_note()'s
+        active_client_id resolution (was explicitly NULL — K6); gains an interactive
+        per-entry tag prompt mirroring notes.py's meeting-follow-on pattern (Design Rule 11),
+        gated on a new interactive param threaded from pull_entries() (Design Rule 15) —
+        skipped, defaulting to ['internal-only'], when the pull is non-interactive.
 """
 
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime, date, time
 from decimal import Decimal
 from sqlalchemy.orm import Session
+import click
 
 from .client import ClockifyClient
 from workmain.database.models import TimeEntry, Meeting
-from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+from workmain.utils.tag_utils import parse_tags
+from workmain.services import notes_service, time_entry_service
 
 
 class SyncConflict:
@@ -203,7 +212,7 @@ class ClockifySync:
             
             # Import entry
             try:
-                self._import_clockify_entry(clockify_entry)
+                self._import_clockify_entry(clockify_entry, interactive=interactive)
                 results['imported'] += 1
             except Exception as e:
                 print(f"Failed to import entry: {str(e)}")
@@ -306,13 +315,20 @@ class ClockifySync:
             else:
                 print("Invalid choice. Please enter 1, 2, or 3.")
     
-    def _import_clockify_entry(self, clockify_entry: Dict[str, Any]) -> TimeEntry:
+    def _import_clockify_entry(
+        self,
+        clockify_entry: Dict[str, Any],
+        interactive: bool = True,
+    ) -> TimeEntry:
         """
         Import a Clockify entry into local database.
-        
+
         Args:
             clockify_entry: Entry data from Clockify API
-            
+            interactive: Whether to prompt for tags on this entry (Design
+                Rule 15). When False, skips the prompt and applies the
+                ['internal-only'] default rather than blocking.
+
         Returns:
             TimeEntry: Created local entry
         """
@@ -326,20 +342,30 @@ class ClockifySync:
         duration_seconds = (end_dt - start_dt).total_seconds()
         duration_hours = Decimal(str(duration_seconds / 3600))
 
-        content = clockify_entry.get('description') or 'Imported from Clockify'
-        note = NotesRepository(self.session).create(
-            content=content,
-            tags=['internal-only'],
+        description = clockify_entry.get('description') or 'Imported from Clockify'
+
+        prompted_tags = None
+        if interactive:
+            click.echo(f"\nImported: {description}")
+            click.echo("Add tags inline: #ilo #cf (blank for internal-only)")
+            tag_input = click.prompt("Tags", default="", show_default=False)
+            _, prompted_tags, invalid = parse_tags(tag_input, apply_default=True)
+            if invalid:
+                click.echo(f"  ⚠️  Invalid tags ignored: {', '.join(invalid)}")
+
+        new_note = notes_service.create_note(
+            self.session,
+            content=description,
+            tags=prompted_tags,
             source='clockify',
         )
-
-        entry = self.repo.create(
-            note_id=note.id,
+        entry = time_entry_service.create_paired_time_entry(
+            self.session,
+            new_note,
             duration_hours=duration_hours,
             entry_date=start_dt.date(),
             entry_time=start_dt.time().replace(tzinfo=None),
             clockify_id=clockify_entry['id'],
-            synced_at=datetime.now(),
         )
 
         return entry

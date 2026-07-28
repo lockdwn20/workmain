@@ -1,7 +1,7 @@
 """
 WorkmAIn Notes Service Tests
-test_notes_service v1.0
-20260612
+test_notes_service v1.2
+20260728
 
 Tests for workmain/services/notes_service.py.
 
@@ -9,13 +9,19 @@ All DB tests use the db_session fixture (transaction rolled back after each test
 
 Version History:
 - v1.0: Intent action service layer Gate 5
+- v1.1: Item 69 Gate 1 — add TestCreateNoteCfHook (CF->TaskStatus hook now fires
+        from create_note() itself) and TestCreateNoteBackdate (created_at param)
+- v1.2: Item 69 Gate 2 — add TestUpdateNote covering the new general update_note()
+        (CF add/remove transition, unchanged-CF no-op, content-only leaves tags/hook
+        untouched)
 """
 
 import pytest
-from datetime import date
+from datetime import date, datetime
 
 from workmain.database.models import Client
 from workmain.database.repositories.system_state_repository import SystemStateRepository
+from workmain.database.repositories.task_status_repo import TaskStatusRepository
 from workmain.services import notes_service
 from workmain.services.exceptions import InvalidTagsError
 
@@ -124,3 +130,112 @@ class TestNotesServiceCreateNote:
             project_id=None,
         )
         assert note.project_id is None
+
+
+class TestCreateNoteCfHook:
+    """Item 69 Gate 1 — CF->TaskStatus hook relocated into create_note() itself
+    (apply_cf_hook_on_create), replacing the CLI-layer duplicate in notes.py."""
+
+    def test_create_note_fires_cf_hook_when_carry_forward_tagged(self, db_session):
+        note = notes_service.create_note(
+            db_session,
+            content="Sentinel CF hook note 2099",
+            tags=["carry-forward"],
+        )
+        ts = TaskStatusRepository(db_session).get_by_note_id(note.id)
+        assert ts is not None
+        assert ts.status == "active"
+
+    def test_create_note_no_hook_without_carry_forward(self, db_session):
+        note = notes_service.create_note(
+            db_session,
+            content="Sentinel non-CF note 2099",
+            tags=["internal-only"],
+        )
+        ts = TaskStatusRepository(db_session).get_by_note_id(note.id)
+        assert ts is None
+
+
+class TestCreateNoteBackdate:
+    """Item 69 Gate 1 — created_at backdate param, forwarded to
+    NotesRepository.create() (already supported at the repo layer)."""
+
+    def test_create_note_backdates_created_at(self, db_session):
+        backdated = datetime(2026, 7, 1, 9, 0)
+        note = notes_service.create_note(
+            db_session,
+            content="Sentinel backdated note 2099",
+            created_at=backdated,
+        )
+        assert note.created_at == backdated
+
+
+class TestUpdateNote:
+    """Item 69 Gate 2 — general update_note(), single repo call, CF-transition
+    hook applied only when tags change (None-means-unchanged semantics)."""
+
+    def test_update_note_transitions_cf_add(self, db_session):
+        note = notes_service.create_note(
+            db_session,
+            content="Sentinel CF-add note 2099",
+            tags=["internal-only"],
+        )
+        notes_service.update_note(
+            db_session,
+            note.id,
+            tags=["internal-only", "carry-forward"],
+        )
+        ts = TaskStatusRepository(db_session).get_by_note_id(note.id)
+        assert ts is not None
+        assert ts.status == "active"
+
+    def test_update_note_transitions_cf_remove(self, db_session):
+        note = notes_service.create_note(
+            db_session,
+            content="Sentinel CF-remove note 2099",
+            tags=["carry-forward"],
+        )
+        notes_service.update_note(
+            db_session,
+            note.id,
+            tags=["internal-only"],
+        )
+        ts = TaskStatusRepository(db_session).get_by_note_id(note.id)
+        assert ts is not None
+        assert ts.status == "dismissed"
+
+    def test_update_note_no_transition_when_cf_unchanged(self, db_session):
+        note = notes_service.create_note(
+            db_session,
+            content="Sentinel CF-unchanged note 2099",
+            tags=["carry-forward"],
+        )
+        ts_before = TaskStatusRepository(db_session).get_by_note_id(note.id)
+        updated_at_before = ts_before.updated_at
+
+        notes_service.update_note(
+            db_session,
+            note.id,
+            tags=["carry-forward"],
+        )
+
+        ts_after = TaskStatusRepository(db_session).get_by_note_id(note.id)
+        assert ts_after.status == "active"
+        assert ts_after.updated_at == updated_at_before
+
+    def test_update_note_content_only_does_not_touch_tags_or_hook(self, db_session):
+        note = notes_service.create_note(
+            db_session,
+            content="Sentinel content-only note 2099",
+            tags=["internal-only"],
+        )
+        updated = notes_service.update_note(
+            db_session,
+            note.id,
+            content="Sentinel content-only note 2099 (edited)",
+            tags=None,
+        )
+        assert updated.content == "Sentinel content-only note 2099 (edited)"
+        assert updated.tags == ["internal-only"]
+        ts = TaskStatusRepository(db_session).get_by_note_id(note.id)
+        assert ts is None

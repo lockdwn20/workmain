@@ -4,6 +4,41 @@ Version v1.26.1
 20260725
 
 Version History:
+- v1.27.0: Item #69 — Note Write-Path Convergence. All twelve H3 note-write
+           surfaces converge onto three service-layer functions —
+           notes_service.create_note() (pure-note; first half of every
+           paired write), time_entry_service.create_time_entry()
+           (task-shaped, unchanged), and new
+           time_entry_service.create_paired_time_entry() (TimeEntry half
+           of a meeting/condensed/Clockify pair, deriving meeting_id/
+           client_id from the already-created Note so the pair cannot
+           diverge). CF->TaskStatus hook relocated from notes.py CLI layer
+           into notes_service.apply_cf_hook_on_create()/
+           apply_cf_hook_on_tag_update(), the only two callers of
+           TaskStatusRepository.ensure_active()/
+           set_dismissed_by_tag_removal() left in the codebase; notes edit
+           converges onto a single notes_service.update_note() call (was
+           split). Fixes: #2/#8/#12's hard-coded ['both']/['internal-only']
+           literals replaced with real interactive per-entry tag prompts;
+           #4/#9's condensed-summary tag now reflects actual source-note
+           composition via note_condenser._compute_condensed_tags()
+           (mixed internal+client-facing conservatively collapses to
+           internal-only; all-info-only/no-routing-tag sources resolve to
+           info-only) instead of an unconditional ['both']; #7's note
+           source defaults to 'meeting' (was silently 'ad-hoc'); client_id
+           NULL on five surfaces (#5, #7, #8, #9, #12) now auto-resolves
+           consistently, including Clockify import, which also gains the
+           interactive per-entry tag prompt (skipped, defaulting to
+           internal-only, when the surrounding call is non-interactive —
+           Design Rule 15). Six gates, one CLAUDE.md contract/close-out
+           gate: notes_service.py v1.2; time_entry_service.py v1.2;
+           notes.py v4.6; time.py v1.9; meetings.py v4.7;
+           note_condenser.py v2.2; clockify/sync.py v1.5. 39 new tests
+           (882 -> 921), 0 regressions. Close-out audit (two-part grep,
+           Gate 7) confirms zero direct NotesRepository.create()/
+           TimeEntriesRepository.create() callers remain outside
+           notes_service.py/time_entry_service.py. See
+           FEATURE_ITEM69_WRITE_PATH_CONVERGENCE_SPEC_v1_2.md.
 - v1.26.1: Hotfix Item #62 — parse_task_match/parse_note_duplicate total-
            failure stabilization. Step 3c task matching timed out on every
            item: novel ~2,400-token prompts (task-match/note-dedup) exceeded
@@ -516,7 +551,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.26.1"
-__version_info__ = (1, 26, 1)
+__version__ = "1.27.0"
+__version_info__ = (1, 27, 0)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"

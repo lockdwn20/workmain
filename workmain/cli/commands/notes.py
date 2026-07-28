@@ -1,7 +1,7 @@
 """
 WorkmAIn Notes CLI Commands
-Notes Commands v4.2
-20260612
+Notes Commands v4.6
+20260728
 
 Unified notes command group. Consolidates note (write) and notes (read) groups
 from note.py into a single group with all subcommands.
@@ -53,6 +53,25 @@ Version History:
         notes log (condensation flow); fix entry.description=summary → entry.note_id
 - v4.2: Intent action service layer — notes add delegates to notes_service.create_note()
         for client_id stamping and tag validation; meeting path unchanged
+- v4.3: Item 69 Gate 1 — notes add's CLI-layer CF hook block removed (now fires from
+        notes_service.create_note() itself); notes log per-line create (#3) now routes
+        through notes_service.create_note() instead of a direct NotesRepository.create()
+        call
+- v4.4: Item 69 Gate 2 — notes edit converges its single notes_repo.update() call plus
+        CLI-layer CF-transition hook block onto one notes_service.update_note() call;
+        TaskStatusRepository import removed (no longer used directly in this file)
+- v4.5: Item 69 Gate 4 — notes add's meeting time-entry follow-on (#2) converges its
+        direct notes_repo.create()/time_repo.create() writes onto
+        notes_service.create_note() + time_entry_service.create_paired_time_entry();
+        hard-coded tags=['both'] replaced with a real interactive tag prompt
+        (Design Rule 11); unused notes_repo/active_client_id locals removed from
+        notes_add
+- v4.6: Item 69 Gate 5 — notes log's condensation flow (#4) converges its direct
+        notes_repo.create()/time_repo.create() writes onto notes_service.create_note()
+        + time_entry_service.create_paired_time_entry(); hard-coded tags=['both']
+        replaced with note_condenser's computed resolved_tags (Design Rule 8); unused
+        notes_repo/active_client_id locals removed from notes_log; SystemStateRepository
+        import removed (no longer used anywhere in this file)
 """
 
 import click
@@ -69,11 +88,9 @@ from rich import box
 from workmain.database.connection import get_db
 from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.meetings_repo import MeetingsRepository
-from workmain.database.repositories.system_state_repository import SystemStateRepository
-from workmain.database.repositories.task_status_repo import TaskStatusRepository
 from workmain.database.repositories.ai_costs_repo import get_ai_cost_repository
 from workmain.utils.tag_utils import parse_tags, get_tag_system
-from workmain.services import notes_service
+from workmain.services import notes_service, time_entry_service
 from workmain.utils.date_utils import resolve_date_window, format_date_window_label
 
 console = Console()
@@ -305,9 +322,7 @@ def notes_add(text: Optional[str], tags: Optional[str], meeting: Optional[str],
     """
     db = get_db()
     session = db.get_session()
-    notes_repo = NotesRepository(session)
     meetings_repo = MeetingsRepository(session)
-    active_client_id = SystemStateRepository(session).get_int('active_client_id')
 
     try:
         # Get meeting ID if specified
@@ -372,10 +387,6 @@ def notes_add(text: Optional[str], tags: Optional[str], meeting: Optional[str],
             project_id=project,
         )
 
-        if 'carry-forward' in (note.tags or []):
-            TaskStatusRepository(session).ensure_active(note.id)
-            session.commit()
-
         # Success message
         click.echo(f"✓ Note added (ID: {note.id})")
         click.echo(f"  Tags: {note.display_tags}")
@@ -391,29 +402,31 @@ def notes_add(text: Optional[str], tags: Optional[str], meeting: Optional[str],
                 f"\nCreate time entry for this meeting ({meeting_duration:.2f}h)?",
                 default=True
             ):
-                from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
-                time_repo = TimeEntriesRepository(session)
-
                 time_description = click.prompt(
                     "Description",
                     default=f"Meeting: {note.meeting.title}"
                 )
 
-                te_note = notes_repo.create(
+                click.echo("Add tags inline: #ilo #cf (blank for internal-only)")
+                tag_input = click.prompt("Tags", default="", show_default=False)
+                _, te_tags, te_invalid = parse_tags(tag_input, apply_default=True)
+                if te_invalid:
+                    click.echo(f"  ⚠️  Invalid tags ignored: {', '.join(te_invalid)}")
+
+                te_note = notes_service.create_note(
+                    session,
                     content=time_description,
-                    tags=['both'],
+                    tags=te_tags,
                     source='meeting',
                     meeting_id=note.meeting.id,
-                    client_id=active_client_id,
                 )
-                time_repo.create(
-                    note_id=te_note.id,
+                time_entry_service.create_paired_time_entry(
+                    session,
+                    te_note,
                     duration_hours=meeting_duration,
                     entry_date=note.meeting.start_time.date(),
                     entry_time=note.meeting.start_time.time(),
                     category='meeting',
-                    meeting_id=note.meeting.id,
-                    client_id=active_client_id,
                 )
 
                 click.echo(f"✓ Time entry created: {meeting_duration:.2f}h - {time_description}")
@@ -451,7 +464,6 @@ def notes_edit(identifier: str, content: Optional[str], tags: Optional[str],
         if not note:
             return
         note_id = note.id
-        old_tags = list(note.tags or [])
 
         # Check age and warn
         age_info = notes_repo.get_note_age_warning(note_id)
@@ -485,8 +497,9 @@ def notes_edit(identifier: str, content: Optional[str], tags: Optional[str],
                 click.echo("Cancelled.")
                 return
 
-        updated = notes_repo.update(
-            note_id=note_id,
+        updated = notes_service.update_note(
+            session,
+            note_id,
             content=content,
             tags=new_tags,
             meeting_id=meeting_id if meeting else None,
@@ -497,14 +510,6 @@ def notes_edit(identifier: str, content: Optional[str], tags: Optional[str],
             click.echo(f"✓ Note {note_id} updated")
             if new_tags:
                 click.echo(f"  Tags: {updated.display_tags}")
-            if new_tags is not None:
-                task_repo = TaskStatusRepository(session)
-                if 'carry-forward' in new_tags and 'carry-forward' not in old_tags:
-                    task_repo.ensure_active(note_id)
-                    session.commit()
-                elif 'carry-forward' not in new_tags and 'carry-forward' in old_tags:
-                    task_repo.set_dismissed_by_tag_removal(note_id)
-                    session.commit()
         else:
             click.echo(f"✗ Update failed")
 
@@ -580,9 +585,7 @@ def notes_log(meeting: str):
     """
     db = get_db()
     session = db.get_session()
-    notes_repo = NotesRepository(session)
     meetings_repo = MeetingsRepository(session)
-    active_client_id = SystemStateRepository(session).get_int('active_client_id')
 
     try:
         # Resolve meeting by ID or fuzzy title match (Item 26 Direction B fix)
@@ -698,12 +701,12 @@ def notes_log(meeting: str):
                     click.echo(f"      Ignored: {', '.join(invalid)}")
 
                 try:
-                    note = notes_repo.create(
+                    note = notes_service.create_note(
+                        session,
                         content=clean_text,
-                        tags=note_tags if note_tags else ['internal-only'],
-                        meeting_id=meeting_obj.id,
+                        tags=note_tags or ['internal-only'],
                         source='meeting',
-                        client_id=active_client_id,
+                        meeting_id=meeting_obj.id,
                     )
                     created_count += 1
                     click.echo(f"  ✓ {note.display_tags} {clean_text[:60]}")
@@ -730,16 +733,16 @@ def notes_log(meeting: str):
                 _provider_display = _rc.primary_provider.value.capitalize() if _rc else 'AI'
                 click.echo(f"\nSending to {_provider_display}...")
                 condenser = get_note_condenser(session)
-                summary = condenser.condense_meeting(meeting_obj)
+                summary, resolved_tags = condenser.condense_meeting(meeting_obj)
                 click.echo(f"✓ Condensed: \"{summary}\"")
 
                 # Create note from condensed summary
-                condensed_note = notes_repo.create(
+                condensed_note = notes_service.create_note(
+                    session,
                     content=summary,
-                    tags=['both'],
+                    tags=resolved_tags,
                     meeting_id=meeting_obj.id,
                     source='condensed',
-                    client_id=active_client_id,
                 )
                 click.echo(f"✓ Note created (ID: {condensed_note.id})")
 
@@ -759,14 +762,13 @@ def notes_log(meeting: str):
                         meeting_obj.end_time - meeting_obj.start_time
                     ).total_seconds() / 3600
 
-                    entry = time_repo.create(
-                        note_id=condensed_note.id,
+                    entry = time_entry_service.create_paired_time_entry(
+                        session,
+                        condensed_note,
                         duration_hours=duration_hours,
                         entry_date=meeting_obj.start_time.date(),
                         entry_time=meeting_obj.start_time.time(),
                         category='meeting',
-                        meeting_id=meeting_obj.id,
-                        client_id=active_client_id,
                     )
                     click.echo(f"✓ Time entry created (ID: {entry.id}, {duration_hours:.2f}h)")
 
