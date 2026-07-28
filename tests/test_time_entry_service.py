@@ -1,7 +1,7 @@
 """
 WorkmAIn Time Entry Service Tests
-test_time_entry_service v1.0
-20260612
+test_time_entry_service v1.2
+20260728
 
 Tests for workmain/services/time_entry_service.py.
 
@@ -10,15 +10,18 @@ Sentinel date 2099-01-01 is used for backdating assertions.
 
 Version History:
 - v1.0: Intent action service layer Gate 5
+- v1.1: Item 69 Gate 3 — CF hook coverage for create_time_entry()
+- v1.2: Item 69 Gate 4 — TestCreatePairedTimeEntry covering create_paired_time_entry()
 """
 
 import pytest
-from datetime import date, time
+from datetime import date, datetime, time
 
-from workmain.database.models import Client
+from workmain.database.models import Client, Meeting
 from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
-from workmain.services import time_entry_service
+from workmain.database.repositories.task_status_repo import TaskStatusRepository
+from workmain.services import notes_service, time_entry_service
 from workmain.services.exceptions import InvalidTagsError, MissingStartTimeError
 
 _SENTINEL = date(2099, 1, 1)
@@ -201,3 +204,121 @@ class TestTimeEntryServiceCreateTimeEntry:
             entry_time=_DEFAULT_TIME,
         )
         assert entry.note.source == "task"
+
+    def test_create_time_entry_fires_cf_hook(self, db_session):
+        """Item 69 Gate 3: create_time_entry() applies apply_cf_hook_on_create,
+        the same relocated hook every other create-path surface uses."""
+        entry = time_entry_service.create_time_entry(
+            db_session,
+            description="Follow up on vendor contract",
+            duration_hours=0.5,
+            entry_time=_DEFAULT_TIME,
+            tags=["carry-forward"],
+        )
+        ts = TaskStatusRepository(db_session).get_by_note_id(entry.note.id)
+        assert ts is not None
+        assert ts.status == "active"
+
+    def test_create_time_entry_no_hook_without_carry_forward(self, db_session):
+        entry = time_entry_service.create_time_entry(
+            db_session,
+            description="No CF tag here",
+            duration_hours=0.5,
+            entry_time=_DEFAULT_TIME,
+        )
+        ts = TaskStatusRepository(db_session).get_by_note_id(entry.note.id)
+        assert ts is None
+
+
+def _seed_meeting(session, title: str) -> Meeting:
+    meeting = Meeting(
+        title=title,
+        start_time=datetime(2099, 1, 1, 9, 0),
+        end_time=datetime(2099, 1, 1, 9, 30),
+        is_recurring=False,
+    )
+    session.add(meeting)
+    session.flush()
+    return meeting
+
+
+class TestCreatePairedTimeEntry:
+    """Item 69 Gate 4 — create_paired_time_entry() derives meeting_id and
+    client_id from the already-created Note, never independent parameters
+    (Design Rules 4 and 9), so the pair cannot diverge."""
+
+    def test_create_paired_time_entry_derives_meeting_id_from_note(self, db_session):
+        meeting = _seed_meeting(db_session, "Sentinel paired-entry meeting 2099")
+        note = notes_service.create_note(
+            db_session,
+            content="Sentinel paired-entry note 2099",
+            source='meeting',
+            meeting_id=meeting.id,
+        )
+        entry = time_entry_service.create_paired_time_entry(
+            db_session,
+            note,
+            duration_hours=1.0,
+            entry_date=_SENTINEL,
+            entry_time=_DEFAULT_TIME,
+        )
+        assert entry.meeting_id == meeting.id
+
+    def test_create_paired_time_entry_derives_client_id_from_note(self, db_session):
+        # Note's client_id must differ from whatever active_client_id would
+        # resolve to at call time, or this test can't distinguish "derived
+        # from note" from "independently resolved and happened to match."
+        note_client = Client(name="Sentinel paired-entry note client", is_active=True)
+        other_client = Client(name="Sentinel paired-entry other active client", is_active=True)
+        db_session.add_all([note_client, other_client])
+        db_session.flush()
+
+        note = notes_service.create_note(
+            db_session,
+            content="Sentinel paired-entry client-id note 2099",
+        )
+        note.client_id = note_client.id
+        db_session.commit()
+
+        SystemStateRepository(db_session).set_int("active_client_id", other_client.id)
+
+        entry = time_entry_service.create_paired_time_entry(
+            db_session,
+            note,
+            duration_hours=1.0,
+            entry_date=_SENTINEL,
+            entry_time=_DEFAULT_TIME,
+        )
+        assert entry.client_id == note_client.id
+        assert entry.client_id != other_client.id
+
+    def test_create_paired_time_entry_stamps_synced_at_when_clockify_id_given(self, db_session):
+        note = notes_service.create_note(
+            db_session,
+            content="Sentinel paired-entry clockify note 2099",
+        )
+        entry = time_entry_service.create_paired_time_entry(
+            db_session,
+            note,
+            duration_hours=1.0,
+            entry_date=_SENTINEL,
+            entry_time=_DEFAULT_TIME,
+            clockify_id="clockify-sentinel-123",
+        )
+        assert entry.clockify_id == "clockify-sentinel-123"
+        assert entry.synced_at is not None
+
+    def test_create_paired_time_entry_no_synced_at_without_clockify_id(self, db_session):
+        note = notes_service.create_note(
+            db_session,
+            content="Sentinel paired-entry no-clockify note 2099",
+        )
+        entry = time_entry_service.create_paired_time_entry(
+            db_session,
+            note,
+            duration_hours=1.0,
+            entry_date=_SENTINEL,
+            entry_time=_DEFAULT_TIME,
+        )
+        assert entry.clockify_id is None
+        assert entry.synced_at is None

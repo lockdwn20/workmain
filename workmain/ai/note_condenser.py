@@ -1,7 +1,7 @@
 """
 WorkmAIn Note Condenser
-Note Condenser v2.1
-20260605
+Note Condenser v2.2
+20260728
 
 AI-powered condensation of meeting notes into one-line summaries for Clockify.
 
@@ -32,9 +32,13 @@ Version History:
 - v2.1: Gate 0 Phase 13 Sprint 1 (20260605) — replace broken _format_writing_style_context
         with StyleAdapter.get_style_prompt("internal") for consistent voice
         across condensation and reports
+- v2.2: Item 69 Gate 5 — add _compute_condensed_tags() classifier; condense_meeting()'s
+        two return paths (early "Attended <Meeting>" fallback and the AI-summary path)
+        now both return (summary, resolved_tags) instead of a bare str, replacing the
+        hard-coded ['both'] tag every caller previously applied
 """
 
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from datetime import datetime
 
 from sqlalchemy.orm import Session
@@ -45,6 +49,49 @@ from workmain.ai.cost_tracker import get_cost_tracker
 from workmain.ai.provider_manager import get_provider_manager
 from workmain.database.repositories.ai_costs_repo import AiCostRepository
 from workmain.templates_engine import get_style_adapter
+
+
+def _compute_condensed_tags(source_notes: List[Note]) -> List[str]:
+    """Classify a condensed meeting summary's tags from its source notes'
+    own tags (Item 69 Design Rule 8).
+
+    Called with the same note set condense_meeting()'s own note-selection
+    query already returns (info-only notes pre-filtered out by that query,
+    not by this function). An empty source_notes list — the all-info-only
+    case — falls through to the ['info-only'] branch below.
+    """
+    all_tags = set()
+    for n in source_notes:
+        all_tags |= set(n.tags or [])
+
+    has_internal_only = 'internal-only' in all_tags
+    has_client_report = 'client-report' in all_tags
+    has_both = 'both' in all_tags
+    is_client_facing = has_client_report or has_both
+
+    if has_internal_only and is_client_facing:
+        # Genuinely mixed-audience sources: conservative -- keep the whole
+        # synthesized summary out of the client report rather than risk
+        # blending internal-only content into client-visible output
+        # (Ray, 20260728). Expected to be rare in practice.
+        return ['internal-only']
+    if is_client_facing:
+        # No internal-only source present: honor the sources' own explicit
+        # client-facing intent, including a pure 'both' source (fixes the
+        # B1 classifier defect -- Opus review round 1 -- where a lone
+        # 'both'-tagged source wrongly failed to vote on the internal axis).
+        return ['both'] if has_both else ['client-report']
+    if has_internal_only:
+        return ['internal-only']
+    # Empty (or, in principle, non-empty-but-no-routing-tag) source set.
+    # Reached two ways in practice: (a) condense_meeting()'s own query
+    # already filters info-only notes out before this function ever sees
+    # them, so an all-info-only meeting produces an EMPTY notes list here
+    # -- this is the set behind the "Attended <Meeting>" fallback; or (b)
+    # a non-empty set where no note carries any report-routing tag (e.g.
+    # a carry-forward-only note). Either way, ['info-only'] keeps the
+    # result out of both reports.
+    return ['info-only']
 
 
 class NoteCondenser:
@@ -74,17 +121,17 @@ class NoteCondenser:
         self,
         meeting: Meeting,
         provider: Optional[ProviderType] = None
-    ) -> str:
+    ) -> Tuple[str, List[str]]:
         """
         Condense all notes from a meeting into a single summary.
-        
+
         Args:
             meeting: Meeting object with notes to condense
             provider: AI provider to use (defaults to Claude)
-            
+
         Returns:
-            Condensed one-line summary
-            
+            (condensed one-line summary, resolved tags for the summary note)
+
         Raises:
             ValueError: If meeting has no notes to condense
         """
@@ -107,14 +154,16 @@ class NoteCondenser:
             ~Note.tags.op('@>')(['info-only']),
             Note.source != 'condensed'
         ).order_by(Note.created_at).all()
-        
+
+        resolved_tags = _compute_condensed_tags(notes)
+
         if not notes:
             # All notes are info-only (#ifo), return default message
             default_summary = f"Attended {db_meeting.title}"
             db_meeting.condensed_summary = default_summary
             db_meeting.condensed_at = datetime.now()
             self.session.commit()
-            return default_summary
+            return default_summary, resolved_tags
         
         # Build condensation prompt (now includes writing style)
         prompt = self._build_condensation_prompt(db_meeting, notes)
@@ -165,7 +214,7 @@ class NoteCondenser:
                 context_label=db_meeting.title,
             )
 
-            return db_meeting.condensed_summary
+            return db_meeting.condensed_summary, resolved_tags
 
         finally:
             self.cost_tracker.end_report(0.0)  # No generation time tracking needed
