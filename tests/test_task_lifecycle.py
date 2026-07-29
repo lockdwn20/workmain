@@ -1,16 +1,19 @@
 """
 WorkmAIn Task Lifecycle Tests
-test_task_lifecycle v1.0
-20260528
+test_task_lifecycle v1.1
+20260729
 
 Tests for PC-2 — task_status repository, eager creation hooks,
 and tasks CLI command group.
 
 Covers:
   - TaskStatusRepository: create_active, ensure_active, set_completed,
-    set_dismissed, set_dismissed_by_tag_removal, get_by_note_id, get_filtered
+    set_dismissed, set_dismissed_by_tag_removal, get_by_note_id, get_filtered,
+    count_filtered
   - CLI error paths: tasks list --status invalid, tasks show/complete nonexistent
-  - CLI deprecation: tasks carryover warning and flag mapping
+  - CLI: tasks list --all removes the row cap independent of --status; --status
+    all shows every lifecycle state; header is truncation-honest; tasks
+    carryover no longer resolves
   - Notes carry-forward hook: ensure_active and set_dismissed_by_tag_removal
     called at the right points (tested at the repo level)
 
@@ -19,8 +22,18 @@ Sentinel dates (2099-xx-xx) prevent collisions with production data.
 
 Version History:
 - v1.0: Phase 12 Gate 7 — initial implementation
+- v1.1: Task_Match_Data_Integrity Sprint Gate 1 (Item 67) — replaced
+        TestTasksCarryoverDeprecation (command retired) with
+        TestTasksListCapAndCarryoverRetirement: test_list_all_removes_cap,
+        test_list_status_all_value, test_list_header_truncation_honest,
+        test_carryover_removed. Uses a real committed session + tearDown
+        cleanup (test_report_history.py's pattern) since CliRunner-invoked
+        commands use their own get_db() session, not the db_session fixture.
 """
 
+import re
+import unittest
+import uuid
 from datetime import date, datetime
 from typing import Optional
 
@@ -29,6 +42,7 @@ from click.testing import CliRunner
 
 from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.task_status_repo import TaskStatusRepository
+from workmain.database.models import Note
 from workmain.cli.commands.tasks import tasks
 
 
@@ -315,33 +329,112 @@ class TestTasksCLIErrors:
 
 
 # ---------------------------------------------------------------------------
-# CLI — tasks carryover deprecation
+# CLI — tasks list --all/--status decoupling, truncation-honest header,
+# carryover retirement (Gate 1, Item 67)
 # ---------------------------------------------------------------------------
 
-class TestTasksCarryoverDeprecation:
-    """tasks carryover prints a deprecation warning and delegates to list."""
+class TestTasksListCapAndCarryoverRetirement(unittest.TestCase):
+    """--all is a pure row-cap override, independent of --status (Design Rule 1);
+    header never overstates (Design Rule 3); carryover no longer exists
+    (Design Rule 2). Seeds real committed rows — CliRunner-invoked commands
+    use their own get_db() session, not the db_session fixture (see
+    test_report_history.py's identical pattern)."""
 
-    def test_carryover_prints_deprecation_warning(self):
-        """tasks carryover always prints a yellow deprecation warning."""
-        runner = CliRunner()
-        result = runner.invoke(tasks, ['carryover'])
-        assert result.exit_code == 0
-        assert 'Deprecated' in result.output
-        assert 'tasks list' in result.output
+    def setUp(self):
+        from dotenv import load_dotenv
+        load_dotenv()
+        from workmain.database.connection import get_db
+        db = get_db()
+        self.session = db.get_session()
+        self.notes_repo = NotesRepository(self.session)
+        self.task_repo = TaskStatusRepository(self.session)
+        self._seeded_note_ids: list[int] = []
+        self.runner = CliRunner()
+        self.run_id = uuid.uuid4().hex[:8]
 
-    def test_carryover_all_flag_prints_deprecation_warning(self):
-        """tasks carryover --all also prints the deprecation warning."""
-        runner = CliRunner()
-        result = runner.invoke(tasks, ['carryover', '--all'])
-        assert result.exit_code == 0
-        assert 'Deprecated' in result.output
+    def tearDown(self):
+        if self._seeded_note_ids:
+            self.session.query(Note).filter(
+                Note.id.in_(self._seeded_note_ids)
+            ).delete(synchronize_session=False)
+            self.session.commit()
+        self.session.close()
 
-    def test_carryover_help_shows_deprecated_note(self):
-        """tasks carryover --help shows DEPRECATED in its description."""
-        runner = CliRunner()
-        result = runner.invoke(tasks, ['carryover', '--help'])
-        assert result.exit_code == 0
-        assert 'DEPRECATED' in result.output or 'deprecated' in result.output.lower()
+    def _seed_task(self, marker: str, status: str, created_at: datetime) -> int:
+        note = self.notes_repo.create(
+            content=f"Sentinel {marker} 2099",
+            tags=['carry-forward'],
+            source='task',
+            created_at=created_at,
+        )
+        self._seeded_note_ids.append(note.id)
+        self.task_repo.create_active(note.id)
+        if status == 'completed':
+            self.task_repo.set_completed(note.id)
+        elif status == 'dismissed':
+            self.task_repo.set_dismissed(note.id)
+        self.session.commit()
+        return note.id
+
+    def test_list_all_removes_cap(self):
+        """tasks list --all returns all rows; default --limit still caps at 20."""
+        markers = []
+        for i in range(25):
+            # Zero-padded index: an unpadded "_2" would be a substring of
+            # "_20".."_24" and inflate the hit count below.
+            marker = f"gate1allcap_{self.run_id}_{i:02d}"
+            markers.append(marker)
+            self._seed_task(marker, 'active', datetime(2099, 7, 1, 9, i))
+
+        default_result = self.runner.invoke(tasks, ['list'])
+        self.assertEqual(default_result.exit_code, 0, default_result.output)
+        default_hits = sum(1 for m in markers if m in default_result.output)
+        self.assertEqual(default_hits, 20, default_result.output)
+
+        all_result = self.runner.invoke(tasks, ['list', '--all'])
+        self.assertEqual(all_result.exit_code, 0, all_result.output)
+        all_hits = sum(1 for m in markers if m in all_result.output)
+        self.assertEqual(all_hits, 25, all_result.output)
+
+    def test_list_status_all_value(self):
+        """tasks list --status all shows active, completed, and dismissed rows together."""
+        active_marker = f"gate1statusall_active_{self.run_id}"
+        completed_marker = f"gate1statusall_completed_{self.run_id}"
+        dismissed_marker = f"gate1statusall_dismissed_{self.run_id}"
+        self._seed_task(active_marker, 'active', datetime(2099, 8, 1, 9, 0))
+        self._seed_task(completed_marker, 'completed', datetime(2099, 8, 1, 9, 1))
+        self._seed_task(dismissed_marker, 'dismissed', datetime(2099, 8, 1, 9, 2))
+
+        result = self.runner.invoke(tasks, ['list', '--status', 'all'])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn(active_marker, result.output)
+        self.assertIn(completed_marker, result.output)
+        self.assertIn(dismissed_marker, result.output)
+
+    def test_list_header_truncation_honest(self):
+        """Header reads 'N of M found' when truncated, 'N found' (no 'of') when not."""
+        for i in range(25):
+            self._seed_task(
+                f"gate1header_{self.run_id}_{i}", 'active', datetime(2099, 9, 1, 9, i)
+            )
+
+        default_result = self.runner.invoke(tasks, ['list'])
+        self.assertEqual(default_result.exit_code, 0, default_result.output)
+        self.assertRegex(default_result.output, r"\(20 of \d+ found")
+
+        all_result = self.runner.invoke(tasks, ['list', '--all'])
+        self.assertEqual(all_result.exit_code, 0, all_result.output)
+        # Scope the "no truncation" check to the title line itself — note
+        # content in the table body legitimately contains the word "of".
+        title_match = re.search(r"Tasks \([^)]*\)", all_result.output)
+        self.assertIsNotNone(title_match, all_result.output)
+        self.assertNotIn(" of ", title_match.group(0))
+
+    def test_carryover_removed(self):
+        """tasks carryover no longer resolves as a command."""
+        result = self.runner.invoke(tasks, ['carryover'])
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertIn('no such command', result.output.lower())
 
 
 # ---------------------------------------------------------------------------

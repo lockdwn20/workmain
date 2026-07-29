@@ -1,7 +1,7 @@
 """
 WorkmAIn Task Status Repository
-Task Status Repository v1.1
-20260611
+Task Status Repository v1.2
+20260729
 
 Data access layer for the task_status table. Provides lifecycle management
 for carry-forward notes: creation, status transitions, and filtered queries.
@@ -9,6 +9,10 @@ for carry-forward notes: creation, status transitions, and filtered queries.
 Version History:
 - v1.0: Phase 12 Gate 2 — initial implementation with full lifecycle methods
 - v1.1: Phase 13 Sprint 2 Gate 1c — set_forwarding_note() added (Item 32)
+- v1.2: Task_Match_Data_Integrity Sprint Gate 1 (Item 67) — filter-building
+        logic extracted from get_filtered() into _filtered_query(); new
+        count_filtered() (shares the same filters, no limit) supports
+        tasks list's truncation-honest header.
 """
 
 from __future__ import annotations
@@ -215,6 +219,51 @@ class TaskStatusRepository:
         Returns:
             List of TaskStatus objects ordered by note created_at DESC.
         """
+        q = self._filtered_query(status=status, search=search, date_filter=date_filter)
+        q = q.order_by(Note.created_at.desc())
+
+        if limit:
+            q = q.limit(limit)
+
+        return q.all()
+
+    def count_filtered(
+        self,
+        status: Optional[str] = 'active',
+        search: Optional[str] = None,
+        date_filter: Optional[date] = None,
+    ) -> int:
+        """Return the total count of task_status records matching the given filters.
+
+        Same filter semantics as get_filtered(), unpaginated — used to render
+        a truncation-honest "N of M" header when a caller applies a limit.
+
+        Args:
+            status: 'active', 'completed', 'dismissed', 'all', or None.
+            search: Keyword match against note content (case-insensitive).
+            date_filter: Filter by note created_at date.
+
+        Returns:
+            Total matching row count.
+        """
+        q = self._filtered_query(status=status, search=search, date_filter=date_filter)
+        return q.count()
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _filtered_query(
+        self,
+        status: Optional[str] = 'active',
+        search: Optional[str] = None,
+        date_filter: Optional[date] = None,
+    ):
+        """Shared filter-building logic for get_filtered() and count_filtered().
+
+        Returns an unordered, unpaginated query — callers apply order_by()
+        and/or limit() as needed.
+        """
         q = (
             self.session.query(TaskStatus)
             .join(Note, TaskStatus.note_id == Note.id)
@@ -229,16 +278,7 @@ class TaskStatusRepository:
         if date_filter:
             q = q.filter(Note.created_date == date_filter)
 
-        q = q.order_by(Note.created_at.desc())
-
-        if limit:
-            q = q.limit(limit)
-
-        return q.all()
-
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
+        return q
 
     def _get_or_raise(self, note_id: int) -> TaskStatus:
         ts = self.get_by_note_id(note_id)

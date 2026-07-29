@@ -1,7 +1,7 @@
 """
 WorkmAIn AI Ollama Provider
-Ollama Provider v1.4
-20260725
+Ollama Provider v1.5
+20260729
 
 Ollama local inference provider — Mistral 7B on Proxmox via REST API.
 
@@ -17,6 +17,11 @@ Version History:
 - v1.4: Hotfix Item #62 Gate 1 — generation_options["raw"] popped to top-level
         payload key (opt-in per-request, bypasses Modelfile SYSTEM block); bare
         TimeoutError wrapped into ProviderUnavailableError with cause chain
+- v1.5: Task_Match_Data_Integrity Sprint Gate 3 (Item 66) — generation_options
+        ["format"] popped to a top-level payload key ("format": "json"),
+        identical treatment to the existing "raw" pop. Fixes JSON-mode
+        requests that previously fed "format" through options.update() into
+        the nested options dict, where Ollama's API does not read it.
 """
 
 import json
@@ -71,6 +76,7 @@ class OllamaProvider(BaseProvider):
         if request.generation_options:
             options.update(request.generation_options)
         raw_mode = bool(options.pop("raw", False))
+        json_format = options.pop("format", None)
 
         payload = {
             "model": self._model,
@@ -81,6 +87,8 @@ class OllamaProvider(BaseProvider):
         }
         if raw_mode:
             payload["raw"] = True
+        if json_format:
+            payload["format"] = json_format
 
         try:
             data = json.dumps(payload).encode("utf-8")

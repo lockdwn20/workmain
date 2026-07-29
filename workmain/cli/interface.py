@@ -1,7 +1,7 @@
 """
 WorkmAIn
-CLI Interface v3.0.0
-20260512
+CLI Interface v3.1.0
+20260729
 
 Main CLI interface using Click framework
 Updated for CLI Standardization Sprint Part 1
@@ -41,6 +41,9 @@ Version History:
 - v2.9.0: Phase 11 Gate 4 — register clients command group
 - v3.0.0: Phase 11 Gate 7 — status() shows active client context + Phase 11 rows;
           today() adds Phase 11 client command hints
+- v3.1.0: Task_Match_Data_Integrity Sprint Gate 1 (Item 67, B2) — today()'s
+          quickstart help updated: `workmain tasks carryover` (retired
+          command) replaced with `workmain tasks list --all`.
 
 """
 
@@ -243,7 +246,7 @@ def today():
     console.print("  workmain meetings today              # What's on today")
     console.print("  workmain meetings upcoming -n 2w     # Look ahead 2 weeks")
     console.print("  workmain notes today                 # Review yesterday's carry-forwards")
-    console.print("  workmain tasks carryover             # Open carry-forward tasks")
+    console.print("  workmain tasks list --all            # Open carry-forward tasks")
 
     console.print("\n[bold yellow]DURING MEETINGS[/bold yellow]  [dim](primary workflow)[/dim]")
     console.print("  workmain notes log -m 'Standup'      # Log notes into a meeting")

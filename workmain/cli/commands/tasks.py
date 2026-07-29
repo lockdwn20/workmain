@@ -1,11 +1,10 @@
 """
 WorkmAIn Tasks CLI Commands
-Tasks Commands v2.2
-20260707
+Tasks Commands v2.3
+20260729
 
 CLI commands for task lifecycle management (carry-forward notes).
-Replaces the single 'carryover' command with a full lifecycle group:
-list, today, show, complete, dismiss. carryover retained as deprecated alias.
+Full lifecycle group: list, today, show, complete, dismiss.
 
 Version History:
 - v1.0: Initial implementation with carryover command
@@ -20,6 +19,12 @@ Version History:
 - v2.2: Operations_Config_Correction_Sprint Gate 5 §5.5 — tasks show
         displays forwarding_note_id when set (populated by the note-dedup
         merge action, §5.4)
+- v2.3: Task_Match_Data_Integrity Sprint Gate 1 (Item 67) — `--all`
+        redefined as a pure row-cap override (limit=0), decoupled from
+        `--status`; header now truncation-honest (`N of M found`) via
+        new `count_filtered` repo call; `carryover` command retired
+        entirely; `--all` option help string and `list` docstring
+        corrected to match.
 """
 
 import click
@@ -162,7 +167,7 @@ def tasks():
 @click.option('--status', 'status_filter', default='active',
               help='Filter by status: active, completed, dismissed, all [default: active]')
 @click.option('--all', 'show_all', is_flag=True, default=False,
-              help='Shorthand for --status all')
+              help='Remove the row cap (show all matching rows, uncapped)')
 @click.option('--search', '-s', default=None, help='Filter by keyword (matches note content)')
 @click.option('--date', '-d', 'date_str', default=None,
               help="Filter by created date (YYYY-MM-DD, 'today', 'yesterday')")
@@ -172,8 +177,8 @@ def task_list(status_filter: str, show_all: bool, search: Optional[str],
     """
     List tasks with optional filters.
 
-    Default (no options): all active tasks, no age limit.
-    --all is shorthand for --status all (shows all lifecycle states).
+    Default (no options): active tasks, capped at --limit/-n (default 20).
+    --status all shows every status. --all removes the row cap.
 
     \b
     Examples:
@@ -184,41 +189,50 @@ def task_list(status_filter: str, show_all: bool, search: Optional[str],
       workmain tasks list --status completed --limit 10
       workmain tasks list --all --date 2026-04-30
     """
-    effective_status = 'all' if show_all else status_filter
-
-    if effective_status not in VALID_STATUSES:
+    if status_filter not in VALID_STATUSES:
         console.print(
-            f"[red]✗ Invalid status '{effective_status}'. "
+            f"[red]✗ Invalid status '{status_filter}'. "
             f"Valid options: {', '.join(VALID_STATUSES)}[/red]"
         )
         raise SystemExit(1)
 
     date_filter = _parse_date_filter(date_str)
 
+    # --all is a pure row-cap override, independent of --status (Design Rule 1)
+    effective_limit = 0 if show_all else limit
+
     db = get_db()
     session = db.get_session()
     try:
         repo = TaskStatusRepository(session)
-        tasks_result = repo.get_filtered(
-            status=effective_status,
+        total_count = repo.count_filtered(
+            status=status_filter,
             search=search,
             date_filter=date_filter,
-            limit=limit,
+        )
+        tasks_result = repo.get_filtered(
+            status=status_filter,
+            search=search,
+            date_filter=date_filter,
+            limit=effective_limit,
         )
 
         if not tasks_result:
-            label = effective_status if effective_status != 'all' else 'any'
+            label = status_filter if status_filter != 'all' else 'any'
             console.print(f"\n[yellow]No {label} tasks found.[/yellow]")
-            if effective_status == 'active':
+            if status_filter == 'active':
                 console.print(
                     "[dim]Add carry-forward tasks with: "
                     "workmain notes add 'Task text' --tags cf[/dim]\n"
                 )
             return
 
-        title_parts = [f"Tasks ({len(tasks_result)} found"]
-        if effective_status != 'all':
-            title_parts.append(f", status={effective_status}")
+        if effective_limit and total_count > len(tasks_result):
+            title_parts = [f"Tasks ({len(tasks_result)} of {total_count} found"]
+        else:
+            title_parts = [f"Tasks ({len(tasks_result)} found"]
+        if status_filter != 'all':
+            title_parts.append(f", status={status_filter}")
         if search:
             title_parts.append(f", search='{search}'")
         title = "".join(title_parts) + ")"
@@ -407,44 +421,6 @@ def task_dismiss(identifier: str):
 
     finally:
         session.close()
-
-
-# ---------------------------------------------------------------------------
-# tasks carryover (deprecated alias)
-# ---------------------------------------------------------------------------
-
-@tasks.command('carryover')
-@click.option('--all', 'show_all', is_flag=True, default=False,
-              help='Show all carry-forward items (deprecated flag — behavior unchanged)')
-@click.option('--limit', '-n', type=int, default=None, help='Limit number of results')
-@click.pass_context
-def task_carryover(ctx, show_all: bool, limit: Optional[int]):
-    """
-    Show tasks marked for carry-forward.
-
-    DEPRECATED — use: workmain tasks list
-
-    \b
-    Examples:
-      workmain tasks carryover
-      workmain tasks carryover -n 5
-    """
-    console.print(
-        "[yellow]⚠ Deprecated: 'tasks carryover' — use: workmain tasks list[/yellow]"
-    )
-    # --all in old carryover meant "bypass 7-day age filter" — tasks list
-    # already shows all active tasks with no age filter, so --all is redundant.
-    # Map --limit if provided; otherwise pass limit=0 (no cap) to match old
-    # carryover default of showing all items when --all was used.
-    effective_limit = limit if limit is not None else 0
-    ctx.invoke(
-        task_list,
-        status_filter='active',
-        show_all=False,
-        search=None,
-        date_str=None,
-        limit=effective_limit,
-    )
 
 
 # Export command group

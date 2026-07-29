@@ -1,6 +1,6 @@
 WorkmAIn
-Feature Backlog v5.41
-20260728
+Feature Backlog v5.42
+20260729
 
 # WorkmAIn Feature Backlog
 
@@ -240,6 +240,22 @@ Items deferred from various phases for future implementation.
   register independent of Item 69 and did not reconcile even before this
   item's completion; see the Summary Statistics section for the excluded
   (TBD/Unknown/varies) items and full method.
+- v5.42 (20260729): Task_Match_Data_Integrity Sprint close-out. Items 66,
+  67, 70 marked ✓ Complete (v1.28.0) with AC dispositions recorded per
+  item (Item 66's AC11/AC12 carried, not met — see below); Item 71 (EOD
+  `note_dedup` `VALID_STEPS` wiring gap, Gate 0) added as ✓ Complete —
+  first appearance in the backlog register, since Gate 0 was a
+  field-finding hotfix folded into the sprint after initial spec drafting
+  rather than tracked as its own register row until now. New Item 72
+  (`parse_note_duplicate` JSON-format grammar regression) opened, carrying
+  Item 66's unmet AC11 (malformed-response rate regressed to ~90%+ instead
+  of improving) and Item 62's still-unmet AC3 (Step 3d induced-timeout,
+  zero live proof) — per Ray's explicit direction (20260729) to
+  re-evaluate outside this sprint rather than block close-out on a root
+  cause the spec didn't anticipate. Register and statistics updated
+  (Total Items 70→72, Complete 31→35, Open 31→29); Total Deferred Effort
+  re-reconciled using the same 20260728 methodology with Items 67/70
+  removed: ~64–77 hours → ~59–69 hours.
 
 ---
 
@@ -351,36 +367,38 @@ Build first, refactor later. See the complete picture before abstracting.
 | 63 | create_meeting_notes — Slack Meeting-Note Capture | High | Slack_LLM Sprint G2 | TBD | |
 | 64 | Slack Clarification Loop (Stateful Follow-Up) | Medium | Post-sprint | TBD | |
 | 65 | Task-Match Prompt Prefix-Cache Reordering | Medium | Unscheduled (post-Sprint G3) | TBD | |
-| 66 | Raw-Mode Task-Match Output Quality | High | Task_Match Sprint G3 | TBD | |
-| 67 | tasks Command Block Correction (incl. Step 3c limit cap) | High | Task_Match Sprint G1 | ~3–5 hrs | |
+| 66 | Raw-Mode Task-Match Output Quality | High | Task_Match Sprint G3 | ~4 hrs | ✓ |
+| 67 | tasks Command Block Correction (incl. Step 3c limit cap) | High | Task_Match Sprint G1 | ~3–5 hrs | ✓ |
 | 68 | notes show Tag Display Anomaly | Low | Unscheduled | Unknown | |
 | 69 | Note Write-Path Convergence — Service-Layer Unification + Canonical CF Hook | High | Standalone feature (v1.27.0) | ~14–20 hrs | ✓ |
-| 70 | Task Pool Data Repair — Orphan Backfill + Stale Dismissal | High | Task_Match Sprint G2 | ~2–3 hrs | |
+| 70 | Task Pool Data Repair — Orphan Backfill + Stale Dismissal | High | Task_Match Sprint G2 | ~2–3 hrs | ✓ |
+| 71 | EOD note_dedup Step Unskippable — VALID_STEPS Wiring Gap | High | Task_Match Sprint G0 | <1 hr | ✓ |
+| 72 | parse_note_duplicate JSON-Format Grammar Regression | Medium | Unscheduled | TBD | |
 
 ---
 
 ## Summary Statistics
 
-**Total Items:** 70 (Items 22, 43, and 46 are redirects — no separate deferred work; see Items 20, 63, and 61 respectively)
-**Complete:** 31 (Items 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 50, 51, 52, 53, 56, 58, 60, 61, 62, 69)
+**Total Items:** 72 (Items 22, 43, and 46 are redirects — no separate deferred work; see Items 20, 63, and 61 respectively)
+**Complete:** 35 (Items 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 50, 51, 52, 53, 56, 58, 60, 61, 62, 66, 67, 69, 70, 71)
 **Partial:** 1 (Item 48 — see item detail for unmet ACs)
 **Closed/Stale:** 4 (Items 14, 15 — premises resolved, suite green; Item 23 — resolved by architecture; Item 31 — won't implement)
-**Open:** 31
+**Open:** 29
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Open (targeted) | 28 | 1, 2, 3, 4, 7, 8, 12, 16, 19, 28, 29, 30, 37, 42, 44, 45, 47, 54, 55, 57, 59, 63, 64, 65, 66, 67, 68, 70 |
+| Open (targeted) | 26 | 1, 2, 3, 4, 7, 8, 12, 16, 19, 28, 29, 30, 37, 42, 44, 45, 47, 54, 55, 57, 59, 63, 64, 65, 68, 72 |
 | Partial | 1 | 48 |
 | Conditional | 1 | 9 |
 | Indefinitely | 2 | 5, 6 |
-| Complete | 31 | 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 50, 51, 52, 53, 56, 58, 60, 61, 62, 69 |
+| Complete | 35 | 10, 11, 13, 17, 18, 20, 21, 24, 25, 26, 27, 32, 33, 34, 35, 36, 38, 39, 40, 41, 49, 50, 51, 52, 53, 56, 58, 60, 61, 62, 66, 67, 69, 70, 71 |
 | Closed/Stale | 4 | 14, 15, 23, 31 |
 | Redirect | 3 | 22 → Item 20, 43 → Item 63, 46 → Item 61 |
 
 | Priority | Count | Items |
 |----------|-------|-------|
-| High | 9 | 23, 48, 60, 62, 63, 66, 67, 69, 70 |
-| Medium | 12 | 2, 3, 7, 43, 45, 47, 50, 55, 58, 61, 64, 65 |
+| High | 10 | 23, 48, 60, 62, 63, 66, 67, 69, 70, 71 |
+| Medium | 13 | 2, 3, 7, 43, 45, 47, 50, 55, 58, 61, 64, 65, 72 |
 | Low | 20 | 1, 4, 5, 6, 8, 12, 16, 19, 28, 29, 30, 31, 37, 42, 44, 54, 56, 57, 59, 68 |
 | Conditional | 1 | 9 |
 
@@ -393,28 +411,29 @@ Build first, refactor later. See the complete picture before abstracting.
 | Phase 15 | 1, 2, 3, 7, 8, 12, 16, 29, 37, 54, 57 |
 | Phase 18 | 30 |
 | Next model rebuild | 42, 44 |
-| Unscheduled | 59, 65, 68 |
+| Unscheduled | 59, 65, 68, 72 |
 | None (standalone, next) | 60 |
 | Between-Phase | 61 |
 | Hotfix | 62 |
 | Slack_LLM Sprint G2 | 63 |
 | Post-sprint | 64 |
 | Standalone feature (v1.27.0) | 69 |
+| Task_Match Sprint G0 | 71 |
 | Task_Match Sprint G1 | 67 |
 | Task_Match Sprint G2 | 70 |
 | Task_Match Sprint G3 | 66 |
 | Conditional | 9 |
 | Indefinitely | 5, 6 |
 
-**Total Deferred Effort (open items):** ~64–77 hours — reconciled 20260728
+**Total Deferred Effort (open items):** ~59–69 hours — reconciled 20260729
 against the register's own current numbers (sum of every Open/Partial/
-Conditional/Indefinitely item's stated effort range: Items 1–9, 12, 16, 19,
-29, 30, 42, 44–48, 55, 57, 59, 67, 70). Corrects the prior ~134–161 figure,
-which had drifted from the register and did not reconcile even before
-Item 69's completion. Excluded from the sum (no clean one-time numeric
-estimate): Item 28 (varies), Item 37 (recurring per-rebuild cost, not a
-one-time total), Item 54 (TBD — grows as warnings are catalogued), Items
-63, 64, 65, 66 (TBD), Item 68 (Unknown).
+Conditional/Indefinitely item's stated effort range: Items 1–9, 12, 16,
+19, 29, 30, 42, 44–48, 55, 57, 59 — same item set and methodology as the
+20260728 reconciliation, with Items 67 and 70 removed now that both are
+Complete). Excluded from the sum (no clean one-time numeric estimate):
+Item 28 (varies), Item 37 (recurring per-rebuild cost, not a one-time
+total), Item 54 (TBD — grows as warnings are catalogued), Items 63, 64,
+65, 72 (TBD), Item 68 (Unknown).
 
 ---
 
@@ -2981,10 +3000,15 @@ measurement before/after.
 
 #### Item 66 — Raw-Mode Task-Match Output Quality
 
-**Status:** Open — Task_Match_Data_Integrity Sprint Gate 3
+**Status:** ✓ Complete — v1.28.0 (20260729). AC10/AC13 met and
+live-verified; AC11/AC12 carried to Item 72 (`parse_note_duplicate`
+JSON-format grammar regression). Per Item 62 precedent — closed Complete
+with specific unmet/carried ACs documented rather than blocking
+close-out on a root cause needing further design work.
 **Priority:** High
-**Effort:** TBD after Gate 0 recon
+**Effort:** ~4 hrs (Gate 3 only)
 **Added:** 20260725
+**Completed:** 20260729
 **Target Phase:** Task_Match_Data_Integrity Sprint Gate 3 (v1.28.0)
 
 **Description:**
@@ -2996,37 +3020,64 @@ recon COMPLETE (RECON_SPEC_ITEM66_TASK_MATCH_QUALITY_20260725.md §E, as
 corrected by the sprint recon §I): the false 1.00 is definitively the
 LLM path — the keyword scorer is score-deterministic and never runs
 while Ollama is up; the model emits a bare `confidence: 1.0` under
-sampling. Scope: JSON compliance (primary: Ollama `format: "json"` via
-`generation_options` + client-side prompt reinforcement; plan B
-pre-authorized: abandon raw + per-request timeout override); a
-path-attribution tag on match candidates (keyword vs LLM — currently
-indistinguishable in UI and logs, recon §E4); a spec-time decision on
-confidence-1.00 handling (clamp / distrust threshold / display-raw);
-Item 62's carried AC3 (induced-timeout test, incl. Step 3d demotion —
-zero live proof) and AC8 (raw-mode correctness in REAL flow — requires
-Items 69 and 70 so today's carry-forwards actually populate the attempt
-pool).
+sampling. Scope locked at spec time (v1.3): JSON compliance
+(`format: "json"` via `generation_options`, popped to the top-level
+Ollama payload key mirroring existing `raw` handling); a
+path-attribution tag on match candidates (keyword vs LLM), rendered on
+both the interactive display and the non-interactive PAUSED block; Item
+62's carried AC3 (induced-timeout test, incl. Step 3d demotion — zero
+live proof) and AC8 (raw-mode correctness in REAL flow — required Items
+69 and 70 so today's carry-forwards actually populate the attempt pool).
+The confidence-1.00 clamp/distrust-threshold decision floated during
+earlier recon was descoped from the final spec (Design Rule 7: Gate 3
+does not alter the underlying confidence number for either path) and
+was never implemented.
 
-**Why Deferred:**
-Sequenced behind Item 69 (write-path convergence) and sprint Gates 1–2:
-AC8 real-flow verification is impossible until CF notes from Ray's
-actual capture surfaces produce TaskStatus rows and the pool is
-repaired.
+**AC Disposition (20260729, live verification):**
 
-**Acceptance Criteria:** Defined at spec time; must include Item 62's
-carried AC3 and AC8 verbatim.
-**Files Affected:** `workmain/ai/intent_parser.py`,
-`workmain/ai/providers/ollama.py`, `workmain/workflows/eod_workflow.py`
-(TBD at recon)
+- AC10 ✓ — path-attribution tag live-verified on both surfaces:
+  `[LLM]`/`[keyword]` rendered correctly in the Slack non-interactive
+  PAUSED block and the CLI interactive display, no change to either
+  path's confidence/score value.
+- AC11 ✗ as written — `format: "json"` cut `parse_task_match`'s
+  malformed-response rate to ~0 (Step 3c: zero malformed responses in
+  the live run) but pushed `parse_note_duplicate`'s (Step 3d) rate to
+  ~90%+, up from the pre-fix ~1-in-5 — a regression, not the intended
+  fix. Root cause not yet confirmed; leading hypothesis is Ollama's
+  JSON-grammar mode emitting multi-line/indented JSON that exceeds the
+  64-token budget before the object closes. CARRIED to Item 72.
+- AC12 (Item 62's AC3) — still carried, not newly met. Step 3c's
+  demotion fired correctly on an organic 30s timeout live, but that is
+  not the spec's literal induced-timeout test; Step 3d's malformed
+  responses are absorbed silently inside `IntentParser` as a default
+  "not duplicate" before a `ProviderError` ever reaches
+  `eod_workflow`'s demotion logic, so Step 3d's demotion path still has
+  zero live proof. CARRIED to Item 72.
+- AC13 (Item 62's AC8) ✓ — a staged known-completed carry-forward task
+  ("This is the fourth cf test task" / "Completed cf fourth task")
+  matched at 1.00 confidence via the LLM path and completed
+  successfully, confirmed by Ray as a staged pair rather than a
+  coincidental match.
+
+**Acceptance Criteria:** See spec
+`TASK_MATCH_DATA_INTEGRITY_SPRINT_SPEC_v1_3.md` — disposition recorded
+in the spec's own AC checklist and above.
+**Files Affected:** `workmain/ai/intent_parser.py` (v1.4 → v1.5),
+`workmain/ai/providers/ollama.py` (v1.4 → v1.5),
+`workmain/workflows/eod_workflow.py` (v1.12 → v1.13),
+`tests/test_ollama_provider.py`, `tests/test_intent_parser.py`,
+`tests/test_eod_workflow.py`
 
 ---
 
 #### Item 67 — tasks Command Block Correction (incl. Step 3c limit cap)
 
-**Status:** Open — Task_Match_Data_Integrity Sprint Gate 1
+**Status:** ✓ Complete (v1.28.0, 2026-07-29). All ACs met and
+live-verified.
 **Priority:** High
 **Effort:** ~3–5 hrs
 **Added:** 20260725 (rescoped 20260725, sprint planning)
+**Completed:** 20260729
 **Target Phase:** Task_Match_Data_Integrity Sprint Gate 1 (v1.28.0)
 
 **Description:**
@@ -3051,15 +3102,39 @@ retire-vs-repurpose; whether CLI `complete` gains optional forwarding-
 note parity with EOD `[c]` (lean: no).
 
 **Why Deferred:**
-Sprint Gate 1 — must precede Gate 2 (Item 70's stale-dismissal review
-needs a truthful task listing to review against).
+Not deferred — implemented as sprint Gate 1.
 
-**Acceptance Criteria:** Defined at spec time; must include a visible
-indication whenever a listing is smaller than the matching population,
-and §6.5-accurate help text for every command in the group.
-**Files Affected:** `workmain/cli/commands/tasks.py`,
-`workmain/database/repositories/task_status_repo.py`,
-`workmain/workflows/eod_workflow.py`
+**Resolution (20260729):** `tasks.py` (v2.2→v2.3): `--all` redefined as
+a pure row-cap override (`limit=0`), decoupled from `--status`; header
+truncation-honest via new `count_filtered()`; `carryover` command
+retired entirely, incl. Click registration; `--all` option help string
+and `list` docstring both corrected. `task_status_repo.py` (v1.1→v1.2):
+filter-building logic extracted into `_filtered_query()`; new
+`count_filtered()`. `eod_workflow.py` (v1.11→v1.12): Step 3c's
+attempt-set query and "N active tasks remaining" summary both pass
+`limit=0`. `interface.py` (v3.0.0→v3.1.0): quickstart help's `carryover`
+reference replaced with `tasks list --all`. `action_executor.py`
+(v1.4→v1.5, folded in per Ray's decision, same bug class): three Slack
+task-resolution queries (`update_task`/`defer_task`/`deduplicate_task`)
+uncapped. 7 net new tests (921→928). Live-verified: `tasks list` shows
+"20 of 147 found"; `tasks list --all` returns all 147 uncapped; `tasks
+list --status all` shows every status; `tasks carryover` errors "No such
+command"; `tasks list --help` accurate on both docstring and `--all`'s
+own help string; quickstart help updated. Non-blocking finding flagged
+but out of scope: `_execute_defer_task` sets `task.status = "deferred"`
+directly, but the DB's `task_status_status_check` constraint only
+permits active/completed/dismissed — every real `defer_task` call fails
+at commit, independent of this gate's fix (documented in
+`test_action_executor.py`, not yet a separate backlog item).
+
+**Acceptance Criteria:** See spec
+`TASK_MATCH_DATA_INTEGRITY_SPRINT_SPEC_v1_3.md` Gate 1 / AC1–AC5, AC5b —
+all met and live-verified.
+**Files Affected:** `workmain/cli/commands/tasks.py` (v2.2→v2.3),
+`workmain/database/repositories/task_status_repo.py` (v1.1→v1.2),
+`workmain/workflows/eod_workflow.py` (v1.11→v1.12),
+`workmain/cli/interface.py` (v3.0.0→v3.1.0),
+`workmain/orchestration/action_executor.py` (v1.4→v1.5)
 
 ---
 
@@ -3214,10 +3289,12 @@ extended)
 
 #### Item 70 — Task Pool Data Repair — Orphan Backfill + Stale Dismissal
 
-**Status:** Open — Task_Match_Data_Integrity Sprint Gate 2
+**Status:** ✓ Complete (v1.28.0, 2026-07-29). All ACs met and
+live-verified.
 **Priority:** High
 **Effort:** ~2–3 hrs
 **Added:** 20260725
+**Completed:** 20260729
 **Target Phase:** Task_Match_Data_Integrity Sprint Gate 2 (v1.28.0)
 
 **Description:**
@@ -3237,15 +3314,111 @@ active pool contains only genuinely live carry-forwards, and Step 3c/3d
 operate on real data for the first time.
 
 **Why Deferred:**
-Sprint Gate 2 — sequenced after Item 69 (backfill into a pipeline that
-still orphans is pointless) and after Gate 1/Item 67 (the dismissal
-review needs a truthful task listing).
+Not deferred — implemented as sprint Gate 2.
 
-**Acceptance Criteria:** Defined at spec time; must include: orphan
-count = 0 post-backfill (all-dates query); active pool contains no
-pre-2026-06 backfill rows Ray did not explicitly retain; DB migration
-human-approval gate observed; post-repair `workmain eod` Step 3c/3d run
-against the live pool.
-**Files Affected:** `workmain/database/migrations/` (new NNN data-only
-migration), one-time dismissal operation (mechanism decided at spec —
-migration vs. reviewed script)
+**Resolution (20260729):** Migration 023 (idempotent orphan backfill,
+identical logic to migration 015): 31 rows inserted, orphan count
+confirmed 0 all-dates (AC6). `scripts/task_pool_stale_dismissal_20260728.py`
+(reviewed one-off script, not a migration; `--preview`/`--exclude`/
+`--execute` flow, selection criterion corrected during spec review from
+a date boundary to the structurally exact `task_status.id <= 147` — the
+original migration-015 backfill's contiguous id range): dismissed 141
+stale active `task_status` rows. Active pool: 143 → 37 (AC7). Both
+writes previewed and explicitly approved by Ray before execution (AC8).
+No new tests — data-repair only, no app-code path changed. Live-verified
+same day: `workmain eod` Step 3c/3d confirmed "saner than they have ever
+been" (AC9) — the structural fix for the Item 69 regression (Addendum M)
+that had spiked Step 3d's pair count to 574.
+
+**Acceptance Criteria:** See spec
+`TASK_MATCH_DATA_INTEGRITY_SPRINT_SPEC_v1_3.md` Gate 2 / AC6–AC9 — all
+met and live-verified.
+**Files Affected:** `workmain/database/migrations/023_task_status_orphan_backfill.sql`,
+`scripts/task_pool_stale_dismissal_20260728.py`
+
+---
+
+#### Item 71 — EOD note_dedup Step Unskippable — VALID_STEPS Wiring Gap
+
+**Status:** ✓ Complete (v1.28.0, 2026-07-29)
+**Priority:** High
+**Effort:** <1 hr
+**Added:** 20260728 (field finding, Addendum M)
+**Completed:** 20260729
+**Target Phase:** Task_Match_Data_Integrity Sprint Gate 0 (v1.28.0)
+
+**Description:**
+`note_dedup` (Step 3d) has been a first-class EOD step since Phase 13
+Sprint 2 (`eod_workflow.py`'s sequence tuple) but was missing from
+`eod.py`'s `VALID_STEPS`, making it un-skippable via `--skip
+note_dedup`. Became a hard daily EOD blocker once Item 69 converged the
+write path and Step 3d's pair count spiked (Addendum M). One-line fix:
+`'note_dedup'` added to `VALID_STEPS`. Shipped via the Hotfix → Feature
+Branch Exception (`hotfix/eod-note-dedup-skip` branched from `main`,
+merged into `feature/task-match-data-integrity` at Gate 0, travels to
+`dev`/`main` only when the whole feature branch merges) — Ray's explicit
+direction to keep the fix within one spec/session despite it having
+standalone value.
+
+**Why Deferred:**
+Not deferred — implemented as the sprint's first gate.
+
+**Acceptance Criteria:** See spec
+`TASK_MATCH_DATA_INTEGRITY_SPRINT_SPEC_v1_3.md` Gate 0 / AC0.
+Live-verified 20260729: `workmain eod --skip note_dedup` completes
+without stalling in Step 3d.
+**Files Affected:** `workmain/cli/commands/eod.py` (v2.14 → v2.15),
+`tests/test_eod_pipeline.py`
+
+---
+
+#### Item 72 — parse_note_duplicate JSON-Format Grammar Regression
+
+**Status:** Open
+**Priority:** Medium
+**Effort:** TBD — needs investigation before scoping
+**Added:** 20260729 (carried from Item 66 Gate 3 live verification)
+**Target Phase:** Unscheduled — revisit if Step 3d output quality
+becomes acute again; shares surfaces with Item 65
+
+**Description:**
+Item 66 Gate 3 added `format: "json"` to `parse_task_match()`'s and
+`parse_note_duplicate()`'s `generation_options`, popped to the top-level
+Ollama payload key. Live verification (20260729) showed this cut
+`parse_task_match`'s malformed-response rate to ~0 but pushed
+`parse_note_duplicate`'s rate to ~90%+ (up from the pre-fix ~1-in-5) —
+a regression, not the fix intended. Leading hypothesis: Ollama's
+JSON-grammar mode emits multi-line/indented JSON, which exceeds the
+64-token `max_tokens` budget before the object closes (the observed
+`json.JSONDecodeError`s cite line numbers up to 7–10 within the response
+text — consistent with structural whitespace eating the budget, not a
+compact one-line object); compounded by `parse_note_duplicate`'s prompt
+never specifying the expected JSON keys/shape the way
+`parse_task_match`'s prompt does (which gives an explicit example).
+Because `parse_note_duplicate`'s malformed-response path defaults
+silently to "not duplicate" rather than raising, this does not crash
+Step 3d or block EOD — it silently degrades note-dedup detection
+efficacy instead, which is the same class of problem the sprint began
+trying to fix (Addendum M's Step 3d blowup), just moved from "too many
+pairs" to "most pairs judged incorrectly." Candidate directions (none
+yet decided): raise `max_tokens` for these two calls; add explicit
+JSON-key instructions to `parse_note_duplicate`'s prompt, mirroring
+`parse_task_match`'s existing example; or fall back to Item 62's
+original Plan B (drop raw mode + `format: "json"` for this call,
+reintroduce a timeout raised well above 30s). Also carries Item 62's
+AC3 (induced-timeout test, incl. Step 3d demotion) — Step 3d's demotion
+path still has zero live proof, since these malformed responses are
+absorbed inside `IntentParser` before a `ProviderError` ever reaches
+`eod_workflow`'s demotion logic.
+
+**Why Deferred:**
+Per Ray's direction (20260729): re-evaluate outside the
+Task_Match_Data_Integrity Sprint rather than block sprint close-out on
+root-causing a regression the spec didn't anticipate.
+
+**Acceptance Criteria:** Defined at spec time; must include a measured
+`parse_note_duplicate` malformed-response rate before/after, and Item
+62's carried AC3 (Step 3d induced-timeout demotion, literal test).
+**Files Affected:** `workmain/ai/intent_parser.py`,
+`workmain/ai/providers/ollama.py` (exact set TBD pending chosen fix
+direction)
