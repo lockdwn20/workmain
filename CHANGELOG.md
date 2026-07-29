@@ -7,6 +7,75 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.28.0] - 2026-07-29
+
+Task_Match_Data_Integrity Sprint (Items #71, #67, #70, #66) — four gates
+on `feature/task-match-data-integrity`, following Item #69's write-path
+convergence.
+
+### Fixed
+
+- Gate 0 (Item #71) — `note_dedup` (EOD Step 3d) added to `eod.py`'s
+  `VALID_STEPS`, closing a wiring gap that made the step un-skippable via
+  `--skip note_dedup` and a hard daily EOD blocker once Item #69 converged
+  the write path
+- Gate 1 (Item #67) — `tasks list --all` redefined as a pure row-cap
+  override (`limit=0`), independent of `--status`; the header is now
+  truncation-honest (`N of M found` vs. `N found`); `--status` alone
+  controls status filtering, including a new `all` value; the deprecated
+  `carryover` command is retired, including its CLI quickstart help
+  reference. Step 3c's attempt-set query and its "N active tasks
+  remaining" summary, plus three Slack task-resolution queries in
+  `action_executor.py` (`update_task`/`defer_task`/`deduplicate_task`),
+  all silently capped at the newest 20 active tasks — all four now pass
+  `limit=0`
+- Gate 2 (Item #70) — one-time data repair for the active task pool:
+  migration 023 backfills 31 orphaned carry-forward notes missing a
+  `task_status` row (idempotent, same logic as migration 015); a reviewed
+  one-off script (`scripts/task_pool_stale_dismissal_20260728.py`)
+  dismissed 141 stale active `task_status` rows (`id <= 147`, the
+  original migration-015 backfill's contiguous id range), both gated on
+  an explicit preview-then-approve step. Active pool: 143 → 37. This is
+  the structural fix for the Item #69 regression that spiked Step 3d's
+  note-dedup pair count to 574
+- Gate 3 (Item #66) — `generation_options` gains `format: "json"` on
+  `parse_task_match()`/`parse_note_duplicate()`, popped by
+  `OllamaProvider` to the top-level payload key mirroring the existing
+  `raw` treatment (previously fed through to the wrong, nested location).
+  Match candidates carry a path-attribution tag (`"llm"`/`"keyword"`),
+  rendered as `[LLM]`/`[keyword]` on both the interactive CLI display and
+  the non-interactive PAUSED block (Slack/daemon surface), with no change
+  to the underlying confidence/score value on either path
+
+### Known Issues (carried to Backlog Item #72)
+
+- Live verification (2026-07-29) showed `format: "json"` cut
+  `parse_task_match`'s malformed-response rate to ~0 but pushed
+  `parse_note_duplicate`'s rate to ~90%+ (up from the pre-fix ~1-in-5) —
+  likely Ollama's JSON-grammar mode emitting multi-line/indented JSON
+  that exceeds the 64-token budget before the object closes, compounded
+  by `parse_note_duplicate`'s prompt never specifying the expected JSON
+  keys the way `parse_task_match`'s does
+- Item #62's AC3 (induced-timeout test) remains unmet: organic demotion
+  was observed live on Step 3c, but Step 3d's malformed responses are
+  absorbed silently inside `IntentParser` before a `ProviderError` ever
+  reaches `eod_workflow`'s demotion logic, so that path still has zero
+  live proof
+- Item #62's AC8 (raw-mode correctness in real flow) is now met: a staged
+  known-completed carry-forward task matched at 1.00 confidence via the
+  LLM path and completed successfully, live-verified 2026-07-29
+
+### Added
+
+- `tests/test_eod_pipeline.py`: `test_skip_note_dedup`;
+  `tests/test_task_lifecycle.py`: `TestTasksListCapAndCarryoverRetirement`
+  (`--all`/`--status` decoupling, truncation-honest header, `carryover`
+  removal); `tests/test_eod_workflow.py`: `TestStep3cUncappedQueries` and
+  `TestCandidatePathTag`; `tests/test_action_executor.py`:
+  `TestActionExecutorTaskResolutionUncapped`; `tests/test_ollama_provider.py`
+  and `tests/test_intent_parser.py`: JSON-format top-level promotion
+  coverage — 921 → 934 tests total, 0 regressions
+
 ## [1.27.0] - 2026-07-28
 
 ### Added
