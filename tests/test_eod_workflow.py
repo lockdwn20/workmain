@@ -1,7 +1,7 @@
 """
 WorkmAIn EOD Workflow Tests
-test_eod_workflow v1.6
-20260725
+test_eod_workflow v1.7
+20260729
 
 Tests for workmain/workflows/eod_workflow.py — the surface-agnostic service
 layer extracted from cli/commands/eod.py in Phase 13 Sprint 2 Gate 2.
@@ -46,6 +46,10 @@ Version History:
         raised, healthy-path regression, and per-step independence of the
         two steps' demotion state). Real committed-session pattern, same
         rationale as v1.2's Gate 5 coverage.
+- v1.7: Task_Match_Data_Integrity Sprint Gate 1 (Item 67) — new
+        TestStep3cUncappedQueries: confirms _run_task_match_step()'s
+        attempt-set build and its interactive-path "remaining" count both
+        call TaskStatusRepository.get_filtered(status='active', limit=0).
 """
 
 import threading
@@ -394,6 +398,63 @@ class TestTaskMatchSelfExclusion:
             )
         assert result.status == EodStepStatus.PAUSED
         assert 'Deploy the XSOAR migration' in (result.pause_reason or '')
+
+
+class TestStep3cUncappedQueries:
+    """Gate 1 (Item 67): Step 3c's attempt-set query and its 'N active tasks
+    remaining' summary count both request the full active pool (limit=0) —
+    the 20-row CLI-list default would otherwise silently drop tasks beyond
+    the newest 20 from consideration and from the remaining-count summary."""
+
+    def test_step3c_attempt_set_uncapped(self, tmp_path, db_session, monkeypatch):
+        monkeypatch.setenv('WORKMAIN_STATE_DIR', str(tmp_path))
+        _write_cf_state_file(SENTINEL_DATE)
+        _, ts = _cf_note_with_task(db_session, "Some task content", SENTINEL_DATE)
+
+        mock_get_filtered = MagicMock(return_value=[ts])
+        with patch('workmain.database.repositories.task_status_repo.TaskStatusRepository.get_filtered',
+                   mock_get_filtered), \
+             patch('workmain.ai.providers.ollama.OllamaProvider.check_availability',
+                   return_value=ProviderStatus.UNAVAILABLE), \
+             patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
+            mock_get_db.return_value.get_session.return_value = db_session
+            _run_task_match_step(
+                dry_run=False, target_date=SENTINEL_DATE, non_interactive=True,
+            )
+
+        first_call = mock_get_filtered.call_args_list[0]
+        assert first_call.kwargs.get('limit') == 0
+
+    def test_step3c_remaining_count_uncapped(self, tmp_path, db_session, monkeypatch):
+        """Interactive path: after the review loop, the 'remaining' query
+        also passes limit=0. _prompt_choice is forced to raise EOFError so
+        the loop skips without needing real stdin input."""
+        monkeypatch.setenv('WORKMAIN_STATE_DIR', str(tmp_path))
+        _write_cf_state_file(SENTINEL_DATE)
+        _, ts = _cf_note_with_task(db_session, "Deploy the XSOAR migration", SENTINEL_DATE)
+        NotesRepository(db_session).create(
+            content="Deploy the XSOAR migration completed today",
+            tags=['internal-only'],
+            source='ad-hoc',
+            created_at=datetime(SENTINEL_DATE.year, SENTINEL_DATE.month, SENTINEL_DATE.day, 10, 0),
+        )
+
+        mock_get_filtered = MagicMock(return_value=[ts])
+        with patch('workmain.database.repositories.task_status_repo.TaskStatusRepository.get_filtered',
+                   mock_get_filtered), \
+             patch('workmain.ai.providers.ollama.OllamaProvider.check_availability',
+                   return_value=ProviderStatus.UNAVAILABLE), \
+             patch('workmain.workflows.eod_workflow._prompt_choice', side_effect=EOFError), \
+             patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
+            mock_get_db.return_value.get_session.return_value = db_session
+            result = _run_task_match_step(
+                dry_run=False, target_date=SENTINEL_DATE, non_interactive=False,
+            )
+
+        assert result.status == EodStepStatus.COMPLETED
+        assert mock_get_filtered.call_count == 2
+        remaining_call = mock_get_filtered.call_args_list[1]
+        assert remaining_call.kwargs.get('limit') == 0
 
 
 class TestTaskMatchCancellationAndNoTimeBudget:

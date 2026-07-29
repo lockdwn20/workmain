@@ -1,8 +1,8 @@
 """
 WorkmAIn EOD Workflow Service Layer
 workmain/workflows/eod_workflow.py
-v1.11
-20260725
+v1.12
+20260729
 
 Surface-agnostic EOD workflow step runners. Returns EodStepResult objects
 instead of bool so any I/O surface (CLI or Slack) can interpret results.
@@ -86,6 +86,12 @@ Version History:
         (ProviderManager re-wraps into a generic ProviderError). Probe
         blocks and the outer body-level except Exception handlers
         unchanged.
+- v1.12: Task_Match_Data_Integrity Sprint Gate 1 (Item 67) — Step 3c's
+        attempt-set query (_run_task_match_step's active_tasks build) and
+        its "N active tasks remaining" summary count both now pass
+        limit=0 to TaskStatusRepository.get_filtered(), matching the
+        default-20-row-cap fix applied to tasks.py. Both silently missed
+        active tasks beyond the newest 20 before this fix.
 """
 
 import inspect as _inspect
@@ -485,7 +491,7 @@ def _run_task_match_step(dry_run: bool, target_date: date, non_interactive: bool
         from workmain.database.repositories.notes_repo import NotesRepository
 
         task_repo = TaskStatusRepository(session)
-        active_tasks = task_repo.get_filtered(status='active')
+        active_tasks = task_repo.get_filtered(status='active', limit=0)
 
         if not active_tasks:
             print("  No active tasks — skipping task match")
@@ -662,7 +668,7 @@ def _run_task_match_step(dry_run: bool, target_date: date, non_interactive: bool
         print("─" * 57)
         print()
 
-        remaining = task_repo.get_filtered(status='active')
+        remaining = task_repo.get_filtered(status='active', limit=0)
         print(
             f"  Task review complete. {n_completed} completed, "
             f"{n_dismissed} dismissed, {n_skipped} skipped. "

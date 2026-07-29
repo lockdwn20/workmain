@@ -1,7 +1,7 @@
 """
 WorkmAIn Action Executor Tests
-test_action_executor v1.3
-20260728
+test_action_executor v1.4
+20260729
 
 Tests for workmain/orchestration/action_executor.py and
 workmain/orchestration/confirmation_gate.py.
@@ -18,10 +18,21 @@ Version History:
         empty correction guard, and no-report-today cases
 - v1.3: Item 69 Gate 3 (#11) — CF-tagged create_time_entry action creates an
         active task via the relocated hook; verification only, no source change
+- v1.4: Task_Match_Data_Integrity Sprint Gate 1 (Item 67, S1) — new
+        TestActionExecutorTaskResolutionUncapped: update_task/defer_task/
+        deduplicate_task each resolve a target task seeded as the oldest
+        of a >20-row active batch, proving the newest-20-row default cap
+        no longer hides targets from Slack task resolution. Deviates from
+        the spec's literal file pointer (test_orchestration.py) — that
+        file only exercises ActionExecutor as a mocked class; the sibling
+        _execute_* methods this fix touches are all covered here instead,
+        matching this file's existing pattern (real db_session fixture,
+        ActionExecutor(db_session) constructed directly).
 """
 
 import unittest
-from datetime import date
+import uuid
+from datetime import date, datetime
 from unittest.mock import patch
 
 import pytest
@@ -29,6 +40,7 @@ import pytest
 from workmain.database.models import Client, Report
 from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
+from workmain.database.repositories.task_status_repo import TaskStatusRepository
 from workmain.orchestration.action_executor import (
     ActionExecutor,
     ActionExecutorError,
@@ -395,6 +407,93 @@ class TestActionExecutorUnknownAction:
         executor = ActionExecutor(db_session)
         with pytest.raises(ActionExecutorError):
             executor.execute({})
+
+
+@pytest.mark.usefixtures("db_session")
+class TestActionExecutorTaskResolutionUncapped:
+    """Gate 1 (Item 67, S1): update_task/defer_task/deduplicate_task must
+    resolve targets beyond the newest-20-active default cap — same bug
+    class as Step 3c's uncapped fix in eod_workflow.py. Each test seeds
+    the target task as the OLDEST of a >20-row active batch, so it falls
+    outside the pre-fix default-capped query's result set."""
+
+    def _seed_filler_tasks(self, db_session, run_id: str, count: int = 20,
+                            label: str = "filler") -> None:
+        notes_repo = NotesRepository(db_session)
+        task_repo = TaskStatusRepository(db_session)
+        for i in range(count):
+            note = notes_repo.create(
+                content=f"Sentinel gate1cap {label} {run_id} {i}",
+                tags=['carry-forward'],
+                source='task',
+                created_at=datetime(2099, 1, 1, 9, i),
+            )
+            task_repo.create_active(note.id)
+
+    def _seed_target_task(self, db_session, content: str):
+        notes_repo = NotesRepository(db_session)
+        task_repo = TaskStatusRepository(db_session)
+        note = notes_repo.create(
+            content=content,
+            tags=['carry-forward'],
+            source='task',
+            created_at=datetime(2099, 1, 1, 8, 0),
+        )
+        task_repo.create_active(note.id)
+        return note
+
+    def test_update_task_resolves_beyond_cap(self, db_session):
+        run_id = uuid.uuid4().hex[:8]
+        target_content = f"Sentinel gate1cap target {run_id}"
+        self._seed_target_task(db_session, target_content)
+        self._seed_filler_tasks(db_session, run_id)
+
+        executor = ActionExecutor(db_session)
+        result = executor.execute({
+            "action": "update_task",
+            "task_description": target_content,
+            "status": "completed",
+        })
+        assert result.success is True
+        assert target_content in result.message
+
+    def test_defer_task_resolves_beyond_cap(self, db_session):
+        """Checks resolution only (error != 'no_match'), not overall success.
+
+        Pre-existing, out-of-Gate-1-scope defect found while writing this
+        test: _execute_defer_task sets task.status = "deferred" directly,
+        but the DB's task_status_status_check constraint only permits
+        ('active', 'completed', 'dismissed') — every real defer_task call
+        fails at commit with a CheckViolation, independent of this fix.
+        Flagged to Ray rather than silently patched here (out of scope
+        for this gate)."""
+        run_id = uuid.uuid4().hex[:8]
+        target_content = f"Sentinel gate1cap defer-target {run_id}"
+        self._seed_target_task(db_session, target_content)
+        self._seed_filler_tasks(db_session, run_id, label="deferfiller")
+
+        executor = ActionExecutor(db_session)
+        result = executor.execute({
+            "action": "defer_task",
+            "task_description": target_content,
+        })
+        assert result.error != "no_match"
+
+    def test_deduplicate_task_resolves_beyond_cap(self, db_session):
+        run_id = uuid.uuid4().hex[:8]
+        dup_content = f"Sentinel gate1cap dup {run_id}"
+        canon_content = f"Sentinel gate1cap canon {run_id}"
+        self._seed_target_task(db_session, dup_content)
+        self._seed_target_task(db_session, canon_content)
+        self._seed_filler_tasks(db_session, run_id, count=19, label="dedupfiller")
+
+        executor = ActionExecutor(db_session)
+        result = executor.execute({
+            "action": "deduplicate_task",
+            "task_description": dup_content,
+            "canonical_description": canon_content,
+        })
+        assert result.success is True
 
 
 def _seed_report_today(session, status: str = "unconfirmed", **kwargs) -> Report:
