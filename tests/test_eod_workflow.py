@@ -1,6 +1,6 @@
 """
 WorkmAIn EOD Workflow Tests
-test_eod_workflow v1.7
+test_eod_workflow v1.8
 20260729
 
 Tests for workmain/workflows/eod_workflow.py — the surface-agnostic service
@@ -50,6 +50,10 @@ Version History:
         TestStep3cUncappedQueries: confirms _run_task_match_step()'s
         attempt-set build and its interactive-path "remaining" count both
         call TaskStatusRepository.get_filtered(status='active', limit=0).
+- v1.8: Task_Match_Data_Integrity Sprint Gate 3 (Item 66) — new
+        TestCandidatePathTag: confirms the LLM/keyword path-attribution
+        tag renders correctly on both the interactive display and the
+        non-interactive PAUSED block, for both scoring paths (4 tests).
 """
 
 import threading
@@ -771,6 +775,111 @@ class TestProviderErrorDemotion:
         mock_parser_3d.parse_note_duplicate.assert_called()
         mock_keyword.assert_not_called()
         assert result.status == EodStepStatus.COMPLETED
+
+
+class TestCandidatePathTag:
+    """Task_Match_Data_Integrity Sprint Gate 3 (Item 66, Design Rule 7/7a):
+    candidate tuples carry a path-attribution tag ("llm"/"keyword"),
+    rendered on both the interactive display and the non-interactive
+    PAUSED block, with no change to the underlying confidence/score."""
+
+    def _second_note(self, db_session, content: str):
+        return NotesRepository(db_session).create(
+            content=content,
+            tags=['internal-only'],
+            source='ad-hoc',
+            created_at=datetime(SENTINEL_DATE.year, SENTINEL_DATE.month, SENTINEL_DATE.day, 10, 0),
+        )
+
+    def test_llm_match_tagged_interactive(self, tmp_path, db_session, monkeypatch, capsys):
+        """LLM-path candidate renders '[LLM]' on the interactive display."""
+        monkeypatch.setenv('WORKMAIN_STATE_DIR', str(tmp_path))
+        _write_cf_state_file(SENTINEL_DATE)
+        _, ts = _cf_note_with_task(db_session, "Deploy the XSOAR migration", SENTINEL_DATE)
+        match_note = self._second_note(db_session, "Deploy the XSOAR migration completed today")
+
+        mock_parser = MagicMock()
+        mock_parser.parse_task_match.return_value = {
+            "matched": True, "confidence": 0.9, "note_id": match_note.id,
+        }
+
+        with patch('workmain.ai.providers.ollama.OllamaProvider.check_availability',
+                   return_value=ProviderStatus.AVAILABLE), \
+             patch('workmain.ai.intent_parser.IntentParser', return_value=mock_parser), \
+             patch('workmain.workflows.eod_workflow._prompt_choice', side_effect=EOFError), \
+             patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
+            mock_get_db.return_value.get_session.return_value = db_session
+            result = _run_task_match_step(
+                dry_run=False, target_date=SENTINEL_DATE, non_interactive=False,
+            )
+
+        out = capsys.readouterr().out
+        assert '[LLM]' in out
+        assert result.status == EodStepStatus.COMPLETED
+
+    def test_keyword_match_tagged_interactive(self, tmp_path, db_session, monkeypatch, capsys):
+        """Keyword-path candidate renders '[keyword]' on the interactive display."""
+        monkeypatch.setenv('WORKMAIN_STATE_DIR', str(tmp_path))
+        _write_cf_state_file(SENTINEL_DATE)
+        _cf_note_with_task(db_session, "Deploy the XSOAR migration", SENTINEL_DATE)
+        self._second_note(db_session, "Deploy the XSOAR migration completed today")
+
+        with patch('workmain.ai.providers.ollama.OllamaProvider.check_availability',
+                   return_value=ProviderStatus.UNAVAILABLE), \
+             patch('workmain.workflows.eod_workflow._prompt_choice', side_effect=EOFError), \
+             patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
+            mock_get_db.return_value.get_session.return_value = db_session
+            result = _run_task_match_step(
+                dry_run=False, target_date=SENTINEL_DATE, non_interactive=False,
+            )
+
+        out = capsys.readouterr().out
+        assert '[keyword]' in out
+        assert result.status == EodStepStatus.COMPLETED
+
+    def test_llm_match_tagged_paused_block(self, tmp_path, db_session, monkeypatch):
+        """LLM-path candidate renders '[LLM]' in the non-interactive
+        PAUSED block (the daemon/Slack surface)."""
+        monkeypatch.setenv('WORKMAIN_STATE_DIR', str(tmp_path))
+        _write_cf_state_file(SENTINEL_DATE)
+        _, ts = _cf_note_with_task(db_session, "Deploy the XSOAR migration", SENTINEL_DATE)
+        match_note = self._second_note(db_session, "Deploy the XSOAR migration completed today")
+
+        mock_parser = MagicMock()
+        mock_parser.parse_task_match.return_value = {
+            "matched": True, "confidence": 0.9, "note_id": match_note.id,
+        }
+
+        with patch('workmain.ai.providers.ollama.OllamaProvider.check_availability',
+                   return_value=ProviderStatus.AVAILABLE), \
+             patch('workmain.ai.intent_parser.IntentParser', return_value=mock_parser), \
+             patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
+            mock_get_db.return_value.get_session.return_value = db_session
+            result = _run_task_match_step(
+                dry_run=False, target_date=SENTINEL_DATE, non_interactive=True,
+            )
+
+        assert result.status == EodStepStatus.PAUSED
+        assert '[LLM]' in (result.pause_reason or '')
+
+    def test_keyword_match_tagged_paused_block(self, tmp_path, db_session, monkeypatch):
+        """Keyword-path candidate renders '[keyword]' in the non-interactive
+        PAUSED block (the daemon/Slack surface)."""
+        monkeypatch.setenv('WORKMAIN_STATE_DIR', str(tmp_path))
+        _write_cf_state_file(SENTINEL_DATE)
+        _cf_note_with_task(db_session, "Deploy the XSOAR migration", SENTINEL_DATE)
+        self._second_note(db_session, "Deploy the XSOAR migration completed today")
+
+        with patch('workmain.ai.providers.ollama.OllamaProvider.check_availability',
+                   return_value=ProviderStatus.UNAVAILABLE), \
+             patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
+            mock_get_db.return_value.get_session.return_value = db_session
+            result = _run_task_match_step(
+                dry_run=False, target_date=SENTINEL_DATE, non_interactive=True,
+            )
+
+        assert result.status == EodStepStatus.PAUSED
+        assert '[keyword]' in (result.pause_reason or '')
 
 
 # ---------------------------------------------------------------------------

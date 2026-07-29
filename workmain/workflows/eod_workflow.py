@@ -1,7 +1,7 @@
 """
 WorkmAIn EOD Workflow Service Layer
 workmain/workflows/eod_workflow.py
-v1.12
+v1.13
 20260729
 
 Surface-agnostic EOD workflow step runners. Returns EodStepResult objects
@@ -92,6 +92,13 @@ Version History:
         limit=0 to TaskStatusRepository.get_filtered(), matching the
         default-20-row-cap fix applied to tasks.py. Both silently missed
         active tasks beyond the newest 20 before this fix.
+- v1.13: Task_Match_Data_Integrity Sprint Gate 3 (Item 66) — candidate
+        tuples in _run_task_match_step() carry a 4th element, a
+        path-attribution tag ("llm"/"keyword"), set at both append sites.
+        Both consuming unpack sites (the non-interactive PAUSED-block
+        loop and the interactive review loop) render "[LLM]"/"[keyword]"
+        alongside the existing confidence text; no change to the
+        underlying score/confidence value on either path or surface.
 """
 
 import inspect as _inspect
@@ -587,14 +594,14 @@ def _run_task_match_step(dry_run: bool, target_date: date, non_interactive: bool
                     if result["confidence"] < 0.7:
                         continue
                     matched_note = notes_by_id.get(result["note_id"])
-                    candidates.append((result["confidence"], ts, matched_note))
+                    candidates.append((result["confidence"], ts, matched_note, "llm"))
                     continue
             # keyword path — reached when ollama_available is False at loop
             # entry OR immediately after demotion for the item that raised
             result = _keyword_score_match(ts, candidate_notes)
             if result["score"] < 0.2:
                 continue
-            candidates.append((result["score"], ts, result["note"]))
+            candidates.append((result["score"], ts, result["note"], "keyword"))
 
         candidates.sort(key=lambda x: x[0], reverse=True)
 
@@ -604,12 +611,13 @@ def _run_task_match_step(dry_run: bool, target_date: date, non_interactive: bool
 
         if non_interactive:
             lines = [f"Found {len(candidates)} carry-forward task match(es):"]
-            for score, ts, note in candidates:
+            for score, ts, note, path in candidates:
                 confidence = "high" if score >= 0.5 else "medium"
+                path_label = "LLM" if path == "llm" else "keyword"
                 note_preview = (ts.note.content or '')[:80]
                 match_preview = ((note.content if note else '') or '')[:80]
                 lines.append(f"• Task: {note_preview}")
-                lines.append(f"  Matches: {match_preview} ({confidence} confidence)")
+                lines.append(f"  Matches: {match_preview} ({confidence} confidence) [{path_label}]")
             lines.append("Use 'update task X as complete/dismissed' to resolve, then reply 'yes' when done.")
             formatted = "\n".join(lines)
             return EodStepResult(
@@ -625,15 +633,16 @@ def _run_task_match_step(dry_run: bool, target_date: date, non_interactive: bool
         n_dismissed = 0
         n_skipped = 0
 
-        for score, ts, note in candidates:
+        for score, ts, note, path in candidates:
             confidence = "high" if score >= 0.5 else "medium"
+            path_label = "LLM" if path == "llm" else "keyword"
             note_content = ts.note.content or ''
             match_desc = (note.content if note else '') or ''
             note_preview = note_content[:80] + ('…' if len(note_content) > 80 else '')
             match_preview = match_desc[:80] + ('…' if len(match_desc) > 80 else '')
 
             print("─" * 57)
-            print(f"  Match found ({confidence} confidence — {score:.2f}):")
+            print(f"  Match found ({confidence} confidence — {score:.2f}) [{path_label}]:")
             print(f"  Task: {note_preview}")
             print(f"  Note: {match_preview}")
             print()

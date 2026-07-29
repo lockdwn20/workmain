@@ -1,7 +1,7 @@
 """
 WorkmAIn IntentParser Tests
-test_intent_parser v1.1
-20260725
+test_intent_parser v1.2
+20260729
 
 Unit tests for IntentParser.parse() — all Ollama/DB calls mocked.
 No real network or database access in this suite.
@@ -10,6 +10,9 @@ Version History:
 - v1.0: Gate 3 Phase 13 Sprint 1 — initial suite (12 tests)
 - v1.1: Hotfix Item #62 Gate 2 — parse_task_match()/parse_note_duplicate()
         raw-mode wiring and ProviderError propagation coverage (6 new tests)
+- v1.2: Task_Match_Data_Integrity Sprint Gate 3 (Item 66) — the two
+        set_raw tests updated for the added format: "json" entry in
+        generation_options.
 """
 
 import json
@@ -221,24 +224,26 @@ class TestParseTaskMatchAndNoteDuplicateRawMode:
     """Hotfix Item #62 Gate 2 — Design Rules 1, 2, 5, 8."""
 
     def test_parse_task_match_sets_raw(self):
-        """GenerationRequest passed to the provider manager carries raw: True."""
+        """GenerationRequest passed to the provider manager carries raw: True
+        and format: 'json' (Task_Match_Data_Integrity Sprint Gate 3)."""
         manager = _mock_manager(json.dumps(
             {"matched": True, "confidence": 0.9, "note_id": 1}
         ))
         parser = _make_parser(manager)
         parser.parse_task_match(_make_task(), _make_notes())
         request = manager.generate.call_args[0][0]
-        assert request.generation_options == {"raw": True}
+        assert request.generation_options == {"raw": True, "format": "json"}
 
     def test_parse_note_duplicate_sets_raw(self):
-        """GenerationRequest passed to the provider manager carries raw: True."""
+        """GenerationRequest passed to the provider manager carries raw: True
+        and format: 'json' (Task_Match_Data_Integrity Sprint Gate 3)."""
         manager = _mock_manager(json.dumps(
             {"duplicate": True, "confidence": 0.9, "note_id": None}
         ))
         parser = _make_parser(manager)
         parser.parse_note_duplicate("Note A text", "Note B text")
         request = manager.generate.call_args[0][0]
-        assert request.generation_options == {"raw": True}
+        assert request.generation_options == {"raw": True, "format": "json"}
 
     def test_parse_task_match_propagates_provider_error(self):
         """ProviderError from the provider manager propagates — no no-match dict."""
