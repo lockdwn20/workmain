@@ -1,7 +1,7 @@
 """
 WorkmAIn Action Executor
-Action Executor v1.4
-20260624
+Action Executor v1.5
+20260729
 
 Executes confirmed structured actions from IntentParser against the database
 via existing repositories. No action writes to the DB without passing through
@@ -20,6 +20,11 @@ Version History:
         and explicit updated_at stamp. Fix _execute_correct_report — route correction
         description to correction_note (Phase 12 Decision 21) not corrected_content;
         add empty-correction guard; explicit updated_at stamp.
+- v1.5: Task_Match_Data_Integrity Sprint Gate 1 (Item 67, S1) — three
+        Slack task-resolution queries (_execute_update_task,
+        _execute_defer_task, _execute_deduplicate_task) now pass limit=0
+        to TaskStatusRepository.get_filtered(); each previously silently
+        failed to resolve active tasks outside the newest-20 default cap.
 """
 
 import logging
@@ -176,7 +181,7 @@ class ActionExecutor:
         from workmain.database.repositories.task_status_repo import TaskStatusRepository
 
         task_repo = TaskStatusRepository(self.session)
-        tasks = task_repo.get_filtered(status="active")
+        tasks = task_repo.get_filtered(status="active", limit=0)
         task = self._find_task(tasks, action.get("task_description", ""))
         if task is None:
             return ActionResult(
@@ -202,7 +207,7 @@ class ActionExecutor:
         from workmain.database.repositories.task_status_repo import TaskStatusRepository
 
         task_repo = TaskStatusRepository(self.session)
-        tasks = task_repo.get_filtered(status="active")
+        tasks = task_repo.get_filtered(status="active", limit=0)
         task = self._find_task(tasks, action.get("task_description", ""))
         if task is None:
             return ActionResult(
@@ -310,7 +315,7 @@ class ActionExecutor:
         from workmain.database.repositories.task_status_repo import TaskStatusRepository
 
         task_repo = TaskStatusRepository(self.session)
-        tasks = task_repo.get_filtered(status="active")
+        tasks = task_repo.get_filtered(status="active", limit=0)
         dup_task = self._find_task(tasks, action.get("task_description", ""))
         canonical_task = self._find_task(tasks, action.get("canonical_description", ""))
 

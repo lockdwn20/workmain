@@ -1,8 +1,8 @@
 """
 WorkmAIn Intent Parser
 workmain/ai/intent_parser.py
-v1.4
-20260725
+v1.5
+20260729
 
 Parses natural language input (Slack DM messages) into structured action JSON
 using Mistral 7B via OllamaProvider (workmain-intent:latest).
@@ -31,6 +31,12 @@ Version History:
         so ProviderError propagates to the caller (Step 3c/3d own the
         keyword-fallback decision now); malformed-output catch widened to
         include TypeError (null confidence coercion)
+- v1.5: Task_Match_Data_Integrity Sprint Gate 3 (Item 66) — both methods'
+        generation_options gain "format": "json", mirroring the existing
+        "raw" entry so OllamaProvider pops it to the top-level payload
+        position (Ollama's actual JSON-mode contract) rather than leaving
+        it nested under options. Targets the ~1-in-5 non-JSON response
+        rate observed in raw mode.
 """
 
 import json
@@ -213,7 +219,7 @@ class IntentParser:
             system_prompt=None,
             prompt=prompt,
             max_tokens=64,
-            generation_options={"raw": True},
+            generation_options={"raw": True, "format": "json"},
         )
 
         response, _ = self._provider_manager.generate(
@@ -260,7 +266,7 @@ class IntentParser:
             system_prompt=None,
             prompt=f"Are these two notes describing the same item?\n\nNote A: {note_a}\nNote B: {note_b}",
             max_tokens=64,
-            generation_options={"raw": True},
+            generation_options={"raw": True, "format": "json"},
         )
         response, _ = self._provider_manager.generate(
             request, provider_override=ProviderType.OLLAMA

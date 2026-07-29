@@ -1,7 +1,7 @@
 """
 WorkmAIn End-of-Day Workflow
-EOD v2.14
-20260611
+EOD v2.15
+20260729
 
 Thin CLI surface for the EOD workflow. All step runner logic lives in
 workmain.workflows.eod_workflow (surface-agnostic service layer) and
@@ -84,6 +84,10 @@ Version History:
          workmain.workflows.eod_workflow (surface-agnostic service layer);
          eod.py is now a thin CLI surface using get_step_sequence + run_step;
          step results are EodStepResult — FAILED status goes to failed list
+- v2.15: Task_Match_Data_Integrity Sprint Gate 0 (Item 71) — added
+         'note_dedup' to VALID_STEPS; Step 3d was a first-class EOD step
+         (eod_workflow.py:1330) but missing from this list, making it
+         un-skippable via --skip note_dedup
 """
 
 from datetime import date
@@ -108,7 +112,8 @@ THURSDAY = 3
 FRIDAY = 4
 
 VALID_STEPS = ['condense', 'sync', 'review', 'pre_flight_inspection',
-               'task_match', 'report', 'email', 'clockify', 'gdocs', 'weekly']
+               'task_match', 'note_dedup', 'report', 'email', 'clockify',
+               'gdocs', 'weekly']
 
 # Fixed position labels for the 8 base steps.
 _BASE_POSITIONS = {

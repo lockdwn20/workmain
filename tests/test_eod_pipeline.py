@@ -1,7 +1,7 @@
 """
 WorkmAIn EOD Pipeline Tests
-test_eod_pipeline v1.5
-20260611
+test_eod_pipeline v1.6
+20260729
 
 Tests for the EOD pipeline CLI surface (eod.py) and workflow step sequence.
 Step runner logic now lives in workmain.workflows.eod_workflow — imports updated
@@ -20,6 +20,9 @@ Version History:
         eod_workflow.subprocess and eod_workflow._confirm accordingly
 - v1.5: Phase 13 Sprint 2 Gate 6 fix — TestReviewStepDispatch assertions now use
         _WORKMAIN_BIN (resolved path) instead of bare 'workmain' string
+- v1.6: Task_Match_Data_Integrity Sprint Gate 0 (Item 71) — added
+        test_skip_note_dedup proving --skip note_dedup is now accepted
+        (VALID_STEPS wiring-gap fix, AC0)
 """
 
 import unittest
@@ -126,6 +129,16 @@ class TestEodDryRun(unittest.TestCase):
         result = self._run_dry_run(FRIDAY)
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn('email save weekly_client', result.output)
+
+    def test_skip_note_dedup(self):
+        """--skip note_dedup is accepted (Item 71 VALID_STEPS wiring-gap fix,
+        AC0) — no longer rejected as an unknown step, and note_dedup shows
+        'skip' status in the plan table rather than 'run'."""
+        runner = CliRunner()
+        result = runner.invoke(eod, ['--skip', 'note_dedup', '--dry-run'])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertNotIn('Unknown step', result.output)
+        self.assertIn('note_dedup', result.output)
 
 
 class TestReviewStepDispatch(unittest.TestCase):

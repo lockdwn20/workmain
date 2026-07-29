@@ -1,7 +1,7 @@
 """
 WorkmAIn OllamaProvider Tests
-test_ollama_provider v1.1
-20260725
+test_ollama_provider v1.2
+20260729
 
 Unit tests for OllamaProvider generate(), check_availability(), and _build_prompt().
 All HTTP calls are mocked — no real network calls in this suite.
@@ -10,6 +10,9 @@ Version History:
 - v1.0: Gate 1 Phase 13 Sprint 1 — initial suite (10 tests)
 - v1.1: Hotfix Item #62 Gate 1 — raw-mode payload placement and TimeoutError
         wrapping tests (3 new)
+- v1.2: Task_Match_Data_Integrity Sprint Gate 3 (Item 66) — format-flag
+        top-level promotion tests (2 new), mirroring the existing raw-flag
+        coverage
 """
 
 import json
@@ -164,6 +167,38 @@ class TestGenerate:
         payload = json.loads(sent_req.data)
         assert "raw" not in payload
         assert "raw" not in payload["options"]
+
+    def test_generate_format_flag_promoted_to_top_level(self):
+        """generation_options={'format': 'json'} → top-level payload['format'],
+        absent from options (Task_Match_Data_Integrity Sprint Gate 3, mirrors
+        the existing 'raw' promotion)."""
+        gen_resp = _generate_response("Parsed action")
+
+        with patch.object(OllamaProvider, "check_availability", return_value=ProviderStatus.AVAILABLE), \
+             patch("urllib.request.urlopen", return_value=gen_resp) as mock_urlopen:
+            p = _make_provider()
+            request = GenerationRequest(prompt="test", generation_options={"format": "json"})
+            p.generate(request)
+
+        sent_req = mock_urlopen.call_args[0][0]
+        payload = json.loads(sent_req.data)
+        assert payload["format"] == "json"
+        assert "format" not in payload["options"]
+
+    def test_generate_no_format_by_default(self):
+        """No generation_options → no 'format' key anywhere in the payload."""
+        gen_resp = _generate_response("Parsed action")
+
+        with patch.object(OllamaProvider, "check_availability", return_value=ProviderStatus.AVAILABLE), \
+             patch("urllib.request.urlopen", return_value=gen_resp) as mock_urlopen:
+            p = _make_provider()
+            request = GenerationRequest(prompt="test")
+            p.generate(request)
+
+        sent_req = mock_urlopen.call_args[0][0]
+        payload = json.loads(sent_req.data)
+        assert "format" not in payload
+        assert "format" not in payload["options"]
 
     def test_generate_timeout_wrapped(self):
         """TimeoutError during POST → ProviderUnavailableError with __cause__ set."""

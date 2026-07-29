@@ -1,9 +1,51 @@
 """
 WorkmAIn Package Version
-Version v1.26.1
-20260725
+Version v1.28.0
+20260729
 
 Version History:
+- v1.28.0: Task_Match_Data_Integrity Sprint (Items #71/#67/#70/#66), four
+           gates on feature/task-match-data-integrity. Gate 0 (#71):
+           'note_dedup' added to eod.py VALID_STEPS, closing a wiring gap
+           that made Step 3d un-skippable. Gate 1 (#67): tasks list --all
+           redefined as a pure row-cap override (limit=0) independent of
+           --status; truncation-honest header; carryover retired (incl.
+           interface.py quickstart help). Step 3c's attempt-set/remaining-
+           count queries and three action_executor.py Slack task-resolution
+           queries (update_task/defer_task/deduplicate_task) uncapped —
+           same silent-20-row-cap bug class. Gate 2 (#70): migration 023
+           idempotent CF-note orphan backfill (31 rows) + reviewed one-off
+           script dismissing stale active task_status rows (id <= 147,
+           141 dismissed) — the structural fix for the Item #69 regression
+           that spiked Step 3d's pair count to 574; active pool
+           143 -> 37. Gate 3 (#66): generation_options gains
+           format: "json" on parse_task_match()/parse_note_duplicate(),
+           popped to the top-level Ollama payload key mirroring existing
+           raw handling; candidate tuples carry a path-attribution tag
+           ("llm"/"keyword") rendered on both the interactive display and
+           the non-interactive PAUSED block. Live verification
+           (20260729) confirmed the path tag on both surfaces and
+           Item #62's carried AC8 (staged known-completed CF task matched
+           1.00 confidence via the LLM path), but surfaced a regression on
+           parse_note_duplicate: format: "json" cut parse_task_match's
+           malformed-response rate to ~0 while pushing
+           parse_note_duplicate's rate to ~90%+ (up from the pre-fix
+           ~1-in-5), most likely because Ollama's JSON-grammar mode emits
+           multi-line/indented JSON that exceeds the 64-token budget
+           before the object closes, compounded by parse_note_duplicate's
+           prompt never specifying the expected JSON keys the way
+           parse_task_match's does. Item #62's AC3 (literal induced-
+           timeout test) also remains unmet — organic demotion was
+           observed live on Step 3c, but Step 3d's malformed responses
+           are absorbed silently inside IntentParser before a
+           ProviderError ever reaches eod_workflow's demotion logic, so
+           its demotion path still has zero live proof. Per Ray's
+           direction, both are carried to Backlog Item #72 rather than
+           re-opening this sprint. 921 -> 934 tests, 0 regressions.
+           eod.py v2.15; tasks.py v2.3; task_status_repo.py v1.2;
+           eod_workflow.py v1.13; interface.py v3.1.0; action_executor.py
+           v1.5; intent_parser.py v1.5; ollama.py v1.5. See
+           TASK_MATCH_DATA_INTEGRITY_SPRINT_SPEC_v1_3.md.
 - v1.27.0: Item #69 — Note Write-Path Convergence. All twelve H3 note-write
            surfaces converge onto three service-layer functions —
            notes_service.create_note() (pure-note; first half of every
@@ -551,7 +593,7 @@ Version History:
 - v0.1.0: Initial structure
 """
 
-__version__ = "1.27.0"
-__version_info__ = (1, 27, 0)
+__version__ = "1.28.0"
+__version_info__ = (1, 28, 0)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"

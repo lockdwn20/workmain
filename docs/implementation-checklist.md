@@ -1,8 +1,18 @@
 WorkmAIn
-Implementation Checklist v3.11
-20260728
+Implementation Checklist v3.12
+20260729
 
 Version History:
+- v3.12 (20260729): Task_Match_Data_Integrity Sprint (Items 71/67/70/66)
+  shipped — v1.28.0, 4 gates, 921→934 tests, live-verified 20260729. Gate
+  0 (Item 71, EOD note_dedup VALID_STEPS wiring gap) added retroactively
+  to the sprint's checklist body — it was a field finding folded in after
+  the body section below was originally drafted, per the same
+  Hotfix → Feature Branch Exception documented in the spec's Design Rule
+  9. Gate 3 (Item 66) closed with AC11/AC12 carried, not met — see
+  `docs/FEATURE_BACKLOG.md` v5.42, Item 66/Item 72 for the disposition
+  and the new carried item. Full detail in `docs/FEATURE_BACKLOG.md`
+  v5.42, Items 66/67/70/71/72.
 - v3.11 (20260728): Item 69 and Task_Match_Data_Integrity Sprint inserted
   into the pre-Phase-14 chain per TM6, correcting the original 20260629
   ordering.
@@ -137,15 +147,18 @@ Version History:
 
 **v1.23.0 delivered:** Phases 1–13 complete (CLI + Bidirectional Slack via Socket Mode)
 **Remaining:** Item 69 (complete, v1.27.0) → Task_Match_Data_Integrity
-Sprint → Slack_LLM_Completion_Sprint → Slack_Modal_Completion_Sprint →
-Phase 14 (Setup Wizard) → Phase 15 (Testing & Docs) → Phase 18
-(Packaging). Phases 16/17 deferred post-packaging.
+Sprint (complete, v1.28.0) → Slack_LLM_Completion_Sprint →
+Slack_Modal_Completion_Sprint → Phase 14 (Setup Wizard) → Phase 15
+(Testing & Docs) → Phase 18 (Packaging). Phases 16/17 deferred
+post-packaging. Backlog Item #72 (carried from Task_Match_Data_Integrity
+Sprint Gate 3) is unscheduled, not part of this chain.
 
 **Sprint series continuity:** Operations_Config_Correction_Sprint
 (complete, partial delivery), Item 69 (complete), Task_Match_Data_Integrity
-Sprint, Slack_LLM_Completion_Sprint, and Slack_Modal_Completion_Sprint are
-one continuous push toward the Pre-Phase 14 Gate. Task_Match_Data_Integrity
-Sprint was inserted ahead of Slack_LLM_Completion_Sprint per
+Sprint (complete), Slack_LLM_Completion_Sprint, and
+Slack_Modal_Completion_Sprint are one continuous push toward the
+Pre-Phase 14 Gate. Task_Match_Data_Integrity Sprint was inserted ahead of
+Slack_LLM_Completion_Sprint per
 `SESSION_HANDOFF_TASK_MATCH_PLANNING_20260725.md` decision TM6, which
 supersedes this document's original (20260629) ordering. Each sprint's
 spec document states what preceded it and what the series is collectively
@@ -831,7 +844,7 @@ holds `eod_workflow.py`, which is unaffected by this path correction).
 
 ---
 
-## TASK_MATCH_DATA_INTEGRITY_SPRINT (Follows Item 69, precedes Slack_LLM_Completion_Sprint)
+## TASK_MATCH_DATA_INTEGRITY_SPRINT — ✓ COMPLETE (v1.28.0, 2026-07-29) (Follows Item 69, precedes Slack_LLM_Completion_Sprint)
 
 **Goal**: Make the CF→TaskStatus pipeline trustworthy end-to-end — an
 honest `tasks` command block, a repaired task pool (orphan backfill +
@@ -849,35 +862,65 @@ superseding this document's earlier (20260629) sprint ordering.
 (`workmain tasks list`) reflects real, current, correctly-matched data —
 not a stale one-time backfill snapshot — before Phase 14 begins.
 
-### Gate 1 — `tasks` Command Block Correction [Item #67]
+### Gate 0 — EOD note_dedup VALID_STEPS Wiring Gap [Item #71] — ✓ COMPLETE
 
-- [ ] CLI list cap made honest — header reflects actual returned count
+Field finding (Addendum M) folded into the sprint after this checklist
+body was originally drafted, via the Hotfix → Feature Branch Exception
+(Design Rule 9).
+
+- [x] `note_dedup` added to `eod.py`'s `VALID_STEPS`, restoring `--skip
+  note_dedup`
+
+### Gate 1 — `tasks` Command Block Correction [Item #67] — ✓ COMPLETE
+
+- [x] CLI list cap made honest — header reflects actual returned count
   vs. total, not a silent truncation
-- [ ] `--all` semantics clarified/corrected
-- [ ] Docstring deviation vs. `CLI_STANDARDS.md` fixed
-- [ ] Deprecated `carryover` command disposition decided (retire vs.
-  repurpose)
-- [ ] Step 3c attempt-set cap addressed
+- [x] `--all` semantics clarified/corrected — pure row-cap override,
+  independent of `--status`
+- [x] Docstring deviation vs. `CLI_STANDARDS.md` fixed (docstring and
+  `--all`'s own `--help` string, both)
+- [x] Deprecated `carryover` command disposition decided — retired
+  entirely, incl. CLI quickstart help reference
+- [x] Step 3c attempt-set cap addressed — plus three sibling
+  `action_executor.py` Slack task-resolution queries, same bug class
+  (Ray's decision, folded in)
 
-### Gate 2 — Task Pool Data Repair [Item #70]
+### Gate 2 — Task Pool Data Repair [Item #70] — ✓ COMPLETE
 
-- [ ] 30-orphan backfill (CF notes with no TaskStatus row) via
+- [x] 31-orphan backfill (CF notes with no TaskStatus row) via
   migration-015 logic, one-time gated operation
-- [ ] 142 stale backfill rows reviewed and dismissed, one-time gated
-  operation with explicit approval (not a bulk CLI feature — Ray: "bulk
-  is a one time special situation")
+- [x] 141 stale backfill rows reviewed and dismissed
+  (`task_status.id <= 147`, structurally exact selection), one-time
+  gated operation with explicit approval (not a bulk CLI feature — Ray:
+  "bulk is a one time special situation")
 
-### Gate 3 — Match Quality [Item #66]
+### Gate 3 — Match Quality [Item #66] — ✓ COMPLETE, AC11/AC12 carried
 
-- [ ] JSON compliance on raw-mode task-match output
-- [ ] Path-attribution tag (LLM vs. keyword-fallback) surfaced
+- [x] JSON compliance on raw-mode task-match output — `format: "json"`
+  cut `parse_task_match`'s malformed-response rate to ~0, but pushed
+  `parse_note_duplicate`'s rate to ~90%+ (regression, not fixed) —
+  carried to Backlog Item #72 rather than re-opened in this sprint (per
+  Ray, 20260729)
+- [x] Path-attribution tag (LLM vs. keyword-fallback) surfaced —
+  live-verified on both the interactive display and the non-interactive
+  PAUSED block
 - [ ] Confidence-1.00 handling decided (clamp / distrust threshold /
-  display-raw + path tag)
-- [ ] Carries Item #62's AC3/AC8 verification in real flow
+  display-raw + path tag) — descoped from the final spec (v1.3, Design
+  Rule 7: Gate 3 does not alter the underlying confidence number); never
+  implemented
+- [x] Carries Item #62's AC3/AC8 verification in real flow — AC8 met
+  (staged known-completed task matched 1.00 confidence via the LLM
+  path); AC3 (induced-timeout) still not literally run, carried to Item
+  #72 alongside AC11
 
 **Recon:** `RECON_SPEC_TASK_MATCH_DATA_INTEGRITY_SPRINT_20260725.md`
 §H/I/J, `RECON_SPEC_ITEM66_TASK_MATCH_QUALITY_20260725.md` §E/G (§F
 superseded, see that document's own banner).
+
+**Resolution (20260729):** Spec `TASK_MATCH_DATA_INTEGRITY_SPRINT_SPEC_v1_3.md`
+implemented across 4 gates on `feature/task-match-data-integrity`. 921 →
+934 tests, 0 regressions. Live-verified same day. Full detail in
+`docs/FEATURE_BACKLOG.md` v5.42, Items 66/67/70/71/72.
 
 ---
 
@@ -1307,6 +1350,7 @@ Items that do not block packaging and are implemented on demand.
 | Ops_Config_Correction_Sprint | ⚠ PARTIAL | Schedule authority, cancelled-meeting filter, delivery refactor, morning briefing, Step 3c/#32 delivered (v1.24.0); #58 activity-gap detection not delivered, carried forward |
 | Item #61 — Report Review & Weekly Generation Unification | ✓ DONE | Collapsed daily/weekly EOD review runners, shared $EDITOR helper + `apply_correction()`, retired `build_weekly_prompt()` substitutive branch (closes #46), Thursday Slack draft on shared runner (v1.26.0) |
 | Item #69 — Note Write-Path Convergence | ✓ DONE | Converged all 12 note-write surfaces onto `create_note()`/`create_time_entry()`/`create_paired_time_entry()`; CF→TaskStatus hook relocated to service layer; #2/#8/#12 real tags, #4/#9 condensed-tag fix, #7 source fix, client_id auto-stamped incl. Clockify (v1.27.0) |
+| Task_Match_Data_Integrity Sprint | ✓ DONE | `note_dedup` VALID_STEPS wiring gap (#71); `tasks list --all`/`--status` decoupling + Step 3c/Slack uncapped queries (#67); orphan backfill + stale-row dismissal, active pool 143→37 (#70); JSON-format enforcement + LLM/keyword path-attribution tag (#66) — AC11 (parse_note_duplicate malformed-response rate) and Item #62's AC3 carried to Item #72, not met (v1.28.0) |
 | Slack_LLM_Completion_Sprint | ⏳ | Model rebuild, meeting_id/tags passthrough, weekly quality, travel use case |
 | Slack_Modal_Completion_Sprint | ⏳ | Block Kit modal — full report correction, closes T5 Slack loop |
 | 14 | ⏳ | Setup Wizard, config command group, initial data import |
