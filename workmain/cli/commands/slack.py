@@ -1,8 +1,8 @@
 """
 WorkmAIn CLI
 Slack Command Group
-slack.py v1.8
-20260724
+slack.py v1.9
+20260730
 
 CLI commands for posting reports to Slack.
 
@@ -55,6 +55,7 @@ Version History:
         _run_slack_weekly_step (eod_workflow.py) traced and confirmed to
         need no changes (Design Rule 11) — it only shells this command as
         a subprocess with no --date.
+- v1.9: Replaced certain data values as part of an application wide update  
 """
 
 from datetime import date, datetime, timedelta
@@ -329,8 +330,8 @@ def slack_set_channel(channel: str):
 
     \b
     Examples:
-      workmain slack set channel "#int-gmf-csirt"
-      workmain slack set channel int-gmf-csirt
+      workmain slack set channel "#int-ACME"
+      workmain slack set channel int-ACME
     """
     channel = _normalize_channel(channel)
 

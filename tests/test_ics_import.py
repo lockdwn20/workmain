@@ -508,7 +508,7 @@ class TestICSImport:
         canonical = Meeting(
             outlook_id=series_uid,
             outlook_recurring_id=series_uid,
-            title="CSIRT Daily",
+            title="ACME Daily",
             start_time=occ_time,
             end_time=datetime(2099, 3, 1, 9, 15),
             is_recurring=True,
@@ -522,7 +522,7 @@ class TestICSImport:
         orphan = Meeting(
             outlook_id=stale_uid,
             outlook_recurring_id=series_uid,
-            title="CSIRT Daily",
+            title="ACME Daily",
             start_time=occ_time,
             end_time=datetime(2099, 3, 1, 9, 15),
             is_recurring=True,
@@ -535,7 +535,7 @@ class TestICSImport:
         # Re-import the canonical event (no field changes)
         event = ICSEvent(
             uid=series_uid,
-            title="CSIRT Daily",
+            title="ACME Daily",
             start_time=occ_time,
             end_time=datetime(2099, 3, 1, 9, 15),
             is_recurring=True,
@@ -608,7 +608,7 @@ class TestICSImport:
         old_record = Meeting(
             outlook_id=series_uid,
             outlook_recurring_id=series_uid,
-            title="CSIRT Weekly",
+            title="ACME Weekly",
             start_time=occ_time,
             end_time=datetime(2099, 5, 5, 14, 30),
             is_recurring=True,
@@ -631,7 +631,7 @@ class TestICSImport:
         counterpart = Meeting(
             outlook_id=synthetic_uid,
             outlook_recurring_id=series_uid,
-            title="CSIRT Weekly",
+            title="ACME Weekly",
             start_time=occ_time,
             end_time=datetime(2099, 5, 5, 14, 30),
             is_recurring=True,

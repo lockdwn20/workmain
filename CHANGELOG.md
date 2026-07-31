@@ -1605,7 +1605,7 @@ convergence.
   with label "notes kept on original date — new occurrence added" so the protection
   is visible before confirming an import.
 - Data fix: deleted orphan rows ID 420 and ID 439 (zero notes, stale synthetic UIDs
-  duplicating the CSIRT Daily and Policy Violation touchpoint occurrences for 2026-03-27).
+  duplicating the ACME Daily and Policy Violation touchpoint occurrences for 2026-03-27).
 
 ### Changed
 

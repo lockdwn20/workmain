@@ -1,7 +1,7 @@
 """
 WorkmAIn Clients Commands
-clients.py v1.0
-20260512
+clients.py v1.1
+20260730
 
 CLI command group: workmain clients
 Manages client records and active client context.
@@ -16,6 +16,7 @@ Commands:
 
 Version History:
 - v1.0: Phase 11 Gate 4 — full CRUD, context switching, reserved 'internal' keyword
+- v1.1: Replaced certain data values as part of an application wide update
 """
 
 from typing import Optional
@@ -52,7 +53,7 @@ def clients_add(name: str):
     \b
     Examples:
       workmain clients add "Acme Corp"
-      workmain clients add GMF
+      workmain clients add ACME
     """
     db = get_db()
     session = db.get_session()
@@ -117,7 +118,7 @@ def clients_show(id_or_name: str):
 
     \b
     Examples:
-      workmain clients show GMF
+      workmain clients show ACME
       workmain clients show 1
     """
     db = get_db()
@@ -213,7 +214,7 @@ def clients_set_active(name: str):
 
     \b
     Examples:
-      workmain clients set active GMF
+      workmain clients set active ACME
       workmain clients set active internal
     """
     if name.strip().lower() == 'internal':

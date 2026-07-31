@@ -286,7 +286,7 @@ def today():
 
     console.print("\n[bold yellow]CLIENT CONTEXT[/bold yellow]  [dim](Phase 11)[/dim]")
     console.print("  workmain clients status              # Show active client context")
-    console.print("  workmain clients set active GMF      # Switch to a client context")
+    console.print("  workmain clients set active ACME      # Switch to a client context")
     console.print("  workmain clients set active internal # Clear client → internal mode")
     console.print("  workmain clients list                # List all configured clients")
 

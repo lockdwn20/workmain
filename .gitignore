@@ -82,5 +82,4 @@ test_notes-*.md
 scripts-deprecated/
 tests/google_drive/
 
-# Development artifacts — local only, not tracked
-docs/dev/
+

@@ -142,8 +142,8 @@ def test_variable_substitution():
     # Build variables
     variables = loader.build_variables(
         report_date=date(2025, 12, 24),
-        user_full_name="Ray Race Jr.",
-        recipients=["Ronnie", "Matt", "David"]
+        user_full_name="Tom Kitten",
+        recipients=["Benjamin", "Bunny", "Flopsy"]
     )
     
     print("\nGenerated variables:")

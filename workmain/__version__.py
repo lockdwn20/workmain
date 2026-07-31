@@ -417,7 +417,7 @@ Version History:
            `EmailRepository.list_for_client()` merges global + client-scoped recipients;
            `email assign/unassign` ambient client context; `_get_draft_recipients()`
            deduplicates (client-scoped wins). Retired `slack channel set` command.
-           `config.json` default_channel migrated to GMF.slack_channel. CLI_STANDARDS
+           `config.json` default_channel migrated to ACME.slack_channel. CLI_STANDARDS
            v2.2: set subgroup carve-out added (V24). 26 new tests; suite: 308 passed.
 - v1.13.0: Phase 11 complete — Client & Recipient Management foundation. New system_state
            KV table replaces notification_config; NotificationConfigRepository migrated to
