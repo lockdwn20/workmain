@@ -52,4 +52,3 @@ __all__ = [
     "SlackEodManager",
     "SlackEodSession",
 ]
-__version__ = "1.5"

@@ -11,4 +11,3 @@ from workmain.workflows.eod_workflow import (
 )
 
 __all__ = ['get_step_sequence', 'run_step', 'EodStepResult', 'EodStepStatus']
-__version__ = '1.0'

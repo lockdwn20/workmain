@@ -10,5 +10,3 @@ __all__ = [
     "notes_service",
     "time_entry_service",
 ]
-
-__version__ = "1.0"

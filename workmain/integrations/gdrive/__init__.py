@@ -24,4 +24,3 @@ __all__ = [
     "get_folder_id",
     "set_folder_id",
 ]
-__version__ = "1.0"

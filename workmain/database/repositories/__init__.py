@@ -15,4 +15,3 @@ __all__ = [
     "ScheduleExceptionRepository",
     "SystemStateRepository",
 ]
-__version__ = "1.3"

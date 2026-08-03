@@ -16,4 +16,3 @@ __all__ = [
     'ActionExecutorError',
     'ConfirmationGate',
 ]
-__version__ = '1.0'

@@ -7,4 +7,3 @@ notification delivery.
 from workmain.daemon.models import Observation, ObservationType
 
 __all__ = ["Observation", "ObservationType"]
-__version__ = "1.0"

@@ -97,5 +97,3 @@ __all__ = [
     'get_report_generator',
     'ReportFormat',
 ]
-
-__version__ = '1.5'

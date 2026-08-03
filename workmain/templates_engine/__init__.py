@@ -25,5 +25,3 @@ __all__ = [
     'StyleAdapter',
     'get_style_adapter',
 ]
-
-__version__ = '1.3'

@@ -19,4 +19,3 @@ PROVIDER_REGISTRY = {
 }
 
 __all__ = ['PROVIDER_REGISTRY', 'ClaudeProvider', 'GeminiProvider', 'OllamaProvider']
-__version__ = '1.0'
