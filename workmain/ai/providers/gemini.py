@@ -1,7 +1,6 @@
 """
 Gemini (Google AI) provider implementation.
 
-Migrated from workmain/ai/gemini_client.py v1.6.
 Receives config dict from ProviderManager via PROVIDER_REGISTRY.
 Do not instantiate directly — use get_provider_manager().get_provider('gemini').
 

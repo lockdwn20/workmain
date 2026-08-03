@@ -1,7 +1,6 @@
 """
 Claude (Anthropic) provider implementation.
 
-Migrated from workmain/ai/claude_client.py v1.3.
 Receives config dict from ProviderManager via PROVIDER_REGISTRY.
 Do not instantiate directly — use get_provider_manager().get_provider('claude').
 
