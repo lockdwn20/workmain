@@ -2,7 +2,7 @@
 
 **Author:** Spanner (Role 1)
 **Date:** 20260803
-**Spec version:** v1.2
+**Spec version:** v1.3
 **Branch:** `feature/file-header-removal` (from `dev`)
 **Target release:** v1.29.0
 **Originating item:** Ray request, 20260731
@@ -36,6 +36,15 @@
     "ten" — and while fixing it, the underlying count was found wrong in both v1.0
     and v1.1: both tallies had included the DOCSTRINGS row, which is an explicit
     *keep*. The §5a table now has eleven rows covering ten changed sections.
+- **v1.3** (20260803) — Anvil discrepancy report applied, both items confirmed live:
+  - **Test baseline 921 → 934.** The 921 figure was carried over from the Item #69
+    baseline (v1.27.0) instead of re-verified at authoring time; v1.28.0 added 13
+    tests in between. Re-ran `python -m pytest tests/` on a clean tree at this
+    branch's HEAD: **934 passed, 0 failed**. Corrected in §6.2 and in AC1.4, AC2.4,
+    AC3.4, AC4.5, AC6.3.
+  - **File total 192 → 187.** The 192 figure included `scripts-deprecated/` (5
+    files), which Q4 puts out of scope. Preamble to §2.1 corrected. No granular
+    count in the table was affected.
 
 ---
 
@@ -76,7 +85,7 @@ strip their own headers), any behaviour change beyond §4.3.
 
 ### 2.1 Verified file inventory
 
-Measured by AST parse across 192 `.py` files. `__pycache__` excluded.
+Measured by AST parse across 187 `.py` files (186 in the three in-scope trees plus `setup.py`; `scripts-deprecated/` excluded per Q4). `__pycache__` excluded.
 
 | Tree | Files with a header | Header lines | Of which carry `Version History` |
 | --- | ---: | ---: | ---: |
@@ -288,7 +297,7 @@ a `Version History` block; the other 7 take §4.1 only.
 **AC1.1** All 96 files transformed; §6.1 AST-equality passes on every one.
 **AC1.2** No `Version History` string remains under `workmain/` except `__version__.py`.
 **AC1.3** The four §4.2 files retain their post-block prose.
-**AC1.4** `python -m pytest tests/` → 921 passed, 0 failed, 0 errors.
+**AC1.4** `python -m pytest tests/` → 934 passed, 0 failed, 0 errors.
 **AC1.5** `python -c "import workmain"` succeeds.
 
 ### Gate 2 — `tests/` headers (61 files, 1,287 lines)
@@ -299,7 +308,7 @@ Apply §4.1 + §4.2, honouring the §4.4 exemption. 56 of the 61 carry a
 **AC2.1** All 61 files transformed; §6.1 passes on every one.
 **AC2.2** `tests/test_recurring_meetings.py` retains both prose lines (§4.4).
 **AC2.3** `tests/test_ai_clients.py` and `tests/test_ai_foundation.py` retain post-block prose.
-**AC2.4** `python -m pytest tests/` → 921 passed, 0 failed, 0 errors.
+**AC2.4** `python -m pytest tests/` → 934 passed, 0 failed, 0 errors.
 
 ### Gate 3 — `scripts/` headers + argparse fix (13 files, 235 lines)
 
@@ -310,7 +319,7 @@ block; the other 2 take §4.1 only.
 **AC3.2** `task_pool_stale_dismissal_20260728.py` no longer references `__doc__`.
 **AC3.3** `python scripts/task_pool_stale_dismissal_20260728.py --help` exits 0 and
 prints a non-empty description. **Run with `--help` only — never `--execute`.**
-**AC3.4** `python -m pytest tests/` → 921 passed, 0 failed, 0 errors.
+**AC3.4** `python -m pytest tests/` → 934 passed, 0 failed, 0 errors.
 
 ### Gate 4 — Version constants
 
@@ -334,7 +343,7 @@ consumers repo-wide.
 **AC4.2** `workmain --version` prints the correct version.
 **AC4.3** Gate 0 completed — no release history exists only in the deleted docstring.
 **AC4.4** `grep -rn "^__version__" workmain/` returns exactly one hit: `__version__.py`.
-**AC4.5** `python -m pytest tests/` → 921 passed, 0 failed, 0 errors.
+**AC4.5** `python -m pytest tests/` → 934 passed, 0 failed, 0 errors.
 
 ### Gate 5 — Documentation
 
@@ -421,7 +430,7 @@ grep -n "version history, "         docs/DEVELOPMENT_STANDARDS_REVIEW.md   # AC5
 **AC6.1** Repo-wide: `grep -rn "Version History" --include="*.py" .` returns **zero**
 hits outside `scripts-deprecated/` (Q4, out of scope).
 **AC6.2** §6.1 AST-equality passes across every file modified in Gates 1–3.
-**AC6.3** `python -m pytest tests/` → 921 passed, 0 failed, 0 errors.
+**AC6.3** `python -m pytest tests/` → 934 passed, 0 failed, 0 errors.
 **AC6.4** `workmain --version` and `workmain --help` both succeed.
 **AC6.5** Line-count reduction reported against the §2.1 baseline.
 **AC6.6** Version bumped to **v1.29.0**; `CHANGELOG.md` entry added.
@@ -472,11 +481,13 @@ in `scripts/`, and do not commit it.
 
 ### 6.2 Test baseline
 
-**921 passed, 0 failed, 0 errors.** Verified safe to hold flat: **no test asserts on
+**934 passed, 0 failed, 0 errors** — re-verified live on 20260803 against a clean
+tree at this branch's HEAD, not carried over from a prior sprint. Verified safe to
+hold flat: **no test asserts on
 any docstring or header**. The `Version History` grep hits under `tests/` are the
 test files' own headers and nothing more.
 
-Any deviation from 921 is a defect — **STOP and surface to Ray.**
+Any deviation from 934 is a defect — **STOP and surface to Ray.**
 
 ---
 
@@ -501,7 +512,7 @@ Any deviation from 921 is a defect — **STOP and surface to Ray.**
 
 - **~2,900 lines removed** — every one of them genuinely held by git.
 - **~1,967 lines of module-purpose prose preserved** — the material git does not hold.
-- Test count unchanged at 921. No behaviour change beyond §4.3.
+- Test count unchanged at 934. No behaviour change beyond §4.3.
 - `CLAUDE.md` and `DEVELOPMENT_STANDARDS_REVIEW.md` agree on file headers for the
   first time since Rule 1 was written.
 
