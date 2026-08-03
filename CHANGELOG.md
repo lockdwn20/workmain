@@ -1953,6 +1953,12 @@ convergence.
 - Live email send (OAuth) remains a stub — use `email save <template>` + `email show <n>` for draft review
 - ICS-first path chosen per Phase 6 spec: OAuth is a separate future gate requiring Azure AD app registration
 
+## [1.2.0]
+
+### Added
+
+- CLI Standardization Sprint complete - unified notes/meetings groups, standardized flags, eod command, today rewrite
+
 ## [1.1.0] - 2026-01-27
 
 ### Added
@@ -2016,4 +2022,50 @@ convergence.
 - Note condensation
 - Cost tracking
 
-[Previous versions tracked in file headers]
+## [0.8.0]
+
+### Added
+
+- Phase 4 Features 1-2 (providers CLI, bulk meeting notes, AI condensation)
+
+## [0.7.0]
+
+### Added
+
+- Phase 4 Days 1-7 (AI integration core)
+
+## [0.6.0]
+
+### Added
+
+- Phase 3.5 complete (template extensibility)
+
+## [0.5.0]
+
+### Added
+
+- Phase 3 complete (template system)
+
+## [0.4.0]
+
+### Added
+
+- Phase 2 complete with all 24 commands
+
+## [0.3.0]
+
+### Added
+
+- Phase 2 tasks feature
+
+## [0.2.0]
+
+### Added
+
+- Phase 2 complete (CLI, notes, meetings, time tracking)
+
+## [0.1.0]
+
+### Added
+
+- Initial structure
