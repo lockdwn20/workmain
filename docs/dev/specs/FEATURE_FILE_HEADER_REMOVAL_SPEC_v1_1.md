@@ -2,11 +2,26 @@
 
 **Author:** Spanner (Role 1)
 **Date:** 20260803
-**Spec version:** v1.0
+**Spec version:** v1.1
 **Branch:** `feature/file-header-removal` (from `dev`)
 **Target release:** v1.29.0
 **Originating item:** Ray request, 20260731
 **Design study:** `docs/dev/design/DESIGN_FILE_HEADER_REMOVAL_20260731_v1.0.md`
+
+## Revision history
+
+- **v1.0** (20260803) — initial spec from Ray's Q1–Q6 answers.
+- **v1.1** (20260803) — Caliper review applied. All three findings accepted after
+  independent verification against live source:
+  - **Finding 1** — `tests/test_recurring_meetings.py` had orphaned `Version:` /
+    `Date:` lines falling in a gap between §4.1 and §4.2. §4.4 rewritten with
+    explicit handling. A repo-wide transform simulation confirmed this is the only
+    such file; that simulation is now **AC6.10**.
+  - **Finding 2** — two further `DEVELOPMENT_STANDARDS_REVIEW.md` sections
+    (lines 456–459, line 508) instruct the retired practice. Added to the §5a table
+    with **AC5.6** / **AC5.7**.
+  - **Finding 3** — AC5.5 was semantic and unautomatable. Replaced with a grep-based
+    check rather than waived.
 
 ---
 
@@ -158,16 +173,53 @@ docstring. Handled in Gate 3.
 
 ### 4.4 The single hand-handled file
 
-`tests/test_recurring_meetings.py` — its opening two-line run is **pure prose** with
-no metadata whatsoever:
+> Revised in v1.1 — Caliper Finding 1.
+
+`tests/test_recurring_meetings.py` is the sole exception in the codebase. Its full
+header, verified at lines 1–14:
 
 ```text
-Unit tests for recurring meetings functionality.
-Tests Phase 5.1 operational fixes.
+"""
+Unit tests for recurring meetings functionality.   <- prose
+Tests Phase 5.1 operational fixes.                 <- prose
+                                                   <- first blank line
+Version: 1.3                                       <- orphaned metadata
+Date: 20260610                                     <- orphaned metadata
+
+Version History:
+- v1.0: Initial test suite with placeholder db_session fixture
+...
+"""
 ```
 
-Applying §4.1 blindly deletes the file's only description. **Exempt this file from
-§4.1.** Apply §4.2 only. This is the sole exception in the codebase.
+Two distinct problems, both requiring hand-handling:
+
+1. **The opening two-line run is pure prose**, not metadata. Applying §4.1 blindly
+   deletes the file's only description. **Exempt this file from §4.1.**
+2. **`Version: 1.3` and `Date: 20260610` sit in a gap between the rules** — below the
+   first blank line so §4.1 cannot reach them, above `Version History:` so §4.2's
+   forward-deletion does not touch them, and not blank-lines-immediately-preceding so
+   §4.2's backward sweep misses them too.
+
+**Required handling:** apply §4.2 as normal, and **additionally delete the
+`Version: 1.3` and `Date: 20260610` lines and the blank line preceding them.** These
+are version metadata — precisely the content Q1/Option A retires — so removing them
+is the approved decision applied to an edge case, not a new design decision.
+
+**Expected result:**
+
+```python
+"""
+Unit tests for recurring meetings functionality.
+Tests Phase 5.1 operational fixes.
+"""
+```
+
+**This is the only such file.** Verified by simulating §4.1 + §4.2 across all 170
+in-scope files and scanning every resulting docstring for surviving metadata
+(`Version:`, `Date:`, `Updated:`, `Author:`, bare `vN.N`, bare `YYYYMMDD`, `*.py vN`):
+exactly one file matched, this one. Zero files produced an empty docstring. The
+mechanical form of this check is **AC6.10**.
 
 ### 4.5 Resulting shape
 
@@ -272,9 +324,10 @@ consumers repo-wide.
 
 ### Gate 5 — Documentation
 
-The standards doc is **more entangled than the design study estimated**: eight
-sections reference the retired practice, not three. Every one must be reconciled or
-the standard silently re-grows the headers.
+The standards doc is **more entangled than the design study estimated**: ten sections
+reference the retired practice, not three (eight found while specc'ing, two more by
+Caliper Finding 2). Every one must be reconciled or the standard silently re-grows
+the headers.
 
 **5a. `docs/DEVELOPMENT_STANDARDS_REVIEW.md` → v3.0** (currently 521 lines):
 
@@ -285,8 +338,10 @@ the standard silently re-grows the headers.
 | 102–144 | §5 Package `__init__.py` Pattern | Remove the version-history docstring from the example; **delete standard #4 "`__version__` at module level"** and the `__version__ = '1.2'` line — this is the rule that mandated the Q3 constants |
 | 191–209 | FILE VERSIONING | **Delete** — incl. the stale "In header comment for SQL files" claim (recon: no `.sql` file has a version block) |
 | 210–311 | VERSION TRACKING LOCATIONS | Rewrite: git tags + `CHANGELOG.md` + `workmain/__version__.py` are the tracking locations. Drop "File headers (Each .py file)". Drop the `grep -r "v[0-9]"` and `head -15 … \| grep "v[0-9]"` recipes — they no longer find anything |
+| 456–459 | Mistake 2: Removed `__init__.py` Structure | **Rewrite** — its "**Right**: Full docstring, version history, `__all__`, `__version__`" line instructs the retired practice as the *correct* pattern. Must become "Full docstring, `__all__`" |
 | 471–477 | Mistake 5 | Rewrite or delete — cites SESSION_HANDOFF as version source of truth |
 | 489–496 | SUMMARY → Version Tracking | Rewrite the ✅/❌ list |
+| 508 | SUMMARY → Code Quality | **Delete** the `✅ Version history in files` bullet — marks the retired practice as a quality standard |
 | 410–434 | DOCSTRINGS | **Keep unchanged** — Google-style function docstrings are unaffected |
 
 Also update the doc's own `Version History:` block with a v3.0 entry (this doc's own
@@ -314,7 +369,28 @@ header, a `Version History:` block, or a package-level `__version__`.
 **AC5.3** The Role 1 sentence appears verbatim as Ray worded it.
 **AC5.4** The Deep Reference Docs table contains the new row.
 **AC5.5** No remaining contradiction between `CLAUDE.md` and
-`DEVELOPMENT_STANDARDS_REVIEW.md` on file headers.
+`DEVELOPMENT_STANDARDS_REVIEW.md` on file headers. *(Caliper Finding 3: this was
+semantic and unautomatable as originally worded. Replaced with the mechanical
+check below — the judgement is now made once here, at spec time, rather than left
+to the implementer.)*
+
+Mechanically: in `docs/DEVELOPMENT_STANDARDS_REVIEW.md`, **each of these greps must
+return zero hits**, excluding the doc's own `Version History:` header block (which
+is a `docs/` header and stays per §2):
+
+- `Version History` — outside the doc's own header block
+- `__version__` — the package-level constant standard
+- `^\s*-\s*v\d+\.\d+:` — version-history entry examples
+- `\d{8}` — the date line in header examples
+- `Component Name v` / `File Header Pattern`
+
+**AC5.6 / AC5.7** Both greps below return zero hits (Caliper Finding 2 — line 508
+and lines 456–459 respectively):
+
+```bash
+grep -n "Version history in files"  docs/DEVELOPMENT_STANDARDS_REVIEW.md   # AC5.6
+grep -n "version history, "         docs/DEVELOPMENT_STANDARDS_REVIEW.md   # AC5.7
+```
 
 ### Gate 6 — Verification and release prep
 
@@ -332,6 +408,12 @@ object (`gh release create` — the tag alone is not a release, per
 `GIT_WORKFLOW_STANDARDS.md` lines 104–110).
 **AC6.9** Restart `workmain-notify.service` and confirm `ActiveEnterTimestamp`
 postdates the merge — a `dev` merge is not live until the daemon restarts.
+**AC6.10 — metadata residue scan.** Parse every in-scope file's resulting module
+docstring and assert that **no line** matches `Version:`, `Date:`, `Updated:`,
+`Author:`, a bare `vN.N`, a bare `YYYYMMDD`, or `*.py vN`, and that **no docstring
+is empty**. This is the mechanical guard against Caliper Finding 1's failure class —
+metadata stranded in a gap between §4.1 and §4.2. Pre-verified expectation: zero
+hits once §4.4 is applied.
 
 ---
 
@@ -385,6 +467,8 @@ Any deviation from 921 is a defect — **STOP and surface to Ray.**
 | Shebang clobbered | DR2 AST-driven editing; §4.5 constraint |
 | Standards doc re-grows the practice | Gate 5 reconciles all eight sections; AC5.5 |
 | One-off script `--help` regresses | §4.3 explicit fix; AC3.3 — `--help` only, never `--execute` |
+| Metadata stranded in a gap between §4.1 and §4.2 | AC6.10 residue scan; §4.4 handles the one known instance (Caliper Finding 1) |
+| Standards doc retains an instruction the §5a table missed | AC5.5/5.6/5.7 grep checks rather than a semantic read (Caliper Findings 2, 3) |
 | Implementer hits an unlisted judgement call | DR5 — stop at the gate, surface to Ray |
 
 ---
@@ -405,6 +489,8 @@ to `docs/dev/archive/`, per the Documentation Standards in `CLAUDE.md`.
 
 ## 9. Status
 
-**AWAITING CALIPER REVIEW (Role 2), then Ray's approval to begin Gate 0.**
+**CALIPER REVIEW COMPLETE — all three findings applied in v1.1.**
 
-No implementation may begin until this spec is approved.
+**AWAITING RAY'S APPROVAL TO BEGIN GATE 0.**
+
+No implementation may begin until Ray approves this spec.
