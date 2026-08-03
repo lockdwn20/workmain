@@ -1,15 +1,6 @@
 """
-WorkmAIn State I/O Tests
-test_state_io v1.0
-20260716
-
 Tests for workmain/daemon/state_io.py — the shared last_inspection.json
 read/write primitives consolidated in Item #60 Gate 1.
-
-Version History:
-- v1.0: Item #60 Gate 1 — initial test suite. write_last_inspection(),
-        read_last_inspection() (missing file, invalid-JSON, invalid UTF-8),
-        matches_target_date().
 """
 
 from datetime import date

@@ -1,16 +1,9 @@
 """
-WorkmAIn Time Parser Tests
-test_time_parser.py v1.0
-20260708
-
 Unit coverage for workmain/utils/time_parser.py — parse_time() and
 parse_duration_hours(), extracted verbatim from TimeEntriesRepository in
 Operations_Config_Correction_Sprint Gate 1 §1.0.
 
 No DB access — pure-function coverage only.
-
-Version History:
-- v1.0: Operations_Config_Correction_Sprint Gate 7 — initial suite
 """
 
 from datetime import time

@@ -1,8 +1,4 @@
 """
-WorkmAIn Time Entries Refactor Tests
-test_time_entries_refactor v1.0
-20260610
-
 Verifies behaviors introduced in Phase 13 DB Schema Sprint:
   - note_id FK enforcement (NOT NULL, ON DELETE RESTRICT)
   - get_by_note_id() return values
@@ -11,9 +7,6 @@ Verifies behaviors introduced in Phase 13 DB Schema Sprint:
 
 All DB tests use the db_session fixture (transaction rolled back after each test).
 Sentinel date 2099-06-01 prevents overlap with production data.
-
-Version History:
-- v1.0: Phase 13 DB Schema Sprint Gate 6
 """
 
 import pytest

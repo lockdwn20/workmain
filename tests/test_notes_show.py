@@ -1,8 +1,4 @@
 """
-WorkmAIn Notes Show Tests
-test_notes_show v1.0
-20260526
-
 Tests for 'workmain notes show' — single record detail command — and the
 underlying _resolve_note() resolution logic in notes.py.
 
@@ -15,9 +11,6 @@ Covers:
 Uses db_session fixture from conftest.py for full transaction isolation.
 CLI tests use ID 999999 (guaranteed non-existent in sentinel space) or
 keywords unique enough to never match production data.
-
-Version History:
-- v1.0: Notes & Tasks Foundation Sprint — Gate 4
 """
 
 from datetime import datetime

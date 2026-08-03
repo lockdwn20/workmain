@@ -1,8 +1,4 @@
 """
-WorkmAIn Meetings Repository Tests
-test_meetings_repository.py v1.0
-20260708
-
 Unit coverage for MeetingsRepository.get_active_for_date() (Operations_
 Config_Correction_Sprint Gate 2 §2.1) — confirms cancelled meetings are
 excluded from the inspect/notify surface while get_by_date()/get_today()
@@ -10,9 +6,6 @@ remain intentionally unfiltered (OQ2).
 
 Uses db_session fixture for full transaction isolation.
 Uses a sentinel date to prevent production data skewing results.
-
-Version History:
-- v1.0: Operations_Config_Correction_Sprint Gate 7 — initial suite
 """
 
 from datetime import date, datetime

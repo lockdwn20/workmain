@@ -1,19 +1,7 @@
 """
-WorkmAIn Notes Service Tests
-test_notes_service v1.2
-20260728
-
 Tests for workmain/services/notes_service.py.
 
 All DB tests use the db_session fixture (transaction rolled back after each test).
-
-Version History:
-- v1.0: Intent action service layer Gate 5
-- v1.1: Item 69 Gate 1 — add TestCreateNoteCfHook (CF->TaskStatus hook now fires
-        from create_note() itself) and TestCreateNoteBackdate (created_at param)
-- v1.2: Item 69 Gate 2 — add TestUpdateNote covering the new general update_note()
-        (CF add/remove transition, unchanged-CF no-op, content-only leaves tags/hook
-        untouched)
 """
 
 import pytest

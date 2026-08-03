@@ -1,8 +1,4 @@
 """
-WorkmAIn Time Add CLI Tests
-test_time_add v1.1
-20260728
-
 CLI-level coverage for 'workmain time add' — Item 69 Gate 1's fix to surface
 #7 (the meeting-path "additional notes" prompt), which silently defaulted
 source to 'ad-hoc' via omission and now routes through
@@ -22,16 +18,6 @@ db_session-fixture rows are not visible across that boundary (confirmed during
 Hotfix Item #56 Gate 2). Both the primary note+time-entry (surface #5) and the
 additional note (surface #7) are queried back by sentinel content and cleaned
 up by ID in tearDown, mirroring test_report_history.py's pattern.
-
-Version History:
-- v1.0: Item 69 Gate 1
-- v1.1: Item 69 Gate 4 — surface #5 now also routes through
-        notes_service.create_note() (same function #7 uses), so the existing
-        mock/kwargs-assertion test was rewritten to delegate to the real
-        implementation via side_effect (both notes now genuinely persist;
-        tearDown cleans up both) instead of intercepting with a fake return.
-        Added test_time_add_meeting_path_client_id_no_longer_null (#5
-        regression — Note and TimeEntry both stamped with active_client_id).
 """
 
 import unittest

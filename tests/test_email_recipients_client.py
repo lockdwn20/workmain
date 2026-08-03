@@ -1,8 +1,4 @@
 """
-WorkmAIn Email Recipient Client Tests
-test_email_recipients_client.py v1.1
-20260610
-
 Tests for Phase 11.5 email recipient client dimension:
 - assign_recipient() client_id scoping
 - unassign_recipient() client_id filtering
@@ -12,11 +8,6 @@ Tests for Phase 11.5 email recipient client dimension:
 All DB tests use db_session fixture from conftest.py for full transaction
 isolation. Sentinel client IDs and dates used to avoid colliding with
 production data.
-
-Version History:
-- v1.0: Phase 11.5 Gate 5 — initial implementation
-- v1.1: Phase 13 DB Schema Sprint Gate 1 — update all a.email refs to a.recipient.email
-        (report_recipients.email removed in migration 020)
 """
 
 import pytest

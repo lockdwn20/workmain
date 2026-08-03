@@ -1,8 +1,4 @@
 """
-WorkmAIn Notes Edit CLI Tests
-test_notes_edit v1.0
-20260728
-
 CLI-level coverage for 'workmain notes edit' — specifically Item 69 Gate 2's
 convergence of the update call plus CLI-layer CF-transition hook block onto a
 single notes_service.update_note() call.
@@ -17,9 +13,6 @@ fixture — CliRunner.invoke() drives the command through its own session, and
 db_session-fixture rows are not visible across that boundary (confirmed during
 Hotfix Item #56 Gate 2). Seeded rows are cleaned up in tearDown by ID, mirroring
 test_report_history.py's pattern.
-
-Version History:
-- v1.0: Item 69 Gate 2
 """
 
 import unittest

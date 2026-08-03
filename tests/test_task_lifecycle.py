@@ -1,8 +1,4 @@
 """
-WorkmAIn Task Lifecycle Tests
-test_task_lifecycle v1.1
-20260729
-
 Tests for PC-2 — task_status repository, eager creation hooks,
 and tasks CLI command group.
 
@@ -19,16 +15,6 @@ Covers:
 
 Uses db_session fixture from conftest.py for full transaction isolation.
 Sentinel dates (2099-xx-xx) prevent collisions with production data.
-
-Version History:
-- v1.0: Phase 12 Gate 7 — initial implementation
-- v1.1: Task_Match_Data_Integrity Sprint Gate 1 (Item 67) — replaced
-        TestTasksCarryoverDeprecation (command retired) with
-        TestTasksListCapAndCarryoverRetirement: test_list_all_removes_cap,
-        test_list_status_all_value, test_list_header_truncation_honest,
-        test_carryover_removed. Uses a real committed session + tearDown
-        cleanup (test_report_history.py's pattern) since CliRunner-invoked
-        commands use their own get_db() session, not the db_session fixture.
 """
 
 import re

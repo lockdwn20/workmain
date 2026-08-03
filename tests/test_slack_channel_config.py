@@ -1,8 +1,4 @@
 """
-WorkmAIn Slack Channel Config Tests
-test_slack_channel_config.py v1.0
-20260522
-
 Tests for Phase 11.5 Slack channel configuration:
 - slack set channel: writes clients.slack_channel for active client
 - slack set workspace: informational, no writes
@@ -12,9 +8,6 @@ Tests for Phase 11.5 Slack channel configuration:
 
 Repository tests use db_session fixture for transaction isolation.
 CLI tests use CliRunner and manage their own DB state with save/restore fixtures.
-
-Version History:
-- v1.0: Phase 11.5 Gate 5 — initial implementation
 """
 
 import pytest

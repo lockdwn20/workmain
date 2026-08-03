@@ -1,8 +1,4 @@
 """
-WorkmAIn Clockify Command Tests
-test_clockify.py v1.0
-20260708
-
 Unit coverage for workmain/cli/commands/clockify.py's exit-code fix
 (Operations_Config_Correction_Sprint Gate 6 §6.2, Item #41):
 clockify_report_save() now raises click.ClickException on both failure
@@ -10,9 +6,6 @@ branches (download-returned-False, and any exception) instead of printing
 and exiting 0.
 
 ClockifyClient mocked — no live Clockify API calls.
-
-Version History:
-- v1.0: Operations_Config_Correction_Sprint Gate 7 — initial suite
 """
 
 from unittest.mock import patch

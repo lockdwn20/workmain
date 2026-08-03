@@ -1,8 +1,4 @@
 """
-WorkmAIn Notes List Tests
-test_notes_list v1.0
-20260526
-
 Tests for 'workmain notes list' — the unified filter command — and the
 underlying get_filtered() method in notes_repo.py.
 
@@ -20,9 +16,6 @@ Covers:
 Uses db_session fixture from conftest.py for full transaction isolation.
 All test data uses sentinel dates (2099-xx-xx) to avoid collisions with
 production data visible to the CLI's own sessions.
-
-Version History:
-- v1.0: Notes & Tasks Foundation Sprint — Gate 4
 """
 
 from datetime import date, datetime

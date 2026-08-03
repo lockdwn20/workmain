@@ -1,8 +1,4 @@
 """
-WorkmAIn Delivery Layer Tests
-test_delivery.py v1.0
-20260708
-
 Unit coverage for workmain/daemon/delivery.py — the three-method delivery
 dispatcher (Operations_Config_Correction_Sprint Gate 3 §3.2): 'wsl-notify',
 'slack', 'both'. 'os'/'terminal'/'email' are retired; not tested as valid
@@ -10,9 +6,6 @@ inputs (see TestUnknownMethodFallback for the retired-value behavior).
 
 All subprocess and Slack calls mocked — no live network calls, no
 notification actually sent.
-
-Version History:
-- v1.0: Operations_Config_Correction_Sprint Gate 7 — initial suite
 """
 
 from unittest.mock import MagicMock, patch

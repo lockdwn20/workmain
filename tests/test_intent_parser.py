@@ -1,18 +1,6 @@
 """
-WorkmAIn IntentParser Tests
-test_intent_parser v1.2
-20260729
-
 Unit tests for IntentParser.parse() — all Ollama/DB calls mocked.
 No real network or database access in this suite.
-
-Version History:
-- v1.0: Gate 3 Phase 13 Sprint 1 — initial suite (12 tests)
-- v1.1: Hotfix Item #62 Gate 2 — parse_task_match()/parse_note_duplicate()
-        raw-mode wiring and ProviderError propagation coverage (6 new tests)
-- v1.2: Task_Match_Data_Integrity Sprint Gate 3 (Item 66) — the two
-        set_raw tests updated for the added format: "json" entry in
-        generation_options.
 """
 
 import json

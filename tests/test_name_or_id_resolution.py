@@ -1,8 +1,4 @@
 """
-WorkmAIn Name-or-ID Resolution Tests
-test_name_or_id_resolution v1.1
-20260610
-
 Tests for Item 26 (CLI V18) — name-or-ID resolution added to repository
 lookup methods used by edit/delete commands.
 
@@ -10,11 +6,6 @@ Covers:
 - NotesRepository.find_by_content_like()
 - TimeEntriesRepository.find_by_description_like()
 - Both ID-path and name-path resolution logic
-
-Version History:
-- v1.0: Initial tests for Item 26 (CLI V18)
-- v1.1: Phase 13 DB Schema Sprint Gate 5 — _make_entry() creates a Note first;
-        TimeEntriesRepository.find_by_description_like() now joins through notes.content
 """
 
 from datetime import date, datetime

@@ -1,27 +1,9 @@
 """
-WorkmAIn AI Foundation Tests
-Test Suite v1.4
-20260605
-
 Tests for AI provider foundation:
 - Base provider abstract class
 - Cost tracking system
 - Provider manager with fallback
 - Configuration structures
-
-Version History:
-- v1.0: Initial test suite
-- v1.1: Fixed imports to prioritize installed modules over standalone
-- v1.2: Removed hard-coded provider assignment assertions — provider choices are
-        user-configurable; validate structure only (fields exist, valid provider names)
-- v1.3: Provider Foundation Sprint — MockProvider accepts dict config;
-        replace ProviderConfig(...) with dict construction;
-        replace register_provider() with _providers dict injection (removed from public API);
-        test_provider_status uses get_provider().check_availability() instead of
-        removed check_provider_status()/get_all_provider_statuses();
-        test_config_structure extended: ollama section + cost_structure fields
-- v1.4: Gate 1 Phase 13 Sprint 1 — remove stale ProviderConfig import (Item 36)
-
 Run with: python3 test_ai_foundation.py
 """
 

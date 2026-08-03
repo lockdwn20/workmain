@@ -1,13 +1,6 @@
 """
-WorkmAIn System State Repository Tests
-test_system_state_repository.py v1.0
-20260512
-
 Tests for SystemStateRepository — KV get/set/delete and typed helpers.
 All tests use the db_session fixture for full transaction isolation.
-
-Version History:
-- v1.0: Phase 11 Gate 8 — initial implementation
 """
 
 import pytest

@@ -1,8 +1,4 @@
 """
-WorkmAIn Notification Engine Tests
-test_notification_engine.py v1.2
-20260708
-
 Tests for the rules-based inspection engine (InspectionEngine) and the
 acknowledgment store (AcknowledgmentStore).
 
@@ -21,15 +17,6 @@ the Operations_Config_Correction_Sprint Gate 7 spec refers to it as
 Separation" rule, Gate 2's cancelled-meeting-exclusion coverage was added
 here (TestCancelledMeetingExclusion) rather than creating a second,
 duplicate file under that name.
-
-Version History:
-- v1.0: Phase 10 Gate 3 — full suite per Gate 10 spec
-- v1.1: Phase 13 DB Schema Sprint Gate 5 — _time_entry() creates a Note first
-        (note_id required on TimeEntry after migration 021)
-- v1.2: Operations_Config_Correction_Sprint Gate 7 — add
-        TestCancelledMeetingExclusion: cancelled meetings produce no
-        TIME_GAP/MISSING_NOTES observations (Gate 2 §2.2 regression coverage);
-        _meeting() helper gains an optional cancelled parameter
 """
 
 from datetime import date, datetime

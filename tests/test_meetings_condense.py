@@ -1,8 +1,4 @@
 """
-WorkmAIn Meetings Condense CLI Tests
-test_meetings_condense v1.0
-20260728
-
 CLI-level coverage for 'workmain meetings condense' — Item 69 Gate 5's
 convergence of surface #9 onto notes_service.create_note() +
 time_entry_service.create_paired_time_entry(), replacing its former
@@ -23,9 +19,6 @@ during Hotfix Item #56 Gate 2; pattern reused from test_meetings_track.py).
 Mocks ProviderManager.generate — a true singleton, so patching the class
 method affects the in-process CLI-invoked session too — to avoid a live AI
 call and control the condensed summary content deterministically.
-
-Version History:
-- v1.0: Item 69 Gate 5
 """
 
 import unittest

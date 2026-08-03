@@ -1,8 +1,4 @@
 """
-WorkmAIn Schedule Command Tests
-test_schedule_commands.py v1.1
-20260506
-
 Tests for ScheduleExceptionRepository (CRUD) and the exception date check.
 Resolver helper tests (_resolve_holiday, _resolve_timeoff) exercise the
 name-matching logic from schedule.py against a live db_session.
@@ -14,10 +10,6 @@ Sentinel dates used:
   SENTINEL_A = 2099-06-01
   SENTINEL_B = 2099-06-05
   SENTINEL_C = 2099-06-10
-
-Version History:
-- v1.0: Phase 10 Gate 10 initial implementation
-- v1.1: Update class docstrings — remove → delete to match CLI rename (hotfix v1.11.3)
 """
 
 from datetime import date
