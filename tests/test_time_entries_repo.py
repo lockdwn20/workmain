@@ -1,13 +1,6 @@
 """
-WorkmAIn Time Entries Repository Tests
-test_time_entries_repo v1.0
-20260709
-
 Tests for time_entries_repo.py — created_at override and
 get_most_recent_since() added for Item #58 (T4 activity-gap suppression).
-
-Version History:
-- v1.0: Hotfix Item #58 — initial file
 """
 
 from datetime import date, datetime

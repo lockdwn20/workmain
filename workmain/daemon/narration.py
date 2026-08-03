@@ -1,8 +1,4 @@
 """
-WorkmAIn Daemon Narration Layer
-narration.py v1.1
-20260603
-
 Converts a list of Observation objects from the inspection engine into a
 concise natural-language summary using the configured AI provider.
 
@@ -13,11 +9,6 @@ skipped and the notification body is a standard "nothing flagged" message.
 Uses the existing provider abstraction (workmain/ai/). Uses the default
 provider configured for daily_internal reports unless overridden.
 Max tokens: 200. This is a brief summary, not a full report.
-
-Version History:
-- v1.0: Phase 10 Gate 4 initial implementation
-- v1.1: Provider Foundation Sprint — remove get_claude_client/get_gemini_client imports
-        and register_provider() calls; ProviderManager instantiates from registry
 """
 
 from typing import List, Optional

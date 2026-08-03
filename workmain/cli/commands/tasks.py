@@ -1,30 +1,6 @@
 """
-WorkmAIn Tasks CLI Commands
-Tasks Commands v2.3
-20260729
-
 CLI commands for task lifecycle management (carry-forward notes).
 Full lifecycle group: list, today, show, complete, dismiss.
-
-Version History:
-- v1.0: Initial implementation with carryover command
-- v1.1: Phase 5.1 - Migrated to get_db() session management pattern
-- v1.2: Phase 5.1 - Fixed help text formatting with \\b escape sequence
-- v1.3: Post-sprint cleanup - updated note add reference to notes add
-- v2.0: Phase 12 Gate 3 — full lifecycle group: list, today, show, complete,
-        dismiss; carryover converted to deprecated alias; _resolve_task() helper;
-        task_status integration via TaskStatusRepository
-- v2.1: Hotfix — always show ID column in tasks list; use short-form tags to fix
-        Rich markup stripping of [tag-name] bracket format
-- v2.2: Operations_Config_Correction_Sprint Gate 5 §5.5 — tasks show
-        displays forwarding_note_id when set (populated by the note-dedup
-        merge action, §5.4)
-- v2.3: Task_Match_Data_Integrity Sprint Gate 1 (Item 67) — `--all`
-        redefined as a pure row-cap override (limit=0), decoupled from
-        `--status`; header now truncation-honest (`N of M found`) via
-        new `count_filtered` repo call; `carryover` command retired
-        entirely; `--all` option help string and `list` docstring
-        corrected to match.
 """
 
 import click

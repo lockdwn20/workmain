@@ -1,35 +1,6 @@
 """
-WorkmAIn Time Entries Repository
-Time Entries Repository v1.11
-20260709
-
 Data access layer for time entries with 24-hour time format.
 Handles all CRUD operations for the time_entries table.
-
-Version History:
-- v1.0: Initial implementation with CRUD operations, aggregations, and Clockify prep
-- v1.1: Enhanced parse_time() to support military time format without colons
-        (1430, 0900, 930) and AM/PM without colons (230pm, 900am)
-- v1.2: Added meeting_id support for linking time entries to meetings (Phase 4 Feature 4)
-- v1.3: Phase 5 - Added get_by_clockify_id() for pull sync duplicate detection
-- v1.4: Add find_by_description_like() for name-or-ID resolution on time edit/delete
-        commands (Item 26, CLI V18)
-- v1.5: Phase 11 Gate 5 — create() accepts client_id for attribution stamping
-- v1.6: Phase 11 Gate 6 — add get_for_date_client() for client-filtered report queries
-- v1.7: Phase 13 DB Schema Sprint Gate 1 — H-4: add clockify_id + synced_at to create()
-        signature, making Clockify import atomic (no post-create assignment needed)
-- v1.8: Phase 13 DB Schema Sprint Gate 2 — H-3: add _validate_client_project_consistency()
-        guard; wire into create() and update()
-- v1.9: Phase 13 DB Schema Sprint Gate 5 — create() takes note_id instead of
-        description/tags; update() drops description/tags params; find_by_description_like()
-        joins through notes.content; add get_by_note_id()
-- v1.10: Operations_Config_Correction_Sprint Gate 1 §1.0 — parse_time()/
-         parse_duration() bodies extracted to workmain.utils.time_parser;
-         both methods now one-line delegators, kept for backward
-         compatibility (13 existing call sites unchanged)
-- v1.11: Hotfix Item #58 — create() accepts created_at override, mirroring
-         NotesRepository.create()'s pattern; add get_most_recent_since() for
-         T4 activity-gap suppression
 """
 
 from datetime import date, datetime, time, timedelta

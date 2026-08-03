@@ -1,8 +1,4 @@
 """
-WorkmAIn Daemon Inspection Engine
-inspection_engine.py v1.2
-20260702
-
 Deterministic rules engine. Inspects today's data and returns a list of
 structured Observation objects. No AI call at this layer — observations
 are plain data. The narration layer (narration.py) converts them to
@@ -16,24 +12,6 @@ Five checks:
   4. Missing notes  — meeting occurred with no notes at all
   5. Carry-forward  — open cf-tagged tasks from previous business day
                        not explicitly brought forward to target_date
-
-Version History:
-- v1.0: Phase 10 Gate 3 initial implementation
-- v1.1: Operations_Config_Correction_Sprint Gate 1 §1.5 — _previous_business_day()
-        removed; _check_carry_forward() now calls
-        ScheduleService(self.session).previous_working_day() directly.
-        Contract change: raises ValueError if no working day is found within
-        365 days (practically unreachable under normal schedule_exceptions
-        data) — left to propagate uncaught here since both real callers of
-        InspectionEngine.run() (daemon.py:_enriched_notify(),
-        eod_workflow.py:_run_pre_flight_inspection_step()) already wrap the
-        call in a broad except Exception, matching this engine's existing
-        "never blocks EOD" behavior.
-- v1.2: Operations_Config_Correction_Sprint Gate 2 §2.2 — _get_meetings_for_date()
-        removed; both call sites (_check_time_gaps(), _check_missing_notes())
-        now call MeetingsRepository(self.session).get_active_for_date(),
-        eliminating false TIME_GAP/MISSING_NOTES observations from cancelled
-        meetings
 """
 
 import os

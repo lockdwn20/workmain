@@ -1,13 +1,6 @@
 """
-WorkmAIn
-System State Repository v1.0
-20260512
-
 KV store interface for the system_state table. All application runtime
 state reads and writes go through this repository.
-
-Version History:
-- v1.0: Phase 11 Gate 2 — get, set, delete, typed helpers (bool, int)
 """
 
 from __future__ import annotations

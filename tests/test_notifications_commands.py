@@ -1,8 +1,4 @@
 """
-WorkmAIn Notifications Command Tests
-test_notifications_commands.py v2.2
-20260716
-
 Tests for NotificationConfigRepository and the notifications CLI command group.
 CLI-level tests (notifications test, notifications status) use CliRunner with
 mocked delivery and filesystem — no actual notification dispatch occurs.
@@ -10,21 +6,6 @@ mocked delivery and filesystem — no actual notification dispatch occurs.
 Uses db_session fixture for full transaction isolation.
 Repository now reads/writes system_state KV rows (keys: notify_method,
 notify_enabled) — no notification_config table (dropped in migration 010).
-
-Version History:
-- v1.0: Phase 10 Gate 10 initial implementation (notification_config table)
-- v2.0: Phase 11 Gate 2 — updated for NotificationConfigData dataclass and
-        system_state-backed repository; removed NotificationConfig model
-        references and id=1 row assertions
-- v2.1: Operations_Config_Correction_Sprint Gate 4 — retired method names
-        ('terminal', 'os', 'email') replaced with the Gate 3 VALID_METHODS
-        set ('wsl-notify', 'slack', 'both') throughout; fixes
-        test_default_config_row_exists, which started failing once the live
-        notify_method value was migrated in Gate 3
-- v2.2: Item #60 Gate 3 — new test_status_corrupt_inspection_file,
-        regression coverage for the missing/corrupt/stale three-way
-        distinction notifications.py's status command preserves (Rule 8,
-        AC8) across the state_io.matches_target_date() swap.
 """
 
 import json

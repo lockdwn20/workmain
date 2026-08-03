@@ -1,6 +1,6 @@
 WorkmAIn
-Development Standards Review v2.0
-20251226
+Development Standards Review v3.0
+20260803
 
 # WorkmAIn Development Standards Review
 
@@ -9,6 +9,9 @@ Development Standards Review v2.0
 **Version History:**
 - v1.0 (20251224): Initial standards documentation
 - v2.0 (20251226): Added version tracking locations and test organization standards
+- v3.0 (20260803): Retired the version-header / version-history file pattern per the
+  File Header Removal spec (v1.3). Module headers are now PEP 257 docstrings; git
+  tags, `CHANGELOG.md`, and `workmain/__version__.py` are the version record.
 
 ---
 
@@ -18,21 +21,15 @@ Development Standards Review v2.0
 
 ```python
 """
-WorkmAIn Tag Utilities
-Tag Parser v1.0
-20251222
-
 Provides tag parsing, validation, conversion, and display formatting.
 Tags are case-insensitive, normalized, and validated against config/tags.json.
 """
 ```
 
 **Standard:**
-- Line 1: Module description
-- Line 2: Component name + version
-- Line 3: Date (YYYYMMDD)
-- Line 4: Blank
-- Line 5+: Detailed description
+- PEP 257 module docstring: description only
+- No version, no date, no version history block
+- Git (tags, commit history, `CHANGELOG.md`) is the version record
 
 ### 2. Singleton Pattern (from tag_utils.py)
 
@@ -73,46 +70,11 @@ def parse_tags(text: str, apply_default: bool = True) -> Tuple[str, List[str], L
 - Clear docstrings
 - Type hints
 
-### 4. Version History Pattern
-
-From models.py:
-```python
-"""
-WorkmAIn Database Models
-Database Models v1.1
-20251222
-
-SQLAlchemy ORM models for Phase 2.
-Models: Note, TimeEntry, Meeting, Project
-
-These map to the PostgreSQL tables created by 001_initial_schema.sql
-
-Version History:
-- v1.0: Initial model creation
-- v1.1: Fixed created_date to use Computed() for generated column compatibility
-"""
-```
-
-**Standard:**
-- Include version history when updating files
-- Format: `- v1.x: Description of change`
-- Increment minor version for bug fixes
-- Increment major version for breaking changes
-
-### 5. Package __init__.py Pattern
+### 4. Package __init__.py Pattern
 
 ```python
 """
-WorkmAIn Templates Engine
-Templates Engine Package v1.2
-20251224
-
 Template system for report generation.
-
-Version History:
-- v1.0: Initial package with loader, validator, field_manager, renderer
-- v1.1: Added style_adapter for writing style integration
-- v1.2: Pattern corrections and full package structure
 """
 
 from .loader import TemplateLoader, get_template_loader
@@ -131,26 +93,21 @@ __all__ = [
     'StyleAdapter',
     'get_style_adapter',
 ]
-
-__version__ = '1.2'
 ```
 
 **Standards:**
-1. Comprehensive docstring with version history
+1. Descriptive module docstring
 2. Import classes AND singleton functions
 3. `__all__` lists all public exports
-4. `__version__` at module level
-5. Descriptive names: `get_template_validator` NOT `get_validator`
+4. Descriptive names: `get_template_validator` NOT `get_validator`
 
-### 6. Import Organization
+### 5. Import Organization
 
 From notes_repo.py:
 ```python
 """
-WorkmAIn Notes Repository
-Notes Repository v1.3
-20251222
-...
+Data access layer for notes with tag filtering and full-text search.
+Handles all CRUD operations for the notes table.
 """
 
 from datetime import date, datetime
@@ -188,81 +145,33 @@ from workmain.database.models import Note, Meeting, Project
 
 ---
 
-## FILE VERSIONING
-
-### Version Numbers
-- **v1.0** - Initial creation
-- **v1.1, v1.2, v1.3** - Bug fixes, minor enhancements
-- **v2.0** - Breaking changes, major refactors
-
-### When to Increment
-- Add new feature → Minor version (v1.0 → v1.1)
-- Fix bug → Patch level OR minor (v1.1 → v1.2)
-- Breaking change → Major version (v1.x → v2.0)
-
-### Version History Location
-- In file docstring for code files
-- In header comment for SQL files
-- In package __init__.py for modules
-
----
-
 ## VERSION TRACKING LOCATIONS ⭐ NEW
 
 ### Where Versions ARE Tracked
 
-**1. File Headers (Each .py file):**
+**1. Git Tags:**
+Each release merged to `main` is tagged `vX.Y.Z` and accompanied by a GitHub Release.
+
+**2. CHANGELOG.md:**
+Keep-a-Changelog format. Every release gets a `## [x.y.z]` section describing what
+changed. This is the source of truth for release history.
+
+**3. workmain/__version__.py (Project Level):**
 ```python
-"""
-WorkmAIn Component Name
-Component Name v1.2
-20251226
+"""Current application version. See CHANGELOG.md for release history."""
 
-Description.
-
-Version History:
-- v1.0: Initial implementation
-- v1.1: Bug fix for X
-- v1.2: Added feature Y
-"""
-```
-
-**2. SESSION_HANDOFF Documents:**
-```markdown
-## Files Created/Updated This Session
-
-**Phase 3.5:**
-- workmain/templates_engine/loader.py: v1.1
-- workmain/templates_engine/validator.py: v1.1
-- workmain/cli/commands/templates.py: v2.5
-- templates/fields/field_definitions.json: v1.0
-[etc.]
-```
-
-**3. Git Commit Messages:**
-```bash
-feat(cli): add template commands v2.5
-
-- Added create command for new templates
-- Added add-section command for extensibility
-- Integrated with field_definitions.json
-```
-
-**4. __version__.py (Project Level):**
-```python
-"""
-WorkmAIn Version
-Version v0.6.0
-20251226
-"""
-
-__version__ = "0.6.0"
-__version_info__ = (0, 6, 0)
+__version__ = "1.28.0"
+__version_info__ = (1, 28, 0)
 __author__ = "Ray Race Jr."
 __description__ = "Work Management AI - Intelligent personal work management system"
 ```
 
 ### Where Versions are NOT Tracked
+
+**File headers (module docstrings):**
+- ❌ Do NOT contain version numbers, dates, or a version-history block
+- ✅ Description only (PEP 257 module docstring)
+- Rationale: git already holds this history; duplicating it in every file invites drift
 
 **file-structure.md:**
 - ❌ Does NOT contain version numbers
@@ -279,32 +188,25 @@ __description__ = "Work Management AI - Intelligent personal work management sys
 ### Rationale
 
 **Single Source of Truth:**
-- Versions tracked in SESSION_HANDOFF docs (primary)
-- File headers provide self-documentation
-- Git history provides historical record
+- Versions tracked in git tags, `CHANGELOG.md`, and `workmain/__version__.py`
+- Git history provides the historical record
 - Avoids duplication and sync issues
 
 **Documentation Separation:**
 - file-structure.md = "Where does it go?"
-- SESSION_HANDOFF = "What version is it?"
+- CHANGELOG.md = "What version is it, and what changed?"
 - implementation-checklist.md = "What should be built?"
 
 ### Getting Version Information
 
-**Quick check all files:**
+**Check current version:**
 ```bash
-cd ~/Projects/workmain
-grep -r "v[0-9]" workmain/ --include="*.py" --exclude-dir=".*"
+cat workmain/__version__.py
 ```
 
-**Check specific file:**
+**Check release history:**
 ```bash
-head -15 workmain/cli/commands/note.py | grep "v[0-9]"
-```
-
-**Check SESSION_HANDOFF:**
-```bash
-cat SESSION_HANDOFF_PHASE4_READY.md | grep -A 20 "Files Created"
+cat CHANGELOG.md
 ```
 
 ---
@@ -455,7 +357,7 @@ finally:
 
 ### Mistake 2: Removed __init__.py Structure
 **Wrong**: Minimal __init__.py with just imports
-**Right**: Full docstring, version history, __all__, __version__
+**Right**: Full docstring, __all__
 **Why**: Package initialization files need documentation too
 
 ### Mistake 3: Inconsistent with Existing Code
@@ -470,7 +372,7 @@ finally:
 
 ### Mistake 5: Assumed Version Information (20251226)
 **Wrong**: Putting version numbers in file-structure.md
-**Right**: Versions in SESSION_HANDOFF docs only
+**Right**: Versions in CHANGELOG.md and git tags only
 **Why**: Single source of truth; avoids duplication
 
 ---
@@ -487,10 +389,10 @@ finally:
 - ✅ Scripts in scripts/ (utilities only)
 
 ### Version Tracking
-- ✅ File headers (self-documentation)
-- ✅ SESSION_HANDOFF docs (source of truth)
-- ✅ Git commits (historical record)
+- ✅ Git tags (release record)
+- ✅ CHANGELOG.md (source of truth)
 - ✅ __version__.py (project-level)
+- ❌ NOT in file headers (module docstrings)
 - ❌ NOT in file-structure.md
 - ❌ NOT in implementation-checklist.md
 
@@ -505,11 +407,22 @@ finally:
 - ✅ Google-style docstrings
 - ✅ Try-finally for cleanup
 - ✅ Repository pattern for database
-- ✅ Version history in files
 
 ---
 
-**End of Development Standards Review v2.0**
+**End of Development Standards Review v3.0**
+
+**Changes in v3.0:**
+- Retired the version-header / version-history file pattern (File Header Removal spec v1.3)
+- File Header Pattern rewritten to the PEP 257 module-docstring shape
+- Removed the old per-file version-history documentation pattern
+- Package `__init__.py` Pattern: version-history docstring and `__version__` standard removed
+- Import Organization example header trimmed to the PEP 257 shape
+- FILE VERSIONING section removed
+- VERSION TRACKING LOCATIONS rewritten: git tags, `CHANGELOG.md`, and `workmain/__version__.py`
+  are the tracking locations; file headers dropped from the list
+- Mistake 2 and Mistake 5 guidance corrected to match the retired practice
+- SUMMARY sections realigned to the new standard
 
 **Changes in v2.0:**
 - Added version tracking locations section

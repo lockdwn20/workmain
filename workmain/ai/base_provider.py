@@ -1,8 +1,4 @@
 """
-WorkmAIn AI Base Provider
-Base Provider v1.2
-20260605
-
 Abstract base class for AI provider implementations.
 Defines standard interface for Claude, Gemini, Ollama, and future providers.
 
@@ -12,16 +8,6 @@ All providers must implement:
 - validate_config() for configuration validation
 - count_tokens() for token estimation
 - check_availability() for connectivity
-
-Version History:
-- v1.0: Initial implementation
-- v1.1: Provider Foundation Sprint — add ProviderType.OLLAMA; add
-        ProviderUnavailableError; BaseProvider.__init__ accepts dict instead of
-        ProviderConfig dataclass; add test_connection() default method;
-        remove ProviderConfig-tied properties (model, provider_type, is_enabled)
-        so subclasses can set self.model = config.get('model', fallback) directly
-- v1.2: Gate 1 Phase 13 Sprint 1 — remove ProviderConfig dead code (Item 36);
-        add generation_options: Optional[Dict[str, Any]] = None to GenerationRequest
 """
 
 from abc import ABC, abstractmethod

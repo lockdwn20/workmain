@@ -1,14 +1,7 @@
 """
-WorkmAIn Date Utilities
-date_utils v1.0
-20260528
-
 Shared date-window resolution for costs commands.
 Converts CLI date filter flags into (start_date, end_date) tuples
 and formats them for display.
-
-Version History:
-- v1.0: Initial implementation (cost tracking sprint)
 """
 
 from __future__ import annotations

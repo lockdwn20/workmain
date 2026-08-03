@@ -1,8 +1,4 @@
 """
-WorkmAIn Google Drive Client
-gdrive/client.py v1.0
-20260309
-
 Google Drive API operations for WorkmAIn.
 Handles folder creation, file uploads, and period folder structure management.
 
@@ -14,9 +10,6 @@ Drive folder structure:
         └── Clockify/
 
 GDRIVE_TIMECARDS_ROOT is read from environment — never hardcoded.
-
-Version History:
-- v1.0: Initial implementation (Phase 7 Gate 2)
 """
 
 import os

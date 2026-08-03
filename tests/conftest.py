@@ -1,20 +1,5 @@
 """
-WorkmAIn Test Configuration
-conftest v2.1
-20260320
-
 Pytest fixtures shared across all test files.
-
-Version History:
-- v1.0: Initial implementation — db_session fixture with test meeting cleanup
-- v1.1: Added Recipient/ReportRecipient cleanup for email tests
-- v1.2: Added GDriveUpload cleanup for Phase 7 gdrive tests
-- v1.3: Added Slack test report cleanup (Phase 8)
-- v2.0: Replaced pattern-based cleanup with transaction rollback isolation
-        (SQLAlchemy connection-level approach — superseded by v2.1)
-- v2.1: Correct SQLAlchemy 2.0 isolation: session.commit → session.flush,
-        explicit session.rollback() at teardown.  The bind= approach used in
-        v2.0 is deprecated in SA 2.0 and did not reliably suppress commits.
 """
 
 import pytest

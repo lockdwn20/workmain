@@ -1,22 +1,7 @@
 """
-WorkmAIn Report History Tests
-test_report_history v1.3
-20260717
-
 Tests for reports history, show, and resend commands (Phase 9 Gate 3).
 Uses db_session fixture from conftest.py. Seeds Report rows per test
 and cleans up by ID in tearDown.
-
-Version History:
-- v1.0: Phase 9 Gate 5 — 12 test cases for history filtering, view by ID,
-        resend staging and abort paths
-- v1.1: CLI Standardization Sprint Part 1 (WU-6) — `reports view` → `reports show`;
-        TestReportView class updated: all ['view', ...] invocations → ['show', ...]
-- v1.2: Hotfix items-33-34-incomplete-impl follow-up — add
-        test_show_displays_correction_note_when_set (Item 33)
-- v1.3: Hotfix Item #56 Gate 3 — add test_show_displays_corrected_content_when_present,
-        test_show_omits_corrected_panel_when_corrected_content_is_null,
-        test_show_displays_both_panels_and_note_together
 """
 
 import os

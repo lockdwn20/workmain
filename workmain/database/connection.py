@@ -1,8 +1,4 @@
 """
-WorkmAIn
-Database Connection v0.1.0
-20251219
-
 Database connection management using SQLAlchemy
 """
 

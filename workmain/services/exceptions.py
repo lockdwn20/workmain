@@ -1,14 +1,6 @@
 """
-WorkmAIn Service Exceptions
-Service Exceptions v1.0
-20260612
-
 Typed exceptions raised by the service layer. Callers catch these to produce
 appropriate user-facing messages without importing service internals.
-
-Version History:
-- v1.0: Initial implementation — ServiceValidationError, MissingStartTimeError,
-        InvalidTagsError
 """
 
 from typing import List

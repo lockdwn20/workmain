@@ -1,13 +1,6 @@
 """
-WorkmAIn Schedule Exception Repository
-schedule_repository.py v1.0
-20260505
-
 Data access layer for schedule_exceptions table. Manages calendar
 exceptions (holidays and time-off ranges) that suppress daemon notifications.
-
-Version History:
-- v1.0: Phase 10 Gate 1 initial implementation
 """
 
 from datetime import date

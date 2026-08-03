@@ -1,33 +1,9 @@
 """
-WorkmAIn Action Executor Tests
-test_action_executor v1.4
-20260729
-
 Tests for workmain/orchestration/action_executor.py and
 workmain/orchestration/confirmation_gate.py.
 
 ActionExecutor tests use the db_session fixture (real DB, rolled back).
 ConfirmationGate tests are pure-unit (no DB required).
-
-Version History:
-- v1.0: Phase 13 Sprint 2 Gate 7 — initial test suite
-- v1.1: Intent action service layer Gate 4 — update create_time_entry tests for new
-        MissingStartTimeError behavior (no start_time → needs_clarification, not null row)
-- v1.2: Gate 3 — confirm_report and correct_report fix tests: idempotency guard,
-        updated_at stamp, corrected_content isolation, status transition table,
-        empty correction guard, and no-report-today cases
-- v1.3: Item 69 Gate 3 (#11) — CF-tagged create_time_entry action creates an
-        active task via the relocated hook; verification only, no source change
-- v1.4: Task_Match_Data_Integrity Sprint Gate 1 (Item 67, S1) — new
-        TestActionExecutorTaskResolutionUncapped: update_task/defer_task/
-        deduplicate_task each resolve a target task seeded as the oldest
-        of a >20-row active batch, proving the newest-20-row default cap
-        no longer hides targets from Slack task resolution. Deviates from
-        the spec's literal file pointer (test_orchestration.py) — that
-        file only exercises ActionExecutor as a mocked class; the sibling
-        _execute_* methods this fix touches are all covered here instead,
-        matching this file's existing pattern (real db_session fixture,
-        ActionExecutor(db_session) constructed directly).
 """
 
 import unittest

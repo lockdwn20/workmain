@@ -1,9 +1,4 @@
 """
-WorkmAIn Clockify Integration
-Package Init
-v1.0
-20260115
-
 Clockify API integration for time tracking synchronization.
 """
 

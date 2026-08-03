@@ -1,8 +1,4 @@
 """
-WorkmAIn Notes Add CLI Tests
-test_notes_add v1.0
-20260728
-
 CLI-level coverage for 'workmain notes add' — Item 69 Gate 4's convergence of
 surface #2 (the meeting time-entry follow-on prompt) onto
 notes_service.create_note() + time_entry_service.create_paired_time_entry(),
@@ -20,9 +16,6 @@ Uses a real committed session (get_db().get_session()), not the db_session
 fixture — CliRunner.invoke() drives the command through its own session, and
 db_session-fixture rows are not visible across that boundary (confirmed
 during Hotfix Item #56 Gate 2; pattern reused from test_time_add.py).
-
-Version History:
-- v1.0: Item 69 Gate 4
 """
 
 import unittest

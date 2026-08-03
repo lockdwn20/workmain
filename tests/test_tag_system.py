@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 """
-WorkmAIn Tag System Test
-Tag System Test v1.0
-20251222
-
 Comprehensive test of tag parsing, validation, conversion, and display.
 """
 

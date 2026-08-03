@@ -1,8 +1,4 @@
 """
-WorkmAIn Daemon Acknowledgment Store
-acknowledgment.py v1.0
-20260505
-
 Persists correction acknowledgments so the inspection engine does not
 re-flag the same observation on the next cycle.
 
@@ -15,9 +11,6 @@ The acknowledgments file is created on first write if absent.
 
 Note: This file is specified in Gate 5A but created here (Gate 3) because
 InspectionEngine.run() requires it. Gate 5 covers EOD integration only.
-
-Version History:
-- v1.0: Phase 10 Gate 3 (pulled forward from Gate 5A) — full implementation
 """
 
 import hashlib

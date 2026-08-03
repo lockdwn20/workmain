@@ -1,8 +1,4 @@
 """
-WorkmAIn Notes Log CLI Tests
-test_notes_log v1.1
-20260728
-
 CLI-level coverage for 'workmain notes log' — Item 69 Gate 1's convergence of
 the per-line note-creation loop (surface #3) onto notes_service.create_note(),
 and Gate 5's convergence of the condensation flow (surface #4) onto
@@ -19,10 +15,6 @@ fixture — CliRunner.invoke() drives the command through its own session, and
 db_session-fixture rows are not visible across that boundary (confirmed during
 Hotfix Item #56 Gate 2). Seeded rows are cleaned up in tearDown by ID, mirroring
 test_report_history.py's pattern.
-
-Version History:
-- v1.0: Item 69 Gate 1
-- v1.1: Item 69 Gate 5 — add TestNotesLogCondenseUsesComputedTags
 """
 
 import os

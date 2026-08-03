@@ -1,15 +1,8 @@
 """
-WorkmAIn AI Costs Tests
-test_ai_costs.py v1.0
-20260529
-
 Tests for the cost tracking persistence sprint:
 - AiCostRepository (create, get_filtered, get_summary with provider filter)
 - resolve_date_window and format_date_window_label (date_utils)
 - ProviderManager config loading from ai_settings.json
-
-Version History:
-- v1.0: Initial implementation (cost tracking sprint Gate 5)
 """
 
 import pytest

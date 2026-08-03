@@ -1,39 +1,7 @@
 """
-WorkmAIn Time CLI Commands
-Time Commands v1.9
-20260728
-
 CLI commands for time tracking with 24-hour format support and Clockify sync.
 Replaces track.py — `track` and `time` groups merged into a single `time` group.
 Sync subcommands (push/pull/both) moved to `clockify sync` in clockify.py.
-
-Version History:
-- v1.0: CLI Standardization Sprint Part 1 (WU-1) — created from track.py v2.1;
-        renamed group `track` → `time`; merged standalone `time` read-only group
-        into single `time` group with add/edit/delete; added interactive prompt
-        fallback on `time add` when DESCRIPTION is omitted (Item 5 §4.4);
-        updated all docstring examples from `track` to `time`
-- v1.1: CLI Standardization Sprint Part 1 (WU-4) — time edit --category/-c → -C;
-        avoids conflict with reserved -c (--content); consistent with time add -C
-- v1.2: Add --duration/-L short form to time edit; uppercase pair of -l (--title on
-        meetings edit); registered in CLI_STANDARDS.md §5.3
-- v1.3: Hotfix eod-backdate-bugs — pass created_at override to notes_repo.create()
-        when entry_date is in the past so notes land on the correct date
-- v1.4: Item 26 (CLI V18) — name-or-ID resolution on time edit/delete. New
-        _resolve_time_entry() helper; both commands accept ID or description substring.
-- v1.5: Phase 11 Gate 5 — stamp active_client_id on time_repo.create() in time add
-- v1.6: Phase 13 DB Schema Sprint Gate 5 — note-first: create Note before TimeEntry in
-        time_add; route --description edits through NotesRepository in time_edit;
-        display references updated from entry.description to entry.note.content
-- v1.7: Intent action service layer — time add non-meeting path delegates to
-        time_entry_service.create_time_entry(); meeting path unchanged
-- v1.8: Item 69 Gate 1 — additional-note-on-meeting path (time add) routes through
-        notes_service.create_note() instead of a direct NotesRepository.create() call;
-        fixes silently-defaulted source ('ad-hoc' → 'meeting', Design Rule 12)
-- v1.9: Item 69 Gate 4 — time add's primary meeting-path note+time entry (#5)
-        converges its direct notes_repo.create()/repo.create() writes onto
-        notes_service.create_note() + time_entry_service.create_paired_time_entry();
-        fixes the note's client_id-NULL omission (K3)
 """
 
 import click

@@ -1,8 +1,4 @@
 """
-WorkmAIn Clockify Sync Engine Tests
-test_clockify_sync v1.0
-20260728
-
 Coverage for Item 69 Gate 6: ClockifySync._import_clockify_entry() write-path
 convergence (#12) onto notes_service.create_note() +
 time_entry_service.create_paired_time_entry(), the new per-entry interactive
@@ -18,9 +14,6 @@ live API calls.
 All DB tests use the db_session fixture (transaction rolled back after each
 test); ClockifySync is instantiated directly against db_session in-process,
 so the db_session/CliRunner isolation gotcha does not apply here.
-
-Version History:
-- v1.0: Item 69 Gate 6 — initial suite
 """
 
 from datetime import datetime, timedelta, timezone

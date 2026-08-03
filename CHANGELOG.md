@@ -7,7 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.28.0] - 2026-07-29
+## [1.29.0] - 2026-08-03
+
+File Header Removal — six gates on `feature/file-header-removal`, retiring
+per-file version metadata headers in favor of PEP 257 module docstrings,
+with git (tags, commit history, `CHANGELOG.md`) as the sole version record.
+
+### Changed
+
+- Gate 0 — back-filled 9 pre-1.0/1.2.0 releases (`0.1.0`–`0.8.0`, `1.2.0`)
+  into `CHANGELOG.md` from `__version__.py`'s docstring, closing the gap
+  before any release history could be lost to Gate 4's trim
+- Gate 1 — stripped version metadata headers (title/version/date, and
+  `Version History:` blocks where present) from 96 files in `workmain/`,
+  down to a PEP 257 module docstring; four files with post-block prose
+  (`prompt_builder.py`, `report_generator.py`, and their `tests/`
+  counterparts handled in Gate 2) retained that prose
+- Gate 2 — same transform across `tests/` (60 files; `tests/__init__.py`
+  was empty and never in scope, correcting the spec's "61" count).
+  `test_recurring_meetings.py` hand-handled per the spec's sole enumerated
+  exception — its two-line prose opener preserved, its orphaned
+  `Version:`/`Date:` lines (stranded between the two transform rules)
+  removed explicitly
+- Gate 3 — same transform across `scripts/` (13 files); replaced
+  `task_pool_stale_dismissal_20260728.py`'s `argparse` `description=__doc__`
+  with an explicit inline description string, since the docstring text it
+  depended on changed — the sprint's one intentional behaviour change
+- Gate 4 — trimmed `workmain/__version__.py` to the version constant plus a
+  short docstring pointing at `CHANGELOG.md`; removed ten unused
+  package-level `__version__` constants (zero consumers repo-wide)
+- Gate 5 — reconciled `docs/DEVELOPMENT_STANDARDS_REVIEW.md` (ten sections
+  instructing the retired header/version-history/package-`__version__`
+  practice, rewritten or deleted) and `CLAUDE.md` (Critical Rule 1 now
+  names the PEP 257 module docstring standard; Role 1 gains documentation
+  conflict-resolution authority; Deep Reference Docs table updated)
+- Gate 6 — repo-wide verification: zero remaining `Version History` blocks
+  outside `scripts-deprecated/` (out of scope); AST-equality proof that no
+  file changed outside its docstring beyond the one Gate 3 exception;
+  metadata-residue scan caught two lines of legitimate migration-provenance
+  prose in `workmain/ai/providers/claude.py` and `gemini.py`
+  (`"Migrated from ... vN.N."`) that matched the scan's `*.py vN` pattern
+  without being stranded metadata — removed by hand rather than widening
+  the pattern, since the sentences added no information beyond git history
+- Net: 170 files changed across `workmain/`, `tests/`, `scripts/`;
+  ~3,260 lines removed, all of it recoverable from git. Test suite held
+  flat at 934 passed throughout all six gates
 
 Task_Match_Data_Integrity Sprint (Items #71, #67, #70, #66) — four gates
 on `feature/task-match-data-integrity`, following Item #69's write-path
@@ -1953,6 +1997,12 @@ convergence.
 - Live email send (OAuth) remains a stub — use `email save <template>` + `email show <n>` for draft review
 - ICS-first path chosen per Phase 6 spec: OAuth is a separate future gate requiring Azure AD app registration
 
+## [1.2.0]
+
+### Added
+
+- CLI Standardization Sprint complete - unified notes/meetings groups, standardized flags, eod command, today rewrite
+
 ## [1.1.0] - 2026-01-27
 
 ### Added
@@ -2016,4 +2066,50 @@ convergence.
 - Note condensation
 - Cost tracking
 
-[Previous versions tracked in file headers]
+## [0.8.0]
+
+### Added
+
+- Phase 4 Features 1-2 (providers CLI, bulk meeting notes, AI condensation)
+
+## [0.7.0]
+
+### Added
+
+- Phase 4 Days 1-7 (AI integration core)
+
+## [0.6.0]
+
+### Added
+
+- Phase 3.5 complete (template extensibility)
+
+## [0.5.0]
+
+### Added
+
+- Phase 3 complete (template system)
+
+## [0.4.0]
+
+### Added
+
+- Phase 2 complete with all 24 commands
+
+## [0.3.0]
+
+### Added
+
+- Phase 2 tasks feature
+
+## [0.2.0]
+
+### Added
+
+- Phase 2 complete (CLI, notes, meetings, time tracking)
+
+## [0.1.0]
+
+### Added
+
+- Initial structure

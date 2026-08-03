@@ -1,8 +1,4 @@
 """
-WorkmAIn AI Report Generator
-Report Generator v1.15
-20260724
-
 High-level orchestrator for AI report generation with database integration.
 
 Features:
@@ -14,44 +10,6 @@ Features:
 - Provides generation status and logging
 - Manages errors and retries
 - Tracks costs in database (not JSON file)
-
-Version History:
-- v1.0: Initial implementation
-- v1.1: Fixed ProviderManager method calls (generate not generate_with_fallback),
-        Added provider registration in __init__
-- v1.2: Fixed CostTracker.track_section() calls to match signature:
-        Added model, prompt_tokens, completion_tokens parameters
-        Convert provider enum to string (.value)
-- v1.3: Integrated database storage for reports and costs
-        Added reports repository for database access
-        Costs now stored in reports.report_metadata JSONB field
-        Removed JSON file persistence
-- v1.4: Fixed metadata column name (metadata → report_metadata) for SQLAlchemy compatibility
-- v1.5: Added CostTracker lifecycle management (start_report/end_report)
-        Fixed "No active report" error
-- v1.6: Phase 5.1 - Added subject line to report output; gets subject_line from template,
-        substitutes variables (day_name, date_long, user_full_name), includes in markdown header
-- v1.7: Gate 0.1 - Updated default output_dir from reports/ to output/reports/
-        for output directory restructure (Phase 6)
-- v1.8: Hotfix staging-eod — renamed output/reports/ to staging/reports/
-- v1.9: Phase 11 Gate 5 — generate_report() accepts client_id; passes to reports_repo.create()
-- v1.10: Phase 11 Gate 6 — generate_report() accepts filter_client and client_id_filter;
-         passes both to prompt_builder.build_prompt()
-- v1.11: Gate 2 cost tracking sprint — persist ai_costs row after report creation;
-         remove template-metadata provider override so provider_manager config
-         (ai_settings.json) governs provider selection when no --provider flag given
-- v1.12: Provider Foundation Sprint — remove get_claude_client/get_gemini_client imports
-         and register_provider() calls; ProviderManager instantiates providers from
-         PROVIDER_REGISTRY in _load_config() directly
-- v1.13: Phase 13 DB Schema Sprint Gate 5 — preview_report() accepts filter_client and
-         client_id so previews respect the same client filter as full generation
-- v1.14: Phase 13 Sprint 2 Gate 1a — generate_report() routes weekly_client through
-         prompt_builder.build_weekly_prompt() to include confirmed daily summaries context
-- v1.15: Item #61 Gate 3 (Design Rule 7) — the `if template_name ==
-         'weekly_client': ... else: ...` branch collapses to a single
-         unconditional prompt_builder.build_prompt() call for every
-         template type, following build_weekly_prompt()'s removal.
-
 Workflow:
 1. Load template and validate
 2. Build prompts with prompt_builder

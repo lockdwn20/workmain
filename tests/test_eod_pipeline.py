@@ -1,28 +1,7 @@
 """
-WorkmAIn EOD Pipeline Tests
-test_eod_pipeline v1.6
-20260729
-
 Tests for the EOD pipeline CLI surface (eod.py) and workflow step sequence.
 Step runner logic now lives in workmain.workflows.eod_workflow — imports updated
 to source _build_step_sequence and _run_review_step from there.
-
-Version History:
-- v1.0: Phase 9 Gate 5 — 9 test cases for day detection, --skip weekly, --dry-run
-- v1.1: CLI Standardization Sprint Part 1 (WU-3) — updated assertions:
-        'slack post-weekly' → 'slack post weekly' in dry-run label test
-- v1.2: Hotfix eod-backdate-bugs — added TestReviewStepDispatch (2 tests) verifying
-        that _run_review_step calls 'time date <date>' for past dates and 'time today'
-        for today
-- v1.3: Phase 10 Gate 5 — updated step count assertions (+1 for pre_flight_inspection)
-- v1.4: Phase 13 Sprint 2 Gate 2 — updated imports and mock paths after step runner
-        extraction to workmain.workflows.eod_workflow; patch paths updated to
-        eod_workflow.subprocess and eod_workflow._confirm accordingly
-- v1.5: Phase 13 Sprint 2 Gate 6 fix — TestReviewStepDispatch assertions now use
-        _WORKMAIN_BIN (resolved path) instead of bare 'workmain' string
-- v1.6: Task_Match_Data_Integrity Sprint Gate 0 (Item 71) — added
-        test_skip_note_dedup proving --skip note_dedup is now accepted
-        (VALID_STEPS wiring-gap fix, AC0)
 """
 
 import unittest

@@ -1,16 +1,7 @@
 """
-WorkmAIn Meetings Edit Tests
-test_meetings_edit v1.0
-20260402
-
 Tests for 'workmain meetings edit' command — ad-hoc gate, time/date/title
 edits, and no-option error. Uses db_session fixture from conftest.py for
 full transaction isolation.
-
-Version History:
-- v1.0: Initial implementation — 5 test cases covering: ID not found,
-        Outlook-managed block, no-option error, start/end update,
-        date-only shift preserving wall-clock times, title update
 """
 
 import pytest

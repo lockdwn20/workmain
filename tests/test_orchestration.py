@@ -1,33 +1,10 @@
 """
-WorkmAIn Orchestration Tests
-test_orchestration.py v1.2
-20260716
-
 Tests for Phase 13 Sprint 3 deliverables: WorkmAInDaemon socket dispatch,
 Block Kit ConfirmationGate, T2/T3 meeting triggers, T4 random check-in,
 T6 correction re-presentation, and T5 session persistence.
 
 All Slack API and Ollama calls mocked. No live network calls.
 No DB writes for unit tests — DB-touching tests use the db_session fixture.
-
-Version History:
-- v1.0: Phase 13 Sprint 3 Gate 7 — initial 42-test suite
-- v1.1: Operations_Config_Correction_Sprint Gate 7 — add
-        TestMorningBriefingContent (build_morning_briefing() includes
-        meetings/tasks), TestSingleStartOfDayNotification (Gate 4 Item #50
-        regression — only one 05:30 job registers), and
-        TestNotifyMethodSlackDelivery (Gate 3 Finding 1 regression —
-        notify_method=slack correctly reaches daemon.post_message for all
-        five relocated triggers: workday_start, daily_closeout,
-        weekly_draft, eow, eod_prompt)
-- v1.2: Item #60 Gate 2 — TestNotifyMethodSlackDelivery.
-        test_workday_start_delivers_via_slack's _get_unresolved_observations
-        patch retargeted to the new (observations, notice) tuple return;
-        new Group 10 (TestGetUnresolvedObservationsBranches,
-        TestJobWorkdayStartFreshnessAcceptableDates,
-        TestJobWorkdayStartNoticeSplice, TestPreviousWorkingDayGuard)
-        covers the T1 freshness gate added in daemon.py v1.21/
-        scheduler.py v1.14.
 """
 
 import json

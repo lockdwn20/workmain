@@ -1,18 +1,6 @@
 """
-WorkmAIn OllamaProvider Tests
-test_ollama_provider v1.2
-20260729
-
 Unit tests for OllamaProvider generate(), check_availability(), and _build_prompt().
 All HTTP calls are mocked — no real network calls in this suite.
-
-Version History:
-- v1.0: Gate 1 Phase 13 Sprint 1 — initial suite (10 tests)
-- v1.1: Hotfix Item #62 Gate 1 — raw-mode payload placement and TimeoutError
-        wrapping tests (3 new)
-- v1.2: Task_Match_Data_Integrity Sprint Gate 3 (Item 66) — format-flag
-        top-level promotion tests (2 new), mirroring the existing raw-flag
-        coverage
 """
 
 import json

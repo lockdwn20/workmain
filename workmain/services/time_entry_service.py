@@ -1,24 +1,8 @@
 """
-WorkmAIn Time Entry Service
-Time Entry Service v1.2
-20260728
-
 Service layer for time entry creation. Shared by the CLI (time add non-meeting
 path, meeting-shaped surfaces) and action_executor (create_time_entry). Handles
 client_id resolution, tag validation, defaults, and the linked-note creation
 required by the note-first pattern (v1.20.0).
-
-Version History:
-- v1.0: Initial implementation
-- v1.1: Item 69 Gate 3 — create_time_entry() now applies the CF->TaskStatus
-        hook (apply_cf_hook_on_create, imported from notes_service) after the
-        linked note is created, so a carry-forward-tagged time entry gets an
-        active task the same way every other create-path surface does
-- v1.2: Item 69 Gate 4 — new create_paired_time_entry(): the TimeEntry half
-        of a meeting/condensed/Clockify Note+TimeEntry pair. Derives
-        meeting_id and client_id from the already-created Note (Design
-        Rules 4 and 9) so the pair cannot diverge, fixing the NULL-client_id
-        omission on #5/#8 (and #9/#12 in later gates)
 """
 
 from datetime import date, datetime, time as time_type

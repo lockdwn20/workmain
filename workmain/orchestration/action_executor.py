@@ -1,30 +1,7 @@
 """
-WorkmAIn Action Executor
-Action Executor v1.5
-20260729
-
 Executes confirmed structured actions from IntentParser against the database
 via existing repositories. No action writes to the DB without passing through
 ConfirmationGate first — that is the caller's responsibility.
-
-Version History:
-- v1.0: Phase 13 Sprint 2 Gate 4 — all Sprint 2 action types implemented
-- v1.1: Parse optional start_time from create_time_entry action; pass as
-        entry_time to TimeEntriesRepository.create()
-- v1.2: Accept HHMM format (e.g. "0530") in addition to HH:MM
-- v1.3: Intent action service layer — _execute_create_note and _execute_create_time_entry
-        delegate to services; client_id now stamped; MissingStartTimeError returns
-        clarification request instead of writing null-timestamp row; InvalidTagsError
-        surfaces full vocabulary; parse_time() replaces ad-hoc HHMM parsing
-- v1.4: Fix _execute_confirm_report — idempotency guard (no-op if already confirmed/corrected)
-        and explicit updated_at stamp. Fix _execute_correct_report — route correction
-        description to correction_note (Phase 12 Decision 21) not corrected_content;
-        add empty-correction guard; explicit updated_at stamp.
-- v1.5: Task_Match_Data_Integrity Sprint Gate 1 (Item 67, S1) — three
-        Slack task-resolution queries (_execute_update_task,
-        _execute_defer_task, _execute_deduplicate_task) now pass limit=0
-        to TaskStatusRepository.get_filtered(); each previously silently
-        failed to resolve active tasks outside the newest-20 default cap.
 """
 
 import logging

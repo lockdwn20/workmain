@@ -1,42 +1,10 @@
 """
-WorkmAIn Intent Parser
-workmain/ai/intent_parser.py
-v1.5
-20260729
-
 Parses natural language input (Slack DM messages) into structured action JSON
 using Mistral 7B via OllamaProvider (workmain-intent:latest).
 
 The workmain-intent Modelfile owns the system prompt and generation parameters
 (temperature, top_p, top_k, repeat_penalty). This module sends only the user
 message and max_tokens per request — keeping the context window clean.
-
-Version History:
-- v1.0: Gate 2 Phase 13 Sprint 1 — initial implementation; system_prompt=None
-        at runtime (Modelfile owns system); txt file loaded for fail-fast validation
-        and source-of-truth reference only
-- v1.1: Gate 3 — wire ai_costs tracking for intent_parse interactions
-- v1.2: Phase 13 Sprint 2 Gate 1c — parse_task_match() added for Item 32 semantic
-        deduplication; structured query, separate from general parse() path
-- v1.3: Operations_Config_Correction_Sprint Gate 5 — parse_task_match()
-        re-scoped from TimeEntry rows to Note rows (§5.0: notes are the
-        actual source of truth; a note with no linked time entry was
-        previously invisible), return key entry_id -> note_id;
-        parse_note_duplicate() added for the actual Item #32 deliverable
-        (note-to-note dedup), mirrors parse_task_match()'s call pattern
-        exactly (§5.4)
-- v1.4: Hotfix Item #62 Gate 2 — parse_task_match()/parse_note_duplicate()
-        set generation_options={"raw": True} (bypasses the Modelfile SYSTEM
-        block, prompt ~2,400 -> ~600 tokens); bare except Exception removed
-        so ProviderError propagates to the caller (Step 3c/3d own the
-        keyword-fallback decision now); malformed-output catch widened to
-        include TypeError (null confidence coercion)
-- v1.5: Task_Match_Data_Integrity Sprint Gate 3 (Item 66) — both methods'
-        generation_options gain "format": "json", mirroring the existing
-        "raw" entry so OllamaProvider pops it to the top-level payload
-        position (Ollama's actual JSON-mode contract) rather than leaving
-        it nested under options. Targets the ~1-in-5 non-JSON response
-        rate observed in raw mode.
 """
 
 import json

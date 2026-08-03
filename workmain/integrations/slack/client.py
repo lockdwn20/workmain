@@ -1,19 +1,7 @@
 """
-WorkmAIn Slack Client
-slack/client.py v1.2
-20260625
-
 SlackClient wraps slack_sdk.WebClient for message posting and auth validation.
 format_for_slack() converts Markdown to Slack mrkdwn.
 already_posted() queries the reports table for existing Slack posts.
-
-Version History:
-- v1.0: Initial implementation (Phase 8 Gate 2)
-- v1.1: Phase 13 Sprint 2 Gate 3 — add get_dm_channel() and fetch_messages()
-        for SlackPoller inbound polling support
-- v1.2: Phase 13 Sprint 3 Gate 1 — remove fetch_messages() (polling superseded
-        by Socket Mode); retain get_dm_channel() (used by proactive startup
-        resolution); add post_blocks() for Block Kit messages
 """
 
 import re

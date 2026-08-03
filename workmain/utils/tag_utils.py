@@ -1,15 +1,6 @@
 """
-WorkmAIn Tag Utilities
-Tag Parser v1.2
-20260612
-
 Provides tag parsing, validation, conversion, and display formatting.
 Tags are case-insensitive, normalized, and validated against config/tags.json.
-
-Version History:
-- v1.0: Initial implementation
-- v1.1: Add format_short() and format_tags_short() for Rich-safe compact display
-- v1.2: Add validate_full_names() and get_valid_full_names() for service-layer tag validation
 """
 
 import re

@@ -1,8 +1,4 @@
 """
-WorkmAIn Calendar Commands
-Calendar Commands v1.5
-20260511
-
 Calendar command group for Outlook calendar integration (Phase 6).
 
 Commands:
@@ -15,16 +11,6 @@ Commands:
 
 Local view queries meetings where outlook_id IS NOT NULL.
 Sync requires Azure AD OAuth — see docs/OAUTH_SETUP.md
-
-Version History:
-- v1.0: Initial implementation (Phase 6 Gate 4)
-- v1.1: Use _fallback_match() in _classify_events() for title+date secondary lookup
-- v1.2: Update import header to handle expanded occurrence count from RRULE expansion
-- v1.3: Surface date_shift_notes status in preview; import Note for note-count queries
-- v1.4: CLI Standardization Sprint Part 1 (WU-8) — remove 'sync' action positional from
-        today/week/month; add dedicated 'calendar sync' subcommand (NotImplementedError stub)
-- v1.5: Hotfix soft-cancel — add _detect_removed_preview(); extend preview with 'removed'
-        status; extend summary + confirm prompt with removed count; import detect_removed_meetings
 """
 
 import click

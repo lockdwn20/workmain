@@ -1,33 +1,10 @@
 """
-WorkmAIn CLI
-Clockify Command Group
-v1.6
-20260708
-
 CLI commands for Clockify report retrieval, sync, and connection status.
 
 Commands:
 - clockify report save [period]      # Download PDF report (daily/weekly/monthly)
 - clockify status                    # Show connection and sync status
 - clockify sync push/pull/both       # Sync time entries with Clockify
-
-Version History:
-- v1.0: Initial implementation with report and status commands
-- v1.1: Fixed import - use get_db() pattern instead of get_session()
-- v1.2: Phase 5.1 - Fixed help text formatting with \b escape sequence
-- v1.3: Hotfix staging-eod — report redesigned: {get} removed, save <period>
-        subcommand added (daily/weekly/monthly default daily), output staged to
-        staging/clockify/, --start/-b and --end/-e flag standard compliance
-- v1.4: CLI Standardization Sprint Part 1 (WU-1) — sync push/pull/both subgroup
-        moved here from track.py; status() hint updated to clockify sync push;
-        sync pull --start uses -b (not -s, which is reserved for --search)
-- v1.5: CLI Standardization Sprint Part 1 (WU-4) — version bump confirming clockify
-        conflicts resolved in WU-1: sync pull -b (not -s), sync push --all has no
-        short form (deliberate friction)
-- v1.6: Operations_Config_Correction_Sprint Gate 6 (#41) — clockify_report_save()
-        now raises click.ClickException on both failure branches (download-failed
-        and exception paths) so staging write failures exit non-zero instead of
-        silently succeeding
 """
 
 import calendar

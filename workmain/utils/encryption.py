@@ -1,8 +1,4 @@
 """
-WorkmAIn
-Encryption Utilities v0.1.0
-20251219
-
 Encrypt/decrypt sensitive data like API keys
 Uses Fernet symmetric encryption (AES 128)
 """

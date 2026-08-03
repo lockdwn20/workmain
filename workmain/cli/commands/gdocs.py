@@ -1,9 +1,4 @@
 """
-WorkmAIn CLI
-Google Drive Command Group
-gdocs.py v1.4
-20260401
-
 CLI commands for archiving daily work artifacts to Google Drive.
 
 Commands:
@@ -18,17 +13,6 @@ Drive structure:
     {GDRIVE_TIMECARDS_ROOT}/YYYYMM/Raw_Notes/
     {GDRIVE_TIMECARDS_ROOT}/YYYYMM/Reports/
     {GDRIVE_TIMECARDS_ROOT}/YYYYMM/Clockify/
-
-Version History:
-- v1.0: Initial implementation (Phase 7 Gate 3)
-- v1.1: Fix Rich MarkupError in gdocs auth — [dim] tag split across two print() calls
-- v1.2: Fix _require_auth() to call get_credentials() instead of is_authenticated(),
-        enabling silent token refresh on expiry
-- v1.3: Phase 9 Gate 1 — updated hint text from 'report save' to 'reports save'
-- v1.4: CLI Standardization Sprint Part 1 (WU-7) — refactored four `upload-*` commands
-        into `upload` subgroup with positional artifact argument (notes/report/clockify/all);
-        function names unchanged (ctx.invoke references function objects); eod.py updated
-        separately to call `gdocs upload all`
 """
 
 import os

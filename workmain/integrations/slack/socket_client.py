@@ -1,22 +1,8 @@
 """
-WorkmAIn Slack Socket Client
-slack/socket_client.py v1.1
-20260707
-
 WorkmAInSocketClient wraps slack_sdk.socket_mode.SocketModeClient.
 Delivers inbound events (DMs and block_actions) to WorkmAInDaemon via
 ack-then-background-thread dispatch. Maintains in-memory event_ts
 deduplication with a 60-second eviction window.
-
-Version History:
-- v1.0: Phase 13 Sprint 3 Gate 1 — initial implementation
-- v1.1: Operations_Config_Correction_Sprint Gate 5 §5.1 — post_message()/
-        post_blocks() changed from -> None to -> Optional[str], now
-        returning the chat_postMessage ts previously discarded (needed so
-        callers can later edit the message in place); new update_message()
-        added via chat_update, mirroring the existing swallow-and-log error
-        convention. Confirmed non-breaking across all 19 existing call
-        sites — none read a return value.
 """
 
 import logging

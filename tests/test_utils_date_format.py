@@ -1,16 +1,9 @@
 """
-WorkmAIn Date Format Tests
-test_utils_date_format.py v1.0
-20260713
-
 Unit coverage for workmain/utils/date_format.py — format_date_display(),
 extracted verbatim from cli/commands/slack.py's private helper in the
 Item #50 hotfix.
 
 No DB access — pure-function coverage only.
-
-Version History:
-- v1.0: Item #50 hotfix — initial suite
 """
 
 from datetime import date

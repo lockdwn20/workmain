@@ -1,15 +1,7 @@
 """
-WorkmAIn
-Client Repository v1.1
-20260522
-
 Data access layer for the clients table. set_active() is atomic —
 updates clients.is_active and system_state.active_client_id in one
 transaction.
-
-Version History:
-- v1.0: Phase 11 Gate 3 — CRUD, set_active (atomic), get_active, name validation
-- v1.1: Phase 11.5 Gate 2 — update() accepts slack_channel kwarg
 """
 
 from __future__ import annotations

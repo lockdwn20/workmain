@@ -1,8 +1,4 @@
 """
-WorkmAIn ICS Import Tests
-ICS Import Test v1.5
-20260511
-
 Tests for the ICS parser and database import pipeline (Phase 6 Gate 3).
 
 Fixtures used:
@@ -13,17 +9,6 @@ Fixtures used:
     week_cst.ics              — 1 event in America/Denver (Mountain = 1hr ahead of Pacific)
     recurrence_id_override.ics — series with 3 Monday occurrences; first Monday moved to
                                  Wednesday via RECURRENCE-ID exception (no SUMMARY on exception)
-
-Version History:
-- v1.0: Initial implementation (Phase 6 Gate 3)
-- v1.1: Add test_13 for fallback title+date match on manually-created meetings
-- v1.2: Add test_14/15 for date-shift protection; test_16 for stale-UID orphan cleanup
-- v1.3: Update test_01/03/12/13 for all-synthetic-UID RRULE expansion (no i==0 exception);
-        add test_17/18/19 for migrate_series_uid_records()
-- v1.4: Add test_20 for RECURRENCE-ID exception handling (occurrence reschedule)
-- v1.5: Hotfix soft-cancel — update test_01 for renamed 'cancelled' key; update test_06
-        (soft-cancel replaces hard-delete); update test_07; add test_23–29 for soft-cancel
-        and detect_removed_meetings()
 """
 
 import pytest

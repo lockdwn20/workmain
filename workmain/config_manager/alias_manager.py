@@ -1,8 +1,4 @@
 """
-WorkmAIn Template Alias Manager
-Alias Manager v1.0
-20251230
-
 Manages template aliases for simplified CLI usage.
 
 Features:

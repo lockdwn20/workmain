@@ -1,13 +1,5 @@
 """
-WorkmAIn Clockify Integration
-Authentication Manager
-v1.0
-20260115
-
 Manages Clockify API key authentication and validation.
-
-Version History:
-- v1.0: Initial implementation with API key management
 """
 
 import os

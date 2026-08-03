@@ -1,9 +1,4 @@
 """
-WorkmAIn Tests
-Slack Integration Tests
-test_slack.py v1.1
-20260724
-
 Integration tests for Phase 8 Slack integration.
 
 Test classes:
@@ -21,14 +16,6 @@ No real API calls are made in these tests.
 
 Test report rows use slack_message_ts values prefixed 'test-ts-' for cleanup
 by conftest.py.
-
-Version History:
-- v1.0: Initial implementation (Phase 8 Gate 5) — 18 test cases
-- v1.1: Item #61 Gate 4 — add TestSlackPostWeeklySharedRunner (real
-        committed session, mirrors test_report_correction.py's CLI-level
-        classes). Placed here rather than the spec-named
-        tests/test_slack_commands.py — that file doesn't exist in this
-        repo. Deviation noted, same pattern as Item #61 Gate 2.
 """
 
 import os

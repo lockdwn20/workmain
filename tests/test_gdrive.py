@@ -1,8 +1,4 @@
 """
-WorkmAIn Google Drive Tests
-test_gdrive.py v1.1
-20260401
-
 Integration tests for Phase 7 Google Drive components:
   - GDriveRepository (DB layer)
   - cache.py (folder ID cache)
@@ -10,10 +6,6 @@ Integration tests for Phase 7 Google Drive components:
   - gdocs upload all --dry-run (CLI)
 
 All Drive API calls are mocked — no real Drive operations in this suite.
-
-Version History:
-- v1.0: Initial implementation (Phase 7 Gate 5)
-- v1.1: CLI Standardization Sprint Part 1 (WU-7) — upload-all → upload all
 """
 
 import json

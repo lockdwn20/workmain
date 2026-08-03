@@ -1,47 +1,9 @@
 """
-WorkmAIn Database Models
-Database Models v2.8
-20260610
-
 SQLAlchemy ORM models for WorkmAIn database.
 Models: Note, TimeEntry, Meeting, Project, Report, Recipient, ReportRecipient,
         GDriveUpload, ScheduleException, SystemState, Client, TaskStatus
 
 These map to the PostgreSQL tables created by schema migrations.
-
-Version History:
-- v1.0: Initial model creation
-- v1.1: Fixed created_date to use Computed() for generated column compatibility
-- v1.2: Added Report model for AI-generated reports
-- v1.3: Fixed metadata → report_metadata for SQLAlchemy compatibility
-- v1.4: Added condensation fields (meetings.condensed_summary, time_entries.meeting_id)
-- v1.5: Gate 1 - Added Recipient model and ReportRecipient model (Phase 6 email pipeline)
-- v1.6: Gate 1 - Added GDriveUpload model for Drive archival tracking (Phase 7)
-- v1.7: Gate 1 - Added slack_channel, slack_workspace_name columns to Report (Phase 8)
-- v1.8: Gate 1 - Added ScheduleException and NotificationConfig models (Phase 10)
-- v1.9: Item 27 - Added is_manually_modified to Meeting for ICS reimport protection
-- v2.0: Hotfix soft-cancel — added is_cancelled to Meeting; cancelled meetings are preserved
-        (not deleted) and filtered from default list views
-- v2.1: Phase 11 Gate 2 — added SystemState and Client models; added client_id FK to
-        Note, Meeting, TimeEntry, Report; removed NotificationConfig (table dropped
-        in migration 010, values migrated to system_state)
-- v2.2: Phase 11.5 Gate 2/3 — added slack_channel to Client; upgraded ReportRecipient
-        client_id from bare Integer stub to proper FK + relationship
-- v2.3: Phase 12 Gate 1 — added TaskStatus model (lifecycle layer for carry-forward notes);
-        added task_status backref to Note; added status/corrected_content/correction_note
-        to Report
-- v2.4: Phase 12 Gate 3 — passive_deletes=True on Note.task_status relationship so that
-        ON DELETE CASCADE handles task_status rows when a note is deleted
-- v2.5: Cost tracking sprint — added AiCost model; fixed datetime.utcnow → datetime.now(timezone.utc)
-        on GDriveUpload.created_at (Item 13)
-- v2.6: Gate 1 Phase 13 Sprint 1 — extend AiCost interaction_type CHECK for 'intent_parse'
-        (migration 018)
-- v2.7: Phase 13 DB Schema Sprint Gate 1 — H-1: Project.client_id FK constraint + client
-        relationship; Client.projects back-relationship (migration 019); H-2: ReportRecipient
-        email field removed, __repr__ updated (migration 020)
-- v2.8: Phase 13 DB Schema Sprint Gate 4 — TimeEntry: add note_id FK (ON DELETE RESTRICT,
-        NOT NULL) + note relationship; remove description and tags fields (migration 021);
-        Note: add time_entries back-relationship
 """
 
 from datetime import datetime, date, time

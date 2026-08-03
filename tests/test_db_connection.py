@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 """
-WorkmAIn
-Database Connection Test v0.1.0
-20251219
-
 Test database connectivity and show table information
 """
 

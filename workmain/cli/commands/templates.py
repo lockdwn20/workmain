@@ -1,30 +1,5 @@
 """
-WorkmAIn Template CLI Commands
-Template Commands v2.9
-20260406
-
 CLI commands for template management with interactive creation and alias management.
-
-Version History:
-- v1.0: Initial implementation with list, show, validate, preview
-- v1.1: Fixed date module shadowing
-- v1.2: Fixed renderer argument type
-- v1.3: Fixed return value unpacking
-- v1.4: Fixed output formatting
-- v2.0: Added create and add-section commands for interactive template creation
-- v2.1: Fixed loader method calls (load_template → load)
-- v2.2: Fixed project root path (3 parents → 4 parents for correct templates/ location)
-- v2.3: Added detailed error traceback to add_section for debugging
-- v2.4: Fixed glob/Click conflict by replacing glob() with iterdir() for file search
-- v2.5: Fixed list command to handle string template names (load each template for details)
-- v2.6: Added alias management (register, unregister, list-aliases) for simplified CLI usage
-- v2.7: Phase 5.1 - Fixed help text formatting with \b escape sequence
-- v2.8: Item 18 - Migrated preview command from get_session() to get_db() pattern;
-        fixed render() call to pass template_name string (not template dict);
-        switched to renderer.preview() to get plain string output
-- v2.9: CLI Standardization Sprint Part 2 — templates list shows aliases inline
-        (list-aliases command removed as redundant); add-section moved to
-        templates section add subgroup (V16a, V16b)
 """
 
 import click

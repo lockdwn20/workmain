@@ -1,8 +1,4 @@
 """
-WorkmAIn Provider Foundation Tests
-test_provider_foundation.py v1.1
-20260605
-
 Tests for the Provider Foundation Sprint deliverables:
 - PROVIDER_REGISTRY structure and subclass contract
 - base_provider.py additions (ProviderUnavailableError, OLLAMA, test_connection)
@@ -11,12 +7,6 @@ Tests for the Provider Foundation Sprint deliverables:
 - ProviderManager N-provider: disabled tracking, get_provider, registry methods
 - Dynamic CLI validation (providers test, providers costs)
 - providers set default read-modify-write
-
-Version History:
-- v1.0: Provider Foundation Sprint — initial suite
-- v1.1: Gate 1 Phase 13 Sprint 1 — update OllamaProvider stub tests to reflect
-        real implementation (localhost:11434 refuses → UNAVAILABLE, same observable
-        behaviour but now via real HTTP path, not hardcoded returns)
 """
 
 import json

@@ -1,9 +1,4 @@
 """
-WorkmAIn CLI
-Slack Command Group
-slack.py v1.9
-20260730
-
 CLI commands for posting reports to Slack.
 
 Commands:
@@ -13,49 +8,6 @@ Commands:
 - slack set channel <channel>           # Set Slack channel for the active client
 - slack set workspace                   # Show workspace config file path (informational)
 - slack post PERIOD [flags]             # Generate/review (shared runner) → post; PERIOD=weekly|daily|monthly
-
-Version History:
-- v1.0: Initial implementation (Phase 8 Gate 3/4)
-- v1.1: Fix post-weekly generation — replace subprocess (invalid --start/--end flags)
-        with direct Python API call via get_report_generator()
-- v1.2: Phase 9 Gate 1 — updated hint text from 'report save' to 'reports save'
-- v1.3: CLI Standardization Sprint Part 1 (WU-2) — renamed command `post-weekly` → `post`;
-        added required PERIOD argument (weekly|daily|monthly); guards non-weekly with
-        NotImplementedError; renamed function slack_post_weekly → slack_post
-- v1.4: Phase 11 Gate 5 — stamp active_client_id on Report INSERT in slack post weekly
-- v1.5: Phase 11.5 Gate 2 — retire `slack channel set` (wrote to config.json);
-        add `slack set` subgroup with `channel` (writes to clients.slack_channel) and
-        `workspace` (informational, no writes); update post-weekly channel resolution
-        to read clients.slack_channel first, config.json fallback second;
-        update slack status/auth/setup channel display to use same resolution order
-- v1.6: Phase 13 Sprint 2 Gate 3 — add `slack set operator-user-id` command for
-        inbound DM polling setup
-- v1.7: Item #50 hotfix — remove private _format_date_display(), import
-        format_date_display() from workmain.utils.date_format instead
-- v1.8: Item #61 Gate 4 (Design Rules 9-11) — slack_post()'s entire
-        generate → preview → [y/n/e] → own-editor → upsert-with-no-status
-        sequence replaced by a call to the shared
-        eod_workflow._run_report_review_step() (report_type='weekly_client',
-        label='Weekly', require_active_client=True,
-        generation_error_fatal=False) — the same runner Friday's weekly EOD
-        review uses. Slack delivery is now a separate step after the
-        review runner completes, firing only when the resulting status is
-        confirmed/corrected; posts report.corrected_content or
-        report.content and updates slack_message_ts/slack_channel/
-        slack_workspace_name on that same row (no second upsert, no second
-        row). --regenerate removed (its staleness-prompt logic has no
-        equivalent under G2's confirmed-report re-review design; confirmed
-        with Ray). --force/already_posted() REPOST guard kept, relocated
-        to the delivery step. --dry-run now short-circuits before the
-        review runner with a caller-specific message (still zero side
-        effects) instead of previewing staged file content. Removed:
-        _run_generation(), _staged_report_path(), _show_preview(),
-        _edit_in_editor() (Design Rule 3 — deferred here from Gate 2, now
-        dead), _PROJECT_ROOT/_STAGING_REPORTS (no longer referenced).
-        _run_slack_weekly_step (eod_workflow.py) traced and confirmed to
-        need no changes (Design Rule 11) — it only shells this command as
-        a subprocess with no --date.
-- v1.9: Replaced certain data values as part of an application wide update  
 """
 
 from datetime import date, datetime, timedelta

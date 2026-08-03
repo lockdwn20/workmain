@@ -1,17 +1,6 @@
 """
 Unit tests for recurring meetings functionality.
 Tests Phase 5.1 operational fixes.
-
-Version: 1.3
-Date: 20260610
-
-Version History:
-- v1.0: Initial test suite with placeholder db_session fixture
-- v1.1: Implemented db_session fixture with proper database connection
-- v1.2: Remove local db_session fixture — defer to conftest.py v2.1 which
-        correctly redirects commit→flush and rolls back at teardown
-- v1.3: Phase 13 DB Schema Sprint Gate 5 — test_time_entry_with_meeting_link
-        creates a Note first (note_id required after migration 021)
 """
 
 import pytest
