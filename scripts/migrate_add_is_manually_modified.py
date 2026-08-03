@@ -1,17 +1,10 @@
 """
-WorkmAIn Migration: Add is_manually_modified to meetings
-migrate_add_is_manually_modified v1.0
-20260508
-
 One-time migration: adds is_manually_modified boolean column to the meetings table.
 This column supports Item 27 recurring meeting reschedule/edit features.
 When True, ICS reimport will skip the row (local modification is ground truth).
 
 Run before deploying Item 27 CLI changes:
     python scripts/migrate_add_is_manually_modified.py
-
-Version History:
-- v1.0: Initial migration
 """
 
 from workmain.database.connection import get_db

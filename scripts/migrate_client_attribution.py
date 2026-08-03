@@ -1,8 +1,4 @@
 """
-WorkmAIn
-Client Attribution Migration Script v1.0
-20260512
-
 One-time script: seeds WORKMAIN_DEFAULT_CLIENT as the first client and
 attributes all existing NULL records to it.
 
@@ -10,9 +6,6 @@ Run once after Gate 3 migrations are applied:
     python scripts/migrate_client_attribution.py
 
 Idempotent — safe to re-run if interrupted.
-
-Version History:
-- v1.0: Phase 11 Gate 3 — initial implementation
 """
 
 import os

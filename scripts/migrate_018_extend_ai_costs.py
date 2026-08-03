@@ -1,16 +1,9 @@
 """
-WorkmAIn Migration 018: Extend ai_costs interaction_type CHECK
-migrate_018_extend_ai_costs v1.0
-20260605
-
 Extends the ai_costs interaction_type CHECK constraint to include 'intent_parse'
 for Phase 13 Sprint 1 intent parsing cost tracking.
 
 Run once before deploying Phase 13 Sprint 1:
     python scripts/migrate_018_extend_ai_costs.py
-
-Version History:
-- v1.0: Phase 13 Sprint 1 Gate 1
 """
 
 from workmain.database.connection import get_db

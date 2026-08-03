@@ -1,8 +1,4 @@
 """
-WorkmAIn Gate 4 Migration Script
-migrate_021_time_entries_note_id.py v1.0
-20260610
-
 Phase 13 DB Schema Sprint — Gate 4: Time Entries Migration
 
 Adds note_id FK to time_entries, resolves orphaned rows via stub notes,
@@ -21,9 +17,6 @@ Steps executed in order:
 Pre-migration backup required before running this script.
 Gate 3 diagnostic output and all manual resolutions recorded in commit:
   e7c1255 chore(time-entries-refactor): Gate 3 diagnostic — orphan and ambiguity report
-
-Version History:
-- v1.0: Phase 13 DB Schema Sprint Gate 4
 """
 
 import sys

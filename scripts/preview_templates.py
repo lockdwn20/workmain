@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 """
-WorkmAIn Preview Test
-Preview Test v1.0
-20251224
-
 Quick test to preview template rendering with actual database data.
 """
 

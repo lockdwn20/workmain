@@ -1,8 +1,4 @@
 """
-WorkmAIn Backfill: AI Costs from Report Metadata
-migrate_backfill_ai_costs v1.0
-20260528
-
 Backfill-only script. Reads all reports rows that contain cost data in
 report_metadata and inserts corresponding ai_costs rows.
 
@@ -11,9 +7,6 @@ Run AFTER applying migration 017_ai_costs.sql:
     python scripts/migrate_backfill_ai_costs.py
 
 Idempotent — reports that already have a matching ai_costs row are skipped.
-
-Version History:
-- v1.0: Initial backfill implementation (cost tracking sprint)
 """
 
 import sys

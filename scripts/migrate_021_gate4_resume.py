@@ -1,8 +1,4 @@
 """
-WorkmAIn Gate 4 Resume Script
-migrate_021_gate4_resume.py v1.0
-20260610
-
 Continuation of migrate_021_time_entries_note_id.py after Step 5 halt.
 
 Context:
@@ -31,9 +27,6 @@ Steps executed:
   6.  Add NOT NULL constraint (irreversible)
   7.  Drop description and tags columns
   8.  Add idx_time_entries_note_id index
-
-Version History:
-- v1.0: Phase 13 DB Schema Sprint Gate 4 — 242-row stub resolution
 """
 
 import sys
