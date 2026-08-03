@@ -2,7 +2,7 @@
 
 **Author:** Spanner (Role 1)
 **Date:** 20260803
-**Spec version:** v1.1
+**Spec version:** v1.2
 **Branch:** `feature/file-header-removal` (from `dev`)
 **Target release:** v1.29.0
 **Originating item:** Ray request, 20260731
@@ -22,6 +22,20 @@
     with **AC5.6** / **AC5.7**.
   - **Finding 3** — AC5.5 was semantic and unautomatable. Replaced with a grep-based
     check rather than waived.
+- **v1.2** (20260803) — Caliper re-review applied.
+  - **Finding 4** — AC5.5's unanchored `\d{8}` grep false-positives on the
+    `### Mistake 4: … (20251226)` heading at line 466. Caliper suggested dropping the
+    pattern; **not taken** — `\d{8}` is the only grep in the list that reaches §6
+    Import Organization, so dropping it would trade a false positive for a false
+    negative. Anchored to a bare whole line instead, which resolves the false
+    positive and keeps the coverage. Validated empirically.
+  - **§6 Import Organization (lines 145–171) added to the §5a table** — found while
+    validating Finding 4's grep. Its example embeds a full version header, so it
+    displays the retired format as current.
+  - Consistency note applied: §7 risk table said "eight sections". Corrected to
+    "ten" — and while fixing it, the underlying count was found wrong in both v1.0
+    and v1.1: both tallies had included the DOCSTRINGS row, which is an explicit
+    *keep*. The §5a table now has eleven rows covering ten changed sections.
 
 ---
 
@@ -324,10 +338,13 @@ consumers repo-wide.
 
 ### Gate 5 — Documentation
 
-The standards doc is **more entangled than the design study estimated**: ten sections
-reference the retired practice, not three (eight found while specc'ing, two more by
-Caliper Finding 2). Every one must be reconciled or the standard silently re-grows
-the headers.
+The standards doc is **more entangled than the design study estimated**: **ten**
+sections reference the retired practice, not three — seven found while specc'ing, two
+more by Caliper Finding 2, and §6 Import Organization found while validating Finding
+4's grep. Every one must be reconciled or the standard silently re-grows the headers.
+
+The table below has **eleven rows**: the ten sections to change, plus the DOCSTRINGS
+row which is an explicit **keep** and does not reference the retired practice.
 
 **5a. `docs/DEVELOPMENT_STANDARDS_REVIEW.md` → v3.0** (currently 521 lines):
 
@@ -336,6 +353,7 @@ the headers.
 | 17–36 | §1 File Header Pattern | Rewrite to the PEP 257 shape (§4.5) |
 | 76–101 | §4 Version History Pattern | **Delete** — practice retired |
 | 102–144 | §5 Package `__init__.py` Pattern | Remove the version-history docstring from the example; **delete standard #4 "`__version__` at module level"** and the `__version__ = '1.2'` line — this is the rule that mandated the Q3 constants |
+| 145–171 | §6 Import Organization | **Trim the example's header** to the §4.5 PEP 257 shape. The section's subject is import ordering, but its `notes_repo.py` example embeds a full `WorkmAIn Notes Repository` / `Notes Repository v1.3` / `20251222` header, displaying the retired format as current |
 | 191–209 | FILE VERSIONING | **Delete** — incl. the stale "In header comment for SQL files" claim (recon: no `.sql` file has a version block) |
 | 210–311 | VERSION TRACKING LOCATIONS | Rewrite: git tags + `CHANGELOG.md` + `workmain/__version__.py` are the tracking locations. Drop "File headers (Each .py file)". Drop the `grep -r "v[0-9]"` and `head -15 … \| grep "v[0-9]"` recipes — they no longer find anything |
 | 456–459 | Mistake 2: Removed `__init__.py` Structure | **Rewrite** — its "**Right**: Full docstring, version history, `__all__`, `__version__`" line instructs the retired practice as the *correct* pattern. Must become "Full docstring, `__all__`" |
@@ -381,7 +399,13 @@ is a `docs/` header and stays per §2):
 - `Version History` — outside the doc's own header block
 - `__version__` — the package-level constant standard
 - `^\s*-\s*v\d+\.\d+:` — version-history entry examples
-- `\d{8}` — the date line in header examples
+- `^[[:space:]]*[0-9]{8}[[:space:]]*$` — a **bare** date line in a header example.
+  Anchored to a whole line by Caliper Finding 4: an unanchored `\d{8}` also matches
+  the `### Mistake 4: Tests in Wrong Directory (20251226)` heading at line 466, which
+  has nothing to do with the retired practice. Verified: the anchored form matches
+  lines 3, 23, 83, 108, 152, 219, 256 (all header-example dates, all in sections this
+  gate rewrites or deletes) and matches neither the Mistake 4 nor Mistake 5 heading.
+  Line 3 is the doc's own header date and is covered by the exclusion above.
 - `Component Name v` / `File Header Pattern`
 
 **AC5.6 / AC5.7** Both greps below return zero hits (Caliper Finding 2 — line 508
@@ -465,7 +489,7 @@ Any deviation from 921 is a defect — **STOP and surface to Ray.**
 | Pre-1.0 release history destroyed | Gate 0 back-fills 9 releases before Gate 4 deletes anything |
 | `workmain --version` breaks | AC4.1/AC4.2; `interface.py:61` + `:131` dependency stated explicitly |
 | Shebang clobbered | DR2 AST-driven editing; §4.5 constraint |
-| Standards doc re-grows the practice | Gate 5 reconciles all eight sections; AC5.5 |
+| Standards doc re-grows the practice | Gate 5 reconciles all ten sections; AC5.5 |
 | One-off script `--help` regresses | §4.3 explicit fix; AC3.3 — `--help` only, never `--execute` |
 | Metadata stranded in a gap between §4.1 and §4.2 | AC6.10 residue scan; §4.4 handles the one known instance (Caliper Finding 1) |
 | Standards doc retains an instruction the §5a table missed | AC5.5/5.6/5.7 grep checks rather than a semantic read (Caliper Findings 2, 3) |
@@ -489,7 +513,8 @@ to `docs/dev/archive/`, per the Documentation Standards in `CLAUDE.md`.
 
 ## 9. Status
 
-**CALIPER REVIEW COMPLETE — all three findings applied in v1.1.**
+**CALIPER REVIEW COMPLETE — Findings 1–3 applied in v1.1, Finding 4 and the
+consistency note applied in v1.2. Caliper approved pending Finding 4, now resolved.**
 
 **AWAITING RAY'S APPROVAL TO BEGIN GATE 0.**
 
