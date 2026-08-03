@@ -1,8 +1,4 @@
 """
-WorkmAIn Daemon Delivery Layer
-delivery.py v1.3
-20260702
-
 Handles notification delivery via three methods:
   - 'wsl-notify' → wsl-notify-send (WSL) or notify-send (native Linux)
   - 'slack'      → Slack DM via daemon.post_message()
@@ -11,25 +7,6 @@ Handles notification delivery via three methods:
 WSL detection is performed once at import time and cached.
 wsl-notify-send is located via PATH first, then via a glob of common WSL
 mount paths — no PATH configuration required on the host.
-
-Version History:
-- v1.0: Phase 10 Gate 2 initial implementation
-- v1.1: Fix wsl-notify-send invocation — use --category for title; binary only
-        accepts one positional arg (body); two args triggers usage output, exit 0
-- v1.2: Add _sanitize_for_windows() to replace em/en dashes before passing strings
-        to wsl-notify-send.exe — Windows codepage garbles UTF-8 multi-byte chars;
-        log subprocess stdout/stderr at WARNING so failures are visible in journal
-- v1.3: Operations_Config_Correction_Sprint Gate 3 §3.2 — 'os' renamed to
-        'wsl-notify'; 'terminal' method retired entirely (was always journald
-        logging under systemd, not a real fallback channel — _deliver_terminal()
-        and its Console/Panel echo removed, failures now log via standard
-        Python logging only); 'email' dropped (reserved, never implemented);
-        'slack' added as first-class method via _deliver_slack(), which
-        requires a daemon handle passed through by the caller — delivery.py
-        has none of its own. _deliver_slack() skips its bold-title prefix
-        when title is blank, so callers whose body already carries its own
-        header (the morning briefing, Gate 4) don't get a redundant title
-        line stacked above it.
 """
 
 import logging

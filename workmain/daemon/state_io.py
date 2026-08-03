@@ -1,16 +1,7 @@
 """
-WorkmAIn Daemon State I/O
-state_io.py v1.0
-20260716
-
 Shared read/write primitives for daemon state files under
 WORKMAIN_STATE_DIR/daemon/. Consolidates the previously-duplicated
 last_inspection.json writers in daemon.py and eod_workflow.py (Item #60).
-
-Version History:
-- v1.0: Item #60 Gate 1 — initial extraction. daemon_state_path(),
-        write_last_inspection(), read_last_inspection(),
-        matches_target_date().
 """
 
 import json

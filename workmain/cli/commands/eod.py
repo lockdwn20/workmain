@@ -1,8 +1,4 @@
 """
-WorkmAIn End-of-Day Workflow
-EOD v2.15
-20260729
-
 Thin CLI surface for the EOD workflow. All step runner logic lives in
 workmain.workflows.eod_workflow (surface-agnostic service layer) and
 returns EodStepResult instead of bool so any surface can interpret results.
@@ -27,67 +23,6 @@ Friday adds:
   7. Generate weekly report (reports save weekly_client)
   8. Create weekly email draft (email save weekly_client)
   9. Complete
-
-Version History:
-- v1.0: CLI Standardization Sprint (Gate 4) - initial implementation
-- v1.1: Hotfix staging-eod — split Step 4 into 4a (report save) and 4b (email save),
-        added --skip email flag, replaced stale report daily --send command
-- v1.2: Hotfix staging-eod — Step 5 replaced passive Downloads scan with active
-        clockify report save daily pull to staging/clockify/
-- v1.3: Phase 7 Gate 4 — added Step 6 (gdocs upload-all), 6→7 steps, --skip gdocs
-- v1.4: Phase 9 Gate 1 — updated subprocess calls from 'report' to 'reports' (rename)
-- v1.5: Phase 9 Gate 2 — day-aware Thu/Fri steps; _build_step_sequence refactor;
-        --skip weekly; dynamic step numbering; updated help text
-- v1.6: Hotfix — condense step gate now checks total note count (exclude_ifo=False)
-        so meetings with only info-only notes are included and trigger the default
-        "Attended <Meeting>" summary; surfaced by per-occurrence calendar expansion
-- v1.7: Hotfix — pass meeting_date to get_note_count to scope counts per occurrence
-- v1.8: Hotfix eod-date-option — add --date YYYY-MM-DD option to run EOD for a past date;
-        thread target_date through all step runners; condense uses get_by_date(target_date);
-        report step passes --date; clockify step passes --start/--end
-- v1.9: Hotfix eod-date-option — gdocs step passes --date YYYYMMDD to upload-all so notes,
-        report, and Clockify PDF are all resolved for the target date not today
-- v2.0: CLI Standardization Sprint Part 1 (WU-3) — subprocess calls updated:
-        track sync push → clockify sync push; slack post-weekly → slack post weekly
-- v2.1: CLI Standardization Sprint Part 1 (WU-4) — --skip/-s → --skip/-S (uppercase);
-        avoids conflict with reserved -s (--search)
-- v2.2: CLI Standardization Sprint Part 1 (WU-7) — gdocs upload-all → gdocs upload all
-        in subprocess call, dry-run print, step description, and help text
-- v2.3: CLI Standardization Sprint Part 1 (WU-9) — review step hint: track → time
-- v2.4: Hotfix eod-backdate-bugs — review step uses 'time date <date>' for past dates
-        instead of 'time today'; fixed stale "today's" language in docstring/dry-run
-- v2.5: Hotfix eod-backdate-bugs-2 — fixed step 3 label in _build_step_sequence()
-        (missed in v2.4): "Review today's time entries" → "Review time entries"
-- v2.6: Hotfix eod-backdate-bugs-3 — gdocs step passes --force for past dates so
-        re-running EOD actually overwrites the Drive files instead of silently skipping
-- v2.7: Phase 10 Gate 5 — pre_flight_inspection step added between review and report;
-        _write_last_inspection() helper writes daemon state file; _run_pre_flight_inspection_step()
-        runs InspectionEngine + narrate(); results persisted to last_inspection.json
-- v2.8: Phase 11 Gate 6 — weekly skip guard: check active_client_id before spawning
-        workmain reports save weekly_client subprocess; print informational message and
-        skip when no active client is set
-- v2.9: Phase 12 Gate 5 — Step 3b now prints per-observation text (not just count);
-        Step 3c (task_match) added: keyword scoring against time entries, [c/d/s] prompt;
-        Step 4a gains pre-check for confirmed/corrected report, review menu with
-        $EDITOR support, and status writes (confirmed/corrected/unconfirmed)
-- v2.10: Hotfix — Step 4a edit: after committing corrected_content to DB, also
-         overwrite the staging file so email and gdocs steps use the edited content
-- v2.11: Hotfix — _run_weekly_report_step gains same pre-check, review menu,
-         editor integration, and staging-file sync as daily report step (Step 4a);
-         also passes --date to subprocess for backdated EOD consistency
-- v2.12: Phase 13 DB Schema Sprint Gate 5 fix — replace entry.description with
-         entry.note.content in _run_task_match_step (task scoring and display)
-- v2.13: Phase 13 Sprint 2 Gate 1 — correction_note prompt added to _run_report_step
-         and _run_weekly_report_step after edit (Item 33); _run_task_match_step
-         upgraded with IntentParser semantic matching + keyword fallback (Item 32)
-- v2.14: Phase 13 Sprint 2 Gate 2 — extracted all step runners to
-         workmain.workflows.eod_workflow (surface-agnostic service layer);
-         eod.py is now a thin CLI surface using get_step_sequence + run_step;
-         step results are EodStepResult — FAILED status goes to failed list
-- v2.15: Task_Match_Data_Integrity Sprint Gate 0 (Item 71) — added
-         'note_dedup' to VALID_STEPS; Step 3d was a first-class EOD step
-         (eod_workflow.py:1330) but missing from this list, making it
-         un-skippable via --skip note_dedup
 """
 
 from datetime import date

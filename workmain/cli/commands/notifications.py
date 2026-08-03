@@ -1,8 +1,4 @@
 """
-WorkmAIn Notifications Commands
-notifications.py v1.4
-20260716
-
 CLI command group: workmain notifications
 Owns delivery method configuration and notification delivery status.
 
@@ -12,27 +8,6 @@ Commands:
   status  — Show delivery config + today's inspection observations + today's schedule
   enable  — Enable notification delivery
   disable — Disable notification delivery
-
-Version History:
-- v1.0: Phase 10 Gate 7 initial implementation
-- v1.1: Add "Today's Schedule" section to status — shows remaining cron jobs and
-        pre-meeting reminders so users can see upcoming notifications at a glance
-- v1.2: Operations_Config_Correction_Sprint Gate 1 §1.6 — _CRON_JOBS hardcoded
-        tuple replaced with _load_cron_jobs(session), which reads trigger
-        times from system_state via scheduler._load_trigger_times() so this
-        display reflects `workmain schedule set notification-time` changes
-- v1.3: Operations_Config_Correction_Sprint Gate 3 §3.4 — VALID_METHODS
-        changed to ('wsl-notify', 'slack', 'both'); email special-case
-        warning block removed (email was never implemented, no fallback
-        left once terminal retired); docstring examples updated; unused
-        rich.panel.Panel import removed
-- v1.4: Item #60 Gate 3 (Rule 8) — status command's freshness comparison
-        line only: `payload.get('target_date') != str(date.today())`
-        replaced with `not state_io.matches_target_date(payload,
-        date.today())`. Path resolution, .exists() check, and the
-        missing/corrupt/stale three-way message handling are untouched —
-        preserves the red corrupt-file diagnostic as distinct from the
-        missing-file message.
 """
 
 import json

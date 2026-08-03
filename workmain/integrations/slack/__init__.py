@@ -1,8 +1,4 @@
 """
-WorkmAIn Slack Integration Package
-slack/__init__.py v1.5
-20260625
-
 Slack integration for posting weekly draft reports to a channel and receiving
 inbound DMs via Socket Mode (WorkmAInSocketClient).
 
@@ -11,15 +7,6 @@ operations, EOD manager, and Block Kit support.
 
 Scope: chat:write, auth:read, connections:write, conversations:open
 (Bot Token + App-level Token; manual browser setup via workmain slack setup)
-
-Version History:
-- v1.0: Initial implementation (Phase 8 Gate 2)
-- v1.1: Phase 13 Sprint 2 Gate 3 — export SlackPoller for daemon integration
-- v1.2: Phase 13 Sprint 2 Gate 3 — export get/save_operator_user_id from auth
-- v1.3: Phase 13 Sprint 2 Gate 5 — export build_morning_briefing from slack_eod
-- v1.4: Phase 13 Sprint 2 Gate 6 — export SlackEodManager, SlackEodSession
-- v1.5: Phase 13 Sprint 3 Gate 1 — remove SlackPoller (polling superseded by
-        Socket Mode); add WorkmAInSocketClient and get_socket_token exports
 """
 
 from workmain.integrations.slack.auth import (

@@ -1,30 +1,6 @@
 """
-WorkmAIn Notes Repository
-Notes Repository v2.1
-20260709
-
 Data access layer for notes with tag filtering and full-text search.
 Handles all CRUD operations for the notes table.
-
-Version History:
-- v1.0: Initial repository creation
-- v1.1: Fixed tag filtering to use PostgreSQL array overlap operator (&&)
-- v1.2: Fixed exclude tags to use PostgreSQL array contains operator (@>)
-- v1.3: Added tag normalization (dedup + sort) in create() and update() methods
-- v1.4: Added get_by_meeting_title() to fix recurring-meeting instance mismatch
-- v1.5: Hotfix eod-backdate-bugs — create() accepts optional created_at override so
-        retroactively-entered notes land on the correct date for report generation
-- v1.6: Add find_by_content_like() for name-or-ID resolution on edit/delete commands
-        (Item 26, CLI V18)
-- v1.7: Phase 11 Gate 5 — create() accepts client_id for attribution stamping
-- v1.8: Phase 11 Gate 6 — add get_for_date_client() for client-filtered report queries
-- v1.9: Notes & Tasks Foundation Sprint — add get_filtered() combined filter method
-        supporting date, meeting, search, tags, and limit parameters simultaneously
-- v2.0: Phase 13 DB Schema Sprint Gate 2 — H-3: add _validate_client_project_consistency()
-        guard; wire into create() and update(); add client_id param to update();
-        update source docstring with all 5 valid values
-- v2.1: Hotfix Item #58 — add get_most_recent_since() for T4 activity-gap
-        suppression; add desc to sqlalchemy import
 """
 
 from datetime import date, datetime

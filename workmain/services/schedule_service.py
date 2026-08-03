@@ -1,19 +1,7 @@
 """
-WorkmAIn Schedule Service
-schedule_service.py v1.1
-20260707
-
 Single authority for "is this a working day" and "is this within working
 hours." Replaces four independent implementations that each computed this
 differently with different data sources.
-
-Version History:
-- v1.0: Initial implementation — Operations_Config_Correction_Sprint Gate 1
-- v1.1: Operations_Config_Correction_Sprint Gate 5 §5.6 — get_task_match_interval()/
-        get_note_dedup_interval() added, same shape as get_t4_interval() but
-        each returns a single int (seconds), not a min/max pair. Two
-        independent settings — the task-match and note-dedup EOD substeps
-        have structurally different iteration counts.
 """
 
 from datetime import date, datetime, time

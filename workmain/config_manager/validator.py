@@ -1,8 +1,4 @@
 """
-WorkmAIn
-Configuration Validator v0.1.0
-20251219
-
 Validate configuration files against schemas
 """
 

@@ -1,8 +1,4 @@
 """
-WorkmAIn AI Gemini Provider
-Gemini Provider v2.0
-20260603
-
 Gemini (Google AI) provider implementation.
 
 Migrated from workmain/ai/gemini_client.py v1.6.
@@ -15,11 +11,6 @@ Features:
 - Native token counting
 - Retry logic with exponential backoff
 - Cost tracking
-
-Version History:
-- v2.0: Provider Foundation Sprint — migrated from gemini_client.py;
-        config: ProviderConfig -> dict; model config-driven (Item 35);
-        class renamed GeminiClient -> GeminiProvider
 """
 
 import os

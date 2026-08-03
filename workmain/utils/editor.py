@@ -1,9 +1,4 @@
 """
-WorkmAIn Editor Helper
-workmain/utils/editor.py
-v1.0
-20260724
-
 Shared $EDITOR helper for report correction UX — extracted from
 reports.py:_edit_in_editor and eod_workflow.py:_eod_edit_in_editor (Item #61
 Gate 2, Design Rule 3). slack.py's own copy is retired in Gate 4 once
@@ -13,9 +8,6 @@ Failure/output rendering is preserved per caller via the report_fn
 callback, since callers differ in their console primitives — reports.py
 uses Rich console.print with markup, eod_workflow.py uses plain print()
 (it deliberately does not import click/rich).
-
-Version History:
-- v1.0: Item #61 Gate 2 — initial extraction.
 """
 
 import os

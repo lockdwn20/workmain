@@ -1,61 +1,6 @@
 """
-WorkmAIn Slack EOD Surface
-Slack EOD Surface v1.8
-20260713
-
 Slack I/O surface for the T1 morning briefing and T5 EOD conversational
 workflow. Plain-text I/O in Sprint 2. Block Kit UX upgrade in Sprint 3.
-
-Version History:
-- v1.0: Phase 13 Sprint 2 Gate 5 — T1 morning briefing builder stub;
-        T5 EOD conversational flow added in Gate 6
-- v1.1: Phase 13 Sprint 2 Gate 6 — SlackEodSession dataclass, SlackEodManager
-        with handle_start_eod/handle_reply/_advance_step; inline corrections
-        routed through ConfirmationGate; control word handling before IntentParser
-- v1.2: Phase 13 Sprint 3 Gate 1 fix — SlackEodManager.__init__ accepts daemon
-        as second positional arg (required by WorkmAInDaemon); stored as
-        self._daemon for Path 3 T6 correction re-presentation (Gate 5)
-- v1.3: Phase 13 Sprint 3 Gate 2 — T5 step result messages use Block Kit section
-        and context blocks; tabular summaries use code blocks; control word
-        responses remain plain text; add _send_blocks() helper
-- v1.4: Phase 13 Sprint 3 Gate 5 — wire T6 Path 3: _execute_and_reprompt()
-        calls self._daemon._maybe_post_correction_summary() after execute()
-- v1.5: Phase 13 Sprint 3 Gate 6 — SlackEodSession.save/load/clear(); started_at
-        field; _SESSION_PATH constant; SlackEodManager calls save() after every
-        step, clear() on complete/stop; handle_start_eod guard message updated
-- v1.6: Operations_Config_Correction_Sprint Gate 5 — §5.1: long-running
-        steps (task_match, note_dedup) dispatched to a background thread
-        (_run_step_async()/_run_step_thread()), extending the existing
-        fire-and-forget pattern from socket_client.py rather than
-        introducing new threading infrastructure; cancellation via
-        threading.Event, set by _abort_session() on CONTROL_STOP; the
-        cancelled thread stops mutating session state entirely once it
-        observes the event. _advance_step()'s four-way EodStepResult
-        handling factored into _handle_step_result(), shared by both the
-        synchronous loop and the background-thread continuation. §5.2:
-        SlackEodSession gains skip_targets (new field — round-trips the
-        original --skip value, which no prior field held) and
-        _step_thread/_cancel_event (runtime-only, not persisted);
-        save()/load() extended to round-trip paused and pending_action
-        (completeness fix). §5.3: CONTROL_RESUME now retries the current
-        step instead of skipping it.
-- v1.7: Operations_Config_Correction_Sprint Gate 5 §5.3a — handle_reply()
-        guard restored: CONTROL_CONFIRM/SKIP/RESUME now check
-        session.paused before mutating session state, closing the race
-        where any of the three could act while a long-running step
-        (task_match, note_dedup) is still executing, sync or background.
-        CONTROL_STOP deliberately excluded — cancellation stays on the one
-        existing stop/cancel_event path. Found during v1.6's implementation
-        verification, applied in-flow, reverted pending confirmation
-        (session.paused's False-throughout-execution behavior and the
-        CONTROL_SKIP | CONTROL_CONFIRM | CONTROL_RESUME frozenset union
-        both independently confirmed correct as originally written), now
-        restored exactly as first written.
-- v1.8: Item #50 hotfix — build_morning_briefing() gains a required
-        target_date first parameter (rendered as its own line via
-        format_date_display()) and replaces the unresolved_count int
-        parameter with an observations list, rendered as `[type] message`
-        bullets instead of a bare count.
 """
 
 from __future__ import annotations

@@ -1,8 +1,4 @@
 """
-WorkmAIn Google Drive Auth
-gdrive/auth.py v1.0
-20260309
-
 OAuth2 credential management for Google Drive integration.
 WSL-safe: uses run_console() (copy-paste URL + code) — no browser spawn.
 
@@ -10,9 +6,6 @@ Token file:       ~/.workmain/integrations/gdrive/token.json  (chmod 600)
 Credentials file: ~/.workmain/integrations/gdrive/credentials.json  (chmod 600)
 Scope:            https://www.googleapis.com/auth/drive.file
   (least-privilege — app can only see files it creates)
-
-Version History:
-- v1.0: Initial implementation (Phase 7 Gate 2)
 """
 
 import os

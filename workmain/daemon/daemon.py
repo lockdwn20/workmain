@@ -1,8 +1,4 @@
 """
-WorkmAIn Notification Daemon
-daemon.py v1.21
-20260716
-
 Entry point for the always-on background daemon process.
 WorkmAInDaemon owns the Slack socket connection, EOD manager, and
 outbound DM dispatch. Replaces the module-level SlackMessageDispatcher
@@ -10,100 +6,6 @@ and SlackPoller infrastructure.
 
 Run via systemd user service (workmain-notify.service).
 Do not run as root — enforced by _check_not_root().
-
-Version History:
-- v1.0: Phase 10 Gate 8 initial implementation
-- v1.1: Fix startup ordering — _schedule_meeting_reminders() and "daemon running"
-        log moved to before scheduler.start() (which blocks); they were executing
-        only at shutdown, making pre-meeting reminders non-functional
-- v1.2: Remove module-level _scheduler (now owned by scheduler.py to avoid
-        cross-module import ambiguity when daemon runs as __main__); add
-        _write_scheduled_jobs() to persist pre-meeting schedule for status display
-- v1.3: Phase 13 Sprint 2 Gate 0 — add _warmup_ollama() (Item 38); eliminates
-        55–72s cold-start latency before Slack poll loop begins
-- v1.4: Phase 13 Sprint 2 Gate 3 — add _slack_message_handler() stub, add
-        _build_slack_poller(), wire SlackPoller into main() startup sequence
-- v1.5: Phase 13 Sprint 2 Gate 4 — replace logging stub with SlackMessageDispatcher;
-        IntentParser + ConfirmationGate + ActionExecutor wired into message handler;
-        pending_action state per user; start_eod stubbed for Gate 6
-- v1.6: Phase 13 Sprint 2 Gate 5 — T1 morning briefing: _count_unresolved_observations(),
-        _build_morning_briefing_handler(), wired into main()
-- v1.7: Phase 13 Sprint 2 Gate 6 — SlackEodManager wired into SlackMessageDispatcher;
-        handle_message() routes active EOD sessions before confirmation gate;
-        start_eod dispatches to manager; T5 control word stubs removed
-- v1.8: Phase 13 Sprint 2 Gate 6 fix — wrap handle_reply in try/except so any
-        exception in EOD session handling never falls through to normal dispatch
-- v1.9: Phase 13 Sprint 2 Gate 6 fix — move build_morning_briefing call inside
-        DB session scope so task.note lazy load succeeds (DetachedInstanceError)
-- v1.10: Phase 13 Sprint 3 Gate 1 — WorkmAInDaemon class replaces
-         SlackMessageDispatcher and module-level main() wiring; absorbs inbound
-         message dispatch, outbound DM helpers, and EOD manager ownership;
-         _register_signal_handlers updated to on_shutdown: Callable; SlackPoller
-         and _build_slack_poller removed; Socket Mode via WorkmAInSocketClient
-- v1.11: Phase 13 Sprint 3 Gate 2 — handle_block_action() implemented (wm_approve
-         executes via ActionExecutor; wm_reject sends cancellation); _dispatch_message()
-         uses post_blocks() for confirmations; _maybe_post_correction_summary() stub
-         added (Gate 5 implementation)
-- v1.12: Phase 13 Sprint 3 Gate 5 — _maybe_post_correction_summary() implemented
-         (T6: posts Block Kit report summary after correct_report / write_correction_note
-         using entity_id + get_by_id()); Path 2 (typed confirm) wired in _execute_action()
-- v1.13: Phase 13 Sprint 3 Gate 6 — _maybe_offer_eod_resume() and
-         _send_eod_resume_offer() implemented; loads persisted T5 session on
-         daemon start and injects into eod_manager._sessions
-- v1.14: Operations_Config_Correction_Sprint Gate 1 §1.4 — _is_exception_day()
-         removed (no thin wrapper retained); its two call sites
-         (_enriched_notify(), _pre_meeting_reminder()) converged directly on
-         ScheduleService.is_working_day(), reusing the session already
-         opened in each function rather than a separate one
-- v1.15: Operations_Config_Correction_Sprint Gate 2 §2.3 — _schedule_meeting_reminders()
-         routed through MeetingsRepository.get_active_for_date() instead of
-         get_by_date() — cancelled meetings no longer scheduled for
-         pre-meeting reminders
-- v1.16: Operations_Config_Correction_Sprint Gate 3 §3.5 (Finding 1 + a
-         second implementation-time correction) — _enriched_notify() takes
-         daemon as an explicit parameter (it was never a method, there was
-         no self) and passes it through to deliver(); content assembly
-         split into _assemble_notification_content(), which returns a
-         single summary str (narrate() has no (title, body) tuple return —
-         title has always been a required caller-supplied string, never
-         derived from narration); extra_body restored to its original
-         prepend-to-summary semantics (f"{extra_body}\\n\\n{summary}"),
-         not a replace-summary shortcut
-- v1.17: Operations_Config_Correction_Sprint Gate 4 §4.2 (Item #50,
-         additive-only diff) — _schedule_meeting_reminders() gains a
-         required daemon parameter, added to the existing
-         scheduler.add_job(_pre_meeting_reminder, ...) kwargs dict alongside
-         meeting_title; _pre_meeting_reminder() gains a required daemon
-         parameter, threaded to its deliver() call. Closes the one
-         deliver() caller outside Gate 3 Finding 1's scope (a dynamically-
-         scheduled one-shot job, not one of the eight cron jobs) — every
-         pre-meeting reminder previously no-op'd under notify_method=slack/
-         both. No other lines changed in either function — Gate 2's
-         get_active_for_date() and Gate 1's ScheduleService.is_working_day()
-         both confirmed still intact.
-- v1.18: Operations_Config_Correction_Sprint Gate 5 §5.1 — post_message()/
-         post_blocks() pass-through wrappers changed from -> None to
-         -> Optional[str], returning the ts WorkmAInSocketClient now
-         captures; new update_message(ts, text) -> bool wrapper added.
-         Confirmed non-breaking across all 19 existing call sites (none
-         read a return value). Enables throttled Slack progress-message
-         editing for the EOD task-match/note-dedup substeps.
-- v1.19: Item #50 hotfix — _count_unresolved_observations() retired,
-         replaced with _get_unresolved_observations() returning
-         per-observation {'type', 'message'} dicts instead of a bare count.
-- v1.20: Item #60 Gate 1 — _write_last_inspection() deleted; its call site
-         in _assemble_notification_content() repointed to
-         state_io.write_last_inspection(). _daemon_state_path() kept as a
-         re-export (_daemon_state_path = state_io.daemon_state_path) —
-         _write_scheduled_jobs() and _get_unresolved_observations() still
-         call it directly.
-- v1.21: Item #60 Gate 2 — _get_unresolved_observations() gains a required
-         acceptable_dates param and returns (observations, notice) instead
-         of a bare list; notice is non-None when the state file is stale
-         or missing, so job_workday_start() can render an explicit notice
-         instead of silently showing zero observations. Reads via
-         state_io.read_last_inspection()/matches_target_date() instead of
-         its own path/JSON handling.
 """
 
 import json

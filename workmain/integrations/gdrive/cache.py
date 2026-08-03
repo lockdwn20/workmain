@@ -1,8 +1,4 @@
 """
-WorkmAIn Google Drive Cache
-gdrive/cache.py v1.0
-20260309
-
 Folder ID cache for Google Drive integration.
 Avoids re-querying Drive on every command by persisting folder IDs locally.
 
@@ -17,9 +13,6 @@ Cache structure:
             "Clockify":  "<folder_id>"
         }
     }
-
-Version History:
-- v1.0: Initial implementation (Phase 7 Gate 2)
 """
 
 import json

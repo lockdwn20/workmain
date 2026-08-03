@@ -1,8 +1,4 @@
 """
-WorkmAIn Style Adapter
-Style Adapter v1.0
-20251224
-
 Adapts AI prompts to match user's writing style.
 Injects style guidance into template rendering for Phase 4 AI integration.
 """

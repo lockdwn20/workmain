@@ -1,14 +1,6 @@
 """
-WorkmAIn AI Cost Repository
-AI Cost Repository v1.1
-20260529
-
 Data access layer for ai_costs table.
 Persists every AI API interaction for cost tracking and reporting.
-
-Version History:
-- v1.0: Initial implementation (cost tracking sprint)
-- v1.1: Gate 3 — add provider filter to get_summary()
 """
 
 from datetime import date, datetime, timezone

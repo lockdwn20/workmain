@@ -1,14 +1,7 @@
 """
-WorkmAIn Meeting Template Config
-Meeting Templates v1.0
-20260508
-
 Manages recurring meeting templates stored in config/meeting_templates.json.
 Templates define default parameters for recurring meeting creation patterns
 (e.g. "Daily Standup", "Weekly Review").
-
-Version History:
-- v1.0: Initial implementation (Item 27)
 """
 
 import json

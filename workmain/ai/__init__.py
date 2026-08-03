@@ -1,8 +1,4 @@
 """
-WorkmAIn AI Package
-AI Package v1.5
-20260605
-
 AI provider integration for report generation.
 
 This package provides:
@@ -12,16 +8,6 @@ This package provides:
 - Cost tracking system
 - Prompt builder for report generation
 - Report generator orchestrator
-
-Version History:
-- v1.0: Initial package with base_provider, provider_manager, cost_tracker
-- v1.1: Added Claude and Gemini client implementations
-- v1.2: Added prompt_builder for AI report generation
-- v1.3: Added report_generator orchestrator for complete pipeline
-- v1.4: Provider Foundation Sprint — remove get_claude_client/get_gemini_client exports
-        (claude_client.py and gemini_client.py deleted); add providers/ subpackage
-        re-exports; add ProviderUnavailableError export
-- v1.5: Gate 1 Phase 13 Sprint 1 — remove ProviderConfig re-export (Item 36)
 """
 
 from workmain.ai.base_provider import (

@@ -1,28 +1,5 @@
 """
-WorkmAIn Clockify Integration
-Sync Engine
-v1.5
-20260728
-
 Bidirectional sync between WorkmAIn and Clockify with conflict resolution.
-
-Version History:
-- v1.0: Initial implementation with push, pull, and interactive conflict resolution
-- v1.1: Phase 5.1 - Convert UTC times from Clockify to local timezone on pull
-- v1.2: Phase 13 DB Schema Sprint Gate 1 — H-4: pass clockify_id + synced_at directly
-        to repo.create() so import is atomic; removes post-create synced_at assignment.
-- v1.3: Phase 13 DB Schema Sprint Gate 5 — note-first pull path: _import_clockify_entry
-        creates a Note (source='clockify', tags=['internal-only']) before creating the
-        TimeEntry with note_id; push path reads entry.note.content and entry.note.tags
-- v1.4: Fix Clockify push: WorkmAIn tags (e.g. internal-only) are internal classification
-        tags with no Clockify UUID equivalent; pass tags=None to avoid 400 tag errors
-- v1.5: Item 69 Gate 6 — write-path convergence (#12). _import_clockify_entry() routes
-        through notes_service.create_note() + time_entry_service.create_paired_time_entry()
-        instead of direct repo.create() calls; client_id now auto-stamped via create_note()'s
-        active_client_id resolution (was explicitly NULL — K6); gains an interactive
-        per-entry tag prompt mirroring notes.py's meeting-follow-on pattern (Design Rule 11),
-        gated on a new interactive param threaded from pull_entries() (Design Rule 15) —
-        skipped, defaulting to ['internal-only'], when the pull is non-interactive.
 """
 
 from typing import List, Dict, Any, Optional, Tuple

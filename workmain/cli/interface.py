@@ -1,50 +1,6 @@
 """
-WorkmAIn
-CLI Interface v3.1.0
-20260729
-
 Main CLI interface using Click framework
 Updated for CLI Standardization Sprint Part 1
-
-Version History:
-- v0.1.0: Initial CLI with basic structure
-- v0.2.0: Added Phase 2 note and meeting commands
-- v0.3.0: Added time tracking commands
-- v0.4.0: Added task management commands
-- v0.5.0: Added template management commands (Phase 3)
-- v0.6.0: Added template extensibility (Phase 3.5)
-- v0.7.0: Added AI report generation (Phase 4) - PLACEHOLDER COMMANDS REMOVED
-- v0.8.0: Added providers command group (Phase 4 Feature 2)
-- v0.9.0: Phase 4 complete - Enhanced status display with Features 3 & 4
-- v1.0.0: Phase 5 complete - Clockify integration (sync, reports, status)
-- v1.1.0: CLI Standardization Sprint (Gate 2) - notes group migrated to notes.py; note group removed
-- v1.2.0: CLI Standardization Sprint (Gate 3) - meeting group unregistered; meetings is now unified
-- v1.3.0: CLI Standardization Sprint (Gate 4) - added eod command
-- v1.4.0: CLI Standardization Sprint (Gate 5) - rewrote today command with full 6-section workflow
-- v1.5.0: CLI Standardization Sprint (Gate 6) - init help text updated; version bump to v1.2.0
-- v1.6.0: Post-sprint cleanup - removed stale meeting/note command references from status table
-- v1.7.0: Gate 0 - Global NotImplementedError handler for OAuth stub commands
-- v1.8.0: Gate 4 - Register calendar command group (Phase 6)
-- v1.9.0: Gate 5 - Register email command group (Phase 6)
-- v2.0.0: Gate 3/4 - Register gdocs command group (Phase 7)
-- v2.1.0: Update today() and status() for Phase 6 & 7 (calendar sync, email draft, gdocs upload)
-- v2.2.0: Register slack command group (Phase 8)
-- v2.3.0: Phase 9 — report→reports rename registered, status/today updated
-- v2.4.0: CLI Standardization Sprint Part 1 (WU-1) — import `time` from time.py; removed
-          `track` registration; today() and status() updated: track→time, track sync→clockify sync
-- v2.5.0: CLI Standardization Sprint Part 1 (WU-9) — residual reference sweep:
-          gdocs upload-* → upload *; calendar today sync → calendar sync;
-          reports view → reports show; track edit/delete → time edit/delete in eod review hint
-- v2.6.0: Phase 10 Gate 6 — register schedule command group
-- v2.7.0: Phase 10 Gate 7 — register notifications command group
-- v2.8.0: Phase 10 Gate 9 — status() Phase 10 rows + footer; today() hints
-- v2.9.0: Phase 11 Gate 4 — register clients command group
-- v3.0.0: Phase 11 Gate 7 — status() shows active client context + Phase 11 rows;
-          today() adds Phase 11 client command hints
-- v3.1.0: Task_Match_Data_Integrity Sprint Gate 1 (Item 67, B2) — today()'s
-          quickstart help updated: `workmain tasks carryover` (retired
-          command) replaced with `workmain tasks list --all`.
-
 """
 
 import click
