@@ -1,27 +1,5 @@
 """
-WorkmAIn AI Ollama Provider
-Ollama Provider v1.5
-20260729
-
 Ollama local inference provider — Mistral 7B on Proxmox via REST API.
-
-Version History:
-- v1.0: Provider Foundation Sprint — ABC-compliant stub; enabled: false in
-        config so ProviderManager never instantiates until Phase 13-1
-- v1.1: Gate 1 Phase 13 Sprint 1 — implement generate(), check_availability(),
-        _build_prompt(); real HTTP calls replacing NotImplementedError stubs
-- v1.2: Gate 2 Phase 13 Sprint 1 — generate() sends only num_predict per-request;
-        Modelfile owns temperature/top_p/top_k/repeat_penalty; timeout default 120s
-- v1.3: Hotfix ollama-keep-alive — add keep_alive: -1 to /api/generate payload so
-        model stays resident in VRAM after each call; reduce default timeout 120→30s
-- v1.4: Hotfix Item #62 Gate 1 — generation_options["raw"] popped to top-level
-        payload key (opt-in per-request, bypasses Modelfile SYSTEM block); bare
-        TimeoutError wrapped into ProviderUnavailableError with cause chain
-- v1.5: Task_Match_Data_Integrity Sprint Gate 3 (Item 66) — generation_options
-        ["format"] popped to a top-level payload key ("format": "json"),
-        identical treatment to the existing "raw" pop. Fixes JSON-mode
-        requests that previously fed "format" through options.update() into
-        the nested options dict, where Ollama's API does not read it.
 """
 
 import json

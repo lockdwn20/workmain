@@ -1,6 +1,6 @@
 WorkmAIn
-GIT_WORKFLOW_STANDARDS v1.7
-20260725
+GIT_WORKFLOW_STANDARDS v1.8
+20260803
 
 # WorkmAIn Git Workflow Standards
 
@@ -54,6 +54,14 @@ These rules are permanent and apply to all future work.
   Must-Never-Do list. Prompted by the step being skipped for v1.25.0, v1.25.1,
   and initially v1.26.0 — every prior tag back to v1.11.1 had a Release object,
   and the gap was only caught by manual inspection of the Releases tab.
+- v1.8 (20260803): Added a `chore/*` exception for behaviour-neutral changes to
+  `workmain/**`, `tests/**`, or `scripts/**` (e.g. mechanically proven
+  AST-equality-preserving edits) — such a change may use `chore/*` instead of
+  `feature/*`/`hotfix/*` if the governing spec states the proof method. Prompted
+  by the File Header Removal spec (v1.3), whose own transform touched all three
+  trees but ran on `feature/file-header-removal` per that spec's Q6, raising the
+  question of whether a lighter-weight branch category should exist for future
+  sweeps of this kind.
 
 ---
 
@@ -233,6 +241,10 @@ git push origin --delete hotfix/some-fix                 # delete remote
 - **Never** application code, `config/*`, `templates/*`, `tests/**`, or `CHANGELOG.md`
   itself — a change touching any of those is a `hotfix/*` or `feature/*`, however
   small, not a `chore/*`.
+- **Exception:** a change to `workmain/**`, `tests/**`, or `scripts/**` may use
+  `chore/*` instead of `feature/*`/`hotfix/*` if it is mechanically proven
+  behaviour-neutral (e.g. AST-equality) and the governing spec states the proof
+  method — otherwise it remains `feature/*`/`hotfix/*` regardless of size.
 - Naming: `chore/<short-descriptor>` e.g. `chore/git-workflow-hotfix-scope-clarification`
 - Branch from: `main`
 - Merge to: `main` AND `dev` (both, in that order) — same topology as `hotfix/*`
@@ -366,4 +378,4 @@ Before writing any code in any session:
 
 END OF GIT WORKFLOW STANDARDS
 WorkmAIn — Standing Instruction for Claude Code
-v1.7 — 20260725
+v1.8 — 20260803

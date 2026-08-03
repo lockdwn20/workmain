@@ -1,37 +1,6 @@
 """
-WorkmAIn Meetings Repository
-Meetings Repository v2.4
-20260702
-
 Data access layer for meetings with fuzzy matching and recurring detection.
 Handles all CRUD operations for the meetings table.
-
-Version History:
-- v1.0: Initial implementation with fuzzy matching
-- v1.1: Added get_by_title_and_date for recurring meeting disambiguation
-- v1.2: Optimized fuzzy_match with PostgreSQL trigram similarity (O(log N))
-- v1.3: Phase 5.1 - Added exclude_ifo parameter to get_note_count to filter #ifo notes
-- v1.4: Fixed fuzzy_match to sort by date descending as secondary sort for recurring meetings
-- v1.5: Fixed fuzzy_match secondary sort to use proximity-to-today (ascending) so today's
-        instance always ranks first instead of future recurring instances
-- v1.6: Hotfix - exclude source='meeting' (condensed summary notes) from get_note_count
-        so auto-generated condensation notes don't inflate the displayed count
-- v1.7: Hotfix fix - filter on source='condensed' instead of source='meeting'
-        since notes log also uses source='meeting' for regular user notes
-- v1.8: Hotfix - add optional meeting_date param to get_note_count so condense
-        call sites can scope the count to a specific occurrence date
-- v1.9: Add get_series_note_count() — total user-authored notes across all
-        occurrences of a recurring series, keyed by outlook_recurring_id
-- v2.0: Item 27 - Add is_manually_modified to update(); add get_future_occurrences()
-        and bulk_update_series_from_date() for series-wide reschedule
-- v2.1: Hotfix soft-cancel — filter is_cancelled=False in get_all, search_by_title,
-        get_upcoming; get_by_date and fuzzy_match remain unfiltered for show/resolve
-- v2.2: Phase 11 Gate 5 — create() accepts client_id for attribution stamping
-- v2.3: Phase 11 Gate 6 — add get_for_date_client() for client-filtered report queries
-- v2.4: Operations_Config_Correction_Sprint Gate 2 §2.1 — add get_active_for_date(),
-        filtering is_cancelled for inspect/notify surfaces (InspectionEngine,
-        pre-meeting reminders); get_by_date()/get_today() remain unfiltered
-        for show surfaces (OQ2)
 """
 
 from datetime import datetime, date, time

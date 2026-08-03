@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 """
-WorkmAIn Template CLI Demo
-Template CLI Demo v1.0
-20251224
-
 Demonstrates template CLI commands.
 """
 

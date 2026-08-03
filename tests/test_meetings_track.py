@@ -1,8 +1,4 @@
 """
-WorkmAIn Meetings Track CLI Tests
-test_meetings_track v1.0
-20260728
-
 CLI-level coverage for 'workmain meetings track' — Item 69 Gate 4's
 convergence of surface #8 onto notes_service.create_note() +
 time_entry_service.create_paired_time_entry(), replacing its former
@@ -20,9 +16,6 @@ fixture — CliRunner.invoke() drives the command through its own session, and
 db_session-fixture rows are not visible across that boundary (confirmed
 during Hotfix Item #56 Gate 2; pattern reused from test_time_add.py /
 test_notes_add.py).
-
-Version History:
-- v1.0: Item 69 Gate 4
 """
 
 import unittest

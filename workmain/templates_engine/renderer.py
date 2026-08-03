@@ -1,14 +1,6 @@
 """
-WorkmAIn Template Renderer
-Template Renderer v1.1
-20260319
-
 Renders templates by combining template structure with data.
 Prepares data for AI processing and generates final output.
-
-Version History:
-- v1.0: Initial implementation
-- v1.1: Item 18 — replace non-existent validate_and_raise() with validate_template()
 """
 
 from datetime import date, datetime

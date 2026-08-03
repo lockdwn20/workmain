@@ -1,18 +1,6 @@
 """
-WorkmAIn Task Status Repository
-Task Status Repository v1.2
-20260729
-
 Data access layer for the task_status table. Provides lifecycle management
 for carry-forward notes: creation, status transitions, and filtered queries.
-
-Version History:
-- v1.0: Phase 12 Gate 2 — initial implementation with full lifecycle methods
-- v1.1: Phase 13 Sprint 2 Gate 1c — set_forwarding_note() added (Item 32)
-- v1.2: Task_Match_Data_Integrity Sprint Gate 1 (Item 67) — filter-building
-        logic extracted from get_filtered() into _filtered_query(); new
-        count_filtered() (shares the same filters, no limit) supports
-        tasks list's truncation-honest header.
 """
 
 from __future__ import annotations

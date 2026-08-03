@@ -1,14 +1,7 @@
 """
-WorkmAIn Clients Command Tests
-test_clients_commands.py v1.0
-20260512
-
 CLI-level tests for the `workmain clients` command group, exercised through
 Click's CliRunner. These tests interact with the production database directly
 (CliRunner spawns real sessions); the autouse fixture handles cleanup.
-
-Version History:
-- v1.0: Phase 11 Gate 8 — initial implementation
 """
 
 import pytest

@@ -1,8 +1,4 @@
 """
-WorkmAIn Clients Commands
-clients.py v1.1
-20260730
-
 CLI command group: workmain clients
 Manages client records and active client context.
 
@@ -13,10 +9,6 @@ Commands:
   delete <id-or-name>         — Delete a client
   set active <name|internal>  — Switch active client context (name only, V23)
   status                      — Show current active client context
-
-Version History:
-- v1.0: Phase 11 Gate 4 — full CRUD, context switching, reserved 'internal' keyword
-- v1.1: Replaced certain data values as part of an application wide update
 """
 
 from typing import Optional

@@ -1,8 +1,4 @@
 """
-WorkmAIn
-Configuration Loader v0.1.0
-20251219
-
 Load and manage JSON configuration files with environment variable overrides
 """
 

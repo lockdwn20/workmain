@@ -16,6 +16,7 @@ All design authority lives here:
 - Identifies any workflow, phasing or sprint issues immediately to Ray.
 - Verifies every claim about existing behavior against source at authoring time; cite file and symbol.
 - Defects found during verification become their own hotfix rather than sprint scope.
+- Any conflicts in design and project documentation will be resolved during planning in order to prevent implementation issues. Ray is the final authority on all documentation changes.
 
 #### Role 1 Critical Rule
 
@@ -67,6 +68,7 @@ Read these when needed. Do NOT duplicate their content here.
 | `docs/TESTING_STANDARDS.md` | Test suite rules, db_session fixture contract | Before writing any test |
 | `docs/CLI_STANDARDS.md` | Command naming and structure standards | Adding or modifying commands |
 | `docs/GIT_WORKFLOW_STANDARDS.md` | Branch strategy, commit format | Before committing |
+| `docs/DEVELOPMENT_STANDARDS_REVIEW.md` | Coding patterns, naming, file/test conventions | Before writing any new module or package |
 
 ---
 
@@ -126,9 +128,9 @@ Key directories:
 
 ### 1. File Versioning
 
-This is an outdated practice and superseded by the use of GIT tracking. The `workmain/__version__.py` maintains the current application version.
-
-Previous file versioning denoted by a Header beginning and ending with `"""` should be removed to include the accompanying version history within the header.
+Module headers are PEP 257 module docstrings: a description only — no version, no
+date, no version history block. Git (tags, commit history, `CHANGELOG.md`) is the
+version record. `workmain/__version__.py` maintains the current application version.
 
 ### 2. Gate Discipline ⭐
 

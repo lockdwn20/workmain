@@ -1,8 +1,4 @@
 """
-WorkmAIn Series UID Migration Script
-migrate_series_uids v1.0
-20260327
-
 One-time migration: re-keys all recurring meeting records where
 outlook_id == outlook_recurring_id (the pre-RRULE-expansion format where the
 series UID was used as the occurrence UID) to deterministic synthetic UIDs
@@ -17,9 +13,6 @@ Usage:
 
 Options:
     --dry-run    Preview changes without writing to the database.
-
-Version History:
-- v1.0: Initial implementation (hotfix/series-uid-migration)
 """
 
 import argparse

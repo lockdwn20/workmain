@@ -1,21 +1,9 @@
 """
-WorkmAIn Confirmation Gate
-Confirmation Gate v1.3
-20260625
-
 Formats action dicts as human-readable confirmation prompts and classifies
 user replies as confirmations or rejections. Does not send messages —
 returns formatted strings or Block Kit payloads for the surface to transmit.
 
 Sprint 2: plain conversational text. Sprint 3: Block Kit upgrade.
-
-Version History:
-- v1.0: Phase 13 Sprint 2 Gate 4 — initial implementation
-- v1.1: Include start_time in create_time_entry confirmation prompt
-- v1.2: Truncate long descriptions in confirmation preview (full text is still saved)
-- v1.3: Phase 13 Sprint 3 Gate 2 — add format_blocks() returning Block Kit payload
-        with Approve (primary, wm_approve) and Reject (danger, wm_reject) buttons;
-        action dict serialized as JSON in value field
 """
 
 import json

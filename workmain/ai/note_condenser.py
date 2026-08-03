@@ -1,41 +1,8 @@
 """
-WorkmAIn Note Condenser
-Note Condenser v2.2
-20260728
-
 AI-powered condensation of meeting notes into one-line summaries for Clockify.
 
 Takes multiple meeting notes and condenses them into a professional, concise summary
 suitable for time tracking entries.
-
-Version History:
-- v1.0: Initial implementation with Claude integration
-- v1.1: Fixed session attachment issue - now queries meeting from database
-- v1.2: Added writing style context integration for consistent voice (Phase 5)
-- v1.3: Phase 5.1 - Filter out info-only (#ifo) notes from condensation
-- v1.4: Phase 5.1 - Return default "Attended <Meeting>" when all notes are #ifo
-- v1.5: Hotfix - exclude source='meeting' (prior condensed summary notes) from
-        condensation query so auto-generated notes don't pollute AI input
-- v1.6: Hotfix fix - filter on source='condensed' instead of source='meeting'
-        since notes log also uses source='meeting' for regular user notes
-- v1.7: Hotfix - scope notes query to meeting date (Note.created_date == meeting_date)
-        so notes from previous recurring occurrences sharing the same meeting_id are
-        not included; fixes stale content reappearing after user deletes today's notes
-- v1.8: Gate 2 cost tracking sprint — replace hardcoded self.claude with provider_manager
-        routing through 'note_condensation' config entry; persist ai_costs row after
-        each condensation; honours provider parameter as provider_override
-- v1.9: Provider Foundation Sprint — remove get_claude_client/get_gemini_client imports
-        and register_provider() calls; ProviderManager._load_config() now instantiates
-        providers from PROVIDER_REGISTRY directly
-- v2.0: Hotfix — raise max_tokens 200→1024; Gemini 2.5 Flash uses thinking tokens from
-        the max_output_tokens budget, leaving insufficient space for the visible response
-- v2.1: Gate 0 Phase 13 Sprint 1 (20260605) — replace broken _format_writing_style_context
-        with StyleAdapter.get_style_prompt("internal") for consistent voice
-        across condensation and reports
-- v2.2: Item 69 Gate 5 — add _compute_condensed_tags() classifier; condense_meeting()'s
-        two return paths (early "Attended <Meeting>" fallback and the AI-summary path)
-        now both return (summary, resolved_tags) instead of a bare str, replacing the
-        hard-coded ['both'] tag every caller previously applied
 """
 
 from typing import List, Optional, Tuple

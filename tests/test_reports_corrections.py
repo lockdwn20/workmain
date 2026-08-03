@@ -1,8 +1,4 @@
 """
-WorkmAIn Reports Corrections Tests
-test_reports_corrections v1.0
-20260717
-
 Tests for 'workmain reports corrections' — default 7-day window (by
 updated_at), --search/--limit/--type/--all, sort order, and display
 format (Hotfix Item #56 Gate 2).
@@ -23,9 +19,6 @@ unique correction_note marker term (--search) or a sentinel far-future
 report_date (--date) — never by exact result count against an unfiltered
 query, since production corrected reports exist and are not test data
 this file controls.
-
-Version History:
-- v1.0: Hotfix Item #56 Gate 2 — initial implementation, 15 tests
 """
 
 import unittest

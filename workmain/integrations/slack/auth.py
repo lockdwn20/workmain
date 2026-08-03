@@ -1,20 +1,10 @@
 """
-WorkmAIn Slack Auth
-slack/auth.py v1.2
-20260625
-
 Bot Token authentication and config file management for Slack integration.
 Token is stored in .env (SLACK_BOT_TOKEN) — never in config.json.
 Config file stores workspace name and operator_user_id (Phase 13).
 
 Config file: ~/.workmain/integrations/slack/config.json  (chmod 600)
 Token:       .env SLACK_BOT_TOKEN=xoxb-...
-
-Version History:
-- v1.0: Initial implementation (Phase 8 Gate 2)
-- v1.1: Phase 13 Sprint 2 Gate 3 — add get_operator_user_id() and
-        save_operator_user_id() for inbound DM poll channel discovery
-- v1.2: Phase 13 Sprint 3 Gate 1 — add get_socket_token() for Socket Mode
 """
 
 import json

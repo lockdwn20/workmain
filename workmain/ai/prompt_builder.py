@@ -1,8 +1,4 @@
 """
-WorkmAIn AI Prompt Builder
-Prompt Builder v2.3
-20260724
-
 Dynamic prompt construction for AI report generation.
 
 Features:
@@ -12,54 +8,6 @@ Features:
 - Manages context window limits
 - Builds system and user prompts
 - Supports both Claude and Gemini formats
-
-Version History:
-- v1.0: Initial implementation
-- v1.1: Fixed to use StyleAdapter.get_style_prompt() instead of non-existent get_style_for_ai()
-- v1.2: Fixed repository method names (get_date_range not get_by_date_range),
-        meetings query directly since no get_date_range method exists
-- v1.3: Phase 5.1 - Fixed meeting.duration_minutes (computed from start/end),
-        entry.duration_hours (was duration_minutes), attendees count
-- v1.4: Phase 5.1 - Removed redundant Python-level tag filtering in _get_filtered_notes;
-        database-level filtering via notes_repo.get_date_range is sufficient
-- v1.5: Fixed tag_filter key mismatch (was tags_filter); now matches template format
-- v1.6: Hotfix eod-backdate-bugs-2 — always include individual time entry descriptions
-        in every section's context (not just time_tracking/summary); project-level
-        summary still gated; fixes backdated reports missing non-meeting work entries
-- v1.7: Phase 11 Gate 6 — build_prompt() accepts filter_client and client_id;
-        stores on instance; private data-fetch methods use get_for_date_client()
-- v1.8: Hotfix weekly-report-ai-instruction — include ai_instruction per section in
-        the user prompt; was defined in every template but never read, causing the
-        weekly client report to ignore tag semantics and incorporate internal content
-- v1.9: Hotfix weekly-report-data-sources — _get_section_data now respects the
-        data_sources field declared in each template section; time entries and meetings
-        are only fetched when listed (e.g. only section 1 of weekly_client declares
-        time_entries); for client reports (filter_client=True) the Work Entries header
-        carries an explicit context-only note so the AI anchors on tagged notes
-- v2.0: Phase 13 DB Schema Sprint Gate 5 — _get_time_entries reads entry.note.content
-        instead of the now-dropped entry.description column
-- v2.1: Phase 13 Sprint 2 Gate 1a — add build_weekly_prompt(); prepends confirmed
-        daily summaries block when calling build_prompt() for weekly_client reports;
-        build_prompt() unmodified
-- v2.2: Hotfix items-33-34-incomplete-impl — rewrite build_weekly_prompt() (Item 34):
-        (1) prefer corrected_content over content for each confirmed daily;
-        (2) substitutive path — when all 5 Mon–Fri weekdays are confirmed, lean
-        user_prompt replaces raw DB data entirely (token reduction);
-        (3) fallback to raw build_prompt() when any weekday lacks a confirmed daily
-- v2.3: Item #61 Gate 3 (Design Rules 6-7) — build_weekly_prompt() removed
-        entirely, retiring the confirmed-substitutive branch outright. Per
-        RECON_SPEC_ITEM46_WEEKLY_PROMPT_BUILDER_20260724.md, build_prompt()
-        (via _get_section_data()) already resolves the correct Mon–Fri
-        window for any frequency: "weekly" template and already applies
-        each section's exact tag_filter include/exclude lists — nothing
-        new was built, weekly generation now always takes the path that
-        already ran on every Thursday call. Resolves Backlog Item #46 in
-        full (weekday-coverage gating, Thursday-draft-unreachable-confirmed
-        path, and internal-content pollution via unfiltered daily-body
-        injection) as a side effect of removing the code path that caused
-        all three. get_db/ReportsRepository imports dropped (no longer
-        used in this file — that was the method's only caller of either).
-
 Workflow:
 1. Load template structure
 2. Get relevant data from database (filtered by tags)

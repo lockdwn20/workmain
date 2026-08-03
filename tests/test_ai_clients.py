@@ -1,8 +1,4 @@
 """
-WorkmAIn AI Clients Tests
-Client Tests v1.4
-20260605
-
 Tests for AI provider implementations:
 - ClaudeProvider (Anthropic)
 - GeminiProvider (Google AI)
@@ -10,19 +6,6 @@ Tests for AI provider implementations:
 - Token counting
 - Cost estimation
 - Error handling
-
-Version History:
-- v1.0: Initial test suite
-- v1.1: Added dotenv loading to read API keys from .env file
-- v1.2: Fixed Gemini cost assertions to handle free tier (allow small variance)
-- v1.3: Provider Foundation Sprint — update imports: claude_client -> providers.claude,
-        gemini_client -> providers.gemini; remove register_provider() / reset_* calls;
-        remove provider_type / is_enabled assertions (properties removed from BaseProvider);
-        test_integrated_generation uses ProviderManager() which auto-instantiates from registry
-- v1.4: Gate 4 Phase 13 Sprint 1 — _make_gemini_config() reads model from
-        ai_settings.json instead of hardcoding gemini-2.5-flash; test always
-        validates the configured model, not a stale hardcode
-
 Note: These tests make real API calls and will consume tokens.
 Set SKIP_API_TESTS=1 to skip real API tests.
 

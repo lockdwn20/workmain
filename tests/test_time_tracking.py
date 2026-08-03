@@ -1,8 +1,4 @@
 """
-WorkmAIn Time Tracking Tests
-test_time_tracking v2.1
-20260610
-
 Pytest suite for TimeEntriesRepository: CRUD, parsing, aggregations,
 week retrieval, and display properties.
 
@@ -11,16 +7,6 @@ no data persists to the production database after any test.
 
 All tests that create entries use _TEST_DATE or _TEST_WEEK_MONDAY (far-future
 sentinel dates) so category/total assertions are unaffected by production data.
-
-Version History:
-- v1.0: Initial standalone script (manual run, Claude Desktop era)
-- v1.1: Added 6 new time format tests (military time, AM/PM without colons)
-- v2.0: Converted to pytest suite using db_session fixture; original script
-        moved to scripts-deprecated/test_time_tracking.py
-- v2.1: Phase 13 DB Schema Sprint Gate 5 — create() now takes note_id; tests
-        use _make_te() helper that creates a stub Note first; description
-        assertions migrated to entry.note.content; test_update restructured
-        to call notes_repo.update() for content changes
 """
 
 import pytest

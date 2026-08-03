@@ -1,8 +1,4 @@
 """
-WorkmAIn AI Provider Manager
-Provider Manager v1.2
-20260603
-
 Manages AI providers with intelligent fallback and selection.
 
 Features:
@@ -12,20 +8,6 @@ Features:
 - Provider health monitoring
 - Notification on fallback
 - Disabled provider tracking (no connectivity check for disabled providers)
-
-Version History:
-- v1.0: Initial implementation
-- v1.1: Implement _load_config() — reads ai_settings.json on every instantiation;
-        removes if config_path: guard so config is always loaded.
-        Fixes provider selection being hardcoded to Claude.
-- v1.2: Provider Foundation Sprint — registry-based instantiation in _load_config();
-        _providers dict now string-keyed ('claude', 'gemini', 'ollama');
-        add _disabled set and _all_configs dict; add get_provider(name),
-        get_all_provider_configs(), get_registered_provider_names(), is_disabled();
-        generate() uses get_provider(primary.value) — string-keyed lookup;
-        _get_provider() retired; check_provider_status() / get_all_provider_statuses()
-        removed (dead code — no callers outside provider_manager.py);
-        register_provider() removed (replaced by registry instantiation in _load_config)
 """
 
 import os

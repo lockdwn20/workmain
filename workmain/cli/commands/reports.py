@@ -1,8 +1,4 @@
 """
-WorkmAIn Report Commands - Phase 4 Implementation
-Report Commands v2.16
-20260724
-
 Static action-first command structure — template is an argument.
 
 Commands:
@@ -15,75 +11,6 @@ Commands:
 - reports corrections [-d DATE] [-s SEARCH] [-n LIMIT] [-R TYPE] [--all]
                                 # list reports with status 'corrected'
 - reports costs
-
-Version History:
-- v1.0: Generic structure (report generate <template>)
-- v1.1: Adapted to match existing CLI structure (report daily/weekly)
-- v1.2: Added alias resolution support for daily/weekly shortcuts
-- v1.3: Added generic 'generate' command for custom templates/aliases
-- v1.4: Dynamic alias resolution - any template/alias works as command
-        Removed hardcoded daily/weekly, cleaner design
-- v1.5: Fixed report costs command to use correct CostTracker methods
-        (get_report_type_totals, get_provider_totals instead of get_all_costs)
-- v1.6: Switched to database for report history and costs
-        Uses reports repository instead of filesystem scanning
-        Costs queried from reports.metadata JSONB field
-- v1.7: Phase 5.1 - Fixed help text formatting with \\b escape sequence
-- v1.8: CLI Standardization Sprint (Gate 1) - report list --limit -l → -n
-- v1.9: Gate 0.2 - Removed AliasedReportGroup dynamic routing
-        Replaced with static preview/save/send commands taking <template> argument
-        Added report send stub for OAuth email pipeline
-        Updated stale hint text to new command syntax
-- v2.0: Hotfix staging-eod — updated output path references from output/ to staging/
-- v2.1: Phase 9 Gate 1 — renamed command group report → reports (plural)
-- v2.2: Phase 9 Gate 3 — enhanced list (ID/Slack/preview columns, --type filter),
-        added history alias, view <id>, resend <id> commands
-- v2.3: Hotfix eod-date-option — add optional report_date param to generate_report_impl;
-        add --date YYYY-MM-DD option to reports save for backdated report generation
-- v2.4: CLI Standardization Sprint Part 1 (WU-4) — reports list/history --type/-t → -R;
-        avoids conflict with reserved -t (--tags)
-- v2.5: CLI Standardization Sprint Part 1 (WU-6) — consolidated `reports view <id>` into
-        `reports show`; show now accepts either int ID (DB lookup) or str filename (file read);
-        `view` command removed
-- v2.6: Phase 11 Gate 5 — generate_report_impl reads active_client_id and passes to
-        generator.generate_report()
-- v2.7: Phase 11 Gate 6 — add get_client_filter(); apply client filter in generate_report_impl;
-        informational exit when client report requested with no active client
-- v2.8: Phase 12 Gate 4 — reports confirm, reports correct; --status filter on reports list
-        and history; _resolve_report() and _edit_in_editor() helpers; V7 help clarification
-        on reports costs vs providers costs
-- v2.9: Gate 3 cost tracking sprint — reports costs redesigned as per-report detail view;
-        full date filter set (--date/-d, --start/-b, --end/-e, --month/-M, --all);
-        --type/-R and --provider/-P filters; reads from reports_repo instead of generator
-- v2.10: Hotfix — reports correct: after committing corrected_content to DB, also
-         overwrite the staging file so email and gdocs steps use the edited content
-- v2.11: Phase 13 DB Schema Sprint Gate 5 — preview_only branch passes filter_client
-         and client_id_filter through to generator.preview_report()
-- v2.12: Hotfix items-33-34-incomplete-impl — reports show (ID path) now displays
-         correction_note below the content panel when the field is non-empty (Item 33)
-- v2.13: Operations_Config_Correction_Sprint Gate 6 (#56) — reports corrections
-         [--date/-d DATE] listing command added; closes PC-3
-- v2.14: Hotfix Item #56 Gate 2 — reports corrections rewritten: adds
-         --search/-s (correction_note only, lifts window), --limit/-n
-         (default 20), --type/-R (validated, does not lift window), --all
-         (bypasses window+limit); default 7-day window on updated_at,
-         mirroring notes_list; sort fixed to updated_at DESC (was
-         report_date DESC); display moved from truncated Rich Table to
-         plain-text block format (format_correction_display); now calls
-         ReportsRepository.get_filtered() instead of querying the ORM
-         directly. Extracted _validate_report_type() from _report_list_impl
-         (shared by reports list/history and reports corrections).
-- v2.15: Hotfix Item #56 Gate 3 — reports show <id> (ID path only) renders
-         corrected_content in a "Corrected Version" panel, between the
-         original content panel and the correction_note line, when
-         non-null. No change to the filename path.
-- v2.16: Item #61 Gate 2 (Design Rules 3-5) — private _edit_in_editor()
-         removed in favor of workmain/utils/editor.py:edit_in_editor();
-         report_correct() now writes corrected_content/status through
-         ReportsRepository.apply_correction() instead of setting fields
-         directly. Still passes no note (known, previously-deferred gap —
-         Design Rule 5, unchanged). os/tempfile imports dropped (no longer
-         used in this file).
 """
 
 import subprocess

@@ -1,8 +1,4 @@
 """
-WorkmAIn Schedule Service Tests
-test_schedule_service.py v1.0
-20260708
-
 Unit coverage for workmain/services/schedule_service.py — single authority
 for working-day/working-hours determination (Operations_Config_Correction_
 Sprint Gate 1), extended in Gate 5 §5.6 with the two EOD progress-interval
@@ -23,9 +19,6 @@ here. The closest testable proxy — confirmed correct in this file — is that
 ScheduleService's getters correctly read back system_state config values
 seeded the same way Gate 1's one-time _seed_if_absent() helper wrote them
 (see TestWorkingHours, TestT4Interval).
-
-Version History:
-- v1.0: Operations_Config_Correction_Sprint Gate 7 — initial suite
 """
 
 from datetime import date, datetime, time

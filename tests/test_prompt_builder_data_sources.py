@@ -1,17 +1,10 @@
 """
-WorkmAIn Prompt Builder Data Sources Tests
-test_prompt_builder_data_sources v1.0
-20260610
-
 Verifies Phase 13 prompt builder behaviors:
   - data_sources gating: time_entries omitted from prompt when absent from section config
   - client filter forwarding: filter_client=True propagated to repo calls
   - preview_report filter parity: same client filter applied as full report generation
 
 All repository calls are mocked; no DB writes occur in this file.
-
-Version History:
-- v1.0: Phase 13 DB Schema Sprint Gate 6
 """
 
 import pytest

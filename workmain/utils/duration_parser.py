@@ -1,8 +1,4 @@
 """
-WorkmAIn Duration Parser
-Duration Parser v1.0
-20260303
-
 Shared utility for parsing human-readable duration strings into timedelta objects.
 Used by meetings upcoming and other commands that accept time-window arguments.
 
@@ -10,9 +6,6 @@ Supported formats:
   Nd  — N days   (e.g., 7d, 14d)
   Nw  — N weeks  (e.g., 2w)
   Nm  — N months (e.g., 1m, approximated as N * 30 days)
-
-Version History:
-- v1.0: CLI Standardization Sprint (Gate 3) - initial implementation
 """
 
 from datetime import timedelta

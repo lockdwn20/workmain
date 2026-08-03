@@ -1,17 +1,6 @@
 """
-WorkmAIn Email Tests
-Email Test v1.3
-20260610
-
 Tests for the email repository, draft pipeline, and recipient management
 (Phase 6 Gate 5).
-
-Version History:
-- v1.0: Initial implementation (Phase 6 Gate 5)
-- v1.1: Hotfix staging-eod — updated output/ docstring references to staging/
-- v1.2: Pass db_session to _generate_draft calls for transaction isolation (hotfix/test-db-isolation)
-- v1.3: Phase 13 DB Schema Sprint Gate 1 — update test_05 to use a.recipient.email
-        (report_recipients.email removed in migration 020)
 """
 
 import pytest

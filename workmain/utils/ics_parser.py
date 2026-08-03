@@ -1,8 +1,4 @@
 """
-WorkmAIn ICS Parser
-ICS Parser v1.9
-20260511
-
 Parses exported Outlook ICS files into ICSEvent dataclasses for database import.
 
 Pipeline (every run, automatic):
@@ -63,28 +59,6 @@ SUMMARY optional: RFC 5545 §3.6.1 defines SUMMARY as optional. Outlook legally 
     time, not the title. Pass 1 accepts a missing SUMMARY; a post-dedup title
     inheritance pass copies the title from the same-UID event that has one. Any event
     that still has no title after inheritance is set to "(No Title)".
-
-Version History:
-- v1.0: Initial implementation (Phase 6 Gate 3)
-- v1.1: Add _fallback_match() for title+date secondary lookup; backfill outlook_id on match
-- v1.2: Deduplicate events by UID in parse_ics_file() (handles recurring series + occurrence exports)
-- v1.3: Expand RRULE into individual occurrences; add recurring_series_uid to ICSEvent;
-        prefer RRULE-bearing events in UID deduplication; update import_events_to_db
-        to set outlook_recurring_id from recurring_series_uid
-- v1.4: Date-shift protection for note-bearing records; orphan stale-UID cleanup
-- v1.5: All occurrences use synthetic UIDs (remove i==0 series-UID exception);
-        add migrate_series_uid_records() for one-time DB migration
-- v1.6: Make SUMMARY optional (RFC 5545 compliant); add UID-based title inheritance
-        pass after Pass 1 to resolve recurrence exception events that omit SUMMARY
-- v1.7: Handle RECURRENCE-ID exceptions (RFC 5545 §3.8.4.4) — rescheduled or
-        cancelled occurrences now correctly replace the original RRULE expansion
-        date with the exception's new date (or skip entirely if cancelled)
-- v1.8: Item 27 - Add is_recurrence_id_exception to ICSEvent; apply is_manually_modified
-        rules in import_events_to_db: skip flagged rows (Rule 1), set flag on
-        RECURRENCE-ID exception imports (Rule 2)
-- v1.9: Hotfix soft-cancel — replace hard-delete on STATUS:CANCELLED with soft-cancel
-        (is_cancelled = True); add detect_removed_meetings() reconciliation step that
-        soft-cancels future meetings absent from the ICS date window; notes stay linked
 """
 
 from __future__ import annotations

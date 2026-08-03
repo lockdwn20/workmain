@@ -1,16 +1,8 @@
 """
-WorkmAIn Recurring Meeting Edit Tests
-test_recurring_edits v1.0
-20260508
-
 Tests for Item 27: meetings reschedule, meetings series edit, meetings skip,
 and is_manually_modified ICS protection logic.
 
 All tests use db_session fixture from conftest.py and sentinel dates (2099+).
-
-Version History:
-- v1.0: Initial implementation — 10 test cases covering reschedule,
-        series edit, skip, ICS parser rules, and template utility.
 """
 
 import pytest

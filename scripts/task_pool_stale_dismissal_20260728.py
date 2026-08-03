@@ -1,8 +1,4 @@
 """
-WorkmAIn Task Pool Stale Dismissal Script
-task_pool_stale_dismissal_20260728.py v1.0
-20260729
-
 Task_Match_Data_Integrity Sprint — Gate 2 (Item 70), reviewed one-off
 script (Design Rule 5), not a versioned migration.
 
@@ -20,9 +16,6 @@ individually, matching the existing single-row write path.
 Usage:
     python scripts/task_pool_stale_dismissal_20260728.py --preview
     python scripts/task_pool_stale_dismissal_20260728.py --exclude 12 45 --execute
-
-Version History:
-- v1.0: Task_Match_Data_Integrity Sprint Gate 2 (Item 70)
 """
 
 import argparse
@@ -68,7 +61,13 @@ def print_candidates(rows, excluded):
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description=(
+            "Dismisses stale active task_status rows with id <= "
+            f"{STALE_ID_CEILING}, the original migration-015 backfill's "
+            "contiguous id range."
+        )
+    )
     parser.add_argument("--preview", action="store_true",
                          help="List candidates only, no writes (default if --execute absent).")
     parser.add_argument("--exclude", type=int, nargs="*", default=[],

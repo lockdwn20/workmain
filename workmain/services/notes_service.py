@@ -1,23 +1,7 @@
 """
-WorkmAIn Notes Service
-Notes Service v1.2
-20260728
-
 Service layer for note creation. Shared by the CLI (notes add) and
 action_executor (create_note). Handles client_id resolution, tag validation,
 and defaults — callers pass a session and domain parameters only.
-
-Version History:
-- v1.0: Initial implementation
-- v1.1: Item 69 Gate 1 — add created_at backdate param to create_note();
-        add apply_cf_hook_on_create()/apply_cf_hook_on_tag_update(), the CF->
-        TaskStatus hook relocated verbatim from notes.py (Phase 12 Gate 3),
-        now the single source of truth for both the create and tag-transition
-        paths (Design Rules 2/3)
-- v1.2: Item 69 Gate 2 — add update_note(), a general single-call note update
-        (content/tags/meeting_id/project_id) that applies the CF-transition
-        hook when tags change; converges notes edit onto this instead of a
-        direct NotesRepository.update() call plus a CLI-layer duplicate hook
 """
 
 from datetime import datetime

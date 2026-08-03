@@ -1,8 +1,4 @@
 """
-WorkmAIn Email Commands
-Email Commands v1.7
-20260610
-
 Email command group for Outlook email draft pipeline (Phase 6).
 
 Action-first command structure -- template is an argument.
@@ -21,23 +17,6 @@ Commands:
 
 Draft files stored in staging/email/ (covered by .gitignore staging/ rule).
 Send command requires Azure AD OAuth -- see docs/OAUTH_SETUP.md
-
-Version History:
-- v1.0: Initial implementation (Phase 6 Gate 5)
-- v1.1: Hotfix staging-eod -- renamed output/ to staging/ across all path references
-- v1.2: Phase 9 Gate 1 -- updated hint text from 'report save' to 'reports save'
-- v1.3: Add optional session param to _get_draft_recipients/_generate_draft for test isolation
-- v1.4: CLI Standardization Sprint Part 1 (WU-5) -- `recipients remove` -> `recipients delete`;
-        avoids banned synonym `remove` (section 3.2); function renamed recipients_remove -> recipients_delete
-- v1.5: Item 26 (CLI V18) -- name-or-ID resolution on recipients delete; accepts ID or
-        email substring with picker for multiple matches.
-- v1.6: Phase 11.5 Gate 3/4 -- email assign/unassign read active_client_id from
-        system_state for ambient client scoping; email group help updated with
-        global vs client-scoped note; email assign help updated with scoping docs;
-        _get_draft_recipients() updated to use list_for_client() for client-aware
-        resolution
-- v1.7: Phase 13 DB Schema Sprint Gate 1 -- H-2: _get_draft_recipients() now reads
-        email via a.recipient.email (report_recipients.email column dropped migration 020)
 """
 
 import re

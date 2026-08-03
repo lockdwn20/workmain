@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 """
-WorkmAIn Template Test
-Template Test v1.0
-20251224
-
 Test Priority 2 default templates.
 """
 

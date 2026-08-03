@@ -1,20 +1,9 @@
 """
-WorkmAIn Time Parser
-time_parser.py v1.0
-20260701
-
 Plain module-level time and duration parsing — extracted from
 TimeEntriesRepository, where these functions lived despite having no
 session or repository-state dependency. Matches the location CLAUDE.md
 and the project custom instructions have described since early in the
 project.
-
-Version History:
-- v1.0: Operations_Config_Correction_Sprint Gate 1 §1.0 — extracted
-  verbatim from TimeEntriesRepository.parse_time()/parse_duration().
-  parse_duration renamed parse_duration_hours on extraction to avoid a
-  naming collision with duration_parser.py's unrelated parse_duration()
-  (day-span, timedelta return).
 """
 
 from datetime import datetime, time

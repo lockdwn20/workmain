@@ -1,8 +1,4 @@
 """
-WorkmAIn Report Correction Tests
-test_report_correction v1.4
-20260724
-
 Tests for PC-3 — report status fields, confirm/correct commands,
 --status filter on reports list, and weekly aggregation filter.
 
@@ -31,29 +27,6 @@ Covers:
 Uses db_session fixture for repo/model tests.
 Uses unittest.TestCase with real sessions for CLI command tests that need
 data visible to the CLI's own DB sessions.
-
-Version History:
-- v1.0: Phase 12 Gate 7 — initial implementation
-- v1.1: Hotfix items-33-34-incomplete-impl follow-up — add TestBuildWeeklyPrompt
-        (4 tests covering Item 34 behavioral fixes)
-- v1.2: Hotfix Item #56 Gate 1 — add TestGetFiltered (get_filtered() coverage:
-        status/type/date/updated_after floor/search/limit/sort order)
-- v1.3: Item #61 Gate 2 — add TestApplyCorrection (repo-level, db_session
-        fixture) and TestReportCorrectCLI (CLI-level, real committed
-        session, mirrors TestReportConfirmCLI). Placed here rather than in
-        the spec-named tests/test_reports_repo.py / test_reports_commands.py
-        — neither file exists in this repo; this file is the established
-        home for both ReportsRepository- and reports-CLI-level coverage
-        (see module docstring). Deviation noted in the Gate 2 commit.
-- v1.4: Item #61 Gate 3 — TestGetConfirmedDailies and TestBuildWeeklyPrompt
-        deleted outright (both assert behavior this gate removes, not
-        adaptable). Replaced with TestWeeklyClientPromptGeneration: real
-        weekly_client.json template + real NotesRepository query proving
-        build_prompt() output is template-formatted and correctly
-        tag-filtered regardless of daily_internal Report row confirmation
-        state (zero/partial/full week), that internal-only/info-only notes
-        never surface (AC12), and that daily_internal generation is
-        unaffected (regression guard).
 """
 
 import os

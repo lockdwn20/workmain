@@ -1,8 +1,4 @@
 """
-WorkmAIn EOD Task Matching Tests
-test_eod_task_matching v1.1
-20260611
-
 Tests for PC-1 — EOD Step 3c task matching algorithm.
 
 Covers:
@@ -16,11 +12,6 @@ Covers:
 Pure-Python functions are tested with no database.
 Step-level entry-condition tests use a temporary state file
 and stub out the DB via mocking.
-
-Version History:
-- v1.0: Phase 12 Gate 7 — initial implementation
-- v1.1: Phase 13 Sprint 2 Gate 2 — updated imports after step runner extraction to
-        workmain.workflows.eod_workflow; bool return assertions updated to EodStepResult
 """
 
 import json

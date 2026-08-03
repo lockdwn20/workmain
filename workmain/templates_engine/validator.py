@@ -1,13 +1,5 @@
 """
-WorkmAIn Template Validator
-Template Validator v1.1
-20251226
-
 Validates templates against JSON schema and field definitions.
-
-Version History:
-- v1.0: Initial implementation with schema validation
-- v1.1: Added field definitions validation for data sources, tags, and formats
 """
 
 import json

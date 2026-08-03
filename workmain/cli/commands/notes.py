@@ -1,77 +1,8 @@
 """
-WorkmAIn Notes CLI Commands
-Notes Commands v4.6
-20260728
-
 Unified notes command group. Consolidates note (write) and notes (read) groups
 from note.py into a single group with all subcommands.
 
 Replaces: note group + notes group from note.py (v2.9)
-
-Version History:
-- v3.0: CLI Standardization Sprint (Gate 2) - Merge note + notes groups into
-        unified notes group:
-          note add     → notes add   (--source/-f from Gate 1)
-          note edit    → notes edit  (unchanged flags)
-          note delete  → notes delete (unchanged)
-          note meeting → notes log   (RENAMED; ALL v2.8 behavioral requirements
-                                      preserved: $EDITOR, per-line tags, date/time
-                                      picker, condense+time prompt, no-notes path,
-                                      time tracking prompt)
-          notes today/date/search/meeting carried forward
-          --history/-H on notes meeting from Gate 1
-        Migrated from legacy get_session() to standard get_db() pattern.
-- v3.1: Fix notes_meeting() to use get_by_meeting_title() — avoids recurring-meeting
-        instance mismatch where get_by_title() returned a future occurrence with no notes.
-- v3.2: Hotfix - use source='condensed' for condensed summary notes created in
-        notes log so they can be distinguished from regular meeting notes
-- v3.3: Hotfix - add meeting ID to format_note_display() output so recurring
-        meeting instances are distinguishable in notes search results
-- v3.4: Item 26 (CLI V18) — name-or-ID resolution on all resource-targeting commands.
-        Direction A: notes edit/delete now accept ID or content substring.
-        Direction B: fuzzy_match_meeting() checks isdigit() first; notes log and
-        notes meeting also resolve meeting by ID or title.
-        New helper: _resolve_note().
-- v3.5: Phase 11 Gate 5 — stamp active_client_id on all notes_repo.create() and
-        time_repo.create() call sites (notes add, notes log condensation flow)
-- v3.6: Notes & Tasks Foundation Sprint — add notes list (unified filter command),
-        notes show (single record detail); add --search/-s to notes today; retire
-        notes date, notes meeting, notes search as deprecated aliases delegating
-        to notes list.
-- v3.7: Phase 12 Gate 3 — carry-forward hooks in notes_add and notes_edit:
-        ensure_active on CF tag add; set_dismissed_by_tag_removal on CF tag
-        removal.
-- v3.8: Gate 4 cost tracking sprint — add notes costs subcommand showing note
-        condensation costs from ai_costs table; full date filter set + --provider/-P
-- v3.9: Provider Foundation Sprint Gate 3 — "Sending to Claude..." made dynamic;
-        reads active provider from note_condensation config via get_provider_manager()
-- v4.0: Phase 13 DB Schema Sprint Gate 5 — notes delete pre-checks for linked
-        time entries (ON DELETE RESTRICT) before hitting DB constraint; user-friendly
-        abort message with time entry IDs
-- v4.1: Phase 13 DB Schema Sprint Gate 5 fix — apply note-first pattern to the two
-        missed TimeEntry creation sites in notes add (meeting time entry prompt) and
-        notes log (condensation flow); fix entry.description=summary → entry.note_id
-- v4.2: Intent action service layer — notes add delegates to notes_service.create_note()
-        for client_id stamping and tag validation; meeting path unchanged
-- v4.3: Item 69 Gate 1 — notes add's CLI-layer CF hook block removed (now fires from
-        notes_service.create_note() itself); notes log per-line create (#3) now routes
-        through notes_service.create_note() instead of a direct NotesRepository.create()
-        call
-- v4.4: Item 69 Gate 2 — notes edit converges its single notes_repo.update() call plus
-        CLI-layer CF-transition hook block onto one notes_service.update_note() call;
-        TaskStatusRepository import removed (no longer used directly in this file)
-- v4.5: Item 69 Gate 4 — notes add's meeting time-entry follow-on (#2) converges its
-        direct notes_repo.create()/time_repo.create() writes onto
-        notes_service.create_note() + time_entry_service.create_paired_time_entry();
-        hard-coded tags=['both'] replaced with a real interactive tag prompt
-        (Design Rule 11); unused notes_repo/active_client_id locals removed from
-        notes_add
-- v4.6: Item 69 Gate 5 — notes log's condensation flow (#4) converges its direct
-        notes_repo.create()/time_repo.create() writes onto notes_service.create_note()
-        + time_entry_service.create_paired_time_entry(); hard-coded tags=['both']
-        replaced with note_condenser's computed resolved_tags (Design Rule 8); unused
-        notes_repo/active_client_id locals removed from notes_log; SystemStateRepository
-        import removed (no longer used anywhere in this file)
 """
 
 import click

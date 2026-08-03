@@ -1,8 +1,4 @@
 """
-WorkmAIn Provider CLI Commands
-Provider Commands v1.14
-20260603
-
 CLI commands for managing AI providers.
 
 Commands:
@@ -11,36 +7,6 @@ Commands:
 - providers costs: Show aggregate cost totals
 - providers set default <REPORT_TYPE> <PROVIDER>: Update provider assignment
 - providers config show: Display full ai_settings.json detail view
-
-Version History:
-- v1.0: Initial implementation with list, test, costs, and set-default commands
-- v1.1: Fixed import to use get_db() instead of get_database()
-- v1.2: Phase 5.1 - Fixed help text formatting with \b escape sequence
-- v1.3: Phase 5.1 - Updated Gemini model and cost display for gemini-2.5-flash
-- v1.4: Phase 5.1 - Updated Claude fallback model to claude-sonnet-4-5-20250929
-- v1.5: CLI Standardization Sprint (Gate 1) - providers costs --limit -l → -n
-- v1.6: CLI Standardization Sprint (Gate 6) - set-default stub updated with [NOT IMPLEMENTED]
-- v1.7: Phase 9 Gate 1 — updated hint text from 'report daily' to 'reports save daily_internal'
-- v1.8: CLI Standardization Sprint Part 1 (WU-4) — providers costs --provider/-p → -P,
-        --month/-m → -M; avoids conflicts with reserved -p (--project) and -m (--meeting)
-- v1.9: CLI Standardization Sprint Part 2 (WU-P2-4) — set-default → providers set group;
-        providers set default <provider> --for <type> (Phase 12 extensibility)
-- v1.10: Phase 12 Gate 4 — V7 resolution: add --help clarification to providers costs
-         distinguishing it from reports costs (per-report detail vs aggregate totals)
-- v1.11: Gate 2 cost tracking sprint — fix providers list display to read provider
-         assignments dynamically from provider_manager config (ai_settings.json) instead
-         of hardcoded text; also registers providers so singleton is ready for sub-commands
-- v1.12: Gate 3 — providers costs redesigned as aggregate view from ai_costs table;
-         full date filter set (--date/-d, --start/-b, --end/-e, --month/-M, --all);
-         reads from AiCostRepository instead of report_metadata
-- v1.13: Provider Foundation Sprint Gate 1 — remove direct claude_client/gemini_client
-         imports; providers list and test use manager.get_provider(); remove
-         register_provider() calls
-- v1.14: Provider Foundation Sprint Gate 4 — providers list: wider columns, no wrapping;
-         providers test: remove click.Choice, dynamic validation, disabled message;
-         providers costs --provider: remove click.Choice, dynamic validation;
-         providers set default: full read-modify-write implementation (was NOT IMPLEMENTED
-         stub); providers config group + config show added; docstring updated
 """
 
 import json

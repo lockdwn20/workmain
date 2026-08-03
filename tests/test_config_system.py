@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 """
-WorkmAIn
-Configuration System Test v0.1.0
-20251219
-
 Test configuration loading, validation, and encryption
 """
 

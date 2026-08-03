@@ -1,8 +1,4 @@
 """
-WorkmAIn Reports Repository
-Reports Repository v1.7
-20260724
-
 Repository for managing generated reports in the database.
 
 Provides methods to:
@@ -10,25 +6,6 @@ Provides methods to:
 - Query reports by type, date, or status
 - Get cost summaries and analytics
 - Link reports to files on disk
-
-Version History:
-- v1.0: Initial implementation
-- v1.1: Fixed metadata column name (metadata → report_metadata) to avoid SQLAlchemy conflict
-- v1.2: Phase 11 Gate 5 — create() accepts client_id for attribution stamping
-- v1.3: Phase 12 Gate 4 — list_reports() gains status parameter; get_confirmed_dailies()
-        added as Phase 13 weekly aggregation infrastructure (PC-3)
-- v1.4: Phase 13 Sprint 2 Gate 1b — set_correction_note() added (Item 33)
-- v1.5: Hotfix Item #56 Gate 1 — get_filtered() added for reports corrections
-        listing (status/type/date/updated_after floor/search/limit)
-- v1.6: Item #61 Gate 2 (Design Rule 4) — apply_correction() added as the
-        sole write path for corrected_content + status='corrected' (+
-        optional correction_note) from CLI/EOD call sites; delegates to
-        set_correction_note() internally when note is truthy, which stays
-        alive as an internal implementation detail.
-- v1.7: Item #61 Gate 3 (Design Rule 8) — get_confirmed_dailies() removed.
-        Its single production caller (prompt_builder.build_weekly_prompt())
-        was removed in the same gate, retiring the confirmed-substitutive
-        weekly branch; no other production caller existed.
 """
 
 from datetime import date, datetime

@@ -1,14 +1,6 @@
 """
-WorkmAIn Notes Repository Tests
-test_notes_repo v1.1
-20260709
-
 Tests for notes_repo.py — focused on the created_at override added in v1.5
 and get_most_recent_since() added for Item #58.
-
-Version History:
-- v1.0: Hotfix eod-backdate-bugs — verify created_at override in create()
-- v1.1: Hotfix Item #58 — add TestNotesRepoGetMostRecentSince
 """
 
 from datetime import date, datetime

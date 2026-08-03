@@ -1,59 +1,10 @@
 """
-WorkmAIn EOD Workflow Tests
-test_eod_workflow v1.8
-20260729
-
 Tests for workmain/workflows/eod_workflow.py — the surface-agnostic service
 layer extracted from cli/commands/eod.py in Phase 13 Sprint 2 Gate 2.
 
 Covers: EodStepResult/EodStepStatus, get_step_sequence, run_step, dry-run
 returns, and review step subprocess dispatch (canonical location after
 extraction).
-
-Version History:
-- v1.0: Phase 13 Sprint 2 Gate 2 — initial test suite for extracted workflow
-- v1.1: Phase 13 Sprint 2 Gate 6 fix — TestReviewStepDispatch assertions now use
-        _WORKMAIN_BIN (resolved path) instead of bare 'workmain' string
-- v1.2: Operations_Config_Correction_Sprint Gate 7 — add real-DB coverage
-        (db_session fixture, plain pytest classes alongside the existing
-        unittest.TestCase classes) for Gate 5's task-match self-match
-        exclusion (both LLM-mock and keyword-fallback paths), cancellation
-        mid-loop, "no time budget" completion, note-dedup pairing scope and
-        merge direction/forwarding_note_id, and SlackEodManager's
-        CONTROL_RESUME retry + handle_reply() mid-flight guard.
-- v1.3: Item #60 Gate 1 (Rule 11) — module-level _write_cf_state_file()
-        converted to route through state_io.write_last_inspection();
-        tmp_dir param dropped (5 call sites updated) since the shared
-        writer resolves WORKMAIN_STATE_DIR from the environment, which
-        monkeypatch.setenv() already scopes to tmp_path in every caller.
-- v1.4: Item #61 Gate 1 — new TestReportReviewStepCollapse: covers the
-        collapsed _run_report_review_step via its two public thin
-        wrappers (_run_report_step/_run_weekly_report_step, now imported
-        directly). Real committed-session pattern (mirrors
-        test_reports_corrections.py's documented db_session-invisibility
-        finding — the step runner opens its own get_db() session
-        internally, so a db_session-fixture-flushed row would never be
-        visible to it).
-- v1.5: Item #61 Gate 2 — new TestReportReviewStepEditBranch: covers the
-        shared [e]dit branch's edit_in_editor()/apply_correction() call
-        path for both report types (with and without a correction note,
-        and the no-changes-detected no-op). Real committed-session
-        pattern, same rationale as v1.4.
-- v1.6: Hotfix Item #62 Gate 3 — new TestProviderErrorDemotion: covers the
-        ProviderError demotion restructure in _run_task_match_step() and
-        _run_note_dedup_step() (exactly one LLM call before demotion, all
-        remaining items via keyword fallback including the one that
-        raised, healthy-path regression, and per-step independence of the
-        two steps' demotion state). Real committed-session pattern, same
-        rationale as v1.2's Gate 5 coverage.
-- v1.7: Task_Match_Data_Integrity Sprint Gate 1 (Item 67) — new
-        TestStep3cUncappedQueries: confirms _run_task_match_step()'s
-        attempt-set build and its interactive-path "remaining" count both
-        call TaskStatusRepository.get_filtered(status='active', limit=0).
-- v1.8: Task_Match_Data_Integrity Sprint Gate 3 (Item 66) — new
-        TestCandidatePathTag: confirms the LLM/keyword path-attribution
-        tag renders correctly on both the interactive display and the
-        non-interactive PAUSED block, for both scoring paths (4 tests).
 """
 
 import threading

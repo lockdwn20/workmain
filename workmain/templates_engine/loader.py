@@ -1,14 +1,6 @@
 """
-WorkmAIn Template Loader
-Template Loader v1.1
-20251224
-
 Loads and manages JSON template files for report generation.
 Provides caching and validation of template structure.
-
-Version History:
-- v1.0: Initial implementation
-- v1.1: Fixed timedelta import bug in build_variables() method
 """
 
 import json

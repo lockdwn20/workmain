@@ -1,17 +1,7 @@
 """
-WorkmAIn Clockify Integration
-API Client
-v1.1
-20260202
-
 Clockify API client for time entry management and report retrieval.
 
 API Documentation: https://docs.clockify.me
-
-Version History:
-- v1.0: Initial implementation with create, get, and PDF retrieval
-- v1.1: Phase 5.1 - Convert local times to UTC before sending to Clockify;
-        improved error reporting with Clockify response body
 """
 
 import requests

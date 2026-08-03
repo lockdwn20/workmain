@@ -1,8 +1,4 @@
 """
-WorkmAIn Note Condenser Tests
-test_note_condenser v1.0
-20260728
-
 Coverage for note_condenser.py's Item 69 Gate 5 changes:
 - _compute_condensed_tags(): the condensed-summary tag classifier (Design
   Rule 8), replacing every caller's former hard-coded tags=['both'].
@@ -19,9 +15,6 @@ _compute_condensed_tags() tests are pure-function (duck-typed on note.tags)
 and use lightweight stand-ins, not the db_session fixture — no DB access
 occurs. condense_meeting() end-to-end tests use db_session and mock
 ProviderManager.generate to avoid a live AI call.
-
-Version History:
-- v1.0: Item 69 Gate 5
 """
 
 from datetime import datetime

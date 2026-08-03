@@ -1,17 +1,8 @@
 """
-WorkmAIn Time Entry Service Tests
-test_time_entry_service v1.2
-20260728
-
 Tests for workmain/services/time_entry_service.py.
 
 All DB tests use the db_session fixture (transaction rolled back after each test).
 Sentinel date 2099-01-01 is used for backdating assertions.
-
-Version History:
-- v1.0: Intent action service layer Gate 5
-- v1.1: Item 69 Gate 3 — CF hook coverage for create_time_entry()
-- v1.2: Item 69 Gate 4 — TestCreatePairedTimeEntry covering create_paired_time_entry()
 """
 
 import pytest

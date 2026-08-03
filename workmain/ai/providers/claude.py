@@ -1,11 +1,6 @@
 """
-WorkmAIn AI Claude Provider
-Claude Provider v2.0
-20260603
-
 Claude (Anthropic) provider implementation.
 
-Migrated from workmain/ai/claude_client.py v1.3.
 Receives config dict from ProviderManager via PROVIDER_REGISTRY.
 Do not instantiate directly — use get_provider_manager().get_provider('claude').
 
@@ -15,11 +10,6 @@ Features:
 - Token counting with Anthropic client
 - Retry logic with exponential backoff
 - Cost tracking
-
-Version History:
-- v2.0: Provider Foundation Sprint — migrated from claude_client.py;
-        config: ProviderConfig -> dict; model config-driven (Item 35);
-        class renamed ClaudeClient -> ClaudeProvider
 """
 
 import os

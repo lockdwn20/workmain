@@ -1,8 +1,4 @@
 """
-WorkmAIn Schedule Commands
-schedule.py v1.3
-20260707
-
 CLI command group: workmain schedule
 Owns calendar exceptions (when the daemon should not fire notifications)
 and schedule/notification timing configuration.
@@ -16,21 +12,6 @@ Subgroups:
 
 Resolves CLI_STANDARDS.md V8 (add-holiday) and V9 (add-timeoff) — commands
 built correctly under the schedule group from day one.
-
-Version History:
-- v1.0: Phase 10 Gate 6 initial implementation
-- v1.1: Fix CLI standards violations — --date/-d, --start/-b, --end/-e options;
-        --title/-l on both add commands (replace --notes/-N); delete verb
-- v1.2: Operations_Config_Correction_Sprint Gate 1 §1.7 — set/config subgroups
-        added (notification-time, working-hours, t4-interval, config show);
-        set notification-time/working-hours use workmain.utils.time_parser.
-        parse_time() (Gate 1 §1.0), accepting HH:MM and HHMM alike; error
-        idiom matches this file's existing console.print(f"[red]✗ ...[/red]")
-        + return convention throughout
-- v1.3: Operations_Config_Correction_Sprint Gate 5 §5.6 — set task-match-interval/
-        note-dedup-interval added (Slack progress-message throttle intervals
-        for the EOD task-match/note-dedup substeps); config show displays
-        both alongside existing trigger times/working hours/T4 interval
 """
 
 from datetime import datetime, date as date_type

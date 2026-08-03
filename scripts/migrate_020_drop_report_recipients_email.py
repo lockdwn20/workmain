@@ -1,17 +1,10 @@
 """
-WorkmAIn Migration 020: Drop report_recipients.email
-migrate_020_drop_report_recipients_email v1.0
-20260610
-
 H-2: Drops dead denormalized email column from report_recipients.
 All read paths join through Recipient.email — this column is never read.
 Prerequisite: grep gate confirmed no code reads this column directly.
 
 Run once as part of Phase 13 DB Schema Sprint Gate 1:
     python scripts/migrate_020_drop_report_recipients_email.py
-
-Version History:
-- v1.0: Phase 13 DB Schema Sprint Gate 1
 """
 
 from workmain.database.connection import get_db

@@ -1,14 +1,7 @@
 """
-WorkmAIn Daemon Models
-models.py v1.0
-20260505
-
 Shared data types for the daemon subsystem. Extracted to break the circular
 import between inspection_engine.py and acknowledgment.py — both import
 from this module instead of from each other.
-
-Version History:
-- v1.0: Phase 10 initial — Observation dataclass and ObservationType enum
 """
 
 from dataclasses import dataclass, field
