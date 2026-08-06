@@ -129,6 +129,17 @@ Types: `feat`, `fix`, `refactor`, `chore`, `docs`, `test`.
   as the subject.
 - `git commit --no-verify` is **prohibited**. It bypasses commit validation.
 
+**Enforced by `.githooks/commit-msg`.** Enable it once per clone — it is not automatic,
+because git does not track `.git/hooks/`:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+The hook exempts merge, revert, and fixup/squash subjects, which git generates itself.
+It validates format only — it cannot tell you a scope is wrong or a description is
+useless. Do not work around a rejection with `--no-verify`; fix the subject.
+
 ### 2.5 Version bumps
 
 | Merge type | Change | Example |
