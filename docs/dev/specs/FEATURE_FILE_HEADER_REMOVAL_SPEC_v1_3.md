@@ -521,6 +521,10 @@ Any deviation from 934 is a defect — **STOP and surface to Ray.**
 (`docs/dev/design/DESIGN_FILE_HEADER_REMOVAL_20260731_v1.0.md`) and this spec retire
 to `docs/dev/archive/`, per the Documentation Standards in `CLAUDE.md`.
 
+> **Superseded.** The archive directory was retired in the documentation
+> consolidation that followed this sprint. Both documents now carry
+> `Status: Shipped` and stay in place — retirement is a status edit, not a file move.
+
 ---
 
 ## 9. Status

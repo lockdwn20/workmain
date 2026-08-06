@@ -1,6 +1,4 @@
 # WorkmAIn AI Settings Guide
-ai_settings_guide.md v1.0
-20260603
 
 Annotated schema reference for `config/ai_settings.json`.
 

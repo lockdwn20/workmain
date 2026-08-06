@@ -704,7 +704,7 @@ Provider Foundation Sprint delivered: `PROVIDER_REGISTRY` in `workmain/ai/provid
 as the single registration point; `OllamaProvider` (Phase 13-1 stub, `enabled: false`) as the
 third provider. `providers list` iterates registry dynamically. To add any future provider:
 one Python file implementing `BaseProvider`, one registry entry, one `ai_settings.json` section.
-See `docs/ai_settings_guide.md` for the three-step process.
+See `docs/AI_SETTINGS_GUIDE.md` for the three-step process.
 
 **Acceptance Criteria:**
 

@@ -71,7 +71,7 @@ If you encounter anything the spec doesn't cover, or that requires a design deci
 | --- | --- |
 | `docs/DEVELOPMENT_STANDARDS.md` | Before committing, or writing any module, command, or test |
 | `docs/FEATURE_BACKLOG.md` | Before proposing features; check item status and ACs |
-| `docs/ai_settings_guide.md` | When editing AI provider config |
+| `docs/AI_SETTINGS_GUIDE.md` | When editing AI provider config |
 
 ---
 
