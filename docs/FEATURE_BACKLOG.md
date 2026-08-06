@@ -704,7 +704,7 @@ Provider Foundation Sprint delivered: `PROVIDER_REGISTRY` in `workmain/ai/provid
 as the single registration point; `OllamaProvider` (Phase 13-1 stub, `enabled: false`) as the
 third provider. `providers list` iterates registry dynamically. To add any future provider:
 one Python file implementing `BaseProvider`, one registry entry, one `ai_settings.json` section.
-See `docs/ai_settings_guide.md` for the three-step process.
+See `docs/AI_SETTINGS_GUIDE.md` for the three-step process.
 
 **Acceptance Criteria:**
 
@@ -1241,11 +1241,11 @@ is the earliest point where attendee management becomes user-facing.
 
 - [ ] Attendees surfaced in at least one user-facing output (meetings show, weekly report, etc.)
 - [ ] `--attendees` restored to `meetings create` with a compliant short form
-- [ ] Short form assigned in CLI_STANDARDS.md §5.3 reserved table
+- [ ] Short form assigned in `docs/DEVELOPMENT_STANDARDS.md` §5.5 reserved flag table
 **Files Affected:**
 
 - `workmain/cli/commands/meetings.py`
-- `docs/CLI_STANDARDS.md` (§5.3 reserved table — new short form assignment)
+- `docs/DEVELOPMENT_STANDARDS.md` (§5.5 reserved flag table — new short form assignment)
 
 ---
 
