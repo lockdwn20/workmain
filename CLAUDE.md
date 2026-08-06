@@ -56,6 +56,11 @@ If you encounter anything the spec doesn't cover, or that requires a design deci
 - **Test Suite:** `python -m pytest tests/`
 - **Backlog:** `docs/FEATURE_BACKLOG.md`
 
+**Operating context:** Ray is a Security Engineer (CSIRT / data engineering) and holds
+final authority on all documentation and design changes. Correct architecture over
+expedient solutions — a DB schema refactor is the canonical cost of a shortcut, and that
+framing governs architectural choices. Document the "why", not just the "what".
+
 ---
 
 ## Deep Reference Docs
@@ -64,11 +69,9 @@ Read these when needed. Do NOT duplicate their content here.
 
 | Document | Purpose | When to Read |
 | ---------- | --------- | -------------- |
+| `docs/DEVELOPMENT_STANDARDS.md` | Single authority for git workflow, code patterns, DB, CLI, and testing standards | Before committing, before writing any module, command, or test |
 | `docs/FEATURE_BACKLOG.md` | All open/deferred items | Before proposing features; check item status and ACs |
-| `docs/TESTING_STANDARDS.md` | Test suite rules, db_session fixture contract | Before writing any test |
-| `docs/CLI_STANDARDS.md` | Command naming and structure standards | Adding or modifying commands |
-| `docs/GIT_WORKFLOW_STANDARDS.md` | Branch strategy, commit format | Before committing |
-| `docs/DEVELOPMENT_STANDARDS_REVIEW.md` | Coding patterns, naming, file/test conventions | Before writing any new module or package |
+| `docs/ai_settings_guide.md` | Annotated schema for `config/ai_settings.json` | When editing AI provider config |
 
 ---
 
@@ -169,7 +172,7 @@ Never abbreviated: ~~`get_tags()`~~, ~~`get_loader()`~~, ~~`get_validator()`~~
 
 ### 6. Test Files
 
-**Full standards in `docs/TESTING_STANDARDS.md` - read it before writing any test.**
+**Full standards in `docs/DEVELOPMENT_STANDARDS.md` §6 - read it before writing any test.**
 
 - Test files → `tests/test_something.py`
 - Test data → `tests/fixtures/` · mocks → `tests/mocks/`
@@ -198,7 +201,7 @@ No implementation without an approved spec.
 
 ### 10. Commit Format
 
-**Full standards in `docs/GIT_WORKFLOW_STANDARDS.md` - read it before performing any git actions.**
+**Full standards in `docs/DEVELOPMENT_STANDARDS.md` §2 - read it before performing any git actions.**
 
 - All commits require descriptive multi-line messages:
 
@@ -287,6 +290,17 @@ These are different fields serving different purposes. Never conflate them.
 - Block Kit for confirmation UX; plain text fallback when Block Kit unavailable
 - `client_id` is system-derived in Slack context - never user-supplied
 - `project_id` resolution from Slack deferred indefinitely (no ProjectsRepository)
+
+### Trigger Terminology
+
+| Trigger | Description |
+| --- | --- |
+| T1 | Morning briefing (05:30 Mon–Fri) |
+| T2 | Meeting start notification |
+| T3 | Meeting end notification |
+| T4 | Random check-in (30–120 min random window) |
+| T5 | EOD session (conversational review) |
+| T6 | Inline correction re-presentation |
 
 ### Client Reference
 

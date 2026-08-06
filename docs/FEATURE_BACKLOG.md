@@ -1241,11 +1241,11 @@ is the earliest point where attendee management becomes user-facing.
 
 - [ ] Attendees surfaced in at least one user-facing output (meetings show, weekly report, etc.)
 - [ ] `--attendees` restored to `meetings create` with a compliant short form
-- [ ] Short form assigned in CLI_STANDARDS.md §5.3 reserved table
+- [ ] Short form assigned in `docs/DEVELOPMENT_STANDARDS.md` §5.5 reserved flag table
 **Files Affected:**
 
 - `workmain/cli/commands/meetings.py`
-- `docs/CLI_STANDARDS.md` (§5.3 reserved table — new short form assignment)
+- `docs/DEVELOPMENT_STANDARDS.md` (§5.5 reserved flag table — new short form assignment)
 
 ---
 
