@@ -1,14 +1,15 @@
-# Feature Spec — File Header Removal
+# File Header Removal — Spec
 
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20260803
-**Spec version:** v1.3
 **Branch:** `feature/file-header-removal` (from `dev`)
-**Target release:** v1.29.0
+**Released as:** v1.29.0 (PR #28, tag v1.29.0)
 **Originating item:** Ray request, 20260731
 **Design study:** `docs/dev/design/DESIGN_FILE_HEADER_REMOVAL_20260731_v1.0.md`
+**Results:** none written — gap predating the results template
 
-## Revision history
+## Decision Log
 
 - **v1.0** (20260803) — initial spec from Ray's Q1–Q6 answers.
 - **v1.1** (20260803) — Caliper review applied. All three findings accepted after

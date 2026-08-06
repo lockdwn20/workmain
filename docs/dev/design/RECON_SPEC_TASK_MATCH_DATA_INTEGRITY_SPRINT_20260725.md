@@ -1,6 +1,11 @@
-WorkmAIn
-RECON_SPEC_TASK_MATCH_DATA_INTEGRITY_SPRINT v1.0
-20260725
+# Task Match Data Integrity Sprint — Recon
+
+**Status:** Shipped
+**Kind:** Recon
+**Author:** Spanner (Role 1)
+**Date:** 20260725
+**Originating item:** Backlog Items #71, #67, #70, #66
+**Disposition:** Promoted to `docs/dev/specs/TASK_MATCH_DATA_INTEGRITY_SPRINT_SPEC_v1_3.md`; shipped v1.28.0
 
 ---
 
