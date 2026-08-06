@@ -202,7 +202,7 @@ def clients_set_active(name: str):
     """Set the active client context.
 
     NAME is a client name or the reserved word 'internal' to clear context.
-    Accepts name only (not ID) — see CLI_STANDARDS.md V23.
+    Accepts name only (not ID)
 
     \b
     Examples:

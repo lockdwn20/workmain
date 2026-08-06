@@ -1,8 +1,14 @@
-WorkmAIn
-FEATURE_ITEM69_WRITE_PATH_CONVERGENCE_SPEC v1.2
-20260728
+# Note Write-Path Convergence — Spec
 
-Version History:
+**Status:** Shipped
+**Author:** Spanner (Role 1)
+**Date:** 20260728
+**Branch:** `feature/write-path-convergence` (from `dev`)
+**Released as:** v1.27.0 (PR #26, tag v1.27.0)
+**Originating item:** Backlog Item #69
+**Results:** `docs/dev/results/SESSION_HANDOFF_ITEM69_WRITE_PATH_CONVERGENCE_20260728.md`
+
+## Decision Log
 
 - v1.0 (20260728): Initial spec. DRAFT — pending Opus (Role 2) review.
 - v1.1 (20260728): Opus review round 1 applied.

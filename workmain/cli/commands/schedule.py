@@ -9,9 +9,6 @@ Subgroups:
   workmain schedule set <subcommand>      — trigger times, working hours, T4 interval,
                                              EOD progress intervals
   workmain schedule config show           — display current timing configuration
-
-Resolves CLI_STANDARDS.md V8 (add-holiday) and V9 (add-timeoff) — commands
-built correctly under the schedule group from day one.
 """
 
 from datetime import datetime, date as date_type

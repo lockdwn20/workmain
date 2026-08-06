@@ -1,9 +1,11 @@
 # Design Study — File Header Removal
 
+**Status:** Shipped
+**Kind:** Design study
 **Author:** Spanner (Role 1)
 **Date:** 20260731
-**Status:** OPEN — no decision made. Options presented for Ray's analysis.
-**Branch:** `chore/file-header-removal`
+**Originating item:** Ray request, 20260731
+**Disposition:** Promoted to `docs/dev/specs/FEATURE_FILE_HEADER_REMOVAL_SPEC_v1_3.md`; shipped v1.29.0
 
 ---
 
