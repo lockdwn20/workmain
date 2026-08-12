@@ -309,7 +309,7 @@ cli.add_command(schedule)
 cli.add_command(notifications)
 
 
-# Placeholder command groups moved to FEATURE_BACKLOG.md for Phase 6
+# Placeholder command groups deferred; tracked in GitHub Issues
 # (config, provider, clients, recipients, notifications)
 
 

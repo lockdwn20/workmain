@@ -53,6 +53,8 @@ with git (tags, commit history, `CHANGELOG.md`) as the sole version record.
   ~3,260 lines removed, all of it recoverable from git. Test suite held
   flat at 934 passed throughout all six gates
 
+## [1.28.0] - 2026-07-29
+
 Task_Match_Data_Integrity Sprint (Items #71, #67, #70, #66) — four gates
 on `feature/task-match-data-integrity`, following Item #69's write-path
 convergence.
