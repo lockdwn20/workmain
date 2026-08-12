@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+#
+# Verify release records agree before anything reaches the remote.
+#
+# Runs scripts/check_release_integrity.py, which cross-checks git tags against
+# CHANGELOG.md sections, GitHub Releases, and workmain/__version__.py.
+#
+# Scope is deliberately narrow — it fires only on pushes that can damage the
+# release record:
+#
+#   pushing `main`   -> full check, including GitHub Releases
+#   pushing a tag    -> CHANGELOG/version only (--no-remote); the Release object
+#                       is created *after* the tag is pushed, so demanding one
+#                       here would fail the very workflow this protects
+#   anything else    -> skipped
+#
+# Enable once per clone (git does not track .git/hooks/):
+#
+#     git config core.hooksPath .githooks
+#
+# To bypass in a genuine emergency: git push --no-verify. Prefer fixing the
+# record — a bypassed check is how the v1.28.0 heading went missing for a week.
+
+set -uo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+checker="$repo_root/scripts/check_release_integrity.py"
+
+[ -f "$checker" ] || exit 0
+
+push_main=0
+push_tag=0
+
+# stdin: <local ref> <local sha> <remote ref> <remote sha>
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  case "$remote_ref" in
+    refs/heads/main) push_main=1 ;;
+    refs/tags/*)     push_tag=1 ;;
+  esac
+done
+
+if [ "$push_main" -eq 0 ] && [ "$push_tag" -eq 0 ]; then
+  exit 0
+fi
+
+if [ "$push_main" -eq 1 ]; then
+  echo "pre-push: verifying release integrity (main)..."
+  args=()
+else
+  echo "pre-push: verifying release integrity (tag; skipping Release check)..."
+  args=(--no-remote)
+fi
+
+if ! python3 "$checker" "${args[@]}"; then
+  cat <<'MSG'
+
+pre-push: BLOCKED — the release record is inconsistent.
+
+Fix the reported mismatch before pushing. Typical causes:
+  - a CHANGELOG.md section was lost or absorbed by an adjacent edit
+  - a tag was pushed without its CHANGELOG entry
+  - a tag has no GitHub Release (gh release create vX.Y.Z --generate-notes)
+
+MSG
+  exit 1
+fi
+
+exit 0
