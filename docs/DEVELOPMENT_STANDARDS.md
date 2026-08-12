@@ -37,13 +37,20 @@ RECON  →  ANALYSIS  →  SPEC  →  REVIEW  →  APPROVAL  →  IMPLEMENTATION
   something, rewrite it until it can.
 - At least one Role 2 review pass before a spec is approved.
 
-### 1.3 Backlog discipline
+### 1.3 Issue discipline
 
-- All fields required on every item. Status is `Open — Deferred to Phase X`, `Complete`,
-  or `Closed — Stale`.
+- Work is tracked in GitHub Issues. State is GitHub's own — open or closed — with a
+  milestone for sequencing and labels for area. There is no status vocabulary to maintain
+  in prose, and no register or statistics table to keep in step.
+- An issue must be independently verifiable on its own. Work that only makes sense as a
+  set becomes a parent issue with children, never one issue spanning several gates.
+- A milestone carries the exit condition that closes it, and that condition must cover
+  every issue in it.
 - **Verify every AC against delivered code before marking an item complete.** Item 32 was
-  marked complete with all four ACs unmet; `set_forwarding()` still has zero callers.
-  A spec's say-so is not evidence.
+  marked complete in Phase 13 Sprint 2 (v1.21.0) with all four of its acceptance criteria
+  unmet, and had to be reopened eleven days later when the gap was noticed. The work
+  actually landed in Ops_Config_Correction_Sprint Gate 5 (v1.24.0), via
+  `TaskStatusRepository.set_forwarding_note()`. A spec's say-so is not evidence.
 
 ---
 
