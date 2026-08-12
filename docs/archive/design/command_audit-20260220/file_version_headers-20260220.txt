@@ -1,0 +1,879 @@
+WorkmAIn File Version Headers
+Generated: 2026-02-20
+Root: /home/lockdwn20/Projects/workmain
+======================================================================
+
+scripts/demo_template_cli.py
+  WorkmAIn Template CLI Demo
+  Template CLI Demo v1.0
+  20251224
+  
+  Demonstrates template CLI commands.
+
+scripts/preview_templates.py
+  WorkmAIn Preview Test
+  Preview Test v1.0
+  20251224
+  
+  Quick test to preview template rendering with actual database data.
+
+setup.py
+  (no version header)
+
+tests/__init__.py
+  (no version header)
+
+tests/fixtures/__init__.py
+  (no version header)
+
+tests/mocks/__init__.py
+  (no version header)
+
+tests/test_ai_clients.py
+  WorkmAIn AI Clients Tests
+  Client Tests v1.2
+  20251229
+  
+  Tests for AI client implementations:
+  - Claude client (Anthropic)
+  - Gemini client (Google AI)
+  - Real API generation
+  - Token counting
+  - Cost estimation
+  - Error handling
+  - Retry logic
+  
+  Version History:
+  - v1.0: Initial test suite
+  - v1.1: Added dotenv loading to read API keys from .env file
+  - v1.2: Fixed Gemini cost assertions to handle free tier (allow small variance)
+  
+  Note: These tests make real API calls and will consume tokens.
+  Set SKIP_API_TESTS=1 to skip real API tests.
+  
+  Run with: python3 test_ai_clients.py
+
+tests/test_ai_foundation.py
+  WorkmAIn AI Foundation Tests
+  Test Suite v1.1
+  20251229
+  
+  Tests for AI provider foundation:
+  - Base provider abstract class
+  - Cost tracking system
+  - Provider manager with fallback
+  - Configuration structures
+  
+  Version History:
+  - v1.0: Initial test suite
+  - v1.1: Fixed imports to prioritize installed modules over standalone
+  
+  Run with: python3 test_ai_foundation.py
+
+tests/test_config_system.py
+  WorkmAIn
+  Configuration System Test v0.1.0
+  20251219
+  
+  Test configuration loading, validation, and encryption
+
+tests/test_database.py
+  WorkmAIn Database Models & Repository Test
+  Database Test v1.0
+  20251222
+  
+  Tests SQLAlchemy models and notes repository with actual database.
+
+tests/test_db_connection.py
+  WorkmAIn
+  Database Connection Test v0.1.0
+  20251219
+  
+  Test database connectivity and show table information
+
+tests/test_phase_4_feature_3_4.py
+  WorkmAIn Features 3 & 4 Test Script
+  Test Script v1.1
+  20251231
+  
+  Comprehensive testing for:
+  - Feature 3: Bulk Meeting Note Entry
+  - Feature 4: Meeting Note Condensation
+  - Migration 002: Database schema changes
+  
+  Version History:
+  - v1.0: Initial test suite implementation
+  - v1.1: Fixed condensation test session issue (re-query instead of refresh)
+  
+  Run with: python3 test_features_3_4.py
+
+tests/test_prompt_builder.py
+  WorkmAIn Prompt Builder Test & Demo
+  Prompt Builder Test v1.3
+  20251229
+  
+  Tests and demonstrates the prompt builder functionality.
+  Shows how prompts are constructed from templates and data.
+  
+  Version History:
+  - v1.0: Initial test suite
+  - v1.1: Fixed database connection import to use get_db()
+  - v1.2: Works with prompt_builder v1.1 (StyleAdapter fix)
+  - v1.3: Works with prompt_builder v1.2 (repository method fixes)
+  
+  Run with: python3 test_prompt_builder.py
+
+tests/test_recurring_meetings.py
+  Unit tests for recurring meetings functionality.
+  Tests Phase 5.1 operational fixes.
+  
+  Version: 1.1
+  Date: 2026-01-28
+  
+  Version History:
+  - v1.0: Initial test suite with placeholder db_session fixture
+  - v1.1: Implemented db_session fixture with proper database connection
+
+tests/test_style_system.py
+  WorkmAIn Writing Style System Test
+  Style System Test v1.0
+  20251224
+  
+  Test writing style loading, adaptation, and AI prompt generation.
+
+tests/test_tag_system.py
+  WorkmAIn Tag System Test
+  Tag System Test v1.0
+  20251222
+  
+  Comprehensive test of tag parsing, validation, conversion, and display.
+
+tests/test_templates.py
+  WorkmAIn Template Test
+  Template Test v1.0
+  20251224
+  
+  Test Priority 2 default templates.
+
+tests/test_time_tracking.py
+  WorkmAIn Time Tracking Test
+  Time Tracking Test v1.1
+  20251223
+  
+  Comprehensive test of time tracking repository and functionality.
+  
+  Version History:
+  - v1.0: Initial test suite with 6 test categories covering CRUD, parsing, and aggregations
+  - v1.1: Added 6 new test cases for enhanced time format parsing (military time
+          without colons, AM/PM without colons) - now tests 11 different time formats
+
+workmain/__init__.py
+  (no version header)
+
+workmain/__version__.py
+  WorkmAIn Package Version
+  Version v1.1.0
+  20260127
+  
+  Version History:
+  - v0.1.0: Initial structure
+  - v0.2.0: Phase 2 complete (CLI, notes, meetings, time tracking)
+  - v0.3.0: Phase 2 tasks feature
+  - v0.4.0: Phase 2 complete with all 24 commands
+  - v0.5.0: Phase 3 complete (template system)
+  - v0.6.0: Phase 3.5 complete (template extensibility)
+  - v0.7.0: Phase 4 Days 1-7 (AI integration core)
+  - v0.8.0: Phase 4 Features 1-2 (providers CLI, bulk meeting notes, AI condensation)
+  - v0.9.0: Phase 4 Features 3-4 - Enhanced status display
+  - v1.0.0: Phase 5 complete - Clockify integration (sync, reports, status)
+  - v1.1.0: Phase 5.1 complete - Operational test fixes and integration
+
+workmain/ai/__init__.py
+  WorkmAIn AI Package
+  AI Package v1.3
+  20251229
+  
+  AI provider integration for report generation.
+  
+  This package provides:
+  - Abstract base provider class
+  - Provider manager with fallback
+  - Cost tracking system
+  - Claude client (Anthropic)
+  - Gemini client (Google AI)
+  - Prompt builder for report generation
+  - Report generator orchestrator
+  
+  Version History:
+  - v1.0: Initial package with base_provider, provider_manager, cost_tracker
+  - v1.1: Added Claude and Gemini client implementations
+  - v1.2: Added prompt_builder for AI report generation
+  - v1.3: Added report_generator orchestrator for complete pipeline
+
+workmain/ai/base_provider.py
+  WorkmAIn AI Base Provider
+  Base Provider v1.0
+  20251229
+  
+  Abstract base class for AI provider implementations.
+  Defines standard interface for Claude, Gemini, and future providers.
+  
+  All providers must implement:
+  - generate() for text generation
+  - estimate_cost() for cost calculation
+  - validate_config() for configuration validation
+
+workmain/ai/claude_client.py
+  WorkmAIn AI Claude Client
+  Claude Client v1.3
+  20260210
+  
+  Claude (Anthropic) provider implementation.
+  
+  Features:
+  - Anthropic SDK integration
+  - Claude Sonnet 4.5 support
+  - Token counting with tiktoken
+  - Retry logic with exponential backoff
+  - Streaming support (future)
+  - Cost tracking
+  
+  Version History:
+  - v1.0: Initial implementation
+  - v1.1: Fixed system prompt format (must be list of message blocks)
+  - v1.2: Only pass system parameter when provided (API rejects system=None)
+  - v1.3: Updated default model from claude-sonnet-4 to claude-sonnet-4-5
+  
+  Supports models:
+  - claude-sonnet-4-5-20250929 (recommended)
+  - claude-opus-4-20250514
+  - claude-sonnet-4-20250514
+
+workmain/ai/cost_tracker.py
+  WorkmAIn AI Cost Tracker
+  Cost Tracker v1.0
+  20251229
+  
+  Tracks AI usage costs per provider, per report, and per section.
+  Provides cost analytics and budget monitoring.
+  
+  Features:
+  - Per-section cost tracking (detailed)
+  - Per-report cost aggregation
+  - Provider-specific tracking
+  - Cost history and analytics
+  - Budget alerts
+
+workmain/ai/gemini_client.py
+  WorkmAIn AI Gemini Client
+  Gemini Client v1.6
+  20260210
+  
+  Gemini (Google AI) provider implementation.
+  
+  Features:
+  - Google GenAI SDK integration (google-genai package)
+  - Gemini 2.5 Flash support (paid tier)
+  - Native token counting
+  - Retry logic with exponential backoff
+  - Cost tracking
+  - Safety settings configuration
+  
+  Pricing (Gemini 2.5 Flash):
+  - Input: $0.15 per 1M tokens ($0.00015 per 1k)
+  - Output: $0.60 per 1M tokens ($0.0006 per 1k)
+  
+  Supports models:
+  - gemini-2.5-flash (recommended, current stable)
+  - gemini-2.0-flash
+  - gemini-2.0-flash-lite
+  
+  Version History:
+  - v1.0: Initial implementation with google-generativeai package
+  - v1.1: Updated for google-genai package (new official package name)
+  - v1.2: Removed system_instruction parameter (not supported in new API),
+          prepend to prompt instead; Fixed error handling for TypeErrors
+  - v1.3: Fixed metadata construction to safely handle None values in
+          candidates and safety_ratings
+  - v1.4: Updated cost defaults - incorrectly removed free tier
+  - v1.5: CORRECTED - Gemini 2.0 Flash HAS free tier (default $0/$0),
+          with paid tier option available
+  - v1.6: Updated default model from gemini-2.0-flash-exp (retired) to
+          gemini-2.5-flash; updated pricing to current paid tier rates
+
+workmain/ai/note_condenser.py
+  WorkmAIn Note Condenser
+  Note Condenser v1.4
+  20260203
+  
+  AI-powered condensation of meeting notes into one-line summaries for Clockify.
+  
+  Takes multiple meeting notes and condenses them into a professional, concise summary
+  suitable for time tracking entries.
+  
+  Version History:
+  - v1.0: Initial implementation with Claude integration
+  - v1.1: Fixed session attachment issue - now queries meeting from database
+  - v1.2: Added writing style context integration for consistent voice (Phase 5)
+  - v1.3: Phase 5.1 - Filter out info-only (#ifo) notes from condensation
+  - v1.4: Phase 5.1 - Return default "Attended <Meeting>" when all notes are #ifo
+
+workmain/ai/prompt_builder.py
+  WorkmAIn AI Prompt Builder
+  Prompt Builder v1.5
+  20260206
+  
+  Dynamic prompt construction for AI report generation.
+  
+  Features:
+  - Integrates template structure with database data
+  - Applies user's writing style
+  - Includes Master Log examples for context
+  - Manages context window limits
+  - Builds system and user prompts
+  - Supports both Claude and Gemini formats
+  
+  Version History:
+  - v1.0: Initial implementation
+  - v1.1: Fixed to use StyleAdapter.get_style_prompt() instead of non-existent get_style_for_ai()
+  - v1.2: Fixed repository method names (get_date_range not get_by_date_range),
+          meetings query directly since no get_date_range method exists
+  - v1.3: Phase 5.1 - Fixed meeting.duration_minutes (computed from start/end),
+          entry.duration_hours (was duration_minutes), attendees count
+  - v1.4: Phase 5.1 - Removed redundant Python-level tag filtering in _get_filtered_notes;
+          database-level filtering via notes_repo.get_date_range is sufficient
+  - v1.5: Fixed tag_filter key mismatch (was tags_filter); now matches template format
+  
+  Workflow:
+  1. Load template structure
+  2. Get relevant data from database (filtered by tags)
+  3. Load user's writing style preferences
+  4. Select relevant Master Log examples
+  5. Build comprehensive prompt
+  6. Manage token limits
+
+workmain/ai/provider_manager.py
+  WorkmAIn AI Provider Manager
+  Provider Manager v1.0
+  20251229
+  
+  Manages AI providers with intelligent fallback and selection.
+  
+  Features:
+  - Multi-provider support (Claude + Gemini)
+  - Per-report-type provider selection
+  - Configurable fallback (manual/automatic)
+  - Provider health monitoring
+  - Notification on fallback
+  - Cost-aware selection
+  
+  Fallback Modes:
+  - AUTO: Automatic fallback with notification
+  - MANUAL: Prompt user before fallback
+
+workmain/ai/report_generator.py
+  WorkmAIn AI Report Generator
+  Report Generator v1.6
+  20260203
+  
+  High-level orchestrator for AI report generation with database integration.
+  
+  Features:
+  - Orchestrates full report generation pipeline
+  - Combines prompt_builder + AI clients + templates
+  - Handles section-by-section generation (optional)
+  - Saves reports to files (markdown, text)
+  - Saves report metadata to database for analytics
+  - Provides generation status and logging
+  - Manages errors and retries
+  - Tracks costs in database (not JSON file)
+  
+  Version History:
+  - v1.0: Initial implementation
+  - v1.1: Fixed ProviderManager method calls (generate not generate_with_fallback),
+          Added provider registration in __init__
+  - v1.2: Fixed CostTracker.track_section() calls to match signature:
+          Added model, prompt_tokens, completion_tokens parameters
+          Convert provider enum to string (.value)
+  - v1.3: Integrated database storage for reports and costs
+          Added reports repository for database access
+          Costs now stored in reports.report_metadata JSONB field
+          Removed JSON file persistence
+  - v1.4: Fixed metadata column name (metadata → report_metadata) for SQLAlchemy compatibility
+  - v1.5: Added CostTracker lifecycle management (start_report/end_report)
+          Fixed "No active report" error
+  - v1.6: Phase 5.1 - Added subject line to report output; gets subject_line from template,
+          substitutes variables (day_name, date_long, user_full_name), includes in markdown header
+  
+  Workflow:
+  1. Load template and validate
+  2. Build prompts with prompt_builder
+  3. Start cost tracking (start_report)
+  4. Generate content with AI client
+  5. Track costs (track_section)
+  6. Format output
+  7. Save to file
+  8. Save to database with report_metadata (costs, tokens, provider)
+  9. End cost tracking (end_report with timing)
+
+workmain/cli/__init__.py
+  (no version header)
+
+workmain/cli/commands/__init__.py
+  (no version header)
+
+workmain/cli/commands/clockify.py
+  WorkmAIn CLI
+  Clockify Command Group
+  v1.2
+  20260116
+  
+  CLI commands for Clockify report retrieval and connection status.
+  
+  Commands:
+  - clockify report get: Download PDF report
+  - clockify status: Show connection and sync status
+  
+  Version History:
+  - v1.0: Initial implementation with report and status commands
+  - v1.1: Fixed import - use get_db() pattern instead of get_session()
+  - v1.2: Phase 5.1 - Fixed help text formatting with  escape sequence
+
+workmain/cli/commands/meetings.py
+  WorkmAIn Meeting CLI Commands
+  Meeting Commands v2.9
+  20260203
+  
+  CLI commands for meeting management.
+  
+  Version History:
+  - v1.0: Initial commands (list, show, rename, merge, delete)
+  - v2.0: Added meetings create and meeting condense commands
+  - v2.1: Phase 5 - Added recurring meeting support (--recurring, --until flags)
+  - v2.2: Phase 5.1 - Military time format support, meeting IDs always visible
+  - v2.3: Phase 5.1 - Workdays-only default, optional --until with 90-day default
+  - v2.4: Phase 5.1 - Added meetings delete alias for improved discoverability
+  - v2.5: Phase 5.1 - Added meetings track command for creating time entries
+  - v2.6: Phase 5.1 - Fixed help text formatting with  escape sequence
+  - v2.7: Phase 5.1 - meetings track checks for duplicates, uses condensed summary;
+          meeting condense creates note and updates/creates time entry
+  - v2.8: Phase 5.1 - Show date/time in meeting picker to distinguish recurring meetings
+  - v2.9: Phase 5.1 - Updated help text to clarify meetings track vs note meeting workflow
+
+workmain/cli/commands/note.py
+  WorkmAIn Note CLI Commands
+  Note Commands v2.8
+  20260210
+  
+  CLI commands for note management with tag support and meeting integration.
+  
+  Version History:
+  - v1.0: Initial implementation with inline tag parsing
+  - v1.1: Added --tags flag support for shell-friendly comma-separated tags
+  - v2.0: Added bulk meeting note entry command (note meeting)
+  - v2.1: Phase 5.1 - Meeting IDs and dates always visible in pickers
+  - v2.2: Phase 5.1 - Time tracking prompt when adding notes to meetings
+  - v2.3: Phase 5.1 - Fixed help text formatting with  escape sequence
+  - v2.4: Phase 5.1 - Fixed date() function shadowing datetime.date in notes date command
+  - v2.5: Phase 5.1 - Added condense + time entry prompt at end of note meeting command
+  - v2.6: Phase 5.1 - Show date/time in meeting picker to distinguish recurring meetings
+  - v2.7: Phase 5.1 - Updated help text to clarify note meeting as primary workflow
+  - v2.8: Phase 5.1 - Allow no-notes meeting to proceed to condensation instead of cancelling
+
+workmain/cli/commands/providers.py
+  WorkmAIn Provider CLI Commands
+  Provider Commands v1.4
+  20260210
+  
+  CLI commands for managing AI providers (Claude and Gemini).
+  
+  Commands:
+  - providers list: Show available providers and their status
+  - providers test <provider>: Test provider API connection
+  - providers costs: Show cost breakdown by provider
+  - providers set-default <provider> --for <type>: Set default provider (future)
+  
+  Version History:
+  - v1.0: Initial implementation with list, test, costs, and set-default commands
+  - v1.1: Fixed import to use get_db() instead of get_database()
+  - v1.2: Phase 5.1 - Fixed help text formatting with  escape sequence
+  - v1.3: Phase 5.1 - Updated Gemini model and cost display for gemini-2.5-flash
+  - v1.4: Phase 5.1 - Updated Claude fallback model to claude-sonnet-4-5-20250929
+
+workmain/cli/commands/report.py
+  WorkmAIn Report Commands - Phase 4 Implementation
+  Report Commands v1.7
+  20251230
+  
+  Dynamic alias resolution - any template or alias works as a command.
+  
+  Commands:
+  - report <template-or-alias> --preview / --send (any template/alias)
+  - report list
+  - report show <file>
+  - report costs
+  
+  Version History:
+  - v1.0: Generic structure (report generate <template>)
+  - v1.1: Adapted to match existing CLI structure (report daily/weekly)
+  - v1.2: Added alias resolution support for daily/weekly shortcuts
+  - v1.3: Added generic 'generate' command for custom templates/aliases
+  - v1.4: Dynamic alias resolution - any template/alias works as command
+          Removed hardcoded daily/weekly, cleaner design
+  - v1.5: Fixed report costs command to use correct CostTracker methods
+          (get_report_type_totals, get_provider_totals instead of get_all_costs)
+  - v1.6: Switched to database for report history and costs
+          Uses reports repository instead of filesystem scanning
+          Costs queried from reports.metadata JSONB field
+  - v1.7: Phase 5.1 - Fixed help text formatting with  escape sequence
+
+workmain/cli/commands/tasks.py
+  WorkmAIn Tasks CLI Commands
+  Tasks Commands v1.2
+  20260127
+  
+  CLI commands for task management (carry-forward tasks).
+  
+  Version History:
+  - v1.0: Initial implementation with carryover command
+  - v1.1: Phase 5.1 - Migrated to get_db() session management pattern
+  - v1.2: Phase 5.1 - Fixed help text formatting with  escape sequence
+
+workmain/cli/commands/templates.py
+  WorkmAIn Template CLI Commands
+  Template Commands v2.7
+  20251230
+  
+  CLI commands for template management with interactive creation and alias management.
+  
+  Version History:
+  - v1.0: Initial implementation with list, show, validate, preview
+  - v1.1: Fixed date module shadowing
+  - v1.2: Fixed renderer argument type
+  - v1.3: Fixed return value unpacking
+  - v1.4: Fixed output formatting
+  - v2.0: Added create and add-section commands for interactive template creation
+  - v2.1: Fixed loader method calls (load_template → load)
+  - v2.2: Fixed project root path (3 parents → 4 parents for correct templates/ location)
+  - v2.3: Added detailed error traceback to add_section for debugging
+  - v2.4: Fixed glob/Click conflict by replacing glob() with iterdir() for file search
+  - v2.5: Fixed list command to handle string template names (load each template for details)
+  - v2.6: Added alias management (register, unregister, list-aliases) for simplified CLI usage
+  - v2.7: Phase 5.1 - Fixed help text formatting with  escape sequence
+
+workmain/cli/commands/track.py
+  WorkmAIn Track CLI Commands
+  Track Commands v1.8
+  20260203
+  
+  CLI commands for time tracking with 24-hour format support and Clockify sync.
+  
+  Version History:
+  - v1.0: Initial implementation with track add/edit/delete and time view commands
+  - v1.1: Updated help text and examples to reflect enhanced time format support
+          (military time without colons, AM/PM without colons, backdating examples)
+  - v1.2: Phase 5 - Replaced sync placeholder with full Clockify sync implementation
+          Added sync push/pull/both subcommands with interactive progress
+  - v1.3: Phase 5.1 - Added --meeting and --notes flags for bidirectional integration
+          Time entries can now link to meetings with optional note creation
+  - v1.4: Phase 5.1 - Migrated to get_db() session management pattern
+  - v1.5: Phase 5.1 - Fixed help text formatting with  escape sequence
+  - v1.6: Phase 5.1 - Fixed get_session() NameError in sync push/pull/both;
+          added --show-ids group-level option to time command; added --tags flag
+          and auto-note creation on track add
+  - v1.7: Phase 5.1 - Added source='meeting' for --meeting --notes path;
+          clarified --tags help text to indicate it replaces default tag
+  - v1.8: Phase 5.1 - Made --time required to prevent NULL entry_time sync crashes;
+          updated help text to clarify command purpose vs note meeting workflow
+
+workmain/cli/interface.py
+  WorkmAIn
+  CLI Interface v1.0.0
+  20260116
+  
+  Main CLI interface using Click framework
+  Updated for Phase 5: Clockify Integration
+  
+  Version History:
+  - v0.1.0: Initial CLI with basic structure
+  - v0.2.0: Added Phase 2 note and meeting commands
+  - v0.3.0: Added time tracking commands
+  - v0.4.0: Added task management commands
+  - v0.5.0: Added template management commands (Phase 3)
+  - v0.6.0: Added template extensibility (Phase 3.5)
+  - v0.7.0: Added AI report generation (Phase 4) - PLACEHOLDER COMMANDS REMOVED
+  - v0.8.0: Added providers command group (Phase 4 Feature 2)
+  - v0.9.0: Phase 4 complete - Enhanced status display with Features 3 & 4
+  - v1.0.0: Phase 5 complete - Clockify integration (sync, reports, status)
+
+workmain/config_manager/__init__.py
+  (no version header)
+
+workmain/config_manager/alias_manager.py
+  WorkmAIn Template Alias Manager
+  Alias Manager v1.0
+  20251230
+  
+  Manages template aliases for simplified CLI usage.
+  
+  Features:
+  - Load aliases from config/template_aliases.json
+  - Register new aliases
+  - Unregister aliases
+  - Resolve alias to template name
+  - List all aliases
+  
+  Example:
+      alias_manager = get_alias_manager()
+      template_name = alias_manager.resolve("daily")  # Returns "daily_internal"
+      alias_manager.register("monthly", "monthly_executive")
+
+workmain/config_manager/loader.py
+  WorkmAIn
+  Configuration Loader v0.1.0
+  20251219
+  
+  Load and manage JSON configuration files with environment variable overrides
+
+workmain/config_manager/validator.py
+  WorkmAIn
+  Configuration Validator v0.1.0
+  20251219
+  
+  Validate configuration files against schemas
+
+workmain/core/__init__.py
+  (no version header)
+
+workmain/database/__init__.py
+  (no version header)
+
+workmain/database/connection.py
+  WorkmAIn
+  Database Connection v0.1.0
+  20251219
+  
+  Database connection management using SQLAlchemy
+
+workmain/database/migrations/__init__.py
+  (no version header)
+
+workmain/database/models.py
+  WorkmAIn Database Models
+  Database Models v1.4
+  20251231
+  
+  SQLAlchemy ORM models for WorkmAIn database.
+  Models: Note, TimeEntry, Meeting, Project
+  
+  These map to the PostgreSQL tables created by schema migrations.
+  
+  Version History:
+  - v1.0: Initial model creation
+  - v1.1: Fixed created_date to use Computed() for generated column compatibility
+  - v1.2: Added Report model for AI-generated reports
+  - v1.3: Fixed metadata → report_metadata for SQLAlchemy compatibility
+  - v1.4: Added condensation fields (meetings.condensed_summary, time_entries.meeting_id)
+
+workmain/database/repositories/__init__.py
+  (no version header)
+
+workmain/database/repositories/meetings_repo.py
+  WorkmAIn Meetings Repository
+  Meetings Repository v1.5
+  20260217
+  
+  Data access layer for meetings with fuzzy matching and recurring detection.
+  Handles all CRUD operations for the meetings table.
+  
+  Version History:
+  - v1.0: Initial implementation with fuzzy matching
+  - v1.1: Added get_by_title_and_date for recurring meeting disambiguation
+  - v1.2: Optimized fuzzy_match with PostgreSQL trigram similarity (O(log N))
+  - v1.3: Phase 5.1 - Added exclude_ifo parameter to get_note_count to filter #ifo notes
+  - v1.4: Fixed fuzzy_match to sort by date descending as secondary sort for recurring meetings
+  - v1.5: Fixed fuzzy_match secondary sort to use proximity-to-today (ascending) so today's
+          instance always ranks first instead of future recurring instances
+
+workmain/database/repositories/notes_repo.py
+  WorkmAIn Notes Repository
+  Notes Repository v1.3
+  20251222
+  
+  Data access layer for notes with tag filtering and full-text search.
+  Handles all CRUD operations for the notes table.
+  
+  Version History:
+  - v1.0: Initial repository creation
+  - v1.1: Fixed tag filtering to use PostgreSQL array overlap operator (&&)
+  - v1.2: Fixed exclude tags to use PostgreSQL array contains operator (@>)
+  - v1.3: Added tag normalization (dedup + sort) in create() and update() methods
+
+workmain/database/repositories/reports_repo.py
+  WorkmAIn Reports Repository
+  Reports Repository v1.1
+  20251231
+  
+  Repository for managing generated reports in the database.
+  
+  Provides methods to:
+  - Create report records with metadata
+  - Query reports by type, date, or cost
+  - Get cost summaries and analytics
+  - Link reports to files on disk
+  
+  Version History:
+  - v1.0: Initial implementation
+  - v1.1: Fixed metadata column name (metadata → report_metadata) to avoid SQLAlchemy conflict
+
+workmain/database/repositories/time_entries_repo.py
+  WorkmAIn Time Entries Repository
+  Time Entries Repository v1.3
+  20260116
+  
+  Data access layer for time entries with 24-hour time format.
+  Handles all CRUD operations for the time_entries table.
+  
+  Version History:
+  - v1.0: Initial implementation with CRUD operations, aggregations, and Clockify prep
+  - v1.1: Enhanced parse_time() to support military time format without colons
+          (1430, 0900, 930) and AM/PM without colons (230pm, 900am)
+  - v1.2: Added meeting_id support for linking time entries to meetings (Phase 4 Feature 4)
+  - v1.3: Phase 5 - Added get_by_clockify_id() for pull sync duplicate detection
+
+workmain/integrations/__init__.py
+  (no version header)
+
+workmain/integrations/clockify/__init__.py
+  WorkmAIn Clockify Integration
+  Package Init
+  v1.0
+  20260115
+  
+  Clockify API integration for time tracking synchronization.
+
+workmain/integrations/clockify/auth.py
+  WorkmAIn Clockify Integration
+  Authentication Manager
+  v1.0
+  20260115
+  
+  Manages Clockify API key authentication and validation.
+  
+  Version History:
+  - v1.0: Initial implementation with API key management
+
+workmain/integrations/clockify/client.py
+  WorkmAIn Clockify Integration
+  API Client
+  v1.1
+  20260202
+  
+  Clockify API client for time entry management and report retrieval.
+  
+  API Documentation: https://docs.clockify.me
+  
+  Version History:
+  - v1.0: Initial implementation with create, get, and PDF retrieval
+  - v1.1: Phase 5.1 - Convert local times to UTC before sending to Clockify;
+          improved error reporting with Clockify response body
+
+workmain/integrations/clockify/sync.py
+  WorkmAIn Clockify Integration
+  Sync Engine
+  v1.1
+  20260202
+  
+  Bidirectional sync between WorkmAIn and Clockify with conflict resolution.
+  
+  Version History:
+  - v1.0: Initial implementation with push, pull, and interactive conflict resolution
+  - v1.1: Phase 5.1 - Convert UTC times from Clockify to local timezone on pull
+
+workmain/notifications/__init__.py
+  (no version header)
+
+workmain/templates_engine/__init__.py
+  WorkmAIn Templates Engine
+  Templates Engine Package v1.2
+  20251226
+  
+  Template system for report generation.
+  
+  Version History:
+  - v1.0: Initial package with loader, validator, field_manager, renderer
+  - v1.1: Added style_adapter for writing style integration
+  - v1.2: Fixed validator singleton name (get_template_validator) and restored full package structure
+
+workmain/templates_engine/field_manager.py
+  WorkmAIn Field Manager
+  Field Manager v1.0
+  20251224
+  
+  Manages template fields and sections.
+  Handles data retrieval from database based on section configuration.
+
+workmain/templates_engine/loader.py
+  WorkmAIn Template Loader
+  Template Loader v1.1
+  20251224
+  
+  Loads and manages JSON template files for report generation.
+  Provides caching and validation of template structure.
+  
+  Version History:
+  - v1.0: Initial implementation
+  - v1.1: Fixed timedelta import bug in build_variables() method
+
+workmain/templates_engine/renderer.py
+  WorkmAIn Template Renderer
+  Template Renderer v1.0
+  20251224
+  
+  Renders templates by combining template structure with data.
+  Prepares data for AI processing and generates final output.
+
+workmain/templates_engine/style_adapter.py
+  WorkmAIn Style Adapter
+  Style Adapter v1.0
+  20251224
+  
+  Adapts AI prompts to match user's writing style.
+  Injects style guidance into template rendering for Phase 4 AI integration.
+
+workmain/templates_engine/validator.py
+  WorkmAIn Template Validator
+  Template Validator v1.1
+  20251226
+  
+  Validates templates against JSON schema and field definitions.
+  
+  Version History:
+  - v1.0: Initial implementation with schema validation
+  - v1.1: Added field definitions validation for data sources, tags, and formats
+
+workmain/utils/__init__.py
+  (no version header)
+
+workmain/utils/encryption.py
+  WorkmAIn
+  Encryption Utilities v0.1.0
+  20251219
+  
+  Encrypt/decrypt sensitive data like API keys
+  Uses Fernet symmetric encryption (AES 128)
+
+workmain/utils/tag_utils.py
+  WorkmAIn Tag Utilities
+  Tag Parser v1.0
+  20251222
+  
+  Provides tag parsing, validation, conversion, and display formatting.
+  Tags are case-insensitive, normalized, and validated against config/tags.json.
+
+workmain/web/__init__.py
+  (no version header)
+
+workmain/workflows/__init__.py
+  (no version header)
+

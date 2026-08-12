@@ -58,8 +58,28 @@ If you encounter anything the spec doesn't cover, or that requires a design deci
 
 ## Project Status
 
-- **Version:** `workmain/__version__.py` · **Backlog:** `docs/FEATURE_BACKLOG.md`
+- **Version:** `workmain/__version__.py` · **Work tracking:** GitHub Issues (`gh issue list`)
 - **Test suite:** `python -m pytest tests/`
+
+Item state, priority, and sequencing live in GitHub Issues — never in a document. Read them
+with the JSON fields, not the plain list, so parent/child structure and milestone are visible:
+
+```bash
+gh issue list --state open --limit 200 \
+  --json number,title,state,milestone,labels,parent,subIssuesSummary
+```
+
+- **Milestones** carry the exit condition that closes them. Requires `gh` ≥ 2.6x for
+  `parent` / `subIssues` / `subIssuesSummary` (Issues 2.0 support).
+- **Labels** carry area (`slack`, `cli`, `ai-llm`, `database`, …). `bug`/`enhancement` is
+  applied *only* to issues with no milestone — so a type label appearing inside a milestone
+  means that work was pulled in later, not planned as part of it.
+- **Parent issues** group work that must ship together; each child is independently
+  verifiable on its own.
+
+`docs/archive/FEATURE_BACKLOG.md` and `docs/archive/implementation-checklist.md` hold the
+pre-migration record for historical context only. They are not authoritative, are never
+updated, and must not be cited as the basis for a current decision.
 
 **Operating context:**
 
@@ -70,7 +90,7 @@ If you encounter anything the spec doesn't cover, or that requires a design deci
 | Document | Read it |
 | --- | --- |
 | `docs/DEVELOPMENT_STANDARDS.md` | Before committing, or writing any module, command, or test |
-| `docs/FEATURE_BACKLOG.md` | Before proposing features; check item status and ACs |
+| GitHub Issues — see command below | Before proposing features; check issue state, milestone, parent/sub-issues, and ACs |
 | `docs/AI_SETTINGS_GUIDE.md` | When editing AI provider config |
 
 ---
@@ -204,7 +224,7 @@ Made and closed. Do not re-open or work around these without Ray's explicit dire
 | OQ1 | DB `schedule_exceptions` is the canonical non-working-day store. `config/non_working_days.json` to be migrated into DB and retired. Schedule module grows `is_working_day(date)` and `is_working_hours(datetime)`; all callers converge on these. |
 | OQ2 | Show surfaces (`meetings today`): include cancelled — `get_by_date()` stays unfiltered by design. Inspect/notify surfaces: use `get_active_for_date()`. |
 | OQ3 | `os` → rename to `wsl-notify` (requires DB migration). `terminal` retired or repurposed as log-only. `slack` added as a first-class delivery method. Content generation decoupled from delivery. |
-| OQ4 | Shipped task↔time-entry matcher: keep, fix cancellability under #48. Note↔note dedup (the actual Item #32 AC): implement as the real #32 deliverable. Items #48 and #32 must be specced and implemented together. |
+| OQ4 | Task↔time-entry matcher kept and made cancellable; note↔note dedup implemented as Item #32's real deliverable. Specced and shipped together in Ops_Config_Correction_Sprint Gate 5 (v1.24.0): `_run_task_match_step()` (step `3c`) and `_run_note_dedup_step()` (step `3d`) in `eod_workflow.py`, both taking `cancel_event`. Dedup sets the dismissed note's pointer via `set_forwarding_note()`. |
 
 ---
 
@@ -214,7 +234,7 @@ Made and closed. Do not re-open or work around these without Ray's explicit dire
 - **`get_session()` is a method on `Database`, not a module-level function** — always `get_db()` first, then `db.get_session()`.
 - **SQLAlchemy session discipline** — objects must be re-queried within the session that will modify them; passing objects across session boundaries fails silently.
 - **Staged output path** — `staging/`, not `output/`; `output/` does not exist.
-- **Verify AC boxes before marking complete** — Item 32 was marked complete with all four ACs unmet; `set_forwarding()` has zero callers to this day.
+- **Verify AC boxes before marking complete** — Item 32 was marked complete in Phase 13 Sprint 2 with all four ACs unmet and had to be reopened; it was actually delivered in Ops_Config_Correction_Sprint Gate 5 (v1.24.0).
 - **`correction_note` vs `corrected_content`** — different fields, different write paths.
 - **Phase scope creep** is resolved through Spanner and Ray.
 - **Component-verified ≠ integration-verified** — trace handle and session provenance at every call site, diff drafted code against any claimed reference verbatim (not just shape), and never accept an elided "unchanged" block without checking it against the recon's own quote.
@@ -230,9 +250,14 @@ Made and closed. Do not re-open or work around these without Ray's explicit dire
   - `results/` (implementation results).
 - **Filenames are subject-based** — no version suffix, no date. Artifacts are updated in place, so filenames never change and citations never break.
 - **Every artifact carries a `Status:` field** — `Active`, `Shipped`, or `Superseded`.
-  - Retirement is a status edit, not a file move.
-  - There is no archive directory; git history
-  is the permanent record for anything removed.
+  - While work is live, retirement is a status edit, not a file move. An artifact stays
+    where it is, and where it is cited, for as long as it is being referenced.
+  - **`docs/archive/`** holds artifacts whose work is complete. Move an artifact there
+    once it is finished and no longer a live reference — it is kept for reference only,
+    is never authoritative, and is always superseded by the current `design/`, `specs/`,
+    and `results/`. It is git-tracked, so citations to it stay resolvable.
+  - Never cite an archived artifact as the basis for a current decision. If it still
+    governs something, it has not finished being live and does not belong in the archive.
 - **Specs carry a Decision Log** — decisions and review findings with their resolution, only.
   - Never a description of what changed in the document; git covers that.
   - Design and results artifacts carry neither a decision log nor a version history.
