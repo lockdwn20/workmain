@@ -43,6 +43,12 @@ choice between the mechanisms described in F2–F5 is an Analysis decision.
 - `CLAUDE.md` Project Status section
 - Test suite state (`python -m pytest tests/`)
 
+**Second read pass (20260814), during Analysis.** Undertaken to close N2, which F7 had left
+open. Same read-only contract. Examined: GraphQL `IssueTemplate` and `Repository.issueTypes`
+by introspection and live query; the full `gh issue create` flag set; the upstream state of
+`cli/cli#5865`; and `documentation` / `docs` label usage across all issue states. Produced
+F23–F27.
+
 **Deliberately not examined:**
 
 - `workmain/**` application code. Whether any child lands code there — the question that
@@ -81,6 +87,11 @@ choice between the mechanisms described in F2–F5 is an Analysis decision.
 | F20 | Both `documentation` (GitHub default) and `docs` (custom) labels exist, with overlapping meaning | `gh label list` | Low |
 | F21 | Test suite at recon time: **934 passed, 0 failed**, 30 warnings, 19.22s — matching the recorded baseline | `python -m pytest tests/` on `dev` | Low |
 | F22 | `workmain-notify.service` is a systemd `--user` unit, active since 2026-08-13 08:54 PDT, running `.venv/bin/python -m workmain.daemon.daemon`, postdating every merge on `dev` | `systemctl --user status`, `ps aux` | Low |
+| F23 | `gh issue create` carries **`--parent`, `--blocked-by`, `--blocking`, `--type`, `--project`, `--milestone`, `--label`**. Sub-issue linking and native issue *dependencies* are both reachable from the CLI at creation time. F7 examined `--template` only and did not establish this | `gh issue create --help` (2.97.0) | High |
+| F24 | `Repository.issueTemplates` is a **server-side** GraphQL field. Its full field set is `filename`, `name`, `title`, `body`, `about`, `labels`, `assignees`, `type` — `body` is a flat `String` with no field-level structure. Templates therefore take effect from the repository's **default branch**, not from the working tree. Live value at read time: `[]` | GraphQL introspection `__type(name:"IssueTemplate")`; live `repository(…){issueTemplates}` | High |
+| F25 | **`gh` does not support YAML issue forms.** Upstream request `cli/cli#5865` is OPEN, last updated 2025-02-16, unimplemented at 2.97.0. Consistent with F24: the GraphQL type exposes no per-field structure, so `validations: required` has no effect through any CLI path | `gh issue view 5865 --repo cli/cli`; F24 | High |
+| F26 | `Repository.issueTypes` returns **`null`** for this repository — native GitHub Issue Types are an organisation-level feature and are unavailable here. `gh issue create --type` (F23) is therefore inert, and the `bug`/`enhancement` label discriminator remains the only type mechanism | GraphQL live query | Medium |
+| F27 | The `documentation` label (GitHub default) carries **0 issues** across all states; the custom `docs` label carries **4** — #47, #48, #53, #59. F20's overlap is one-directional | `gh issue list --state all --label` | Low |
 
 ### Explicitly not verified
 
@@ -89,28 +100,33 @@ These are recorded as gaps rather than left silent:
 - **N1 — Whether `gh project item-list` returns items in `POSITION` order by default.**
   F6 establishes no ordering flag exists; it does not establish what the default ordering
   is. This cannot be tested without a Project containing items, which requires the write
-  scope absent per F8.
+  scope absent per F8. *Answered by Ray in Analysis — see Q1. Confirmable empirically once
+  a Project holds items; the recon did not establish it.*
 - **N2 — Whether `gh` supports YAML issue forms (`.yml`) as distinct from Markdown
   templates, and whether `validations: required` has any effect through the CLI path.**
   F7 quotes the help text only. No empirical test was possible: no templates exist (F14),
-  and creating them would exceed the read-only contract.
+  and creating them would exceed the read-only contract. **Closed by F24/F25 in the second
+  read pass: it does not, and `validations: required` has no CLI effect.**
 - **N3 — Whether a `NUMBER` field's values are returned by `gh project item-list --field`
-  in a form sortable client-side.** Blocked by the same absence as N1.
+  in a form sortable client-side.** Blocked by the same absence as N1. *Moot under Q1's
+  answer, which selects drag `POSITION` and creates no `NUMBER` field.*
 - **N4 — Whether any child requires code in `workmain/**`.** Depends on the mechanism
-  Analysis selects; see §2.
+  Analysis selects; see §2. *Closed by Q4.*
 
 ---
 
 ## 5. Open questions
 
+Answers are Ray's, recorded verbatim in substance during Analysis on 20260814.
+
 | Q | Question | Answer |
 | --- | --- | --- |
-| Q1 | Given F4, does rank come from drag `POSITION` (ordering only, no readable rank value, zero maintained fields) or from an explicit `NUMBER` field (readable and sortable, but a maintained field)? Determines #84's mechanism and whether #84's third AC — *"the Project carries order and nothing else"* — is satisfied by a rank field at all | |
-| Q2 | Does resolving N1/N2/N3 require granting the `project` scope (F8) before the spec is written, or can the spec carry the mechanism as a decision and let implementation verify it? | |
-| Q3 | Given F7, is #82's first AC — *"prompts every required field"* — achievable through the `gh` CLI path at all, or does it require the web UI? If it is not achievable, the AC needs rewording before the spec, not during implementation | |
-| Q4 | Does F18's precedent — `.githooks/` treated as chore-eligible while `commit-msg` actively rejects commits — settle `.claude/skills/` as non-behavioural dev tooling, or is a skill materially different? Determines the branch type per #80 | |
-| Q5 | Do F11/F12 mean milestone ordering is migrated into the Project as well, or does the Project rank issues only, leaving milestone sequence in prose? #84's second AC requires rank *within* a milestone but does not state whether milestones themselves are ranked | |
-| Q6 | Is F20 (`documentation` vs `docs`) in scope for #81, or a separate unscheduled item? | |
+| Q1 | Given F4, does rank come from drag `POSITION` (ordering only, no readable rank value, zero maintained fields) or from an explicit `NUMBER` field (readable and sortable, but a maintained field)? Determines #84's mechanism and whether #84's third AC — *"the Project carries order and nothing else"* — is satisfied by a rank field at all | **Drag `POSITION`.** `gh project item-list` returns items in board position order; the next item is obtained with `--limit`. Ray sets the order through the Web UI once the sequence is established. No `NUMBER` field is created, so #84's third AC is satisfied literally. Supersedes N1 |
+| Q2 | Does resolving N1/N2/N3 require granting the `project` scope (F8) before the spec is written, or can the spec carry the mechanism as a decision and let implementation verify it? | *Open — re-put to Ray after F23–F27 were recorded* |
+| Q3 | Given F7, is #82's first AC — *"prompts every required field"* — achievable through the `gh` CLI path at all, or does it require the web UI? If it is not achievable, the AC needs rewording before the spec, not during implementation | *Open — re-put to Ray after F23–F27 were recorded* |
+| Q4 | Does F18's precedent — `.githooks/` treated as chore-eligible while `commit-msg` actively rejects commits — settle `.claude/skills/` as non-behavioural dev tooling, or is a skill materially different? Determines the branch type per #80 | **Not a live question.** Closed by Ray as splitting hairs on a non-issue. Branch type follows #80's stated rule without further distinction. Closes N4 |
+| Q5 | Do F11/F12 mean milestone ordering is migrated into the Project as well, or does the Project rank issues only, leaving milestone sequence in prose? #84's second AC requires rank *within* a milestone but does not state whether milestones themselves are ranked | **Migrated into the Project.** Resolving F11/F12 is the reason the Project is being implemented at all; milestone sequence does not remain in prose. Mechanism for expressing milestone-level order is a follow-up, since a ProjectV2 holds issues, PRs and drafts but not milestones |
+| Q6 | Is F20 (`documentation` vs `docs`) in scope for #81, or a separate unscheduled item? | **`documentation` is canonical** — it is a GitHub system label; `docs` is removed in favour of it. Per F27 this relabels #47, #48, #53, #59 and deletes an unused label. Scope — #81 or a separate item — is a follow-up |
 
 ---
 
