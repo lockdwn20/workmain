@@ -19,6 +19,13 @@
 | 20260814 | Spanner | §1.3 and CLAUDE.md Project Status are the only two carriers of tracking semantics — no third copy exists | Verified, see §2 C5. Consolidation is a two-file change |
 | 20260814 | Ray | The gate table in this spec's first draft was a task list with approval ceremony attached. Gates compensated for oversized scope in the archive specs; once one issue is one independently verifiable outcome, per-step approval buys nothing | Accepted. §4 is **Steps**, not gates. Approval attaches to *irreversible actions* — here, one: deleting the `docs` label. Reversible text edits on a branch carry no stop |
 | 20260814 | Ray | Revising gate discipline itself in `CLAUDE.md` and `DEVELOPMENT_STANDARDS.md`, and reviewing the two for conflicts, is **not** in this spec | Filed as its own child of #80. Folding a standards revision into a documentation-consolidation issue is how the archive specs grew. This spec adopts the steps/authorization shape ahead of that issue and does not codify it |
+| 20260814 | Caliper | F3, F5 — AC1.1 greps the whole file while claiming a range; AC1.3 alternation passes on a partial result | Accepted. AC1.1 uses the `sed` range form; AC1.3 split into AC1.3a and AC1.3b, each a single assertion |
+| 20260814 | Caliper | F6 — `gh issue list --label <nonexistent>` returns `[]` with exit 0, so AC2.1's post-deletion check is vacuous | Accepted, and independently reproduced. AC2.1 now verifies the additive half **before** the authorization point, against list `L` captured at Step 2 start, and is the evidence Ray approves against |
+| 20260814 | Caliper | F7 — AC4.1 let the implementer choose the phrase, so its strictness was theirs | Accepted. The phrase list is fixed in the AC |
+| 20260814 | Caliper | F8, F9 — C4 cited `CLAUDE.md:76-77` for a rule at 77-78; C2's range overran into out-of-scope content | Accepted, both re-verified against source. C4 → 77-78, C2 → 61-82 with the exclusion stated |
+| 20260814 | Caliper | F10 — AC2.1 hardcoded the issue list while C7 says to re-derive | Accepted. The list is derived at Step 2 start and recorded in the commit message. C7 keeps its numbers: it is a dated observation carrying its evidence, not a claim about live state |
+| 20260814 | Caliper | **F1 — Step 3's "every rule removed" contradicts §1's out-of-scope list, and the retained `gh` ≥ 2.6x sentence is welded to a deleted one** | **OPEN-1 — blocking Step 3, pending Ray** |
+| 20260814 | Caliper | **F2 — DR5 requires an enumerated area-label set that the spec never enumerates, and the migration makes "defaults are types, customs are areas" false** | **OPEN-2 — blocking Step 1, pending Ray** |
 
 ---
 
@@ -50,9 +57,9 @@
 | # | Claim | Evidence |
 | --- | --- | --- |
 | C1 | §1.3 is four bullets and states *"a milestone for sequencing and labels for area"*. It does not mention the `bug`/`enhancement` type discriminator, does not name any area label, and does not define parent/child beyond "a parent issue with children" | `docs/DEVELOPMENT_STANDARDS.md:40-53` |
-| C2 | CLAUDE.md Project Status carries the full semantics — the `gh --json` command, the milestone exit-condition rule with the `gh` ≥ 2.6x floor, the area-label list with the type-discriminator rule, and the parent-issue rule | `CLAUDE.md:59-97` |
+| C2 | CLAUDE.md Project Status carries the full semantics — the `gh --json` command, the milestone exit-condition rule with the `gh` ≥ 2.6x floor, the area-label list with the type-discriminator rule, and the parent-issue rule | `CLAUDE.md:61-82`. The range stops at 82 deliberately: 84-88 is the Operating context block and 90-94 the Document table, both out of scope per §1 |
 | C3 | The milestone exit-condition rule is stated in **both** documents — `DEVELOPMENT_STANDARDS.md:47-48` and `CLAUDE.md:72-73`. This is a live duplication, not merely an omission | Both cited lines |
-| C4 | The parent/child rule is stated in **both** — *"An issue must be independently verifiable on its own"* (`DEVELOPMENT_STANDARDS.md:45-46`) and *"each child is independently verifiable on its own"* (`CLAUDE.md:76-77`) | Both cited lines |
+| C4 | The parent/child rule is stated in **both** — *"An issue must be independently verifiable on its own"* (`DEVELOPMENT_STANDARDS.md:45-46`) and *"each child is independently verifiable on its own"* (`CLAUDE.md:77-78`) | Both cited lines |
 | C5 | No third document carries these rules. A grep for the discriminator, `milestone for sequencing`, `labels for area`, and `subIssuesSummary` across all tracked `.md` outside `docs/archive/` returns hits in exactly these two files | `grep -rn --include=*.md`, repo root |
 | C6 | Both documents open by declaring the boundary: CLAUDE.md — *"`docs/DEVELOPMENT_STANDARDS.md` owns how we build … Nothing is duplicated between them"*; DEVELOPMENT_STANDARDS.md — *"`CLAUDE.md` owns who does what … Nothing here is duplicated in `CLAUDE.md`"*. Both statements are currently false | `CLAUDE.md:5-9`; `docs/DEVELOPMENT_STANDARDS.md:3-7` |
 | C7 | The `documentation` label exists and carries no issues in any state; the custom `docs` label carries four — #47, #48, #53, #59 | Recon F27; re-derive at execution with `gh issue list --state all --label` |
@@ -89,7 +96,7 @@ before continuing would buy nothing and cost a round-trip each.
 
 | Step | Deliverable | Files | Verification |
 | --- | --- | --- | --- |
-| 1 | §1.3 rewritten as the single owner — label semantics incl. the type discriminator and the enumerated area set (DR5), milestone semantics incl. the exit condition, parent/child semantics, and the sequencing-lives-in-GitHub statement (DR4) | `docs/DEVELOPMENT_STANDARDS.md` | AC1.1, AC1.2, AC1.3 |
+| 1 | §1.3 rewritten as the single owner — label semantics incl. the type discriminator and the enumerated area set (DR5), milestone semantics incl. the exit condition, parent/child semantics, and the sequencing-lives-in-GitHub statement (DR4) | `docs/DEVELOPMENT_STANDARDS.md` | AC1.1, AC1.2, AC1.3a, AC1.3b |
 | 2 | Label migration — `documentation` applied to every issue carrying `docs`, then `docs` deleted. **Contains the authorization point below** | GitHub only, no files | AC2.1, AC2.2 |
 | 3 | CLAUDE.md Project Status reduced to the `gh` command (DR2), the archive warning (DR3), and a pointer to §1.3. Every rule removed | `CLAUDE.md` | AC3.1, AC3.2, AC3.3 |
 | 4 | Cross-document verification — no rule stated twice; both files' opening boundary claims (C6) are now true | both | AC4.1, AC4.2 |
@@ -115,19 +122,21 @@ is independent of step boundaries.
 ## 5. Acceptance criteria
 
 Mapped to #81's three ACs: AC1.x and AC4.x carry #81's first, AC3.x its second, AC4.1 its
-third. AC2.x carries Ray's Q6 decision.
+third. AC2.x carries Ray's Q6 decision. Each row is a single assertion — no row passes on a
+partial result via an alternation.
 
 | AC | Criterion | How it is checked |
 | --- | --- | --- |
-| AC1.1 | §1.3 states the type-label discriminator | `grep -n 'enhancement' docs/DEVELOPMENT_STANDARDS.md` returns a hit inside the §1.3 line range |
-| AC1.2 | §1.3 enumerates the area labels in use, with no `…` elision | `sed -n '/### 1.3/,/^---/p' docs/DEVELOPMENT_STANDARDS.md \| grep -c '…'` returns `0`, and the same range contains each label returned by `gh label list` that is an area label |
-| AC1.3 | §1.3 states milestone and parent/child semantics | `sed -n '/### 1.3/,/^---/p' docs/DEVELOPMENT_STANDARDS.md \| grep -E 'exit condition\|parent'` returns hits for both |
-| AC2.1 | No open or closed issue carries the `docs` label, and each issue that did carries `documentation` | `gh issue list --state all --limit 300 --label docs --json number` returns `[]`; the same query on `documentation` includes #47, #48, #53, #59 |
+| AC1.1 | §1.3 states the type-label discriminator | `sed -n '/### 1.3/,/^---/p' docs/DEVELOPMENT_STANDARDS.md \| grep -c 'enhancement'` returns non-zero |
+| AC1.2 | §1.3 enumerates the canonical area-label set with no `…` elision | `sed -n '/### 1.3/,/^---/p' docs/DEVELOPMENT_STANDARDS.md \| grep -c '…'` returns `0`, and the same range contains a literal hit for every label named in DR5's fixed set — **pending, see OPEN-2** |
+| AC1.3a | §1.3 states the milestone exit-condition rule | `sed -n '/### 1.3/,/^---/p' docs/DEVELOPMENT_STANDARDS.md \| grep -c 'exit condition'` returns non-zero |
+| AC1.3b | §1.3 states parent/child semantics | `sed -n '/### 1.3/,/^---/p' docs/DEVELOPMENT_STANDARDS.md \| grep -c 'parent'` returns non-zero |
+| AC2.1 | Every issue that carried `docs` also carries `documentation`, checked **before** the label is deleted | Capture `gh issue list --state all --limit 300 --label docs --json number` at Step 2 start as list `L`, recorded in the Step 2 commit message. After the additive half, `gh issue list --state all --limit 300 --label documentation --json number` contains every element of `L`. This check is the evidence presented at the authorization point — a post-deletion `--label docs` query returns `[]` with exit 0 even when the label never existed, so it proves nothing and is not used |
 | AC2.2 | The `docs` label no longer exists | `gh label list --limit 100 \| grep -w docs` returns nothing |
 | AC3.1 | CLAUDE.md Project Status contains no tracking-semantics rule | `sed -n '/^## Project Status/,/^## Tech Stack/p' CLAUDE.md \| grep -E 'exit condition\|independently verifiable\|applied \*only\*'` returns nothing |
 | AC3.2 | CLAUDE.md Project Status retains the `gh issue list --json` command verbatim | `grep -n 'subIssuesSummary' CLAUDE.md` returns a hit |
 | AC3.3 | CLAUDE.md Project Status points to §1.3 by name | `sed -n '/^## Project Status/,/^## Tech Stack/p' CLAUDE.md \| grep '§1.3'` returns a hit |
-| AC4.1 | No tracking-semantics rule appears in both documents | For each rule sentence added to §1.3 in Step 1, a `grep -F` of its distinguishing phrase across `CLAUDE.md` returns zero hits |
+| AC4.1 | No tracking-semantics rule appears in both documents | `grep -F` each of these fixed phrases across `CLAUDE.md`, all returning zero hits: `exit condition`, `independently verifiable`, `applied *only*`, `carry area`, `group work that must ship together`. The list is fixed here rather than left to the implementer, so the AC's strictness is not theirs to choose |
 | AC4.2 | The test suite is unaffected | `python -m pytest tests/` — same pass count as the baseline recorded at Step 1, zero failures |
 
 ## 6. Test plan
@@ -144,7 +153,7 @@ No code changes, so no new tests. `pytest` runs as a regression guard only.
 
 | Risk | Blast radius | Rollback |
 | --- | --- | --- |
-| Step 2 deletes `docs` before `documentation` is applied, losing the association on four issues | Four issues silently lose their area label; not recoverable from the API | DR6 orders it additive-first. Rollback is manual re-application from the AC2.1 issue list, which is why that list is recorded in C7 before the step runs |
+| Step 2 deletes `docs` before `documentation` is applied | Every issue carrying `docs` silently loses its area label; not recoverable from the API | DR6 orders it additive-first, and AC2.1 verifies the additive half **before** the authorization point rather than after deletion. Rollback is manual re-application from list `L`, which is why `L` is captured at Step 2 start and recorded in the commit message |
 | §1.3 absorbs sequencing mechanics ahead of #84 | The standard names Project #3 before the spec establishing it is approved; needs re-editing when #84 lands | DR4 forbids it; AC-checked by the absence of any Project reference in the §1.3 range |
 | A rule is moved into §1.3 but not deleted from CLAUDE.md, leaving the duplication that #81 exists to remove | The defect survives its own fix | AC4.1 checks each moved sentence's phrase against CLAUDE.md rather than checking only that CLAUDE.md got shorter |
 | Wording drift on documents Ray owns | Ray is final authority on all documentation | Steps 1 and 3 are committed separately, so each diff is reviewable on its own and revertible on its own |
