@@ -31,7 +31,7 @@
 | 20260814 | Caliper | G5 — AC1.2 was itself a four-name register, and passed on an untouched file | Accepted, and it was the same defect as F2 one level down. Replaced with Caliper's derived form, which excludes only the type discriminator — a rule, not a list — and additionally catches `documentation` leaking into §1.3 |
 | 20260814 | Caliper | G6 — a risk row asserted an AC-checked control with no AC behind it | Accepted. AC1.4 added |
 | 20260814 | Caliper | G7, G8 — "four issues" residue in rollback; AC3.5 not runnable after commit | Accepted. Rollback references list `L`; AC3.5 carries both pre- and post-commit forms |
-| 20260814 | Caliper | **G1 — DR4 puts the sequencing rule in §1.3 while `CLAUDE.md:64` already states it, recreating the duplication #81 exists to remove** | **OPEN-3 — blocking, pending Ray.** DR4 has been struck for now and AC1.4 narrowed to the mechanism check only |
+| 20260814 | Caliper | G1 — DR4 put the sequencing rule in §1.3 while `CLAUDE.md:64` already states it, recreating the duplication #81 exists to remove | Accepted, **closed 20260814**. §1.3 says nothing about sequencing; `CLAUDE.md:64` stays sole owner. Ray: *"By our rules it should be option 2, I don't know why we are discussing it"* — DR1 plus DR2's existing precedent already decided this, and presenting it as a three-way choice was a wasted turn |
 | 20260814 | Ray | **F2 dissolved by deleting DR5.** DR5 was Spanner's invention, not a Ray decision, and it proposed a maintained label register inside the section that forbids registers. Labels carry descriptions on GitHub; that is the source of truth | Accepted. §1.3 states label *rules* only. Root cause: reaching for a static list because a static list is the cheapest thing to write a `grep` against — a copy is always a maintained artifact. Do not trade a maintenance burden for AC convenience |
 
 ---
@@ -83,11 +83,12 @@
   is tracked. It is the one intentional exception to DR1 and is not duplicated into §1.3.
 - **DR3 — The archive warning stays in CLAUDE.md.** It governs what may be cited as the
   basis for a decision, which is orientation, not build process.
-- **DR4 — §1.3 names no sequencing *mechanism*.** #84 has not shipped. Naming Project #3
-  here would put a mechanism in the standards ahead of the spec that establishes it, and
-  would need editing again the moment #84 lands. **Whether §1.3 states that sequencing lives
-  in GitHub at all is OPEN-3** — `CLAUDE.md:64` already says it, so stating it in §1.3 too
-  would breach DR1.
+- **DR4 — §1.3 says nothing about sequencing at all.** `CLAUDE.md:64` already states that
+  state, priority and sequencing live in GitHub Issues, and it remains the sole owner of that
+  sentence — the same orient-versus-govern split that keeps the `gh` command in CLAUDE.md
+  under DR2. §1.3 restating it would breach DR1. §1.3 also names no sequencing *mechanism*:
+  #84 has not shipped, and naming Project #3 would put a mechanism in the standards ahead of
+  the spec that establishes it.
 - **DR5 — §1.3 states label rules, never a label list.** What a label means is its
   description on GitHub, readable with `gh label list`. Enumerating labels in prose would
   create exactly the register §1.3 forbids, and it would go stale the first time a label is
@@ -110,7 +111,7 @@ resequenced. The mapping is in the table.
 
 | Step | Deliverable | Files | Verification |
 | --- | --- | --- | --- |
-| 1 | §1.3 rewritten as the single owner — label semantics incl. the type discriminator (DR5), milestone semantics incl. the exit condition, and parent/child semantics. **Sequencing wording blocked on OPEN-3** | `docs/DEVELOPMENT_STANDARDS.md` | AC1.1, AC1.2, AC1.3a, AC1.3b, AC1.4 |
+| 1 | §1.3 rewritten as the single owner — label semantics incl. the type discriminator (DR5), milestone semantics incl. the exit condition, and parent/child semantics. Says nothing about sequencing (DR4) | `docs/DEVELOPMENT_STANDARDS.md` | AC1.1, AC1.2, AC1.3a, AC1.3b, AC1.4, AC1.5 |
 | 2 | **Delete exactly three bullets** from CLAUDE.md Project Status — Milestones, Labels, Parent issues (`CLAUDE.md:72-78` at authoring time; anchor on the bullet text, not the numbers). **Insert in their place** the two lines given below. Nothing else in the section is touched | `CLAUDE.md` | AC3.1 – AC3.5 |
 | 3 | Cross-document verification — no rule stated twice; both files' opening boundary claims (C6) are now true | both | AC4.1, AC4.2 |
 | 4 | Label migration — `documentation` applied to every issue carrying `docs`, then `docs` deleted. **Contains the authorization point below** | GitHub only, no files | AC2.1, AC2.2 |
@@ -171,6 +172,7 @@ partial result via an alternation.
 | AC1.3a | §1.3 states the milestone exit-condition rule | `sed -n '/### 1.3/,/^---/p' docs/DEVELOPMENT_STANDARDS.md \| grep -c 'exit condition'` returns non-zero |
 | AC1.3b | §1.3 states parent/child semantics | `sed -n '/### 1.3/,/^---/p' docs/DEVELOPMENT_STANDARDS.md \| grep -c 'parent'` returns non-zero |
 | AC1.4 | §1.3 names no sequencing mechanism, per DR4 | `sed -n '/### 1.3/,/^---/p' docs/DEVELOPMENT_STANDARDS.md \| grep -cE 'Project #3\|WorkmAIn Queue\|item-list'` returns `0` |
+| AC1.5 | §1.3 does not restate where sequencing lives — `CLAUDE.md:64` stays sole owner, per DR4 | `sed -n '/### 1.3/,/^---/p' docs/DEVELOPMENT_STANDARDS.md \| grep -ciE 'live in GitHub\|lives in GitHub\|never in a document'` returns `0` |
 | AC2.1 | Every issue that carried `docs` also carries `documentation`, checked **before** the label is deleted | Capture `gh issue list --state all --limit 300 --label docs --json number` at Step 4 start as list `L`, recorded in the Step 4 commit message. After the additive half, `gh issue list --state all --limit 300 --label documentation --json number` contains every element of `L`. This check is the evidence presented at the authorization point — a post-deletion `--label docs` query returns `[]` with exit 0 even when the label never existed, so it proves nothing and is not used |
 | AC2.2 | The `docs` label no longer exists | `gh label list --limit 100 \| grep -w docs` returns nothing |
 | AC3.1 | The three bullets are gone | `sed -n '/^## Project Status/,/^## Tech Stack/p' CLAUDE.md \| grep -cE '\*\*Milestones\*\*\|\*\*Labels\*\*\|\*\*Parent issues\*\*'` returns `0` |
