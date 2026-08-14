@@ -93,6 +93,10 @@ F23–F27.
 | F26 | `Repository.issueTypes` returns **`null`** for this repository — native GitHub Issue Types are an organisation-level feature and are unavailable here. `gh issue create --type` (F23) is therefore inert, and the `bug`/`enhancement` label discriminator remains the only type mechanism | GraphQL live query | Medium |
 | F27 | The `documentation` label (GitHub default) carries **0 issues** across all states; the custom `docs` label carries **4** — #47, #48, #53, #59. F20's overlap is one-directional | `gh issue list --state all --label` | Low |
 | F28 | **F8 is superseded.** The active token now holds `project` (write) alongside `repo` and `workflow`. Creating and modifying Projects is possible as of 20260814 | `gh auth status` — scopes list | High |
+| F29 | Project **#3 "WorkmAIn Queue"** exists, is linked to `lockdwn20/workmain`, and holds all **57** open issues. Its 13 fields are all GitHub built-ins — `Title`, `Assignees`, `Status`, `Labels`, `Linked pull requests`, `Milestone`, `Repository`, `Reviewers`, `Parent issue`, `Sub-issues progress`, `Created`, `Updated`, `Closed`. **No custom field was created.** F10 is superseded as the description of live Project state | `gh project create/link/item-add`, `gh project field-list` | High |
+| F30 | **N1 is confirmed empirically.** A Web UI reorder propagates to both `gh project item-list` and GraphQL `items(orderBy:{field:POSITION})`, which return byte-identical sequences. Drag position is therefore readable as an ordering with zero maintained fields. Two traps: F6's default `--limit 30` silently truncates a 57-item queue, and the board's **"show hierarchy" display setting** nests sub-issues under their parent visually while leaving their position untouched — a display artifact, not an ordering fact | Reorder performed by Ray 20260814; before/after reads compared | High |
+| F31 | `gh project item-list --format json` emits `milestone` (`.title`, `.description`, `.dueOn`), `labels`, and `status` at the **item** top level, not under `.content`. Rank, milestone and area labels therefore come from a **single** CLI call with no browser | `gh project item-list --format json`, item #29 | High |
+| F32 | GitHub **auto-populates** the built-in `Status` field to `Todo` on every item added — all 57 carry it. `Status` is a built-in single-select that cannot be deleted, only hidden in a view | `gh project item-list --format json`, status histogram | Medium |
 
 ### Explicitly not verified
 
@@ -101,8 +105,8 @@ These are recorded as gaps rather than left silent:
 - **N1 — Whether `gh project item-list` returns items in `POSITION` order by default.**
   F6 establishes no ordering flag exists; it does not establish what the default ordering
   is. This cannot be tested without a Project containing items, which requires the write
-  scope absent per F8. *Answered by Ray in Analysis — see Q1. Confirmable empirically once
-  a Project holds items; the recon did not establish it.*
+  scope absent per F8. **Closed by F30: it does.** Answered by Ray in Analysis (Q1) and then
+  confirmed empirically against Project #3 once F28 removed the scope obstacle.
 - **N2 — Whether `gh` supports YAML issue forms (`.yml`) as distinct from Markdown
   templates, and whether `validations: required` has any effect through the CLI path.**
   F7 quotes the help text only. No empirical test was possible: no templates exist (F14),
@@ -122,18 +126,22 @@ Answers are Ray's, recorded verbatim in substance during Analysis on 20260814.
 
 | Q | Question | Answer |
 | --- | --- | --- |
-| Q1 | Given F4, does rank come from drag `POSITION` (ordering only, no readable rank value, zero maintained fields) or from an explicit `NUMBER` field (readable and sortable, but a maintained field)? Determines #84's mechanism and whether #84's third AC — *"the Project carries order and nothing else"* — is satisfied by a rank field at all | **Drag `POSITION`.** `gh project item-list` returns items in board position order; the next item is obtained with `--limit`. Ray sets the order through the Web UI once the sequence is established. No `NUMBER` field is created, so #84's third AC is satisfied literally. Supersedes N1 |
+| Q1 | Given F4, does rank come from drag `POSITION` (ordering only, no readable rank value, zero maintained fields) or from an explicit `NUMBER` field (readable and sortable, but a maintained field)? Determines #84's mechanism and whether #84's third AC — *"the Project carries order and nothing else"* — is satisfied by a rank field at all | **Drag `POSITION`.** `gh project item-list` returns items in board position order; the next item is obtained with `--limit`. Ray sets the order through the Web UI once the sequence is established. No `NUMBER` field is created, so #84's third AC is satisfied literally. Confirmed empirically by F30 |
 | Q2 | Does resolving N1/N2/N3 require granting the `project` scope (F8) before the spec is written, or can the spec carry the mechanism as a decision and let implementation verify it? | **Moot — the scope is already granted.** Confirmed as F28. N3 is moot under Q1; N1 is answered by Ray and is now empirically confirmable |
 | Q3 | Given F7, is #82's first AC — *"prompts every required field"* — achievable through the `gh` CLI path at all, or does it require the web UI? If it is not achievable, the AC needs rewording before the spec, not during implementation | **Neither.** Issue content is authored as **JSON**; a **client-side script validates the JSON** and streams it into `gh issue create` parameters. Required-field enforcement moves from the template (impossible per F24/F25) to the validator, and F23's `--parent`/`--label`/`--milestone`/`--blocked-by` are populated from the same JSON at creation time. Stays wholly on the CLI; no web UI |
 | Q4 | Does F18's precedent — `.githooks/` treated as chore-eligible while `commit-msg` actively rejects commits — settle `.claude/skills/` as non-behavioural dev tooling, or is a skill materially different? Determines the branch type per #80 | **Not a live question.** Closed by Ray as splitting hairs on a non-issue. Branch type follows #80's stated rule without further distinction. Closes N4 |
 | Q5 | Do F11/F12 mean milestone ordering is migrated into the Project as well, or does the Project rank issues only, leaving milestone sequence in prose? #84's second AC requires rank *within* a milestone but does not state whether milestones themselves are ranked | **Migrated into the Project.** Resolving F11/F12 is the reason the Project is being implemented at all; milestone sequence does not remain in prose. Mechanism for expressing milestone-level order is a follow-up, since a ProjectV2 holds issues, PRs and drafts but not milestones |
 | Q6 | Is F20 (`documentation` vs `docs`) in scope for #81, or a separate unscheduled item? | **`documentation` is canonical** — it is a GitHub system label; `docs` is removed in favour of it. Per F27 this relabels #47, #48, #53, #59 and deletes an unused label. Scope — #81 or a separate item — is a follow-up |
-| Q5a | A Project board holds issues, PRs and drafts — not milestones. With milestone sequence coming out of prose (Q5), how is milestone-level order expressed? | **Through the board's milestone column.** Milestone is a shared field, so it can be added as a board column and the board can be **grouped by milestone**. Being shared, the same field is settable from the CLI as `gh issue create --milestone`. *Note: F11 records all five milestones as `due_on: null`, so how GitHub orders the groups themselves is not established by this recon and is empirically testable now that F28 holds.* |
+| Q5a | A Project board holds issues, PRs and drafts — not milestones. With milestone sequence coming out of prose (Q5), how is milestone-level order expressed? | **Through the board's milestone column.** Milestone is a shared field, so it can be added as a board column and the board can be **grouped by milestone**. Being shared, the same field is settable from the CLI as `gh issue create --milestone`. *Superseded in practice by F31: milestone arrives on each item in the same `item-list` call that carries rank, so a single flat ranked read yields both within-milestone and across-milestone order without relying on how GitHub sorts groups.* |
 | Q6a | Does the `docs`→`documentation` relabel ride #81, or become its own item? | **Either is acceptable** — within #81, or as a sub-issue of #81 |
 
 ---
 
 ## 6. Disposition
 
-- Promoted to: *pending — Analysis with Ray*
+Analysis with Ray is complete — Q1–Q6 and the two follow-ups are answered, and every
+"explicitly not verified" gap is closed (N1 by F30, N2 by F24/F25, N3 moot under Q1, N4 by
+Q4). The ranked queue exists as Project #3.
+
+- Promoted to: *pending — spec, not yet written*
 - Superseded by: *n/a*
