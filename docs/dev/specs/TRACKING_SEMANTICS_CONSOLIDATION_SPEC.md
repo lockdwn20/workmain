@@ -32,6 +32,9 @@
 | 20260814 | Caliper | G6 — a risk row asserted an AC-checked control with no AC behind it | Accepted. AC1.4 added |
 | 20260814 | Caliper | G7, G8 — "four issues" residue in rollback; AC3.5 not runnable after commit | Accepted. Rollback references list `L`; AC3.5 carries both pre- and post-commit forms |
 | 20260814 | Caliper | G1 — DR4 put the sequencing rule in §1.3 while `CLAUDE.md:64` already states it, recreating the duplication #81 exists to remove | Accepted, **closed 20260814**. §1.3 says nothing about sequencing; `CLAUDE.md:64` stays sole owner. Ray: *"By our rules it should be option 2, I don't know why we are discussing it"* — DR1 plus DR2's existing precedent already decided this, and presenting it as a three-way choice was a wasted turn |
+| 20260814 | Caliper | H1 — DR4 says §1.3 says nothing about sequencing, but no AC caught the bare word, and §1.3's current text carries *"milestone for sequencing"* | Accepted, reproduced: the phrase is live today and would have passed every AC. Folded into AC1.5 |
+| 20260814 | Caliper | H2 — AC1.2 grepped bare label names, and `process`, `tests`, `reports`, `templates`, `daemon`, `documentation` are ordinary words a section about process may use | Accepted. Matches the backticked form instead, which is the artifact DR5 actually forbids |
+| 20260814 | Caliper | H3 — the risk table still cited pre-renumbering step numbers | Accepted. The G3 Decision Log row keeps its original numbering as historical record; only live guidance was corrected |
 | 20260814 | Ray | **F2 dissolved by deleting DR5.** DR5 was Spanner's invention, not a Ray decision, and it proposed a maintained label register inside the section that forbids registers. Labels carry descriptions on GitHub; that is the source of truth | Accepted. §1.3 states label *rules* only. Root cause: reaching for a static list because a static list is the cheapest thing to write a `grep` against — a copy is always a maintained artifact. Do not trade a maintenance burden for AC convenience |
 
 ---
@@ -168,11 +171,11 @@ partial result via an alternation.
 | AC | Criterion | How it is checked |
 | --- | --- | --- |
 | AC1.1 | §1.3 states the type-label discriminator | `sed -n '/### 1.3/,/^---/p' docs/DEVELOPMENT_STANDARDS.md \| grep -c 'enhancement'` returns non-zero |
-| AC1.2 | §1.3 names no label except the two type labels | Derived, not listed — every live label other than the type discriminator must be absent from §1.3:<br>`gh label list --limit 100 --json name -q '.[].name' \| grep -vxE 'bug\|enhancement' \| while read -r l; do sed -n '/### 1.3/,/^---/p' docs/DEVELOPMENT_STANDARDS.md \| grep -qF "$l" && echo "$l"; done` prints nothing. The `bug\|enhancement` exclusion is the rule AC1.1 requires, not a list of areas, so this introduces no register. It also catches `documentation` leaking in, which a fixed grep would not. This is an absence guard and passes on an untouched file by design — AC1.1/AC1.3a/AC1.3b are what prove Step 1 happened |
+| AC1.2 | §1.3 names no label except the two type labels | Derived, not listed — see the command below the table |
 | AC1.3a | §1.3 states the milestone exit-condition rule | `sed -n '/### 1.3/,/^---/p' docs/DEVELOPMENT_STANDARDS.md \| grep -c 'exit condition'` returns non-zero |
 | AC1.3b | §1.3 states parent/child semantics | `sed -n '/### 1.3/,/^---/p' docs/DEVELOPMENT_STANDARDS.md \| grep -c 'parent'` returns non-zero |
 | AC1.4 | §1.3 names no sequencing mechanism, per DR4 | `sed -n '/### 1.3/,/^---/p' docs/DEVELOPMENT_STANDARDS.md \| grep -cE 'Project #3\|WorkmAIn Queue\|item-list'` returns `0` |
-| AC1.5 | §1.3 does not restate where sequencing lives — `CLAUDE.md:64` stays sole owner, per DR4 | `sed -n '/### 1.3/,/^---/p' docs/DEVELOPMENT_STANDARDS.md \| grep -ciE 'live in GitHub\|lives in GitHub\|never in a document'` returns `0` |
+| AC1.5 | §1.3 says nothing about sequencing at all — not the location sentence, and not the word. `CLAUDE.md:64` stays sole owner, per DR4 | `sed -n '/### 1.3/,/^---/p' docs/DEVELOPMENT_STANDARDS.md \| grep -ciE 'sequenc\|lives? in GitHub\|never in a document'` returns `0`. Note the current §1.3 contains *"milestone for sequencing"*, so this fails until Step 1 removes it — it is a real check, not a formality |
 | AC2.1 | Every issue that carried `docs` also carries `documentation`, checked **before** the label is deleted | Capture `gh issue list --state all --limit 300 --label docs --json number` at Step 4 start as list `L`, recorded in the Step 4 commit message. After the additive half, `gh issue list --state all --limit 300 --label documentation --json number` contains every element of `L`. This check is the evidence presented at the authorization point — a post-deletion `--label docs` query returns `[]` with exit 0 even when the label never existed, so it proves nothing and is not used |
 | AC2.2 | The `docs` label no longer exists | `gh label list --limit 100 \| grep -w docs` returns nothing |
 | AC3.1 | The three bullets are gone | `sed -n '/^## Project Status/,/^## Tech Stack/p' CLAUDE.md \| grep -cE '\*\*Milestones\*\*\|\*\*Labels\*\*\|\*\*Parent issues\*\*'` returns `0` |
@@ -182,6 +185,26 @@ partial result via an alternation.
 | AC3.5 | Nothing outside the replaced region changed — Operating context, the Document table, the archive warning and the Version/Test-suite bullets are intact | Pre-commit: `git diff -U0 CLAUDE.md \| grep -c '^@@'` returns `1`. Post-commit, and at review time: `git show -U0 --format= <CLAUDE.md-step-sha> -- CLAUDE.md \| grep -c '^@@'` returns `1`. A single contiguous hunk — the three bullets are adjacent and the insertion lands in their place — so any second hunk means the edit strayed outside them |
 | AC4.1 | No tracking-semantics rule appears in both documents | `grep -cF` each of these fixed phrases across `CLAUDE.md`, all returning `0`: `exit condition`, `each child is independently`, `applied *only*`, `carry area`, `group work that must ship together`. Each was confirmed to return exactly `1` **before** the edit, so none is an assertion that cannot fail — `independently verifiable` was dropped for that reason: CLAUDE.md wraps it across lines and `grep -F` never matched it. The list is fixed here rather than left to the implementer, so the AC's strictness is not theirs to choose |
 | AC4.2 | The test suite is unaffected | `python -m pytest tests/` — same pass count as the baseline recorded at Step 1, zero failures |
+
+**AC1.2 command.** Every live label other than the type discriminator must be absent from
+§1.3 *as a code span* — a label enumeration would be written as code spans, which is the
+artifact DR5 forbids. Matching the backticked form rather than the bare name keeps ordinary
+prose from tripping it: `process`, `tests`, `reports`, `templates`, `daemon` and
+`documentation` are all live label names *and* ordinary words that a section about process
+may legitimately use.
+
+```bash
+gh label list --limit 100 --json name -q '.[].name' \
+  | grep -vxE 'bug|enhancement' \
+  | while read -r l; do
+      sed -n '/### 1.3/,/^---/p' docs/DEVELOPMENT_STANDARDS.md | grep -qF "\`$l\`" && echo "$l"
+    done   # must print nothing
+```
+
+The `bug|enhancement` exclusion is the rule AC1.1 requires, not a list of areas, so this
+introduces no register. It also catches `documentation` leaking into §1.3. This is an absence
+guard and passes on an untouched file by design — AC1.1, AC1.3a and AC1.3b are what prove
+Step 1 happened.
 
 ## 6. Test plan
 
@@ -200,7 +223,7 @@ No code changes, so no new tests. `pytest` runs as a regression guard only.
 | Step 4 deletes `docs` before `documentation` is applied | Every issue carrying `docs` silently loses its area label; not recoverable from the API | DR6 orders it additive-first, and AC2.1 verifies the additive half **before** the authorization point rather than after deletion. Rollback is manual re-application from list `L`, which is why `L` is captured at Step 4 start and recorded in the commit message |
 | §1.3 absorbs sequencing mechanics ahead of #84 | The standard names Project #3 before the spec establishing it is approved; needs re-editing when #84 lands | DR4 forbids it, and **AC1.4** checks it. Added because the earlier draft asserted this control in the risk table without any AC behind it |
 | A rule is moved into §1.3 but not deleted from CLAUDE.md, leaving the duplication that #81 exists to remove | The defect survives its own fix | AC4.1 checks each moved sentence's phrase against CLAUDE.md rather than checking only that CLAUDE.md got shorter |
-| Wording drift on documents Ray owns | Ray is final authority on all documentation | Steps 1 and 3 are committed separately, so each diff is reviewable on its own and revertible on its own |
+| Wording drift on documents Ray owns | Ray is final authority on all documentation | Steps 1 and 2 — the two document edits — are committed separately, so each diff is reviewable on its own and revertible on its own |
 
 Rollback for the whole spec is `git revert` of the step commits plus re-creating the `docs`
 label and re-applying it to the issues in list `L`. The branch is `chore/*`, so no tag, Release, or
