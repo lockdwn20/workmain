@@ -1,6 +1,6 @@
 # Tracking Semantics Consolidation — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20260814
 **Branch:** `chore/issue-81-tracking-semantics` (from `main`, merges to `main` and `dev`)
@@ -35,6 +35,8 @@
 | 20260814 | Caliper | H1 — DR4 says §1.3 says nothing about sequencing, but no AC caught the bare word, and §1.3's current text carries *"milestone for sequencing"* | Accepted, reproduced: the phrase is live today and would have passed every AC. Folded into AC1.5 |
 | 20260814 | Caliper | H2 — AC1.2 grepped bare label names, and `process`, `tests`, `reports`, `templates`, `daemon`, `documentation` are ordinary words a section about process may use | Accepted. Matches the backticked form instead, which is the artifact DR5 actually forbids |
 | 20260814 | Caliper | H3 — the risk table still cited pre-renumbering step numbers | Accepted. The G3 Decision Log row keeps its original numbering as historical record; only live guidance was corrected |
+| 20260814 | Caliper | Third pass: all G- and H-findings verified closed against live source. Verdict — approve | Recorded |
+| 20260814 | Ray | **Spec approved for implementation** | Status → Approved. Anvil works from this document only |
 | 20260814 | Ray | **F2 dissolved by deleting DR5.** DR5 was Spanner's invention, not a Ray decision, and it proposed a maintained label register inside the section that forbids registers. Labels carry descriptions on GitHub; that is the source of truth | Accepted. §1.3 states label *rules* only. Root cause: reaching for a static list because a static list is the cheapest thing to write a `grep` against — a copy is always a maintained artifact. Do not trade a maintenance burden for AC convenience |
 
 ---
