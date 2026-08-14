@@ -39,13 +39,18 @@ RECON  →  ANALYSIS  →  SPEC  →  REVIEW  →  APPROVAL  →  IMPLEMENTATION
 
 ### 1.3 Issue discipline
 
-- Work is tracked in GitHub Issues. State is GitHub's own — open or closed — with a
-  milestone for sequencing and labels for area. There is no status vocabulary to maintain
-  in prose, and no register or statistics table to keep in step.
-- An issue must be independently verifiable on its own. Work that only makes sense as a
-  set becomes a parent issue with children, never one issue spanning several gates.
+- Work is tracked in GitHub Issues. State is GitHub's own — open or closed. There is no
+  status vocabulary to maintain in prose, and no register or statistics table to keep in
+  step.
+- Labels carry area. `bug`/`enhancement` is the type discriminator, applied *only* to
+  issues with no milestone — so a type label appearing inside a milestone means that work
+  was pulled in later, not planned as part of it. What each label means beyond that is its
+  description on GitHub, readable with `gh label list` — not enumerated here, since a
+  prose list is a register that goes stale the first time a label is added.
 - A milestone carries the exit condition that closes it, and that condition must cover
   every issue in it.
+- An issue must be independently verifiable on its own. Work that only makes sense as a
+  set becomes a parent issue with children, never one issue spanning several gates.
 - **Verify every AC against delivered code before marking an item complete.** Item 32 was
   marked complete in Phase 13 Sprint 2 (v1.21.0) with all four of its acceptance criteria
   unmet, and had to be reopened eleven days later when the gap was noticed. The work

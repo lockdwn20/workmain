@@ -69,13 +69,9 @@ gh issue list --state open --limit 200 \
   --json number,title,state,milestone,labels,parent,subIssuesSummary
 ```
 
-- **Milestones** carry the exit condition that closes them. Requires `gh` ≥ 2.6x for
-  `parent` / `subIssues` / `subIssuesSummary` (Issues 2.0 support).
-- **Labels** carry area (`slack`, `cli`, `ai-llm`, `database`, …). `bug`/`enhancement` is
-  applied *only* to issues with no milestone — so a type label appearing inside a milestone
-  means that work was pulled in later, not planned as part of it.
-- **Parent issues** group work that must ship together; each child is independently
-  verifiable on its own.
+Requires `gh` ≥ 2.6x for `parent` / `subIssues` / `subIssuesSummary` (Issues 2.0 support).
+
+What milestones, labels, and parent/child structure mean: `docs/DEVELOPMENT_STANDARDS.md` §1.3.
 
 `docs/archive/FEATURE_BACKLOG.md` and `docs/archive/implementation-checklist.md` hold the
 pre-migration record for historical context only. They are not authoritative, are never
