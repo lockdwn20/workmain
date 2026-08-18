@@ -35,7 +35,7 @@
 | 20260818 | Ray | What happens with all existing issues that don't match the template? | Existing issues will be updated to match the template prior to their implementation planning |
 | 20260818 | Ray | F11 — repository layout. Non-application tooling and its tests live in `automation/`; `tests/` holds application tests only; the JSON template goes in `.github/ISSUE_TEMPLATE/`, which GitHub ignores because it reads only `.md` and `.yml` | Adopted. DR3 and DR9. `automation/` is named in none of §2.2's exception paths, so `chore/*` applies with no deviation |
 | 20260818 | Caliper | F12 — the spec never said whether the schema file or the script owns the rules | The script owns them; the schema file is data the script loads. DR9 |
-| 20260818 | Caliper | F13 — `gh issue list` returns open issues only, so closed parents and blockers would be rejected | Real defect. §4.1 states `--state all`; AC2.9 checks a closed parent validates |
+| 20260818 | Caliper | F13 — `gh issue list` returns open issues only, and the spec never said which states are queried | Finding accepted, **fix reversed by Ray**. A parent closes when its children are done, so a closed parent, blocker, or blocked issue is a mistake to catch, not a case to allow. All three must exist **and** be open. `--state all` is still used — to tell "closed" apart from "does not exist" and report which. §4.1, AC2.9 |
 | 20260818 | Caliper | F14 — `CLAUDE.md` was in scope with no step or AC | #82 gained a fourth AC covering the plain-speech line, so it is in scope. Step 5 and AC5.1 carry it |
 | 20260818 | Caliper | F15 — AC4.x cited §1.2 for a test obligation §1.2 does not contain | Corrected to §6 |
 | 20260818 | Caliper | F16 — DR4 says never stop at the first error; AC2.8 exits immediately | DR4 gains the ordering exception: the §1.3 parse runs first and aborts, because no type rule can be evaluated without it |
@@ -170,22 +170,33 @@ script loads this file and enforces what it declares. Field set:
 | `context` | string | yes | non-empty after strip. Becomes the body's prose |
 | `acs` | array of string | yes | ≥ 1 entry, each non-empty after strip |
 | `milestone` | string or `null` | yes — key must be present | if non-`null`, must match a live milestone title exactly |
-| `parent` | integer or `null` | yes — key must be present | if non-`null`, must be an existing issue in this repository, **open or closed** |
+| `parent` | integer or `null` | yes — key must be present | if non-`null`, must be an **open** issue in this repository |
 | `labels` | array of string | yes | ≥ 1 entry; every entry must be a live label; **no entry may be a type label** (see below) |
 | `type` | string or `null` | yes — key must be present | if non-`null`, must be one of the §1.3 type labels **and** must exist as a live label — the same check `labels[]` gets, since both are passed to `--label` |
-| `blocked_by` | array of integer | no — defaults `[]` | every entry an existing issue, open or closed |
-| `blocking` | array of integer | no — defaults `[]` | every entry an existing issue, open or closed |
+| `blocked_by` | array of integer | no — defaults `[]` | every entry an **open** issue |
+| `blocking` | array of integer | no — defaults `[]` | every entry an **open** issue |
 
 Every key must be present even when its value is `null`. A missing `milestone` key is an
 omission; `"milestone": null` is a decision.
 
 Any key not in this table fails, naming the key. That is what catches a typo.
 
-**Issue existence is checked across all states.** `gh issue list` returns open issues only
-unless `--state all` is passed (C15). A closed issue is a legitimate parent and a legitimate
-blocker, so every existence check — `parent`, `blocked_by`, `blocking` — uses `--state all`.
-Defaulting to open would reject valid references, and the failure would arrive in use rather
-than at Step 2.
+**Referenced issues must be open, and the check reads all states to say why.** A parent
+closes when its children are done, so naming a closed parent means the work is finished and
+the child does not belong to it. The same holds in both directions for dependencies: a
+closed blocker is a stale dependency, and an issue that is already closed cannot be blocked.
+All three of `parent`, `blocked_by` and `blocking` must name an **open** issue.
+
+The lookup nonetheless uses `--state all` (C15), because the two failures are different and
+only one of them is a typo:
+
+- number not found in any state → *no such issue*
+- number found but closed → *issue #N is closed*
+
+Querying open-only collapses both into the first, which sends the author hunting for a
+mistake in a number that is perfectly valid. Defaulting to open would also be a decision
+made by accident — `gh issue list` returns open unless told otherwise — rather than one the
+spec made.
 
 **The type rule (C6, §1.3).** `type` is non-`null` **if and only if** `milestone` is
 `null`. Both violations are reported distinctly:
@@ -296,7 +307,7 @@ rather than by anyone having listed the shapes correctly.
 | AC2.6 | The type-label names are parsed from §1.3, not hardcoded — DR2, §4.1 | Both required. **(a)** `grep -cE "['\"](bug\|enhancement)['\"]" automation/issue_validator.py` prints `0`. Compare stdout, not exit status — `grep -c` exits `1` when it prints `0`. **(b)** Against a fixture standards file whose discriminator line reads ``` `alpha`/`beta` is the type discriminator ```, the validator treats `alpha` and `beta` as type labels and `bug` as an area label |
 | AC2.7 | Validation is total, per DR4 | Fixture with three independent errors → stderr names all three in one run |
 | AC2.8 | A missing §1.3 discriminator line aborts before any other check, per DR4 | Fixture standards file with the `type discriminator` line deleted, given a JSON file that also has two schema errors → exit non-zero, stderr names `DEVELOPMENT_STANDARDS.md` and `type discriminator` and **does not** report the two schema errors. This is the one place DR4's total reporting does not apply |
-| AC2.9 | A closed issue is accepted as a parent and as a blocker, per C15 | Fixture naming a closed issue number in `parent` and another in `blocked_by` validates and exits `0`. Fails if the implementation builds its issue set without `--state all` |
+| AC2.9 | A closed issue is rejected as a parent or blocker, and is reported as closed rather than as missing, per §4.1 | Fixture naming a closed issue in `parent` → exit non-zero, stderr says the issue is **closed** and does not say it does not exist. A second fixture naming a number that exists in no state → exit non-zero, stderr says it does not exist. The two messages must differ; an implementation that queries open-only produces the same message for both and fails this AC |
 | AC3.1 | The default run creates nothing | On a valid fixture, `python3 automation/issue_validator.py <file>` exits `0`, prints the `gh issue create` command, and `gh issue list --limit 300 --json number \| jq length` is unchanged before and after |
 | AC3.2 | The printed command carries every populated field in the form `gh` expects, per §4.3 | For a fixture with two labels, a type, and two `blocked_by` entries: the command contains `--title`, `--body-file`, `--milestone`, `--parent`, `--project`; exactly three `--label` occurrences; and exactly one `--blocked-by` with the numbers comma-joined. Presence alone would pass a wrong form |
 | AC3.3 | `--project "WorkmAIn Queue"` is present unconditionally, per DR6 | Printed command for a *minimal* fixture (no milestone, no parent, no blockers) still contains `--project` |
@@ -340,7 +351,8 @@ rather than by anyone having listed the shapes correctly.
 
 | Risk | Blast radius | Rollback |
 | --- | --- | --- |
-| The validator rejects a correctly-authored issue and creation stalls behind the tool | Work stoppage | AC1.4's eight fixtures cover every shape the schema can express, and AC2.9 covers the closed-issue reference, so a rule stricter than reality fails at Step 2 or 4 rather than in use. DR7 keeps judgement criteria out of the validator |
+| The validator rejects a correctly-authored issue and creation stalls behind the tool | Work stoppage | AC1.4's eight fixtures cover every shape the schema can express, so a rule stricter than reality fails at Step 2 or 4 rather than in use. DR7 keeps judgement criteria out of the validator |
+| A valid issue number is reported as non-existent because it is closed | The author hunts for a typo that isn't there | The lookup uses `--state all` and AC2.9 requires the closed and missing messages to differ |
 | A per-shape template set creeps back in | The register #82 exists to remove | DR1 forbids it. AC1.1 is a directory-listing equality, so a third file fails; AC1.3 asserts one key set |
 | GitHub surfaces the `.json` as an issue template, or a `.md`/`.yml` is added beside it | Contributors get a broken template picker | DR3 creates no `.md`/`.yml`; AC1.2 checks for their absence, plus a post-merge `issueTemplates` query, which is the only way to observe the default-branch behaviour |
 | `automation/` tests leak into the application suite | The application baseline moves for reasons unrelated to the application | DR8's `testpaths`, checked by AC4.3. Without it nothing enforces the split — C14 shows the existing `scripts-deprecated/` claim is already untrue |
