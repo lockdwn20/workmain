@@ -1,0 +1,11 @@
+{
+  "title": "Parent that does not exist",
+  "context": "parent names an issue number nothing resolves to.",
+  "acs": ["AC1: something is true"],
+  "milestone": null,
+  "parent": 999999,
+  "labels": ["cli"],
+  "type": "bug",
+  "blocked_by": [],
+  "blocking": []
+}
