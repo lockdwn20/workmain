@@ -1,6 +1,6 @@
 # Issue Creation and Validation — Spec
 
-**Status:** Draft — awaiting Role 2 review
+**Status:** Draft — Role 2 review complete, awaiting Ray's approval
 **Author:** Spanner (Role 1)
 **Date:** 20260817
 **Branch:** `chore/issue-82-issue-creation` (from `main`, merges to `main` and `dev`)
@@ -47,6 +47,11 @@
 | 20260818 | Caliper | R9 — Step 4 claimed the shape fixtures that §6 assigns to Step 2 | Step 2 is correct; the Step 4 row no longer claims them |
 | 20260818 | Caliper | R10 — AC1.2's `issueTemplates` query reads the default branch and cannot run at Step 1 | Split. AC1.2 is the local check; the query is Ray's post-merge confirmation, stated outside the AC table |
 | 20260818 | Caliper | §2.2's `chore/*` clause says "non-behavioural dev tooling" and lists no `.github/` or `automation/` | Amendment folded into Step 5 and AC5.3. It is proposed, not applied — the standard changes only if Ray approves this spec |
+| 20260818 | Caliper | R11 — C15 and §4.1 wrote the live open-issue count into the spec | Corrected. Both now say the count exceeds the cap; the evidence commands derive it |
+| 20260818 | Caliper | R12 — AC2.9(c) could not be a test, because §6's seam replaces the very fetch it was meant to catch, yet AC4.1 required it to be one | Real contradiction. Split into AC2.10, a live check run once at Step 2 with its issue number derived at run time |
+| 20260818 | Caliper | R13 — AC5.3 asserted the reworded phrase with no command behind it | Four greps, including a negative one for `non-behavioural` |
+| 20260818 | Caliper | R14 — the AC2.9 split left three stale cross-references | Step 2 claims AC2.1 – AC2.10; AC4.1 scoped to AC2.1 – AC2.9; the §7 row cites AC2.10 |
+| 20260818 | Caliper | Fourth pass: no remaining findings. C1 – C16 verified against live source. Verdict — sound, approval is Ray's | Recorded |
 | 20260818 | Caliper | `--label` accepts comma-joined values as well as repetition, so §4.3's stated rationale was wrong | Rationale corrected. Repetition is still used: a comma inside a label name would break the joined form |
 | 20260818 | Spanner | Bare `pytest` collects `scripts-deprecated/`, so CLAUDE.md's "excluded from test collection" is not enforced by anything. Adding `automation/` would put a second test tree in the same sweep | `pyproject.toml` gains `testpaths = ["tests"]`. Bare `pytest` runs the application suite only; `pytest automation/` still works, since `testpaths` applies only when no path is given |
 
@@ -160,7 +165,7 @@ new file on a branch, undone by `git revert`.
 | Step | Deliverable | Files | Verification |
 | --- | --- | --- | --- |
 | 1 | The JSON schema and the skeleton template | `.github/ISSUE_TEMPLATE/` | AC1.1, AC1.2, AC1.3 |
-| 2 | The validator — the §1.3 parse, schema checks, then live-state checks, per DR4 — **and every fixture this spec uses**, including the eight shape fixtures AC1.4 needs | `automation/issue_validator.py`, `automation/fixtures/` | AC2.1 – AC2.9 |
+| 2 | The validator — the §1.3 parse, schema checks, then live-state checks, per DR4 — **and every fixture this spec uses**, including the eight shape fixtures AC1.4 needs | `automation/issue_validator.py`, `automation/fixtures/` | AC2.1 – AC2.10 |
 | 3 | `gh issue create` invocation: parameter mapping per §4.3, `--create` opt-in | `automation/issue_validator.py` | AC3.1 – AC3.5 |
 | 4 | Tests over the fixtures Step 2 created; `pyproject.toml` `testpaths`, per DR8 | `automation/issue_validator_test.py`, `pyproject.toml` | AC1.4, AC4.1 – AC4.3 |
 | 5 | `CLAUDE.md` plain-speech directive; the `automation/` placement rows and the §2.2 wording amendment | `CLAUDE.md`, `docs/DEVELOPMENT_STANDARDS.md` | AC5.1 – AC5.3 |
@@ -325,7 +330,7 @@ rather than by anyone having listed the shapes correctly.
 | AC3.3 | `--project "WorkmAIn Queue"` is present unconditionally, per DR6 | Printed command for a *minimal* fixture (no milestone, no parent, no blockers) still contains `--project` |
 | AC3.4 | `--type` is never passed, per C11 | `grep -c '\-\-type' automation/issue_validator.py` prints `0`. Compare stdout, not exit status, as in AC2.6(a) |
 | AC3.5 | Empty `blocked_by` / `blocking` omit the flag rather than passing an empty value | Printed command for the minimal fixture contains neither `--blocked-by` nor `--blocking` |
-| AC4.1 | Every AC2.x rule is covered by a test, checkable without reading them | `python -m pytest automation/ -q` passes, and each test function name carries the AC it covers (`test_ac2_1_…` through `test_ac2_9_…`). `python -m pytest automation/ --collect-only -q \| grep -oE 'ac2_[1-9]' \| sort -u \| wc -l` prints `9`. Naming the id in the test is what makes the coverage claim mechanical instead of a human count |
+| AC4.1 | Every rule in AC2.1 – AC2.9 is covered by a test, checkable without reading them. AC2.10 is excluded by design — it is a live check, not a test | `python -m pytest automation/ -q` passes, and each test function name carries the AC it covers (`test_ac2_1_…` through `test_ac2_9_…`). `python -m pytest automation/ --collect-only -q \| grep -oE 'ac2_[1-9]' \| sort -u \| wc -l` prints `9`. Naming the id in the test is what makes the coverage claim mechanical instead of a human count |
 | AC4.2 | The application suite is unchanged | `python -m pytest tests/` — zero failures, and the pass count equals the baseline recorded at Step 1. No test is added to `tests/`, so the count moves by zero |
 | AC4.3 | Bare `pytest` runs the application suite only, per DR8 | `python -m pytest --collect-only -q` and `python -m pytest --collect-only -q tests/` report the same count. Before this step they differ, because bare collection sweeps in `scripts-deprecated/` (C14) |
 | AC5.1 | `CLAUDE.md` carries the plain-speech directive, per #82's first AC | `sed -n '3p' CLAUDE.md \| grep -c 'direct, concise and plainly spoken'` prints `1` |
@@ -395,7 +400,7 @@ the reworded positive clause now says plainly.
 | Risk | Blast radius | Rollback |
 | --- | --- | --- |
 | The validator rejects a correctly-authored issue and creation stalls behind the tool | Work stoppage | AC1.4's eight fixtures cover every shape the schema can express, so a rule stricter than reality fails at Step 2 or 4 rather than in use. DR7 keeps judgement criteria out of the validator |
-| A valid issue number is reported as non-existent — because it is closed, or because a default `gh issue list` truncated at 30 | The author hunts for a typo that isn't there | The lookup is per-number `gh issue view` (C16), which has no limit and no state default. AC2.9 requires the closed and missing messages to differ, and covers a low-numbered open issue that a truncating implementation would miss |
+| A valid issue number is reported as non-existent — because it is closed, or because a default `gh issue list` truncated at 30 | The author hunts for a typo that isn't there | The lookup is per-number `gh issue view` (C16), which has no limit and no state default. AC2.9 requires the closed and missing messages to differ, and AC2.10 runs a low-numbered open issue against real GitHub, which a truncating implementation fails |
 | A per-shape template set creeps back in | The register #82 exists to remove | DR1 forbids it. AC1.1 is a directory-listing equality, so a third file fails; AC1.3 asserts one key set |
 | GitHub surfaces the `.json` as an issue template, or a `.md`/`.yml` is added beside it | Contributors get a broken template picker | DR3 creates no `.md`/`.yml` and AC1.2 checks for their absence locally. The default-branch behaviour is observable only after merge, which is what the post-merge confirmation below §5 is for |
 | `automation/` tests leak into the application suite | The application baseline moves for reasons unrelated to the application | DR8's `testpaths`, checked by AC4.3. Without it nothing enforces the split — C14 shows the existing `scripts-deprecated/` claim is already untrue |
