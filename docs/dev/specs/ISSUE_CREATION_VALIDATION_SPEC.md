@@ -1,6 +1,6 @@
 # Issue Creation and Validation — Spec
 
-**Status:** Draft — Role 2 review complete, awaiting Ray's approval
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20260817
 **Branch:** `chore/issue-82-issue-creation` (from `main`, merges to `main` and `dev`)
@@ -52,6 +52,8 @@
 | 20260818 | Caliper | R13 — AC5.3 asserted the reworded phrase with no command behind it | Four greps, including a negative one for `non-behavioural` |
 | 20260818 | Caliper | R14 — the AC2.9 split left three stale cross-references | Step 2 claims AC2.1 – AC2.10; AC4.1 scoped to AC2.1 – AC2.9; the §7 row cites AC2.10 |
 | 20260818 | Caliper | Fourth pass: no remaining findings. C1 – C16 verified against live source. Verdict — sound, approval is Ray's | Recorded |
+| 20260818 | Ray | §5.1's §2.2 amendment approved | Step 5 applies it |
+| 20260818 | Ray | **Spec approved for implementation** | Status → Approved. Anvil works from this document only |
 | 20260818 | Caliper | `--label` accepts comma-joined values as well as repetition, so §4.3's stated rationale was wrong | Rationale corrected. Repetition is still used: a comma inside a label name would break the joined form |
 | 20260818 | Spanner | Bare `pytest` collects `scripts-deprecated/`, so CLAUDE.md's "excluded from test collection" is not enforced by anything. Adding `automation/` would put a second test tree in the same sweep | `pyproject.toml` gains `testpaths = ["tests"]`. Bare `pytest` runs the application suite only; `pytest automation/` still works, since `testpaths` applies only when no path is given |
 
