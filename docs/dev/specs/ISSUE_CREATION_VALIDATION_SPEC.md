@@ -19,11 +19,7 @@
 | 20260817 | Ray | The script validates and then invokes `gh issue create` itself | Accepted. DR5 |
 | 20260817 | Ray | Every issue created in this repo joins the WorkmAIn Queue project | Accepted. DR6. Membership only — #84 owns rank |
 | 20260817 | Ray | Allowances are needed while the process is still being built | Accepted. DR7 |
-| 20260817 | Spanner | Proposed rewording #82's first AC because the live population has four shapes, not three | Rejected by Ray: ACs check the issue, they do not scope the plan. AC unchanged; AC1.4 satisfies it |
-| 20260817 | Spanner | `gh issue create --type` is inert — `Repository.issueTypes` is `null` (recon F26) | The type discriminator is applied as a label. See C12 |
-| 20260817 | Caliper | F1 — AC1.4 failed on 52 of 57 open issues | Existing issues may not follow the standard being set. AC1.4 now checks structure only; body content is a forward rule. DR8 |
-| 20260817 | Caliper | F2 — C8 claimed one body convention, evidenced from four issues Spanner wrote | There are three. C8 restated; §4.2 now says it establishes a convention rather than matching one |
-| 20260817 | Caliper | F3 — AC1.4 did not say how a live issue maps to the schema | Stated in §5.1. Metadata only, no body parsing |
+| 20260817 | Spanner | `gh issue create --type` is inert — `Repository.issueTypes` is `null` (recon F26) | The type discriminator is applied as a label. See C11 |
 | 20260817 | Caliper | F4 — the type-label derivation was never specified, and GitHub carries no type marking | The validator parses §1.3, which owns the rule. §4.1 |
 | 20260817 | Caliper | F6 — C6 quoted §1.3 one clause short; the clause makes milestone + type label legitimate | C6 quotes it whole. The rule is scoped to creation, where the state cannot arise |
 | 20260817 | Caliper | F7 — `grep -c` prints `0` but exits `1` | AC2.6 and AC3.4 restated as stdout comparisons |
@@ -31,6 +27,11 @@
 | 20260817 | Caliper | F9 — `--blocked-by` takes comma-joined numbers; `--label` repeats | Both forms stated in §4.3 and checked by AC3.2 |
 | 20260817 | Caliper | F10 — §7 credited AC1.1 with an exclusivity check it did not make | AC1.1 is now a directory-listing equality |
 | 20260817 | Ray | F5 — §2.2 has no category for new dev tooling in `scripts/` | `chore/*` and `scripts/`, per the standards as they stand. Any missing category is #86's |
+| 20260818 | Ray | The template governs new issues only. Existing issues predate it and are revised when they come up for planning | The spec validates nothing against the existing population. AC1.4 proves shape coverage from the schema's own fields |
+| 20260818 | Ray | #82's first AC reworded to describe one template with shape expressed by field population | The spec matches the new wording. See §5 |
+| 20260818 | Ray | The body format is stated as the standard, not derived from what issues look like today | §4.2 |
+| 20260818 | Caliper | R3 — C12 said `gh label list --json` returns three fields; it returns eight | Corrected. The conclusion holds: `isDefault` is `true` for `documentation`, `question` and others, so no field separates type from area |
+| 20260818 | Caliper | R4 — `type`'s value was never checked against live GitHub, though it is passed to `--label` | Closed in §4.1. `type` is checked against the live label set exactly as `labels[]` is |
 
 ---
 
@@ -43,13 +44,15 @@
   file against the schema and against live GitHub state, then creates the issue through
   `gh issue create`.
 - Tests covering the validator's rules.
+- `CLAUDE.md` — the plain-speech directive and the gate→step wording, which ride this branch.
 
 **Out of scope:**
 
 - **Rank and ordering.** Items land in Project #3 as members; where they sit in the queue
   is #84's mechanism and this spec must not acquire it. See DR6.
-- **Issue editing.** `gh issue edit`, and reconciling the 57 existing open issues against
-  the schema. AC1.4 reads them and changes none of them.
+- **Existing issues.** They predate this template. Nothing here reads, validates, or
+  reconciles them; they are revised when they come up for planning.
+- **Issue editing.** `gh issue edit`. This spec covers creation.
 - **Milestone and label administration.** The validator checks names against live GitHub
   and fails on a name that does not exist; it never creates one.
 - **`.github/ISSUE_TEMPLATE/`.** Server-side Markdown/YAML templates, ruled out by recon
@@ -68,23 +71,23 @@
 | C5 | `scripts/check_release_integrity.py` is the precedent for standards-enforcing dev tooling: `scripts/`, stdlib only, module docstring stating why it exists, non-zero exit on failure. It has no tests | The file's imports and docstring; `grep -rl check_release_integrity tests/` returns nothing |
 | C6 | §1.3, quoted whole: *"Labels carry area. `bug`/`enhancement` is the type discriminator, applied only to issues with no milestone — so a type label appearing inside a milestone means that work was pulled in later, not planned as part of it."* The trailing clause matters: milestone + type label is a legitimate state, not an error. §1.3 also states that what a label means *"is its description on GitHub … not enumerated here"* | `docs/DEVELOPMENT_STANDARDS.md:45-49`, as it stands after #81 |
 | C7 | §1.3 also states *"A milestone carries the exit condition that closes it"* and *"An issue must be independently verifiable on its own"* | `docs/DEVELOPMENT_STANDARDS.md:50-53` |
-| C8 | Issue bodies follow three conventions. Of 57 open issues: **5** use prose then `**ACs**` then bullets, **36** use an `## Acceptance criteria` heading, **16** state no acceptance criteria at all. There is no house style to inherit | `gh issue list --state open --limit 300 --json number,body`, counted at authoring time |
-| C9 | The live label set and milestone set are each readable in one call — `gh label list --json name` and `gh api repos/:owner/:repo/milestones --jq '.[].title'`. Neither is transcribed into this spec | Both commands run at authoring time |
-| C10 | The `docs` label no longer exists; `documentation` carries the four issues that had it | `gh label list --limit 100` — confirms #81 shipped |
-| C11 | Python is **3.12.3** and no JSON-schema library is a project dependency | `python3 --version`; `requirements.txt` |
-| C12 | The `type` discriminator cannot be set through `gh issue create --type`: `Repository.issueTypes` is `null` for this repository | Recon F26, re-checked at authoring time |
-| C13 | GitHub cannot distinguish a type label from an area label. `gh label list --json` returns `name`, `color`, `description` only, and `issueTypes` is null (C12). The discriminator is knowable only from §1.3 | `gh label list --limit 100 --json name,color,description`; C12 |
-| C14 | All 57 open issues satisfy the §4.1 cross-rules: **0** carry a milestone and a type label, **0** carry neither, **0** have zero area labels | `gh issue list --state open --limit 300 --json number,milestone,labels`, partitioned at authoring time. AC1.4 asserts this |
+| C8 | The live label set and milestone set are each readable in one call — `gh label list --json name` and `gh api repos/:owner/:repo/milestones --jq '.[].title'`. Neither is transcribed into this spec | Both commands run at authoring time |
+| C9 | The `docs` label no longer exists; `documentation` carries the four issues that had it | `gh label list --limit 100` — confirms #81 shipped |
+| C10 | Python is **3.12.3** and no JSON-schema library is a project dependency | `python3 --version`; `requirements.txt` |
+| C11 | The `type` discriminator cannot be set through `gh issue create --type`: `Repository.issueTypes` is `null` for this repository | Recon F26, re-checked at authoring time |
+| C12 | GitHub cannot distinguish a type label from an area label. `gh label list --json` offers eight fields — `color`, `createdAt`, `description`, `id`, `isDefault`, `name`, `updatedAt`, `url` — and none marks type. `isDefault` is `true` for `documentation`, `question` and `wontfix` as well as `bug` and `enhancement`, so it does not separate them. With `issueTypes` null (C11), the discriminator is knowable only from §1.3 | `gh label list --json` field list; `gh label list --limit 100 --json name,isDefault`; C11 |
 
 ## 3. Design rules
 
 - **DR1 — One schema, rules not shapes.** There is a single template. Issue shape (parent,
   child, scheduled, unscheduled) follows from which fields are populated, and the validator
   enforces the cross-field rules §1.3 already states. A per-shape template set would be a
-  register, and any shape missing from it would go unprompted.
+  register, and any shape missing from it would go unprompted. At creation an issue is
+  standalone or a child; it becomes a parent when a later issue names it with `--parent`,
+  so "parent" is not a field this template carries.
 - **DR2 — Nothing is enumerated that can be derived.** Label names, milestone titles, and
   whether a parent issue exists are read live from GitHub at validation time. The type
-  discriminator is not a GitHub facet (C13), so it is read from §1.3, which owns the rule.
+  discriminator is not a GitHub facet (C12), so it is read from §1.3, which owns the rule.
   Neither this spec nor the schema contains a list of labels, milestones, or issue numbers.
 - **DR3 — The template is not a GitHub template.** Files live in
   `.github/issue-templates/`, never `.github/ISSUE_TEMPLATE/`. The reserved directory is
@@ -103,10 +106,6 @@
 - **DR7 — The validator checks mechanical properties, not judgement.** §1.3's
   "independently verifiable" and "the exit condition covers every issue" are judgements. A
   validator that guesses at them blocks correct work, so it does not try.
-- **DR8 — Structure is checked against existing issues; body content is not.** Which fields
-  may coexist must hold for every issue in the repository, since the schema claims to
-  express them all — AC1.4 checks that. Body content is a rule for issues this script
-  creates and says nothing about issues written before it.
 - **Anything not covered here: STOP and surface to Ray.** No self-resolution, no scope
   adjustment. Unconditional, and independent of step boundaries.
 
@@ -120,13 +119,12 @@ new file on a branch, undone by `git revert`.
 | 1 | The JSON schema and the skeleton template | `.github/issue-templates/` | AC1.1, AC1.2, AC1.3 |
 | 2 | The validator — schema checks, the §1.3 discriminator parse, then live-state checks, per DR4 | `scripts/gh_issue.py` | AC2.1 – AC2.8 |
 | 3 | `gh issue create` invocation: parameter mapping per §4.3, `--create` opt-in | `scripts/gh_issue.py` | AC3.1 – AC3.5 |
-| 4 | `--check-live` — the structural coverage check, per §5.1 and DR8 | `scripts/gh_issue.py` | AC1.4, AC1.5 |
-| 5 | Tests | `tests/test_gh_issue.py`, `tests/fixtures/` | AC4.1, AC4.2 |
+| 4 | Tests, including the shape fixtures AC1.4 needs | `tests/test_gh_issue.py`, `tests/fixtures/` | AC1.4, AC4.1, AC4.2 |
 
 ### 4.1 The schema
 
 `.github/issue-templates/issue.schema.json` — a hand-rolled schema, since no JSON-schema
-library is a dependency (C11) and adding one for a dev script is not warranted. Field set:
+library is a dependency (C10) and adding one for a dev script is not warranted. Field set:
 
 | Key | Type | Required | Rule |
 | --- | --- | --- | --- |
@@ -136,7 +134,7 @@ library is a dependency (C11) and adding one for a dev script is not warranted. 
 | `milestone` | string or `null` | yes — key must be present | if non-`null`, must match a live milestone title exactly |
 | `parent` | integer or `null` | yes — key must be present | if non-`null`, must be an existing issue in this repository |
 | `labels` | array of string | yes | ≥ 1 entry; every entry must be a live label; **no entry may be a type label** (see below) |
-| `type` | string or `null` | yes — key must be present | if non-`null`, one of the live type labels |
+| `type` | string or `null` | yes — key must be present | if non-`null`, must be one of the §1.3 type labels **and** must exist as a live label — the same check `labels[]` gets, since both are passed to `--label` |
 | `blocked_by` | array of integer | no — defaults `[]` | every entry an existing issue |
 | `blocking` | array of integer | no — defaults `[]` | every entry an existing issue |
 
@@ -160,7 +158,7 @@ editing an existing issue, not by creating one. If the validator is ever used to
 `type` is a separate key from `labels`, and a type label inside `labels` fails, so the
 discriminator has exactly one path and the cross-field rule cannot be bypassed.
 
-**Deriving the type-label names.** GitHub carries no type marking (C13), so the validator
+**Deriving the type-label names.** GitHub carries no type marking (C12), so the validator
 reads §1.3, which owns the rule. It takes the §1.3 section of
 `docs/DEVELOPMENT_STANDARDS.md`, finds the line containing `type discriminator`, and
 collects the backtick-delimited tokens on it — currently `bug` and `enhancement`, verified
@@ -173,9 +171,7 @@ the path never has to be remembered.
 
 ### 4.2 Body rendering
 
-The repository has three body conventions and no house style (C8), so this spec sets one
-for issues the script creates. Per DR8 it binds nothing already in the repository. The
-`**ACs**` form is used because the cycle-mechanics issues already use it:
+The body format for issues the script creates:
 
 ```markdown
 <context, verbatim>
@@ -206,7 +202,7 @@ The two forms differ: `gh issue create --help` documents `--label name` as repea
 `--blocked-by numbers` as comma-joined (C1). An empty `blocked_by` or `blocking` omits the
 flag rather than passing an empty value.
 
-`--type` is never passed. It is inert on this repository (C12) and the discriminator travels
+`--type` is never passed. It is inert on this repository (C11) and the discriminator travels
 as a label.
 
 ### 4.4 Authorization point
@@ -223,17 +219,17 @@ No DB migration appears in this spec.
 Mapped to #82's three ACs: AC1.x carries its first, AC2.x its second, AC3.x its third.
 AC4.x is the test obligation §1.2 imposes on any spec. Each row is a single assertion.
 
-#82's first AC — *"a json template exists for parent, child, and unscheduled issues"* — is
-met by AC1.4, which runs every open issue through the one schema. The shape set comes from
-GitHub, so a shape not anticipated here still fails the AC. Structure only, per DR8.
+#82's first AC — one template, with shape expressed by which fields are populated — is met
+by AC1.1 (one schema on disk) and AC1.4 (every shape validates through it). The shape set is
+the cross product of the schema's own fields, so it is complete by construction rather than
+by my having listed the shapes correctly.
 
 | AC | Criterion | How it is checked |
 | --- | --- | --- |
 | AC1.1 | The template directory holds exactly the schema and the skeleton, per DR1 | `ls .github/issue-templates/ \| sort` prints exactly two lines: `issue.schema.json`, `issue.template.json`. An equality, so a third file fails |
 | AC1.2 | Nothing was placed in the GitHub-reserved directory, per DR3 | `test -e .github/ISSUE_TEMPLATE` exits non-zero |
 | AC1.3 | The skeleton carries every schema key and no other | `python3 scripts/gh_issue.py --new \| python3 -c "import json,sys; print(sorted(json.load(sys.stdin)))"` equals the sorted key list from `issue.schema.json` |
-| AC1.4 | The schema expresses every issue shape in the repository, and every live issue satisfies the cross-field rules. Structure only, per DR8 | `python3 scripts/gh_issue.py --check-live` exits `0`, printing one verdict line per issue. It reads `gh issue list --state open --limit 300 --json number,title,milestone,parent,labels`, converts each per §5.1, and applies the metadata rules only: type-vs-milestone, no type label in `labels`, ≥ 1 area label, milestone and label names live, parent resolvable. Expect `0` failures across all 57 open issues (C14). Read-only |
-| AC1.5 | AC1.4 asserts nothing about body content, per DR8 | `--check-live` passes even though 52 open issues state no acceptance criteria in any form (C8), and the `--check-live` function contains no reference to `acs` or `context` |
+| AC1.4 | Every issue shape validates through the one schema, per DR1 | Eight fixtures covering the cross product of `milestone` set/null × `parent` set/null × `type` set/null. The four satisfying the type rule — scheduled standalone, scheduled child, unscheduled standalone, unscheduled child — validate and exit `0`. The other four violate it and fail with the AC2.3 messages. Shape is therefore carried by field population, and no fixture needs a template of its own |
 | AC2.1 | A missing required key fails, naming the key | Fixture with `milestone` deleted → exit non-zero, stderr contains `milestone` |
 | AC2.2 | An unknown key fails, naming the key | Fixture with `mileston` (typo) → exit non-zero, stderr contains `mileston` |
 | AC2.3 | Both halves of the type rule fail, and are distinguishable | Fixture A (`milestone: null`, `type: null`) and fixture B (`milestone` set, `type` set) each exit non-zero with different messages |
@@ -245,28 +241,10 @@ GitHub, so a shape not anticipated here still fails the AC. Structure only, per 
 | AC3.1 | The default run creates nothing | On a valid fixture, `python3 scripts/gh_issue.py <file>` exits `0`, prints the `gh issue create` command, and `gh issue list --limit 300 --json number \| jq length` is unchanged before and after |
 | AC3.2 | The printed command carries every populated field in the form `gh` expects, per §4.3 | For a fixture with two labels, a type, and two `blocked_by` entries: the command contains `--title`, `--body-file`, `--milestone`, `--parent`, `--project`; exactly three `--label` occurrences; and exactly one `--blocked-by` with the numbers comma-joined. Presence alone would pass a wrong form |
 | AC3.3 | `--project "WorkmAIn Queue"` is present unconditionally, per DR6 | Printed command for a *minimal* fixture (no milestone, no parent, no blockers) still contains `--project` |
-| AC3.4 | `--type` is never passed, per C12 | `grep -c '\-\-type' scripts/gh_issue.py` prints `0`. Compare stdout, not exit status, as in AC2.6(a) |
+| AC3.4 | `--type` is never passed, per C11 | `grep -c '\-\-type' scripts/gh_issue.py` prints `0`. Compare stdout, not exit status, as in AC2.6(a) |
 | AC3.5 | Empty `blocked_by` / `blocking` omit the flag rather than passing an empty value | Printed command for the minimal fixture contains neither `--blocked-by` nor `--blocking` |
 | AC4.1 | The validator's rules are covered by tests | `python -m pytest tests/test_gh_issue.py -q` passes, with at least one test per AC2.x row |
 | AC4.2 | The suite is unaffected apart from the new file | `python -m pytest tests/` — zero failures, and the pass count equals the baseline recorded at Step 1 plus the count of new tests |
-
-### 5.1 The `--check-live` conversion
-
-AC1.4 converts each live issue into the schema shape. The conversion reads metadata only —
-no Markdown is parsed, so nothing about it can be tuned to change the verdict:
-
-| Schema key | Taken from | If absent |
-| --- | --- | --- |
-| `title` | `.title` | — always present |
-| `milestone` | `.milestone.title` | `null` |
-| `parent` | `.parent.number` | `null` |
-| `type` | the member of `.labels[].name` that the §1.3 parse names a type label | `null` |
-| `labels` | `.labels[].name` minus the type labels | `[]` — fails the ≥ 1 area rule |
-| `context`, `acs` | not derived | not checked, per DR8 and AC1.5 |
-| `blocked_by`, `blocking` | not derived | not checked — dependencies are not fetched |
-
-`context` and `acs` are set to fixed placeholders so the shared validator runs unchanged.
-They assert nothing about the issue.
 
 ## 6. Test plan
 
@@ -279,8 +257,9 @@ They assert nothing about the issue.
   fetch happens once at the top of the run.
 - **Second seam:** the §1.3 parse (§4.1) takes the path to `DEVELOPMENT_STANDARDS.md` as
   an argument. AC2.6(b) and AC2.8 substitute a fixture standards file and need it.
-- **Fixtures:** JSON files in `tests/fixtures/`, per §6.3, plus two Markdown fixtures for
-  the standards seam — one with a substituted discriminator line, one with it removed.
+- **Fixtures:** JSON files in `tests/fixtures/`, per §6.3 — the eight shape fixtures AC1.4
+  needs, plus the invalid fixtures AC2.x needs. Two Markdown fixtures for the standards
+  seam: one with a substituted discriminator line, one with it removed.
 - **Baseline:** derive at Step 1 with `python -m pytest tests/` and record it in the Step 1
   commit message, not in this spec.
 - **Deviation from C5:** this is the first tested script. #82's second AC is about
@@ -291,8 +270,7 @@ They assert nothing about the issue.
 
 | Risk | Blast radius | Rollback |
 | --- | --- | --- |
-| The validator rejects a correctly-authored issue and creation stalls behind the tool | Work stoppage | AC1.4 runs every existing issue's metadata through the rules, so a structural rule stricter than reality fails at Step 4 rather than in use. DR7 keeps judgement criteria out of the validator |
-| A content rule is judged against existing issues, or a structural rule is exempted from them | Either an unpassable check (F1) or an unguarded schema | DR8 draws the line; AC1.5 asserts `--check-live` makes no body assertion, so re-fusing the two fails mechanically |
+| The validator rejects a correctly-authored issue and creation stalls behind the tool | Work stoppage | AC1.4's eight fixtures cover every shape the schema can express, so a rule that rejects a valid shape fails at Step 4 rather than in use. DR7 keeps judgement criteria out of the validator |
 | A per-shape template set creeps back in | The register #82 exists to remove | DR1 forbids it. AC1.1 is a directory-listing equality, so a third file fails; AC1.3 asserts one key set |
 | `.json` placed in `.github/ISSUE_TEMPLATE/` | GitHub ignores it; the template appears to exist and does nothing | DR3, checked by AC1.2 |
 | `--create` runs on wrong content and a public issue is created | An issue that must be closed by hand | DR5 makes creation opt-in, DR4 makes validation total, so `--create` cannot run past a failure. Close with `gh issue close`; the number is consumed either way |
