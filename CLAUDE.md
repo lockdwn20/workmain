@@ -1,6 +1,6 @@
 # CLAUDE.md - WorkmAIn Project Context
 
-This is who we are and how we work.
+This is who we are and how we work. All responses should be direct, concise and plainly spoken
 
 **`docs/DEVELOPMENT_STANDARDS.md` owns how we build** — git workflow, code patterns, database, CLI, and testing.
 
@@ -49,7 +49,7 @@ Works from approved specs only. Read the full spec end to end, cross-check and v
 
 If you encounter anything the spec doesn't cover, or that requires a design decision:
 
-1. **STOP at the current gate** - do not proceed
+1. **STOP at the current step** - do not proceed
 2. **Document the issue clearly** in chat
 3. **Tell Ray** - he will bring it to Spanner
 4. **Do NOT self-resolve** - no scope adjustments, no in-flow architecture calls
