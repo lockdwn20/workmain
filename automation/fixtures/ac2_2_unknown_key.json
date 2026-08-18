@@ -1,0 +1,11 @@
+{
+  "title": "Typo'd key name",
+  "context": "The milestone key is misspelled, so it reads as both unknown and missing.",
+  "acs": ["AC1: something is true"],
+  "mileston": null,
+  "parent": null,
+  "labels": ["cli"],
+  "type": "bug",
+  "blocked_by": [],
+  "blocking": []
+}

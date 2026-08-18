@@ -103,8 +103,8 @@ chore/*    — documentation/process/tooling only. From main, merges to main AND
 
 **`chore/*`** — from `main`, merges to `main` then `dev`.
 
-- For `docs/**`, standards documents, and non-behavioural dev tooling (`.gitignore`,
-  `.githooks/`, editor/CI config).
+- For `docs/**`, standards documents, and dev tooling that changes no application behaviour
+  (`.gitignore`, `.githooks/`, `.github/`, `automation/`, editor/CI config).
 - **Exception:** a change to `workmain/**`, `tests/**`, or `scripts/**` may use `chore/*`
   if it is mechanically proven behaviour-neutral (e.g. AST-equality) *and* the governing
   spec states the proof method.
@@ -587,6 +587,7 @@ Rules:
 | `tests/fixtures/` | Test data (JSON, CSV) — never Python test files |
 | `tests/mocks/` | Fakes for external services — never test files |
 | `scripts/` | Utilities and demos, never tests |
+| `automation/` | Non-application dev tooling and its own tests (`*_test.py`), never mixed with the application suite — `testpaths` keeps a bare `pytest` on `tests/` only |
 
 `scripts-deprecated/` is excluded from collection. Do not add to it and do not run it with
 pytest; if you need a diagnostic script, put it in `scripts/`.
@@ -616,6 +617,7 @@ document the deviation, and keep going. That is not a design question and does n
 | Staged report output | `staging/` — **not** `output/`, which does not exist |
 | Tests / data / mocks | `tests/`, `tests/fixtures/`, `tests/mocks/` |
 | Utility scripts | `scripts/` |
+| Non-application dev tooling | `automation/` |
 | Design studies and recon | `docs/dev/design/` |
 | Specs | `docs/dev/specs/` |
 | Implementation results | `docs/dev/results/` |

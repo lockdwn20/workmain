@@ -1,0 +1,11 @@
+{
+  "title": "Unscheduled child issue",
+  "context": "Context for an unscheduled child issue.",
+  "acs": ["AC1: something is true"],
+  "milestone": null,
+  "parent": 100,
+  "labels": ["cli"],
+  "type": "enhancement",
+  "blocked_by": [],
+  "blocking": []
+}
