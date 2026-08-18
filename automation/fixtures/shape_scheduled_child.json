@@ -1,0 +1,11 @@
+{
+  "title": "Scheduled child issue",
+  "context": "Context for a scheduled child issue.",
+  "acs": ["AC1: something is true"],
+  "milestone": "Phase 14 — Setup Wizard & Configuration",
+  "parent": 100,
+  "labels": ["cli"],
+  "type": null,
+  "blocked_by": [],
+  "blocking": []
+}

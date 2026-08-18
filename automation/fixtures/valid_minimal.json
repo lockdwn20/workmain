@@ -1,0 +1,11 @@
+{
+  "title": "Minimal valid issue",
+  "context": "No milestone, no parent, no blockers.",
+  "acs": ["AC1: something is true"],
+  "milestone": null,
+  "parent": null,
+  "labels": ["cli"],
+  "type": "bug",
+  "blocked_by": [],
+  "blocking": []
+}
