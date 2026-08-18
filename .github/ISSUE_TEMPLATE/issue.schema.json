@@ -1,7 +1,8 @@
 {
   "title": {
     "type": "string",
-    "required": true
+    "required": true,
+    "max_length": 256
   },
   "context": {
     "type": "string",
