@@ -32,6 +32,7 @@
 | 20260818 | Ray | The body format is stated as the standard, not derived from what issues look like today | §4.2 |
 | 20260818 | Caliper | R3 — C12 said `gh label list --json` returns three fields; it returns eight | Corrected. The conclusion holds: `isDefault` is `true` for `documentation`, `question` and others, so no field separates type from area |
 | 20260818 | Caliper | R4 — `type`'s value was never checked against live GitHub, though it is passed to `--label` | Closed in §4.1. `type` is checked against the live label set exactly as `labels[]` is |
+| 20260818 | Ray | What happens with all existing issues that don't match the template? | Existing issues will be updated to match the template prior to their implementation planning |
 
 ---
 
@@ -82,9 +83,11 @@
 - **DR1 — One schema, rules not shapes.** There is a single template. Issue shape (parent,
   child, scheduled, unscheduled) follows from which fields are populated, and the validator
   enforces the cross-field rules §1.3 already states. A per-shape template set would be a
-  register, and any shape missing from it would go unprompted. At creation an issue is
-  standalone or a child; it becomes a parent when a later issue names it with `--parent`,
-  so "parent" is not a field this template carries.
+  register, and any shape missing from it would go unprompted. A parent issue is created
+  through this template like any other: it leaves `parent` null and becomes a parent when a
+  child names it with `--parent`. Parent and standalone are therefore the same shape at
+  creation, which is the plainest case for one template — a per-shape set would carry two
+  identical files.
 - **DR2 — Nothing is enumerated that can be derived.** Label names, milestone titles, and
   whether a parent issue exists are read live from GitHub at validation time. The type
   discriminator is not a GitHub facet (C12), so it is read from §1.3, which owns the rule.
@@ -219,17 +222,17 @@ No DB migration appears in this spec.
 Mapped to #82's three ACs: AC1.x carries its first, AC2.x its second, AC3.x its third.
 AC4.x is the test obligation §1.2 imposes on any spec. Each row is a single assertion.
 
-#82's first AC — one template, with shape expressed by which fields are populated — is met
-by AC1.1 (one schema on disk) and AC1.4 (every shape validates through it). The shape set is
-the cross product of the schema's own fields, so it is complete by construction rather than
-by my having listed the shapes correctly.
+Issue #82's first AC — one template, with shape expressed by which fields are populated —
+is met by AC1.1 (one schema on disk) and AC1.4 (every shape validates through it). The
+shape set is the cross product of the schema's own fields, so it is complete by
+construction rather than by anyone having listed the shapes correctly.
 
 | AC | Criterion | How it is checked |
 | --- | --- | --- |
 | AC1.1 | The template directory holds exactly the schema and the skeleton, per DR1 | `ls .github/issue-templates/ \| sort` prints exactly two lines: `issue.schema.json`, `issue.template.json`. An equality, so a third file fails |
 | AC1.2 | Nothing was placed in the GitHub-reserved directory, per DR3 | `test -e .github/ISSUE_TEMPLATE` exits non-zero |
 | AC1.3 | The skeleton carries every schema key and no other | `python3 scripts/gh_issue.py --new \| python3 -c "import json,sys; print(sorted(json.load(sys.stdin)))"` equals the sorted key list from `issue.schema.json` |
-| AC1.4 | Every issue shape validates through the one schema, per DR1 | Eight fixtures covering the cross product of `milestone` set/null × `parent` set/null × `type` set/null. The four satisfying the type rule — scheduled standalone, scheduled child, unscheduled standalone, unscheduled child — validate and exit `0`. The other four violate it and fail with the AC2.3 messages. Shape is therefore carried by field population, and no fixture needs a template of its own |
+| AC1.4 | Every issue shape validates through the one schema, per DR1 | Eight fixtures covering the cross product of `milestone` set/null × `parent` set/null × `type` set/null. The four satisfying the type rule validate and exit `0`: scheduled standalone, scheduled child, unscheduled standalone, unscheduled child. The parent case is covered by the standalone fixtures, since a parent leaves `parent` null at creation (DR1). The other four violate it and fail with the AC2.3 messages. Shape is therefore carried by field population, and no fixture needs a template of its own |
 | AC2.1 | A missing required key fails, naming the key | Fixture with `milestone` deleted → exit non-zero, stderr contains `milestone` |
 | AC2.2 | An unknown key fails, naming the key | Fixture with `mileston` (typo) → exit non-zero, stderr contains `mileston` |
 | AC2.3 | Both halves of the type rule fail, and are distinguishable | Fixture A (`milestone: null`, `type: null`) and fixture B (`milestone` set, `type` set) each exit non-zero with different messages |
