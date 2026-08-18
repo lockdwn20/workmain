@@ -33,6 +33,16 @@
 | 20260818 | Caliper | R3 — C12 said `gh label list --json` returns three fields; it returns eight | Corrected. The conclusion holds: `isDefault` is `true` for `documentation`, `question` and others, so no field separates type from area |
 | 20260818 | Caliper | R4 — `type`'s value was never checked against live GitHub, though it is passed to `--label` | Closed in §4.1. `type` is checked against the live label set exactly as `labels[]` is |
 | 20260818 | Ray | What happens with all existing issues that don't match the template? | Existing issues will be updated to match the template prior to their implementation planning |
+| 20260818 | Ray | F11 — repository layout. Non-application tooling and its tests live in `automation/`; `tests/` holds application tests only; the JSON template goes in `.github/ISSUE_TEMPLATE/`, which GitHub ignores because it reads only `.md` and `.yml` | Adopted. DR3 and DR9. `automation/` is named in none of §2.2's exception paths, so `chore/*` applies with no deviation |
+| 20260818 | Caliper | F12 — the spec never said whether the schema file or the script owns the rules | The script owns them; the schema file is data the script loads. DR9 |
+| 20260818 | Caliper | F13 — `gh issue list` returns open issues only, so closed parents and blockers would be rejected | Real defect. §4.1 states `--state all`; AC2.9 checks a closed parent validates |
+| 20260818 | Caliper | F14 — `CLAUDE.md` was in scope with no step or AC | #82 gained a fourth AC covering the plain-speech line, so it is in scope. Step 5 and AC5.1 carry it |
+| 20260818 | Caliper | F15 — AC4.x cited §1.2 for a test obligation §1.2 does not contain | Corrected to §6 |
+| 20260818 | Caliper | F16 — DR4 says never stop at the first error; AC2.8 exits immediately | DR4 gains the ordering exception: the §1.3 parse runs first and aborts, because no type rule can be evaluated without it |
+| 20260818 | Caliper | F17 — the standards-file location and section bounds were specified for tests only | §4.1 states both |
+| 20260818 | Caliper | F18 — Step 2's ACs needed fixtures assigned to a later step | Fixtures move to Step 2 |
+| 20260818 | Caliper | `--label` accepts comma-joined values as well as repetition, so §4.3's stated rationale was wrong | Rationale corrected. Repetition is still used: a comma inside a label name would break the joined form |
+| 20260818 | Spanner | Bare `pytest` collects `scripts-deprecated/`, so CLAUDE.md's "excluded from test collection" is not enforced by anything. Adding `automation/` would put a second test tree in the same sweep | `pyproject.toml` gains `testpaths = ["tests"]`. Bare `pytest` runs the application suite only; `pytest automation/` still works, since `testpaths` applies only when no path is given |
 
 ---
 
@@ -40,12 +50,15 @@
 
 **In scope:**
 
-- One JSON schema and one skeleton template describing a WorkmAIn issue.
-- `scripts/gh_issue.py` — a stdlib-only client-side validator that checks a JSON issue
-  file against the schema and against live GitHub state, then creates the issue through
-  `gh issue create`.
-- Tests covering the validator's rules.
-- `CLAUDE.md` — the plain-speech directive and the gate→step wording, which ride this branch.
+- One JSON schema and one skeleton template describing a WorkmAIn issue, in
+  `.github/ISSUE_TEMPLATE/`.
+- `automation/issue_validator.py` — a stdlib-only client-side validator that checks a JSON
+  issue file against the schema and against live GitHub state, then creates the issue
+  through `gh issue create`.
+- `automation/issue_validator_test.py` — its tests.
+- `pyproject.toml` — `testpaths`, so the application suite and `automation/` stay separate.
+- `docs/DEVELOPMENT_STANDARDS.md` §6.3 and §7 — the `automation/` placement rows.
+- `CLAUDE.md` — the plain-speech directive, per #82's first AC.
 
 **Out of scope:**
 
@@ -56,8 +69,12 @@
 - **Issue editing.** `gh issue edit`. This spec covers creation.
 - **Milestone and label administration.** The validator checks names against live GitHub
   and fails on a name that does not exist; it never creates one.
-- **`.github/ISSUE_TEMPLATE/`.** Server-side Markdown/YAML templates, ruled out by recon
-  F24/F25. Nothing is placed in that reserved directory. See DR3.
+- **Server-side GitHub templates.** No `.md` or `.yml` template is created. Recon F24/F25
+  rule them out; the `.json` file shares the directory but is not one. See DR3.
+- **`scripts/check_release_integrity.py`.** Same category as `automation/`, but moving it is
+  an unrelated change with its own blast radius. It becomes its own issue.
+- **`CLAUDE.md` line 52** (`gate` → `step`). Committed on this branch, covered by no AC
+  here; the subject belongs to #86.
 - Any change to `workmain/**`, `config/**`, or `templates/**`. Nothing in the application
   imports this script, and the script imports nothing from the application.
 
@@ -69,7 +86,7 @@
 | C2 | The token holds the `project` scope alongside `repo`, so `--project` works | `gh auth status` — scopes list. Confirms recon F28 |
 | C3 | Project **#3 "WorkmAIn Queue"** is linked to this repository and is the only open one; a closed untitled #2 is also linked | `gh api graphql` on `repository(owner:"lockdwn20",name:"workmain"){projectsV2}` — #3 `closed=false`, #2 `closed=true`. `--project` resolves against linkage, so an ownership query is not sufficient evidence |
 | C4 | `.github/` **does not exist** in the working tree | Filesystem read at repo root. Confirms recon F14 |
-| C5 | `scripts/check_release_integrity.py` is the precedent for standards-enforcing dev tooling: `scripts/`, stdlib only, module docstring stating why it exists, non-zero exit on failure. It has no tests | The file's imports and docstring; `grep -rl check_release_integrity tests/` returns nothing |
+| C5 | `scripts/check_release_integrity.py` is the precedent for standards-enforcing dev tooling: stdlib only, module docstring stating why it exists, non-zero exit on failure. It has no tests | The file's imports and docstring; `grep -rl check_release_integrity tests/` returns nothing |
 | C6 | §1.3, quoted whole: *"Labels carry area. `bug`/`enhancement` is the type discriminator, applied only to issues with no milestone — so a type label appearing inside a milestone means that work was pulled in later, not planned as part of it."* The trailing clause matters: milestone + type label is a legitimate state, not an error. §1.3 also states that what a label means *"is its description on GitHub … not enumerated here"* | `docs/DEVELOPMENT_STANDARDS.md:45-49`, as it stands after #81 |
 | C7 | §1.3 also states *"A milestone carries the exit condition that closes it"* and *"An issue must be independently verifiable on its own"* | `docs/DEVELOPMENT_STANDARDS.md:50-53` |
 | C8 | The live label set and milestone set are each readable in one call — `gh label list --json name` and `gh api repos/:owner/:repo/milestones --jq '.[].title'`. Neither is transcribed into this spec | Both commands run at authoring time |
@@ -77,6 +94,9 @@
 | C10 | Python is **3.12.3** and no JSON-schema library is a project dependency | `python3 --version`; `requirements.txt` |
 | C11 | The `type` discriminator cannot be set through `gh issue create --type`: `Repository.issueTypes` is `null` for this repository | Recon F26, re-checked at authoring time |
 | C12 | GitHub cannot distinguish a type label from an area label. `gh label list --json` offers eight fields — `color`, `createdAt`, `description`, `id`, `isDefault`, `name`, `updatedAt`, `url` — and none marks type. `isDefault` is `true` for `documentation`, `question` and `wontfix` as well as `bug` and `enhancement`, so it does not separate them. With `issueTypes` null (C11), the discriminator is knowable only from §1.3 | `gh label list --json` field list; `gh label list --limit 100 --json name,isDefault`; C11 |
+| C13 | No pytest configuration exists. `pyproject.toml` is tracked and **empty**; there is no `pytest.ini`, `setup.cfg`, or `tox.ini`. Defaults therefore apply, including the `test_*.py` / `*_test.py` collection patterns | `ls`/`cat` at repo root; `grep` for `[tool.pytest`, `testpaths`, `python_files` across `*.toml`, `*.ini`, `*.cfg` |
+| C14 | Bare `pytest` collects `scripts-deprecated/` — three files' worth of tests outside `tests/`. CLAUDE.md's *"`scripts-deprecated/` is excluded from test collection"* is not enforced by anything; the suite looks clean only because it is always invoked as `pytest tests/` | `pytest --collect-only -q` at repo root versus `pytest --collect-only -q tests/`; the difference is entirely `scripts-deprecated/` |
+| C15 | `gh issue list` returns **open** issues only unless `--state all` is passed | `gh issue list --help` |
 
 ## 3. Design rules
 
@@ -92,13 +112,16 @@
   whether a parent issue exists are read live from GitHub at validation time. The type
   discriminator is not a GitHub facet (C12), so it is read from §1.3, which owns the rule.
   Neither this spec nor the schema contains a list of labels, milestones, or issue numbers.
-- **DR3 — The template is not a GitHub template.** Files live in
-  `.github/issue-templates/`, never `.github/ISSUE_TEMPLATE/`. The reserved directory is
-  read server-side from the default branch and accepts Markdown/YAML only (F24), so a
-  `.json` placed there would be ignored or mis-parsed.
-- **DR4 — Validation is total.** All checks run before the script exits; it never stops at
-  the first error. Each failure names the offending key and what was wrong with it. The
-  script never repairs, defaults, or rewrites a field.
+- **DR3 — The template lives in `.github/ISSUE_TEMPLATE/` and is not a GitHub template.**
+  GitHub reads only `.md` and `.yml` from that directory, so a `.json` file sits there
+  without being offered as an issue template (Ray, 20260818). The directory is the
+  discoverable home for issue structure; the file format is what keeps GitHub out of it.
+  No `.md` or `.yml` template is created — recon F24/F25 rule that mechanism out.
+- **DR4 — Validation is total, with one ordering exception.** All checks run before the
+  script exits; it never stops at the first error. Each failure names the offending key and
+  what was wrong with it. The script never repairs, defaults, or rewrites a field. **The
+  exception is the §1.3 discriminator parse**, which runs first and aborts on failure: no
+  type rule can be evaluated without the token list, so continuing would report guesses.
 - **DR5 — Creation is opt-in.** The default run validates and prints the exact
   `gh issue create` command, creating nothing. `--create` runs it. The stop on an
   outward-facing action is carried by the tool, not by a step in a process document.
@@ -109,6 +132,16 @@
 - **DR7 — The validator checks mechanical properties, not judgement.** §1.3's
   "independently verifiable" and "the exit condition covers every issue" are judgements. A
   validator that guesses at them blocks correct work, so it does not try.
+- **DR8 — The application suite and `automation/` never mix.** `tests/` holds application
+  tests; `automation/` holds non-application tooling and the tests for it. `pyproject.toml`
+  sets `testpaths = ["tests"]` so a bare `pytest` runs the application suite only. Without
+  it nothing enforces the separation — C14 shows the existing claim about
+  `scripts-deprecated/` is already untrue.
+- **DR9 — The script owns the rules; the schema file is data.** `issue.schema.json` declares
+  the key set and each key's type and required-ness, and `issue_validator.py` loads it at
+  runtime and enforces what it finds. Cross-field rules that need live GitHub or §1.3 — the
+  type rule, label and milestone existence — live in the script, because a JSON file cannot
+  express them. Nothing is stated in both places, so the two cannot drift.
 - **Anything not covered here: STOP and surface to Ray.** No self-resolution, no scope
   adjustment. Unconditional, and independent of step boundaries.
 
@@ -119,15 +152,17 @@ new file on a branch, undone by `git revert`.
 
 | Step | Deliverable | Files | Verification |
 | --- | --- | --- | --- |
-| 1 | The JSON schema and the skeleton template | `.github/issue-templates/` | AC1.1, AC1.2, AC1.3 |
-| 2 | The validator — schema checks, the §1.3 discriminator parse, then live-state checks, per DR4 | `scripts/gh_issue.py` | AC2.1 – AC2.8 |
-| 3 | `gh issue create` invocation: parameter mapping per §4.3, `--create` opt-in | `scripts/gh_issue.py` | AC3.1 – AC3.5 |
-| 4 | Tests, including the shape fixtures AC1.4 needs | `tests/test_gh_issue.py`, `tests/fixtures/` | AC1.4, AC4.1, AC4.2 |
+| 1 | The JSON schema and the skeleton template | `.github/ISSUE_TEMPLATE/` | AC1.1, AC1.2, AC1.3 |
+| 2 | The validator — the §1.3 parse, schema checks, then live-state checks, per DR4 — **and the fixtures its ACs need**, per F18 | `automation/issue_validator.py`, `automation/fixtures/` | AC2.1 – AC2.9 |
+| 3 | `gh issue create` invocation: parameter mapping per §4.3, `--create` opt-in | `automation/issue_validator.py` | AC3.1 – AC3.5 |
+| 4 | Tests and the shape fixtures; `pyproject.toml` `testpaths`, per DR8 | `automation/issue_validator_test.py`, `automation/fixtures/`, `pyproject.toml` | AC1.4, AC4.1 – AC4.3 |
+| 5 | `CLAUDE.md` plain-speech directive, per #82's first AC | `CLAUDE.md`, `docs/DEVELOPMENT_STANDARDS.md` | AC5.1, AC5.2 |
 
 ### 4.1 The schema
 
-`.github/issue-templates/issue.schema.json` — a hand-rolled schema, since no JSON-schema
-library is a dependency (C10) and adding one for a dev script is not warranted. Field set:
+`.github/ISSUE_TEMPLATE/issue.schema.json` — a hand-rolled schema, since no JSON-schema
+library is a dependency (C10) and adding one for a dev script is not warranted. Per DR9 the
+script loads this file and enforces what it declares. Field set:
 
 | Key | Type | Required | Rule |
 | --- | --- | --- | --- |
@@ -135,16 +170,22 @@ library is a dependency (C10) and adding one for a dev script is not warranted. 
 | `context` | string | yes | non-empty after strip. Becomes the body's prose |
 | `acs` | array of string | yes | ≥ 1 entry, each non-empty after strip |
 | `milestone` | string or `null` | yes — key must be present | if non-`null`, must match a live milestone title exactly |
-| `parent` | integer or `null` | yes — key must be present | if non-`null`, must be an existing issue in this repository |
+| `parent` | integer or `null` | yes — key must be present | if non-`null`, must be an existing issue in this repository, **open or closed** |
 | `labels` | array of string | yes | ≥ 1 entry; every entry must be a live label; **no entry may be a type label** (see below) |
 | `type` | string or `null` | yes — key must be present | if non-`null`, must be one of the §1.3 type labels **and** must exist as a live label — the same check `labels[]` gets, since both are passed to `--label` |
-| `blocked_by` | array of integer | no — defaults `[]` | every entry an existing issue |
-| `blocking` | array of integer | no — defaults `[]` | every entry an existing issue |
+| `blocked_by` | array of integer | no — defaults `[]` | every entry an existing issue, open or closed |
+| `blocking` | array of integer | no — defaults `[]` | every entry an existing issue, open or closed |
 
 Every key must be present even when its value is `null`. A missing `milestone` key is an
 omission; `"milestone": null` is a decision.
 
 Any key not in this table fails, naming the key. That is what catches a typo.
+
+**Issue existence is checked across all states.** `gh issue list` returns open issues only
+unless `--state all` is passed (C15). A closed issue is a legitimate parent and a legitimate
+blocker, so every existence check — `parent`, `blocked_by`, `blocking` — uses `--state all`.
+Defaulting to open would reject valid references, and the failure would arrive in use rather
+than at Step 2.
 
 **The type rule (C6, §1.3).** `type` is non-`null` **if and only if** `milestone` is
 `null`. Both violations are reported distinctly:
@@ -162,15 +203,26 @@ editing an existing issue, not by creating one. If the validator is ever used to
 discriminator has exactly one path and the cross-field rule cannot be bypassed.
 
 **Deriving the type-label names.** GitHub carries no type marking (C12), so the validator
-reads §1.3, which owns the rule. It takes the §1.3 section of
-`docs/DEVELOPMENT_STANDARDS.md`, finds the line containing `type discriminator`, and
-collects the backtick-delimited tokens on it — currently `bug` and `enhancement`, verified
-at authoring time. If the section, line, or tokens are missing it exits non-zero naming the
-file and the phrase. There is no built-in fallback list.
+reads §1.3, which owns the rule. Mechanism, in full:
 
-`.github/issue-templates/issue.template.json` is the skeleton — every key present, values
-empty or `null`, ready to copy. `scripts/gh_issue.py --new` writes a copy of it to stdout so
-the path never has to be remembered.
+- **Locating the file.** Resolved relative to the repository root, which is found by walking
+  up from the script's own path to the first directory containing `.git`. Not the working
+  directory — the script must behave the same run from anywhere.
+- **Delimiting the section.** From the line matching `### 1.3` to the next line beginning
+  `###` or `---`, whichever comes first.
+- **Extracting the tokens.** Within that section, the single line containing the phrase
+  `type discriminator`; from it, every backtick-delimited token. Against the current text
+  this yields `bug` and `enhancement`, verified at authoring time.
+- **On failure.** If the repository root, the section, the line, or the tokens cannot be
+  found, exit non-zero naming the file and the phrase. There is no fallback list, and per
+  DR4 this check runs first and aborts.
+
+The parse depends on the tokens and the phrase sharing one physical line of a wrapped
+paragraph. That holds today, and a rewrap fails loudly rather than silently.
+
+`.github/ISSUE_TEMPLATE/issue.template.json` is the skeleton — every key present, values
+empty or `null`, ready to copy. `automation/issue_validator.py --new` writes a copy to
+stdout so the path never has to be remembered.
 
 ### 4.2 Body rendering
 
@@ -201,9 +253,11 @@ backticks, quotes, or newlines is otherwise at the mercy of shell quoting.
 | `blocking` (non-empty) | `--blocking` **once, values comma-joined** |
 | — | `--project "WorkmAIn Queue"`, always (DR6) |
 
-The two forms differ: `gh issue create --help` documents `--label name` as repeatable and
-`--blocked-by numbers` as comma-joined (C1). An empty `blocked_by` or `blocking` omits the
-flag rather than passing an empty value.
+`--label` accepts either form; repetition is used because a comma inside a label name —
+`help wanted` is one space away from such a name — would break the joined form.
+`--blocked-by` is documented as taking comma-joined numbers, where the values are integers
+and no such ambiguity exists (C1). An empty `blocked_by` or `blocking` omits the flag
+rather than passing an empty value.
 
 `--type` is never passed. It is inert on this repository (C11) and the discriminator travels
 as a label.
@@ -219,40 +273,51 @@ No DB migration appears in this spec.
 
 ## 5. Acceptance criteria
 
-Mapped to #82's three ACs: AC1.x carries its first, AC2.x its second, AC3.x its third.
-AC4.x is the test obligation §1.2 imposes on any spec. Each row is a single assertion.
+Mapped to #82's four ACs: AC5.x carries its first (the CLAUDE.md directive), AC1.x its
+second, AC2.x its third, AC3.x its fourth. AC4.x is the test obligation §6 imposes. Each row
+is a single assertion.
 
-Issue #82's first AC — one template, with shape expressed by which fields are populated —
-is met by AC1.1 (one schema on disk) and AC1.4 (every shape validates through it). The
-shape set is the cross product of the schema's own fields, so it is complete by
-construction rather than by anyone having listed the shapes correctly.
+#82's template AC — one template, with shape expressed by which fields are populated — is
+met by AC1.1 (one schema on disk) and AC1.4 (every shape validates through it). The shape
+set is the cross product of the schema's own fields, so it is complete by construction
+rather than by anyone having listed the shapes correctly.
 
 | AC | Criterion | How it is checked |
 | --- | --- | --- |
-| AC1.1 | The template directory holds exactly the schema and the skeleton, per DR1 | `ls .github/issue-templates/ \| sort` prints exactly two lines: `issue.schema.json`, `issue.template.json`. An equality, so a third file fails |
-| AC1.2 | Nothing was placed in the GitHub-reserved directory, per DR3 | `test -e .github/ISSUE_TEMPLATE` exits non-zero |
-| AC1.3 | The skeleton carries every schema key and no other | `python3 scripts/gh_issue.py --new \| python3 -c "import json,sys; print(sorted(json.load(sys.stdin)))"` equals the sorted key list from `issue.schema.json` |
+| AC1.1 | `.github/ISSUE_TEMPLATE/` holds exactly the schema and the skeleton, per DR1 | `ls .github/ISSUE_TEMPLATE/ \| sort` prints exactly two lines: `issue.schema.json`, `issue.template.json`. An equality, so a third file fails |
+| AC1.2 | No server-side GitHub template is created, per DR3 | `ls .github/ISSUE_TEMPLATE/*.md .github/ISSUE_TEMPLATE/*.yml .github/ISSUE_TEMPLATE/*.yaml` matches nothing. After the branch reaches the default branch, `gh api graphql` on `repository{issueTemplates{filename}}` returns `[]` — Ray's post-merge check, since the field reads the default branch only |
+| AC1.3 | The skeleton carries every schema key and no other | `python3 automation/issue_validator.py --new \| python3 -c "import json,sys; print(sorted(json.load(sys.stdin)))"` equals the sorted key list from `issue.schema.json` |
 | AC1.4 | Every issue shape validates through the one schema, per DR1 | Eight fixtures covering the cross product of `milestone` set/null × `parent` set/null × `type` set/null. The four satisfying the type rule validate and exit `0`: scheduled standalone, scheduled child, unscheduled standalone, unscheduled child. The parent case is covered by the standalone fixtures, since a parent leaves `parent` null at creation (DR1). The other four violate it and fail with the AC2.3 messages. Shape is therefore carried by field population, and no fixture needs a template of its own |
 | AC2.1 | A missing required key fails, naming the key | Fixture with `milestone` deleted → exit non-zero, stderr contains `milestone` |
 | AC2.2 | An unknown key fails, naming the key | Fixture with `mileston` (typo) → exit non-zero, stderr contains `mileston` |
 | AC2.3 | Both halves of the type rule fail, and are distinguishable | Fixture A (`milestone: null`, `type: null`) and fixture B (`milestone` set, `type` set) each exit non-zero with different messages |
 | AC2.4 | A type label inside `labels` fails | Fixture with a live type-label name in `labels` → exit non-zero |
 | AC2.5 | A non-existent label, milestone, or parent fails against live state | Three fixtures, each exiting non-zero and naming the offending value |
-| AC2.6 | The type-label names are parsed from §1.3, not hardcoded — DR2, §4.1 | Both required. **(a)** `grep -cE "['\"](bug\|enhancement)['\"]" scripts/gh_issue.py` prints `0`. Compare stdout, not exit status — `grep -c` exits `1` when it prints `0`. **(b)** Against a fixture standards file whose discriminator line reads ``` `alpha`/`beta` is the type discriminator ```, the validator treats `alpha` and `beta` as type labels and `bug` as an area label |
+| AC2.6 | The type-label names are parsed from §1.3, not hardcoded — DR2, §4.1 | Both required. **(a)** `grep -cE "['\"](bug\|enhancement)['\"]" automation/issue_validator.py` prints `0`. Compare stdout, not exit status — `grep -c` exits `1` when it prints `0`. **(b)** Against a fixture standards file whose discriminator line reads ``` `alpha`/`beta` is the type discriminator ```, the validator treats `alpha` and `beta` as type labels and `bug` as an area label |
 | AC2.7 | Validation is total, per DR4 | Fixture with three independent errors → stderr names all three in one run |
-| AC2.8 | A missing §1.3 discriminator line fails rather than falling back, per §4.1 | Fixture standards file with the `type discriminator` line deleted → exit non-zero, stderr names `DEVELOPMENT_STANDARDS.md` and `type discriminator`. No issue created |
-| AC3.1 | The default run creates nothing | On a valid fixture, `python3 scripts/gh_issue.py <file>` exits `0`, prints the `gh issue create` command, and `gh issue list --limit 300 --json number \| jq length` is unchanged before and after |
+| AC2.8 | A missing §1.3 discriminator line aborts before any other check, per DR4 | Fixture standards file with the `type discriminator` line deleted, given a JSON file that also has two schema errors → exit non-zero, stderr names `DEVELOPMENT_STANDARDS.md` and `type discriminator` and **does not** report the two schema errors. This is the one place DR4's total reporting does not apply |
+| AC2.9 | A closed issue is accepted as a parent and as a blocker, per C15 | Fixture naming a closed issue number in `parent` and another in `blocked_by` validates and exits `0`. Fails if the implementation builds its issue set without `--state all` |
+| AC3.1 | The default run creates nothing | On a valid fixture, `python3 automation/issue_validator.py <file>` exits `0`, prints the `gh issue create` command, and `gh issue list --limit 300 --json number \| jq length` is unchanged before and after |
 | AC3.2 | The printed command carries every populated field in the form `gh` expects, per §4.3 | For a fixture with two labels, a type, and two `blocked_by` entries: the command contains `--title`, `--body-file`, `--milestone`, `--parent`, `--project`; exactly three `--label` occurrences; and exactly one `--blocked-by` with the numbers comma-joined. Presence alone would pass a wrong form |
 | AC3.3 | `--project "WorkmAIn Queue"` is present unconditionally, per DR6 | Printed command for a *minimal* fixture (no milestone, no parent, no blockers) still contains `--project` |
-| AC3.4 | `--type` is never passed, per C11 | `grep -c '\-\-type' scripts/gh_issue.py` prints `0`. Compare stdout, not exit status, as in AC2.6(a) |
+| AC3.4 | `--type` is never passed, per C11 | `grep -c '\-\-type' automation/issue_validator.py` prints `0`. Compare stdout, not exit status, as in AC2.6(a) |
 | AC3.5 | Empty `blocked_by` / `blocking` omit the flag rather than passing an empty value | Printed command for the minimal fixture contains neither `--blocked-by` nor `--blocking` |
-| AC4.1 | The validator's rules are covered by tests | `python -m pytest tests/test_gh_issue.py -q` passes, with at least one test per AC2.x row |
-| AC4.2 | The suite is unaffected apart from the new file | `python -m pytest tests/` — zero failures, and the pass count equals the baseline recorded at Step 1 plus the count of new tests |
+| AC4.1 | The validator's rules are covered by tests | `python -m pytest automation/ -q` passes, with at least one test per AC2.x row |
+| AC4.2 | The application suite is unchanged | `python -m pytest tests/` — zero failures, and the pass count equals the baseline recorded at Step 1. No test is added to `tests/`, so the count moves by zero |
+| AC4.3 | Bare `pytest` runs the application suite only, per DR8 | `python -m pytest --collect-only -q` and `python -m pytest --collect-only -q tests/` report the same count. Before this step they differ, because bare collection sweeps in `scripts-deprecated/` (C14) |
+| AC5.1 | `CLAUDE.md` carries the plain-speech directive, per #82's first AC | `sed -n '3p' CLAUDE.md \| grep -c 'direct, concise and plainly spoken'` prints `1` |
+| AC5.2 | The standards document knows where `automation/` code and tests go | `docs/DEVELOPMENT_STANDARDS.md` §7 has an `automation/` row, and §6.3's `scripts/` row no longer implies it is the only home for utilities: `grep -c 'automation/' docs/DEVELOPMENT_STANDARDS.md` prints at least `2` |
 
 ## 6. Test plan
 
-- **New file:** `tests/test_gh_issue.py`. `scripts/` has no `__init__.py`, so the script is
-  loaded by path with `importlib.util.spec_from_file_location`.
+- **New file:** `automation/issue_validator_test.py`, beside the script it tests, per Ray's
+  layout. The name matches pytest's default `*_test.py` pattern, so `pytest automation/`
+  collects it with no configuration (C13). `automation/` has no `__init__.py`, so the script
+  is loaded by path with `importlib.util.spec_from_file_location`.
+- **Two suites, never mixed.** `pytest tests/` is the application suite; `pytest automation/`
+  is this tool's. `testpaths` keeps a bare `pytest` on the first (DR8). Every invocation in
+  this spec names its path, because the two are different populations and a count from one
+  means nothing against the other.
 - **No `db_session`.** Nothing here touches the database, so §6.1's fixture does not apply.
 - **No live network in tests.** The live-state checks (labels, milestones, parent existence)
   are behind a seam that tests substitute — the validator takes the live sets as arguments
@@ -260,22 +325,26 @@ construction rather than by anyone having listed the shapes correctly.
   fetch happens once at the top of the run.
 - **Second seam:** the §1.3 parse (§4.1) takes the path to `DEVELOPMENT_STANDARDS.md` as
   an argument. AC2.6(b) and AC2.8 substitute a fixture standards file and need it.
-- **Fixtures:** JSON files in `tests/fixtures/`, per §6.3 — the eight shape fixtures AC1.4
-  needs, plus the invalid fixtures AC2.x needs. Two Markdown fixtures for the standards
-  seam: one with a substituted discriminator line, one with it removed.
+- **Fixtures:** `automation/fixtures/` — the eight shape fixtures AC1.4 needs, the invalid
+  fixtures AC2.x needs, and two Markdown standards fixtures, one with a substituted
+  discriminator line and one with it removed. They are created at **Step 2**, not Step 4,
+  because AC2.6(b), AC2.8 and AC2.9 need them.
 - **Baseline:** derive at Step 1 with `python -m pytest tests/` and record it in the Step 1
-  commit message, not in this spec.
-- **Deviation from C5:** this is the first tested script. #82's second AC is about
-  validator behaviour, which tests are the only way to assert. §6.3's *"`scripts/` —
-  utilities and demos, never tests"* governs where test files live; this one is in `tests/`.
+  commit message, never in this spec.
+- **Deviation from C5:** this is the first tested tooling script. #82's validator AC is
+  about behaviour, which tests are the only way to assert. §6.3's *"`scripts/` — utilities
+  and demos, never tests"* is about the application suite, and Step 5 adds the
+  `automation/` rows so the placement is documented rather than assumed.
 
 ## 7. Risks and rollback
 
 | Risk | Blast radius | Rollback |
 | --- | --- | --- |
-| The validator rejects a correctly-authored issue and creation stalls behind the tool | Work stoppage | AC1.4's eight fixtures cover every shape the schema can express, so a rule that rejects a valid shape fails at Step 4 rather than in use. DR7 keeps judgement criteria out of the validator |
+| The validator rejects a correctly-authored issue and creation stalls behind the tool | Work stoppage | AC1.4's eight fixtures cover every shape the schema can express, and AC2.9 covers the closed-issue reference, so a rule stricter than reality fails at Step 2 or 4 rather than in use. DR7 keeps judgement criteria out of the validator |
 | A per-shape template set creeps back in | The register #82 exists to remove | DR1 forbids it. AC1.1 is a directory-listing equality, so a third file fails; AC1.3 asserts one key set |
-| `.json` placed in `.github/ISSUE_TEMPLATE/` | GitHub ignores it; the template appears to exist and does nothing | DR3, checked by AC1.2 |
+| GitHub surfaces the `.json` as an issue template, or a `.md`/`.yml` is added beside it | Contributors get a broken template picker | DR3 creates no `.md`/`.yml`; AC1.2 checks for their absence, plus a post-merge `issueTemplates` query, which is the only way to observe the default-branch behaviour |
+| `automation/` tests leak into the application suite | The application baseline moves for reasons unrelated to the application | DR8's `testpaths`, checked by AC4.3. Without it nothing enforces the split — C14 shows the existing `scripts-deprecated/` claim is already untrue |
+| The schema file and the script disagree about a rule | Two sources of truth, drifting silently | DR9 splits them: the file declares keys and types, the script owns cross-field and live-state rules. Nothing appears in both |
 | `--create` runs on wrong content and a public issue is created | An issue that must be closed by hand | DR5 makes creation opt-in, DR4 makes validation total, so `--create` cannot run past a failure. Close with `gh issue close`; the number is consumed either way |
 | Ordering semantics leak in from #84 | This spec pre-empts #84's queue mechanism | DR6 restricts the Project interaction to `--project`; §4.3 specifies no other Project parameter |
 | The schema hardcodes a label or milestone list and goes stale | The register §1.3 forbids | DR2. AC2.6 checks for the type-label literal; AC2.5 requires label/milestone checks against live state |
