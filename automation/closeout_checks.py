@@ -480,7 +480,211 @@ def evaluate_workpaths(issue_number: int, resolution):
     return checks
 
 
+# ---------------------------------------------------------------------------
+# §4.4 — The results artifact and the verdict
+# ---------------------------------------------------------------------------
+
+RESULTS_DIR = Path("docs/dev/results")
+SPECS_DIR = Path("docs/dev/specs")
+
+_SPEC_BRANCH_FIELD_RE = re.compile(r"^\*\*Branch:\*\*\s*`([^`]+)`", re.MULTILINE)
+_SPEC_SUFFIX_RE = re.compile(r"_SPEC(_v[0-9_]+)?\.md$")
+_STATUS_FIELD_RE = re.compile(r"\*\*Status:\*\*\s*(\S+)")
+_FOLLOWUP_ISSUE_RE = re.compile(r"#\d+")
+
+
+def derive_results_path(branch_name: str, specs_dir: Path = None):
+    """The results artifact's path, derived from the spec whose `**Branch:**`
+    field names `branch_name` (§4.4). Returns (path, error)."""
+    specs_dir = specs_dir or (ROOT / SPECS_DIR)
+    for spec_path in sorted(Path(specs_dir).glob("*.md")):
+        text = spec_path.read_text()
+        m = _SPEC_BRANCH_FIELD_RE.search(text)
+        if m and m.group(1) == branch_name:
+            suffix_m = _SPEC_SUFFIX_RE.search(spec_path.name)
+            if not suffix_m:
+                return None, f"spec filename does not match _SPEC(_vN).md: {spec_path.name}"
+            subject = spec_path.name[:suffix_m.start()]
+            return RESULTS_DIR / f"{subject}_RESULTS.md", None
+    return None, f"no spec in {specs_dir} names branch {branch_name} in its **Branch:** field"
+
+
+def normalize_ac_text(text: str) -> str:
+    """§4.4's comparison normalisation: unescape `\\|`, strip backticks and `*`,
+    collapse whitespace, trim, case-fold."""
+    text = text.replace("\\|", "|")
+    text = re.sub(r"[`*]", "", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text.casefold()
+
+
+def parse_results_ac_table(text: str):
+    """Rows of §3's AC table: (criterion, status, evidence). Skips the header and separator rows."""
+    lines = text.splitlines()
+    start = None
+    for i, line in enumerate(lines):
+        if re.match(r"^##\s*3\.", line):
+            start = i + 1
+            break
+    if start is None:
+        return []
+    rows = []
+    for line in lines[start:]:
+        if re.match(r"^##\s", line):
+            break
+        line = line.strip()
+        if not line.startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        if len(cells) != 3:
+            continue
+        if set(cells[0]) <= {"-"}:
+            continue
+        if cells[0].lower() == "ac" and cells[1].lower() == "status":
+            continue
+        rows.append(tuple(cells))
+    return rows
+
+
+def verify_results_artifact(path: Path, issue_acs):
+    """The script's half of §4.4: existence, status, AC-row coverage, row status."""
+    checks = []
+    if not Path(path).exists():
+        checks.append(Check("results artifact present", "fail", f"no file at {path}"))
+        return checks
+    text = Path(path).read_text()
+    checks.append(Check("results artifact present", "pass", str(path)))
+
+    status_m = _STATUS_FIELD_RE.search(text)
+    status = status_m.group(1) if status_m else None
+    if status not in ("Shipped", "Superseded"):
+        checks.append(Check("results artifact status", "fail",
+                             f"**Status:** is {status!r}, want Shipped or Superseded"))
+    else:
+        checks.append(Check("results artifact status", "pass", status))
+
+    rows = parse_results_ac_table(text)
+    normalized_rows = [normalize_ac_text(r[0]) for r in rows]
+    normalized_issue_acs = [normalize_ac_text(a) for a in issue_acs]
+
+    if len(rows) != len(issue_acs):
+        checks.append(Check("AC row count matches the issue", "fail",
+                             f"{len(issue_acs)} issue ACs, {len(rows)} artifact rows"))
+    else:
+        checks.append(Check("AC row count matches the issue", "pass", f"{len(rows)} rows"))
+
+    missing = [orig for orig, norm in zip(issue_acs, normalized_issue_acs)
+               if norm not in normalized_rows]
+    if missing:
+        checks.append(Check("every issue AC appears in the table", "fail",
+                             f"missing: {'; '.join(missing)}"))
+    else:
+        checks.append(Check("every issue AC appears in the table", "pass", "all present"))
+
+    not_met_like = []
+    unevidenced_met = []
+    for criterion, status_cell, evidence_cell in rows:
+        status_norm = status_cell.strip().lower()
+        if status_norm == "met":
+            if not evidence_cell.strip():
+                unevidenced_met.append(criterion)
+        elif status_norm == "carried" and _FOLLOWUP_ISSUE_RE.search(evidence_cell):
+            pass
+        else:
+            not_met_like.append(criterion)
+
+    if not_met_like:
+        checks.append(Check("every row is Met or a cited Carried", "fail",
+                             f"{'; '.join(not_met_like)}"))
+    else:
+        checks.append(Check("every row is Met or a cited Carried", "pass", "no Not-met rows"))
+
+    if unevidenced_met:
+        checks.append(Check("every Met row has evidence", "fail",
+                             f"{'; '.join(unevidenced_met)}"))
+    else:
+        checks.append(Check("every Met row has evidence", "pass", "all have evidence"))
+
+    return checks
+
+
+# ---------------------------------------------------------------------------
+# §4.4a — The closing comment
+# ---------------------------------------------------------------------------
+
+def compose_closing_comment(issue_number: int, resolution, results_path):
+    return "\n".join([
+        f"Merge commit: {resolution.merge_sha}",
+        f"Branch: {resolution.name}",
+        f"Results: {results_path}",
+        "AC verdict: every AC is Met or a cited Carried",
+    ])
+
+
+# ---------------------------------------------------------------------------
+# Orchestration
+# ---------------------------------------------------------------------------
+
+def _report(checks):
+    for c in checks:
+        marker = {"pass": "PASS", "fail": "FAIL", "n/a": "N/A"}[c.status]
+        line = f"[{marker}] {c.name}: {c.detail}" if c.detail else f"[{marker}] {c.name}"
+        print(line)
+        if c.status == "fail":
+            print(line, file=sys.stderr)
+
+
+def run(issue_number: int, explicit_branch: str = None) -> int:
+    try:
+        issue, acs = resolve_issue(issue_number)
+    except IssueResolutionError as exc:
+        print(f"issue #{issue_number}: {exc}", file=sys.stderr)
+        return 1
+
+    checks = [Check("issue ACs", "pass" if acs else "n/a",
+                     f"{len(acs)} ACs" if acs else "issue states no ACs")]
+
+    resolution = resolve_branch(issue_number, explicit_branch)
+
+    if resolution.error:
+        checks.append(Check("branch resolution", "fail",
+                             f"branch could not be resolved for issue #{issue_number}: {resolution.error}"))
+        checks.append(check_application_suite())
+        _report(checks)
+        return 1
+
+    checks.append(Check("branch resolution", "pass",
+                         f"{resolution.name} ({resolution.branch_type})"))
+    checks.extend(evaluate_workpaths(issue_number, resolution))
+
+    results_path, deriv_error = derive_results_path(resolution.name)
+    if deriv_error:
+        checks.append(Check("results artifact derivation", "fail", deriv_error))
+        _report(checks)
+        return 1
+
+    checks.extend(verify_results_artifact(ROOT / results_path, acs))
+
+    failed = [c for c in checks if c.status == "fail"]
+    _report(checks)
+    if failed:
+        return 1
+
+    print()
+    print(f"gh issue comment {issue_number} --body-file -")
+    print("---")
+    print(compose_closing_comment(issue_number, resolution, results_path))
+    return 0
+
+
+def main(argv=None):
+    import argparse
+    parser = argparse.ArgumentParser(description="Mechanical checks for /closeout.")
+    parser.add_argument("issue", type=int)
+    parser.add_argument("--branch", default=None)
+    args = parser.parse_args(argv)
+    return run(args.issue, args.branch)
+
+
 if __name__ == "__main__":
-    print("closeout_checks.py: steps 1-3 only — no results-artifact verification yet.",
-          file=sys.stderr)
-    sys.exit(2)
+    sys.exit(main())
