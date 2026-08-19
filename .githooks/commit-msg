@@ -55,11 +55,11 @@ cat >&2 <<'FOOTER'
     fix(eod): stop the weekly report double-send
     docs(standards): consolidate the standards documents
 
-  Gate context belongs in the body, never the subject:
+  Step context belongs in the body, not the subject:
 
-    feat(notes): converge the note write path
+    feat(notes): converge write path
 
-    Gate 3 of 7. Files changed, decisions made, expected test count.
+    Step 3 of 7. Files changed, decisions made, expected test count.
 
   Full standard: docs/DEVELOPMENT_STANDARDS.md §2.4
   Do not bypass this with --no-verify — that is prohibited by the same standard.
