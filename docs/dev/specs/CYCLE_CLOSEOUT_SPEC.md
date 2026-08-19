@@ -34,6 +34,8 @@
 | 20260820 | Caliper | F7 — AC3.2 tested a path, but §4.1 asserts a bump, and §2.2 permits `workmain/**` on `chore/*` | Accepted. AC3.2 now tests the `__version__` value across the merge's parents |
 | 20260820 | Caliper | F10 — the `<type>/issue-<N>-<slug>` convention is unwritten in §2.1 | Accepted in principle; **awaiting Caliper's suggested wording**, which did not reach this session |
 | 20260820 | Caliper | F12 — the escaped pipe in AC3.6(b) and AC6.4 makes both greps pass vacuously | Accepted, verified: the ERE matches a literal pipe and prints `0` against any file. Both split into separate greps |
+| 20260820 | Caliper | Round 3 — two stale cross-references left by round 2's own edits: step 3 read `AC3.1 – AC3.6` after AC3.7 – AC3.9 were added, and step 6 still said "§2.3 and §2.6 already landed" after §2.1 joined them | Accepted, both corrected |
+| 20260820 | Caliper | Round 3 note — AC3.9(b) passes a `feature/*` branch on `dev` but not yet `main`, while AC3.4 fails a `feature/*` branch with no Release, and no Release exists until the PR merges | No change. Both are correct single-variable fixtures and §4.1's row governs. Recorded so an implementer knows the two states cannot co-occur in one real run |
 | 20260820 | Caliper | N1 — `--first-parent` on `main` alone made every `feature/*` issue permanently unresolvable, a regression introduced by the F5 fix | Accepted, reproduced: `main`'s first-parent chain carries zero `feature/` subjects. §4.3 tries `main`'s chain, then `dev`'s. AC2.2 gains the feature fixture, which a `main`-only implementation fails |
 | 20260820 | Caliper | N2 — the F7 fix was recorded as applied but AC3.2 was byte-identical to the original | Accepted, and the cause was mine: the edit batch raised partway and never wrote the file, so the log entry shipped without the edit. AC3.2 now tests the `__version__` value. Every edit in this round was grep-verified after writing |
 | 20260820 | Caliper | N3 — the §2.1 amendment was live but absent from §4.6 and unchecked by any AC | Accepted. §4.6 quotes it verbatim and AC6.6 checks it |
@@ -127,10 +129,10 @@ Ordered, each committed on completion. **No step is an approval stop** — each 
 | --- | --- | --- | --- |
 | 1 | Issue resolution and AC parsing for all three shapes, per §4.2 | `automation/closeout_checks.py`, `automation/fixtures/` | AC1.1 – AC1.6 |
 | 2 | Branch resolution, branch-type derivation and changed paths, per §4.3 | `automation/closeout_checks.py` | AC2.1 – AC2.5 |
-| 3 | The three workpaths — release, deployment and suite checks, per §4.1 | `automation/closeout_checks.py` | AC3.1 – AC3.6 |
+| 3 | The three workpaths — release, deployment and suite checks, per §4.1 | `automation/closeout_checks.py` | AC3.1 – AC3.9 |
 | 4 | Results-artifact verification, the verdict exit code, and the closing comment, per §4.4 and §4.4a | `automation/closeout_checks.py` | AC4.1 – AC4.6 |
 | 5 | The skill itself: frontmatter, the ordered procedure, the workpath table | `.claude/skills/closeout/SKILL.md` | AC5.1 – AC5.4 |
-| 6 | Tests over the step 1–4 fixtures; the §1.1 amendment and the `_TEMPLATE_RESULTS.md` §3 wording. §2.3 and §2.6 already landed | `automation/closeout_checks_test.py`, `docs/DEVELOPMENT_STANDARDS.md`, `docs/dev/results/_TEMPLATE_RESULTS.md` | AC6.1 – AC6.6 |
+| 6 | Tests over the step 1–4 fixtures; the §1.1 amendment and the `_TEMPLATE_RESULTS.md` §3 wording. §2.1, §2.3 and §2.6 already landed | `automation/closeout_checks_test.py`, `docs/DEVELOPMENT_STANDARDS.md`, `docs/dev/results/_TEMPLATE_RESULTS.md` | AC6.1 – AC6.6 |
 | 7 | Merge to `main`, then to `dev` — **authorization point**, see §4.5 | — | — |
 
 ### 4.1 The workpaths
