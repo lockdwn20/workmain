@@ -24,12 +24,12 @@
 What shipped, in a paragraph. State plainly whether the work is complete or partial.
 "Partial" is a legitimate outcome; a partial delivery reported as complete is not.
 
-## 2. What shipped, by gate
+## 2. What shipped, by step
 
-| Gate | Delivered | Files changed | Tests |
+| Step | Delivered | Files changed | Tests |
 | --- | --- | --- | --- |
-| 0 | | | +N |
 | 1 | | | +N |
+| 2 | | | +N |
 
 ## 3. Acceptance criteria
 
@@ -47,7 +47,7 @@ quietly drop an unmet AC.
 ## 4. Deviations from spec
 
 Where the implementation differs from what was specified, and why. Includes anything
-surfaced at a gate and resolved by Ray mid-flight.
+surfaced during implementation and resolved by Ray mid-flight.
 
 | # | Deviation | Reason | Approved by |
 | --- | --- | --- | --- |

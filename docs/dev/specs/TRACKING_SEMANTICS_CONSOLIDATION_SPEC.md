@@ -1,6 +1,6 @@
 # Tracking Semantics Consolidation — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20260814
 **Branch:** `chore/issue-81-tracking-semantics` (from `main`, merges to `main` and `dev`)

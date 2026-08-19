@@ -61,20 +61,25 @@ falls back on when the spec doesn't cover a case.
 - **DR1 —**
 - **DR2 —**
 
-State explicitly what an implementer should do when they hit something not covered:
-**STOP at the gate and surface to Ray.** No self-resolution.
+State explicitly what an implementer should do when they hit something not covered: see
+`CLAUDE.md` Role 3 for the escalation procedure.
 
-## 4. Gates
+## 4. Steps
 
-Each gate is a hard stop: implement, verify, commit, report, **wait for Ray's "proceed"**.
+Each step ends with a commit. There is no approval stop between steps.
 
-| Gate | Deliverable | Files | Verification |
-| --- | --- | --- | --- |
-| 0 | | | |
-| 1 | | | |
+| Step | Deliverable | Files |
+| --- | --- | --- |
+| 1 | | |
+| 2 | | |
 
-Call out any gate containing a DB migration — migrations need explicit approval at
-execution time, and the spec containing one is not that approval.
+### Authorization points
+
+List any authorization points this spec contains — per `docs/DEVELOPMENT_STANDARDS.md`
+§1.4: DB migration execution, GitHub object deletion, a merge to `main`, a force-push, or
+a live-service state change beyond the post-merge-restart carve-out. State exactly what
+is about to happen and wait for Ray's explicit approval before it. If the spec contains
+none, say so explicitly.
 
 ## 5. Acceptance criteria
 
@@ -96,8 +101,8 @@ mechanical proxy or drop it.
 - **Expected after:** N + M passed.
 - New test files and what each covers. If a spec-named test file doesn't exist, use the
   established file for that coverage and note the deviation — that is not a design
-  question and does not stop a gate.
+  question and does not stop implementation.
 
 ## 7. Risks and rollback
 
-What could go wrong, what the blast radius is, and how to undo each gate.
+What could go wrong, what the blast radius is, and how to undo each step.

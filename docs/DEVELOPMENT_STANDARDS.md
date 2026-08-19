@@ -1,10 +1,12 @@
 # WorkmAIn Development Standards
 
-How work gets built. `CLAUDE.md` owns who does what (three-role model, gate discipline,
-key design decisions); this document owns everything else and is the single authority for
-git workflow, code patterns, CLI structure, and testing.
+How work gets built. `CLAUDE.md` owns who does what (the three-role model), what this
+project is (stack, architecture), and domain decisions (tag system, time format, trigger
+terminology, write-path map). This document owns everything else — process, git workflow,
+code patterns, database, CLI structure, and testing.
 
-Read the relevant section before writing code. Nothing here is duplicated in `CLAUDE.md`.
+Read the relevant section before writing code. The only text here also stated in
+`CLAUDE.md` is its § Critical Rules subset; nothing else appears in both.
 
 ---
 
@@ -16,7 +18,7 @@ No spec is written without a read-only audit first. Recon produces a findings do
 `docs/dev/design/`; decisions are made from it; only then is a spec written.
 
 ```text
-RECON  →  ANALYSIS  →  SPEC  →  REVIEW  →  APPROVAL  →  IMPLEMENTATION  →  GATE REVIEW  →  COMMIT
+RECON  →  ANALYSIS  →  SPEC  →  REVIEW  →  APPROVAL  →  IMPLEMENTATION
 ```
 
 - **Recon** — read-only pass, verbatim findings, no fixes and no inline suggestions.
@@ -24,8 +26,8 @@ RECON  →  ANALYSIS  →  SPEC  →  REVIEW  →  APPROVAL  →  IMPLEMENTATION
 - **Spec** — written to `docs/dev/specs/`.
 - **Review** — Role 2 findings go back to Role 1, never forward to the implementer.
 - **Approval** — Ray approves explicitly. No implementation without an approved spec.
-- **Implementation** — Role 3, gate by gate, from the approved spec only.
-- **Gate review** — human approval at every gate; DB migrations are always a hard gate.
+- **Implementation** — Role 3, step by step, from the approved spec only. Steps commit
+  without a stop; authorization points are the hard stops — see §1.4.
 
 ### 1.2 Spec authoring rules
 
@@ -49,13 +51,62 @@ RECON  →  ANALYSIS  →  SPEC  →  REVIEW  →  APPROVAL  →  IMPLEMENTATION
   prose list is a register that goes stale the first time a label is added.
 - A milestone carries the exit condition that closes it, and that condition must cover
   every issue in it.
-- An issue must be independently verifiable on its own. Work that only makes sense as a
-  set becomes a parent issue with children, never one issue spanning several gates.
+- An issue must be independently verifiable on its own: split into sub-issues only where
+  each piece leaves the repository in a coherent state its own acceptance criteria can
+  verify. Where steps are strictly sequential and individually meaningless, they stay
+  inline as steps in one issue — not split into a parent with children for its own sake.
 - **Verify every AC against delivered code before marking an item complete.** Item 32 was
   marked complete in Phase 13 Sprint 2 (v1.21.0) with all four of its acceptance criteria
   unmet, and had to be reopened eleven days later when the gap was noticed. The work
-  actually landed in Ops_Config_Correction_Sprint Gate 5 (v1.24.0), via
+  actually landed in Ops_Config_Correction_Sprint (v1.24.0), via
   `TaskStatusRepository.set_forwarding_note()`. A spec's say-so is not evidence.
+
+### 1.4 Steps and authorization points
+
+A spec's §4 is ordered work, defined below.
+
+- **Steps.** Ordered work inside a spec. Committed individually, reviewable and revertible
+  individually. No approval stop. A step ends with a commit, not with a request to
+  continue.
+- **Authorization points.** Attached to specific *actions* that are irreversible or
+  reach outside the working tree. This is a property of the action, so it does not scale
+  with scope: a one-step issue can contain one and a twenty-step issue can contain none.
+  An authorization point is a hard stop — state what is about to happen, then wait for
+  Ray's explicit approval.
+- **The authorization set.** Executing a DB migration; deleting a GitHub object (issue,
+  label, milestone, branch, release); merging to `main`; force-pushing any branch; changing
+  the run state of a live service beyond the carve-out below. Anything not on this list is
+  a step.
+- **Carve-out — the post-merge restart is not an authorization point.** §2.6 requires
+  restarting `workmain-notify.service` after a merge to `dev`, and §2.8 forbids reporting a
+  merge as deployed without it. That restart is a documented obligation, not a
+  discretionary state change, so it is a step. The authorization set covers service state
+  changes *other than* that restart.
+
+### 1.5 Documentation rules
+
+- Dev artifacts always live in `docs/dev/<type>/`, never in the `docs/` root: `design/`
+  (design studies and recon), `specs/`, `results/` (implementation results).
+- **Filenames are subject-based** — no version suffix, no date. Artifacts are updated in
+  place, so filenames never change and citations never break.
+- **Every artifact carries a `Status:` field** — `Active`, `Shipped`, or `Superseded`.
+  - While work is live, retirement is a status edit, not a file move. An artifact stays
+    where it is, and where it is cited, for as long as it is being referenced.
+  - **`docs/archive/`** holds artifacts whose work is complete. Move an artifact there
+    once it is finished and no longer a live reference — it is kept for reference only,
+    is never authoritative, and is always superseded by the current `design/`, `specs/`,
+    and `results/`. It is git-tracked, so citations to it stay resolvable.
+  - Never cite an archived artifact as the basis for a current decision. If it still
+    governs something, it has not finished being live and does not belong in the archive.
+- **Specs carry a Decision Log** — decisions and review findings with their resolution,
+  only.
+  - Never a description of what changed in the document; git covers that.
+  - Design and results artifacts carry neither a decision log nor a version history.
+- **No version headers or version-history blocks in any document.** Git is the version
+  record. See §3.1 for the code equivalent.
+- Each `docs/dev/` subdirectory holds a `_TEMPLATE_*.md` starting point. Templates are
+  advisory — **template compliance is not a Caliper review criterion.**
+- Always create the spec in the correct subdirectory before writing any code.
 
 ---
 
@@ -115,8 +166,9 @@ chore/*    — documentation/process/tooling only. From main, merges to main AND
   feature branch — not a separate `chore/*`, even though `docs/**` would qualify on path alone.
 
 **Hotfix → feature exception.** When a hotfix is a direct prerequisite for a feature branch
-and has no standalone value: branch from `main`, merge into the feature branch at Gate 0,
-delete it, and document the deviation in the feature spec. The version bump rides the feature.
+and has no standalone value: branch from `main`, merge into the feature branch before its
+step 1, delete it, and document the deviation in the feature spec. The version bump rides
+the feature.
 
 ### 2.3 Branch deletion
 
@@ -136,8 +188,8 @@ Co-Authored-By: Claude
 
 Types: `feat`, `fix`, `refactor`, `chore`, `docs`, `test`.
 
-- This is the **only** commit format. Gate context belongs in the body, not the subject —
-  `feat(notes): converge write path` with `Gate 3 of 7` in the body, never `Gate 3: ...`
+- This is the **only** commit format. Step context belongs in the body, not the subject —
+  `feat(notes): converge write path` with `Step 3 of 7` in the body, never `Step 3: ...`
   as the subject.
 - `git commit --no-verify` is **prohibited**. It bypasses commit validation.
 
@@ -182,7 +234,7 @@ before the fix merged — the code was correct in `dev` and `main` the whole tim
 
 1. `git status` — working directory clean.
 2. `git branch` — confirm where you are.
-3. Determine work type: phase/multi-gate → `feature/*` from `dev`; targeted application
+3. Determine work type: phase/multi-step → `feature/*` from `dev`; targeted application
    fix → `hotfix/*` from `main`; docs/process only → `chore/*` from `main`.
 4. Create the branch **before** writing anything.
 5. Never work directly on `main` or `dev`.
@@ -347,8 +399,8 @@ query.filter(~Model.tags.op('@>')(['tag1']))          # does not contain
 
 ### 4.5 Migrations
 
-SQL files, numbered `NNN_name.sql`. **Execution requires explicit human approval, always** —
-the gate is the approval, not the spec that contains it.
+SQL files, numbered `NNN_name.sql`. **Execution is an authorization point** — see §1.4. The
+approval is at execution, not the spec that contains it.
 
 ### 4.6 Write-path convergence
 
@@ -517,17 +569,19 @@ integrations → scheduling/automation → utilities.
 
 ## 6. Testing Standards
 
-pytest is the exclusive runner. Everything lives in `tests/`.
+pytest is the exclusive runner. `testpaths` in `pyproject.toml` resolves a bare `pytest` to
+the application suite. Non-application suites exist and are reached by explicit path — §6.3
+is the owner of test placement.
 
 ```bash
-python -m pytest tests/            # full suite
-python -m pytest tests/ -v         # verbose
-python -m pytest tests/test_x.py::TestClass::test_name
+pytest                              # full suite
+pytest -v                           # verbose
+pytest tests/test_x.py::TestClass::test_name
 ```
 
 The current expected pass count is whatever `main` last shipped — read it from the most
-recent `CHANGELOG.md` entry or run `python -m pytest tests/ --collect-only -q`. Do not
-transcribe a baseline into this document; it goes stale immediately.
+recent `CHANGELOG.md` entry or run `pytest --collect-only -q`. Do not transcribe a baseline
+into this document; it goes stale immediately.
 
 ### 6.1 The `db_session` fixture
 
@@ -583,7 +637,7 @@ Rules:
 
 | Goes in | What |
 | --- | --- |
-| `tests/` root | `test_<component>.py` — pytest only discovers here |
+| `tests/` root | `test_<component>.py` — resolved by `testpaths` for a bare `pytest` |
 | `tests/fixtures/` | Test data (JSON, CSV) — never Python test files |
 | `tests/mocks/` | Fakes for external services — never test files |
 | `scripts/` | Utilities and demos, never tests |
@@ -595,7 +649,8 @@ pytest; if you need a diagnostic script, put it in `scripts/`.
 ### 6.4 Spec-named test file doesn't exist
 
 If a spec names a test file that isn't there, use the established file for that coverage,
-document the deviation, and keep going. That is not a design question and does not stop a gate.
+document the deviation, and keep going. That is not a design question and does not stop
+implementation.
 
 ---
 
