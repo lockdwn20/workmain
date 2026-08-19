@@ -105,6 +105,162 @@ def resolve_issue(number: int):
     return issue, acs
 
 
+def git_merge_log(ref: str):
+    """(sha, subject) pairs on `ref`'s first-parent chain, merges only."""
+    result = subprocess.run(
+        ["git", "log", "--merges", "--first-parent", "--format=%H%x09%s", ref],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+    )
+    if result.returncode != 0:
+        return []
+    pairs = []
+    for line in result.stdout.splitlines():
+        if "\t" in line:
+            sha, subject = line.split("\t", 1)
+            pairs.append((sha, subject))
+    return pairs
+
+
+def git_ref_exists(ref: str) -> bool:
+    result = subprocess.run(
+        ["git", "rev-parse", "--verify", "--quiet", ref],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+    )
+    return result.returncode == 0
+
+
+def git_diff_paths(ref_a: str, ref_b: str):
+    result = subprocess.run(
+        ["git", "diff", "--name-only", ref_a, ref_b],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+    )
+    return [line for line in result.stdout.splitlines() if line]
+
+
+def git_merge_base(ref_a: str, ref_b: str):
+    result = subprocess.run(
+        ["git", "merge-base", ref_a, ref_b],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()
+
+
+def git_is_ancestor(ref: str, target: str) -> bool:
+    result = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", ref, target],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+    )
+    return result.returncode == 0
+
+
+# ---------------------------------------------------------------------------
+# §4.3 — Branch resolution and branch type
+# ---------------------------------------------------------------------------
+
+BRANCH_TYPES = ("chore", "feature", "hotfix")
+
+
+class BranchResolution:
+    def __init__(self, name=None, merge_sha=None, resolved_on=None, changed_paths=None,
+                 error=None, branch_type=None):
+        self.name = name
+        self.merge_sha = merge_sha
+        self.resolved_on = resolved_on
+        self.changed_paths = changed_paths or []
+        self.error = error
+        self.branch_type = branch_type
+
+
+def _branch_name_in_subject(subject: str, issue_number: int):
+    pattern = re.compile(
+        rf"\b(?:{'|'.join(BRANCH_TYPES)})/issue-{issue_number}(?!\d)[\w-]*"
+    )
+    m = pattern.search(subject)
+    return m.group(0) if m else None
+
+
+def _find_merge_for_issue(ref: str, issue_number: int):
+    for sha, subject in git_merge_log(ref):
+        name = _branch_name_in_subject(subject, issue_number)
+        if name:
+            return name, sha
+    return None, None
+
+
+def branch_type_of(branch_name: str):
+    return branch_name.split("/", 1)[0]
+
+
+def resolve_branch(issue_number: int, explicit_branch: str = None) -> BranchResolution:
+    """§4.3 resolution order: `--branch` first, then main's first-parent chain, then dev's."""
+    if explicit_branch:
+        prefix = branch_type_of(explicit_branch)
+        if prefix not in BRANCH_TYPES:
+            return BranchResolution(
+                name=explicit_branch,
+                error=f"branch prefix is not one of {BRANCH_TYPES}: {prefix}",
+                branch_type=prefix,
+            )
+        if git_ref_exists(explicit_branch):
+            base = git_merge_base("main", explicit_branch) or git_merge_base("dev", explicit_branch)
+            changed = git_diff_paths(base, explicit_branch) if base else []
+            return BranchResolution(
+                name=explicit_branch, resolved_on=explicit_branch,
+                changed_paths=changed, branch_type=prefix,
+            )
+        return BranchResolution(name=explicit_branch, branch_type=prefix, changed_paths=[])
+
+    name, sha = _find_merge_for_issue("main", issue_number)
+    resolved_on = "main"
+    if not name:
+        name, sha = _find_merge_for_issue("dev", issue_number)
+        resolved_on = "dev"
+
+    if not name:
+        return BranchResolution(error=f"no merge commit resolves issue #{issue_number}")
+
+    prefix = branch_type_of(name)
+    if prefix not in BRANCH_TYPES:
+        return BranchResolution(
+            name=name, merge_sha=sha, resolved_on=resolved_on,
+            error=f"branch prefix is not one of {BRANCH_TYPES}: {prefix}",
+            branch_type=prefix,
+        )
+
+    changed = git_diff_paths(f"{sha}^1", f"{sha}^2")
+    return BranchResolution(
+        name=name, merge_sha=sha, resolved_on=resolved_on,
+        changed_paths=changed, branch_type=prefix,
+    )
+
+
+def dev_merge_sha_for(issue_number: int, resolution: BranchResolution):
+    """The dev-side merge commit, used for the §2.6 restart-timestamp comparison."""
+    if resolution.resolved_on == "dev":
+        return resolution.merge_sha
+    _, sha = _find_merge_for_issue("dev", issue_number)
+    return sha or resolution.merge_sha
+
+
+def merge_tip_ref(resolution: BranchResolution):
+    if resolution.merge_sha:
+        return f"{resolution.merge_sha}^2"
+    return resolution.resolved_on or resolution.name
+
+
 if __name__ == "__main__":
-    print("closeout_checks.py: step 1 only — issue resolution and AC parsing.", file=sys.stderr)
+    print("closeout_checks.py: steps 1-2 only — issue resolution, AC parsing, branch resolution.",
+          file=sys.stderr)
     sys.exit(2)
