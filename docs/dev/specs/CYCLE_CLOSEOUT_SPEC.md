@@ -23,6 +23,7 @@
 | 20260819 | Ray | Recon Q7 — #81, #82 and #86 are not backfilled | Accepted. §1 out of scope |
 | 20260819 | Ray | Recon Q8 — no new issue ↔ artifact link mechanism; git already carries it | Accepted. DR5 |
 | 20260819 | Ray | §2.6's restart rule is branch-type, not file-path: **any `feature/*` or `hotfix/*` branch requires a restart at the end.** The conditional wording added around #82 is removed | Accepted. §2.6 and the results template are reworded (§4.6); the workpath table and AC3.5 follow it |
+| 20260819 | Ray | Hard-wrapped markdown makes review hard. Stop splitting lines | Accepted. §1.5 gains the rule, and this spec and its recon are reflowed to one line per paragraph. The repo-wide reflow is its own issue — see §7 |
 | 20260819 | Spanner | The results artifact records the close-out, but a skill that also **closed** the issue would take the terminal action out of Ray's hands, against the established PR-merge precedent | The skill makes no GitHub write. DR2 |
 
 ---
@@ -31,31 +32,20 @@
 
 **In scope:**
 
-- `.claude/skills/closeout/SKILL.md` — the user-initiated skill, and the first thing in
-  `.claude/` in this repository.
-- `automation/closeout_checks.py` — the mechanical checks the skill invokes, and
-  `automation/closeout_checks_test.py` with its fixtures.
-- `docs/DEVELOPMENT_STANDARDS.md` §1.1 — the pipeline gains its closing step. Proposed
-  here, applied only if this spec is approved.
-- `docs/DEVELOPMENT_STANDARDS.md` §2.6 and `docs/dev/results/_TEMPLATE_RESULTS.md` §5 —
-  the restart rule reworded to what it has always meant (Ray, 20260819): every `feature/*`
-  and `hotfix/*` branch ends with a restart. The file-path predicate is removed from both.
+- `.claude/skills/closeout/SKILL.md` — the user-initiated skill, and the first thing in `.claude/` in this repository.
+- `automation/closeout_checks.py` — the mechanical checks the skill invokes, and `automation/closeout_checks_test.py` with its fixtures.
+- `docs/DEVELOPMENT_STANDARDS.md` §1.1 — the pipeline gains its closing step. Proposed here, applied only if this spec is approved.
+- `docs/DEVELOPMENT_STANDARDS.md` §2.6 and `docs/dev/results/_TEMPLATE_RESULTS.md` §5 — the restart rule reworded to what it has always meant (Ray, 20260819): every `feature/*` and `hotfix/*` branch ends with a restart. The file-path predicate is removed from both.
+- `docs/DEVELOPMENT_STANDARDS.md` §1.5 — markdown is never hard-wrapped (Ray, 20260819). This spec and `RECON_CYCLE_CLOSEOUT.md` are written that way; every other document is a separate issue, not this branch's work.
 
 **Out of scope:**
 
-- **Backfilling #81, #82 or #86** (Ray, Q7). Closed work is not reopened to satisfy a
-  standard written after it.
-- **Rewriting legacy issue bodies** into the current AC shape (Ray, Q1). The parser reads
-  what is there; an issue is corrected when it is the issue being worked.
-- **Any GitHub write.** Closing the issue, commenting on it, moving it on the board:
-  none of it. DR2.
-- **#84's queue rank and #85's session-open skills.** Different issues, different
-  mechanisms. This spec sets the `.claude/skills/` precedent that #85 inherits and nothing
-  more.
-- **#87's move of `check_release_integrity.py` to `automation/`.** The path is read from
-  one constant (§4.1), so #87 remains a one-line follow-up rather than a prerequisite.
-- **`workmain/**` and `tests/**`.** No application behaviour changes, which is what keeps
-  this on `chore/*` per §2.2.
+- **Backfilling #81, #82 or #86** (Ray, Q7). Closed work is not reopened to satisfy a standard written after it.
+- **Rewriting legacy issue bodies** into the current AC shape (Ray, Q1). The parser reads what is there; an issue is corrected when it is the issue being worked.
+- **Any GitHub write.** Closing the issue, commenting on it, moving it on the board: none of it. DR2.
+- **#84's queue rank and #85's session-open skills.** Different issues, different mechanisms. This spec sets the `.claude/skills/` precedent that #85 inherits and nothing more.
+- **#87's move of `check_release_integrity.py` to `automation/`.** The path is read from one constant (§4.1), so #87 remains a one-line follow-up rather than a prerequisite.
+- **`workmain/**` and `tests/**`.** No application behaviour changes, which is what keeps this on `chore/*` per §2.2.
 - **The `docs/dev/results/` template's `Status:` vocabulary.** Unchanged (Ray, Q6). Its §5 restart line is reworded with §2.6, above.
 
 ## 2. Verified current state
@@ -81,54 +71,21 @@
 
 ## 3. Design rules
 
-- **DR1 — One skill, three workpaths.** `/closeout` is one skill. The branch type —
-  `chore`, `feature`, `hotfix` — selects which checks apply, and the workpath table (§4.1)
-  is the whole of that selection. A check that does not apply is reported `n/a` with the
-  reason, never silently omitted: a check that vanishes cannot be distinguished from a
-  check that passed.
-- **DR2 — The close-out makes no GitHub write.** It reads issues, tags and Releases; it
-  writes one file in the working tree. It does not close the issue, comment on it, or move
-  it on the board. Closing is Ray's, on the same principle as merging the `dev → main` PR.
-  This also makes the skill re-runnable: nothing it does needs undoing.
-- **DR3 — Mechanics in the script, judgement in the skill.** `closeout_checks.py` answers
-  what can be answered by running something: does the tag exist, is the Release there, did
-  the daemon restart, does the artifact carry every AC. Whether an AC is *met by delivered
-  code* is judgement and lives in `SKILL.md`. Neither side does the other's job — the
-  script never decides an AC is met, and the skill never decides a Release exists.
-- **DR4 — Reporting is total.** Every check runs and every failure is reported in one
-  pass; the run never stops at the first failure. **The one exception is issue
-  resolution** (§4.2): with no issue and no ACs there is nothing to check, so that failure
-  aborts.
-- **DR5 — Nothing is enumerated that can be derived.** The AC list comes from the issue
-  body, the branch from git, the branch type from the branch name, the changed paths from
-  the branch's diff, the tag from git. There is no list of issues, no register of past
-  close-outs, and no maintained mapping of issue to branch anywhere in this spec or in the
-  script.
-- **DR6 — Success is refused while any AC is unmet.** The verdict is the script's exit
-  code, not a sentence the skill writes. A `Not met` row fails the run. A `Carried` row
-  must cite the follow-up issue as `#N`, or it is treated as `Not met` — "carried" without
-  a destination is how Item 32 was closed with four unmet ACs.
-- **DR7 — The results artifact is one-shot.** It is written once, at close-out, carrying
-  `Status: Shipped` (Ray, Q6). There is no draft state and no in-progress status, because
-  the document is produced in a single pass at the end of the work it describes.
-- **DR8 — AC shapes are read, never rewritten.** All three shapes (C4) are parsed. The
-  close-out does not edit the issue to normalise it, and does not fail an issue for using
-  an older shape. Legacy issues are corrected when they are worked, which is the standing
-  rule for everything the migration carried forward.
-- **DR9 — `check_release_integrity.py` is invoked, not reimplemented.** Its checks are not
-  duplicated in `closeout_checks.py`. Its path is a single module constant so #87's move
-  is a one-line change.
-- **DR10 — The script is stdlib-only and its external reads are named functions.**
-  Mirroring C15: every `gh`, `git`, `systemctl` and `pytest` call sits behind a named
-  module-level function that a test replaces. No test in this spec shells out to real
-  GitHub except where an AC says so explicitly.
-- **Anything not covered here: STOP and surface to Ray.** No self-resolution, no scope
-  adjustment. Unconditional, and independent of step boundaries.
+- **DR1 — One skill, three workpaths.** `/closeout` is one skill. The branch type — `chore`, `feature`, `hotfix` — selects which checks apply, and the workpath table (§4.1) is the whole of that selection. A check that does not apply is reported `n/a` with the reason, never silently omitted: a check that vanishes cannot be distinguished from a check that passed.
+- **DR2 — The close-out makes no GitHub write.** It reads issues, tags and Releases; it writes one file in the working tree. It does not close the issue, comment on it, or move it on the board. Closing is Ray's, on the same principle as merging the `dev → main` PR. This also makes the skill re-runnable: nothing it does needs undoing.
+- **DR3 — Mechanics in the script, judgement in the skill.** `closeout_checks.py` answers what can be answered by running something: does the tag exist, is the Release there, did the daemon restart, does the artifact carry every AC. Whether an AC is *met by delivered code* is judgement and lives in `SKILL.md`. Neither side does the other's job — the script never decides an AC is met, and the skill never decides a Release exists.
+- **DR4 — Reporting is total.** Every check runs and every failure is reported in one pass; the run never stops at the first failure. **The one exception is issue resolution** (§4.2): with no issue and no ACs there is nothing to check, so that failure aborts.
+- **DR5 — Nothing is enumerated that can be derived.** The AC list comes from the issue body, the branch from git, the branch type from the branch name, the changed paths from the branch's diff, the tag from git. There is no list of issues, no register of past close-outs, and no maintained mapping of issue to branch anywhere in this spec or in the script.
+- **DR6 — Success is refused while any AC is unmet.** The verdict is the script's exit code, not a sentence the skill writes. A `Not met` row fails the run. A `Carried` row must cite the follow-up issue as `#N`, or it is treated as `Not met` — "carried" without a destination is how Item 32 was closed with four unmet ACs.
+- **DR7 — The results artifact is one-shot.** It is written once, at close-out, carrying `Status: Shipped` (Ray, Q6). There is no draft state and no in-progress status, because the document is produced in a single pass at the end of the work it describes.
+- **DR8 — AC shapes are read, never rewritten.** All three shapes (C4) are parsed. The close-out does not edit the issue to normalise it, and does not fail an issue for using an older shape. Legacy issues are corrected when they are worked, which is the standing rule for everything the migration carried forward.
+- **DR9 — `check_release_integrity.py` is invoked, not reimplemented.** Its checks are not duplicated in `closeout_checks.py`. Its path is a single module constant so #87's move is a one-line change.
+- **DR10 — The script is stdlib-only and its external reads are named functions.** Mirroring C15: every `gh`, `git`, `systemctl` and `pytest` call sits behind a named module-level function that a test replaces. No test in this spec shells out to real GitHub except where an AC says so explicitly.
+- **Anything not covered here: STOP and surface to Ray.** No self-resolution, no scope adjustment. Unconditional, and independent of step boundaries.
 
 ## 4. Steps
 
-Ordered, each committed on completion. **No step is an approval stop** — each is additive
-on a branch and undone by `git revert`. The one hard stop is the merge at step 7.
+Ordered, each committed on completion. **No step is an approval stop** — each is additive on a branch and undone by `git revert`. The one hard stop is the merge at step 7.
 
 | Step | Deliverable | Files | Verification |
 | --- | --- | --- | --- |
@@ -158,119 +115,76 @@ The branch type selects the rows that apply. `n/a` is reported with its reason (
 | Merged to both `main` and `dev` | yes | `dev` then `main` by PR | yes |
 | Results artifact present and complete | yes | yes | yes |
 
-The `chore/*` rows are **assertions of absence**, not omissions: the run fails if a
-`chore/*` branch bumped `workmain/__version__.py`, added a `CHANGELOG.md` section, or
-carries a tag. §2.2 forbids all three, and a silent skip would let a mis-typed branch pass.
+The `chore/*` rows are **assertions of absence**, not omissions: the run fails if a `chore/*` branch bumped `workmain/__version__.py`, added a `CHANGELOG.md` section, or carries a tag. §2.2 forbids all three, and a silent skip would let a mis-typed branch pass.
 
-`check_release_integrity.py` runs on every workpath because it is repo-wide (recon F19) —
-a `chore/*` branch cannot create a release inconsistency, but it can land while one exists,
-and close-out is the moment that is worth knowing. Its path is one module constant (DR9).
+`check_release_integrity.py` runs on every workpath because it is repo-wide (recon F19) — a `chore/*` branch cannot create a release inconsistency, but it can land while one exists, and close-out is the moment that is worth knowing. Its path is one module constant (DR9).
 
 ### 4.2 Issue resolution and AC parsing
 
-`gh issue view <N> --json number,title,state,body,labels,milestone,closedAt` is the single
-read. Failure to resolve the issue aborts, per DR4's exception.
+`gh issue view <N> --json number,title,state,body,labels,milestone,closedAt` is the single read. Failure to resolve the issue aborts, per DR4's exception.
 
 Three shapes, tried in order (C4):
 
-1. A line matching `^\*\*ACs\*\*$` — every subsequent line matching `^-\s` is an AC, to end
-   of body. There is no closing delimiter (C5).
-2. A heading matching `^#+ Acceptance criteria` (case-insensitive) — every subsequent line
-   matching `^-\s\[[ xX]\]\s` is an AC, until the next heading or end of body. **The checkbox
-   state is discarded** (C6): `- [x]` is read as an AC, never as a met one.
-3. Neither — the issue carries no AC section. This is **not** a parse failure. The run
-   reports that the issue states no ACs and continues; every other check still applies, and
-   the results artifact records the absence. Parent issues legitimately hold none.
+1. A line matching `^\*\*ACs\*\*$` — every subsequent line matching `^-\s` is an AC, to end of body. There is no closing delimiter (C5).
+2. A heading matching `^#+ Acceptance criteria` (case-insensitive) — every subsequent line matching `^-\s\[[ xX]\]\s` is an AC, until the next heading or end of body. **The checkbox state is discarded** (C6): `- [x]` is read as an AC, never as a met one.
+3. Neither — the issue carries no AC section. This is **not** a parse failure. The run reports that the issue states no ACs and continues; every other check still applies, and the results artifact records the absence. Parent issues legitimately hold none.
 
-An AC's text is carried verbatim, including its leading marker's removal only. Nothing is
-normalised, reordered, or rewritten (DR8).
+An AC's text is carried verbatim, including its leading marker's removal only. Nothing is normalised, reordered, or rewritten (DR8).
 
 ### 4.3 Branch resolution and branch type
 
 Resolution order:
 
-1. `--branch <name>` if passed. The caller is always right; this is the escape hatch for
-   any issue that does not follow the convention (DR8's standing rule, applied to branches).
-2. Otherwise, the newest merge commit on `main` whose subject contains `issue-<N>`, read
-   with `git log --merges --format=%H%x09%s main`. The branch name is taken from the
-   subject.
+1. `--branch <name>` if passed. The caller is always right; this is the escape hatch for any issue that does not follow the convention (DR8's standing rule, applied to branches).
+2. Otherwise, the newest merge commit on `main` whose subject contains `issue-<N>`, read with `git log --merges --format=%H%x09%s main`. The branch name is taken from the subject.
 
-If neither yields a branch, the run reports it and continues with every branch-independent
-check — the AC walk, the suite, `check_release_integrity.py` — and reports the workpath
-checks as unresolvable rather than passed. A missing branch is a finding, not an abort:
-the ACs are still worth walking.
+If neither yields a branch, the run reports it and continues with every branch-independent check — the AC walk, the suite, `check_release_integrity.py` — and reports the workpath checks as unresolvable rather than passed. A missing branch is a finding, not an abort: the ACs are still worth walking.
 
-The branch **type** is the prefix before the first `/`. A prefix outside
-`chore` / `feature` / `hotfix` fails the run naming the prefix — §2.2 defines three, and a
-fourth means either a mistake or a standards change that this table has not caught up with.
+The branch **type** is the prefix before the first `/`. A prefix outside `chore` / `feature` / `hotfix` fails the run naming the prefix — §2.2 defines three, and a fourth means either a mistake or a standards change that this table has not caught up with.
 
-Changed paths come from `git diff --name-only <merge-base> <branch-tip>`, which is what
-drives the `chore/*` assertions of absence (§4.1). The daemon row is keyed to the branch
-type alone, per §2.6 — no path predicate is involved.
+Changed paths come from `git diff --name-only <merge-base> <branch-tip>`, which is what drives the `chore/*` assertions of absence (§4.1). The daemon row is keyed to the branch type alone, per §2.6 — no path predicate is involved.
 
 ### 4.4 The results artifact and the verdict
 
-The skill writes `docs/dev/results/<SUBJECT>_RESULTS.md` from `_TEMPLATE_RESULTS.md` (C13),
-then the script verifies it. The verification is what #83's fifth AC asks for, and it is
-the script's exit code:
+The skill writes `docs/dev/results/<SUBJECT>_RESULTS.md` from `_TEMPLATE_RESULTS.md` (C13), then the script verifies it. The verification is what #83's fifth AC asks for, and it is the script's exit code:
 
-- The file exists under `docs/dev/results/` and carries `**Status:** Shipped` or
-  `**Status:** Superseded` (DR7).
-- Its §3 AC table carries **exactly one row per AC parsed from the issue** — equal counts,
-  and each issue AC's text appearing in some row. Fewer rows is a dropped AC, which is the
-  Item 32 failure mode.
+- The file exists under `docs/dev/results/` and carries `**Status:** Shipped` or `**Status:** Superseded` (DR7).
+- Its §3 AC table carries **exactly one row per AC parsed from the issue** — equal counts, and each issue AC's text appearing in some row. Fewer rows is a dropped AC, which is the Item 32 failure mode.
 - Every row's status is `Met` or `Carried`. A `Not met` row fails the run (DR6).
 - Every `Carried` row cites a follow-up issue as `#N` in its evidence column (DR6).
 - Every `Met` row has a non-empty evidence cell.
 
-Exit `0` only when every applicable check passed and every AC row is `Met` or a properly
-cited `Carried`. Any other outcome exits non-zero, and the skill reports what the script
-reported — it does not summarise past it (DR3).
+Exit `0` only when every applicable check passed and every AC row is `Met` or a properly cited `Carried`. Any other outcome exits non-zero, and the skill reports what the script reported — it does not summarise past it (DR3).
 
 ### 4.5 Authorization point
 
-This spec contains **one**, at step 7: the merge to `main`. It carries no DB migration, no
-GitHub object deletion, no force push, and no service state change. Steps 1–6 proceed
-without stopping.
+This spec contains **one**, at step 7: the merge to `main`. It carries no DB migration, no GitHub object deletion, no force push, and no service state change. Steps 1–6 proceed without stopping.
 
-Per §2.2 this is a `chore/*` branch — it merges to `main` and `dev` with no version bump,
-no `CHANGELOG.md` entry, no tag, and no Release, and per §2.6 no restart.
+Per §2.2 this is a `chore/*` branch — it merges to `main` and `dev` with no version bump, no `CHANGELOG.md` entry, no tag, and no Release, and per §2.6 no restart.
 
 ### 4.6 Standards amendments — verbatim
 
-The pipeline line (C16) gains its closing step, and one bullet is added below the existing
-**Implementation** bullet:
+The pipeline line (C16) gains its closing step, and one bullet is added below the existing **Implementation** bullet:
 
 ```text
 RECON  →  ANALYSIS  →  SPEC  →  REVIEW  →  APPROVAL  →  IMPLEMENTATION  →  CLOSE-OUT
 ```
 
-> - **Close-out** — `/closeout <issue>`. Every AC walked against delivered code, the
->   release and deployment record checked against the branch type, and a
->   `docs/dev/results/` artifact written. It reports; it closes nothing. An issue is not
->   done because a spec says it is.
+> - **Close-out** — `/closeout <issue>`. Every AC walked against delivered code, the release and deployment record checked against the branch type, and a `docs/dev/results/` artifact written. It reports; it closes nothing. An issue is not done because a spec says it is.
 
-**§2.6.** The restart rule is stated by branch type, and the file-path predicate is
-removed from both places that carried it. §2.6's second paragraph reads:
+**§2.6.** The restart rule is stated by branch type, and the file-path predicate is removed from both places that carried it. §2.6's second paragraph reads:
 
-> **Every `feature/*` and `hotfix/*` branch ends with a service restart.** The daemon loads
-> code once at process start, so a merge to `dev` is not deployed until it restarts.
-> `chore/*` carries no restart — it changes no application code.
+> **Every `feature/*` and `hotfix/*` branch ends with a service restart.** The daemon loads code once at process start, so a merge to `dev` is not deployed until it restarts. `chore/*` carries no restart — it changes no application code.
 
 and `_TEMPLATE_RESULTS.md` §5's restart bullet reads:
 
-> - **Daemon restart** (`feature/*` and `hotfix/*`, per §2.6): confirm
->   `ActiveEnterTimestamp` postdates the `dev` merge commit. A merge is not a deployment.
+> - **Daemon restart** (`feature/*` and `hotfix/*`, per §2.6): confirm `ActiveEnterTimestamp` postdates the `dev` merge commit. A merge is not a deployment.
 
 Both proposed here, applied only if Ray approves this spec.
 
 ## 5. Acceptance criteria
 
-Mapped to #83's five ACs: AC1.x and AC4.x carry its first (walk every AC against delivered
-code) and second (cannot report success while any is unmet); AC3.x its third (Release and
-`ActiveEnterTimestamp`); AC2.x and AC3.1 its fourth (branch-type selection); AC4.1 – AC4.2
-its fifth (refuses without a results artifact). AC5.x is the skill itself and AC6.x the
-test obligation §6 imposes.
+Mapped to #83's five ACs: AC1.x and AC4.x carry its first (walk every AC against delivered code) and second (cannot report success while any is unmet); AC3.x its third (Release and `ActiveEnterTimestamp`); AC2.x and AC3.1 its fourth (branch-type selection); AC4.1 – AC4.2 its fifth (refuses without a results artifact). AC5.x is the skill itself and AC6.x the test obligation §6 imposes.
 
 | AC | Criterion | How it is checked |
 | --- | --- | --- |
@@ -303,29 +217,15 @@ test obligation §6 imposes.
 | AC6.3 | §1.1 carries the close-out step, per §4.6 | Within `awk '/^### 1.1/,/^### 1.2/' docs/DEVELOPMENT_STANDARDS.md`: `grep -c 'CLOSE-OUT'` prints `1` and `grep -c '/closeout'` prints `1` |
 | AC6.4 | §2.6 and the results template state the restart by branch type and carry no file-path predicate, per §4.6 | Within `awk '/^### 2.6/,/^### 2.7/' docs/DEVELOPMENT_STANDARDS.md`, two greps: `grep -c 'ends with a service restart'` prints `1`, and `grep -cE 'workmain/\|config/'` prints `0` — compare stdout, not exit status, since `grep -c` exits `1` when it prints `0`. The same second grep over `docs/dev/results/_TEMPLATE_RESULTS.md` prints `0` |
 
-**One live check, not a test.** Run `/closeout 86` once at step 5 and record the result in
-the step 5 commit message. It must **fail**, naming the missing `docs/dev/results/`
-artifact — #86 is closed, `chore/*`, and has no results artifact (recon F30). This is the
-refusal working against real state rather than a fixture, and it is why #81, #82 and #86
-are not backfilled: they are the evidence.
+**One live check, not a test.** Run `/closeout 86` once at step 5 and record the result in the step 5 commit message. It must **fail**, naming the missing `docs/dev/results/` artifact — #86 is closed, `chore/*`, and has no results artifact (recon F30). This is the refusal working against real state rather than a fixture, and it is why #81, #82 and #86 are not backfilled: they are the evidence.
 
 ## 6. Test plan
 
-`automation/closeout_checks_test.py`, beside the module it tests, per §6.3 and C14. The
-application suite is not touched, so `tests/` gains nothing and `testpaths` stays as it is.
+`automation/closeout_checks_test.py`, beside the module it tests, per §6.3 and C14. The application suite is not touched, so `tests/` gains nothing and `testpaths` stays as it is.
 
-- **Seams.** Every external read is a named module-level function replaced with
-  `monkeypatch`, exactly as `issue_validator_test.py` replaces `gh_issue_state` and
-  friends (C15, DR10): the issue fetch, the merge-log read, the changed-path read, the tag
-  and Release reads, the `ActiveEnterTimestamp` read, the suite run, and the
-  `check_release_integrity.py` run. No test in this file reaches GitHub, git, systemd or
-  the network.
-- **Fixtures.** Issue bodies in all three AC shapes, plus the no-AC case; results artifacts
-  in the clean, dropped-AC, `Not met`, uncited-`Carried` and wrong-`Status` variants. All
-  under `automation/fixtures/`, created at the step that first needs them.
-- **Naming.** Each test function name carries the AC it covers — `test_ac1_1_…` through
-  `test_ac4_5_…` — which is what makes AC6.1's coverage claim a grep rather than a count
-  someone has to trust.
+- **Seams.** Every external read is a named module-level function replaced with `monkeypatch`, exactly as `issue_validator_test.py` replaces `gh_issue_state` and friends (C15, DR10): the issue fetch, the merge-log read, the changed-path read, the tag and Release reads, the `ActiveEnterTimestamp` read, the suite run, and the `check_release_integrity.py` run. No test in this file reaches GitHub, git, systemd or the network.
+- **Fixtures.** Issue bodies in all three AC shapes, plus the no-AC case; results artifacts in the clean, dropped-AC, `Not met`, uncited-`Carried` and wrong-`Status` variants. All under `automation/fixtures/`, created at the step that first needs them.
+- **Naming.** Each test function name carries the AC it covers — `test_ac1_1_…` through `test_ac4_5_…` — which is what makes AC6.1's coverage claim a grep rather than a count someone has to trust.
 
 ## 7. Risks and rollback
 
@@ -337,6 +237,4 @@ application suite is not touched, so `tests/` gains nothing and `testpaths` stay
 | `#87` moves `check_release_integrity.py` and breaks the invocation | DR9 keeps the path in one constant. #87's own ACs already require every reference updated |
 | The close-out becomes a formality that always passes | DR6 makes the verdict an exit code rather than a sentence, and the live check against #86 proves the refusal fires against real state |
 
-**Rollback.** Every step is additive: `.claude/skills/closeout/`, `automation/closeout_*`,
-and one paragraph in §1.1. `git revert` of the step's commit removes it with no migration,
-no schema change and no application code touched.
+**Rollback.** Every step is additive: `.claude/skills/closeout/`, `automation/closeout_*`, and one paragraph in §1.1. `git revert` of the step's commit removes it with no migration, no schema change and no application code touched.

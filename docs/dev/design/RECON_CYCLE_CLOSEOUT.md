@@ -10,24 +10,11 @@
 
 ## 1. Purpose
 
-Issue #83 asks for a user-initiated skill in `.claude/skills/` that performs cycle
-close-out mechanically: it walks every AC on an issue against delivered code, cannot
-report success while any AC is unmet, checks the §2.2 Release object and the §2.6
-`ActiveEnterTimestamp`, selects which of those checks apply from the issue's branch type,
-and refuses to complete without a `docs/dev/results/` artifact carrying a `Status:` field.
+Issue #83 asks for a user-initiated skill in `.claude/skills/` that performs cycle close-out mechanically: it walks every AC on an issue against delivered code, cannot report success while any AC is unmet, checks the §2.2 Release object and the §2.6 `ActiveEnterTimestamp`, selects which of those checks apply from the issue's branch type, and refuses to complete without a `docs/dev/results/` artifact carrying a `Status:` field.
 
-`RECON_CYCLE_MECHANICS.md` covers #80's family but censuses the *queue* and
-*issue-creation* surfaces; it establishes nothing about close-out inputs, and two of the
-artifacts a close-out would read — `automation/issue_validator.py` and
-`scripts/check_release_integrity.py` — did not exist when it was written. This document is
-the census of the five surfaces a close-out skill must read: the skill mechanism itself,
-the AC surface on issues, the issue → branch-type linkage, the release and deployment
-check surface, and the results artifact.
+`RECON_CYCLE_MECHANICS.md` covers #80's family but censuses the *queue* and *issue-creation* surfaces; it establishes nothing about close-out inputs, and two of the artifacts a close-out would read — `automation/issue_validator.py` and `scripts/check_release_integrity.py` — did not exist when it was written. This document is the census of the five surfaces a close-out skill must read: the skill mechanism itself, the AC surface on issues, the issue → branch-type linkage, the release and deployment check surface, and the results artifact.
 
-**Read-only contract.** No code changed, no configuration modified, no GitHub object
-created or edited during the read. The one file created is this document. No fixes and no
-suggestions appear inline with findings. This document makes no recommendation; the
-mechanism choice is an Analysis decision.
+**Read-only contract.** No code changed, no configuration modified, no GitHub object created or edited during the read. The one file created is this document. No fixes and no suggestions appear inline with findings. This document makes no recommendation; the mechanism choice is an Analysis decision.
 
 ---
 
@@ -35,27 +22,20 @@ mechanism choice is an Analysis decision.
 
 **Examined:**
 
-- Working tree — `.claude/` (absent), `.github/ISSUE_TEMPLATE/`, `automation/`,
-  `scripts/check_release_integrity.py`, `.githooks/pre-push`, `.gitignore`,
-  `pyproject.toml`, `.markdownlint.json`
+- Working tree — `.claude/` (absent), `.github/ISSUE_TEMPLATE/`, `automation/`, `scripts/check_release_integrity.py`, `.githooks/pre-push`, `.gitignore`, `pyproject.toml`, `.markdownlint.json`
 - `docs/dev/{design,specs,results}/` — every artifact's header block; both templates
 - `docs/DEVELOPMENT_STANDARDS.md` §1.1–§1.5, §2.2–§2.8, §7; `CLAUDE.md`
 - `docs/archive/design/GITHUB_ISSUES_MIGRATION_MANIFEST.md` — for the numbering rule only
-- Live GitHub — every issue body in every state, classified by AC shape; close metadata on
-  #81, #82, #86; issue #83, #84, #85, #87 bodies
+- Live GitHub — every issue body in every state, classified by AC shape; close metadata on #81, #82, #86; issue #83, #84, #85, #87 bodies
 - Live git — merge subjects on `main`, branch-name shape, `main`/`dev` divergence
 - Live systemd — `workmain-notify.service` `ActiveState` and `ActiveEnterTimestamp`
-- The installed Claude Code skills reference and the bundled example skills under
-  `~/.claude/plugins/marketplaces/claude-plugins-official/`
+- The installed Claude Code skills reference and the bundled example skills under `~/.claude/plugins/marketplaces/claude-plugins-official/`
 
 **Deliberately not examined:**
 
-- `workmain/**` application code. #83 lands no application change; nothing in the close-out
-  surface reads it, and the skill treats it as evidence, not as a dependency.
-- The test suite was **not run.** A close-out reads the suite's result at run time; the
-  count is not a fact this document should carry.
-- #84's and #85's mechanisms beyond their stated ACs, and the queue ordering surface —
-  owned by `RECON_CYCLE_MECHANICS.md` and not re-read here.
+- `workmain/**` application code. #83 lands no application change; nothing in the close-out surface reads it, and the skill treats it as evidence, not as a dependency.
+- The test suite was **not run.** A close-out reads the suite's result at run time; the count is not a fact this document should carry.
+- #84's and #85's mechanisms beyond their stated ACs, and the queue ordering surface — owned by `RECON_CYCLE_MECHANICS.md` and not re-read here.
 - What a close-out should *do* with a failing check. That is design, not census.
 
 ---
@@ -129,18 +109,10 @@ mechanism choice is an Analysis decision.
 
 ### Explicitly not verified
 
-- **N1 — Whether a project-level `.claude/skills/` skill is discovered by this Claude Code
-  build without further configuration.** F3 documents the location from the installed
-  reference; no skill has ever existed in this repo, so discovery has not been observed.
-  The first implementation step settles it empirically.
-- **N2 — Whether `` !`cmd` `` substitution (F6) works in a project-level skill, or only in
-  plugin-bundled ones.** Only plugin examples were available to read.
-- **N3 — What an AC-to-evidence check costs in practice.** Every finding here concerns
-  *inputs*. Whether walking N ACs against delivered code is one pass or many is a
-  behaviour of the skill, not a property of the surfaces, and cannot be censused.
-- **N4 — Whether the migrated issues' ACs are still accurate.** They were written against
-  `docs/FEATURE_BACKLOG.md` before the migration. A close-out reads them as authoritative;
-  this recon did not audit them.
+- **N1 — Whether a project-level `.claude/skills/` skill is discovered by this Claude Code build without further configuration.** F3 documents the location from the installed reference; no skill has ever existed in this repo, so discovery has not been observed. The first implementation step settles it empirically.
+- **N2 — Whether `` !`cmd` `` substitution (F6) works in a project-level skill, or only in plugin-bundled ones.** Only plugin examples were available to read.
+- **N3 — What an AC-to-evidence check costs in practice.** Every finding here concerns *inputs*. Whether walking N ACs against delivered code is one pass or many is a behaviour of the skill, not a property of the surfaces, and cannot be censused.
+- **N4 — Whether the migrated issues' ACs are still accurate.** They were written against `docs/FEATURE_BACKLOG.md` before the migration. A close-out reads them as authoritative; this recon did not audit them.
 
 ---
 

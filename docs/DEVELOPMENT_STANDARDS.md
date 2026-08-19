@@ -102,6 +102,7 @@ A spec's §4 is ordered work, defined below.
   only.
   - Never a description of what changed in the document; git covers that.
   - Design and results artifacts carry neither a decision log nor a version history.
+- **Markdown is never hard-wrapped.** One line per paragraph, per list item, per table row — let the editor wrap it. A paragraph broken across source lines makes every later edit a reflow, and turns a one-word change into a multi-line diff nobody can review. `MD013` is off in `.markdownlint.json` for this reason.
 - **No version headers or version-history blocks in any document.** Git is the version
   record. See §3.1 for the code equivalent.
 - Each `docs/dev/` subdirectory holds a `_TEMPLATE_*.md` starting point. Templates are
