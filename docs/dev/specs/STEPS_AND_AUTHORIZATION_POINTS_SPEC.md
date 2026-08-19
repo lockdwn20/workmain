@@ -24,6 +24,8 @@
 | 20260818 | Spanner | Recon's first pass missed `DEVELOPMENT_STANDARDS.md:185` (F35) | Every AC derives its own set from a command; none is checked against the recon's tables |
 | 20260819 | Ray | Issue #86 updated with the `pytest` and test-location criteria | AC13–AC15, DR10, step 3. No longer a scope extension |
 | 20260819 | Spanner | Issue wording *"approved locations (currently only `automation/`)"* would put a second location list in §6 | Not written in; §6 cites §7 as owner. Deviates from the issue's literal wording — AC15 guards it |
+| 20260819 | Ray | `CLAUDE.md:3` is a style rule, so it never fires on duplication — each restatement is individually concise. Prompted by this spec's own Decision Log restating its design rules | Replaced with a single-home output rule covering all output, not just chat. Step 4, AC16. Folded here rather than a separate branch because step 4 already edits `CLAUDE.md` |
+| 20260819 | Spanner | The new line 3 is adjacent to DR1 — both are single-owner rules — and could read as an AC8 duplication | Not a duplicate. DR1 decides which *document* owns a rule; line 3 governs everything Claude emits, including chat and commit messages. Line 3 stays in `CLAUDE.md` as role behaviour. No design rule restates it here, which is the rule applied to itself |
 
 ---
 
@@ -31,8 +33,9 @@
 
 **In scope** — four files:
 
-- `CLAUDE.md` — § Critical Rules gate bullet, Role 3's residual `Gate 1`, § Common Pitfalls
-  duplication, the OQ4 historical gate citation, the § Project Status test-suite command.
+- `CLAUDE.md` — the line 3 output rule, § Critical Rules gate bullet, Role 3's residual
+  `Gate 1`, § Common Pitfalls duplication, the OQ4 historical gate citation, the § Project
+  Status test-suite command.
 - `docs/DEVELOPMENT_STANDARDS.md` — preamble ownership sentence, §1.1 pipeline and bullets,
   §1.3 split rule, §2.2, §2.4, §2.7, §4.5, §6 preamble and command block, §6.3, §6.4, §7,
   plus a new §1.4 defining steps and authorization points.
@@ -91,6 +94,7 @@ from `docs/dev/design/RECON_STEPS_AUTHORIZATION_POINTS.md`.
 | §6's preamble asserts *"Everything lives in `tests/`"*, contradicted by §6.3's own `automation/` row twenty lines below it | `docs/DEVELOPMENT_STANDARDS.md:520` vs `:590` | new |
 | §6.3's `tests/` row states pytest *"only discovers here"* — true of a bare `pytest` under `testpaths`, misleading as a statement about pytest | `docs/DEVELOPMENT_STANDARDS.md:586` | new |
 | `CLAUDE.md` § Project Status gives the test suite as `python -m pytest tests/` | `CLAUDE.md:62` | new |
+| Line 3 reads *"All responses should be direct, concise and plainly spoken"* — scoped to responses, and stating no rule against restating content elsewhere | `CLAUDE.md:3` | new |
 | The templates' pytest references are single-test invocations, where an explicit path is still correct | `_TEMPLATE_SPEC.md:86`; `_TEMPLATE_RESULTS.md:42` | new |
 
 ## 3. Design rules
@@ -163,11 +167,21 @@ Each step ends with a commit. There is no approval stop between steps.
 | 1 | New `§1.4 Steps and authorization points` carrying DR3–DR6, the authorization set, and the DR6 carve-out named in place. Preamble ownership sentence rewritten to DR1 | `docs/DEVELOPMENT_STANDARDS.md` |
 | 2 | §1.1 pipeline terminates at `IMPLEMENTATION`; §1.1 bullets reworded to steps with a §1.4 pointer; §1.3 split rule replaced by DR7; §2.2, §2.4, §2.7, §6.4 reworded to step vocabulary; §4.5 keeps the migration rule as a §1.4 pointer per DR2; §1.3 and §6.3 absorb the rules arriving from `CLAUDE.md` in step 4 | `docs/DEVELOPMENT_STANDARDS.md` |
 | 3 | §6 preamble and command block reconciled with `testpaths` per DR10 — bare `pytest`, and the "everything lives in `tests/`" claim replaced by a statement that non-application suites are reached by explicit path, citing §7. §6.3's `tests/` row reworded off "only discovers here" | `docs/DEVELOPMENT_STANDARDS.md` |
-| 4 | Gate bullet removed from § Critical Rules and replaced by a §1.4 pointer; Role 3 `:48` reworded; § Project Status test command becomes `pytest`; § Common Pitfalls reduced to the bullets with no `DEVELOPMENT_STANDARDS.md` counterpart; every other duplicated rule removed per DR1; OQ4 citation reworded per DR9; the "nothing is duplicated" claims in both preambles left standing and now true | `CLAUDE.md` |
+| 4 | Line 3 replaced with the output rule below; gate bullet removed from § Critical Rules and replaced by a §1.4 pointer; Role 3 `:48` reworded; § Project Status test command becomes `pytest`; § Common Pitfalls reduced to the bullets with no `DEVELOPMENT_STANDARDS.md` counterpart; every other duplicated rule removed per DR1; OQ4 citation reworded per DR9; the "nothing is duplicated" claims in both preambles left standing and now true | `CLAUDE.md` |
 | 5 | §3 stop-and-surface restated per DR8 as a pointer to `CLAUDE.md` Role 3; §4 retitled **Steps** with a `Step / Deliverable / Files` table and an **Authorization points** subsection; §7 reworded to steps. The `:86` single-test invocation is left as-is per DR10 | `docs/dev/specs/_TEMPLATE_SPEC.md` |
 | 6 | §2 retitled "What shipped, by step" with a `Step / Delivered / Files changed / Tests` table; §3 reworded | `docs/dev/results/_TEMPLATE_RESULTS.md` |
 | 7 | `chore/cycle-mechanics-recon` merged into this branch, restoring `RECON_CYCLE_MECHANICS.md` and fixing #82's broken citation; `Status:` advanced to `Shipped` on `TRACKING_SEMANTICS_CONSOLIDATION_SPEC.md` and `ISSUE_CREATION_VALIDATION_SPEC.md` | `docs/dev/design/RECON_CYCLE_MECHANICS.md`, two spec headers |
 | 8 | Full acceptance sweep per §5, then merge | — |
+
+### Step 4 — the replacement for `CLAUDE.md:3`
+
+Verbatim. This is the deliverable, not a description of it:
+
+> All output — chat, specs, design docs, commit messages, code comments — is direct,
+> concise, and plainly spoken. Every fact, decision, and rule has exactly one home. State
+> it there; everywhere else cites it. Do not summarize back what the reader can already
+> read: not the artifact in chat, not a section in another section, not a design rule in a
+> decision log.
 
 ### Authorization points
 
@@ -200,6 +214,7 @@ transcribed from the recon.
 | AC13 | No in-scope document instructs the reader to run the application suite with an explicit path | Over the four in-scope files only: `grep -n "python -m pytest"` returns zero hits, and `grep -n "pytest tests/" \| grep -v "tests/test_"` returns zero hits. The surviving `pytest tests/test_x.py::...` forms are single-test invocations, correct per DR10. Shipped specs and handoffs are excluded — they record commands as they were run | 8 |
 | AC14 | No document claims tests exist only in `tests/` | `grep -n "Everything lives in" docs/DEVELOPMENT_STANDARDS.md` returns zero hits; §6 contains a sentence naming non-application suites and citing §7; `grep -n "only discovers here" docs/DEVELOPMENT_STANDARDS.md` returns zero hits | 9 |
 | AC15 | The revision introduces no second list of test locations | The §6 text added for AC14 contains no path other than `tests/`; `automation/` appears in §6.3 and §7 only, as it does today | 9 |
+| AC16 | `CLAUDE.md:3` states the single-home output rule and is not restated anywhere | `grep -c "exactly one home" CLAUDE.md` returns `1`; the same grep over `docs/DEVELOPMENT_STANDARDS.md` and both templates returns `0`; `grep -n "All responses should be" CLAUDE.md` returns zero hits | — (Ray, 20260819) |
 
 ## 6. Test plan
 
