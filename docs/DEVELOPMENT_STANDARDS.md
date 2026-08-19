@@ -18,7 +18,7 @@ No spec is written without a read-only audit first. Recon produces a findings do
 `docs/dev/design/`; decisions are made from it; only then is a spec written.
 
 ```text
-RECON  →  ANALYSIS  →  SPEC  →  REVIEW  →  APPROVAL  →  IMPLEMENTATION
+RECON  →  ANALYSIS  →  SPEC  →  REVIEW  →  APPROVAL  →  IMPLEMENTATION  →  CLOSE-OUT
 ```
 
 - **Recon** — read-only pass, verbatim findings, no fixes and no inline suggestions.
@@ -28,6 +28,10 @@ RECON  →  ANALYSIS  →  SPEC  →  REVIEW  →  APPROVAL  →  IMPLEMENTATION
 - **Approval** — Ray approves explicitly. No implementation without an approved spec.
 - **Implementation** — Role 3, step by step, from the approved spec only. Steps commit
   without a stop; authorization points are the hard stops — see §1.4.
+- **Close-out** — `/closeout <issue>`. Every AC walked against delivered code, the
+  release and deployment record checked against the branch type, and a
+  `docs/dev/results/` artifact written. It reports; it closes nothing. An issue is
+  not done because a spec says it is.
 
 ### 1.2 Spec authoring rules
 

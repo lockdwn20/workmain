@@ -33,7 +33,7 @@ What shipped, in a paragraph. State plainly whether the work is complete or part
 
 ## 3. Acceptance criteria
 
-Every AC from the spec, checked against **delivered code** — not against the spec's own
+Every AC on the issue, checked against **delivered code** — not against the issue's own
 claim that it was delivered. Item 32 was closed in Phase 13 Sprint 2 with all four ACs
 unmet and had to be reopened eleven days later; that is what this table exists to prevent.
 
