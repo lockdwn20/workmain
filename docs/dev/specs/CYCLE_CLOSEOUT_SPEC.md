@@ -24,6 +24,7 @@
 | 20260819 | Ray | Recon Q8 — no new issue ↔ artifact link mechanism; git already carries it | Accepted. DR5 |
 | 20260819 | Ray | §2.6's restart rule is branch-type, not file-path: **any `feature/*` or `hotfix/*` branch requires a restart at the end.** The conditional wording added around #82 is removed | Accepted. §2.6 and the results template are reworded (§4.6); the workpath table and AC3.5 follow it |
 | 20260819 | Ray | Hard-wrapped markdown makes review hard. Stop splitting lines | Accepted. §1.5 gains the rule, and this spec and its recon are reflowed to one line per paragraph. The repo-wide reflow is its own issue — see §7 |
+| 20260820 | Ray | #87 shipped before this spec's implementation, relocating `check_release_integrity.py` to `automation/` | `main` merged into this branch. C9, DR9, §1 and the risks row cite the new path; nothing else moved |
 | 20260819 | Spanner | The results artifact records the close-out, but a skill that also **closed** the issue would take the terminal action out of Ray's hands, against the established PR-merge precedent | The skill makes no GitHub write. DR2 |
 
 ---
@@ -44,7 +45,7 @@
 - **Rewriting legacy issue bodies** into the current AC shape (Ray, Q1). The parser reads what is there; an issue is corrected when it is the issue being worked.
 - **Any GitHub write.** Closing the issue, commenting on it, moving it on the board: none of it. DR2.
 - **#84's queue rank and #85's session-open skills.** Different issues, different mechanisms. This spec sets the `.claude/skills/` precedent that #85 inherits and nothing more.
-- **#87's move of `check_release_integrity.py` to `automation/`.** The path is read from one constant (§4.1), so #87 remains a one-line follow-up rather than a prerequisite.
+- **`check_release_integrity.py`'s location.** #87 shipped it into `automation/` before this spec's implementation began, so the close-out cites the script where it lives and no follow-on repoint is owed.
 - **`workmain/**` and `tests/**`.** No application behaviour changes, which is what keeps this on `chore/*` per §2.2.
 - **The `docs/dev/results/` template's `Status:` vocabulary.** Unchanged (Ray, Q6). Its §5 restart line is reworded with §2.6, above.
 
@@ -60,7 +61,7 @@
 | C6 | No issue in any state carries a checked box, so `- [x]` is not evidence — recon F9 |
 | C7 | The issue records no branch type; `issue.schema.json`'s keys are `title`, `context`, `acs`, `milestone`, `parent`, `labels`, `type`, `blocked_by`, `blocking` — recon F12 |
 | C8 | Branch names since the migration embed the issue number and the merge subject preserves the branch name — `git log --oneline --merges main`, e.g. `Merge branch 'chore/issue-86-steps-authorization'` — recon F16, F17 |
-| C9 | `scripts/check_release_integrity.py` checks, for every `vN.N.N` tag, a matching non-empty `CHANGELOG.md` section and an existing GitHub Release, plus `__version__.py` agreement; exits non-zero at or above `BASELINE = "1.26.0"`; takes `--no-remote` — `scripts/check_release_integrity.py:1-50` |
+| C9 | `automation/check_release_integrity.py` checks, for every `vN.N.N` tag, a matching non-empty `CHANGELOG.md` section and an existing GitHub Release, plus `__version__.py` agreement; exits non-zero at or above `BASELINE = "1.26.0"`; takes `--no-remote` — `automation/check_release_integrity.py:1-50`. Relocated from `scripts/` by #87, which also replaced the fixed `parent.parent` root with `find_repo_root()`, so it resolves the repository root from wherever it is invoked |
 | C10 | §2.2 exempts `chore/*` from version bump, `CHANGELOG.md`, tag and Release, verbatim — `docs/DEVELOPMENT_STANDARDS.md` §2.2 |
 | C11 | §2.5 sets the bump magnitude: hotfix → patch, feature/phase → minor — `docs/DEVELOPMENT_STANDARDS.md` §2.5 |
 | C12 | §2.6 requires a service restart at the end of **every** `feature/*` and `hotfix/*` branch, with `ActiveEnterTimestamp` postdating the `dev` merge commit; `chore/*` carries no restart — `docs/DEVELOPMENT_STANDARDS.md` §2.6, as reworded by this spec (§4.6) |
@@ -79,7 +80,7 @@
 - **DR6 — Success is refused while any AC is unmet.** The verdict is the script's exit code, not a sentence the skill writes. A `Not met` row fails the run. A `Carried` row must cite the follow-up issue as `#N`, or it is treated as `Not met` — "carried" without a destination is how Item 32 was closed with four unmet ACs.
 - **DR7 — The results artifact is one-shot.** It is written once, at close-out, carrying `Status: Shipped` (Ray, Q6). There is no draft state and no in-progress status, because the document is produced in a single pass at the end of the work it describes.
 - **DR8 — AC shapes are read, never rewritten.** All three shapes (C4) are parsed. The close-out does not edit the issue to normalise it, and does not fail an issue for using an older shape. Legacy issues are corrected when they are worked, which is the standing rule for everything the migration carried forward.
-- **DR9 — `check_release_integrity.py` is invoked, not reimplemented.** Its checks are not duplicated in `closeout_checks.py`. Its path is a single module constant so #87's move is a one-line change.
+- **DR9 — `check_release_integrity.py` is invoked, not reimplemented.** Its checks are not duplicated in `closeout_checks.py`. Its path — `automation/check_release_integrity.py` — is a single module constant, so a future relocation stays a one-line change.
 - **DR10 — The script is stdlib-only and its external reads are named functions.** Mirroring C15: every `gh`, `git`, `systemctl` and `pytest` call sits behind a named module-level function that a test replaces. No test in this spec shells out to real GitHub except where an AC says so explicitly.
 - **Anything not covered here: STOP and surface to Ray.** No self-resolution, no scope adjustment. Unconditional, and independent of step boundaries.
 
@@ -234,7 +235,7 @@ Mapped to #83's five ACs: AC1.x and AC4.x carry its first (walk every AC against
 | The skill is not discovered — no project-level skill has ever existed here (recon N1) | Step 5 is where this surfaces, and it surfaces immediately on the first `/closeout` invocation. If discovery needs configuration, that is a finding to surface, not a redesign: the script is invocable directly regardless |
 | The AC-to-evidence walk is judgement and can be wrong in either direction | DR3 confines it to the skill and keeps every mechanical check in the script, where it is testable. A wrong judgement is visible in the results artifact's evidence column, which is the point of requiring one per row |
 | Branch derivation fails on pre-migration issues, whose branches carry no issue number (recon F17) | `--branch` is the documented escape hatch (§4.3), and an unresolved branch degrades to a finding rather than an abort (AC2.3) |
-| `#87` moves `check_release_integrity.py` and breaks the invocation | DR9 keeps the path in one constant. #87's own ACs already require every reference updated |
+| A future relocation of `check_release_integrity.py` breaks the invocation | DR9 keeps the path in one constant. #87 has already moved it once, and `find_repo_root()` (C9) means the script itself works from any location |
 | The close-out becomes a formality that always passes | DR6 makes the verdict an exit code rather than a sentence, and the live check against #86 proves the refusal fires against real state |
 
 **Rollback.** Every step is additive: `.claude/skills/closeout/`, `automation/closeout_*`, and one paragraph in §1.1. `git revert` of the step's commit removes it with no migration, no schema change and no application code touched.
