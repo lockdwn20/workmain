@@ -25,6 +25,15 @@
 | 20260819 | Ray | §2.6's restart rule is branch-type, not file-path: **any `feature/*` or `hotfix/*` branch requires a restart at the end.** The conditional wording added around #82 is removed | Accepted. §2.6 and the results template are reworded (§4.6); the workpath table and AC3.5 follow it |
 | 20260819 | Ray | Hard-wrapped markdown makes review hard. Stop splitting lines | Accepted. §1.5 gains the rule, and this spec and its recon are reflowed to one line per paragraph. The repo-wide reflow is its own issue — see §7 |
 | 20260820 | Ray | #87 shipped before this spec's implementation, relocating `check_release_integrity.py` to `automation/` | `main` merged into this branch. C9, DR9, §1 and the risks row cite the new path; nothing else moved |
+| 20260820 | Caliper | F1 — the results template says "Every AC from the spec"; §4.4 counts issue ACs | **Issue ACs.** #83 asks for every AC *on the issue*, and the issue is what closes. The template amendment rides step 6 |
+| 20260820 | Caliper | F2 — no rule derived `<SUBJECT>` for the results artifact, which AC4.1 and the live check both depend on | §4.4 derives it from the spec whose `**Branch:**` field names the resolved branch. No spec claiming the branch is itself a finding, per §1.1 |
+| 20260820 | Caliper | F3 — AC6.1's grep prints `15` today, because `issue_validator_test.py`'s AC ids collide | Accepted, demonstrated. Collection scoped to `closeout_checks_test.py` |
+| 20260820 | Caliper | F4 — `issue-8` substring-matches `issue-86` and `issue-87`; eight subjects match today | Accepted. §4.3 requires a non-digit or end-of-string boundary |
+| 20260820 | Caliper | F5 — three merges match `issue-86` from `main`, and picking by date is not deterministic | Accepted. §4.3 reads `main`'s first-parent chain, which carries exactly one merge per branch |
+| 20260820 | Caliper | F6 — §2.3 and §2.6 are already committed while §1/§4.6 call them proposals | Withdrawn as a finding; the bookkeeping is corrected. Standards are written as this work decides them |
+| 20260820 | Caliper | F7 — AC3.2 tested a path, but §4.1 asserts a bump, and §2.2 permits `workmain/**` on `chore/*` | Accepted. AC3.2 now tests the `__version__` value across the merge's parents |
+| 20260820 | Caliper | F10 — the `<type>/issue-<N>-<slug>` convention is unwritten in §2.1 | Accepted in principle; **awaiting Caliper's suggested wording**, which did not reach this session |
+| 20260820 | Caliper | F12 — the escaped pipe in AC3.6(b) and AC6.4 makes both greps pass vacuously | Accepted, verified: the ERE matches a literal pipe and prints `0` against any file. Both split into separate greps |
 | 20260820 | Ray | Do not carry a finding as suggested wording — decide it | Accepted. §2.3 now requires `--no-ff` on every merge and names the merge commit as the branch's only durable record. Applied, not proposed as an option; AC6.5 checks it |
 | 20260820 | Spanner | Re-walk of §4.1 and §4.3 against live source, prompted by the §4.2 defect | Two more defects, both in §4.3: changed paths were specified from a branch tip that §2.3 has already deleted, and nothing mandates `--no-ff`. Corrected to the merge commit's parent pair; the `--no-ff` gap is stated with suggested wording, not applied. AC2.4 added |
 | 20260820 | Ray | Was §4.2's parse validated against `issue_validator.py`? | **No, and it was wrong.** `render_body()` places no one-line constraint on an AC and the schema forbids no newline, so a wrapped AC renders as a bullet plus an orphan line the parse would have dropped. §4.2 gains the continuation rule; AC1.5 covers it |
@@ -39,8 +48,10 @@
 
 - `.claude/skills/closeout/SKILL.md` — the user-initiated skill, and the first thing in `.claude/` in this repository.
 - `automation/closeout_checks.py` — the mechanical checks the skill invokes, and `automation/closeout_checks_test.py` with its fixtures.
-- `docs/DEVELOPMENT_STANDARDS.md` §1.1 — the pipeline gains its closing step. Proposed here, applied only if this spec is approved.
-- `docs/DEVELOPMENT_STANDARDS.md` §2.6 and `docs/dev/results/_TEMPLATE_RESULTS.md` §5 — the restart rule reworded to what it has always meant (Ray, 20260819): every `feature/*` and `hotfix/*` branch ends with a restart. The file-path predicate is removed from both.
+- `docs/DEVELOPMENT_STANDARDS.md` §1.1 — the pipeline gains its closing step, at step 6.
+- `docs/DEVELOPMENT_STANDARDS.md` §2.3 — every merge is `--no-ff`, and the merge commit is a branch's only durable record. **Already applied on this branch** (Ray, 20260820).
+- `docs/DEVELOPMENT_STANDARDS.md` §2.6 and `docs/dev/results/_TEMPLATE_RESULTS.md` §5 — the restart rule stated by branch type (Ray, 20260819). **Already applied on this branch.**
+- `docs/dev/results/_TEMPLATE_RESULTS.md` §3 — "Every AC from the spec" becomes the issue's ACs, per §4.4. Lands at step 6.
 - `docs/DEVELOPMENT_STANDARDS.md` §1.5 — markdown is never hard-wrapped (Ray, 20260819). This spec and `RECON_CYCLE_CLOSEOUT.md` are written that way; every other document is a separate issue, not this branch's work.
 
 **Out of scope:**
@@ -103,7 +114,7 @@ Ordered, each committed on completion. **No step is an approval stop** — each 
 | 3 | The three workpaths — release, deployment and suite checks, per §4.1 | `automation/closeout_checks.py` | AC3.1 – AC3.6 |
 | 4 | Results-artifact verification, the verdict exit code, and the closing comment, per §4.4 and §4.4a | `automation/closeout_checks.py` | AC4.1 – AC4.6 |
 | 5 | The skill itself: frontmatter, the ordered procedure, the workpath table | `.claude/skills/closeout/SKILL.md` | AC5.1 – AC5.4 |
-| 6 | Tests over the step 1–4 fixtures; the §1.1, §2.3 and §2.6 amendments | `automation/closeout_checks_test.py`, `docs/DEVELOPMENT_STANDARDS.md`, `docs/dev/results/_TEMPLATE_RESULTS.md` | AC6.1 – AC6.5 |
+| 6 | Tests over the step 1–4 fixtures; the §1.1 amendment and the `_TEMPLATE_RESULTS.md` §3 wording. §2.3 and §2.6 already landed | `automation/closeout_checks_test.py`, `docs/DEVELOPMENT_STANDARDS.md`, `docs/dev/results/_TEMPLATE_RESULTS.md` | AC6.1 – AC6.5 |
 | 7 | Merge to `main`, then to `dev` — **authorization point**, see §4.5 | — | — |
 
 ### 4.1 The workpaths
@@ -147,7 +158,9 @@ An AC's text is otherwise carried verbatim, with only its leading marker removed
 Resolution order:
 
 1. `--branch <name>` if passed. The caller is always right; this is the escape hatch for any issue that does not follow the convention (DR8's standing rule, applied to branches).
-2. Otherwise, the newest merge commit on `main` whose subject contains `issue-<N>`, read with `git log --merges --format=%H%x09%s main`. The branch name is taken from the subject, and **the merge commit is what the rest of the run uses** — not the branch, which no longer exists.
+2. Otherwise, the merge commit on `main`'s **first-parent** chain whose subject matches `issue-<N>` followed by a non-digit or end of string, read with `git log --merges --first-parent --format=%H%x09%s main`. The branch name is taken from the subject, and **the merge commit is what the rest of the run uses** — not the branch, which no longer exists.
+
+Both qualifiers are load-bearing, and each was demonstrated against live history rather than reasoned about. **`--first-parent`**: a `chore/*` or `hotfix/*` branch merges to `main` and `dev` (§2.1), and `dev` later reaches `main`, so an unrestricted `git log --merges main` returns three commits matching `issue-86` — the merge into `main`, the merge into `dev`, and the `dev → main` merge that carried it. The first-parent chain is the merges made *onto* `main`, which is exactly one per branch. **The non-digit boundary**: a bare substring match for `issue-8` matches eight subjects, including every `issue-86` and `issue-87`. Without the boundary, closing issue #8 would resolve to #87's branch.
 
 If neither yields a branch, the run reports it and continues with every branch-independent check — the AC walk, the suite, `check_release_integrity.py` — and reports the workpath checks as unresolvable rather than passed. A missing branch is a finding, not an abort: the ACs are still worth walking.
 
@@ -163,10 +176,14 @@ This is what drives the `chore/*` assertions of absence (§4.1). The daemon row 
 
 ### 4.4 The results artifact and the verdict
 
-The skill writes `docs/dev/results/<SUBJECT>_RESULTS.md` from `_TEMPLATE_RESULTS.md` (C13), then the script verifies it. The verification is what #83's fifth AC asks for, and it is the script's exit code:
+**The artifact's name is derived, never chosen.** The resolved branch (§4.3) is matched against the `**Branch:**` field of every file in `docs/dev/specs/`; the spec naming that branch supplies the subject, which is its own filename with `_SPEC.md` removed. `chore/issue-86-steps-authorization` resolves to `STEPS_AND_AUTHORIZATION_POINTS_SPEC.md`, so the expected artifact is `docs/dev/results/STEPS_AND_AUTHORIZATION_POINTS_RESULTS.md`. The branch field is the link because it is exact — recon F14 shows `**Originating item:**` is written four different ways, and recon F15 shows a bare `#N` is ambiguous across the corpus.
+
+If no spec names the branch, the run reports that and fails: §1.1 permits no implementation without an approved spec, so an issue whose branch no spec claims is a finding in its own right, not a naming problem to work around.
+
+The skill writes that path from `_TEMPLATE_RESULTS.md` (C13), then the script verifies it. The verification is what #83's fifth AC asks for, and it is the script's exit code:
 
 - The file exists under `docs/dev/results/` and carries `**Status:** Shipped` or `**Status:** Superseded` (DR7).
-- Its §3 AC table carries **exactly one row per AC parsed from the issue** — equal counts, and each issue AC's text appearing in some row. Fewer rows is a dropped AC, which is the Item 32 failure mode.
+- Its §3 AC table carries **exactly one row per AC parsed from the issue** — equal counts, and each issue AC's text appearing in some row. Fewer rows is a dropped AC, which is the Item 32 failure mode. **Issue ACs, not spec ACs**: #83 asks the close-out to walk every AC *on the issue*, the issue is what gets closed, and a spec's AC set is its own decomposition of that. `_TEMPLATE_RESULTS.md` §3 currently says "Every AC from the spec" and is amended to match at step 6 — the close-out is the first thing to read that template mechanically, so the template is behind, not wrong-headed.
 - Every row's status is `Met` or `Carried`. A `Not met` row fails the run (DR6).
 - Every `Carried` row cites a follow-up issue as `#N` in its evidence column (DR6).
 - Every `Met` row has a non-empty evidence cell.
@@ -213,7 +230,7 @@ and `_TEMPLATE_RESULTS.md` §5's restart bullet reads:
 
 > **Every merge is `--no-ff`.** A fast-forward leaves no merge commit, and once the branch is deleted the merge commit is the only record of what the branch contained — its subject names the branch, and its second parent is the tip. A fast-forwarded branch is unrecoverable the moment it is deleted. Tags, `CHANGELOG.md` and the merge commit are the permanent record; the branch ref itself adds nothing.
 
-All three proposed here, applied only if Ray approves this spec.
+**§2.3 and §2.6 are already applied on this branch**, at Ray's direction, and are quoted here as the record of what changed and why rather than as a proposal. §1.1 is not yet applied and lands at step 6. Standards are being written as this work decides them; that is the mode, not a deviation.
 
 ## 5. Acceptance criteria
 
@@ -237,7 +254,7 @@ Mapped to #83's five ACs: AC1.x and AC4.x carry its first (walk every AC against
 | AC3.3 | The §2.5 bump magnitude is checked per type | Seam reporting a patch bump on a `feature/*` branch → exit non-zero; the same bump on a `hotfix/*` branch → that row passes |
 | AC3.4 | The Release object is checked for `feature/*` and `hotfix/*` | Seam reporting no Release for the tag → exit non-zero, stderr names the tag |
 | AC3.5 | The daemon check fires on every `feature/*` and `hotfix/*` branch and on no `chore/*` branch, per §2.6 | Three runs over the same fixture, changed paths held constant at `docs/x.md` so only the branch type varies: `feature/*` and `hotfix/*` with an `ActiveEnterTimestamp` predating the merge each exit non-zero; `chore/*` reports the row `n/a` |
-| AC3.6 | `check_release_integrity.py` is invoked, not reimplemented | Both required. **(a)** `grep -c 'check_release_integrity' automation/closeout_checks.py` prints at least `1`. **(b)** `grep -cE "CHANGELOG\|gh release view" automation/closeout_checks.py` prints `0` — compare stdout, not exit status, since `grep -c` exits `1` when it prints `0` |
+| AC3.6 | `check_release_integrity.py` is invoked, not reimplemented | Both required. **(a)** `grep -c 'check_release_integrity' automation/closeout_checks.py` prints at least `1`. **(b)** two separate greps over `automation/closeout_checks.py`, `grep -c 'CHANGELOG'` and `grep -c 'gh release view'`, each printing `0`. Compare stdout, not exit status, since `grep -c` exits `1` when it prints `0`. One alternation would not do: inside this table the pipe must be escaped, and an escaped pipe in an ERE matches a literal pipe, so the combined form passes without testing anything |
 | AC4.1 | A missing results artifact fails the run | Fixture issue with every other check passing and no file in `docs/dev/results/` → exit non-zero, stderr names `docs/dev/results/` |
 | AC4.2 | An artifact whose `Status:` is neither `Shipped` nor `Superseded` fails | Fixture artifact carrying `**Status:** Active` → exit non-zero, stderr names the status |
 | AC4.3 | A dropped AC fails | Fixture issue with three ACs, artifact table with two rows → exit non-zero, stderr names the missing AC's text |
@@ -248,11 +265,11 @@ Mapped to #83's five ACs: AC1.x and AC4.x carry its first (walk every AC against
 | AC5.2 | It is user-initiated, per #83 and C3 | `grep -c 'disable-model-invocation: true' .claude/skills/closeout/SKILL.md` prints `1` |
 | AC5.3 | It invokes the script rather than restating its logic | `grep -c 'automation/closeout_checks.py' .claude/skills/closeout/SKILL.md` prints at least `1` |
 | AC5.4 | It carries the workpath table, so the reader sees which checks apply where | Within `SKILL.md`, `grep -c 'hotfix'` prints at least `1` and `grep -c 'n/a'` prints at least `1` |
-| AC6.1 | Every rule in AC1.x – AC4.x is covered by a test naming it | `python -m pytest automation/ -q` passes, and `python -m pytest automation/ --collect-only -q \| grep -oE 'ac[1-4]_[0-9]+' \| sort -u \| wc -l` prints `23` |
+| AC6.1 | Every rule in AC1.x – AC4.x is covered by a test naming it | `python -m pytest automation/ -q` passes, and `python -m pytest automation/closeout_checks_test.py --collect-only -q \| grep -oE 'ac[1-4]_[0-9]+' \| sort -u \| wc -l` prints `23`. **Collection is scoped to the one file**: `issue_validator_test.py` names its own tests `test_ac1_4_…`, `test_ac2_1_…` and so on, so a sweep of `automation/` prints `15` today and would satisfy this AC before a line of close-out code exists |
 | AC6.2 | The application suite is untouched | `python -m pytest tests/` — zero failures, and the pass count equals the baseline recorded in the step 1 commit message. No test is added to `tests/`, so the count moves by zero |
 | AC6.3 | §1.1 carries the close-out step, per §4.6 | Within `awk '/^### 1.1/,/^### 1.2/' docs/DEVELOPMENT_STANDARDS.md`: `grep -c 'CLOSE-OUT'` prints `1` and `grep -c '/closeout'` prints `1` |
 | AC6.5 | §2.3 requires `--no-ff` and names the merge commit as the record, per §4.6 | Within `awk '/^### 2.3/,/^### 2.4/' docs/DEVELOPMENT_STANDARDS.md`: `grep -c 'no-ff'` prints `1` and `grep -c 'second parent'` prints `1` |
-| AC6.4 | §2.6 and the results template state the restart by branch type and carry no file-path predicate, per §4.6 | Within `awk '/^### 2.6/,/^### 2.7/' docs/DEVELOPMENT_STANDARDS.md`, two greps: `grep -c 'ends with a service restart'` prints `1`, and `grep -cE 'workmain/\|config/'` prints `0` — compare stdout, not exit status, since `grep -c` exits `1` when it prints `0`. The same second grep over `docs/dev/results/_TEMPLATE_RESULTS.md` prints `0` |
+| AC6.4 | §2.6 and the results template state the restart by branch type and carry no file-path predicate, per §4.6 | Within `awk '/^### 2.6/,/^### 2.7/' docs/DEVELOPMENT_STANDARDS.md`, two greps: `grep -c 'ends with a service restart'` prints `1`, and two separate greps, `grep -c 'workmain/'` and `grep -c 'config/'`, each print `0` — not one alternation, for the escaping reason given in AC3.6(b) — compare stdout, not exit status, since `grep -c` exits `1` when it prints `0`. Both greps over `docs/dev/results/_TEMPLATE_RESULTS.md` also print `0` |
 
 **One live check, not a test.** Run `/closeout 86` once at step 5 and record the result in the step 5 commit message. It must **fail**, naming the missing `docs/dev/results/` artifact — #86 is closed, `chore/*`, and has no results artifact (recon F30). This is the refusal working against real state rather than a fixture, and it is why #81, #82 and #86 are not backfilled: they are the evidence.
 
