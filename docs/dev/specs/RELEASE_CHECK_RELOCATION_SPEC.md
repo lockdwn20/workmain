@@ -1,6 +1,6 @@
 # Release-Check Relocation — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20260819
 **Branch:** `chore/issue-87-release-check-relocation` (from `main`, merges to `main` and `dev`)
@@ -28,6 +28,7 @@
 | 20260819 | Caliper | AC2.2's crafted ref was `refs/heads/main`, which selects the hook's full-remote branch and so depends on network, `gh` auth, and every enforced tag having a Release — it would fail for reasons unrelated to the guard it tests | Accepted. The ref is now a synthetic `refs/tags/*`, which selects `--no-remote`. It also matches AC4.1's capture flag, so both behavioural checks exercise the same code path |
 | 20260819 | Caliper | Three sentences in §4, §6 and §7 still described the superseded ACs — a real push, a rejected push, and a comparison against C17 | Accepted. All three reworded |
 | 20260819 | Caliper | C15 did not match what the grep returns; this spec and its recon are also live citations | Accepted. C15 rewritten to name them and to say why AC5.1 excludes by filename rather than by directory |
+| 20260819 | Ray | Spec approved after Caliper's second pass reported no blockers | **Approved.** Anvil implements from this document only; anything it does not cover stops at the step per `CLAUDE.md` Role 3 |
 | 20260819 | Spanner | `automation/` is not a package — it has no `__init__.py`, and both modules are stdlib-only standalone scripts. Importing `find_repo_root` across them is not available | Each module carries its own copy, matching shape and message. A shared `automation/` helper is worth doing when a third module needs it, not before |
 
 ---
