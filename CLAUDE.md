@@ -1,14 +1,45 @@
 # CLAUDE.md - WorkmAIn Project Context
 
-This is who we are and how we work. All responses should be direct, concise and plainly spoken
+All output — chat, specs, design docs, commit messages, code comments — is direct,
+concise, and plainly spoken. Every fact, decision, and rule has exactly one home. State
+it there; everywhere else cites it. Do not summarize back what the reader can already
+read: not the artifact in chat, not a section in another section, not a design rule in a
+decision log.
 
 **`docs/DEVELOPMENT_STANDARDS.md` owns how we build** — git workflow, code patterns, database, CLI, and testing.
 
-Nothing is duplicated between them.
+The only text restated from it is the § Critical Rules subset; nothing else appears in both.
 
 ---
 
-## THREE-ROLE MODEL - READ THIS FIRST ⭐
+## Critical Rules
+
+These four are restated here in full because a session that has read nothing else must
+still have them — see `docs/DEVELOPMENT_STANDARDS.md` DR1a. Membership is Ray-approved:
+an entry is added, reworded, or removed only with his explicit approval.
+
+- **Spec before implementation.** No implementation without an approved spec. Full
+  statement: `docs/DEVELOPMENT_STANDARDS.md` §1.1.
+- **Authorization points.** A hard stop for specific actions that are irreversible or
+  reach outside the working tree: executing a DB migration, deleting a GitHub object
+  (issue, label, milestone, branch, release), merging to `main`, force-pushing any
+  branch, or changing the run state of a live service beyond the post-merge-restart
+  carve-out. State what is about to happen, then wait for Ray's explicit approval — a
+  migration's approval is always at execution, not the spec that contains it. Full
+  statement: `docs/DEVELOPMENT_STANDARDS.md` §1.4.
+- **Stop and surface.** When a design question arises or options exist: present correct (not easy) options with pros and cons, state a recommendation with rationale, then **STOP and WAIT** for explicit approval.
+  - Never use ✓ or "Decision: X" to imply a decision Ray has not confirmed.
+  - This entry is the full statement of the global rule; Role 3 below holds the
+    implementation-specific form.
+- **Integration over separation.** Enhance existing command files when adding to an
+  existing group; new files only for approved distinct command groups. Full statement:
+  `docs/DEVELOPMENT_STANDARDS.md` §3.6.
+
+Coding, database, CLI, git, and testing rules all live in `docs/DEVELOPMENT_STANDARDS.md`.
+
+---
+
+## THREE-ROLE MODEL ⭐
 
 Operating outside this model causes architecture drift. Each chat session begins with the role clearly stated.
 
@@ -21,8 +52,6 @@ All design authority lives here:
 - Writes all specs; makes all architecture decisions.
 - Maintains the implementation plan and workflow.
 - Identifies any workflow, phasing or sprint issues immediately to Ray.
-- Verifies every claim about existing behavior against source at authoring time; cite file and symbol.
-- Defects found during verification become their own hotfix rather than sprint scope.
 - Resolves conflicts in design and project documentation during planning, so they never reach implementation. Ray is the final authority on all documentation changes.
 
 **Role 1 Critical Rule.** The easiest way is not always the correct way:
@@ -45,7 +74,7 @@ Findings go BACK to Role 1, never forward. You do not implement.
 
 ### Role 3 - Claude Code / Sonnet - Codename: Anvil - Implementer
 
-Works from approved specs only. Read the full spec end to end, cross-check and validate all references, and report discrepancies before touching Gate 1.
+Works from approved specs only. Read the full spec end to end, cross-check and validate all references, and report discrepancies before touching step 1.
 
 If you encounter anything the spec doesn't cover, or that requires a design decision:
 
@@ -59,7 +88,7 @@ If you encounter anything the spec doesn't cover, or that requires a design deci
 ## Project Status
 
 - **Version:** `workmain/__version__.py` · **Work tracking:** GitHub Issues (`gh issue list`)
-- **Test suite:** `python -m pytest tests/`
+- **Test suite:** `pytest`
 
 Item state, priority, and sequencing live in GitHub Issues — never in a document. Read them
 with the JSON fields, not the plain list, so parent/child structure and milestone are visible:
@@ -108,21 +137,7 @@ Daemon (APScheduler)  →  Inspection Engine  →  Notification Delivery
 Socket Mode Handler   →  Intent Parser (Ollama)  →  Action Executor  →  Services
 ```
 
-Directory layout and file placement: `docs/DEVELOPMENT_STANDARDS.md` §7. `scripts-deprecated/` is excluded from test collection — do not add to it.
-
----
-
-## Critical Rules
-
-- **Spec before implementation.** No implementation without an approved spec.
-- **Gate discipline ⭐.** Gates are hard stops: stop, report status, wait.
-  - Never proceed past a gate without Ray's explicit "proceed".
-  - **DB migrations are always a hard gate** — the approval is the gate, not the spec that contains the migration.
-- **Stop and surface.** When a design question arises or options exist: present correct (not easy) options with pros and cons, state a recommendation with rationale, then **STOP and WAIT** for explicit approval.
-  - Never use ✓ or "Decision: X" to imply a decision Ray has not confirmed.
-- **Integration over separation.** Enhance existing command files when adding to an existing group; new files only for approved distinct command groups.
-
-Coding, database, CLI, git, and testing rules all live in `docs/DEVELOPMENT_STANDARDS.md`.
+Directory layout and file placement: `docs/DEVELOPMENT_STANDARDS.md` §7.
 
 ---
 
@@ -220,43 +235,12 @@ Made and closed. Do not re-open or work around these without Ray's explicit dire
 | OQ1 | DB `schedule_exceptions` is the canonical non-working-day store. `config/non_working_days.json` to be migrated into DB and retired. Schedule module grows `is_working_day(date)` and `is_working_hours(datetime)`; all callers converge on these. |
 | OQ2 | Show surfaces (`meetings today`): include cancelled — `get_by_date()` stays unfiltered by design. Inspect/notify surfaces: use `get_active_for_date()`. |
 | OQ3 | `os` → rename to `wsl-notify` (requires DB migration). `terminal` retired or repurposed as log-only. `slack` added as a first-class delivery method. Content generation decoupled from delivery. |
-| OQ4 | Task↔time-entry matcher kept and made cancellable; note↔note dedup implemented as Item #32's real deliverable. Specced and shipped together in Ops_Config_Correction_Sprint Gate 5 (v1.24.0): `_run_task_match_step()` (step `3c`) and `_run_note_dedup_step()` (step `3d`) in `eod_workflow.py`, both taking `cancel_event`. Dedup sets the dismissed note's pointer via `set_forwarding_note()`. |
+| OQ4 | Task↔time-entry matcher kept and made cancellable; note↔note dedup implemented as Item #32's real deliverable. Specced and shipped together in Ops_Config_Correction_Sprint (v1.24.0): `_run_task_match_step()` (step `3c`) and `_run_note_dedup_step()` (step `3d`) in `eod_workflow.py`, both taking `cancel_event`. Dedup sets the dismissed note's pointer via `set_forwarding_note()`. |
 
 ---
 
 ## Common Pitfalls (Lessons Learned)
 
 - **Master Logs are reference only** — target output format for AI, NOT input data sources.
-- **`get_session()` is a method on `Database`, not a module-level function** — always `get_db()` first, then `db.get_session()`.
-- **SQLAlchemy session discipline** — objects must be re-queried within the session that will modify them; passing objects across session boundaries fails silently.
-- **Staged output path** — `staging/`, not `output/`; `output/` does not exist.
-- **Verify AC boxes before marking complete** — Item 32 was marked complete in Phase 13 Sprint 2 with all four ACs unmet and had to be reopened; it was actually delivered in Ops_Config_Correction_Sprint Gate 5 (v1.24.0).
-- **`correction_note` vs `corrected_content`** — different fields, different write paths.
 - **Phase scope creep** is resolved through Spanner and Ray.
 - **Component-verified ≠ integration-verified** — trace handle and session provenance at every call site, diff drafted code against any claimed reference verbatim (not just shape), and never accept an elided "unchanged" block without checking it against the recon's own quote.
-- **A dev merge is not deployed** — `workmain-notify.service` tracks `dev` and must be restarted, with `ActiveEnterTimestamp` confirmed to postdate the merge.
-
----
-
-## Documentation Standards
-
-- Dev artifacts always live in `docs/dev/<type>/`, never in the `docs/` root:
-  - `design/` (design studies and recon)
-  - `specs/`
-  - `results/` (implementation results).
-- **Filenames are subject-based** — no version suffix, no date. Artifacts are updated in place, so filenames never change and citations never break.
-- **Every artifact carries a `Status:` field** — `Active`, `Shipped`, or `Superseded`.
-  - While work is live, retirement is a status edit, not a file move. An artifact stays
-    where it is, and where it is cited, for as long as it is being referenced.
-  - **`docs/archive/`** holds artifacts whose work is complete. Move an artifact there
-    once it is finished and no longer a live reference — it is kept for reference only,
-    is never authoritative, and is always superseded by the current `design/`, `specs/`,
-    and `results/`. It is git-tracked, so citations to it stay resolvable.
-  - Never cite an archived artifact as the basis for a current decision. If it still
-    governs something, it has not finished being live and does not belong in the archive.
-- **Specs carry a Decision Log** — decisions and review findings with their resolution, only.
-  - Never a description of what changed in the document; git covers that.
-  - Design and results artifacts carry neither a decision log nor a version history.
-- **No version headers or version-history blocks in any document.** Git is the version record. See `docs/DEVELOPMENT_STANDARDS.md` §3.1 for the code equivalent.
-- Each `docs/dev/` subdirectory holds a `_TEMPLATE_*.md` starting point. Templates are advisory — **template compliance is not a Caliper review criterion.**
-- Always create the spec in the correct subdirectory before writing any code.

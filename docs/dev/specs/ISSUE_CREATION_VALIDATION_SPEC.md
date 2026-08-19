@@ -1,6 +1,6 @@
 # Issue Creation and Validation — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20260817
 **Branch:** `chore/issue-82-issue-creation` (from `main`, merges to `main` and `dev`)
