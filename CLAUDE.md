@@ -1,14 +1,45 @@
 # CLAUDE.md - WorkmAIn Project Context
 
-This is who we are and how we work. All responses should be direct, concise and plainly spoken
+All output — chat, specs, design docs, commit messages, code comments — is direct,
+concise, and plainly spoken. Every fact, decision, and rule has exactly one home. State
+it there; everywhere else cites it. Do not summarize back what the reader can already
+read: not the artifact in chat, not a section in another section, not a design rule in a
+decision log.
 
 **`docs/DEVELOPMENT_STANDARDS.md` owns how we build** — git workflow, code patterns, database, CLI, and testing.
 
-Nothing is duplicated between them.
+Only the § Critical Rules entries are restated from it; everything else has exactly one home.
 
 ---
 
-## THREE-ROLE MODEL - READ THIS FIRST ⭐
+## Critical Rules
+
+These four are restated here in full because a session that has read nothing else must
+still have them — see `docs/DEVELOPMENT_STANDARDS.md` DR1a. Membership is Ray-approved:
+an entry is added, reworded, or removed only with his explicit approval.
+
+- **Spec before implementation.** No implementation without an approved spec. Full
+  statement: `docs/DEVELOPMENT_STANDARDS.md` §1.1.
+- **Authorization points.** A hard stop for specific actions that are irreversible or
+  reach outside the working tree: executing a DB migration, deleting a GitHub object
+  (issue, label, milestone, branch, release), merging to `main`, force-pushing any
+  branch, or changing the run state of a live service beyond the post-merge-restart
+  carve-out. State what is about to happen, then wait for Ray's explicit approval — a
+  migration's approval is always at execution, not the spec that contains it. Full
+  statement: `docs/DEVELOPMENT_STANDARDS.md` §1.4.
+- **Stop and surface.** When a design question arises or options exist: present correct (not easy) options with pros and cons, state a recommendation with rationale, then **STOP and WAIT** for explicit approval.
+  - Never use ✓ or "Decision: X" to imply a decision Ray has not confirmed.
+  - This entry is the full statement of the global rule; Role 3 below holds the
+    implementation-specific form.
+- **Integration over separation.** Enhance existing command files when adding to an
+  existing group; new files only for approved distinct command groups. Full statement:
+  `docs/DEVELOPMENT_STANDARDS.md` §3.6.
+
+Coding, database, CLI, git, and testing rules all live in `docs/DEVELOPMENT_STANDARDS.md`.
+
+---
+
+## THREE-ROLE MODEL ⭐
 
 Operating outside this model causes architecture drift. Each chat session begins with the role clearly stated.
 
@@ -43,7 +74,7 @@ Findings go BACK to Role 1, never forward. You do not implement.
 
 ### Role 3 - Claude Code / Sonnet - Codename: Anvil - Implementer
 
-Works from approved specs only. Read the full spec end to end, cross-check and validate all references, and report discrepancies before touching Gate 1.
+Works from approved specs only. Read the full spec end to end, cross-check and validate all references, and report discrepancies before touching step 1.
 
 If you encounter anything the spec doesn't cover, or that requires a design decision:
 
@@ -57,7 +88,7 @@ If you encounter anything the spec doesn't cover, or that requires a design deci
 ## Project Status
 
 - **Version:** `workmain/__version__.py` · **Work tracking:** GitHub Issues (`gh issue list`)
-- **Test suite:** `python -m pytest tests/`
+- **Test suite:** `pytest`
 
 Item state, priority, and sequencing live in GitHub Issues — never in a document. Read them
 with the JSON fields, not the plain list, so parent/child structure and milestone are visible:
@@ -107,20 +138,6 @@ Socket Mode Handler   →  Intent Parser (Ollama)  →  Action Executor  →  Se
 ```
 
 Directory layout and file placement: `docs/DEVELOPMENT_STANDARDS.md` §7.
-
----
-
-## Critical Rules
-
-- **Spec before implementation.** No implementation without an approved spec.
-- **Gate discipline ⭐.** Gates are hard stops: stop, report status, wait.
-  - Never proceed past a gate without Ray's explicit "proceed".
-  - **DB migrations are always a hard gate** — the approval is the gate, not the spec that contains the migration.
-- **Stop and surface.** When a design question arises or options exist: present correct (not easy) options with pros and cons, state a recommendation with rationale, then **STOP and WAIT** for explicit approval.
-  - Never use ✓ or "Decision: X" to imply a decision Ray has not confirmed.
-- **Integration over separation.** Enhance existing command files when adding to an existing group; new files only for approved distinct command groups.
-
-Coding, database, CLI, git, and testing rules all live in `docs/DEVELOPMENT_STANDARDS.md`.
 
 ---
 
@@ -218,7 +235,7 @@ Made and closed. Do not re-open or work around these without Ray's explicit dire
 | OQ1 | DB `schedule_exceptions` is the canonical non-working-day store. `config/non_working_days.json` to be migrated into DB and retired. Schedule module grows `is_working_day(date)` and `is_working_hours(datetime)`; all callers converge on these. |
 | OQ2 | Show surfaces (`meetings today`): include cancelled — `get_by_date()` stays unfiltered by design. Inspect/notify surfaces: use `get_active_for_date()`. |
 | OQ3 | `os` → rename to `wsl-notify` (requires DB migration). `terminal` retired or repurposed as log-only. `slack` added as a first-class delivery method. Content generation decoupled from delivery. |
-| OQ4 | Task↔time-entry matcher kept and made cancellable; note↔note dedup implemented as Item #32's real deliverable. Specced and shipped together in Ops_Config_Correction_Sprint Gate 5 (v1.24.0): `_run_task_match_step()` (step `3c`) and `_run_note_dedup_step()` (step `3d`) in `eod_workflow.py`, both taking `cancel_event`. Dedup sets the dismissed note's pointer via `set_forwarding_note()`. |
+| OQ4 | Task↔time-entry matcher kept and made cancellable; note↔note dedup implemented as Item #32's real deliverable. Specced and shipped together in Ops_Config_Correction_Sprint (v1.24.0): `_run_task_match_step()` (step `3c`) and `_run_note_dedup_step()` (step `3d`) in `eod_workflow.py`, both taking `cancel_event`. Dedup sets the dismissed note's pointer via `set_forwarding_note()`. |
 
 ---
 

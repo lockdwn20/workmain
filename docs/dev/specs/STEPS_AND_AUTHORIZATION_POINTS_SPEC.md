@@ -32,6 +32,7 @@
 | 20260819 | Ray | Issue AC7 amended to *"with the exception of any Critical Rule stated in the CLAUDE.md and approved by Ray"* | The exemption is now carried by the originating item, so it is no longer a spec deviation. The added *"approved by Ray"* clause makes **membership** of the section a decision, not a judgement call — folded into DR1a and checked by AC17 |
 | 20260819 | Ray | A rule placed after the role definitions can be read as scoped to a role — which is how this spec came to propose moving stop-and-surface into Role 1 | **DR1b.** § Critical Rules becomes the first section of `CLAUDE.md`, ahead of the three-role model. Position is the structural guard, not another rule that can be misread |
 | 20260819 | Caliper | Round 2, findings 1–6 — F20 at `CLAUDE.md:111` reached by no step; `DEVELOPMENT_STANDARDS.md:7` keeps the no-duplication claim DR1a falsifies; §1's scope list fell behind §4's steps again; § Common Pitfalls `:234` restates § Key Design Decisions inside the same file; step 6's DR8 citation; DR1b silent on placement against the `:1-7` preamble | **Accepted in full**, verified against source. `:234` is deleted rather than promoted — § Key Design Decisions owns it, and no DR1a carve-out covers an intra-file restatement. AC9 extended to catch that class |
+| 20260819 | Anvil | AC16's `"exactly one home"` grep is unsatisfiable against the §4 verbatim texts: the `docs/DEVELOPMENT_STANDARDS.md:7` replacement contains the phrase AC16 requires absent from that file, and the `CLAUDE.md:3` and `:7` replacements both contain it, so the `CLAUDE.md` count is 2, not 1. Raised at step 5 with steps 1–4 committed | **Accepted.** Introduced by the round-3 fix, which chose `:7` wording containing AC16's discriminator without re-checking AC16. Both `:7` replacements reworded off the phrase, and AC16 now greps line 3's own opening. **Step 1's `:7` line needs re-applying** — its committed text is the superseded wording |
 | 20260819 | Ray | **Approved.** Three Caliper rounds; nothing open. The step 5a entry set is approved as named, which is the DR1a membership approval | `Status: Approved`. Implementation may begin at step 1 |
 | 20260819 | Caliper | Round 3, findings 1–2 — AC18's zero-hit sweep contradicts steps 1 and 5, which *reword* the no-duplication claims rather than removing the phrase; AC17's *"every entry cites a `DEVELOPMENT_STANDARDS.md` section"* is unsatisfiable for the stop-and-surface entry, whose full statement lives in § Critical Rules itself | **Accepted in full.** The replacement wording for both `:7` lines is now stated verbatim in §4 so the phrase disappears; AC17 reworded to DR1a's own *"names the section that owns its full statement"* |
 | 20260819 | Caliper | Finding 5 — stop-and-surface stays duplicated inside `CLAUDE.md` at `:121` and `:50-55`, colliding with the new line 3 | **Not taken.** § Critical Rules carries no role qualifier — it applies to every session in any role, which is why the rule lives there. `:121` and Role 3's `:50-55` are a global obligation and its implementation-specific form, not two copies. Both stay unchanged. Corrected by Ray after an intermediate revision had wrongly moved `:121` into Role 1 |
@@ -224,17 +225,19 @@ believes a fifth belongs stops and surfaces rather than adding it.
 
 ### Steps 1 and 5 — the replacements for the paired no-duplication claims
 
-Verbatim. Both drop the phrase rather than qualifying it, so AC18's sweep is satisfiable.
+Verbatim. Both drop the old phrase rather than qualifying it, so AC18's sweep is
+satisfiable, and neither echoes line 3's *"exactly one home"*, which AC16 requires to be
+unique to line 3.
 
 `docs/DEVELOPMENT_STANDARDS.md:7`:
 
-> Read the relevant section before writing code. Everything here has exactly one home; the
-> only text restated elsewhere is the `CLAUDE.md` § Critical Rules subset.
+> Read the relevant section before writing code. The only text here also stated in
+> `CLAUDE.md` is its § Critical Rules subset; nothing else appears in both.
 
 `CLAUDE.md:7`:
 
-> Only the § Critical Rules entries are restated from it; everything else has exactly one
-> home.
+> The only text restated from it is the § Critical Rules subset; nothing else appears in
+> both.
 
 ### Step 5b — the replacement for `CLAUDE.md:3`
 
@@ -277,7 +280,7 @@ transcribed from the recon.
 | AC13 | No in-scope document instructs the reader to run the application suite with an explicit path | Over the four in-scope files only: `grep -n "python -m pytest"` returns zero hits, and `grep -n "pytest tests/" \| grep -v "tests/test_"` returns zero hits. The surviving `pytest tests/test_x.py::...` forms are single-test invocations, correct per DR10. Shipped specs and handoffs are excluded — they record commands as they were run | 8 |
 | AC14 | No document claims tests exist only in `tests/` | `grep -n "Everything lives in" docs/DEVELOPMENT_STANDARDS.md` returns zero hits; §6's preamble names non-application suites and cites §6.3; `grep -n "only discovers here" docs/DEVELOPMENT_STANDARDS.md` returns zero hits | 9 |
 | AC15 | Test placement has one owner | The §6 preamble text added for AC14 contains no path other than `tests/`, and cites §6.3. `automation/` appears in §6.3, §7, and §2.2 — the same three places as today, with no fourth added | 9 |
-| AC16 | `CLAUDE.md:3` states the single-home output rule and is not restated anywhere | `grep -c "exactly one home" CLAUDE.md` returns `1`; the same grep over `docs/DEVELOPMENT_STANDARDS.md` and both templates returns `0`; `grep -n "All responses should be" CLAUDE.md` returns zero hits | — (Ray, 20260819) |
+| AC16 | `CLAUDE.md:3` states the single-home output rule and is not restated anywhere | `grep -c "Every fact, decision, and rule" CLAUDE.md` returns `1`; the same grep over `docs/DEVELOPMENT_STANDARDS.md` and both templates returns `0`; `grep -n "All responses should be" CLAUDE.md` returns zero hits. The phrase is line 3's own opening — *"exactly one home"* is not usable as the discriminator, since the `:7` lines legitimately express the same idea at document scope | — (Ray, 20260819) |
 | AC17 | § Critical Rules is first, declares its exemption, and holds exactly the Ray-approved entries this spec names | `grep -n "^## " CLAUDE.md \| head -1` returns `## Critical Rules`; the section contains the DR1a sentence; its entries are exactly those named at §4 step 5a and no others; every entry names the section that owns its full statement, per DR1a | 7 |
 | AC18 | Neither document still claims they share no content, and nothing else claims to be read first | `grep -rn "Nothing is duplicated\|Nothing here is duplicated" CLAUDE.md docs/DEVELOPMENT_STANDARDS.md` returns zero hits — the step 1 and step 5 replacements drop the phrase rather than qualifying it; `grep -n "READ THIS FIRST" CLAUDE.md` returns zero hits | — (Ray, 20260819) |
 
