@@ -56,7 +56,7 @@ surfaced during implementation and resolved by Ray mid-flight.
 
 - **Test suite:** N passed, 0 failed (baseline was M).
 - **Live verification:** what was exercised against the running system, and when.
-- **Daemon restart** (if `workmain/**` or `config/*` changed): confirm
+- **Daemon restart** (`feature/*` and `hotfix/*`, per §2.6): confirm
   `ActiveEnterTimestamp` postdates the `dev` merge commit. A merge is not a deployment.
 
 ## 6. Follow-ups

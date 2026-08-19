@@ -218,8 +218,9 @@ Update `workmain/__version__.py` and `CHANGELOG.md` together on every merge to `
 
 `workmain-notify.service` (systemd `--user`) tracks **`dev`**, not `main`.
 
-A merge to `dev` does not take effect until the service restarts — the daemon loads code
-once at process start.
+**Every `feature/*` and `hotfix/*` branch ends with a service restart.** The daemon loads
+code once at process start, so a merge to `dev` is not deployed until it restarts.
+`chore/*` carries no restart — it changes no application code.
 
 ```bash
 systemctl --user restart workmain-notify.service

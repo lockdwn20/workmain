@@ -22,6 +22,7 @@
 | 20260819 | Ray | Recon Q6 — `Shipped` or `Superseded` only. Close-out is one-shot document creation; there is nothing for an `Active` status to span | Accepted. DR7. The results template is unchanged and §1.5 needs no amendment — its three-value vocabulary is what a document *may* carry, not what every kind must use |
 | 20260819 | Ray | Recon Q7 — #81, #82 and #86 are not backfilled | Accepted. §1 out of scope |
 | 20260819 | Ray | Recon Q8 — no new issue ↔ artifact link mechanism; git already carries it | Accepted. DR5 |
+| 20260819 | Ray | §2.6's restart rule is branch-type, not file-path: **any `feature/*` or `hotfix/*` branch requires a restart at the end.** The conditional wording added around #82 is removed | Accepted. §2.6 and the results template are reworded (§4.6); the workpath table and AC3.5 follow it |
 | 20260819 | Spanner | The results artifact records the close-out, but a skill that also **closed** the issue would take the terminal action out of Ray's hands, against the established PR-merge precedent | The skill makes no GitHub write. DR2 |
 
 ---
@@ -36,6 +37,9 @@
   `automation/closeout_checks_test.py` with its fixtures.
 - `docs/DEVELOPMENT_STANDARDS.md` §1.1 — the pipeline gains its closing step. Proposed
   here, applied only if this spec is approved.
+- `docs/DEVELOPMENT_STANDARDS.md` §2.6 and `docs/dev/results/_TEMPLATE_RESULTS.md` §5 —
+  the restart rule reworded to what it has always meant (Ray, 20260819): every `feature/*`
+  and `hotfix/*` branch ends with a restart. The file-path predicate is removed from both.
 
 **Out of scope:**
 
@@ -52,7 +56,7 @@
   one constant (§4.1), so #87 remains a one-line follow-up rather than a prerequisite.
 - **`workmain/**` and `tests/**`.** No application behaviour changes, which is what keeps
   this on `chore/*` per §2.2.
-- **The `docs/dev/results/` template.** Unchanged (Ray, Q6).
+- **The `docs/dev/results/` template's `Status:` vocabulary.** Unchanged (Ray, Q6). Its §5 restart line is reworded with §2.6, above.
 
 ## 2. Verified current state
 
@@ -69,8 +73,8 @@
 | C9 | `scripts/check_release_integrity.py` checks, for every `vN.N.N` tag, a matching non-empty `CHANGELOG.md` section and an existing GitHub Release, plus `__version__.py` agreement; exits non-zero at or above `BASELINE = "1.26.0"`; takes `--no-remote` — `scripts/check_release_integrity.py:1-50` |
 | C10 | §2.2 exempts `chore/*` from version bump, `CHANGELOG.md`, tag and Release, verbatim — `docs/DEVELOPMENT_STANDARDS.md` §2.2 |
 | C11 | §2.5 sets the bump magnitude: hotfix → patch, feature/phase → minor — `docs/DEVELOPMENT_STANDARDS.md` §2.5 |
-| C12 | §2.6 requires `ActiveEnterTimestamp` to postdate the `dev` merge commit before anything is called deployed — `docs/DEVELOPMENT_STANDARDS.md` §2.6 |
-| C13 | `_TEMPLATE_RESULTS.md` §3 is an AC table with `Met / Not met / Carried` checked against delivered code; §5 carries the test result, live verification and the daemon-restart confirmation — `docs/dev/results/_TEMPLATE_RESULTS.md` |
+| C12 | §2.6 requires a service restart at the end of **every** `feature/*` and `hotfix/*` branch, with `ActiveEnterTimestamp` postdating the `dev` merge commit; `chore/*` carries no restart — `docs/DEVELOPMENT_STANDARDS.md` §2.6, as reworded by this spec (§4.6) |
+| C13 | `_TEMPLATE_RESULTS.md` §3 is an AC table with `Met / Not met / Carried` checked against delivered code; §5 carries the test result, live verification and the daemon-restart confirmation, keyed to branch type per §2.6 — `docs/dev/results/_TEMPLATE_RESULTS.md` |
 | C14 | `pyproject.toml` sets `testpaths = ["tests"]`, so a bare `pytest` runs the application suite only and `automation/` tests run when named — `pyproject.toml` `[tool.pytest.ini_options]` |
 | C15 | `automation/issue_validator.py` is the precedent for this kind of tooling: stdlib only, a module docstring stating why it exists, named module-level fetch functions (`gh_issue_state`, `gh_live_labels`, `gh_live_milestones`) that tests replace with `monkeypatch` — `automation/issue_validator.py:256-285`, `automation/issue_validator_test.py:145-152` |
 | C16 | §1.1's pipeline line reads `RECON → ANALYSIS → SPEC → REVIEW → APPROVAL → IMPLEMENTATION` and ends there — `docs/DEVELOPMENT_STANDARDS.md` §1.1 |
@@ -133,7 +137,7 @@ on a branch and undone by `git revert`. The one hard stop is the merge at step 7
 | 3 | The three workpaths — release, deployment and suite checks, per §4.1 | `automation/closeout_checks.py` | AC3.1 – AC3.6 |
 | 4 | Results-artifact verification and the verdict exit code, per §4.4 | `automation/closeout_checks.py` | AC4.1 – AC4.5 |
 | 5 | The skill itself: frontmatter, the ordered procedure, the workpath table | `.claude/skills/closeout/SKILL.md` | AC5.1 – AC5.4 |
-| 6 | Tests over the step 1–4 fixtures; the §1.1 pipeline amendment | `automation/closeout_checks_test.py`, `docs/DEVELOPMENT_STANDARDS.md` | AC6.1 – AC6.3 |
+| 6 | Tests over the step 1–4 fixtures; the §1.1 and §2.6 amendments | `automation/closeout_checks_test.py`, `docs/DEVELOPMENT_STANDARDS.md`, `docs/dev/results/_TEMPLATE_RESULTS.md` | AC6.1 – AC6.4 |
 | 7 | Merge to `main`, then to `dev` — **authorization point**, see §4.5 | — | — |
 
 ### 4.1 The workpaths
@@ -150,7 +154,7 @@ The branch type selects the rows that apply. `n/a` is reported with its reason (
 | Tag on `main` for the new version | **n/a — §2.2 forbids it** | yes | yes |
 | GitHub Release for that tag | **n/a — §2.2 forbids it** | yes | yes |
 | `check_release_integrity.py` exits zero | yes | yes | yes |
-| Daemon restarted after the `dev` merge | only if the branch touched `workmain/**` or `config/*` | same | same |
+| Daemon restarted after the `dev` merge, per §2.6 | **n/a — no application code** | yes | yes |
 | Merged to both `main` and `dev` | yes | `dev` then `main` by PR | yes |
 | Results artifact present and complete | yes | yes | yes |
 
@@ -201,7 +205,8 @@ The branch **type** is the prefix before the first `/`. A prefix outside
 fourth means either a mistake or a standards change that this table has not caught up with.
 
 Changed paths come from `git diff --name-only <merge-base> <branch-tip>`, which is what
-drives the daemon row (§4.1) and the `chore/*` assertions of absence.
+drives the `chore/*` assertions of absence (§4.1). The daemon row is keyed to the branch
+type alone, per §2.6 — no path predicate is involved.
 
 ### 4.4 The results artifact and the verdict
 
@@ -229,10 +234,9 @@ GitHub object deletion, no force push, and no service state change. Steps 1–6 
 without stopping.
 
 Per §2.2 this is a `chore/*` branch — it merges to `main` and `dev` with no version bump,
-no `CHANGELOG.md` entry, no tag, and no Release. The skill it delivers changes no
-application behaviour, so §2.6's restart is not triggered by this branch.
+no `CHANGELOG.md` entry, no tag, and no Release, and per §2.6 no restart.
 
-### 4.6 §1.1 amendment — verbatim
+### 4.6 Standards amendments — verbatim
 
 The pipeline line (C16) gains its closing step, and one bullet is added below the existing
 **Implementation** bullet:
@@ -246,7 +250,19 @@ RECON  →  ANALYSIS  →  SPEC  →  REVIEW  →  APPROVAL  →  IMPLEMENTATION
 >   `docs/dev/results/` artifact written. It reports; it closes nothing. An issue is not
 >   done because a spec says it is.
 
-Proposed, not applied — the standard changes only if Ray approves this spec.
+**§2.6.** The restart rule is stated by branch type, and the file-path predicate is
+removed from both places that carried it. §2.6's second paragraph reads:
+
+> **Every `feature/*` and `hotfix/*` branch ends with a service restart.** The daemon loads
+> code once at process start, so a merge to `dev` is not deployed until it restarts.
+> `chore/*` carries no restart — it changes no application code.
+
+and `_TEMPLATE_RESULTS.md` §5's restart bullet reads:
+
+> - **Daemon restart** (`feature/*` and `hotfix/*`, per §2.6): confirm
+>   `ActiveEnterTimestamp` postdates the `dev` merge commit. A merge is not a deployment.
+
+Both proposed here, applied only if Ray approves this spec.
 
 ## 5. Acceptance criteria
 
@@ -271,7 +287,7 @@ test obligation §6 imposes.
 | AC3.2 | A `chore/*` branch that bumped the version fails | Seam reporting `workmain/__version__.py` in the branch's changed paths on a `chore/*` branch → exit non-zero, stderr names the file |
 | AC3.3 | The §2.5 bump magnitude is checked per type | Seam reporting a patch bump on a `feature/*` branch → exit non-zero; the same bump on a `hotfix/*` branch → that row passes |
 | AC3.4 | The Release object is checked for `feature/*` and `hotfix/*` | Seam reporting no Release for the tag → exit non-zero, stderr names the tag |
-| AC3.5 | The daemon check fires only when the branch touched `workmain/**` or `config/*` | Two runs: changed paths `docs/x.md` → the row is `n/a`; changed paths `workmain/x.py` with an `ActiveEnterTimestamp` predating the merge → exit non-zero |
+| AC3.5 | The daemon check fires on every `feature/*` and `hotfix/*` branch and on no `chore/*` branch, per §2.6 | Three runs over the same fixture, changed paths held constant at `docs/x.md` so only the branch type varies: `feature/*` and `hotfix/*` with an `ActiveEnterTimestamp` predating the merge each exit non-zero; `chore/*` reports the row `n/a` |
 | AC3.6 | `check_release_integrity.py` is invoked, not reimplemented | Both required. **(a)** `grep -c 'check_release_integrity' automation/closeout_checks.py` prints at least `1`. **(b)** `grep -cE "CHANGELOG\|gh release view" automation/closeout_checks.py` prints `0` — compare stdout, not exit status, since `grep -c` exits `1` when it prints `0` |
 | AC4.1 | A missing results artifact fails the run | Fixture issue with every other check passing and no file in `docs/dev/results/` → exit non-zero, stderr names `docs/dev/results/` |
 | AC4.2 | An artifact whose `Status:` is neither `Shipped` nor `Superseded` fails | Fixture artifact carrying `**Status:** Active` → exit non-zero, stderr names the status |
@@ -285,6 +301,7 @@ test obligation §6 imposes.
 | AC6.1 | Every rule in AC1.x – AC4.x is covered by a test naming it | `python -m pytest automation/ -q` passes, and `python -m pytest automation/ --collect-only -q \| grep -oE 'ac[1-4]_[0-9]+' \| sort -u \| wc -l` prints `20` |
 | AC6.2 | The application suite is untouched | `python -m pytest tests/` — zero failures, and the pass count equals the baseline recorded in the step 1 commit message. No test is added to `tests/`, so the count moves by zero |
 | AC6.3 | §1.1 carries the close-out step, per §4.6 | Within `awk '/^### 1.1/,/^### 1.2/' docs/DEVELOPMENT_STANDARDS.md`: `grep -c 'CLOSE-OUT'` prints `1` and `grep -c '/closeout'` prints `1` |
+| AC6.4 | §2.6 and the results template state the restart by branch type and carry no file-path predicate, per §4.6 | Within `awk '/^### 2.6/,/^### 2.7/' docs/DEVELOPMENT_STANDARDS.md`, two greps: `grep -c 'ends with a service restart'` prints `1`, and `grep -cE 'workmain/\|config/'` prints `0` — compare stdout, not exit status, since `grep -c` exits `1` when it prints `0`. The same second grep over `docs/dev/results/_TEMPLATE_RESULTS.md` prints `0` |
 
 **One live check, not a test.** Run `/closeout 86` once at step 5 and record the result in
 the step 5 commit message. It must **fail**, naming the missing `docs/dev/results/`
