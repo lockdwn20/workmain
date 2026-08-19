@@ -25,6 +25,7 @@
 | 20260819 | Ray | §2.6's restart rule is branch-type, not file-path: **any `feature/*` or `hotfix/*` branch requires a restart at the end.** The conditional wording added around #82 is removed | Accepted. §2.6 and the results template are reworded (§4.6); the workpath table and AC3.5 follow it |
 | 20260819 | Ray | Hard-wrapped markdown makes review hard. Stop splitting lines | Accepted. §1.5 gains the rule, and this spec and its recon are reflowed to one line per paragraph. The repo-wide reflow is its own issue — see §7 |
 | 20260820 | Ray | #87 shipped before this spec's implementation, relocating `check_release_integrity.py` to `automation/` | `main` merged into this branch. C9, DR9, §1 and the risks row cite the new path; nothing else moved |
+| 20260820 | Ray | Was §4.2's parse validated against `issue_validator.py`? | **No, and it was wrong.** `render_body()` places no one-line constraint on an AC and the schema forbids no newline, so a wrapped AC renders as a bullet plus an orphan line the parse would have dropped. §4.2 gains the continuation rule; AC1.5 covers it |
 | 20260820 | Ray | The close-out composes the issue's closing comment and prints the `gh issue comment` command; commit-message linkage is prevented at commit time by a `commit-msg` hook change, as its own issue | Accepted. §4.4 and AC4.6. No commit-linkage check is added here — post-merge it could only report, since fixing a merged commit means rewriting history |
 | 20260819 | Spanner | The results artifact records the close-out, but a skill that also **closed** the issue would take the terminal action out of Ray's hands, against the established PR-merge precedent | The skill makes no GitHub write. DR2 |
 
@@ -92,7 +93,7 @@ Ordered, each committed on completion. **No step is an approval stop** — each 
 
 | Step | Deliverable | Files | Verification |
 | --- | --- | --- | --- |
-| 1 | Issue resolution and AC parsing for all three shapes, per §4.2 | `automation/closeout_checks.py`, `automation/fixtures/` | AC1.1 – AC1.5 |
+| 1 | Issue resolution and AC parsing for all three shapes, per §4.2 | `automation/closeout_checks.py`, `automation/fixtures/` | AC1.1 – AC1.6 |
 | 2 | Branch resolution and branch-type derivation, per §4.3 | `automation/closeout_checks.py` | AC2.1 – AC2.4 |
 | 3 | The three workpaths — release, deployment and suite checks, per §4.1 | `automation/closeout_checks.py` | AC3.1 – AC3.6 |
 | 4 | Results-artifact verification, the verdict exit code, and the closing comment, per §4.4 and §4.4a | `automation/closeout_checks.py` | AC4.1 – AC4.6 |
@@ -128,11 +129,13 @@ The `chore/*` rows are **assertions of absence**, not omissions: the run fails i
 
 Three shapes, tried in order (C4):
 
-1. A line matching `^\*\*ACs\*\*$` — every subsequent line matching `^-\s` is an AC, to end of body. There is no closing delimiter (C5).
-2. A heading matching `^#+ Acceptance criteria` (case-insensitive) — every subsequent line matching `^-\s\[[ xX]\]\s` is an AC, until the next heading or end of body. **The checkbox state is discarded** (C6): `- [x]` is read as an AC, never as a met one.
+1. The **first** line matching `^\*\*ACs\*\*$` — every subsequent line matching `^-\s` opens an AC, to end of body. There is no closing delimiter (C5), and the first match is taken because a context paragraph could contain the same token.
+2. The first heading matching `^#+ Acceptance criteria` (case-insensitive) — every subsequent line matching `^-\s\[[ xX]\]\s` opens an AC, until the next heading or end of body. **The checkbox state is discarded** (C6): `- [x]` is read as an AC, never as a met one.
 3. Neither — the issue carries no AC section. This is **not** a parse failure. The run reports that the issue states no ACs and continues; every other check still applies, and the results artifact records the absence. Parent issues legitimately hold none.
 
-An AC's text is carried verbatim, including its leading marker's removal only. Nothing is normalised, reordered, or rewritten (DR8).
+**Continuation lines belong to the AC above them.** Inside either section, a non-blank line that opens no new AC is appended to the AC it follows, joined with a single space. This is not hypothetical: `render_body()` emits a `-` marker followed by the AC string with no constraint that the string is one line, and `issue.schema.json` types `acs` as an array of non-empty strings with nothing forbidding a newline — so an AC authored with an embedded newline renders as a bullet plus an orphan line. Dropping that line would lose part of an AC silently, which is the Item 32 failure mode at parse time. No live issue carries one today; the rule exists because the shape is producible and because the legacy shape has no wrap discipline at all.
+
+An AC's text is otherwise carried verbatim, with only its leading marker removed. Nothing is normalised, reordered, or rewritten (DR8).
 
 ### 4.3 Branch resolution and branch type
 
@@ -207,7 +210,8 @@ Mapped to #83's five ACs: AC1.x and AC4.x carry its first (walk every AC against
 | AC1.2 | The `## Acceptance criteria` + checkbox shape parses, and checkbox state is discarded | Fixture body with `- [ ]` and `- [x]` rows → both are returned as ACs, and the returned values carry no `[` marker |
 | AC1.3 | An issue with no AC section is reported, not failed | Fixture body with neither shape → the parser returns an empty list and the run continues to the remaining checks; the run's exit status is not determined by this alone |
 | AC1.4 | The `**ACs**` parse runs to end of body | Fixture body whose last AC bullet is the final line → that bullet is returned |
-| AC1.5 | Failure to resolve the issue aborts, per DR4's exception | Seam returning a resolution failure → exit non-zero, stderr names the issue number, and no other check is reported |
+| AC1.5 | A continuation line is joined to the AC above it, in both shapes | Two fixtures, one per shape, each with an AC whose text spans two physical lines → the parser returns the joined text as a single AC, and the AC count is the authored count, not the line count |
+| AC1.6 | Failure to resolve the issue aborts, per DR4's exception | Seam returning a resolution failure → exit non-zero, stderr names the issue number, and no other check is reported |
 | AC2.1 | `--branch` overrides derivation | Run with `--branch chore/whatever-123` against a fixture whose merge history says otherwise → the reported branch is the passed one |
 | AC2.2 | The branch is derived from the merge subject when `--branch` is absent | Seam returning `Merge branch 'chore/issue-86-steps-authorization'` for issue 86 → the reported branch is `chore/issue-86-steps-authorization` |
 | AC2.3 | An unresolvable branch is a finding, not an abort | Seam returning no matching merge → exit non-zero, stderr says the branch could not be resolved, **and** the AC walk and suite results are still reported in the same run |
@@ -228,7 +232,7 @@ Mapped to #83's five ACs: AC1.x and AC4.x carry its first (walk every AC against
 | AC5.2 | It is user-initiated, per #83 and C3 | `grep -c 'disable-model-invocation: true' .claude/skills/closeout/SKILL.md` prints `1` |
 | AC5.3 | It invokes the script rather than restating its logic | `grep -c 'automation/closeout_checks.py' .claude/skills/closeout/SKILL.md` prints at least `1` |
 | AC5.4 | It carries the workpath table, so the reader sees which checks apply where | Within `SKILL.md`, `grep -c 'hotfix'` prints at least `1` and `grep -c 'n/a'` prints at least `1` |
-| AC6.1 | Every rule in AC1.x – AC4.x is covered by a test naming it | `python -m pytest automation/ -q` passes, and `python -m pytest automation/ --collect-only -q \| grep -oE 'ac[1-4]_[0-9]+' \| sort -u \| wc -l` prints `21` |
+| AC6.1 | Every rule in AC1.x – AC4.x is covered by a test naming it | `python -m pytest automation/ -q` passes, and `python -m pytest automation/ --collect-only -q \| grep -oE 'ac[1-4]_[0-9]+' \| sort -u \| wc -l` prints `22` |
 | AC6.2 | The application suite is untouched | `python -m pytest tests/` — zero failures, and the pass count equals the baseline recorded in the step 1 commit message. No test is added to `tests/`, so the count moves by zero |
 | AC6.3 | §1.1 carries the close-out step, per §4.6 | Within `awk '/^### 1.1/,/^### 1.2/' docs/DEVELOPMENT_STANDARDS.md`: `grep -c 'CLOSE-OUT'` prints `1` and `grep -c '/closeout'` prints `1` |
 | AC6.4 | §2.6 and the results template state the restart by branch type and carry no file-path predicate, per §4.6 | Within `awk '/^### 2.6/,/^### 2.7/' docs/DEVELOPMENT_STANDARDS.md`, two greps: `grep -c 'ends with a service restart'` prints `1`, and `grep -cE 'workmain/\|config/'` prints `0` — compare stdout, not exit status, since `grep -c` exits `1` when it prints `0`. The same second grep over `docs/dev/results/_TEMPLATE_RESULTS.md` prints `0` |
