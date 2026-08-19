@@ -123,6 +123,8 @@ hotfix/*   — targeted fixes. From main, merges to main AND dev.
 chore/*    — documentation/process/tooling only. From main, merges to main AND dev.
 ```
 
+**Branch names are `<type>/issue-<N>-<slug>`.** The issue number is what links a merge commit back to its issue once §2.3 deletes the branch. Work with no issue behind it is the exception and names itself descriptively — but it is an exception, not the default.
+
 ### 2.2 Branch rules
 
 **`main`**
