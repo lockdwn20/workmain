@@ -84,7 +84,7 @@
   and fails on a name that does not exist; it never creates one.
 - **Server-side GitHub templates.** No `.md` or `.yml` template is created. Recon F24/F25
   rule them out; the `.json` file shares the directory but is not one. See DR3.
-- **`scripts/check_release_integrity.py`.** Same category as `automation/`, but moving it is
+- **`automation/check_release_integrity.py`.** Same category as `automation/`, but moving it is
   an unrelated change with its own blast radius. It becomes its own issue.
 - **`CLAUDE.md` line 52** (`gate` → `step`). Committed on this branch, covered by no AC
   here; the subject belongs to #86.
@@ -99,7 +99,7 @@
 | C2 | The token holds the `project` scope alongside `repo`, so `--project` works | `gh auth status` — scopes list. Confirms recon F28 |
 | C3 | Project **#3 "WorkmAIn Queue"** is linked to this repository and is the only open one; a closed untitled #2 is also linked | `gh api graphql` on `repository(owner:"lockdwn20",name:"workmain"){projectsV2}` — #3 `closed=false`, #2 `closed=true`. `--project` resolves against linkage, so an ownership query is not sufficient evidence |
 | C4 | `.github/` **does not exist** in the working tree | Filesystem read at repo root. Confirms recon F14 |
-| C5 | `scripts/check_release_integrity.py` is the precedent for standards-enforcing dev tooling: stdlib only, module docstring stating why it exists, non-zero exit on failure. It has no tests | The file's imports and docstring; `grep -rl check_release_integrity tests/` returns nothing |
+| C5 | `automation/check_release_integrity.py` is the precedent for standards-enforcing dev tooling: stdlib only, module docstring stating why it exists, non-zero exit on failure. It has no tests | The file's imports and docstring; `grep -rl check_release_integrity tests/` returns nothing |
 | C6 | §1.3, quoted whole: *"Labels carry area. `bug`/`enhancement` is the type discriminator, applied only to issues with no milestone — so a type label appearing inside a milestone means that work was pulled in later, not planned as part of it."* The trailing clause matters: milestone + type label is a legitimate state, not an error. §1.3 also states that what a label means *"is its description on GitHub … not enumerated here"* | `docs/DEVELOPMENT_STANDARDS.md:45-49`, as it stands after #81 |
 | C7 | §1.3 also states *"A milestone carries the exit condition that closes it"* and *"An issue must be independently verifiable on its own"* | `docs/DEVELOPMENT_STANDARDS.md:50-53` |
 | C8 | The live label set and milestone set are each readable in one call — `gh label list --json name` and `gh api repos/:owner/:repo/milestones --jq '.[].title'`. Neither is transcribed into this spec | Both commands run at authoring time |
