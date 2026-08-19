@@ -25,6 +25,7 @@
 | 20260819 | Ray | §2.6's restart rule is branch-type, not file-path: **any `feature/*` or `hotfix/*` branch requires a restart at the end.** The conditional wording added around #82 is removed | Accepted. §2.6 and the results template are reworded (§4.6); the workpath table and AC3.5 follow it |
 | 20260819 | Ray | Hard-wrapped markdown makes review hard. Stop splitting lines | Accepted. §1.5 gains the rule, and this spec and its recon are reflowed to one line per paragraph. The repo-wide reflow is its own issue — see §7 |
 | 20260820 | Ray | #87 shipped before this spec's implementation, relocating `check_release_integrity.py` to `automation/` | `main` merged into this branch. C9, DR9, §1 and the risks row cite the new path; nothing else moved |
+| 20260820 | Spanner | Re-walk of §4.1 and §4.3 against live source, prompted by the §4.2 defect | Two more defects, both in §4.3: changed paths were specified from a branch tip that §2.3 has already deleted, and nothing mandates `--no-ff`. Corrected to the merge commit's parent pair; the `--no-ff` gap is stated with suggested wording, not applied. AC2.4 added |
 | 20260820 | Ray | Was §4.2's parse validated against `issue_validator.py`? | **No, and it was wrong.** `render_body()` places no one-line constraint on an AC and the schema forbids no newline, so a wrapped AC renders as a bullet plus an orphan line the parse would have dropped. §4.2 gains the continuation rule; AC1.5 covers it |
 | 20260820 | Ray | The close-out composes the issue's closing comment and prints the `gh issue comment` command; commit-message linkage is prevented at commit time by a `commit-msg` hook change, as its own issue | Accepted. §4.4 and AC4.6. No commit-linkage check is added here — post-merge it could only report, since fixing a merged commit means rewriting history |
 | 20260819 | Spanner | The results artifact records the close-out, but a skill that also **closed** the issue would take the terminal action out of Ray's hands, against the established PR-merge precedent | The skill makes no GitHub write. DR2 |
@@ -71,7 +72,10 @@
 | C13 | `_TEMPLATE_RESULTS.md` §3 is an AC table with `Met / Not met / Carried` checked against delivered code; §5 carries the test result, live verification and the daemon-restart confirmation, keyed to branch type per §2.6 — `docs/dev/results/_TEMPLATE_RESULTS.md` |
 | C14 | `pyproject.toml` sets `testpaths = ["tests"]`, so a bare `pytest` runs the application suite only and `automation/` tests run when named — `pyproject.toml` `[tool.pytest.ini_options]` |
 | C15 | `automation/issue_validator.py` is the precedent for this kind of tooling: stdlib only, a module docstring stating why it exists, named module-level fetch functions (`gh_issue_state`, `gh_live_labels`, `gh_live_milestones`) that tests replace with `monkeypatch` — `automation/issue_validator.py:256-285`, `automation/issue_validator_test.py:145-152` |
-| C16 | §1.1's pipeline line reads `RECON → ANALYSIS → SPEC → REVIEW → APPROVAL → IMPLEMENTATION` and ends there — `docs/DEVELOPMENT_STANDARDS.md` §1.1 |
+| C16 | §2.3 deletes every branch, local and remote, immediately after merge — no branch matching `issue-82`, `issue-86` or `issue-87` exists today, though all three merged within the last week — `docs/DEVELOPMENT_STANDARDS.md` §2.3; `git branch -a` |
+| C17 | Every merge commit on `main` carries two parents, and `git diff --name-only <merge>^1 <merge>^2` returns the branch's changed paths — verified against `e239cb9`, which returns #87's six files. Nothing in §2.2 or §2.3 mandates `--no-ff`, so this holds by practice, not by rule — `git rev-list --parents -n1`, `git diff` |
+| C18 | `python -m pytest automation/` passes on this branch, and §2.1 states the merge targets the workpath table asserts: `feature/*` to `dev`, `hotfix/*` and `chore/*` to `main` and `dev` — `pytest automation/`; `docs/DEVELOPMENT_STANDARDS.md` §2.1 |
+| C19 | §1.1's pipeline line reads `RECON → ANALYSIS → SPEC → REVIEW → APPROVAL → IMPLEMENTATION` and ends there — `docs/DEVELOPMENT_STANDARDS.md` §1.1 |
 
 ## 3. Design rules
 
@@ -94,7 +98,7 @@ Ordered, each committed on completion. **No step is an approval stop** — each 
 | Step | Deliverable | Files | Verification |
 | --- | --- | --- | --- |
 | 1 | Issue resolution and AC parsing for all three shapes, per §4.2 | `automation/closeout_checks.py`, `automation/fixtures/` | AC1.1 – AC1.6 |
-| 2 | Branch resolution and branch-type derivation, per §4.3 | `automation/closeout_checks.py` | AC2.1 – AC2.4 |
+| 2 | Branch resolution, branch-type derivation and changed paths, per §4.3 | `automation/closeout_checks.py` | AC2.1 – AC2.5 |
 | 3 | The three workpaths — release, deployment and suite checks, per §4.1 | `automation/closeout_checks.py` | AC3.1 – AC3.6 |
 | 4 | Results-artifact verification, the verdict exit code, and the closing comment, per §4.4 and §4.4a | `automation/closeout_checks.py` | AC4.1 – AC4.6 |
 | 5 | The skill itself: frontmatter, the ordered procedure, the workpath table | `.claude/skills/closeout/SKILL.md` | AC5.1 – AC5.4 |
@@ -133,7 +137,7 @@ Three shapes, tried in order (C4):
 2. The first heading matching `^#+ Acceptance criteria` (case-insensitive) — every subsequent line matching `^-\s\[[ xX]\]\s` opens an AC, until the next heading or end of body. **The checkbox state is discarded** (C6): `- [x]` is read as an AC, never as a met one.
 3. Neither — the issue carries no AC section. This is **not** a parse failure. The run reports that the issue states no ACs and continues; every other check still applies, and the results artifact records the absence. Parent issues legitimately hold none.
 
-**Continuation lines belong to the AC above them.** Inside either section, a non-blank line that opens no new AC is appended to the AC it follows, joined with a single space. This is not hypothetical: `render_body()` emits a `-` marker followed by the AC string with no constraint that the string is one line, and `issue.schema.json` types `acs` as an array of non-empty strings with nothing forbidding a newline — so an AC authored with an embedded newline renders as a bullet plus an orphan line. Dropping that line would lose part of an AC silently, which is the Item 32 failure mode at parse time. No live issue carries one today; the rule exists because the shape is producible and because the legacy shape has no wrap discipline at all.
+**Continuation lines belong to the AC above them.** Inside either section, a non-blank line that opens no new AC is appended to the AC it follows, joined with a single space. This is not hypothetical: `render_body()` emits a `-` marker followed by the AC string with no constraint that the string is one line, and `issue.schema.json` types `acs` as an array of non-empty strings with nothing forbidding a newline — so an AC authored with an embedded newline renders as a bullet plus an orphan line. Dropping that line would lose part of an AC silently, which is the Item 32 failure mode at parse time. No live issue carries one today, and the source defect is #88 — the validator should refuse a newline in an `acs` item rather than render it wrong. The rule here stands regardless of #88, because the legacy shapes this parser must also read have no wrap discipline at all.
 
 An AC's text is otherwise carried verbatim, with only its leading marker removed. Nothing is normalised, reordered, or rewritten (DR8).
 
@@ -142,13 +146,19 @@ An AC's text is otherwise carried verbatim, with only its leading marker removed
 Resolution order:
 
 1. `--branch <name>` if passed. The caller is always right; this is the escape hatch for any issue that does not follow the convention (DR8's standing rule, applied to branches).
-2. Otherwise, the newest merge commit on `main` whose subject contains `issue-<N>`, read with `git log --merges --format=%H%x09%s main`. The branch name is taken from the subject.
+2. Otherwise, the newest merge commit on `main` whose subject contains `issue-<N>`, read with `git log --merges --format=%H%x09%s main`. The branch name is taken from the subject, and **the merge commit is what the rest of the run uses** — not the branch, which no longer exists.
 
 If neither yields a branch, the run reports it and continues with every branch-independent check — the AC walk, the suite, `check_release_integrity.py` — and reports the workpath checks as unresolvable rather than passed. A missing branch is a finding, not an abort: the ACs are still worth walking.
 
 The branch **type** is the prefix before the first `/`. A prefix outside `chore` / `feature` / `hotfix` fails the run naming the prefix — §2.2 defines three, and a fourth means either a mistake or a standards change that this table has not caught up with.
 
-Changed paths come from `git diff --name-only <merge-base> <branch-tip>`, which is what drives the `chore/*` assertions of absence (§4.1). The daemon row is keyed to the branch type alone, per §2.6 — no path predicate is involved.
+**Changed paths come from the merge commit's two parents** — `git diff --name-only <merge>^1 <merge>^2` — not from the branch. §2.3 deletes every branch, local and remote, immediately after merge, so at close-out time there is no branch tip to name: no branch matching `issue-82`, `issue-86` or `issue-87` survives today, and those are the three most recently closed issues. The merge commit is the only surviving record of the branch's contents, and its second parent *is* the tip that was deleted. Verified against `e239cb9`, whose parent diff returns exactly #87's six files.
+
+This is what drives the `chore/*` assertions of absence (§4.1). The daemon row is keyed to branch type alone, per §2.6 — no path predicate is involved.
+
+**Where a `--branch` argument is passed for a branch that still exists** — a close-out run before the merge, or on a branch kept alive — changed paths come from `git diff --name-only <merge-base> <branch>` instead. Both forms are supported because both states are real; the merge-commit form is the default, because the deleted-branch state is the one close-out normally meets.
+
+**A fast-forward merge leaves no merge commit**, and therefore no subject to resolve and no second parent to diff. Nothing in §2.2 or §2.3 mandates `--no-ff`, and every merge on `main` today happens to carry two parents — so this is a live gap, not a live failure. The close-out treats an unresolvable merge as the AC2.3 finding rather than guessing. **Suggested standards wording, for Ray**, not applied by this spec: *"Every merge to `main` or `dev` is `--no-ff`. The merge commit is the only durable record of a branch after §2.3 deletes it."*
 
 ### 4.4 The results artifact and the verdict
 
@@ -182,7 +192,7 @@ Per §2.2 this is a `chore/*` branch — it merges to `main` and `dev` with no v
 
 ### 4.6 Standards amendments — verbatim
 
-The pipeline line (C16) gains its closing step, and one bullet is added below the existing **Implementation** bullet:
+The pipeline line (C19) gains its closing step, and one bullet is added below the existing **Implementation** bullet:
 
 ```text
 RECON  →  ANALYSIS  →  SPEC  →  REVIEW  →  APPROVAL  →  IMPLEMENTATION  →  CLOSE-OUT
@@ -215,7 +225,8 @@ Mapped to #83's five ACs: AC1.x and AC4.x carry its first (walk every AC against
 | AC2.1 | `--branch` overrides derivation | Run with `--branch chore/whatever-123` against a fixture whose merge history says otherwise → the reported branch is the passed one |
 | AC2.2 | The branch is derived from the merge subject when `--branch` is absent | Seam returning `Merge branch 'chore/issue-86-steps-authorization'` for issue 86 → the reported branch is `chore/issue-86-steps-authorization` |
 | AC2.3 | An unresolvable branch is a finding, not an abort | Seam returning no matching merge → exit non-zero, stderr says the branch could not be resolved, **and** the AC walk and suite results are still reported in the same run |
-| AC2.4 | A prefix outside the three fails, naming it | `--branch spike/issue-99-thing` → exit non-zero, stderr contains `spike` |
+| AC2.4 | Changed paths come from the merge commit's parents, not from a branch ref | Seam returning a merge commit whose parent diff lists `workmain/x.py`, with **no branch of that name existing** → the run reports that path. An implementation that resolves the branch ref fails here, which is the state every closed issue is actually in |
+| AC2.5 | A prefix outside the three fails, naming it | `--branch spike/issue-99-thing` → exit non-zero, stderr contains `spike` |
 | AC3.1 | Each branch type selects its own row set, and `n/a` rows state a reason | Three runs over the same fixture issue with `--branch` set to a `chore/`, a `feature/` and a `hotfix/` name → the `chore` run reports the four release rows as `n/a` with `§2.2` in the reason, the other two report them as checks |
 | AC3.2 | A `chore/*` branch that bumped the version fails | Seam reporting `workmain/__version__.py` in the branch's changed paths on a `chore/*` branch → exit non-zero, stderr names the file |
 | AC3.3 | The §2.5 bump magnitude is checked per type | Seam reporting a patch bump on a `feature/*` branch → exit non-zero; the same bump on a `hotfix/*` branch → that row passes |
@@ -232,7 +243,7 @@ Mapped to #83's five ACs: AC1.x and AC4.x carry its first (walk every AC against
 | AC5.2 | It is user-initiated, per #83 and C3 | `grep -c 'disable-model-invocation: true' .claude/skills/closeout/SKILL.md` prints `1` |
 | AC5.3 | It invokes the script rather than restating its logic | `grep -c 'automation/closeout_checks.py' .claude/skills/closeout/SKILL.md` prints at least `1` |
 | AC5.4 | It carries the workpath table, so the reader sees which checks apply where | Within `SKILL.md`, `grep -c 'hotfix'` prints at least `1` and `grep -c 'n/a'` prints at least `1` |
-| AC6.1 | Every rule in AC1.x – AC4.x is covered by a test naming it | `python -m pytest automation/ -q` passes, and `python -m pytest automation/ --collect-only -q \| grep -oE 'ac[1-4]_[0-9]+' \| sort -u \| wc -l` prints `22` |
+| AC6.1 | Every rule in AC1.x – AC4.x is covered by a test naming it | `python -m pytest automation/ -q` passes, and `python -m pytest automation/ --collect-only -q \| grep -oE 'ac[1-4]_[0-9]+' \| sort -u \| wc -l` prints `23` |
 | AC6.2 | The application suite is untouched | `python -m pytest tests/` — zero failures, and the pass count equals the baseline recorded in the step 1 commit message. No test is added to `tests/`, so the count moves by zero |
 | AC6.3 | §1.1 carries the close-out step, per §4.6 | Within `awk '/^### 1.1/,/^### 1.2/' docs/DEVELOPMENT_STANDARDS.md`: `grep -c 'CLOSE-OUT'` prints `1` and `grep -c '/closeout'` prints `1` |
 | AC6.4 | §2.6 and the results template state the restart by branch type and carry no file-path predicate, per §4.6 | Within `awk '/^### 2.6/,/^### 2.7/' docs/DEVELOPMENT_STANDARDS.md`, two greps: `grep -c 'ends with a service restart'` prints `1`, and `grep -cE 'workmain/\|config/'` prints `0` — compare stdout, not exit status, since `grep -c` exits `1` when it prints `0`. The same second grep over `docs/dev/results/_TEMPLATE_RESULTS.md` prints `0` |
