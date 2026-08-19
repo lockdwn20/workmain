@@ -1,6 +1,6 @@
 # Cycle Close-Out — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20260819
 **Branch:** `chore/issue-83-cycle-closeout` (from `main`, merges to `main` and `dev`)
@@ -34,6 +34,7 @@
 | 20260820 | Caliper | F7 — AC3.2 tested a path, but §4.1 asserts a bump, and §2.2 permits `workmain/**` on `chore/*` | Accepted. AC3.2 now tests the `__version__` value across the merge's parents |
 | 20260820 | Caliper | F10 — the `<type>/issue-<N>-<slug>` convention is unwritten in §2.1 | Accepted in principle; **awaiting Caliper's suggested wording**, which did not reach this session |
 | 20260820 | Caliper | F12 — the escaped pipe in AC3.6(b) and AC6.4 makes both greps pass vacuously | Accepted, verified: the ERE matches a literal pipe and prints `0` against any file. Both split into separate greps |
+| 20260820 | Ray | **Approved.** Three Caliper rounds closed, F1–F14 and N1–N6 all resolved | Status Draft → Approved. Implementation may begin at step 1 |
 | 20260820 | Caliper | Round 3 — two stale cross-references left by round 2's own edits: step 3 read `AC3.1 – AC3.6` after AC3.7 – AC3.9 were added, and step 6 still said "§2.3 and §2.6 already landed" after §2.1 joined them | Accepted, both corrected |
 | 20260820 | Caliper | Round 3 note — AC3.9(b) passes a `feature/*` branch on `dev` but not yet `main`, while AC3.4 fails a `feature/*` branch with no Release, and no Release exists until the PR merges | No change. Both are correct single-variable fixtures and §4.1's row governs. Recorded so an implementer knows the two states cannot co-occur in one real run |
 | 20260820 | Caliper | N1 — `--first-parent` on `main` alone made every `feature/*` issue permanently unresolvable, a regression introduced by the F5 fix | Accepted, reproduced: `main`'s first-parent chain carries zero `feature/` subjects. §4.3 tries `main`'s chain, then `dev`'s. AC2.2 gains the feature fixture, which a `main`-only implementation fails |
