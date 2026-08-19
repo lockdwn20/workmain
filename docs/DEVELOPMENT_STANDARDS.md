@@ -544,17 +544,19 @@ integrations → scheduling/automation → utilities.
 
 ## 6. Testing Standards
 
-pytest is the exclusive runner. Everything lives in `tests/`.
+pytest is the exclusive runner. `testpaths` in `pyproject.toml` resolves a bare `pytest` to
+the application suite. Non-application suites exist and are reached by explicit path — §6.3
+is the owner of test placement.
 
 ```bash
-python -m pytest tests/            # full suite
-python -m pytest tests/ -v         # verbose
-python -m pytest tests/test_x.py::TestClass::test_name
+pytest                              # full suite
+pytest -v                           # verbose
+pytest tests/test_x.py::TestClass::test_name
 ```
 
 The current expected pass count is whatever `main` last shipped — read it from the most
-recent `CHANGELOG.md` entry or run `python -m pytest tests/ --collect-only -q`. Do not
-transcribe a baseline into this document; it goes stale immediately.
+recent `CHANGELOG.md` entry or run `pytest --collect-only -q`. Do not transcribe a baseline
+into this document; it goes stale immediately.
 
 ### 6.1 The `db_session` fixture
 
@@ -610,7 +612,7 @@ Rules:
 
 | Goes in | What |
 | --- | --- |
-| `tests/` root | `test_<component>.py` — pytest only discovers here |
+| `tests/` root | `test_<component>.py` — resolved by `testpaths` for a bare `pytest` |
 | `tests/fixtures/` | Test data (JSON, CSV) — never Python test files |
 | `tests/mocks/` | Fakes for external services — never test files |
 | `scripts/` | Utilities and demos, never tests |
