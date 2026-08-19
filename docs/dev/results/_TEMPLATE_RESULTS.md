@@ -33,7 +33,7 @@ What shipped, in a paragraph. State plainly whether the work is complete or part
 
 ## 3. Acceptance criteria
 
-Every AC from the spec, checked against **delivered code** — not against the spec's own
+Every AC on the issue, checked against **delivered code** — not against the issue's own
 claim that it was delivered. Item 32 was closed in Phase 13 Sprint 2 with all four ACs
 unmet and had to be reopened eleven days later; that is what this table exists to prevent.
 
@@ -56,7 +56,7 @@ surfaced during implementation and resolved by Ray mid-flight.
 
 - **Test suite:** N passed, 0 failed (baseline was M).
 - **Live verification:** what was exercised against the running system, and when.
-- **Daemon restart** (if `workmain/**` or `config/*` changed): confirm
+- **Daemon restart** (`feature/*` and `hotfix/*`, per §2.6): confirm
   `ActiveEnterTimestamp` postdates the `dev` merge commit. A merge is not a deployment.
 
 ## 6. Follow-ups
