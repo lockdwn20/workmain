@@ -1,6 +1,6 @@
 # Steps and Authorization Points — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20260818
 **Branch:** `chore/issue-86-steps-authorization` (from `main`, merges to `main` and `dev`)
@@ -32,6 +32,7 @@
 | 20260819 | Ray | Issue AC7 amended to *"with the exception of any Critical Rule stated in the CLAUDE.md and approved by Ray"* | The exemption is now carried by the originating item, so it is no longer a spec deviation. The added *"approved by Ray"* clause makes **membership** of the section a decision, not a judgement call — folded into DR1a and checked by AC17 |
 | 20260819 | Ray | A rule placed after the role definitions can be read as scoped to a role — which is how this spec came to propose moving stop-and-surface into Role 1 | **DR1b.** § Critical Rules becomes the first section of `CLAUDE.md`, ahead of the three-role model. Position is the structural guard, not another rule that can be misread |
 | 20260819 | Caliper | Round 2, findings 1–6 — F20 at `CLAUDE.md:111` reached by no step; `DEVELOPMENT_STANDARDS.md:7` keeps the no-duplication claim DR1a falsifies; §1's scope list fell behind §4's steps again; § Common Pitfalls `:234` restates § Key Design Decisions inside the same file; step 6's DR8 citation; DR1b silent on placement against the `:1-7` preamble | **Accepted in full**, verified against source. `:234` is deleted rather than promoted — § Key Design Decisions owns it, and no DR1a carve-out covers an intra-file restatement. AC9 extended to catch that class |
+| 20260819 | Ray | **Approved.** Three Caliper rounds; nothing open. The step 5a entry set is approved as named, which is the DR1a membership approval | `Status: Approved`. Implementation may begin at step 1 |
 | 20260819 | Caliper | Round 3, findings 1–2 — AC18's zero-hit sweep contradicts steps 1 and 5, which *reword* the no-duplication claims rather than removing the phrase; AC17's *"every entry cites a `DEVELOPMENT_STANDARDS.md` section"* is unsatisfiable for the stop-and-surface entry, whose full statement lives in § Critical Rules itself | **Accepted in full.** The replacement wording for both `:7` lines is now stated verbatim in §4 so the phrase disappears; AC17 reworded to DR1a's own *"names the section that owns its full statement"* |
 | 20260819 | Caliper | Finding 5 — stop-and-surface stays duplicated inside `CLAUDE.md` at `:121` and `:50-55`, colliding with the new line 3 | **Not taken.** § Critical Rules carries no role qualifier — it applies to every session in any role, which is why the rule lives there. `:121` and Role 3's `:50-55` are a global obligation and its implementation-specific form, not two copies. Both stay unchanged. Corrected by Ray after an intermediate revision had wrongly moved `:121` into Role 1 |
 
