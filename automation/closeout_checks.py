@@ -260,7 +260,227 @@ def merge_tip_ref(resolution: BranchResolution):
     return resolution.resolved_on or resolution.name
 
 
+def git_show_file(ref: str, path: str):
+    result = subprocess.run(
+        ["git", "show", f"{ref}:{path}"],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout
+
+
+def git_commit_timestamp(ref: str):
+    result = subprocess.run(
+        ["git", "show", "-s", "--format=%cI", ref],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()
+
+
+def run_pytest(args):
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", *args],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+    )
+    return result.returncode, result.stdout + result.stderr
+
+
+def run_check_release_integrity():
+    result = subprocess.run(
+        [sys.executable, str(CHECK_RELEASE_INTEGRITY_PATH)],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+    )
+    return result.returncode, result.stdout + result.stderr
+
+
+def get_active_enter_timestamp():
+    result = subprocess.run(
+        ["systemctl", "--user", "show", DAEMON_SERVICE, "--property=ActiveEnterTimestamp"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return None
+    value = result.stdout.strip()
+    if "=" in value:
+        value = value.split("=", 1)[1]
+    return value or None
+
+
+# ---------------------------------------------------------------------------
+# §4.1 — The workpaths
+# ---------------------------------------------------------------------------
+
+CHECK_RELEASE_INTEGRITY_PATH = Path("automation/check_release_integrity.py")
+VERSION_FILE_PATH = Path("workmain/__version__.py")
+DAEMON_SERVICE = "workmain-notify.service"
+BUMP_MAGNITUDE = {"feature": "minor", "hotfix": "patch"}
+MERGE_TARGETS = {
+    "chore": ("main", "dev"),
+    "hotfix": ("main", "dev"),
+    "feature": ("dev",),
+}
+
+_VERSION_RE = re.compile(r'__version__\s*=\s*"([^"]+)"')
+
+
+class Check:
+    def __init__(self, name, status, detail=""):
+        self.name = name
+        self.status = status  # "pass" | "fail" | "n/a"
+        self.detail = detail
+
+    def __repr__(self):
+        return f"Check({self.name!r}, {self.status!r}, {self.detail!r})"
+
+
+def read_version_at(ref: str):
+    content = git_show_file(ref, str(VERSION_FILE_PATH))
+    if content is None:
+        return None
+    m = _VERSION_RE.search(content)
+    return m.group(1) if m else None
+
+
+def classify_bump(before: str, after: str):
+    if before == after:
+        return "none"
+    b = tuple(int(x) for x in before.split("."))
+    a = tuple(int(x) for x in after.split("."))
+    if a[0] != b[0]:
+        return "major"
+    if a[1] != b[1]:
+        return "minor"
+    return "patch"
+
+
+def merge_tip_ref(resolution):
+    if resolution.merge_sha:
+        return f"{resolution.merge_sha}^2"
+    return resolution.resolved_on or resolution.name
+
+
+def dev_merge_sha_for(issue_number: int, resolution):
+    """The dev-side merge commit, used for the §2.6 restart-timestamp comparison."""
+    if resolution.resolved_on == "dev":
+        return resolution.merge_sha
+    _, sha = _find_merge_for_issue("dev", issue_number)
+    return sha or resolution.merge_sha
+
+
+def check_version_bump(resolution):
+    branch_type = resolution.branch_type
+    if not resolution.merge_sha:
+        return Check("version bump", "n/a", "no merge commit to compare parents on")
+    before = read_version_at(f"{resolution.merge_sha}^1")
+    after = read_version_at(f"{resolution.merge_sha}^2")
+    if branch_type == "chore":
+        if before != after:
+            return Check("version bump", "fail",
+                          f"§2.2 forbids a version bump on chore/*: {before} -> {after}")
+        return Check("version bump", "n/a", "§2.2 forbids it")
+    if before == after:
+        return Check("version bump", "fail", f"no version bump: stayed at {before}")
+    expected = BUMP_MAGNITUDE[branch_type]
+    actual = classify_bump(before, after)
+    if actual != expected:
+        return Check("version bump", "fail",
+                      f"expected a {expected} bump per §2.5, got {actual}: {before} -> {after}")
+    return Check("version bump", "pass", f"{before} -> {after} ({actual})")
+
+
+def check_release_ledger(branch_type):
+    """The changelog entry, the tag and the GitHub Release for the new version,
+    plus the repo-wide check_release_integrity.py invocation (DR9)."""
+    rc, output = run_check_release_integrity()
+    checks = []
+    for label in ("changelog entry for the new version",
+                  "tag for the new version",
+                  "GitHub Release for the tag"):
+        if branch_type == "chore":
+            checks.append(Check(label, "n/a", "§2.2 forbids it"))
+        elif rc != 0:
+            checks.append(Check(label, "fail", output.strip()))
+        else:
+            checks.append(Check(label, "pass", "check_release_integrity.py exited 0"))
+    if rc != 0:
+        checks.append(Check("check_release_integrity.py exits zero", "fail", output.strip()))
+    else:
+        checks.append(Check("check_release_integrity.py exits zero", "pass", "exited 0"))
+    return checks
+
+
+def check_application_suite():
+    rc, output = run_pytest(["tests/"])
+    if rc != 0:
+        return Check("application suite passes", "fail", output.strip()[-2000:])
+    return Check("application suite passes", "pass", "pytest tests/ passed")
+
+
+def check_automation_suite(changed_paths):
+    touched = any(p.startswith("automation/") for p in changed_paths)
+    if not touched:
+        return Check("automation/ suite passes", "n/a", "branch did not touch automation/")
+    rc, output = run_pytest(["automation/"])
+    if rc != 0:
+        return Check("automation/ suite passes", "fail", output.strip()[-2000:])
+    return Check("automation/ suite passes", "pass", "pytest automation/ passed")
+
+
+def check_daemon_restart(branch_type, issue_number, resolution):
+    if branch_type == "chore":
+        return Check("daemon restarted after the dev merge", "n/a", "no application code")
+    dev_sha = dev_merge_sha_for(issue_number, resolution)
+    if not dev_sha:
+        return Check("daemon restarted after the dev merge", "fail",
+                      "could not resolve the dev merge commit")
+    merge_time = git_commit_timestamp(dev_sha)
+    active_time = get_active_enter_timestamp()
+    if not active_time:
+        return Check("daemon restarted after the dev merge", "fail",
+                      "could not read ActiveEnterTimestamp")
+    if merge_time and active_time < merge_time:
+        return Check("daemon restarted after the dev merge", "fail",
+                      f"ActiveEnterTimestamp {active_time} predates the merge {merge_time}")
+    return Check("daemon restarted after the dev merge", "pass",
+                 f"ActiveEnterTimestamp {active_time} postdates the merge {merge_time}")
+
+
+def check_merge_targets(branch_type, resolution):
+    tip = merge_tip_ref(resolution)
+    expected = MERGE_TARGETS[branch_type]
+    missing = [ref for ref in expected if not git_is_ancestor(tip, ref)]
+    if missing:
+        return Check("merged to both main and dev", "fail",
+                      f"not reachable from: {', '.join(missing)}")
+    return Check("merged to both main and dev", "pass",
+                 f"reachable from: {', '.join(expected)}")
+
+
+def evaluate_workpaths(issue_number: int, resolution):
+    """Runs every applicable check for the branch's type (§4.1). `n/a` rows carry a reason (DR1)."""
+    branch_type = resolution.branch_type
+    checks = [check_version_bump(resolution)]
+    checks.extend(check_release_ledger(branch_type))
+    checks.append(check_application_suite())
+    checks.append(check_automation_suite(resolution.changed_paths))
+    checks.append(check_daemon_restart(branch_type, issue_number, resolution))
+    checks.append(check_merge_targets(branch_type, resolution))
+    return checks
+
+
 if __name__ == "__main__":
-    print("closeout_checks.py: steps 1-2 only — issue resolution, AC parsing, branch resolution.",
+    print("closeout_checks.py: steps 1-3 only — no results-artifact verification yet.",
           file=sys.stderr)
     sys.exit(2)
