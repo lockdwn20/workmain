@@ -18,7 +18,7 @@ No spec is written without a read-only audit first. Recon produces a findings do
 `docs/dev/design/`; decisions are made from it; only then is a spec written.
 
 ```text
-RECON  →  ANALYSIS  →  SPEC  →  REVIEW  →  APPROVAL  →  IMPLEMENTATION
+RECON  →  ANALYSIS  →  SPEC  →  REVIEW  →  APPROVAL  →  IMPLEMENTATION  →  CLOSE-OUT
 ```
 
 - **Recon** — read-only pass, verbatim findings, no fixes and no inline suggestions.
@@ -28,6 +28,10 @@ RECON  →  ANALYSIS  →  SPEC  →  REVIEW  →  APPROVAL  →  IMPLEMENTATION
 - **Approval** — Ray approves explicitly. No implementation without an approved spec.
 - **Implementation** — Role 3, step by step, from the approved spec only. Steps commit
   without a stop; authorization points are the hard stops — see §1.4.
+- **Close-out** — `/closeout <issue>`. Every AC walked against delivered code, the
+  release and deployment record checked against the branch type, and a
+  `docs/dev/results/` artifact written. It reports; it closes nothing. An issue is
+  not done because a spec says it is.
 
 ### 1.2 Spec authoring rules
 
@@ -102,6 +106,7 @@ A spec's §4 is ordered work, defined below.
   only.
   - Never a description of what changed in the document; git covers that.
   - Design and results artifacts carry neither a decision log nor a version history.
+- **Markdown is never hard-wrapped.** One line per paragraph, per list item, per table row — let the editor wrap it. A paragraph broken across source lines makes every later edit a reflow, and turns a one-word change into a multi-line diff nobody can review. `MD013` is off in `.markdownlint.json` for this reason.
 - **No version headers or version-history blocks in any document.** Git is the version
   record. See §3.1 for the code equivalent.
 - Each `docs/dev/` subdirectory holds a `_TEMPLATE_*.md` starting point. Templates are
@@ -121,6 +126,8 @@ feature/*  — full phase or major feature work. From dev, merges to dev.
 hotfix/*   — targeted fixes. From main, merges to main AND dev.
 chore/*    — documentation/process/tooling only. From main, merges to main AND dev.
 ```
+
+**Branch names are `<type>/issue-<N>-<slug>`.** The issue number is what links a merge commit back to its issue once §2.3 deletes the branch. Work with no issue behind it is the exception and names itself descriptively — but it is an exception, not the default.
 
 ### 2.2 Branch rules
 
@@ -172,8 +179,9 @@ the feature.
 
 ### 2.3 Branch deletion
 
-Delete every branch, local and remote, immediately after merge. No exceptions. Tags and
-`CHANGELOG.md` are the permanent record; a merged branch adds nothing.
+Delete every branch, local and remote, immediately after merge. No exceptions.
+
+**Every merge is `--no-ff`.** A fast-forward leaves no merge commit, and once the branch is deleted the merge commit is the only record of what the branch contained — its subject names the branch, and its second parent is the tip. A fast-forwarded branch is unrecoverable the moment it is deleted. Tags, `CHANGELOG.md` and the merge commit are the permanent record; the branch ref itself adds nothing.
 
 ### 2.4 Commit messages
 
@@ -218,8 +226,9 @@ Update `workmain/__version__.py` and `CHANGELOG.md` together on every merge to `
 
 `workmain-notify.service` (systemd `--user`) tracks **`dev`**, not `main`.
 
-A merge to `dev` does not take effect until the service restarts — the daemon loads code
-once at process start.
+**Every `feature/*` and `hotfix/*` branch ends with a service restart.** The daemon loads
+code once at process start, so a merge to `dev` is not deployed until it restarts.
+`chore/*` carries no restart — it changes no application code.
 
 ```bash
 systemctl --user restart workmain-notify.service
