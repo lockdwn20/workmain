@@ -8,7 +8,7 @@ decision log.
 
 **`docs/DEVELOPMENT_STANDARDS.md` owns how we build** — git workflow, code patterns, database, CLI, and testing.
 
-Only the § Critical Rules entries are restated from it; everything else has exactly one home.
+The only text restated from it is the § Critical Rules subset; nothing else appears in both.
 
 ---
 
