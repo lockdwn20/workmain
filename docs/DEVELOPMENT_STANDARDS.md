@@ -173,8 +173,9 @@ the feature.
 
 ### 2.3 Branch deletion
 
-Delete every branch, local and remote, immediately after merge. No exceptions. Tags and
-`CHANGELOG.md` are the permanent record; a merged branch adds nothing.
+Delete every branch, local and remote, immediately after merge. No exceptions.
+
+**Every merge is `--no-ff`.** A fast-forward leaves no merge commit, and once the branch is deleted the merge commit is the only record of what the branch contained — its subject names the branch, and its second parent is the tip. A fast-forwarded branch is unrecoverable the moment it is deleted. Tags, `CHANGELOG.md` and the merge commit are the permanent record; the branch ref itself adds nothing.
 
 ### 2.4 Commit messages
 

@@ -25,6 +25,7 @@
 | 20260819 | Ray | §2.6's restart rule is branch-type, not file-path: **any `feature/*` or `hotfix/*` branch requires a restart at the end.** The conditional wording added around #82 is removed | Accepted. §2.6 and the results template are reworded (§4.6); the workpath table and AC3.5 follow it |
 | 20260819 | Ray | Hard-wrapped markdown makes review hard. Stop splitting lines | Accepted. §1.5 gains the rule, and this spec and its recon are reflowed to one line per paragraph. The repo-wide reflow is its own issue — see §7 |
 | 20260820 | Ray | #87 shipped before this spec's implementation, relocating `check_release_integrity.py` to `automation/` | `main` merged into this branch. C9, DR9, §1 and the risks row cite the new path; nothing else moved |
+| 20260820 | Ray | Do not carry a finding as suggested wording — decide it | Accepted. §2.3 now requires `--no-ff` on every merge and names the merge commit as the branch's only durable record. Applied, not proposed as an option; AC6.5 checks it |
 | 20260820 | Spanner | Re-walk of §4.1 and §4.3 against live source, prompted by the §4.2 defect | Two more defects, both in §4.3: changed paths were specified from a branch tip that §2.3 has already deleted, and nothing mandates `--no-ff`. Corrected to the merge commit's parent pair; the `--no-ff` gap is stated with suggested wording, not applied. AC2.4 added |
 | 20260820 | Ray | Was §4.2's parse validated against `issue_validator.py`? | **No, and it was wrong.** `render_body()` places no one-line constraint on an AC and the schema forbids no newline, so a wrapped AC renders as a bullet plus an orphan line the parse would have dropped. §4.2 gains the continuation rule; AC1.5 covers it |
 | 20260820 | Ray | The close-out composes the issue's closing comment and prints the `gh issue comment` command; commit-message linkage is prevented at commit time by a `commit-msg` hook change, as its own issue | Accepted. §4.4 and AC4.6. No commit-linkage check is added here — post-merge it could only report, since fixing a merged commit means rewriting history |
@@ -73,7 +74,7 @@
 | C14 | `pyproject.toml` sets `testpaths = ["tests"]`, so a bare `pytest` runs the application suite only and `automation/` tests run when named — `pyproject.toml` `[tool.pytest.ini_options]` |
 | C15 | `automation/issue_validator.py` is the precedent for this kind of tooling: stdlib only, a module docstring stating why it exists, named module-level fetch functions (`gh_issue_state`, `gh_live_labels`, `gh_live_milestones`) that tests replace with `monkeypatch` — `automation/issue_validator.py:256-285`, `automation/issue_validator_test.py:145-152` |
 | C16 | §2.3 deletes every branch, local and remote, immediately after merge — no branch matching `issue-82`, `issue-86` or `issue-87` exists today, though all three merged within the last week — `docs/DEVELOPMENT_STANDARDS.md` §2.3; `git branch -a` |
-| C17 | Every merge commit on `main` carries two parents, and `git diff --name-only <merge>^1 <merge>^2` returns the branch's changed paths — verified against `e239cb9`, which returns #87's six files. Nothing in §2.2 or §2.3 mandates `--no-ff`, so this holds by practice, not by rule — `git rev-list --parents -n1`, `git diff` |
+| C17 | Every merge commit on `main` carries two parents, and `git diff --name-only <merge>^1 <merge>^2` returns the branch's changed paths — verified against `e239cb9`, which returns #87's six files. This held by practice and not by rule until this spec's §2.3 amendment (§4.6) — `git rev-list --parents -n1`, `git diff` |
 | C18 | `python -m pytest automation/` passes on this branch, and §2.1 states the merge targets the workpath table asserts: `feature/*` to `dev`, `hotfix/*` and `chore/*` to `main` and `dev` — `pytest automation/`; `docs/DEVELOPMENT_STANDARDS.md` §2.1 |
 | C19 | §1.1's pipeline line reads `RECON → ANALYSIS → SPEC → REVIEW → APPROVAL → IMPLEMENTATION` and ends there — `docs/DEVELOPMENT_STANDARDS.md` §1.1 |
 
@@ -102,7 +103,7 @@ Ordered, each committed on completion. **No step is an approval stop** — each 
 | 3 | The three workpaths — release, deployment and suite checks, per §4.1 | `automation/closeout_checks.py` | AC3.1 – AC3.6 |
 | 4 | Results-artifact verification, the verdict exit code, and the closing comment, per §4.4 and §4.4a | `automation/closeout_checks.py` | AC4.1 – AC4.6 |
 | 5 | The skill itself: frontmatter, the ordered procedure, the workpath table | `.claude/skills/closeout/SKILL.md` | AC5.1 – AC5.4 |
-| 6 | Tests over the step 1–4 fixtures; the §1.1 and §2.6 amendments | `automation/closeout_checks_test.py`, `docs/DEVELOPMENT_STANDARDS.md`, `docs/dev/results/_TEMPLATE_RESULTS.md` | AC6.1 – AC6.4 |
+| 6 | Tests over the step 1–4 fixtures; the §1.1, §2.3 and §2.6 amendments | `automation/closeout_checks_test.py`, `docs/DEVELOPMENT_STANDARDS.md`, `docs/dev/results/_TEMPLATE_RESULTS.md` | AC6.1 – AC6.5 |
 | 7 | Merge to `main`, then to `dev` — **authorization point**, see §4.5 | — | — |
 
 ### 4.1 The workpaths
@@ -158,7 +159,7 @@ This is what drives the `chore/*` assertions of absence (§4.1). The daemon row 
 
 **Where a `--branch` argument is passed for a branch that still exists** — a close-out run before the merge, or on a branch kept alive — changed paths come from `git diff --name-only <merge-base> <branch>` instead. Both forms are supported because both states are real; the merge-commit form is the default, because the deleted-branch state is the one close-out normally meets.
 
-**A fast-forward merge leaves no merge commit**, and therefore no subject to resolve and no second parent to diff. Nothing in §2.2 or §2.3 mandates `--no-ff`, and every merge on `main` today happens to carry two parents — so this is a live gap, not a live failure. The close-out treats an unresolvable merge as the AC2.3 finding rather than guessing. **Suggested standards wording, for Ray**, not applied by this spec: *"Every merge to `main` or `dev` is `--no-ff`. The merge commit is the only durable record of a branch after §2.3 deletes it."*
+**A fast-forward merge would leave no merge commit**, and therefore no subject to resolve and no second parent to diff — which is why §2.3 now requires `--no-ff` on every merge (§4.6). The close-out still treats an unresolvable merge as the AC2.3 finding rather than guessing, because a merge predating that rule can exist even though none does today.
 
 ### 4.4 The results artifact and the verdict
 
@@ -208,7 +209,11 @@ and `_TEMPLATE_RESULTS.md` §5's restart bullet reads:
 
 > - **Daemon restart** (`feature/*` and `hotfix/*`, per §2.6): confirm `ActiveEnterTimestamp` postdates the `dev` merge commit. A merge is not a deployment.
 
-Both proposed here, applied only if Ray approves this spec.
+**§2.3.** The deletion rule gains the merge-record requirement, and its closing claim is corrected — tags and `CHANGELOG.md` are not the whole record once a branch is gone:
+
+> **Every merge is `--no-ff`.** A fast-forward leaves no merge commit, and once the branch is deleted the merge commit is the only record of what the branch contained — its subject names the branch, and its second parent is the tip. A fast-forwarded branch is unrecoverable the moment it is deleted. Tags, `CHANGELOG.md` and the merge commit are the permanent record; the branch ref itself adds nothing.
+
+All three proposed here, applied only if Ray approves this spec.
 
 ## 5. Acceptance criteria
 
@@ -246,6 +251,7 @@ Mapped to #83's five ACs: AC1.x and AC4.x carry its first (walk every AC against
 | AC6.1 | Every rule in AC1.x – AC4.x is covered by a test naming it | `python -m pytest automation/ -q` passes, and `python -m pytest automation/ --collect-only -q \| grep -oE 'ac[1-4]_[0-9]+' \| sort -u \| wc -l` prints `23` |
 | AC6.2 | The application suite is untouched | `python -m pytest tests/` — zero failures, and the pass count equals the baseline recorded in the step 1 commit message. No test is added to `tests/`, so the count moves by zero |
 | AC6.3 | §1.1 carries the close-out step, per §4.6 | Within `awk '/^### 1.1/,/^### 1.2/' docs/DEVELOPMENT_STANDARDS.md`: `grep -c 'CLOSE-OUT'` prints `1` and `grep -c '/closeout'` prints `1` |
+| AC6.5 | §2.3 requires `--no-ff` and names the merge commit as the record, per §4.6 | Within `awk '/^### 2.3/,/^### 2.4/' docs/DEVELOPMENT_STANDARDS.md`: `grep -c 'no-ff'` prints `1` and `grep -c 'second parent'` prints `1` |
 | AC6.4 | §2.6 and the results template state the restart by branch type and carry no file-path predicate, per §4.6 | Within `awk '/^### 2.6/,/^### 2.7/' docs/DEVELOPMENT_STANDARDS.md`, two greps: `grep -c 'ends with a service restart'` prints `1`, and `grep -cE 'workmain/\|config/'` prints `0` — compare stdout, not exit status, since `grep -c` exits `1` when it prints `0`. The same second grep over `docs/dev/results/_TEMPLATE_RESULTS.md` prints `0` |
 
 **One live check, not a test.** Run `/closeout 86` once at step 5 and record the result in the step 5 commit message. It must **fail**, naming the missing `docs/dev/results/` artifact — #86 is closed, `chore/*`, and has no results artifact (recon F30). This is the refusal working against real state rather than a fixture, and it is why #81, #82 and #86 are not backfilled: they are the evidence.
