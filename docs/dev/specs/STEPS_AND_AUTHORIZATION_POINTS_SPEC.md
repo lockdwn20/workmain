@@ -14,16 +14,16 @@
 
 | Date | Source | Decision or finding | Resolution |
 | --- | --- | --- | --- |
-| 20260814 | Ray | §4 of a spec is **Steps**, not gates. Approval attaches to irreversible *actions*. Recorded in `TRACKING_SEMANTICS_CONSOLIDATION_SPEC.md:20`, which adopted the shape ahead of codification | This spec codifies it. #81 and #82 are the working precedents |
-| 20260818 | Ray | **Ownership test agreed.** `DEVELOPMENT_STANDARDS.md` owns any rule governing *how work is built*. `CLAUDE.md` owns *who does what*, *what this project is*, and *domain decisions* | Adopted as DR1. Resolves every duplication in recon F14–F25 by one test rather than case-by-case |
-| 20260818 | Ray | **Q4 — fix it.** The F26 collision between "restarting a live service" as an authorization point and §2.6's mandatory post-merge restart | Authorization is scoped to service state changes *outside* the documented post-merge restart, with the carve-out named in §1.4. §2.6 and §2.8 are not edited — a fix there would have weakened a rule added after the Item #58 false regression, which is the circularity Ray's rule 3 forbids |
-| 20260818 | Ray | **Q3 — `_TEMPLATE_RESULTS.md` is in scope**, though no #86 acceptance criterion names it | Declared here rather than left implicit, so Caliper's criterion 4 sees a stated scope extension. Leaving it would have the results template reporting "by gate" against specs that no longer have gates |
-| 20260818 | Ray | **Q5 — the unmerged recon rides this branch.** `docs/dev/design/RECON_CYCLE_MECHANICS.md` exists only on local `chore/cycle-mechanics-recon`, and `ISSUE_CREATION_VALIDATION_SPEC.md:9` cites it from a spec already merged to `main` | Step 7. The citation is broken on both integration branches today |
-| 20260818 | Ray | **Q6 — the two stale `Status: Approved` specs are advanced here.** #81 and #82 shipped without their status advancing (recon F29, F30) | Step 7. #83 owns the close-out *process* that would have caught it; two stale values are simply wrong now and do not wait on it |
-| 20260818 | Ray | Recon carried findings with no dispositions, because §1.1 forbids suggestions in a recon. Information was nearly lost to the absence of a mechanism | Where no artifact can yet hold a decision, it goes in this Decision Log rather than being dropped. This row is that rule applied to itself |
-| 20260818 | Spanner | Recon's first pass missed `DEVELOPMENT_STANDARDS.md:185`, found by a later word-boundary sweep and recorded as F35 | Every acceptance criterion in §5 derives its own set from a command. No AC is checked against a list transcribed from the recon |
-| 20260819 | Ray | **Issue #86 updated** with two acceptance criteria: replace `python -m pytest tests/` with `pytest` for application testing, and revise any claim that tests reside only in `tests/`. `testpaths = ["tests"]` was added to `pyproject.toml` by #82, and §6 was never reconciled with it | In scope, as AC13 and AC14. This is no longer a scope extension — the originating item states it. Supersedes the open question of whether it becomes its own `chore/*` |
-| 20260819 | Spanner | The issue phrases the second criterion as *"approved locations (currently only `automation/`)"*. Writing that parenthetical into the standard would create a second list of test locations that goes stale the first time one is added | §6 states the rule and cites §7's placement table as the single owner of where anything lives. No location list is written into §6. DR10 |
+| 20260814 | Ray | Spec §4 is Steps, not gates; approval attaches to irreversible actions | Codified here. Precedents: `TRACKING_SEMANTICS_CONSOLIDATION_SPEC.md:20`, `:108` |
+| 20260818 | Ray | Ownership test agreed | DR1 |
+| 20260818 | Ray | Q4 — fix the F26 restart collision | DR6. §2.6 and §2.8 unedited; editing them would weaken the rule added after Item #58 |
+| 20260818 | Ray | Q3 — `_TEMPLATE_RESULTS.md` in scope, though no issue AC names it | Accepted as a declared scope extension. Step 6 |
+| 20260818 | Ray | Q5 — the unmerged recon rides this branch | Step 7 |
+| 20260818 | Ray | Q6 — the two stale `Status: Approved` values are advanced here, not left for #83 | Step 7 |
+| 20260818 | Ray | §1.1 forbids dispositions in a recon, so recon findings had nowhere to carry their fixes | Decisions with no other home go in this log rather than being lost |
+| 20260818 | Spanner | Recon's first pass missed `DEVELOPMENT_STANDARDS.md:185` (F35) | Every AC derives its own set from a command; none is checked against the recon's tables |
+| 20260819 | Ray | Issue #86 updated with the `pytest` and test-location criteria | AC13–AC15, DR10, step 3. No longer a scope extension |
+| 20260819 | Spanner | Issue wording *"approved locations (currently only `automation/`)"* would put a second location list in §6 | Not written in; §6 cites §7 as owner. Deviates from the issue's literal wording — AC15 guards it |
 
 ---
 
