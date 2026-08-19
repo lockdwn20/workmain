@@ -31,6 +31,7 @@
 | 20260819 | Ray | Applying DR1 mechanically would move "Spec before implementation" (F15) and "Integration over separation" (F19) out of § Critical Rules, leaving the most important rule in the project in a document a session may not have read — the failure the section exists to prevent | **DR1a.** § Critical Rules is exempt: it is the always-visible subset, restated by design |
 | 20260819 | Ray | Issue AC7 amended to *"with the exception of any Critical Rule stated in the CLAUDE.md and approved by Ray"* | The exemption is now carried by the originating item, so it is no longer a spec deviation. The added *"approved by Ray"* clause makes **membership** of the section a decision, not a judgement call — folded into DR1a and checked by AC17 |
 | 20260819 | Ray | A rule placed after the role definitions can be read as scoped to a role — which is how this spec came to propose moving stop-and-surface into Role 1 | **DR1b.** § Critical Rules becomes the first section of `CLAUDE.md`, ahead of the three-role model. Position is the structural guard, not another rule that can be misread |
+| 20260819 | Caliper | Round 2, findings 1–6 — F20 at `CLAUDE.md:111` reached by no step; `DEVELOPMENT_STANDARDS.md:7` keeps the no-duplication claim DR1a falsifies; §1's scope list fell behind §4's steps again; § Common Pitfalls `:234` restates § Key Design Decisions inside the same file; step 6's DR8 citation; DR1b silent on placement against the `:1-7` preamble | **Accepted in full**, verified against source. `:234` is deleted rather than promoted — § Key Design Decisions owns it, and no DR1a carve-out covers an intra-file restatement. AC9 extended to catch that class |
 | 20260819 | Caliper | Finding 5 — stop-and-surface stays duplicated inside `CLAUDE.md` at `:121` and `:50-55`, colliding with the new line 3 | **Not taken.** § Critical Rules carries no role qualifier — it applies to every session in any role, which is why the rule lives there. `:121` and Role 3's `:50-55` are a global obligation and its implementation-specific form, not two copies. Both stay unchanged. Corrected by Ray after an intermediate revision had wrongly moved `:121` into Role 1 |
 
 ---
@@ -39,13 +40,15 @@
 
 **In scope** — four files:
 
-- `CLAUDE.md` — line 3; Role 1 `:24-25`; Role 3 `:48`; § Critical Rules `:117`, `:118-120`,
-  `:123`; § Project Status `:62`; § Locked Architecture Decisions OQ4 `:223`; § Common
-  Pitfalls; § Documentation Standards; and the position of § Critical Rules itself, which
-  becomes the first section. **`:121-122` is verified unchanged, not edited** — see DR8.
-- `docs/DEVELOPMENT_STANDARDS.md` — preamble ownership sentence, §1.1 pipeline and bullets,
-  §1.3, §2.2, §2.4, §2.7, §4.5, §6 preamble and command block, §6.3, §6.4, §7, plus a new
-  §1.4 defining steps and authorization points.
+- `CLAUDE.md` — line 3; line 7; the § THREE-ROLE MODEL marker at `:11`; Role 1 `:24-25`;
+  Role 3 `:48`; § Tech Stack `:111`; § Critical Rules `:117`, `:118-120`, `:123`; § Project
+  Status `:62`; § Locked Architecture Decisions OQ4 `:223`; § Common Pitfalls; § Documentation
+  Standards; and the position of § Critical Rules itself, which becomes the first section.
+  **`:121-122` is verified unchanged, not edited** — see DR8.
+- `docs/DEVELOPMENT_STANDARDS.md` — preamble ownership sentence `:3-4` and the
+  no-duplication claim at `:7`; §1.1 pipeline and bullets; §1.2; §1.3; §2.2; §2.4; §2.7;
+  §3.6; §4.5; §6 preamble and command block; §6.3; §6.4; §7; plus a new §1.4 defining steps
+  and authorization points and a new §1.5 receiving the documentation rules.
 - `docs/dev/specs/_TEMPLATE_SPEC.md` — §3, §4, §6, §7.
 - `docs/dev/results/_TEMPLATE_RESULTS.md` — §2, §4.
 
@@ -128,7 +131,9 @@ from `docs/dev/design/RECON_STEPS_AUTHORIZATION_POINTS.md`.
 - **DR1b — § Critical Rules is the first section of `CLAUDE.md`.** It sits ahead of the
   three-role model, because a rule placed after the roles can be read as scoped to a role —
   which is exactly how this spec came to propose relocating stop-and-surface into Role 1.
-  Position is the guard against that recurring.
+  Position is the guard against that recurring. "First section" means the first `##`
+  heading: the H1, the line 3 output rule, and the ownership sentence at `:5-7` stay where
+  they are, and § Critical Rules goes directly beneath them.
 
 - **DR2 — A pointer is not a duplicate.** One document may name another's rule and cite the
   section, provided it states no part of the rule's content. `§4.6` already does this in
@@ -193,12 +198,12 @@ Each step ends with a commit. There is no approval stop between steps.
 
 | Step | Deliverable | Files |
 | --- | --- | --- |
-| 1 | New `§1.4 Steps and authorization points` carrying DR3–DR6, the authorization set, and the DR6 carve-out named in place. Preamble ownership sentence rewritten to DR1 | `docs/DEVELOPMENT_STANDARDS.md` |
+| 1 | New `§1.4 Steps and authorization points` carrying DR3–DR6, the authorization set, and the DR6 carve-out named in place. Preamble ownership sentence rewritten to DR1, and `:7`'s *"Nothing here is duplicated in `CLAUDE.md`"* reworded to except the DR1a entries — after DR1a it is the more wrong of the two paired claims | `docs/DEVELOPMENT_STANDARDS.md` |
 | 2 | §1.1 pipeline terminates at `IMPLEMENTATION`; §1.1 bullets reworded to steps with a §1.4 pointer; §1.3 split rule replaced by DR7; §2.2, §2.4, §2.7, §6.4 reworded to step vocabulary; §4.5 keeps the migration rule as a §1.4 pointer per DR2 | `docs/DEVELOPMENT_STANDARDS.md` |
 | 3 | §6 preamble and command block reconciled with `testpaths` per DR10 — bare `pytest`, and the "everything lives in `tests/`" claim replaced by a statement that non-application suites are reached by explicit path, citing §6.3. §6.3's `tests/` row reworded off "only discovers here" | `docs/DEVELOPMENT_STANDARDS.md` |
-| 4 | **Both sides of every duplication, in one commit.** Per DR1, every F14–F25 rule except the two DR1a exempts (F15, F19) lands in `docs/DEVELOPMENT_STANDARDS.md` and leaves `CLAUDE.md`; each pair is diffed before the `CLAUDE.md` copy is deleted, and any wording the surviving copy lacks is merged into it. Sources: Role 1 `:24-25`, § Common Pitfalls, § Documentation Standards. § Critical Rules `:117` and `:123` stay put under DR1a and are instead given owning-section citations in step 5. Destinations: §1.2, §1.3, §3.6, §6.3, §7, and a §1.5 for the documentation rules arriving from § Documentation Standards | `CLAUDE.md`, `docs/DEVELOPMENT_STANDARDS.md` |
+| 4 | **Both sides of every duplication, in one commit.** Per DR1, every F14–F25 rule except the two DR1a exempts (F15, F19) lands in `docs/DEVELOPMENT_STANDARDS.md` and leaves `CLAUDE.md`; each pair is diffed before the `CLAUDE.md` copy is deleted, and any wording the surviving copy lacks is merged into it. Sources: Role 1 `:24-25`, § Tech Stack `:111` (the `scripts-deprecated/` clause only — the §7 pointer beside it is a clean DR2 pointer and stays), § Common Pitfalls, § Documentation Standards. § Common Pitfalls `:234` is deleted rather than moved: it restates § Key Design Decisions → Report Correction Fields (`:179-185`) inside the same file, and no DR1a carve-out covers it. § Critical Rules `:117` and `:123` stay put under DR1a and are instead given owning-section citations in step 5. Destinations: §1.2, §1.3, §3.6, §6.3, §7, and a §1.5 for the documentation rules arriving from § Documentation Standards | `CLAUDE.md`, `docs/DEVELOPMENT_STANDARDS.md` |
 | 5 | § Critical Rules moved to become the first section, ahead of the three-role model, per DR1b; the DR1a exemption stated in the section itself and each entry given the `DEVELOPMENT_STANDARDS.md` section that owns its full statement; the role model's "READ THIS FIRST" marker reworded, since it is no longer first; line 7's "Nothing is duplicated between them" reworded to except § Critical Rules; line 3 replaced with the output rule below; the gate bullet replaced by an authorization-point entry that states the rule and cites §1.4 as its owner — a bare pointer would contradict DR1a, since this is precisely a rule a session must have without reading further; `:121` and `:122` retained unchanged per DR8; Role 3 `:48` reworded and `:50-55` retained; § Project Status test command becomes `pytest`; OQ4 citation reworded per DR9 | `CLAUDE.md` |
-| 6 | §3 stop-and-surface restated per DR8 as a pointer to `CLAUDE.md` Role 3; §4 retitled **Steps** with a `Step / Deliverable / Files` table and an **Authorization points** subsection; §6 and §7 reworded to steps. The `:86` single-test invocation is left as-is per DR10 | `docs/dev/specs/_TEMPLATE_SPEC.md` |
+| 6 | §3 stop-and-surface restated as a pointer to `CLAUDE.md` Role 3 — the implementer-facing form, which is what a spec template is read for; DR8 makes § Critical Rules the home of the global rule and Role 3 the derived form, and this cites the derived one deliberately; §4 retitled **Steps** with a `Step / Deliverable / Files` table and an **Authorization points** subsection; §6 and §7 reworded to steps. The `:86` single-test invocation is left as-is per DR10 | `docs/dev/specs/_TEMPLATE_SPEC.md` |
 | 7 | §2 retitled "What shipped, by step" with a `Step / Delivered / Files changed / Tests` table; §4's "surfaced at a gate" reworded. §3 needs no change | `docs/dev/results/_TEMPLATE_RESULTS.md` |
 | 8 | `chore/cycle-mechanics-recon` merged into this branch, restoring `RECON_CYCLE_MECHANICS.md` and fixing #82's broken citation; `Status:` advanced to `Shipped` on `TRACKING_SEMANTICS_CONSOLIDATION_SPEC.md` and `ISSUE_CREATION_VALIDATION_SPEC.md` | `docs/dev/design/RECON_CYCLE_MECHANICS.md`, two spec headers |
 | 9 | Full acceptance sweep per §5, then merge | — |
@@ -249,7 +254,7 @@ transcribed from the recon.
 | AC6 | Spec template §4 matches the revised standard and matches the two working precedents | `grep -n "^## 4. Steps" docs/dev/specs/_TEMPLATE_SPEC.md docs/dev/specs/TRACKING_SEMANTICS_CONSOLIDATION_SPEC.md docs/dev/specs/ISSUE_CREATION_VALIDATION_SPEC.md` returns three hits | 5 |
 | AC7 | Stop-and-surface is retained in § Critical Rules and stated independent of any boundary; Role 3's escalation procedure survives alongside it | `grep -n "STOP and WAIT" CLAUDE.md` returns one hit, inside § Critical Rules; `grep -n "Do NOT self-resolve" CLAUDE.md` returns one hit, inside Role 3. AC1's sweep plus `grep -in "step boundary" CLAUDE.md` returning zero covers the boundary clause | 6 |
 | AC8 | No process rule is stated in both documents, except the Ray-approved § Critical Rules entries | Every rule in recon §3.2 F14–F25 that is **not** a § Critical Rules entry appears in exactly one of the two files. Checked per rule with a distinguishing phrase; e.g. `grep -c "own hotfix" CLAUDE.md docs/DEVELOPMENT_STANDARDS.md` returns `0` and `1`. F15 and F19 are the exempted pair, checked by AC17 | 7, 1 |
-| AC9 | The `CLAUDE.md` § Common Pitfalls bullets that survive are exactly those with no counterpart in `DEVELOPMENT_STANDARDS.md` | For each surviving bullet, its distinguishing phrase returns zero hits in `docs/DEVELOPMENT_STANDARDS.md` | 7 |
+| AC9 | The surviving § Common Pitfalls bullets have no counterpart in `DEVELOPMENT_STANDARDS.md` **and** none restates another `CLAUDE.md` section | For each surviving bullet, its distinguishing phrase returns zero hits in `docs/DEVELOPMENT_STANDARDS.md` and exactly one hit in `CLAUDE.md`. `grep -c "different write paths" CLAUDE.md` returns `1`, inside § Key Design Decisions | 7 |
 | AC10 | #82's design-study citation resolves | `test -f docs/dev/design/RECON_CYCLE_MECHANICS.md` succeeds on this branch, and the path matches `ISSUE_CREATION_VALIDATION_SPEC.md:9` | — (Q5) |
 | AC11 | No spec is `Status: Approved` while its issue is closed | `grep "^\*\*Status:\*\*" docs/dev/specs/TRACKING_SEMANTICS_CONSOLIDATION_SPEC.md docs/dev/specs/ISSUE_CREATION_VALIDATION_SPEC.md` returns `Shipped` for both. Restricted to the two files — a glob matches `_TEMPLATE_SPEC.md:3`'s `Draft \| Approved \| Shipped \| Superseded` legend | — (Q6) |
 | AC12 | No application behaviour changed | `git diff --stat main -- workmain/ tests/ config/ templates/ automation/ .github/ pyproject.toml` is empty | — |
@@ -258,7 +263,7 @@ transcribed from the recon.
 | AC15 | Test placement has one owner | The §6 preamble text added for AC14 contains no path other than `tests/`, and cites §6.3. `automation/` appears in §6.3, §7, and §2.2 — the same three places as today, with no fourth added | 9 |
 | AC16 | `CLAUDE.md:3` states the single-home output rule and is not restated anywhere | `grep -c "exactly one home" CLAUDE.md` returns `1`; the same grep over `docs/DEVELOPMENT_STANDARDS.md` and both templates returns `0`; `grep -n "All responses should be" CLAUDE.md` returns zero hits | — (Ray, 20260819) |
 | AC17 | § Critical Rules is first, declares its exemption, and holds exactly the Ray-approved entries this spec names | `grep -n "^## " CLAUDE.md \| head -1` returns `## Critical Rules`; the section contains the DR1a sentence; its entries are exactly those named at §4 step 5a and no others; every entry cites a `DEVELOPMENT_STANDARDS.md` section | 7 |
-| AC18 | Nothing still claims the two documents share no content | `grep -n "Nothing is duplicated between them" CLAUDE.md` returns zero hits; `grep -n "READ THIS FIRST" CLAUDE.md` returns zero hits | — (Ray, 20260819) |
+| AC18 | Neither document still claims they share no content, and nothing else claims to be read first | `grep -rn "Nothing is duplicated\|Nothing here is duplicated" CLAUDE.md docs/DEVELOPMENT_STANDARDS.md` returns zero hits; `grep -n "READ THIS FIRST" CLAUDE.md` returns zero hits | — (Ray, 20260819) |
 
 ## 6. Test plan
 
