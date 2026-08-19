@@ -1,10 +1,12 @@
 # WorkmAIn Development Standards
 
-How work gets built. `CLAUDE.md` owns who does what (three-role model, gate discipline,
-key design decisions); this document owns everything else and is the single authority for
-git workflow, code patterns, CLI structure, and testing.
+How work gets built. `CLAUDE.md` owns who does what (the three-role model), what this
+project is (stack, architecture), and domain decisions (tag system, time format, trigger
+terminology, write-path map). This document owns everything else — process, git workflow,
+code patterns, database, CLI structure, and testing.
 
-Read the relevant section before writing code. Nothing here is duplicated in `CLAUDE.md`.
+Read the relevant section before writing code. Everything here has exactly one home; the
+only text restated elsewhere is the `CLAUDE.md` § Critical Rules subset.
 
 ---
 
@@ -56,6 +58,28 @@ RECON  →  ANALYSIS  →  SPEC  →  REVIEW  →  APPROVAL  →  IMPLEMENTATION
   unmet, and had to be reopened eleven days later when the gap was noticed. The work
   actually landed in Ops_Config_Correction_Sprint Gate 5 (v1.24.0), via
   `TaskStatusRepository.set_forwarding_note()`. A spec's say-so is not evidence.
+
+### 1.4 Steps and authorization points
+
+A spec's §4 is ordered **steps**, not gates.
+
+- **Steps.** Ordered work inside a spec. Committed individually, reviewable and revertible
+  individually. No approval stop. A step ends with a commit, not with a request to
+  continue.
+- **Authorization points.** Attached to specific *actions* that are irreversible or reach
+  outside the working tree. This is a property of the action, so it does not scale with
+  scope: a one-step issue can contain one and a twenty-step issue can contain none. An
+  authorization point is a hard stop — state what is about to happen, then wait for Ray's
+  explicit approval.
+- **The authorization set.** Executing a DB migration; deleting a GitHub object (issue,
+  label, milestone, branch, release); merging to `main`; force-pushing any branch; changing
+  the run state of a live service beyond the carve-out below. Anything not on this list is
+  a step.
+- **Carve-out — the post-merge restart is not an authorization point.** §2.6 requires
+  restarting `workmain-notify.service` after a merge to `dev`, and §2.8 forbids reporting a
+  merge as deployed without it. That restart is a documented obligation, not a
+  discretionary state change, so it is a step. The authorization set covers service state
+  changes *other than* that restart.
 
 ---
 
