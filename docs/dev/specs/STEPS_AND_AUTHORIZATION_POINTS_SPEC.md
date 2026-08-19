@@ -28,7 +28,7 @@
 | 20260819 | Spanner | The new line 3 is adjacent to DR1 — both are single-owner rules — and could read as an AC8 duplication | Not a duplicate. DR1 decides which *document* owns a rule; line 3 governs everything Claude emits, including chat and commit messages. Line 3 stays in `CLAUDE.md` as role behaviour. No design rule restates it here, which is the rule applied to itself |
 | 20260819 | Caliper | Findings 1, 2, 3, 6, 7, 8, 9 — scope omissions (`_TEMPLATE_SPEC.md` §6, `_TEMPLATE_RESULTS.md` §4 mis-labelled §3, four unnamed `CLAUDE.md` sections), step 2 writing destinations before step 4 read the sources, DR10's §7 ownership claim, and three unmechanical or noisy ACs | **Accepted in full.** All seven verified against source before acceptance |
 | 20260819 | Caliper | Finding 4 — DR6's rationale *"carried by the approval for the merge itself"* is false; §2.6's restart follows a merge to `dev`, which DR5 does not make an authorization point | **Accepted.** Rationale replaced: the restart is a documented obligation, not a discretionary state change, so it is a step. Conclusion unchanged |
-| 20260819 | Caliper | Finding 5 — stop-and-surface stays duplicated inside `CLAUDE.md` at `:121` and `:50-55`, colliding with the new line 3 | **Accepted, fix varied.** Caliper proposed collapsing to Role 3 with `:121` as a pointer. Rejected: `:121` is Role 1's present-options-with-a-recommendation obligation, which Role 3's procedure does not contain, so a pointer would lose it. DR8 now states two distinct obligations, each homed in its own role's section, and `:121` moves into Role 1 rather than becoming a pointer |
+| 20260819 | Caliper | Finding 5 — stop-and-surface stays duplicated inside `CLAUDE.md` at `:121` and `:50-55`, colliding with the new line 3 | **Not taken.** § Critical Rules carries no role qualifier — it applies to every session in any role, which is why the rule lives there. `:121` and Role 3's `:50-55` are a global obligation and its implementation-specific form, not two copies. Both stay unchanged. Corrected by Ray after an intermediate revision had wrongly moved `:121` into Role 1 |
 
 ---
 
@@ -37,8 +37,9 @@
 **In scope** — four files:
 
 - `CLAUDE.md` — line 3; Role 1 `:24-25`; Role 3 `:48`; § Critical Rules `:117`, `:118-120`,
-  `:121`, `:123`; § Project Status `:62`; § Locked Architecture Decisions OQ4 `:223`;
-  § Common Pitfalls; § Documentation Standards.
+  `:123`; § Project Status `:62`; § Locked Architecture Decisions OQ4 `:223`; § Common
+  Pitfalls; § Documentation Standards. **`:121-122` is verified unchanged, not edited** —
+  see DR8.
 - `docs/DEVELOPMENT_STANDARDS.md` — preamble ownership sentence, §1.1 pipeline and bullets,
   §1.3, §2.2, §2.4, §2.7, §4.5, §6 preamble and command block, §6.3, §6.4, §7, plus a new
   §1.4 defining steps and authorization points.
@@ -89,7 +90,7 @@ from `docs/dev/design/RECON_STEPS_AUTHORIZATION_POINTS.md`.
 | Two historical gate citations exist that are facts, not process rules | `docs/DEVELOPMENT_STANDARDS.md:57`; `CLAUDE.md:223` | §3.1 census |
 | Both documents assert "nothing is duplicated" and both are false | `CLAUDE.md:7`; `docs/DEVELOPMENT_STANDARDS.md:7` | §3.2 |
 | A set of process rules is stated in both documents, enumerated at recon §3.2 | `docs/dev/design/RECON_STEPS_AUTHORIZATION_POINTS.md` §3.2 | F14–F25 |
-| Stop-and-surface stated in three places, two tied to a boundary | `CLAUDE.md:121`, `:50-55`; `_TEMPLATE_SPEC.md:65` | F28 |
+| Stop-and-surface appears at `CLAUDE.md:121` (§ Critical Rules, which carries no role qualifier), `CLAUDE.md:50-55` (Role 3's escalation procedure), and `_TEMPLATE_SPEC.md:65`. Only the template form ties it to a boundary | `CLAUDE.md:121`, `:50-55`; `_TEMPLATE_SPEC.md:65` | F28 |
 | `#81` and `#82` specs already use `## 4. Steps` | `TRACKING_SEMANTICS_CONSOLIDATION_SPEC.md:108`; `ISSUE_CREATION_VALIDATION_SPEC.md:162` | F13 |
 | Those two specs are `Status: Approved` despite having shipped and merged | `grep "^\*\*Status:\*\*" docs/dev/specs/*.md`; `git log origin/main..origin/dev` | F29, F30 |
 | `RECON_CYCLE_MECHANICS.md` is on an unmerged local branch and cited by a merged spec | `git branch -a`; `ISSUE_CREATION_VALIDATION_SPEC.md:9` | F31 |
@@ -142,18 +143,13 @@ from `docs/dev/design/RECON_STEPS_AUTHORIZATION_POINTS.md`.
   strictly sequential and individually meaningless, they stay inline as steps — an issue
   whose closure leaves the repository worse than before is already forbidden by §1.3.
 
-- **DR8 — Stop and surface is unconditional, and there are two of them.** Both are
-  triggered by what is encountered, never by reaching a boundary, and neither may be stated
-  with reference to steps, gates, or any position in a sequence. They are distinct
-  obligations and each is stated once, in its own role's section:
-  - **Role 1, planning** — a design question arises or options exist: present the correct
-    (not the easy) options with pros and cons, state a recommendation with rationale, then
-    stop and wait.
-  - **Role 3, implementation** — something the spec does not cover, or that needs a design
-    decision: stop, document, tell Ray, do not self-resolve.
-
-  Neither belongs in § Critical Rules, which is where the Role 1 form currently sits
-  detached from the role it governs.
+- **DR8 — Stop and surface is unconditional, and § Critical Rules is its home.** That
+  section carries no role qualifier: it applies to every Claude session whatever role it is
+  operating in, which is why the rule sits there rather than under a role. It stays. Role
+  3's four-step escalation procedure is the implementation-specific form of the same
+  obligation — narrower trigger, added specifics — and is not a duplicate of it. Neither
+  may be stated with reference to steps, gates, or any position in a sequence. Both are
+  triggered by what is encountered.
 
 - **DR9 — Historical citations are facts, not rules.** Where an existing document cites a
   gate as part of a historical record, the citation is reworded to name the release instead
@@ -183,7 +179,7 @@ Each step ends with a commit. There is no approval stop between steps.
 | 2 | §1.1 pipeline terminates at `IMPLEMENTATION`; §1.1 bullets reworded to steps with a §1.4 pointer; §1.3 split rule replaced by DR7; §2.2, §2.4, §2.7, §6.4 reworded to step vocabulary; §4.5 keeps the migration rule as a §1.4 pointer per DR2 | `docs/DEVELOPMENT_STANDARDS.md` |
 | 3 | §6 preamble and command block reconciled with `testpaths` per DR10 — bare `pytest`, and the "everything lives in `tests/`" claim replaced by a statement that non-application suites are reached by explicit path, citing §6.3. §6.3's `tests/` row reworded off "only discovers here" | `docs/DEVELOPMENT_STANDARDS.md` |
 | 4 | **Both sides of every duplication, in one commit.** Per DR1, all twelve F14–F25 rules land in `docs/DEVELOPMENT_STANDARDS.md` and leave `CLAUDE.md`; each pair is diffed before the `CLAUDE.md` copy is deleted, and any wording the surviving copy lacks is merged into it. Sources: Role 1 `:24-25`, § Critical Rules `:117` and `:123`, § Common Pitfalls, § Documentation Standards. Destinations: §1.2, §1.3, §3.6, §6.3, §7, and a §1.5 for the documentation rules arriving from § Documentation Standards | `CLAUDE.md`, `docs/DEVELOPMENT_STANDARDS.md` |
-| 5 | Line 3 replaced with the output rule below; gate bullet removed from § Critical Rules and replaced by a §1.4 pointer; `:121` moved into Role 1's section per DR8 and the Critical Rules bullet deleted; Role 3 `:48` reworded and `:50-55` retained as the Role 3 form; § Project Status test command becomes `pytest`; OQ4 citation reworded per DR9; the "nothing is duplicated" claims in both preambles left standing and now true | `CLAUDE.md` |
+| 5 | Line 3 replaced with the output rule below; gate bullet removed from § Critical Rules and replaced by a §1.4 pointer; `:121` and `:122` retained in § Critical Rules unchanged per DR8; Role 3 `:48` reworded and `:50-55` retained; § Project Status test command becomes `pytest`; OQ4 citation reworded per DR9; the "nothing is duplicated" claims in both preambles left standing and now true | `CLAUDE.md` |
 | 6 | §3 stop-and-surface restated per DR8 as a pointer to `CLAUDE.md` Role 3; §4 retitled **Steps** with a `Step / Deliverable / Files` table and an **Authorization points** subsection; §6 and §7 reworded to steps. The `:86` single-test invocation is left as-is per DR10 | `docs/dev/specs/_TEMPLATE_SPEC.md` |
 | 7 | §2 retitled "What shipped, by step" with a `Step / Delivered / Files changed / Tests` table; §4's "surfaced at a gate" reworded. §3 needs no change | `docs/dev/results/_TEMPLATE_RESULTS.md` |
 | 8 | `chore/cycle-mechanics-recon` merged into this branch, restoring `RECON_CYCLE_MECHANICS.md` and fixing #82's broken citation; `Status:` advanced to `Shipped` on `TRACKING_SEMANTICS_CONSOLIDATION_SPEC.md` and `ISSUE_CREATION_VALIDATION_SPEC.md` | `docs/dev/design/RECON_CYCLE_MECHANICS.md`, two spec headers |
@@ -221,7 +217,7 @@ transcribed from the recon.
 | AC4 | The DB-migration rule survives, expressed as an authorization point | `grep -n "migration" docs/DEVELOPMENT_STANDARDS.md` returns the §4.5 rule; §4.5 contains a `§1.4` citation and does **not** restate the definition — verified by DR2's test, that the sentence is not actionable with §1.4 deleted | 3 |
 | AC5 | A stated split test exists, keyed on independent verifiability | §1.3 contains the DR7 sentence; `grep -n "independently verifiable" docs/DEVELOPMENT_STANDARDS.md` returns a hit inside §1.3 | 4 |
 | AC6 | Spec template §4 matches the revised standard and matches the two working precedents | `grep -n "^## 4. Steps" docs/dev/specs/_TEMPLATE_SPEC.md docs/dev/specs/TRACKING_SEMANTICS_CONSOLIDATION_SPEC.md docs/dev/specs/ISSUE_CREATION_VALIDATION_SPEC.md` returns three hits | 5 |
-| AC7 | Both stop-and-surface obligations are retained per DR8, each stated once in its own role's section, and neither tied to a boundary | Role 1's section contains the present-options-and-wait rule; Role 3 retains its four-step procedure; § Critical Rules contains neither — `grep -n "STOP and WAIT" CLAUDE.md` returns one hit and it falls inside Role 1's section. AC1's sweep plus `grep -in "step boundary" CLAUDE.md` returning zero covers the boundary clause | 6 |
+| AC7 | Stop-and-surface is retained in § Critical Rules and stated independent of any boundary; Role 3's escalation procedure survives alongside it | `grep -n "STOP and WAIT" CLAUDE.md` returns one hit, inside § Critical Rules; `grep -n "Do NOT self-resolve" CLAUDE.md` returns one hit, inside Role 3. AC1's sweep plus `grep -in "step boundary" CLAUDE.md` returning zero covers the boundary clause | 6 |
 | AC8 | No process rule is stated in both documents | Every rule listed in recon §3.2 F14–F25 appears in exactly one of the two files. Checked per rule with a distinguishing phrase; e.g. `grep -c "own hotfix" CLAUDE.md docs/DEVELOPMENT_STANDARDS.md` returns `0` and `1` | 7, 1 |
 | AC9 | The `CLAUDE.md` § Common Pitfalls bullets that survive are exactly those with no counterpart in `DEVELOPMENT_STANDARDS.md` | For each surviving bullet, its distinguishing phrase returns zero hits in `docs/DEVELOPMENT_STANDARDS.md` | 7 |
 | AC10 | #82's design-study citation resolves | `test -f docs/dev/design/RECON_CYCLE_MECHANICS.md` succeeds on this branch, and the path matches `ISSUE_CREATION_VALIDATION_SPEC.md:9` | — (Q5) |
