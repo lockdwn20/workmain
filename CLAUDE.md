@@ -21,8 +21,6 @@ All design authority lives here:
 - Writes all specs; makes all architecture decisions.
 - Maintains the implementation plan and workflow.
 - Identifies any workflow, phasing or sprint issues immediately to Ray.
-- Verifies every claim about existing behavior against source at authoring time; cite file and symbol.
-- Defects found during verification become their own hotfix rather than sprint scope.
 - Resolves conflicts in design and project documentation during planning, so they never reach implementation. Ray is the final authority on all documentation changes.
 
 **Role 1 Critical Rule.** The easiest way is not always the correct way:
@@ -108,7 +106,7 @@ Daemon (APScheduler)  →  Inspection Engine  →  Notification Delivery
 Socket Mode Handler   →  Intent Parser (Ollama)  →  Action Executor  →  Services
 ```
 
-Directory layout and file placement: `docs/DEVELOPMENT_STANDARDS.md` §7. `scripts-deprecated/` is excluded from test collection — do not add to it.
+Directory layout and file placement: `docs/DEVELOPMENT_STANDARDS.md` §7.
 
 ---
 
@@ -227,36 +225,5 @@ Made and closed. Do not re-open or work around these without Ray's explicit dire
 ## Common Pitfalls (Lessons Learned)
 
 - **Master Logs are reference only** — target output format for AI, NOT input data sources.
-- **`get_session()` is a method on `Database`, not a module-level function** — always `get_db()` first, then `db.get_session()`.
-- **SQLAlchemy session discipline** — objects must be re-queried within the session that will modify them; passing objects across session boundaries fails silently.
-- **Staged output path** — `staging/`, not `output/`; `output/` does not exist.
-- **Verify AC boxes before marking complete** — Item 32 was marked complete in Phase 13 Sprint 2 with all four ACs unmet and had to be reopened; it was actually delivered in Ops_Config_Correction_Sprint Gate 5 (v1.24.0).
-- **`correction_note` vs `corrected_content`** — different fields, different write paths.
 - **Phase scope creep** is resolved through Spanner and Ray.
 - **Component-verified ≠ integration-verified** — trace handle and session provenance at every call site, diff drafted code against any claimed reference verbatim (not just shape), and never accept an elided "unchanged" block without checking it against the recon's own quote.
-- **A dev merge is not deployed** — `workmain-notify.service` tracks `dev` and must be restarted, with `ActiveEnterTimestamp` confirmed to postdate the merge.
-
----
-
-## Documentation Standards
-
-- Dev artifacts always live in `docs/dev/<type>/`, never in the `docs/` root:
-  - `design/` (design studies and recon)
-  - `specs/`
-  - `results/` (implementation results).
-- **Filenames are subject-based** — no version suffix, no date. Artifacts are updated in place, so filenames never change and citations never break.
-- **Every artifact carries a `Status:` field** — `Active`, `Shipped`, or `Superseded`.
-  - While work is live, retirement is a status edit, not a file move. An artifact stays
-    where it is, and where it is cited, for as long as it is being referenced.
-  - **`docs/archive/`** holds artifacts whose work is complete. Move an artifact there
-    once it is finished and no longer a live reference — it is kept for reference only,
-    is never authoritative, and is always superseded by the current `design/`, `specs/`,
-    and `results/`. It is git-tracked, so citations to it stay resolvable.
-  - Never cite an archived artifact as the basis for a current decision. If it still
-    governs something, it has not finished being live and does not belong in the archive.
-- **Specs carry a Decision Log** — decisions and review findings with their resolution, only.
-  - Never a description of what changed in the document; git covers that.
-  - Design and results artifacts carry neither a decision log nor a version history.
-- **No version headers or version-history blocks in any document.** Git is the version record. See `docs/DEVELOPMENT_STANDARDS.md` §3.1 for the code equivalent.
-- Each `docs/dev/` subdirectory holds a `_TEMPLATE_*.md` starting point. Templates are advisory — **template compliance is not a Caliper review criterion.**
-- Always create the spec in the correct subdirectory before writing any code.

@@ -83,6 +83,31 @@ A spec's §4 is ordered work, defined below.
   discretionary state change, so it is a step. The authorization set covers service state
   changes *other than* that restart.
 
+### 1.5 Documentation rules
+
+- Dev artifacts always live in `docs/dev/<type>/`, never in the `docs/` root: `design/`
+  (design studies and recon), `specs/`, `results/` (implementation results).
+- **Filenames are subject-based** — no version suffix, no date. Artifacts are updated in
+  place, so filenames never change and citations never break.
+- **Every artifact carries a `Status:` field** — `Active`, `Shipped`, or `Superseded`.
+  - While work is live, retirement is a status edit, not a file move. An artifact stays
+    where it is, and where it is cited, for as long as it is being referenced.
+  - **`docs/archive/`** holds artifacts whose work is complete. Move an artifact there
+    once it is finished and no longer a live reference — it is kept for reference only,
+    is never authoritative, and is always superseded by the current `design/`, `specs/`,
+    and `results/`. It is git-tracked, so citations to it stay resolvable.
+  - Never cite an archived artifact as the basis for a current decision. If it still
+    governs something, it has not finished being live and does not belong in the archive.
+- **Specs carry a Decision Log** — decisions and review findings with their resolution,
+  only.
+  - Never a description of what changed in the document; git covers that.
+  - Design and results artifacts carry neither a decision log nor a version history.
+- **No version headers or version-history blocks in any document.** Git is the version
+  record. See §3.1 for the code equivalent.
+- Each `docs/dev/` subdirectory holds a `_TEMPLATE_*.md` starting point. Templates are
+  advisory — **template compliance is not a Caliper review criterion.**
+- Always create the spec in the correct subdirectory before writing any code.
+
 ---
 
 ## 2. Git Workflow
