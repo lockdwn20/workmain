@@ -18,7 +18,7 @@ No spec is written without a read-only audit first. Recon produces a findings do
 `docs/dev/design/`; decisions are made from it; only then is a spec written.
 
 ```text
-RECON  →  ANALYSIS  →  SPEC  →  REVIEW  →  APPROVAL  →  IMPLEMENTATION  →  GATE REVIEW  →  COMMIT
+RECON  →  ANALYSIS  →  SPEC  →  REVIEW  →  APPROVAL  →  IMPLEMENTATION
 ```
 
 - **Recon** — read-only pass, verbatim findings, no fixes and no inline suggestions.
@@ -26,8 +26,8 @@ RECON  →  ANALYSIS  →  SPEC  →  REVIEW  →  APPROVAL  →  IMPLEMENTATION
 - **Spec** — written to `docs/dev/specs/`.
 - **Review** — Role 2 findings go back to Role 1, never forward to the implementer.
 - **Approval** — Ray approves explicitly. No implementation without an approved spec.
-- **Implementation** — Role 3, gate by gate, from the approved spec only.
-- **Gate review** — human approval at every gate; DB migrations are always a hard gate.
+- **Implementation** — Role 3, step by step, from the approved spec only. Steps commit
+  without a stop; authorization points are the hard stops — see §1.4.
 
 ### 1.2 Spec authoring rules
 
@@ -51,17 +51,19 @@ RECON  →  ANALYSIS  →  SPEC  →  REVIEW  →  APPROVAL  →  IMPLEMENTATION
   prose list is a register that goes stale the first time a label is added.
 - A milestone carries the exit condition that closes it, and that condition must cover
   every issue in it.
-- An issue must be independently verifiable on its own. Work that only makes sense as a
-  set becomes a parent issue with children, never one issue spanning several gates.
+- An issue must be independently verifiable on its own: split into sub-issues only where
+  each piece leaves the repository in a coherent state its own acceptance criteria can
+  verify. Where steps are strictly sequential and individually meaningless, they stay
+  inline as steps in one issue — not split into a parent with children for its own sake.
 - **Verify every AC against delivered code before marking an item complete.** Item 32 was
   marked complete in Phase 13 Sprint 2 (v1.21.0) with all four of its acceptance criteria
   unmet, and had to be reopened eleven days later when the gap was noticed. The work
-  actually landed in Ops_Config_Correction_Sprint Gate 5 (v1.24.0), via
+  actually landed in Ops_Config_Correction_Sprint (v1.24.0), via
   `TaskStatusRepository.set_forwarding_note()`. A spec's say-so is not evidence.
 
 ### 1.4 Steps and authorization points
 
-A spec's §4 is ordered **steps**, not gates.
+A spec's §4 is ordered work, defined below.
 
 - **Steps.** Ordered work inside a spec. Committed individually, reviewable and revertible
   individually. No approval stop. A step ends with a commit, not with a request to
@@ -139,8 +141,9 @@ chore/*    — documentation/process/tooling only. From main, merges to main AND
   feature branch — not a separate `chore/*`, even though `docs/**` would qualify on path alone.
 
 **Hotfix → feature exception.** When a hotfix is a direct prerequisite for a feature branch
-and has no standalone value: branch from `main`, merge into the feature branch at Gate 0,
-delete it, and document the deviation in the feature spec. The version bump rides the feature.
+and has no standalone value: branch from `main`, merge into the feature branch before its
+step 1, delete it, and document the deviation in the feature spec. The version bump rides
+the feature.
 
 ### 2.3 Branch deletion
 
@@ -160,8 +163,8 @@ Co-Authored-By: Claude
 
 Types: `feat`, `fix`, `refactor`, `chore`, `docs`, `test`.
 
-- This is the **only** commit format. Gate context belongs in the body, not the subject —
-  `feat(notes): converge write path` with `Gate 3 of 7` in the body, never `Gate 3: ...`
+- This is the **only** commit format. Step context belongs in the body, not the subject —
+  `feat(notes): converge write path` with `Step 3 of 7` in the body, never `Step 3: ...`
   as the subject.
 - `git commit --no-verify` is **prohibited**. It bypasses commit validation.
 
@@ -206,7 +209,7 @@ before the fix merged — the code was correct in `dev` and `main` the whole tim
 
 1. `git status` — working directory clean.
 2. `git branch` — confirm where you are.
-3. Determine work type: phase/multi-gate → `feature/*` from `dev`; targeted application
+3. Determine work type: phase/multi-step → `feature/*` from `dev`; targeted application
    fix → `hotfix/*` from `main`; docs/process only → `chore/*` from `main`.
 4. Create the branch **before** writing anything.
 5. Never work directly on `main` or `dev`.
@@ -371,8 +374,8 @@ query.filter(~Model.tags.op('@>')(['tag1']))          # does not contain
 
 ### 4.5 Migrations
 
-SQL files, numbered `NNN_name.sql`. **Execution requires explicit human approval, always** —
-the gate is the approval, not the spec that contains it.
+SQL files, numbered `NNN_name.sql`. **Execution is an authorization point** — see §1.4. The
+approval is at execution, not the spec that contains it.
 
 ### 4.6 Write-path convergence
 
@@ -619,7 +622,8 @@ pytest; if you need a diagnostic script, put it in `scripts/`.
 ### 6.4 Spec-named test file doesn't exist
 
 If a spec names a test file that isn't there, use the established file for that coverage,
-document the deviation, and keep going. That is not a design question and does not stop a gate.
+document the deviation, and keep going. That is not a design question and does not stop
+implementation.
 
 ---
 
