@@ -68,11 +68,11 @@ A spec's §4 is ordered work, defined below.
 - **Steps.** Ordered work inside a spec. Committed individually, reviewable and revertible
   individually. No approval stop. A step ends with a commit, not with a request to
   continue.
-- **Authorization points.** Attached to specific *actions* that are irreversible or reach
-  outside the working tree. This is a property of the action, so it does not scale with
-  scope: a one-step issue can contain one and a twenty-step issue can contain none. An
-  authorization point is a hard stop — state what is about to happen, then wait for Ray's
-  explicit approval.
+- **Authorization points.** Attached to specific *actions* that are irreversible or
+  reach outside the working tree. This is a property of the action, so it does not scale
+  with scope: a one-step issue can contain one and a twenty-step issue can contain none.
+  An authorization point is a hard stop — state what is about to happen, then wait for
+  Ray's explicit approval.
 - **The authorization set.** Executing a DB migration; deleting a GitHub object (issue,
   label, milestone, branch, release); merging to `main`; force-pushing any branch; changing
   the run state of a live service beyond the carve-out below. Anything not on this list is
