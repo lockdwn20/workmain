@@ -2,8 +2,9 @@
 #
 # Verify release records agree before anything reaches the remote.
 #
-# Runs scripts/check_release_integrity.py, which cross-checks git tags against
-# CHANGELOG.md sections, GitHub Releases, and workmain/__version__.py.
+# Runs automation/check_release_integrity.py, which cross-checks git tags against
+# CHANGELOG.md sections, GitHub Releases, and workmain/__version__.py, enforcing
+# DEVELOPMENT_STANDARDS.md §2.2.
 #
 # Scope is deliberately narrow — it fires only on pushes that can damage the
 # release record:
@@ -24,9 +25,12 @@
 set -uo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
-checker="$repo_root/scripts/check_release_integrity.py"
+checker="$repo_root/automation/check_release_integrity.py"
 
-[ -f "$checker" ] || exit 0
+if [ ! -f "$checker" ]; then
+  echo "pre-push: BLOCKED — checker not found at $checker" >&2
+  exit 1
+fi
 
 push_main=0
 push_tag=0
