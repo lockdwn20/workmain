@@ -17,9 +17,9 @@ and, for `workmain/__version__.py`:
 Exits non-zero on any mismatch at or above BASELINE, so it can gate a push to `main`.
 Older releases are reported as accepted history and never fail the run.
 
-    python3 scripts/check_release_integrity.py             # full check
-    python3 scripts/check_release_integrity.py --no-remote # skip the gh Release check
-    python3 scripts/check_release_integrity.py --show-historical
+    python3 automation/check_release_integrity.py             # full check
+    python3 automation/check_release_integrity.py --no-remote # skip the gh Release check
+    python3 automation/check_release_integrity.py --show-historical
 
 Why this exists: `DEVELOPMENT_STANDARDS.md` §2.2 already requires a CHANGELOG entry
 and a GitHub Release on every merge to `main`. The prose rule did not prevent four
@@ -34,7 +34,16 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+
+def find_repo_root(start: Path) -> Path:
+    current = start.resolve()
+    for candidate in (current, *current.parents):
+        if (candidate / ".git").exists():
+            return candidate
+    raise SystemExit(f"could not find a repository root above {start}")
+
+
+ROOT = find_repo_root(Path(__file__))
 CHANGELOG = ROOT / "CHANGELOG.md"
 VERSION_FILE = ROOT / "workmain" / "__version__.py"
 
