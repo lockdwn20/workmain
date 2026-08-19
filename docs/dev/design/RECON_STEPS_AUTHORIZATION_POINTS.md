@@ -29,8 +29,8 @@ here.
 
 **Examined in full:**
 
-- `CLAUDE.md` (247 lines) — every section.
-- `docs/DEVELOPMENT_STANDARDS.md` (626 lines) — every section.
+- `CLAUDE.md` — every section.
+- `docs/DEVELOPMENT_STANDARDS.md` — every section.
 - `docs/dev/specs/_TEMPLATE_SPEC.md`, `docs/dev/design/_TEMPLATE_DESIGN.md`,
   `docs/dev/results/_TEMPLATE_RESULTS.md`.
 - `Status:` field of every artifact in `docs/dev/specs/`, `docs/dev/design/`,
@@ -73,6 +73,7 @@ here.
 | F10 | §6.4 closes with *"That is not a design question and does not stop a gate"* | `docs/DEVELOPMENT_STANDARDS.md:598` | Low |
 | F11 | `_TEMPLATE_SPEC.md` carries gate structure in four places: §3's *"**STOP at the gate and surface to Ray**"*, §4 titled *"Gates"* with a `Gate / Deliverable / Files / Verification` table, §4's DB-migration callout, and §7's *"how to undo each gate"* | `docs/dev/specs/_TEMPLATE_SPEC.md:65`, `:67-78`, `:103` | High |
 | F12 | `_TEMPLATE_RESULTS.md` §2 is titled *"What shipped, by gate"* with a `Gate / Delivered / Files changed / Tests` table, and §3 refers to issues *"surfaced at a gate and resolved by Ray mid-flight"*. **No #86 acceptance criterion names this file** | `docs/dev/results/_TEMPLATE_RESULTS.md:27-29`, `:50` | Medium |
+| F35 | §2.7's session-start checklist routes work type by *"phase/multi-gate → `feature/*` from `dev`"* — gate vocabulary carrying decision weight in the branch-selection rule. Found on a word-boundary sweep after the first pass missed it | `docs/DEVELOPMENT_STANDARDS.md:185` | Medium |
 | F13 | The target shape already exists in practice. Both non-Shipped specs use `## 4. Steps` rather than a gate table, and #81's Decision Log records Ray's 20260814 decision that *"§4 is **Steps**, not gates. Approval attaches to *irreversible actions*"*, together with the ruling that codifying it is #86's job and *"This spec adopts the steps/authorization shape ahead of that issue and does not codify it"* | `docs/dev/specs/TRACKING_SEMANTICS_CONSOLIDATION_SPEC.md:20-21`, `:108`; `docs/dev/specs/ISSUE_CREATION_VALIDATION_SPEC.md:162` | High |
 
 ### 3.2 Process rules stated in both documents
@@ -80,7 +81,9 @@ here.
 `CLAUDE.md:7` asserts *"Nothing is duplicated between them."* `DEVELOPMENT_STANDARDS.md:7`
 asserts *"Nothing here is duplicated in `CLAUDE.md`."* Both statements are false as of this
 read. #86's final AC — *"No process rule is stated in both documents"* — is therefore not a
-touch-up; the following are live violations.
+touch-up; the following are live violations. The set below is what this read found; it is
+not asserted to be exhaustive, and the acceptance criteria derive their own set from a
+command rather than from this table.
 
 | # | Rule stated twice | In `CLAUDE.md` | In `DEVELOPMENT_STANDARDS.md` | Severity |
 | --- | --- | --- | --- | --- |
@@ -97,11 +100,11 @@ touch-up; the following are live violations.
 | F24 | Staged output goes to `staging/`, not `output/`, which does not exist | `:232` | `§7`, `:617` | Low |
 | F25 | A `dev` merge is not deployed until `workmain-notify.service` restarts and `ActiveEnterTimestamp` postdates the merge | `:237` | `§2.6`, `:165-179` | Medium |
 
-F18 and F22–F25 all sit in `CLAUDE.md` § Common Pitfalls (`:227-237`). Eight of that
-section's nine bullets restate a rule that `DEVELOPMENT_STANDARDS.md` also states; the
-exceptions are Master Logs (`:229`), `correction_note` vs `corrected_content` (`:234` —
-which duplicates `CLAUDE.md`'s own Key Design Decisions section rather than the other
-document), phase scope creep (`:235`), and component-verified ≠ integration-verified
+F18 and F22–F25 all sit in `CLAUDE.md` § Common Pitfalls (`:227-237`). Most of that
+section restates a rule `DEVELOPMENT_STANDARDS.md` also states. The bullets that do **not**
+have a counterpart there are Master Logs (`:229`), `correction_note` vs `corrected_content`
+(`:234` — which duplicates `CLAUDE.md`'s own Key Design Decisions section rather than the
+other document), phase scope creep (`:235`), and component-verified ≠ integration-verified
 (`:236`).
 
 ### 3.3 Conflicts, as distinct from duplication
