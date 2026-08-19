@@ -25,6 +25,7 @@
 | 20260819 | Ray | §2.6's restart rule is branch-type, not file-path: **any `feature/*` or `hotfix/*` branch requires a restart at the end.** The conditional wording added around #82 is removed | Accepted. §2.6 and the results template are reworded (§4.6); the workpath table and AC3.5 follow it |
 | 20260819 | Ray | Hard-wrapped markdown makes review hard. Stop splitting lines | Accepted. §1.5 gains the rule, and this spec and its recon are reflowed to one line per paragraph. The repo-wide reflow is its own issue — see §7 |
 | 20260820 | Ray | #87 shipped before this spec's implementation, relocating `check_release_integrity.py` to `automation/` | `main` merged into this branch. C9, DR9, §1 and the risks row cite the new path; nothing else moved |
+| 20260820 | Ray | The close-out composes the issue's closing comment and prints the `gh issue comment` command; commit-message linkage is prevented at commit time by a `commit-msg` hook change, as its own issue | Accepted. §4.4 and AC4.6. No commit-linkage check is added here — post-merge it could only report, since fixing a merged commit means rewriting history |
 | 20260819 | Spanner | The results artifact records the close-out, but a skill that also **closed** the issue would take the terminal action out of Ray's hands, against the established PR-merge precedent | The skill makes no GitHub write. DR2 |
 
 ---
@@ -44,6 +45,7 @@
 - **Backfilling #81, #82 or #86** (Ray, Q7). Closed work is not reopened to satisfy a standard written after it.
 - **Rewriting legacy issue bodies** into the current AC shape (Ray, Q1). The parser reads what is there; an issue is corrected when it is the issue being worked.
 - **Any GitHub write.** Closing the issue, commenting on it, moving it on the board: none of it. DR2.
+- **The `Issue: #NN` commit trailer and the `commit-msg` hook change that would enforce it.** Its own issue: prevention at commit time is a different mechanism from verification at the end, and it amends §2.4 and `.githooks/`.
 - **#84's queue rank and #85's session-open skills.** Different issues, different mechanisms. This spec sets the `.claude/skills/` precedent that #85 inherits and nothing more.
 - **`check_release_integrity.py`'s location.** #87 shipped it into `automation/` before this spec's implementation began, so the close-out cites the script where it lives and no follow-on repoint is owed.
 - **`workmain/**` and `tests/**`.** No application behaviour changes, which is what keeps this on `chore/*` per §2.2.
@@ -73,7 +75,7 @@
 ## 3. Design rules
 
 - **DR1 — One skill, three workpaths.** `/closeout` is one skill. The branch type — `chore`, `feature`, `hotfix` — selects which checks apply, and the workpath table (§4.1) is the whole of that selection. A check that does not apply is reported `n/a` with the reason, never silently omitted: a check that vanishes cannot be distinguished from a check that passed.
-- **DR2 — The close-out makes no GitHub write.** It reads issues, tags and Releases; it writes one file in the working tree. It does not close the issue, comment on it, or move it on the board. Closing is Ray's, on the same principle as merging the `dev → main` PR. This also makes the skill re-runnable: nothing it does needs undoing.
+- **DR2 — The close-out makes no GitHub write.** It reads issues, tags and Releases; it writes one file in the working tree. It **composes** the closing comment and prints the `gh issue comment` command that would post it, but it does not run it, does not close the issue, and does not move it on the board. Posting and closing are Ray's, on the same principle as merging the `dev → main` PR. This also makes the skill re-runnable: nothing it does needs undoing.
 - **DR3 — Mechanics in the script, judgement in the skill.** `closeout_checks.py` answers what can be answered by running something: does the tag exist, is the Release there, did the daemon restart, does the artifact carry every AC. Whether an AC is *met by delivered code* is judgement and lives in `SKILL.md`. Neither side does the other's job — the script never decides an AC is met, and the skill never decides a Release exists.
 - **DR4 — Reporting is total.** Every check runs and every failure is reported in one pass; the run never stops at the first failure. **The one exception is issue resolution** (§4.2): with no issue and no ACs there is nothing to check, so that failure aborts.
 - **DR5 — Nothing is enumerated that can be derived.** The AC list comes from the issue body, the branch from git, the branch type from the branch name, the changed paths from the branch's diff, the tag from git. There is no list of issues, no register of past close-outs, and no maintained mapping of issue to branch anywhere in this spec or in the script.
@@ -93,7 +95,7 @@ Ordered, each committed on completion. **No step is an approval stop** — each 
 | 1 | Issue resolution and AC parsing for all three shapes, per §4.2 | `automation/closeout_checks.py`, `automation/fixtures/` | AC1.1 – AC1.5 |
 | 2 | Branch resolution and branch-type derivation, per §4.3 | `automation/closeout_checks.py` | AC2.1 – AC2.4 |
 | 3 | The three workpaths — release, deployment and suite checks, per §4.1 | `automation/closeout_checks.py` | AC3.1 – AC3.6 |
-| 4 | Results-artifact verification and the verdict exit code, per §4.4 | `automation/closeout_checks.py` | AC4.1 – AC4.5 |
+| 4 | Results-artifact verification, the verdict exit code, and the closing comment, per §4.4 and §4.4a | `automation/closeout_checks.py` | AC4.1 – AC4.6 |
 | 5 | The skill itself: frontmatter, the ordered procedure, the workpath table | `.claude/skills/closeout/SKILL.md` | AC5.1 – AC5.4 |
 | 6 | Tests over the step 1–4 fixtures; the §1.1 and §2.6 amendments | `automation/closeout_checks_test.py`, `docs/DEVELOPMENT_STANDARDS.md`, `docs/dev/results/_TEMPLATE_RESULTS.md` | AC6.1 – AC6.4 |
 | 7 | Merge to `main`, then to `dev` — **authorization point**, see §4.5 | — | — |
@@ -157,6 +159,18 @@ The skill writes `docs/dev/results/<SUBJECT>_RESULTS.md` from `_TEMPLATE_RESULTS
 
 Exit `0` only when every applicable check passed and every AC row is `Met` or a properly cited `Carried`. Any other outcome exits non-zero, and the skill reports what the script reported — it does not summarise past it (DR3).
 
+### 4.4a The closing comment
+
+The issue's durable pointer to its work is a closing comment, because GitHub's own commit cross-referencing cannot be relied on: #86 carries eight `referenced` events while #87 carries none, despite three of #87's commits on `main` containing `#87`. Why they differ is not established, and the close-out does not depend on the answer.
+
+On a run that exits `0`, the skill composes the comment and prints the command that would post it:
+
+```bash
+gh issue comment <N> --body-file -
+```
+
+The comment carries four things and nothing else — the merge commit SHA, the branch it merged, the results-artifact path, and the AC verdict line. It is composed, printed, and left for Ray to run (DR2). Nothing about it is posted, and a failed run prints no comment at all: there is nothing to record until the work passes.
+
 ### 4.5 Authorization point
 
 This spec contains **one**, at step 7: the merge to `main`. It carries no DB migration, no GitHub object deletion, no force push, and no service state change. Steps 1–6 proceed without stopping.
@@ -209,11 +223,12 @@ Mapped to #83's five ACs: AC1.x and AC4.x carry its first (walk every AC against
 | AC4.3 | A dropped AC fails | Fixture issue with three ACs, artifact table with two rows → exit non-zero, stderr names the missing AC's text |
 | AC4.4 | A `Not met` row fails, and a `Carried` row without `#N` is treated as `Not met` | Two fixture artifacts: one row `Not met`, one row `Carried` with no issue number → both exit non-zero |
 | AC4.5 | The clean case exits zero | Fixture issue and artifact where every row is `Met` with evidence, every workpath check passes → exit `0` |
+| AC4.6 | A passing run prints a postable closing comment and posts nothing | On the AC4.5 fixture: stdout contains `gh issue comment`, the merge commit SHA, and the results-artifact path; the `gh` seam records no invocation. On any failing fixture, stdout contains no `gh issue comment` line |
 | AC5.1 | The skill exists at the documented location with valid frontmatter | `.claude/skills/closeout/SKILL.md` exists; `python3 -c "import sys,re;t=open('.claude/skills/closeout/SKILL.md').read();sys.exit(0 if re.match(r'^---\n.*?\n---\n', t, re.S) else 1)"` exits `0`, and the block carries `name: closeout` |
 | AC5.2 | It is user-initiated, per #83 and C3 | `grep -c 'disable-model-invocation: true' .claude/skills/closeout/SKILL.md` prints `1` |
 | AC5.3 | It invokes the script rather than restating its logic | `grep -c 'automation/closeout_checks.py' .claude/skills/closeout/SKILL.md` prints at least `1` |
 | AC5.4 | It carries the workpath table, so the reader sees which checks apply where | Within `SKILL.md`, `grep -c 'hotfix'` prints at least `1` and `grep -c 'n/a'` prints at least `1` |
-| AC6.1 | Every rule in AC1.x – AC4.x is covered by a test naming it | `python -m pytest automation/ -q` passes, and `python -m pytest automation/ --collect-only -q \| grep -oE 'ac[1-4]_[0-9]+' \| sort -u \| wc -l` prints `20` |
+| AC6.1 | Every rule in AC1.x – AC4.x is covered by a test naming it | `python -m pytest automation/ -q` passes, and `python -m pytest automation/ --collect-only -q \| grep -oE 'ac[1-4]_[0-9]+' \| sort -u \| wc -l` prints `21` |
 | AC6.2 | The application suite is untouched | `python -m pytest tests/` — zero failures, and the pass count equals the baseline recorded in the step 1 commit message. No test is added to `tests/`, so the count moves by zero |
 | AC6.3 | §1.1 carries the close-out step, per §4.6 | Within `awk '/^### 1.1/,/^### 1.2/' docs/DEVELOPMENT_STANDARDS.md`: `grep -c 'CLOSE-OUT'` prints `1` and `grep -c '/closeout'` prints `1` |
 | AC6.4 | §2.6 and the results template state the restart by branch type and carry no file-path predicate, per §4.6 | Within `awk '/^### 2.6/,/^### 2.7/' docs/DEVELOPMENT_STANDARDS.md`, two greps: `grep -c 'ends with a service restart'` prints `1`, and `grep -cE 'workmain/\|config/'` prints `0` — compare stdout, not exit status, since `grep -c` exits `1` when it prints `0`. The same second grep over `docs/dev/results/_TEMPLATE_RESULTS.md` prints `0` |
