@@ -18,10 +18,12 @@
 | 20260818 | Ray | **Ownership test agreed.** `DEVELOPMENT_STANDARDS.md` owns any rule governing *how work is built*. `CLAUDE.md` owns *who does what*, *what this project is*, and *domain decisions* | Adopted as DR1. Resolves every duplication in recon F14–F25 by one test rather than case-by-case |
 | 20260818 | Ray | **Q4 — fix it.** The F26 collision between "restarting a live service" as an authorization point and §2.6's mandatory post-merge restart | Authorization is scoped to service state changes *outside* the documented post-merge restart, with the carve-out named in §1.4. §2.6 and §2.8 are not edited — a fix there would have weakened a rule added after the Item #58 false regression, which is the circularity Ray's rule 3 forbids |
 | 20260818 | Ray | **Q3 — `_TEMPLATE_RESULTS.md` is in scope**, though no #86 acceptance criterion names it | Declared here rather than left implicit, so Caliper's criterion 4 sees a stated scope extension. Leaving it would have the results template reporting "by gate" against specs that no longer have gates |
-| 20260818 | Ray | **Q5 — the unmerged recon rides this branch.** `docs/dev/design/RECON_CYCLE_MECHANICS.md` exists only on local `chore/cycle-mechanics-recon`, and `ISSUE_CREATION_VALIDATION_SPEC.md:9` cites it from a spec already merged to `main` | Step 6. The citation is broken on both integration branches today |
-| 20260818 | Ray | **Q6 — the two stale `Status: Approved` specs are advanced here.** #81 and #82 shipped without their status advancing (recon F29, F30) | Step 6. #83 owns the close-out *process* that would have caught it; two stale values are simply wrong now and do not wait on it |
+| 20260818 | Ray | **Q5 — the unmerged recon rides this branch.** `docs/dev/design/RECON_CYCLE_MECHANICS.md` exists only on local `chore/cycle-mechanics-recon`, and `ISSUE_CREATION_VALIDATION_SPEC.md:9` cites it from a spec already merged to `main` | Step 7. The citation is broken on both integration branches today |
+| 20260818 | Ray | **Q6 — the two stale `Status: Approved` specs are advanced here.** #81 and #82 shipped without their status advancing (recon F29, F30) | Step 7. #83 owns the close-out *process* that would have caught it; two stale values are simply wrong now and do not wait on it |
 | 20260818 | Ray | Recon carried findings with no dispositions, because §1.1 forbids suggestions in a recon. Information was nearly lost to the absence of a mechanism | Where no artifact can yet hold a decision, it goes in this Decision Log rather than being dropped. This row is that rule applied to itself |
 | 20260818 | Spanner | Recon's first pass missed `DEVELOPMENT_STANDARDS.md:185`, found by a later word-boundary sweep and recorded as F35 | Every acceptance criterion in §5 derives its own set from a command. No AC is checked against a list transcribed from the recon |
+| 20260819 | Ray | **Issue #86 updated** with two acceptance criteria: replace `python -m pytest tests/` with `pytest` for application testing, and revise any claim that tests reside only in `tests/`. `testpaths = ["tests"]` was added to `pyproject.toml` by #82, and §6 was never reconciled with it | In scope, as AC13 and AC14. This is no longer a scope extension — the originating item states it. Supersedes the open question of whether it becomes its own `chore/*` |
+| 20260819 | Spanner | The issue phrases the second criterion as *"approved locations (currently only `automation/`)"*. Writing that parenthetical into the standard would create a second list of test locations that goes stale the first time one is added | §6 states the rule and cites §7's placement table as the single owner of where anything lives. No location list is written into §6. DR10 |
 
 ---
 
@@ -30,10 +32,10 @@
 **In scope** — four files:
 
 - `CLAUDE.md` — § Critical Rules gate bullet, Role 3's residual `Gate 1`, § Common Pitfalls
-  duplication, the OQ4 historical gate citation.
+  duplication, the OQ4 historical gate citation, the § Project Status test-suite command.
 - `docs/DEVELOPMENT_STANDARDS.md` — preamble ownership sentence, §1.1 pipeline and bullets,
-  §1.3 split rule, §2.2, §2.4, §2.7, §4.5, §6.3, §6.4, §7, plus a new §1.4 defining steps
-  and authorization points.
+  §1.3 split rule, §2.2, §2.4, §2.7, §4.5, §6 preamble and command block, §6.3, §6.4, §7,
+  plus a new §1.4 defining steps and authorization points.
 - `docs/dev/specs/_TEMPLATE_SPEC.md` — §3, §4, §7.
 - `docs/dev/results/_TEMPLATE_RESULTS.md` — §2, §3.
 
@@ -84,6 +86,12 @@ from `docs/dev/design/RECON_STEPS_AUTHORIZATION_POINTS.md`.
 | Those two specs are `Status: Approved` despite having shipped and merged | `grep "^\*\*Status:\*\*" docs/dev/specs/*.md`; `git log origin/main..origin/dev` | F29, F30 |
 | `RECON_CYCLE_MECHANICS.md` is on an unmerged local branch and cited by a merged spec | `git branch -a`; `ISSUE_CREATION_VALIDATION_SPEC.md:9` | F31 |
 | `origin/main` and `origin/dev` are content-identical | `git diff origin/main origin/dev` empty | F32 |
+| `pyproject.toml` contains `[tool.pytest.ini_options]` with `testpaths = ["tests"]`, and nothing else — a bare `pytest` resolves to the application suite | `pyproject.toml:1-2` | new |
+| §6's command block still passes an explicit path in three invocations, and the baseline note passes a fourth | `docs/DEVELOPMENT_STANDARDS.md:523-525`, `:529` | new |
+| §6's preamble asserts *"Everything lives in `tests/`"*, contradicted by §6.3's own `automation/` row twenty lines below it | `docs/DEVELOPMENT_STANDARDS.md:520` vs `:590` | new |
+| §6.3's `tests/` row states pytest *"only discovers here"* — true of a bare `pytest` under `testpaths`, misleading as a statement about pytest | `docs/DEVELOPMENT_STANDARDS.md:586` | new |
+| `CLAUDE.md` § Project Status gives the test suite as `python -m pytest tests/` | `CLAUDE.md:62` | new |
+| The templates' pytest references are single-test invocations, where an explicit path is still correct | `_TEMPLATE_SPEC.md:86`; `_TEMPLATE_RESULTS.md:42` | new |
 
 ## 3. Design rules
 
@@ -134,6 +142,15 @@ from `docs/dev/design/RECON_STEPS_AUTHORIZATION_POINTS.md`.
   of the gate. No information is lost — the version is the durable identifier — and the
   acceptance criteria can then use an unqualified zero-hit sweep.
 
+- **DR10 — Test invocation and test locations.** The application suite is run as a bare
+  `pytest`; `testpaths` in `pyproject.toml` resolves it, and passing `tests/` explicitly is
+  redundant. An explicit path stays correct for two cases only: targeting a single file,
+  class, or test, and reaching a suite that sits outside `testpaths`. The standard states
+  that non-application suites exist and are reached by explicit path — it does **not**
+  enumerate them. §7's placement table is the single owner of where anything lives, and
+  §6 cites it rather than carrying a second list that would go stale the first time a
+  location is added.
+
 When something is not covered here, **STOP and surface to Ray**. No self-resolution, no
 scope adjustment, no in-flow architecture calls.
 
@@ -144,17 +161,18 @@ Each step ends with a commit. There is no approval stop between steps.
 | Step | Deliverable | Files |
 | --- | --- | --- |
 | 1 | New `§1.4 Steps and authorization points` carrying DR3–DR6, the authorization set, and the DR6 carve-out named in place. Preamble ownership sentence rewritten to DR1 | `docs/DEVELOPMENT_STANDARDS.md` |
-| 2 | §1.1 pipeline terminates at `IMPLEMENTATION`; §1.1 bullets reworded to steps with a §1.4 pointer; §1.3 split rule replaced by DR7; §2.2, §2.4, §2.7, §6.4 reworded to step vocabulary; §4.5 keeps the migration rule as a §1.4 pointer per DR2; §1.3 and §6.3 absorb the rules arriving from `CLAUDE.md` in step 3 | `docs/DEVELOPMENT_STANDARDS.md` |
-| 3 | Gate bullet removed from § Critical Rules and replaced by a §1.4 pointer; Role 3 `:48` reworded; § Common Pitfalls reduced to the bullets with no `DEVELOPMENT_STANDARDS.md` counterpart; every other duplicated rule removed per DR1; OQ4 citation reworded per DR9; the "nothing is duplicated" claims in both preambles left standing and now true | `CLAUDE.md` |
-| 4 | §3 stop-and-surface restated per DR8 as a pointer to `CLAUDE.md` Role 3; §4 retitled **Steps** with a `Step / Deliverable / Files` table and an **Authorization points** subsection; §7 reworded to steps | `docs/dev/specs/_TEMPLATE_SPEC.md` |
-| 5 | §2 retitled "What shipped, by step" with a `Step / Delivered / Files changed / Tests` table; §3 reworded | `docs/dev/results/_TEMPLATE_RESULTS.md` |
-| 6 | `chore/cycle-mechanics-recon` merged into this branch, restoring `RECON_CYCLE_MECHANICS.md` and fixing #82's broken citation; `Status:` advanced to `Shipped` on `TRACKING_SEMANTICS_CONSOLIDATION_SPEC.md` and `ISSUE_CREATION_VALIDATION_SPEC.md` | `docs/dev/design/RECON_CYCLE_MECHANICS.md`, two spec headers |
-| 7 | Full acceptance sweep per §5, then merge | — |
+| 2 | §1.1 pipeline terminates at `IMPLEMENTATION`; §1.1 bullets reworded to steps with a §1.4 pointer; §1.3 split rule replaced by DR7; §2.2, §2.4, §2.7, §6.4 reworded to step vocabulary; §4.5 keeps the migration rule as a §1.4 pointer per DR2; §1.3 and §6.3 absorb the rules arriving from `CLAUDE.md` in step 4 | `docs/DEVELOPMENT_STANDARDS.md` |
+| 3 | §6 preamble and command block reconciled with `testpaths` per DR10 — bare `pytest`, and the "everything lives in `tests/`" claim replaced by a statement that non-application suites are reached by explicit path, citing §7. §6.3's `tests/` row reworded off "only discovers here" | `docs/DEVELOPMENT_STANDARDS.md` |
+| 4 | Gate bullet removed from § Critical Rules and replaced by a §1.4 pointer; Role 3 `:48` reworded; § Project Status test command becomes `pytest`; § Common Pitfalls reduced to the bullets with no `DEVELOPMENT_STANDARDS.md` counterpart; every other duplicated rule removed per DR1; OQ4 citation reworded per DR9; the "nothing is duplicated" claims in both preambles left standing and now true | `CLAUDE.md` |
+| 5 | §3 stop-and-surface restated per DR8 as a pointer to `CLAUDE.md` Role 3; §4 retitled **Steps** with a `Step / Deliverable / Files` table and an **Authorization points** subsection; §7 reworded to steps. The `:86` single-test invocation is left as-is per DR10 | `docs/dev/specs/_TEMPLATE_SPEC.md` |
+| 6 | §2 retitled "What shipped, by step" with a `Step / Delivered / Files changed / Tests` table; §3 reworded | `docs/dev/results/_TEMPLATE_RESULTS.md` |
+| 7 | `chore/cycle-mechanics-recon` merged into this branch, restoring `RECON_CYCLE_MECHANICS.md` and fixing #82's broken citation; `Status:` advanced to `Shipped` on `TRACKING_SEMANTICS_CONSOLIDATION_SPEC.md` and `ISSUE_CREATION_VALIDATION_SPEC.md` | `docs/dev/design/RECON_CYCLE_MECHANICS.md`, two spec headers |
+| 8 | Full acceptance sweep per §5, then merge | — |
 
 ### Authorization points
 
-This spec contains **one**, at step 7: the merge to `main`. It carries no DB migration, no
-GitHub object deletion, no force push, and no service state change. Per DR3, steps 1–6
+This spec contains **one**, at step 8: the merge to `main`. It carries no DB migration, no
+GitHub object deletion, no force push, and no service state change. Per DR3, steps 1–7
 proceed without stopping.
 
 Per §2.2 this is a `chore/*` branch — it merges to `main` and `dev` with no version bump,
@@ -178,18 +196,24 @@ transcribed from the recon.
 | AC9 | The `CLAUDE.md` § Common Pitfalls bullets that survive are exactly those with no counterpart in `DEVELOPMENT_STANDARDS.md` | For each surviving bullet, its distinguishing phrase returns zero hits in `docs/DEVELOPMENT_STANDARDS.md` | 7 |
 | AC10 | #82's design-study citation resolves | `test -f docs/dev/design/RECON_CYCLE_MECHANICS.md` succeeds on this branch, and the path matches `ISSUE_CREATION_VALIDATION_SPEC.md:9` | — (Q5) |
 | AC11 | No spec is `Status: Approved` while its issue is closed | `grep "^\*\*Status:\*\*" docs/dev/specs/*.md` returns no `Approved` for #81's or #82's spec | — (Q6) |
-| AC12 | No application behaviour changed | `git diff --stat main -- workmain/ tests/ config/ templates/ automation/ .github/` is empty | — |
+| AC12 | No application behaviour changed | `git diff --stat main -- workmain/ tests/ config/ templates/ automation/ .github/ pyproject.toml` is empty | — |
+| AC13 | No in-scope document instructs the reader to run the application suite with an explicit path | Over the four in-scope files only: `grep -n "python -m pytest"` returns zero hits, and `grep -n "pytest tests/" \| grep -v "tests/test_"` returns zero hits. The surviving `pytest tests/test_x.py::...` forms are single-test invocations, correct per DR10. Shipped specs and handoffs are excluded — they record commands as they were run | 8 |
+| AC14 | No document claims tests exist only in `tests/` | `grep -n "Everything lives in" docs/DEVELOPMENT_STANDARDS.md` returns zero hits; §6 contains a sentence naming non-application suites and citing §7; `grep -n "only discovers here" docs/DEVELOPMENT_STANDARDS.md` returns zero hits | 9 |
+| AC15 | The revision introduces no second list of test locations | The §6 text added for AC14 contains no path other than `tests/`; `automation/` appears in §6.3 and §7 only, as it does today | 9 |
 
 ## 6. Test plan
 
 No application code changes, so no test changes. The suite must be **identical** before and
 after — same collected set, same result.
 
-- Run `python -m pytest tests/` on `main` before step 1 and record the result outside this
-  document; run it again after step 7 and compare. No count is transcribed here — per the
-  standing rule, live counts are derived at point of use, not written into artifacts.
-- `automation/` carries its own suite (`*_test.py`), reached only by an explicit path per
-  §6.3. It is untouched, but run it once at step 7 to confirm F33's finding still holds.
+- Run `pytest` on `main` before step 1 and record the result outside this document; run it
+  again after step 8 and compare. `testpaths = ["tests"]` in `pyproject.toml` resolves a
+  bare `pytest` to the application suite, so no path argument is passed. No count is
+  transcribed here — per the standing rule, live counts are derived at point of use, not
+  written into artifacts.
+- `automation/` carries its own suite (`*_test.py`), outside `testpaths` and reached only
+  by an explicit path per §6.3. It is untouched, but run `pytest automation/` once at
+  step 8 to confirm F33's finding still holds.
 - AC12 is the mechanical guard: if the application diff is empty, the suite cannot have
   moved.
 
@@ -199,9 +223,10 @@ after — same collected set, same result.
 | --- | --- | --- |
 | A rule is deleted from `CLAUDE.md` as a duplicate when the `DEVELOPMENT_STANDARDS.md` copy says something subtly different | A standard silently weakens | Step 3 diffs each pair before deleting, and any wording the two do not share is merged into the surviving copy rather than dropped. AC8 checks presence, not equivalence — this is the one place a human read is required |
 | Removing the gate bullet from `CLAUDE.md` § Critical Rules leaves the always-loaded context without the authorization list | An irreversible action is taken without a stop | The replacement is a pointer that names the trigger condition, not a bare cross-reference. DR2 permits the pointer; DR5's list stays in one place |
-| Step 6's branch merge drags in unrelated commits | Scope creep on a `chore/*` branch | `chore/cycle-mechanics-recon` touches one file. Verified with `git diff --stat main...chore/cycle-mechanics-recon` before merging; if it shows anything but `RECON_CYCLE_MECHANICS.md`, stop and surface |
+| Step 7's branch merge drags in unrelated commits | Scope creep on a `chore/*` branch | `chore/cycle-mechanics-recon` touches one file. Verified with `git diff --stat main...chore/cycle-mechanics-recon` before merging; if it shows anything but `RECON_CYCLE_MECHANICS.md`, stop and surface |
+| The §6 rewrite for AC14 reintroduces a location list, or `pyproject.toml` is edited to "fix" a path | A second register to maintain, or a config change on a docs-only branch | AC15 checks the first; AC12's diff now covers `pyproject.toml` and catches the second. `testpaths` is already correct and this spec does not touch it |
 | The four Shipped specs still read in gate vocabulary, contradicting the new standard | A reader treats a historical spec as current guidance | Accepted deliberately — they are records of how that work ran. Their `Status: Shipped` is the signal. #83 may add an explicit banner; not this spec's call |
 
 Rollback is per step: each is a single commit on a `chore/*` branch touching documentation
 only. `git revert` of any one step restores the prior wording with no application impact.
-Nothing here is irreversible before the step 7 merge.
+Nothing here is irreversible before the step 8 merge.
