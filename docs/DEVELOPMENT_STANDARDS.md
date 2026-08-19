@@ -5,8 +5,8 @@ project is (stack, architecture), and domain decisions (tag system, time format,
 terminology, write-path map). This document owns everything else — process, git workflow,
 code patterns, database, CLI structure, and testing.
 
-Read the relevant section before writing code. Everything here has exactly one home; the
-only text restated elsewhere is the `CLAUDE.md` § Critical Rules subset.
+Read the relevant section before writing code. The only text here also stated in
+`CLAUDE.md` is its § Critical Rules subset; nothing else appears in both.
 
 ---
 
