@@ -1,6 +1,6 @@
 # Queue Sequencing — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20260819
 **Branch:** `chore/issue-84-queue-sequencing` (from `main`, merges to `main` and `dev`)
