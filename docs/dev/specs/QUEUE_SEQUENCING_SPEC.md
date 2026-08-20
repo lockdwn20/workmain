@@ -131,18 +131,18 @@ Mapped to #84's four acceptance criteria. Every check is a command, run against 
 | AC1.2 | That output is in board order | Its issue-number sequence equals `gh api graphql` on `items(orderBy:{field:POSITION,direction:ASC})` filtered to open — see the fenced block below |
 | AC1.3 | The `--limit` note is present, so the truncation trap is documented where the command is | The §1.6 range contains `truncates` |
 | AC2.1 | Milestone arrives on every item of the same read, so no second call is needed | The §4.1 command's output carries a milestone column for every row |
-| AC2.2 | Rank within a milestone is a `jq` filter on that one read | `… --query "is:open" \| jq -r '.items[] \| select(.milestone.title == "Phase 18 — Packaging & Deployment") \| "#\(.content.number)"'` returns `#49, #50, #51, #52, #53, #67` in board order |
-| AC3.1 | Project #3 carries zero custom fields | Its field set minus Project #2's is empty — see the fenced block below |
-| AC3.2 | Nothing reads or writes the board's `Status` field, and nothing writes the board | See the fenced block below |
+| AC2.2 | Rank within a milestone is a `jq` filter on that one read | See the fenced block below — it returns `#49, #50, #51, #52, #53, #67` in board order |
+| AC3.1 | Nothing is recorded on the board that is not already on the issue | See the fenced block below — every value the §1.6 read prints for an item, other than its position, equals the issue's own |
+| AC3.2 | `Status` is ignored: no rule depends on it, and nothing in this repository writes to the board | See the fenced block below |
 | AC4.1 | §1.6 exists and states that the next open item on the list is what comes next | The §1.6 range contains `next open item on the list` |
 | AC4.2 | No milestone description carries ordering or blocking prose | See the fenced block below. It returns `1` today — Phase 14's *"Blocked until both Slack sprints close"* (C10) — and must return `0` after step 2 |
 | AC4.3 | §1.3 still names no sequencing mechanism, so #81's AC1.4 continues to pass | See the fenced block below |
 | AC4.4 | No rule is stated in both `CLAUDE.md` and §1.6 | `CLAUDE.md`'s added line is a pointer only — `grep -c 'next open item' CLAUDE.md` returns `0` |
 | AC4.5 | Both suites are unchanged | `pytest tests/` → 934 passed; `pytest automation/` → 45 passed (C12) |
 
-**AC3 is pending a wording decision.** #84's third AC as written — *"no Status"* — cannot be met: `Status` is auto-populated and un-deletable (C6). AC3.1 and AC3.2 above are written against this suggested rewording, which is Ray's to accept or replace:
+**AC3 is pending a wording decision.** #84's third AC as written — *"no Status"* — cannot be met: `Status` is auto-populated and un-deletable (C6). AC3.1 and AC3.2 above are written against this suggested rewording, which keeps #84's own wording and qualifies only that clause. Ray's to accept or replace:
 
-> The Project carries no custom field — board order plus GitHub's built-ins only. The un-deletable `Status` field is ignored: nothing reads it and nothing writes it.
+> The Project carries order and nothing else — no dates, no notes, nothing recorded on the board that is not already on the issue. GitHub's `Status` field auto-populates and cannot be deleted; it is ignored.
 
 ```bash
 # AC1.2 — the documented command's order is the board's own POSITION order
@@ -153,19 +153,23 @@ diff <(gh project item-list 3 --owner lockdwn20 --format json --limit 200 --quer
            ... on Issue{number state}}}}}}}' \
         | jq -r '.data.user.projectV2.items.nodes[] | select(.content.state=="OPEN") | .content.number')
 
-# AC3.1 — no custom field. Project #2 is closed, empty scratch (recon F10) and was never
-# edited, so its field set is GitHub's built-in default. Nothing here enumerates the built-ins.
-python3 - <<'EOF'
-import json, subprocess
-def fields(n):
-    out = subprocess.run(["gh", "project", "field-list", str(n), "--owner", "lockdwn20",
-                          "--format", "json"], capture_output=True, text=True)
-    return {f["name"] for f in json.loads(out.stdout)["fields"]}
-print(sorted(fields(3) - fields(2)))      # []
-EOF
+# AC2.2 — rank within one milestone, from the same single read
+gh project item-list 3 --owner lockdwn20 --format json --limit 200 --query "is:open" \
+  | jq -r '.items[] | select(.milestone.title == "Phase 18 — Packaging & Deployment")
+           | "#\(.content.number)"'
 
-# AC3.2 — no read of Status, no board write, anywhere in the repository
-grep -rnE 'status|fieldValue' docs/DEVELOPMENT_STANDARDS.md CLAUDE.md      # no hit that reads it
+# AC3.1 — the board holds position and nothing of its own. For every item, the title,
+# milestone and labels the read prints are the issue's own values, not board-local ones.
+gh project item-list 3 --owner lockdwn20 --format json --limit 200 --query "is:open" \
+  | jq -r '.items[] | "\(.content.number)\t\(.title)\t\(.milestone.title // "-")"' \
+  | while IFS=$'\t' read -r n title ms; do
+      gh issue view "$n" --json title,milestone \
+        --jq "\"$n\t\(.title)\t\(.milestone.title // \"-\")\"" \
+        | diff - <(printf '%s\t%s\t%s\n' "$n" "$title" "$ms") > /dev/null || echo "DIVERGES: #$n"
+    done                                  # prints nothing
+
+# AC3.2 — Status is named once, to say it is ignored, and nothing writes the board
+sed -n '/^### 1.6/,/^## 2\./p' docs/DEVELOPMENT_STANDARDS.md | grep -c 'it is ignored'   # 1
 grep -rnE 'gh project (item-|field-)?(add|create|edit|delete|archive)' docs/ CLAUDE.md automation/
 
 # AC4.2 — no ordering or blocking prose in any milestone description
