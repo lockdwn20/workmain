@@ -20,7 +20,8 @@
 | 20260819 | Ray | Placing issues in the Project is for the express purpose of ordering them. **The next issue on the list is what comes next.** `--format json` exists to make that simple to read | Accepted. DR1, and the whole of §4.1 |
 | 20260819 | Spanner | A first draft specified `automation/queue.py` over GraphQL, on two claims about `gh project item-list` | **Withdrawn, both claims were wrong.** `--query "is:open"` filters on issue state and does not read `Status` (C3); F30's truncation is handled by `--limit`, which F30 itself already says to pass (C4). Neither is a defect, so neither justifies code. This spec ships documentation only |
 | 20260819 | Ray | We are still building the standards while planning against them; allowances are made so the standards can be written | Accepted. #84 is a documentation issue. Its deliverable is a new `docs/DEVELOPMENT_STANDARDS.md` §1.6, not a tool |
-| 20260819 | Spanner | #84's third AC — *"no Status"* — cannot be met as worded: `Status` is auto-populated and un-deletable (C6) | **Open — Ray's call.** Suggested rewording in §5. The spec's AC3 is written against the reworded form and is marked pending |
+| 20260819 | Spanner | #84's third AC — *"no Status"* — could not be met as worded: `Status` is auto-populated and un-deletable (C6) | **Closed.** Ray updated the AC on the issue, 20260819, qualifying that clause and leaving the rest of his wording. AC3.1 and AC3.2 test the live text |
+| 20260819 | Ray | An AC guarding against a custom field checks a thing that would never happen — the concept was never in consideration | Accepted. It leaked in from recon Q1's rejected `NUMBER`-field option. Removed from AC3, which now tests that the board holds position and nothing of its own |
 | 20260819 | Spanner | The rule lands as a **new §1.6**, not inside §1.3 | #81 deliberately kept §1.3 mechanism-free and its AC1.4 greps §1.3 to prove it. Appending §1.6 renumbers nothing, so no citation breaks |
 
 ---
@@ -140,9 +141,9 @@ Mapped to #84's four acceptance criteria. Every check is a command, run against 
 | AC4.4 | No rule is stated in both `CLAUDE.md` and §1.6 | `CLAUDE.md`'s added line is a pointer only — `grep -c 'next open item' CLAUDE.md` returns `0` |
 | AC4.5 | Both suites are unchanged | `pytest tests/` → 934 passed; `pytest automation/` → 45 passed (C12) |
 
-**AC3 is pending a wording decision.** #84's third AC as written — *"no Status"* — cannot be met: `Status` is auto-populated and un-deletable (C6). AC3.1 and AC3.2 above are written against this suggested rewording, which keeps #84's own wording and qualifies only that clause. Ray's to accept or replace:
+AC3.1 and AC3.2 are written against #84's third AC as it now reads on the issue:
 
-> The Project carries order and nothing else — no dates, no notes, nothing recorded on the board that is not already on the issue. GitHub's `Status` field auto-populates and cannot be deleted; it is ignored.
+> The Project carries order and nothing else — no dates, no notes, nothing recorded on the board that is not already on the issue. GitHub's Status field auto-populates and cannot be deleted; it is ignored.
 
 ```bash
 # AC1.2 — the documented command's order is the board's own POSITION order
