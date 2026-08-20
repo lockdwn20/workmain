@@ -18,7 +18,7 @@
 | 20260814 | Ray | Recon Q5 — milestone sequence is migrated into the Project and **does not remain in prose** | Accepted, and **already true on the board**: the one sentence that carried it was removed on 20260820. Step 2 is the verification, AC4.3 the regression guard |
 | 20260814 | Ray | Recon Q5a — a board holds issues, not milestones, so milestone order is expressed through the milestone carried on each ranked item | Accepted, and confirmed by F31/C2: one `item-list` call returns rank and milestone together |
 | 20260819 | Ray | Placing issues in the Project is for the express purpose of ordering them. **The next issue on the list is what comes next.** `--format json` exists to make that simple to read | Accepted. DR1, and the whole of §4.1 |
-| 20260819 | Spanner | A first draft specified `automation/queue.py` over GraphQL, on two claims about `gh project item-list` | **Withdrawn, both claims were wrong.** `--query "is:open"` filters on issue state and does not read `Status` (C3); F30's truncation is handled by `--limit`, which F30 itself already says to pass (C4). Neither is a defect, so neither justifies code. This spec ships documentation only |
+| 20260819 | Spanner | A first draft specified `automation/queue.py` over GraphQL, on two claims about `gh project item-list` | **Withdrawn, both claims were wrong.** `--query "is:open"` filters on issue state and does not read `Status` (C3), and the `--limit` default is not a defect. Neither justifies code. This spec ships documentation only |
 | 20260819 | Ray | We are still building the standards while planning against them; allowances are made so the standards can be written | Accepted. #84 is a documentation issue. Its deliverable is a new `docs/DEVELOPMENT_STANDARDS.md` §1.6, not a tool |
 | 20260819 | Spanner | #84's third AC — *"no Status"* — could not be met as worded: `Status` is auto-populated and un-deletable (C6) | **Closed.** Ray updated the AC on the issue, 20260819, qualifying that clause and leaving the rest of his wording. AC3.1 and AC3.2 test the live text |
 | 20260819 | Ray | An AC guarding against a custom field checks a thing that would never happen — the concept was never in consideration | Accepted. It leaked in from recon Q1's rejected `NUMBER`-field option. Removed from AC3, which now tests that the board holds position and nothing of its own |
@@ -28,7 +28,7 @@
 | 20260820 | Caliper | F2 — AC3.2's board-write grep hits `RECON_CYCLE_MECHANICS.md:96`, permanently, since recon artifacts are never rewritten | Accepted. Scoped to the surfaces the rule governs, with the expected count stated |
 | 20260820 | Caliper | F3 — #84's fourth AC, the preemption rule, is tested by nothing | Accepted, and it was the headline AC. AC4.1 and AC4.2 now test the preemption clauses; the "§1.6 exists" check moves to AC1.4 where its substance belongs |
 | 20260820 | Caliper | F4 — AC4.5 hard-codes `934` and `45`, so it fails when unrelated tests land on `main` | Accepted. The counts leave the document entirely; the check is that this branch changes no Python file and both suites pass. C12 loses its numbers for the same reason |
-| 20260820 | Caliper | F5 — AC1.2's GraphQL side uses `first:100` against `--limit 200`, reintroducing the trap §1.6 documents | Accepted. Both sides now assert they came back under their own limit before the orders are compared |
+| 20260820 | Ray | `--limit` is not a defect and does not belong in the standard, an AC or a risk row. We work the next issue on the list; the default never bites | Accepted, and Caliper's F5 falls with it. Every mention of truncation is removed — C4, the §1.6 sentence, AC1.3, the risk row, and AC1.2's limit assertions |
 | 20260820 | Caliper | F6 — AC3.1's comment claims labels are checked; the diff compares title and milestone only | Accepted. Labels are added to both sides rather than dropped from the comment — a board-local label is exactly what the AC exists to catch |
 | 20260820 | Caliper | F7 — §1.6's *"no document that names what to work on"* restates the rule #81 left `CLAUDE.md` owning, and AC4.4 greps a phrase that could never appear there | Accepted. The clause is removed from §1.6, `CLAUDE.md` keeps the rule, and AC4.5 tests the boundary by proving it lives in exactly one file |
 | 20260820 | Caliper | F8 — §7 attributes the Projects #1/#2 dependency to AC3.1, which never touches Project #2 | Accepted. Repointed to C5 |
@@ -54,7 +54,6 @@
 - **Board membership.** Every issue joins Project #3 at creation — #82's DR6, already shipped.
 - **Any project write.** No field created, no item moved, no item archived. Ordering is Ray's, in the Web UI.
 - **Removing the built-in `Status` field.** It cannot be removed (C6).
-- **Milestone description content beyond ordering prose.** The `Source: implementation-checklist.md` provenance line stays — see §7.
 - **`workmain/**` and `tests/**`.** Untouched, which is what keeps this on `chore/*` per §2.2.
 
 ## 2. Verified current state
@@ -66,7 +65,6 @@ Verified 20260819 against live GitHub and the working tree.
 | C1 | Project **#3 "WorkmAIn Queue"** is linked to `lockdwn20/workmain` and holds 61 items, 56 open | `gh project item-list 3 --owner lockdwn20 --format json --limit 200` |
 | C2 | **One command returns the ranked open queue with milestone per item**, in board order, no browser: `gh project item-list 3 --owner lockdwn20 --format json --limit 200 --query "is:open"`. `milestone`, `labels` and `status` sit at the item top level, `number` and `title` under `.content` | Live run, 20260819 — head is `#80, #84, #85, #89, #29, #30 …`, matching the board after Ray's reorder. Recon F31 |
 | C3 | **`--query "is:open"` filters on issue state, not on the `Status` field.** It returns 56 of 61 | Live run. `-status:Done` returns the same 56, but `is:open` is an issue-state filter and reads nothing from the project |
-| C4 | `item-list` defaults to `--limit 30` and truncates silently. Recon F30 already states the handling: pass an explicit limit above the current issue count rather than a remembered number | `gh project item-list --help`; recon F30 |
 | C5 | **Nothing has been added to the board beyond what GitHub supplies.** Project #3's field set is identical to Project #2's — closed, empty, never edited — so the difference between them is empty | `gh project field-list` on #2 and #3. Recon F29 |
 | C6 | `Status` is auto-populated by GitHub on every item added, **cannot be deleted**, and persists in `--format json` output even when hidden in the Web UI view. Closed items read `Done` | Recon F32, re-confirmed 20260819 |
 | C7 | `docs/DEVELOPMENT_STANDARDS.md` states **no rule for what comes next**. `grep -nEi "next\|priority\|sequenc\|order\|queue\|rank\|preempt\|schedul"` returns eight hits, all unrelated — spec §4 step ordering, CLI group ordering, `rich.Table` columns, the `schedule` command group | `grep` over the file |
@@ -80,7 +78,7 @@ Verified 20260819 against live GitHub and the working tree.
 
 - **DR1 — The board is the order.** Position in Project #3 is the sequence, and the next open item on the list is what comes next (Ray, 20260819). No document restates the order and no document names a next item.
 - **DR2 — Rank is read, never written.** Ordering is Ray's, set in the Web UI. Nothing in this repository writes to the board.
-- **DR3 — The mechanism is a documented command, not a tool.** `gh project item-list --format json` is the read. It is documented in the new §1.6 this spec writes (§4.1), with the `--limit` note beside it, and that is the whole mechanism. If it later proves insufficient in use, a tool is a new issue with the shortfall named — not an anticipation of one.
+- **DR3 — The mechanism is a documented command, not a tool.** `gh project item-list --format json` is the read, documented in the new §1.6 this spec writes (§4.1). That is the whole mechanism. If it later proves insufficient in use, a tool is a new issue with the shortfall named — not an anticipation of one.
 - **DR4 — `Status` is ignored.** It is auto-populated and un-deletable (C6). Nothing reads it, nothing writes it, and no rule depends on it.
 - **DR5 — Nothing is enumerated that can be derived.** No document holds a list of issues, a milestone order table, or a rank number.
 - **DR6 — Anything this spec does not cover stops the step.** Role 3 escalation procedure, `CLAUDE.md` Role 3. Do not self-resolve.
@@ -107,7 +105,7 @@ Appended after §1.5, so §2 onward is untouched and no citation moves. Wording:
 >   | jq -r '.items[] | "#\(.content.number)\t\(.milestone.title // "—")\t\(.title)"'
 > ```
 >
-> Items come back in board order. `milestone` and `labels` arrive on each item, so rank within a milestone and rank across milestones are the same single read — filter with `jq`, do not re-sort. **Pass `--limit` above the current issue count**: it defaults to 30 and truncates without saying so.
+> Items come back in board order. `milestone` and `labels` arrive on each item, so rank within a milestone and rank across milestones are the same single read — filter with `jq`, do not re-sort.
 >
 > Ordering is Ray's. Position is set in the Web UI, and nothing in this repository writes to the board. The project's `Status` field is auto-populated by GitHub and cannot be removed; it is ignored.
 >
@@ -127,7 +125,7 @@ Ordering prose comes out of milestone descriptions, because board position carri
 
 Read all five descriptions and run AC4.3. If it returns `0`, record that in the results artifact and change nothing. If it returns anything else, strip the offending sentence with `gh api --method PATCH repos/lockdwn20/workmain/milestones/<n>` against `description`, quoting the before-text in the results artifact so the edit is reversible.
 
-The exit condition in each description stays — that is §1.3's requirement and not ordering. So does the `Source:` provenance line (§1, out of scope).
+The exit condition in each description stays — that is §1.3's requirement and not ordering.
 
 A step that changes no file still commits: the results artifact records the verification and its finding. A check that vanishes cannot be distinguished from a check that passed.
 
@@ -144,9 +142,8 @@ Mapped to #84's four acceptance criteria as they read on the issue. Every check 
 | AC | Criterion | How it is checked |
 | --- | --- | --- |
 | AC1.1 | §1.6 carries a single command that returns the ranked open queue with no browser | Run the block quoted in §4.1 verbatim; it exits `0` and prints the open queue |
-| AC1.2 | That output is in the board's own `POSITION` order | Fenced block — both sides assert they came back under their own limit, then the issue-number sequences are diffed |
-| AC1.3 | The `--limit` note sits beside the command, so the truncation trap is documented where it bites | The §1.6 range contains `truncates` |
-| AC1.4 | §1.6 states that the next open item on the list is what comes next | The §1.6 range contains `next open item on the list is what comes next` |
+| AC1.2 | That output is in the board's own `POSITION` order | Fenced block — the issue-number sequences are diffed |
+| AC1.3 | §1.6 states that the next open item on the list is what comes next | The §1.6 range contains `next open item on the list is what comes next` |
 
 ### AC2 — Rank is expressible within a milestone as well as across milestones
 
@@ -176,17 +173,7 @@ Mapped to #84's four acceptance criteria as they read on the issue. Every check 
 | AC4.6 | This branch changes no Python file, and both suites pass | Fenced block. **No count is asserted** — a literal count fails the moment unrelated tests land on `main`, on a branch that touched no code |
 
 ```bash
-# AC1.2 — the documented command's order is the board's own POSITION order.
-# Both sides prove they were not truncated before anything is compared.
-gh project item-list 3 --owner lockdwn20 --format json --limit 200 --query "is:open" \
-  | jq -e '.items | length < 200' > /dev/null || echo "CLI side hit its limit — raise it"
-
-gh api graphql -f query='query{user(login:"lockdwn20"){projectV2(number:3){
-    items(first:100,orderBy:{field:POSITION,direction:ASC}){
-      totalCount pageInfo{hasNextPage} nodes{content{... on Issue{number state}}}}}}}' \
-  | jq -e '.data.user.projectV2.items.pageInfo.hasNextPage | not' > /dev/null \
-  || echo "GraphQL side truncated — page past it"
-
+# AC1.2 — the documented command's order is the board's own POSITION order
 diff <(gh project item-list 3 --owner lockdwn20 --format json --limit 200 --query "is:open" \
         | jq -r '.items[].content.number') \
      <(gh api graphql -f query='query{user(login:"lockdwn20"){projectV2(number:3){
@@ -245,10 +232,8 @@ pytest automation/ -q | tail -1
 
 | Risk | Blast radius | Control |
 | --- | --- | --- |
-| The board grows past the `--limit` passed in §1.6's example | The tail of the queue is silently lost | §1.6 states the rule — pass a limit above the current issue count, not a remembered number. The example uses `200` against 61 items |
 | Project #3 is renamed or renumbered | The §1.6 command returns nothing | The failure is immediate and visible. §1.6 is the only place the project number appears |
 | A milestone description edit is needed after all and loses text | One description on GitHub, not in git | Step 2 edits nothing unless AC4.3 says otherwise, and quotes the before-text in the results artifact first |
 | Projects #1 and #2 are deleted, removing C5's baseline | C5 becomes unverifiable; no AC depends on it | Any ProjectV2 that was never edited serves. Deleting a GitHub object is an authorization point in any case (§1.4) |
-| The `Source: implementation-checklist.md` line in all five milestone descriptions cites an archived document | None today — it is provenance, not a decision basis | Left alone deliberately (§1 out of scope). If it should go, it is its own issue |
 
 **Rollback:** step 1 is one commit on a `chore/*` branch and reverts. Step 2 changes nothing unless AC4.3 finds something, in which case rollback is a `PATCH` restoring the before-text the results artifact quoted. Nothing on the board is modified at any point.
