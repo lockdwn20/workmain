@@ -33,8 +33,7 @@
 | 20260820 | Caliper | F7 — §1.6's *"no document that names what to work on"* restates the rule #81 left `CLAUDE.md` owning, and AC4.4 greps a phrase that could never appear there | Accepted. The clause is removed from §1.6, `CLAUDE.md` keeps the rule, and AC4.5 tests the boundary by proving it lives in exactly one file |
 | 20260820 | Caliper | F8 — §7 attributes the Projects #1/#2 dependency to AC3.1, which never touches Project #2 | Accepted. Repointed to C5 |
 | 20260820 | Caliper | #84's body says the token lacks `project` scope; it has it now | Not this spec's to fix — DR2 forbids board writes either way. The stale line is Ray's to strike from the issue |
-| 20260820 | Caliper | Projects #1 and #2 are deleted, removing C5's baseline | C5 becomes unverifiable; no AC depends on it | Any ProjectV2 that was never edited serves, and the check names no field. Deleting a GitHub object is an authorization point in any case (§1.4) |
-| §1.5 enumerates `Status:` as `Active / Shipped / Superseded`, but every spec uses `Draft` / `Approved` | Out of scope, and Caliper agrees. Its own issue — see §7 |
+| 20260820 | Caliper | §1.5's `Status:` vocabulary omits `Draft` and `Approved`, which every spec uses | **Fixed in step 1, not deferred** (Ray, 20260820). A one-word documentation fix in a file this branch already edits does not need its own issue, a risk row and a log entry. AC4.7 checks it |
 
 ---
 
@@ -44,6 +43,7 @@
 
 - `docs/DEVELOPMENT_STANDARDS.md` — a new **§1.6 Sequencing**, appended after §1.5. The board is the order, how to read it, and the preemption rule. **Every bare `§1.6` in this spec means that new section**, which does not exist until step 1 writes it; its full wording is quoted in §4.1.
 - `CLAUDE.md` Project Status — a pointer to §1.6.
+- `docs/DEVELOPMENT_STANDARDS.md` §1.5 — the `Status:` vocabulary, which omits `Draft` and `Approved` and so is wrong for every spec in the repository.
 - The five milestone descriptions on GitHub — ordering prose removed, per Ray's Q5 answer.
 
 **Out of scope:**
@@ -91,7 +91,7 @@ Each step ends with a commit. There is no approval stop between steps.
 
 | Step | Deliverable | Files |
 | --- | --- | --- |
-| 1 | §1.6 Sequencing, and the `CLAUDE.md` pointer | `docs/DEVELOPMENT_STANDARDS.md`, `CLAUDE.md` |
+| 1 | §1.6 Sequencing, the §1.5 `Status:` fix, and the `CLAUDE.md` pointer | `docs/DEVELOPMENT_STANDARDS.md`, `CLAUDE.md` |
 | 2 | Milestone descriptions — ordering prose removed | GitHub milestones 1–5 (no file) |
 
 ### 4.1 Step 1 — §1.6 Sequencing
@@ -112,6 +112,8 @@ Appended after §1.5, so §2 onward is untouched and no citation moves. Wording:
 > Ordering is Ray's. Position is set in the Web UI, and nothing in this repository writes to the board. The project's `Status` field is auto-populated by GitHub and cannot be removed; it is ignored.
 >
 > **Preemption is expressed by position, and by nothing else.** Work that preempts the schedule is moved to the top of the board. The cycle-mechanics parent (#80) and its children hold that position today: they preempt all scheduled work, because until they close the cycle has no working mechanics to schedule against. **No general category of preempting work is defined.** Future preemption is decided case by case, by Ray, and takes effect as a move on the board — not as a label, a milestone, or a rule added here.
+
+§1.5's `Status:` line becomes: *specs carry `Draft`, `Approved`, `Shipped` or `Superseded`; design and results artifacts carry `Active`, `Shipped` or `Superseded`.*
 
 `CLAUDE.md` Project Status gains one line after the existing `gh issue list` block:
 
@@ -170,6 +172,7 @@ Mapped to #84's four acceptance criteria as they read on the issue. Every check 
 | AC4.3 | No milestone description carries ordering or blocking prose | Fenced block. It returns `0` **before and after** step 2 — the sentence it guarded was removed on the board on 20260820 (C10), so this is a regression guard, not a demonstration of an edit |
 | AC4.4 | §1.3 still names no sequencing mechanism, so #81's AC1.4 continues to pass | Fenced block — returns `0` |
 | AC4.5 | *"sequencing lives in GitHub Issues, never in a document"* is stated in exactly one file | Fenced block — `CLAUDE.md` only. §1.6 owns the mechanism; `CLAUDE.md` owns that rule, and neither restates the other |
+| AC4.7 | §1.5's `Status:` vocabulary covers `Draft` and `Approved` | The §1.5 range contains `Draft` |
 | AC4.6 | This branch changes no Python file, and both suites pass | Fenced block. **No count is asserted** — a literal count fails the moment unrelated tests land on `main`, on a branch that touched no code |
 
 ```bash
@@ -244,8 +247,8 @@ pytest automation/ -q | tail -1
 | --- | --- | --- |
 | The board grows past the `--limit` passed in §1.6's example | The tail of the queue is silently lost | §1.6 states the rule — pass a limit above the current issue count, not a remembered number. The example uses `200` against 61 items |
 | Project #3 is renamed or renumbered | The §1.6 command returns nothing | The failure is immediate and visible. §1.6 is the only place the project number appears |
-| Milestone description edits lose text | Five descriptions on GitHub, not in git | §4.2 changes one sentence in one description and re-reads the other four. Rollback is a `PATCH` restoring the before-text, quoted verbatim in §4.2 |
-| §1.5 enumerates `Status:` as `Active / Shipped / Superseded`, but every spec in `docs/dev/specs/` uses `Draft` / `Approved` | None here — this spec follows the template, as the two before it did | Out of scope and its own issue. §1.5's list is wrong for specs; suggested wording is that specs carry `Draft \| Approved \| Shipped \| Superseded` and design and results carry `Active \| Shipped \| Superseded` (Caliper, 20260820) |
+| A milestone description edit is needed after all and loses text | One description on GitHub, not in git | Step 2 edits nothing unless AC4.3 says otherwise, and quotes the before-text in the results artifact first |
+| Projects #1 and #2 are deleted, removing C5's baseline | C5 becomes unverifiable; no AC depends on it | Any ProjectV2 that was never edited serves. Deleting a GitHub object is an authorization point in any case (§1.4) |
 | The `Source: implementation-checklist.md` line in all five milestone descriptions cites an archived document | None today — it is provenance, not a decision basis | Left alone deliberately (§1 out of scope). If it should go, it is its own issue |
 
-**Rollback:** step 1 is one commit on a `chore/*` branch and reverts. Step 2 is a `PATCH` restoring the before-text in §4.2. Nothing on the board is modified at any point.
+**Rollback:** step 1 is one commit on a `chore/*` branch and reverts. Step 2 changes nothing unless AC4.3 finds something, in which case rollback is a `PATCH` restoring the before-text the results artifact quoted. Nothing on the board is modified at any point.
