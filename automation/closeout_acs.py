@@ -147,6 +147,20 @@ def parse_spec_ac_ids(spec_text: str):
     return ids
 
 
+def _split_table_row(line: str):
+    """Cells of one markdown table row, respecting `\\|` as a literal pipe rather
+    than a column separator — an unescaped split on `|` mis-parses any evidence
+    cell that quotes a pipe-bearing command or regex (the `CYCLE_CLOSEOUT_SPEC.md`
+    F12 lesson)."""
+    parts = re.split(r"(?<!\\)\|", line)
+    cells = [p.strip().replace("\\|", "|") for p in parts]
+    if cells and cells[0] == "":
+        cells = cells[1:]
+    if cells and cells[-1] == "":
+        cells = cells[:-1]
+    return cells
+
+
 def parse_artifact_ac_rows(text: str):
     """Rows of the artifact's §3 table: `(id, status, evidence)`. Skips the header
     and separator rows."""
@@ -165,7 +179,7 @@ def parse_artifact_ac_rows(text: str):
         line = line.strip()
         if not line.startswith("|"):
             continue
-        cells = [c.strip() for c in line.strip("|").split("|")]
+        cells = _split_table_row(line)
         if len(cells) != 3:
             continue
         if set(cells[0]) <= {"-"}:

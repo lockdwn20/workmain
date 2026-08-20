@@ -38,6 +38,13 @@ def test_ac1_2_artifact_ac_rows_parse_to_id_status_evidence():
     ]
 
 
+def test_ac1_2_evidence_cell_may_quote_an_escaped_pipe():
+    rows = ca.parse_artifact_ac_rows(fixture_text("closeout_results_escaped_pipe.md"))
+    assert rows == [
+        ("AC1.1", "Met", "`grep -cE '^| P[0-9]+ |'` returns `11`"),
+    ]
+
+
 # ---------------------------------------------------------------------------
 # AC1.3 - AC1.6 — the AC guard's verdict
 # ---------------------------------------------------------------------------
