@@ -7,7 +7,8 @@
 
 | AC | Status | Evidence |
 | --- | --- | --- |
-| AC1.1 | Not met | `pytest` fails against delivered code |
+| AC1.1 | Met | evidence one |
+| AC1.2 | Met | evidence two |
 
 ## 4. Deviations from spec
 

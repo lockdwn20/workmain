@@ -28,10 +28,14 @@ RECON  →  ANALYSIS  →  SPEC  →  REVIEW  →  APPROVAL  →  IMPLEMENTATION
 - **Approval** — Ray approves explicitly. No implementation without an approved spec.
 - **Implementation** — Role 3, step by step, from the approved spec only. Steps commit
   without a stop; authorization points are the hard stops — see §1.4.
-- **Close-out** — `/closeout <issue>`. Every AC walked against delivered code, the
-  release and deployment record checked against the branch type, and a
-  `docs/dev/results/` artifact written. It reports; it closes nothing. An issue is
-  not done because a spec says it is.
+- **Close-out** — `/closeout <issue>`. Performs the close-out: merges the branch where
+  its type requires, bumps the version, writes the ledger entry, cuts the tag and the
+  Release, restarts the daemon, marks the spec `Shipped`, and completes the
+  `docs/dev/results/` artifact. It verifies that every AC on the approved spec was
+  disposed of — met, or carried to a cited follow-up — but does not re-judge them;
+  Anvil walks the ACs against delivered code and records the result before close-out
+  begins. It stops at each authorization point it crosses (§1.4) and nowhere else.
+  Posting the closing comment and closing the issue stay Ray's.
 
 ### 1.2 Spec authoring rules
 
@@ -41,6 +45,11 @@ RECON  →  ANALYSIS  →  SPEC  →  REVIEW  →  APPROVAL  →  IMPLEMENTATION
 - Defects found during verification become their own hotfix, not sprint scope.
 - Acceptance criteria must be mechanically testable. If an AC cannot be checked by running
   something, rewrite it until it can.
+- A spec's §5 maps its sub-ACs to the ACs on the originating issue, either as an opening
+  paragraph or as a fourth `Issue AC` column on the table. The issue's ACs state the
+  outcome; the spec's decompose it into what can be run. Sub-ACs are numbered `ACn.m`,
+  which is what lets close-out read the set mechanically. An unmapped sub-AC verifies
+  nothing the issue asked for.
 - At least one Role 2 review pass before a spec is approved.
 
 ### 1.3 Issue discipline
@@ -161,8 +170,7 @@ chore/*    — documentation/process/tooling only. From main, merges to main AND
 
 **`chore/*`** — from `main`, merges to `main` then `dev`.
 
-- For `docs/**`, standards documents, and dev tooling that changes no application behaviour
-  (`.gitignore`, `.githooks/`, `.github/`, `automation/`, editor/CI config).
+- For `docs/**`, standards documents, `.claude/`, and dev tooling that changes no application behaviour (`.gitignore`, `.githooks/`, `.github/`, `automation/`, editor/CI config).
 - **Exception:** a change to `workmain/**`, `tests/**`, or `scripts/**` may use `chore/*`
   if it is mechanically proven behaviour-neutral (e.g. AST-equality) *and* the governing
   spec states the proof method.

@@ -7,7 +7,7 @@
 
 | AC | Status | Evidence |
 | --- | --- | --- |
-| AC1.1 | Not met | `pytest` fails against delivered code |
+| AC1.1 | Met | `grep -cE '^\| P[0-9]+ \|'` returns `11` |
 
 ## 4. Deviations from spec
 

@@ -86,6 +86,8 @@ none, say so explicitly.
 Every AC must be mechanically checkable. If you cannot write the command that proves it,
 rewrite the AC until you can.
 
+Map the sub-ACs to the originating issue's ACs — an opening paragraph, or a fourth `Issue AC` column. Number them `ACn.m`. Every AC must be mechanically checkable.
+
 | AC | Criterion | How it is checked |
 | --- | --- | --- |
 | AC1.1 | | `pytest tests/test_x.py::test_y` |
