@@ -26,7 +26,9 @@
 | 20260819 | Ray | Q8 — the failing run is demonstrated on a **copy** of `chore/issue-84-queue-sequencing`, stopping before any merge; the passing run is #90 closing itself out | Accepted. §4.7, step 5 |
 | 20260819 | Spanner | Q4 reassigns the against-delivered-code duty: §1.1's close-out bullet and `_TEMPLATE_RESULTS.md` §3 both place it at close-out, where it no longer lives | Both reworded to name Anvil. The obligation moves to where it is already performed; it is not dropped. §4.6 |
 | 20260819 | Spanner | The issue-AC ↔ spec-sub-AC mapping Q4 depends on is practised in three of the eight live specs and required by none | `_TEMPLATE_SPEC.md` §5 and §1.2 require it. §4.6, AC4.4 |
-| 20260819 | Spanner | Who authors the results artifact? Q4 says close-out does not judge ACs, so it cannot author the AC table | **Anvil authors it as his last implementation step; close-out completes only §5, whose facts do not exist until close-out time.** Decided by Spanner under Role 1 authority — flagged here for Ray at approval, since it adds an obligation to Anvil's end of the cycle. DR5, §4.4 |
+| 20260819 | Ray | Who authors the results artifact? **Anvil** — results-file generation becomes part of his session skill, #85. Statement only; nothing is built for it here | Accepted, and it confirms the Role 1 reading. Anvil writes it as his last implementation step; close-out completes only §5, whose facts do not exist until close-out time. DR5, §4.4, §1 out of scope |
+| 20260819 | Ray | Concern: does Q4 mean the results file is not checked at all? | **No.** P5 checks existence and `Status:`; P6 checks that every spec AC has a row, that every row is `Met` or a cited `Carried`, that every `Met` row carries evidence, and that no row carries an id the spec does not have. What is not checked is whether a `Met` is truthful — that is the redundant fourth pass Q4 removes. §4.1, §4.4 |
+| 20260819 | Ray | Supplied Anthropic's `skill-creator` SKILL.md as the authoring reference | Adopted for structure and writing style: progressive disclosure, one reference file per branch-type variant, imperative instructions, reasons rather than bare MUSTs. Its eval/benchmark loop is declined with cause. DR10, §4.8 |
 | 20260819 | Spanner | `user-invocable: true` exists only on the parked `chore/issue-84-queue-sequencing` branch and is absent from `main` | This branch reapplies it. C13, AC3.1 |
 
 ---
@@ -48,6 +50,7 @@
 
 - **Posting the closing comment and closing the issue.** Both remain Ray's; #90's first AC says so explicitly. DR1.
 - **Backfilling #81, #82, #84 or #86.** Closed and parked work is not reopened to satisfy a standard written after it.
+- **Generating the results artifact.** Anvil authors it; that generation becomes part of his session-open skill under **#85**, which this spec states and does not build. Close-out consumes and completes the artifact, it does not produce it.
 - **#84's own close-out.** It happens after this ships, using this skill, as its own act. §4.7 is a demonstration on a copy and merges nothing.
 - **The `Issue: #NN` commit trailer and its `commit-msg` hook.** Still its own issue, as `CYCLE_CLOSEOUT_SPEC.md` §1 recorded.
 - **`workmain/**`, `tests/**`, `config/*` and `templates/*`.** No application behaviour changes, which is what keeps this on `chore/*` per §2.2.
@@ -91,6 +94,7 @@ Every row was read at authoring time on this branch, cut from `main`. Findings r
 - **DR7 — Every failure names its remedy.** A reported failure states what to do about it. A run that fails and leaves the operator guessing has moved the problem, not surfaced it.
 - **DR8 — Nothing is enumerated that can be derived.** The AC list comes from the approved spec, the branch from `git branch --show-current`, the type from its prefix, the version from `workmain/__version__.py`, the changed paths from git. No register of issues, no maintained issue-to-branch mapping, no literal counts in any document this spec writes.
 - **DR9 — The skill orchestrates; one small module holds the one guard worth testing.** `closeout_checks.py`'s monolithic `run()` retires. `automation/closeout_acs.py` holds DR4's comparison — spec AC ids in, artifact rows in, verdict out — because that is the Item 32 guard and it must be testable. Everything else is `git` and `gh` invoked by the skill, where it can stop and ask.
+- **DR10 — The skill is a directory, and the branch types are its variants.** `SKILL.md` carries only what every run needs: when to run it, the preflight table, the two stops, and how to pick the variant. Each branch type's perform sequence is a reference file read once that type resolves, so a `chore/*` run never loads the `feature/*` PR-wait procedure. This is `skill-creator`'s progressive-disclosure and per-variant-reference pattern, and the three workpaths are exactly the shape it describes. Instructions are imperative and state their reason; a bare `MUST` with no reason behind it is a defect in this skill, not a strength.
 - **Anything not covered here: STOP and surface to Ray.** No self-resolution, no scope adjustment. Unconditional, and independent of step boundaries.
 
 ## 4. Steps
@@ -100,8 +104,8 @@ Ordered, each committed on completion. **No step is an approval stop** (§1.4). 
 | Step | Deliverable | Files | Verification |
 | --- | --- | --- | --- |
 | 1 | Retire the old script and its tests; add `closeout_acs.py` — DR4's comparison and nothing else | `automation/closeout_checks*.py` (deleted), `automation/fixtures/`, `automation/closeout_acs.py`, `automation/closeout_acs_test.py` | AC1.1 – AC1.6 |
-| 2 | The skill's preflight: resolution, the read-only checks, total reporting, remedies — per §4.1 | `.claude/skills/closeout/SKILL.md` | AC2.1 – AC2.6 |
-| 3 | The skill's perform sequence, per branch type, and its two stops — per §4.2 and §4.3 | `.claude/skills/closeout/SKILL.md` | AC3.1 – AC3.7 |
+| 2 | `SKILL.md`: frontmatter, when to run, the preflight table, the two stops, variant selection — per §4.1, §4.3 and §4.8 | `.claude/skills/closeout/SKILL.md` | AC2.1 – AC2.7 |
+| 3 | One reference file per branch type, carrying that type's perform sequence — per §4.2 and §4.8 | `.claude/skills/closeout/references/{chore,feature,hotfix}.md` | AC3.1 – AC3.8 |
 | 4 | Standards and template amendments; supersede the old spec and results — per §4.6 | `docs/DEVELOPMENT_STANDARDS.md`, `docs/dev/specs/_TEMPLATE_SPEC.md`, `docs/dev/results/_TEMPLATE_RESULTS.md`, `docs/dev/specs/CYCLE_CLOSEOUT_SPEC.md`, `docs/dev/results/CYCLE_CLOSEOUT_RESULTS.md` | AC4.1 – AC4.5 |
 | 5 | The two demonstrations — per §4.7 | `docs/dev/results/CLOSEOUT_PERFORMS_RESULTS.md` | AC5.1 – AC5.2 |
 | 6 | Merge to `main`, then `dev`; delete the branch — **two authorization points**, see §4.5 | — | — |
@@ -223,6 +227,28 @@ git branch closeout-fixture-issue-84 chore/issue-84-queue-sequencing
 
 **The passing run** — #90 closes itself out. Step 6 is performed *by* `/closeout 90`, not by hand: the skill merges this branch to `main` and `dev`, stops at both authorization points, completes its own results artifact and prints its own closing comment. If the skill is broken, its own close-out is what fails, which is the strongest demonstration available and the reason it is worth the circularity.
 
+### 4.8 The skill's shape
+
+Ray supplied Anthropic's `skill-creator` as the authoring reference. What is taken from it, and what is not:
+
+```text
+.claude/skills/closeout/
+├── SKILL.md          — frontmatter; when to run; §4.1 preflight; §4.3 stops; variant selection
+└── references/
+    ├── chore.md      — the §4.2 chore/* sequence
+    ├── feature.md    — the §4.2 feature/* sequence, including the PR wait
+    └── hotfix.md     — the §4.2 hotfix/* sequence
+```
+
+**Taken.** Progressive disclosure — `SKILL.md` holds what every run needs and stays well inside the 500-line guidance; the branch-type sequences load only when that type resolves. Per-variant reference files, which is `skill-creator`'s stated pattern for a skill spanning several domains and is exactly what three workpaths are. Imperative instructions that explain their reason, rather than capitalised absolutes.
+
+**Not taken, with cause.**
+
+- **The `scripts/` bundle.** `closeout_acs.py` stays in `automation/`, beside `check_release_integrity.py` and `issue_validator.py`. It is invoked by its own test suite as well as by the skill, `automation/` is this repository's established home for dev tooling, and §2.2 names that directory explicitly. `skill-creator`'s `scripts/` convention serves a skill that ships self-contained; this one does not.
+- **The `assets/` bundle.** `_TEMPLATE_RESULTS.md` is not copied into the skill. It has one owner in `docs/dev/results/`, and a second copy would be a duplicate of a rule, which §1.5 forbids. The skill cites the path.
+- **The eval and benchmark loop.** `skill-creator`'s iteration harness — test prompts, baseline runs, graders, `benchmark.json` — exists to tune a skill whose output is open-ended. This skill's output is a sequence of git and `gh` operations with a defined correct result, and its verification is §4.7's two live runs plus §5's commands. A benchmark comparing it against a no-skill baseline would measure nothing this spec does not already assert.
+- **Description optimisation.** Moot: `disable-model-invocation: true` means the description is never a trigger, only a label. Nobody should later "optimise" it against a trigger eval set, because there is nothing to trigger.
+
 ## 5. Acceptance criteria
 
 Mapped to #90's six ACs: AC3.x carries its first (a run leaves the issue closed out); AC3.6 – AC3.7 its second (stops at authorization points and nowhere else, named in `SKILL.md`); AC2.4 – AC2.6 its third (every check reports pass/fail/n-a with a reason, and unevaluable is a failure); AC1.x and AC4.4 its fourth (one AC set, a stated issue↔sub-AC relationship, no prose copied); AC2.6 and AC5.x its fifth (a failing run says what to do, a passing run produces the comment, both demonstrated); AC6.1 its sixth (every one of the twenty-two defects fixed or dropped with a reason).
@@ -243,12 +269,13 @@ Mapped to #90's six ACs: AC3.x carries its first (a run leaves the issue closed 
 | AC2.6 | Every preflight row carries a remedy | Every preflight row in `SKILL.md` has a non-empty final cell. The command is below this table, for the same reason |
 | AC2.7 | Failures print once, to stderr only | `SKILL.md`'s reporting paragraph states it; the retired `_report()` (C7) is gone with AC2.1 |
 | AC3.1 | The skill is user-invocable, restoring what only the parked branch carries | `grep -c 'user-invocable: true' .claude/skills/closeout/SKILL.md` prints `1`, and `grep -c 'disable-model-invocation: true'` prints `1` (C13) |
-| AC3.2 | `SKILL.md` carries a distinct perform sequence for each of the three branch types | Within `SKILL.md`, a heading or bold run for each of `chore/*`, `feature/*`, `hotfix/*` in the perform section — three matches, checked by `grep -c` per type |
+| AC3.2 | Each branch type has its own reference file, per §4.8 | `ls .claude/skills/closeout/references/chore.md .claude/skills/closeout/references/feature.md .claude/skills/closeout/references/hotfix.md` exits `0` — it exits non-zero if any one is absent, and unlike a `for` loop with `exit 1` it cannot kill the shell that runs it. `SKILL.md` names all three paths, so each variant is reachable |
 | AC3.3 | The `feature/*` path opens a PR and never merges it | Within `SKILL.md`, `grep -c 'gh pr create'` prints at least `1`, and `grep -c 'gh pr merge'` prints `0` — compare stdout, not exit status |
 | AC3.4 | The `feature/*` PR wait verifies the merge rather than trusting the answer | Within `SKILL.md`, `grep -c 'gh pr view'` prints at least `1` |
 | AC3.5 | Every merge the skill performs is `--no-ff` | Within `SKILL.md`, every line containing `git merge` also contains `--no-ff` — `grep -c 'git merge'` equals `grep -c 'git merge --no-ff'` |
 | AC3.6 | The skill stops at exactly the two authorization points and names them | Within `SKILL.md`, `grep -c 'AskUserQuestion'` is at least `1`; the stops named are the `main` merge and the branch deletion, and no third |
 | AC3.7 | The restart is performed without a stop, per §1.4's carve-out | Within `SKILL.md`, the restart step contains `systemctl --user restart` and the words `not a stop` or `§1.4` carve-out reference; it does not appear inside a stop block |
+| AC3.8 | `SKILL.md` stays inside the progressive-disclosure budget and holds no branch-type sequence | `wc -l < .claude/skills/closeout/SKILL.md` is under `500`, and within `SKILL.md` `grep -c 'gh release create'` prints `0` — the release step belongs to two reference files, not the entry point |
 | AC4.1 | §1.1's close-out bullet states that close-out performs and does not re-judge ACs | Within `awk '/^### 1.1/,/^### 1.2/' docs/DEVELOPMENT_STANDARDS.md`: `grep -c 'does not re-judge'` prints `1` and `grep -c 'Performs the close-out'` prints `1` |
 | AC4.2 | §1.2 requires the issue↔sub-AC mapping | Within `awk '/^### 1.2/,/^### 1.3/' docs/DEVELOPMENT_STANDARDS.md`: `grep -c 'originating issue'` prints at least `1` |
 | AC4.3 | `_TEMPLATE_RESULTS.md` §3's prose and its example row agree, and name Anvil as author | Within `awk '/^## 3\./,/^## 4\./' docs/dev/results/_TEMPLATE_RESULTS.md`: `grep -c 'approved spec'` prints at least `1`, `grep -c 'written by Anvil'` prints `1`, and `grep -c 'on the issue'` prints `0` |
