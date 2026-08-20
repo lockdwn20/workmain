@@ -1,6 +1,6 @@
 # Cycle Close-Out — Implementation Results
 
-**Status:** Shipped
+**Status:** Superseded — by `docs/dev/specs/CLOSEOUT_PERFORMS_SPEC.md`
 **Author:** Anvil (Role 3)
 **Date:** 20260820
 **Spec:** `docs/dev/specs/CYCLE_CLOSEOUT_SPEC.md`

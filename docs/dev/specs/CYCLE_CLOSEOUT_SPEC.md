@@ -1,6 +1,6 @@
 # Cycle Close-Out — Spec
 
-**Status:** Approved
+**Status:** Superseded — by `docs/dev/specs/CLOSEOUT_PERFORMS_SPEC.md`
 **Author:** Spanner (Role 1)
 **Date:** 20260819
 **Branch:** `chore/issue-83-cycle-closeout` (from `main`, merges to `main` and `dev`)
