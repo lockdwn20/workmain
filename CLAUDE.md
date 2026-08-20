@@ -98,6 +98,8 @@ gh issue list --state open --limit 200 \
   --json number,title,state,milestone,labels,parent,subIssuesSummary
 ```
 
+That command reads issue *content*. Order is separate and lives in the `WorkmAIn Queue` project — see `docs/DEVELOPMENT_STANDARDS.md` §1.6.
+
 Requires `gh` ≥ 2.6x for `parent` / `subIssues` / `subIssuesSummary` (Issues 2.0 support).
 
 What milestones, labels, and parent/child structure mean: `docs/DEVELOPMENT_STANDARDS.md` §1.3.
