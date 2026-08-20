@@ -93,7 +93,8 @@ A spec's §4 is ordered work, defined below.
   (design studies and recon), `specs/`, `results/` (implementation results).
 - **Filenames are subject-based** — no version suffix, no date. Artifacts are updated in
   place, so filenames never change and citations never break.
-- **Every artifact carries a `Status:` field** — `Active`, `Shipped`, or `Superseded`.
+- **Every artifact carries a `Status:` field** — specs carry `Draft`, `Approved`, `Shipped`
+  or `Superseded`; design and results artifacts carry `Active`, `Shipped` or `Superseded`.
   - While work is live, retirement is a status edit, not a file move. An artifact stays
     where it is, and where it is cited, for as long as it is being referenced.
   - **`docs/archive/`** holds artifacts whose work is complete. Move an artifact there
@@ -112,6 +113,21 @@ A spec's §4 is ordered work, defined below.
 - Each `docs/dev/` subdirectory holds a `_TEMPLATE_*.md` starting point. Templates are
   advisory — **template compliance is not a Caliper review criterion.**
 - Always create the spec in the correct subdirectory before writing any code.
+
+### 1.6 Sequencing
+
+**The board is the order.** Every issue joins the `WorkmAIn Queue` project at creation (§1.3), and its position there is the sequence. The next open item on the list is what comes next. There is no priority label and no rank field.
+
+```bash
+gh project item-list 3 --owner lockdwn20 --format json --limit 200 --query "is:open" \
+  | jq -r '.items[] | "#\(.content.number)\t\(.milestone.title // "—")\t\(.title)"'
+```
+
+Items come back in board order. `milestone` and `labels` arrive on each item, so rank within a milestone and rank across milestones are the same single read — filter with `jq`, do not re-sort.
+
+Ordering is Ray's. Position is set in the Web UI, and nothing in this repository writes to the board. The project's `Status` field is auto-populated by GitHub and cannot be removed; it is ignored.
+
+**Preemption is expressed by position, and by nothing else.** Work that preempts the schedule is moved to the top of the board. The cycle-mechanics parent (#80) and its children hold that position today: they preempt all scheduled work, because until they close the cycle has no working mechanics to schedule against. **No general category of preempting work is defined.** Future preemption is decided case by case, by Ray, and takes effect as a move on the board — not as a label, a milestone, or a rule added here.
 
 ---
 
