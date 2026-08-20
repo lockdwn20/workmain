@@ -1,6 +1,6 @@
 # Close-Out Performs the Close-Out — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20260819
 **Branch:** `chore/issue-90-closeout-performs` (from `main`, merges to `main` and `dev`)
@@ -56,6 +56,9 @@
 | 20260819 | Caliper | H2 — `_TEMPLATE_RESULTS.md`'s `**Released as:**` field had no author on a `feature/*` close-out, where the bump lands on `dev` after the artifact is committed | Accepted, and the premise that the version is unknown was wrong: §2.5 makes it deterministic from the current one, so close-out computes and writes it at step 1. The PR number and Release URL genuinely postdate the commit and move to the closing comment. DR5 and §4.6 |
 | 20260819 | Caliper | H3 — a transcribed count in a Decision Log row contradicted C10 as corrected | Accepted. Reworded to cite C10 rather than carry a number |
 | 20260819 | Ray | The complaint about the existing skill was never house style — the Copilot skills are proprietary and not on this network. It was that the skill amounted to "run the script and compare the results to the table", which `skill-creator` shows is a poor skill | Accepted, and the form reference is withdrawn as a spec input; nothing is blocked on it. The structural fix was already in place — there is no script left to wrap. DR10 now names the failure, and AC3.8 gives it a mechanical floor so the same thinness cannot return spread across four files |
+| 20260819 | Ray | The purpose of this skill and the ones after it: **turn what is already specified into a repeatable run of events.** Every close-out does the same things; every session opens the same way. Today the next issue is re-derived with a different pile of commands each session, and each one closes with a different summary that does not apply | Recorded because it is the rationale for the whole #80 family and is written nowhere else — not in #90's body, not in #85's. It is the measure this skill is judged against: same inputs, same run, every time |
+| 20260819 | Ray | Skill-review criteria are **not** added to `docs/DEVELOPMENT_STANDARDS.md` yet — a good skill has to exist before its review rubric is codified | Accepted. Nothing about the criteria enters this spec. Caliper reviews the skill documents against Anthropic's `skill-creator` before step 5 as a one-off, and whether that becomes a standing Role 2 review mode is decided after this ships, on the evidence |
+| 20260819 | Ray | **Approved.** Three Caliper rounds closed — F1–F15, G1–G8, H1–H3 all resolved | Status Draft → Approved. Implementation may begin at step 1, by Anvil, from the spec alone |
 
 ---
 
