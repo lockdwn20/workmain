@@ -169,8 +169,8 @@ Mapped to #84's four acceptance criteria as they read on the issue. Every check 
 | AC4.3 | No milestone description carries ordering or blocking prose | Fenced block. It returns `0` **before and after** step 2 — the sentence it guarded was removed on the board on 20260820 (C10), so this is a regression guard, not a demonstration of an edit |
 | AC4.4 | §1.3 still names no sequencing mechanism, so #81's AC1.4 continues to pass | Fenced block — returns `0` |
 | AC4.5 | *"sequencing lives in GitHub Issues, never in a document"* is stated in exactly one file | Fenced block — `CLAUDE.md` only. §1.6 owns the mechanism; `CLAUDE.md` owns that rule, and neither restates the other |
-| AC4.7 | §1.5's `Status:` vocabulary covers `Draft` and `Approved` | The §1.5 range contains `Draft` |
 | AC4.6 | This branch changes no Python file, and both suites pass | Fenced block. **No count is asserted** — a literal count fails the moment unrelated tests land on `main`, on a branch that touched no code |
+| AC4.7 | §1.5's `Status:` vocabulary covers `Draft` and `Approved` | The §1.5 range contains `Draft` |
 
 ```bash
 # AC1.2 — the documented command's order is the board's own POSITION order
