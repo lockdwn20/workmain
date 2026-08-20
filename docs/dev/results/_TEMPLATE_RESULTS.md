@@ -15,6 +15,12 @@
 > never gets written is the most common way a sprint's real outcome is lost — the spec
 > says what was intended, and only this says what actually happened.
 >
+> **Released as:** the version and tag, computed at close-out from §2.5 and the current
+> `workmain/__version__.py` — deterministic before the merge, which is when this file is
+> committed. `n/a` on `chore/*`, which §2.2 allows no release. The PR number, the Release
+> URL and the confirmed restart timestamp are **not** here: they postdate this commit and
+> are carried by the issue's closing comment.
+>
 > This template is advisory. Template compliance is not a Caliper review criterion.
 
 ---
@@ -33,9 +39,7 @@ What shipped, in a paragraph. State plainly whether the work is complete or part
 
 ## 3. Acceptance criteria
 
-Every AC on the issue, checked against **delivered code** — not against the issue's own
-claim that it was delivered. Item 32 was closed in Phase 13 Sprint 2 with all four ACs
-unmet and had to be reopened eleven days later; that is what this table exists to prevent.
+Every AC on the **approved spec**, by identifier, checked against **delivered code**. This table is written by Anvil as the last implementation step — he ran the ACs, so he is the only one who can fill it. Close-out verifies that every spec AC has a row and that every row is `Met` or a `Carried` citing its follow-up issue; it does not re-judge them. Item 32 was closed in Phase 13 Sprint 2 with all four ACs unmet and had to be reopened eleven days later; that is what this table exists to prevent.
 
 | AC | Status | Evidence |
 | --- | --- | --- |
