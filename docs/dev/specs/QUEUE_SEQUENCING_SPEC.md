@@ -19,7 +19,7 @@
 | 20260814 | Ray | Recon Q5a — a board holds issues, not milestones, so milestone order is expressed through the milestone carried on each ranked item | Accepted, and confirmed by F31/C2: one `item-list` call returns rank and milestone together |
 | 20260819 | Ray | Placing issues in the Project is for the express purpose of ordering them. **The next issue on the list is what comes next.** `--format json` exists to make that simple to read | Accepted. DR1, and the whole of §4.1 |
 | 20260819 | Spanner | A first draft specified `automation/queue.py` over GraphQL, on two claims about `gh project item-list` | **Withdrawn, both claims were wrong.** `--query "is:open"` filters on issue state and does not read `Status` (C3); F30's truncation is handled by `--limit`, which F30 itself already says to pass (C4). Neither is a defect, so neither justifies code. This spec ships documentation only |
-| 20260819 | Ray | We are still building the standards while planning against them; allowances are made so the standards can be written | Accepted. #84 is a documentation issue. Its deliverable is §1.6, not a tool |
+| 20260819 | Ray | We are still building the standards while planning against them; allowances are made so the standards can be written | Accepted. #84 is a documentation issue. Its deliverable is a new `docs/DEVELOPMENT_STANDARDS.md` §1.6, not a tool |
 | 20260819 | Spanner | #84's third AC — *"no Status"* — cannot be met as worded: `Status` is auto-populated and un-deletable (C6) | **Open — Ray's call.** Suggested rewording in §5. The spec's AC3 is written against the reworded form and is marked pending |
 | 20260819 | Spanner | The rule lands as a **new §1.6**, not inside §1.3 | #81 deliberately kept §1.3 mechanism-free and its AC1.4 greps §1.3 to prove it. Appending §1.6 renumbers nothing, so no citation breaks |
 
@@ -29,7 +29,7 @@
 
 **In scope:**
 
-- `docs/DEVELOPMENT_STANDARDS.md` — a new **§1.6 Sequencing**, appended after §1.5. The board is the order, how to read it, and the preemption rule.
+- `docs/DEVELOPMENT_STANDARDS.md` — a new **§1.6 Sequencing**, appended after §1.5. The board is the order, how to read it, and the preemption rule. **Every bare `§1.6` in this spec means that new section**, which does not exist until step 1 writes it; its full wording is quoted in §4.1.
 - `CLAUDE.md` Project Status — a pointer to §1.6.
 - The five milestone descriptions on GitHub — ordering prose removed, per Ray's Q5 answer.
 
@@ -67,7 +67,7 @@ Verified 20260819 against live GitHub and the working tree.
 
 - **DR1 — The board is the order.** Position in Project #3 is the sequence, and the next open item on the list is what comes next (Ray, 20260819). No document restates the order and no document names a next item.
 - **DR2 — Rank is read, never written.** Ordering is Ray's, set in the Web UI. Nothing in this repository writes to the board.
-- **DR3 — The mechanism is a documented command, not a tool.** `gh project item-list --format json` is the read. It is documented in §1.6 with the `--limit` note, and that is the whole mechanism. If it later proves insufficient in use, a tool is a new issue with the shortfall named — not an anticipation of one.
+- **DR3 — The mechanism is a documented command, not a tool.** `gh project item-list --format json` is the read. It is documented in the new §1.6 this spec writes (§4.1), with the `--limit` note beside it, and that is the whole mechanism. If it later proves insufficient in use, a tool is a new issue with the shortfall named — not an anticipation of one.
 - **DR4 — `Status` is ignored.** It is auto-populated and un-deletable (C6). Nothing reads it, nothing writes it, and no rule depends on it.
 - **DR5 — Nothing is enumerated that can be derived.** No document holds a list of issues, a milestone order table, or a rank number.
 - **DR6 — Anything this spec does not cover stops the step.** Role 3 escalation procedure, `CLAUDE.md` Role 3. Do not self-resolve.
