@@ -17,7 +17,7 @@ Issue #90 states that `/closeout` was built to report on a close-out and was mea
 Examined:
 
 - `.claude/skills/closeout/SKILL.md` at `main` (`5e018ec`) and at `chore/issue-84-queue-sequencing` (`d6068d4`).
-- `automation/closeout_checks.py` in full, 690 lines — every check function, `run()`, `_report()`, and the resolution and parsing helpers.
+- `automation/closeout_checks.py` in full — every check function, `run()`, `_report()`, and the resolution and parsing helpers.
 - `docs/dev/specs/CYCLE_CLOSEOUT_SPEC.md` in full — Decision Log, §1 scope, §2 verified state (C1–C19), §3 design rules (DR1–DR10), §4 steps and sub-sections, §5 ACs, §6 test plan, §7 risks.
 - `docs/dev/results/CYCLE_CLOSEOUT_RESULTS.md`, `docs/dev/results/_TEMPLATE_RESULTS.md` §3.
 - `docs/DEVELOPMENT_STANDARDS.md` §1.1, §1.4, §2.1–§2.8.
@@ -26,7 +26,7 @@ Examined:
 
 Not examined, and therefore not covered by any finding below:
 
-- `automation/closeout_checks_test.py` (367 lines) and `automation/fixtures/`. Whether the existing 26 tests would survive a scope change is unassessed.
+- `automation/closeout_checks_test.py` and `automation/fixtures/`. Whether the existing tests would survive a scope change is unassessed.
 - `automation/check_release_integrity.py` beyond its invocation seam, and `automation/issue_validator.py` beyond the `render_body()` citation the spec already carries.
 - The Claude Code skill runtime: whether a skill can halt mid-procedure for approval and resume in the same invocation is **not established here** and is Q1.
 - Live `gh` behaviour for Release creation and PR creation. No write was attempted against GitHub.
@@ -60,7 +60,7 @@ Not examined, and therefore not covered by any finding below:
 | F10 | The pre-merge state **is** a supported input path but silently degrades three checks. `--branch` on a branch that still exists takes the `git_ref_exists()` arm, which sets `changed_paths` from the merge base but leaves `merge_sha` unset. Three downstream reads then fall back: `check_version_bump()` returns `n/a` before reaching any branch-type logic, `merge_tip_ref()` degrades to the branch name, and `dev_merge_sha_for()` returns `None`, failing the daemon row with "could not resolve the dev merge commit". | `automation/closeout_checks.py:206-224` `resolve_branch()`, `:382` `check_version_bump()`, `:368` `merge_tip_ref()`, `:374` `dev_merge_sha_for()` | Critical |
 | F11 | **A `chore/*` branch that bumped the version passes today.** `check_version_bump()` returns `Check("version bump", "n/a", "no merge commit to compare parents on")` on its first line when `merge_sha` is unset — before the `branch_type == "chore"` comparison that §4.1 calls an assertion of absence. `SKILL.md` states the opposite: "the run fails if a `chore/*` branch bumped `workmain/__version__.py`". Confirms #90 D15. | `automation/closeout_checks.py:382-390` `check_version_bump()`; `.claude/skills/closeout/SKILL.md`, closing paragraph | Critical |
 | F12 | `run()` aborts on branch-resolution failure, reporting **three** checks — issue ACs, branch resolution, application suite — then returning 1. This contradicts DR4 ("Reporting is total ... The one exception is issue resolution") and `SKILL.md`'s "never silently omitted, so a skipped check cannot be mistaken for a passed one". `evaluate_workpaths()` is never reached, which is why the `automation/` suite row was never evaluated (#90 D10 is a consequence of this, not a separate defect). | `automation/closeout_checks.py:649-654` `run()`; `CYCLE_CLOSEOUT_SPEC.md` §3 DR4 | Critical |
-| F13 | On that abort path `check_application_suite()` runs the full `pytest tests/` — 934 tests — **after** the return value is already determined to be 1. No branch of that path can return 0. | `automation/closeout_checks.py:649-654` `run()`, `:424` `check_application_suite()` | Medium |
+| F13 | On that abort path `check_application_suite()` runs the full `pytest tests/` suite **after** the return value is already determined to be 1. No branch of that path can return 0. | `automation/closeout_checks.py:649-654` `run()`, `:424` `check_application_suite()` | Medium |
 | F14 | **#90 D9 does not reproduce as an independent defect.** Every check list is built by ordered `append`/`extend`, and `derive_results_path()` iterates `sorted(...glob("*.md"))`. Output order is deterministic. The observed instability is D8: `_report()` prints each `fail` line to stdout **and** stderr, and the two streams interleave nondeterministically when both are attached to a terminal. D9 is a symptom of D8. | `automation/closeout_checks.py:628-635` `_report()`, `:471` `evaluate_workpaths()`, `:496` `derive_results_path()` | Medium |
 
 ### AC verification — the two AC sets
