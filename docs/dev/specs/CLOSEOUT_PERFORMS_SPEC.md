@@ -1,6 +1,6 @@
 # Close-Out Performs the Close-Out — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20260819
 **Branch:** `chore/issue-90-closeout-performs` (from `main`, merges to `main` and `dev`)

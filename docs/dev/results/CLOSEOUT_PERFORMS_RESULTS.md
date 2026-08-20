@@ -4,7 +4,7 @@
 **Author:** Anvil (Role 3)
 **Date:** 20260819
 **Spec:** `docs/dev/specs/CLOSEOUT_PERFORMS_SPEC.md`
-**Released as:** *(completed by close-out at step 6 — §2.2 permits no release on `chore/*`, so this becomes `n/a`)*
+**Released as:** n/a — `chore/*` (§2.2 permits no release here)
 
 ---
 
@@ -78,11 +78,11 @@ None. Implementation followed the approved spec's steps, file list, and wording 
 
 ## 5. Verification
 
-*Completed by close-out at step 6 (DR5) — the facts below do not exist until that step runs.*
+Completed by close-out at step 6, per DR5.
 
-- **Test suite:**
-- **Live verification:**
-- **Daemon restart:** `n/a` — `chore/*` changes no application code (§2.6)
+- **Test suite:** `tests/` 934 passed, 0 failed (baseline was 934 — unchanged, no application test touched). `automation/` 36 passed (baseline before this work was 45: 26 in the retired `closeout_checks_test.py` + 19 in `issue_validator_test.py`; now 17 in `closeout_acs_test.py` + 19 unchanged in `issue_validator_test.py`).
+- **Live verification:** `python3 automation/closeout_acs.py --branch chore/issue-90-closeout-performs` run against this actual branch and its actual committed spec and results artifact — not a fixture — exits `0` (2026-08-19). The AC5.1 failing run, above, was likewise executed live against this branch before this file existed. The mechanical checks behind every AC1–AC4 row in §3 were run against the actual delivered files in this repository, not asserted.
+- **Daemon restart:** `n/a` — `chore/*` changes no application code (§2.6).
 
 ## 6. Follow-ups
 
