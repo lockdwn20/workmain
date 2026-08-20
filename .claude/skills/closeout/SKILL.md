@@ -2,6 +2,7 @@
 name: closeout
 description: Mechanically verify an issue's close-out — every AC against delivered code, the release and deployment record against the branch type, and a docs/dev/results/ artifact — before Ray closes the issue on GitHub.
 disable-model-invocation: true
+user-invocable: true
 ---
 
 # `/closeout <issue>`
