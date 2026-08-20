@@ -44,6 +44,14 @@
 | 20260819 | Caliper | F12 — nothing sets the spec's `**Status:**` to `Shipped` | Accepted per Ray's standing allowance. Close-out marks it, §1.1 says so, and a second run failing P4 is correct behaviour with a remedy that says why |
 | 20260819 | Caliper | F14 — the spec cites `F12` from two different documents | Withdrawn by Caliper as phrasing. Qualified anyway, since it reproduced D18 |
 | 20260819 | Caliper | F15 — §2.2's `chore/*` path list omits `.claude/`, this branch's primary deliverable | Accepted, non-blocking. Added in step 4 |
+| 20260819 | Caliper | G1 — §4.2's tail ran after the branch deletion, so marking the spec `Shipped` and completing the artifact had no branch to commit to, and would have reached `main`/`dev` only by a direct commit §2.2 and §2.8 forbid | Accepted. The tail moves to the **first** step of every type, committed on the branch before any merge, so it reaches `main` and `dev` through the merge. The one fact that postdates the merge — the confirmed `ActiveEnterTimestamp` — goes in the closing comment rather than into a document ahead of the event it asserts |
+| 20260819 | Caliper | G2 — `grep -c 'git merge'` also matches the `git merge-base` rule §4.1 requires `SKILL.md` to carry, so AC2.8 failed a correct file and AC3.5's numerator was inflated | Accepted, verified: a trailing space in `git merge ` excludes `git merge-base` and keeps `git merge --no-ff`. Both ACs anchored on it |
+| 20260819 | Caliper | G3 — §1's out-of-scope bullet still described the copy demonstration §4.7 deleted | Accepted, corrected |
+| 20260819 | Caliper | G4 — C10's evidence cell still carried the pre-correction "carries none" text about `STEPS_AND_AUTHORIZATION_POINTS_SPEC.md` | Accepted, corrected. The F7 fix had been applied to the claim cell and not the evidence beside it |
+| 20260819 | Caliper | G5 — §4.4a defined no behaviour for a missing results artifact, which is exactly §4.7's failing run | Accepted. Exit `2` covers it, and §4.1 states that P5 and P6 both report — P6 as a failure reading `not evaluated`, never `n/a` and never skipped, since a vanishing row is the D10 defect again. AC1.8 gains the fixture |
+| 20260819 | Caliper | G6 — §5's mapping paragraph contradicted the `Issue AC` column beside it and duplicated its job | Accepted. The paragraph is deleted and the column kept: it is per-row, greppable, and correct. Two homes for one fact had already drifted, which is what `CLAUDE.md`'s one-home rule exists to prevent |
+| 20260819 | Caliper | G7 — two cross-references left stale by the F8 reordering and the AC renumbering | Accepted, both corrected |
+| 20260819 | Caliper | G8 — `--tree` needs `git ls-tree` to scan the specs directory, not only `git show`, so §6 understated the seam by one | Accepted, corrected |
 
 ---
 
@@ -65,7 +73,7 @@
 - **Posting the closing comment and closing the issue.** Both remain Ray's; #90's first AC says so explicitly. DR1.
 - **Backfilling #81, #82, #84 or #86.** Closed and parked work is not reopened to satisfy a standard written after it.
 - **Generating the results artifact.** Anvil authors it; that generation becomes part of his session-open skill under **#85**, which this spec states and does not build. Close-out consumes and completes the artifact, it does not produce it.
-- **#84's own close-out.** It happens after this ships, using this skill, as its own act. §4.7 is a demonstration on a copy and merges nothing.
+- **#84's own close-out.** It happens after this ships, using this skill, as its own deliberate act. §4.7 demonstrates on this branch instead and does not touch #84's.
 - **The `Issue: #NN` commit trailer and its `commit-msg` hook.** Still its own issue, as `CYCLE_CLOSEOUT_SPEC.md` §1 recorded.
 - **`workmain/**`, `tests/**`, `config/*` and `templates/*`.** No application behaviour changes, which is what keeps this on `chore/*` per §2.2.
 - **The `docs/dev/results/` `Status:` vocabulary.** Unchanged.
@@ -86,7 +94,7 @@ Every row was read at authoring time on this branch, cut from `main`. Findings r
 | C7 | `_report()` prints every `fail` line to stdout **and** stderr; check order is otherwise deterministic, every list being built by ordered `append`/`extend` | `automation/closeout_checks.py:628-635` `_report()` — F14 |
 | C8 | The results-artifact write is specified in §4.4, attributed to the script by `SKILL.md`, and performed by neither — the module contains no write call | `docs/dev/specs/CYCLE_CLOSEOUT_SPEC.md` §4.4; `.claude/skills/closeout/SKILL.md:9-10`; the module contains no `open(..., "w")`, no `write_text` and no `shutil.copy` — F3 |
 | C9 | `_TEMPLATE_RESULTS.md` §3 contradicts itself: prose says "Every AC on the issue", the example row is `AC1.1`, a spec sub-AC identifier | `docs/dev/results/_TEMPLATE_RESULTS.md` §3 — F16 |
-| C10 | The issue-AC ↔ spec-sub-AC mapping is practised in two forms and required by none: an opening paragraph in `CYCLE_CLOSEOUT_SPEC.md`, `ISSUE_CREATION_VALIDATION_SPEC.md` and `TRACKING_SEMANTICS_CONSOLIDATION_SPEC.md` §5, and a per-row `Issue AC` column in `STEPS_AND_AUTHORIZATION_POINTS_SPEC.md` §5. `_TEMPLATE_SPEC.md` §5 prompts for neither | `CYCLE_CLOSEOUT_SPEC.md`, `ISSUE_CREATION_VALIDATION_SPEC.md` and `TRACKING_SEMANTICS_CONSOLIDATION_SPEC.md` §5 opening paragraphs; `RELEASE_CHECK_RELOCATION_SPEC.md` and `STEPS_AND_AUTHORIZATION_POINTS_SPEC.md` carry none; `docs/dev/specs/_TEMPLATE_SPEC.md` §5 — F18, C10 re-derived at authoring |
+| C10 | The issue-AC ↔ spec-sub-AC mapping is practised in two forms and required by none: an opening paragraph in `CYCLE_CLOSEOUT_SPEC.md`, `ISSUE_CREATION_VALIDATION_SPEC.md` and `TRACKING_SEMANTICS_CONSOLIDATION_SPEC.md` §5, and a per-row `Issue AC` column in `STEPS_AND_AUTHORIZATION_POINTS_SPEC.md` §5. `_TEMPLATE_SPEC.md` §5 prompts for neither | `CYCLE_CLOSEOUT_SPEC.md`, `ISSUE_CREATION_VALIDATION_SPEC.md` and `TRACKING_SEMANTICS_CONSOLIDATION_SPEC.md` §5 opening paragraphs; `RELEASE_CHECK_RELOCATION_SPEC.md` carries neither form; `docs/dev/specs/_TEMPLATE_SPEC.md` §5 — F18, C10 re-derived at authoring |
 | C11 | §1.4's authorization set makes merging to `main` and deleting a GitHub object hard stops, and explicitly carves the post-merge restart **out** — it is a step | `docs/DEVELOPMENT_STANDARDS.md` §1.4, the authorization set and the carve-out — F6 |
 | C12 | §2.2 requires `dev → main` to go through a GitHub PR and §2.8 forbids merging it yourself, so a `feature/*` close-out cannot reach `main` without Ray | `docs/DEVELOPMENT_STANDARDS.md` §2.2 `dev`, §2.8 — F7 |
 | C13 | `main`'s `SKILL.md` frontmatter is `name`, `description`, `disable-model-invocation` — `user-invocable: true` is absent, and exists only on the parked `chore/issue-84-queue-sequencing` branch | `git show main:.claude/skills/closeout/SKILL.md:1-5` — F19 |
@@ -96,7 +104,7 @@ Every row was read at authoring time on this branch, cut from `main`. Findings r
 | C17 | `check_release_integrity.py` checks every `vN.N.N` tag for a non-empty `CHANGELOG.md` section and an existing GitHub Release, plus `__version__.py` agreement, and resolves the repo root from wherever it is invoked | `automation/check_release_integrity.py`, `find_repo_root()` — `CYCLE_CLOSEOUT_SPEC.md` C9, re-verified |
 | C18 | `pyproject.toml` sets `testpaths = ["tests"]`, so a bare `pytest` runs the application suite only and `automation/` tests run when named | `pyproject.toml` `[tool.pytest.ini_options]` |
 | C20 | #84 is complete on its parked branch: `QUEUE_SEQUENCING_SPEC.md` is `**Status:** Approved` and names the branch; `QUEUE_SEQUENCING_RESULTS.md` is `**Status:** Shipped` with fifteen `Met` rows carrying evidence, against fifteen `ACn.m` ids in the spec. A close-out run against it would pass preflight, not fail it | `git show chore/issue-84-queue-sequencing:docs/dev/specs/QUEUE_SEQUENCING_SPEC.md` and `:docs/dev/results/QUEUE_SEQUENCING_RESULTS.md` — Caliper F1 |
-| C21 | `STEPS_AND_AUTHORIZATION_POINTS_SPEC.md` §5 uses bare `ACn` identifiers, so an `ACn.m` parser returns zero ids against an `Approved` spec | `grep -cE '^\| AC[0-9]+\.[0-9]+ \|' docs/dev/specs/STEPS_AND_AUTHORIZATION_POINTS_SPEC.md` prints `0` — Caliper F6 |
+| C21 | `STEPS_AND_AUTHORIZATION_POINTS_SPEC.md` §5 uses bare `ACn` identifiers, so an `ACn.m` parser returns zero ids against an `Approved` spec | An `ACn.m` table-row count over `docs/dev/specs/STEPS_AND_AUTHORIZATION_POINTS_SPEC.md` prints `0`; its §5 uses `AC1` – `AC5`. The command is §5's, kept out of this cell for the reason F12 records — Caliper F6 |
 | C19 | `automation/issue_validator.py` is the precedent for tooling here: stdlib only, module docstring, named module-level functions replaced by `monkeypatch` in tests | `automation/issue_validator.py`, `automation/issue_validator_test.py` |
 
 ## 3. Design rules
@@ -150,47 +158,54 @@ Run in order, all of them, every time. Nothing below writes anything (DR3).
 
 Every row is reported with `pass`, `fail`, or `n/a` **and its reason**, on every run. A row that could not be evaluated is `fail`, never `n/a` (DR6). Failures print once, to stderr only (C7).
 
+**P5 and P6 both report, always.** When the artifact is absent, P5 fails naming the derived path and P6 fails with `not evaluated — the artifact named by P5 is absent`. P6 is **not** silently skipped and is never `n/a`: DR6 makes a check that could not be evaluated a failure, and DR3 makes reporting total. Two failures for one cause is correct — they have different remedies, and a run that printed only P5 would be the D10 defect again, where a row vanished because an earlier one failed (Caliper G5).
+
 If any row fails, the run stops here having written nothing, and prints the remedy column for each failure (DR7).
 
 ### 4.2 Perform — by branch type
 
 Reached only when every §4.1 row passed. `⏸` marks an `AskUserQuestion` stop (DR2, §4.3).
 
+**The artifact is completed on the branch, before the first merge.** Everything close-out commits — the spec's `**Status:**`, the results artifact's §5 — is committed to the branch being closed out, so it reaches `main` and `dev` through the merge like all its other work. Committing after the merge would mean a direct commit to `main` or `dev`, which §2.2 and §2.8 forbid, and after §2.3's deletion there would be no branch to commit to at all (Caliper G1).
+
+**One fact postdates the merge and is therefore not in the artifact.** The restart's confirmed `ActiveEnterTimestamp` cannot exist before the `dev` merge it must postdate. It goes in the closing comment, which is composed last, rather than being written into a document ahead of the event it asserts.
+
 **The restart is not deferrable.** §2.6 requires it after the merge to `dev` and §2.8 forbids reporting that merge as deployed without it, so on every type that merges to `dev` carrying application code the restart immediately follows that merge — before any stop, and before any path that can exit the run (Caliper F8).
 
 **`chore/*`** — `references/chore.md`
 
-1. ⏸ **Authorization: merge to `main`.**
-2. `git checkout main && git merge --no-ff <branch>`, push `main`.
-3. `git checkout dev && git merge --no-ff <branch>`, push `dev`.
-4. ⏸ **Authorization: delete the branch, local and remote** (§2.3, immediately after its last merge).
-5. No bump, no `CHANGELOG.md`, no tag, no Release, no restart — §2.2 and §2.6.
+1. Set this issue's spec `**Status:**` to `Shipped` (§4.6); complete the results artifact's §5 — suite results, live verification, and the restart's `n/a` reason per §2.6. Commit both on the branch.
+2. ⏸ **Authorization: merge to `main`.**
+3. `git checkout main && git merge --no-ff <branch>`, push `main`.
+4. `git checkout dev && git merge --no-ff <branch>`, push `dev`.
+5. ⏸ **Authorization: delete the branch, local and remote** (§2.3, immediately after its last merge).
+6. No bump, no `CHANGELOG.md`, no tag, no Release, no restart — §2.2 and §2.6.
 
 **`hotfix/*`** — `references/hotfix.md`
 
-1. Bump `workmain/__version__.py` by a patch (§2.5) and add its `CHANGELOG.md` section; commit on the branch.
-2. ⏸ **Authorization: merge to `main`.**
-3. `git checkout main && git merge --no-ff <branch>`, push `main`.
-4. `git tag v<version>` on `main`, push the tag; `gh release create v<version> --generate-notes`; confirm with `gh release view`.
-5. `git checkout dev && git merge --no-ff <branch>`, push `dev`.
-6. `systemctl --user restart workmain-notify.service`; confirm `ActiveEnterTimestamp` postdates the `dev` merge commit. **Not a stop** — §1.4 carves it out (C11).
-7. ⏸ **Authorization: delete the branch, local and remote.**
+1. Bump `workmain/__version__.py` by a patch (§2.5) and add its `CHANGELOG.md` section.
+2. Set the spec `**Status:**` to `Shipped`; complete the results artifact's §5 — suite results and live verification. Commit all of it on the branch.
+3. ⏸ **Authorization: merge to `main`.**
+4. `git checkout main && git merge --no-ff <branch>`, push `main`.
+5. `git tag v<version>` on `main`, push the tag; `gh release create v<version> --generate-notes`; confirm with `gh release view`.
+6. `git checkout dev && git merge --no-ff <branch>`, push `dev`.
+7. `systemctl --user restart workmain-notify.service`; confirm `ActiveEnterTimestamp` postdates the `dev` merge commit. **Not a stop** — §1.4 carves it out (C11).
+8. ⏸ **Authorization: delete the branch, local and remote.**
 
 **`feature/*`** — `references/feature.md`
 
-1. `git checkout dev && git merge --no-ff <branch>`, push `dev`.
-2. Bump `workmain/__version__.py` by a minor (§2.5) and add its `CHANGELOG.md` section, committed directly on `dev` — the one thing §2.2 permits there (C15). Push `dev`.
-3. `systemctl --user restart workmain-notify.service`; confirm `ActiveEnterTimestamp` postdates the `dev` merge. **Not a stop**, and it happens here rather than after the PR because `dev` is already carrying the code (§2.6, §2.8).
-4. ⏸ **Authorization: delete the branch, local and remote** (§2.3 — its last merge has happened; the remaining work is on `dev` and `main`).
-5. `gh pr create` for `dev → main`.
-6. ⏸ **Ray merges the PR.** Two answers: *merged, continue*, or *defer* — which exits cleanly naming the resume point, with `dev` merged, bumped and **already restarted**, so nothing is left half-deployed. The answer is not taken on trust: `gh pr view --json state` must read `MERGED` before anything below runs (C12, §2.8).
-7. Fetch `main`; `git tag v<version>` on `main`, push the tag; `gh release create v<version> --generate-notes`; confirm with `gh release view`.
+1. Set the spec `**Status:**` to `Shipped`; complete the results artifact's §5 — suite results and live verification. Commit on the branch. The version is not known yet and does not belong here; it reaches the issue through the closing comment.
+2. `git checkout dev && git merge --no-ff <branch>`, push `dev`.
+3. Bump `workmain/__version__.py` by a minor (§2.5) and add its `CHANGELOG.md` section, committed directly on `dev` — the one thing §2.2 permits there (C15). Push `dev`.
+4. `systemctl --user restart workmain-notify.service`; confirm `ActiveEnterTimestamp` postdates the `dev` merge. **Not a stop**, and it happens here rather than after the PR because `dev` is already carrying the code (§2.6, §2.8).
+5. ⏸ **Authorization: delete the branch, local and remote** (§2.3 — its last merge has happened; the remaining work is on `dev` and `main`).
+6. `gh pr create` for `dev → main`.
+7. ⏸ **Ray merges the PR.** Two answers: *merged, continue*, or *defer* — which exits cleanly naming the resume point, with `dev` merged, bumped and **already restarted**, so nothing is left half-deployed. The answer is not taken on trust: `gh pr view --json state` must read `MERGED` before anything below runs (C12, §2.8).
+8. Fetch `main`; `git tag v<version>` on `main`, push the tag; `gh release create v<version> --generate-notes`; confirm with `gh release view`.
 
-**All three, to finish**
+**All three, to finish** — after the last numbered step of whichever sequence ran:
 
-8. Set the spec's `**Status:**` to `Shipped` (§4.6, Caliper F12).
-9. Complete the results artifact's §5 — suite results, live verification, restart confirmation or its `chore/*` `n/a` (DR5). Commit both.
-10. Compose the closing comment — merge commit SHA, branch, results-artifact path, AC verdict — and print `gh issue comment <N> --body-file -` with the body. **Print it; do not run it** (DR1).
+- Compose the closing comment — the merge commit SHA, the branch, the results-artifact path, the AC verdict, and for `feature/*` and `hotfix/*` the version, the tag, the Release and the confirmed `ActiveEnterTimestamp`. Print `gh issue comment <N> --body-file -` with the body. **Print it; do not run it** (DR1).
 
 ### 4.3 The stops
 
@@ -228,7 +243,11 @@ python3 automation/closeout_acs.py --branch <name> [--tree <ref>]
 
 - `--branch` is the resolved branch name; the module derives both paths from it (§4.4).
 - `--tree` reads the spec and artifact from a git ref instead of the working tree, for the already-merged case. Absent, both are working-tree reads (§4.1).
-- **Exit `0`** — every check passed. **Exit `1`** — one or more AC checks failed; each is named on stderr, one line per failure, and every check runs before it exits so the report is total (DR3). **Exit `2`** — the paths could not be derived: no spec, several specs, or an unparseable filename. The distinction matters because exit `2` means P4 or P5 has nothing to check, while exit `1` means P6 has a real answer.
+- **Exit `0`** — every check passed.
+- **Exit `1`** — one or more AC checks failed. Each is named on stderr, one line per failure, and every check runs before it exits so the report is total (DR3).
+- **Exit `2`** — there was nothing to compare: no spec names the branch, several do, the spec filename is unparseable, or **the derived results artifact does not exist**. The last of these is §4.7's failing run and is the common case, not an edge one (Caliper G5).
+
+The distinction is load-bearing. Exit `2` means P4 or P5 has already failed and P6 has no input; exit `1` means P6 read both files and has a real answer. A caller that treats any non-zero as "ACs failed" would report a missing artifact as an AC defect, which is the wrong remedy.
 
 ### 4.5 Authorization points
 
@@ -299,7 +318,7 @@ Ray supplied Anthropic's `skill-creator` as the authoring reference. What is tak
 
 ## 5. Acceptance criteria
 
-Mapped to #90's six ACs: AC3.x carries its first (a run leaves the issue closed out); AC3.2 and AC2.5 its second (stops at the authorization points and nowhere else, named in the skill); AC2.5 – AC2.7 its third (every check reports pass/fail/n-a with a reason, and unevaluable is a failure); AC1.x and AC4.2 its fourth (one AC set, a stated issue↔sub-AC relationship, no prose copied); AC2.7 and AC5.x its fifth (a failing run says what to do, a passing run produces the comment, both demonstrated); AC6.1 its sixth (every one of the twenty-two defects dispositioned).
+Each row's **Issue AC** column names which of #90's six ACs it carries. The mapping lives there and nowhere else: §1.2 as amended accepts either a paragraph or the column, and carrying both gave one fact two homes that had already drifted apart (Caliper G6).
 
 | AC | Criterion | How it is checked | Issue AC |
 | --- | --- | --- | --- |
@@ -310,7 +329,7 @@ Mapped to #90's six ACs: AC3.x carries its first (a run leaves the issue closed 
 | AC1.5 | A `Met` row with an empty evidence cell fails | Fixture artifact with one such row → exit `1`, stderr names the id | 4th |
 | AC1.6 | An artifact row whose id no spec AC claims fails, naming it | Fixture artifact carrying an extra `AC9.9` row → exit `1`, stderr contains `AC9.9` | 4th |
 | AC1.7 | Paths derive from the branch, and an ambiguous derivation is a failure rather than a guess | Three fixture spec directories: one spec naming the branch → the derived results path is `<SUBJECT>_RESULTS.md`; no spec naming it → exit `2`; two specs naming it → exit `2`, stderr names both filenames | 4th |
-| AC1.8 | The exit codes distinguish a derivation failure from an AC failure, per §4.4a | The AC1.7 no-spec fixture exits `2` and the AC1.3 fixture exits `1`; the clean fixture exits `0`. All three compared as numbers, not truthiness | 4th |
+| AC1.8 | The exit codes distinguish having nothing to compare from a real AC failure, per §4.4a | Four fixtures, compared as numbers rather than truthiness: the AC1.7 no-spec fixture exits `2`; a fixture whose spec resolves but whose derived artifact is absent also exits `2`, and stderr names the missing path; the AC1.3 fixture exits `1`; the clean fixture exits `0` | 4th |
 | AC1.9 | An empty spec-id set fails rather than passing vacuously | Fixture spec whose §5 uses bare `ACn` ids → exit `1`, stderr says the spec carries no `ACn.m` ids. This is the `STEPS_AND_AUTHORIZATION_POINTS_SPEC.md` shape (C21) | 4th |
 | AC2.1 | The old script and its tests are gone | `test ! -e automation/closeout_checks.py && test ! -e automation/closeout_checks_test.py` exits `0` | 1st |
 | AC2.2 | The skill is user-invocable, restoring what only the parked branch carries | `grep -c 'user-invocable: true' .claude/skills/closeout/SKILL.md` prints `1`, and `grep -c 'disable-model-invocation: true'` prints `1` (C13) | 1st |
@@ -319,12 +338,12 @@ Mapped to #90's six ACs: AC3.x carries its first (a run leaves the issue closed 
 | AC2.5 | The `chore/*` version-bump row is an assertion of absence and is never `n/a` for a `chore/*` branch | Within `SKILL.md`'s preflight table, the P11 row's `chore/*` cell contains neither `n/a` nor `N/A`, and `grep -c 'assertion of absence'` prints at least `1` | 3rd |
 | AC2.6 | An unevaluable check is a failure, not `n/a`, and `SKILL.md` says so | Within `SKILL.md`, `grep -c 'could not be evaluated is a failure'` prints at least `1` | 3rd |
 | AC2.7 | Every preflight row carries a remedy, and failures print once to stderr | The remedy command is below this table. Within `SKILL.md`, `grep -c 'stderr only'` prints at least `1` | 3rd, 5th |
-| AC2.8 | `SKILL.md` is the entry point only — it names all three variants and holds no perform sequence | `wc -l < .claude/skills/closeout/SKILL.md` is under `500`; `grep -c 'references/chore.md'`, `grep -c 'references/feature.md'` and `grep -c 'references/hotfix.md'` each print at least `1`; and `grep -c 'gh release create'`, `grep -c 'git merge'` and `grep -c 'gh pr create'` each print `0` — compare stdout, not exit status, since `grep -c` exits `1` when it prints `0` | 1st |
+| AC2.8 | `SKILL.md` is the entry point only — it names all three variants and holds no perform sequence | `wc -l < .claude/skills/closeout/SKILL.md` is under `500`; `grep -c 'references/chore.md'`, `grep -c 'references/feature.md'` and `grep -c 'references/hotfix.md'` each print at least `1`; and `grep -c 'gh release create'`, `grep -c 'git merge '` and `grep -c 'gh pr create'` each print `0` — the trailing space matters, since a bare `git merge` also matches the `git merge-base` rule §4.1 requires this file to carry (Caliper G2) — compare stdout, not exit status, since `grep -c` exits `1` when it prints `0` | 1st |
 | AC3.1 | Each branch type has its own reference file, per §4.8 | `ls .claude/skills/closeout/references/chore.md .claude/skills/closeout/references/feature.md .claude/skills/closeout/references/hotfix.md` exits `0` — it exits non-zero if any one is absent, and unlike a `for` loop with `exit 1` it cannot kill the shell that runs it | 1st |
 | AC3.2 | Each reference file carries exactly two stops, and they are the `main` merge and the branch deletion | `grep -c 'AskUserQuestion'` prints `2` in each of the three files. In each, one stop line contains `main` or `PR` and the other contains `delete`; no third stop line exists | 2nd |
 | AC3.3 | The `feature/*` path opens a PR and never merges it | Within `references/feature.md`, `grep -c 'gh pr create'` prints at least `1` and `grep -c 'gh pr merge'` prints `0` — compare stdout, not exit status | 1st |
 | AC3.4 | The `feature/*` PR wait verifies the merge rather than trusting the answer | Within `references/feature.md`, `grep -c 'gh pr view'` prints at least `1` | 1st |
-| AC3.5 | Every merge the skill performs is `--no-ff` | Across all three reference files, `grep -c 'git merge'` equals `grep -c 'git merge --no-ff'`, and the first count is at least `1` — the non-zero floor is what stops `0 == 0` from passing this vacuously | 1st |
+| AC3.5 | Every merge the skill performs is `--no-ff` | Across all three reference files, `grep -c 'git merge '` equals `grep -c 'git merge --no-ff'`, and the first count is at least `1`. The trailing space keeps `git merge-base` out of the numerator (Caliper G2); the non-zero floor stops `0 == 0` from passing this vacuously | 1st |
 | AC3.6 | The restart is performed without a stop, per §1.4's carve-out | Within `references/feature.md` and `references/hotfix.md`, the `systemctl --user restart` line's own bullet also contains `Not a stop`; neither file places it inside an `AskUserQuestion` block. `references/chore.md` contains no `systemctl` line at all | 1st, 2nd |
 | AC3.7 | The `feature/*` restart happens before the PR stop, so a deferred exit leaves nothing un-deployed | Within `references/feature.md`, the line number of `systemctl --user restart` is lower than the line number of `gh pr create` — the command is below this table. Caliper F8 | 1st |
 | AC4.1 | §1.1's close-out bullet states that close-out performs, marks the spec `Shipped`, and does not re-judge ACs | Within `awk '/^### 1.1/,/^### 1.2/' docs/DEVELOPMENT_STANDARDS.md`: `grep -c 'does not re-judge'` prints `1`, `grep -c 'Performs the close-out'` prints `1`, and `grep -c 'Shipped'` prints `1` | 4th |
@@ -359,7 +378,7 @@ Both AC2.4 counts are derived, so a review that adds or removes a preflight row 
 
 `automation/closeout_acs_test.py`, beside the module it tests, per §6.3 and C19. The application suite is not touched.
 
-- **Seams.** The module reads a specs directory and two files and returns a verdict; there is no network and no subprocess. `--tree` reads are the one git call, behind a named function a test replaces. Fixtures are files and directories, so nothing else needs `monkeypatch`.
+- **Seams.** The module reads a specs directory and two files and returns a verdict; there is no network and no subprocess. `--tree` mode makes two git calls — `git ls-tree` to list `docs/dev/specs/` and `git show <ref>:<path>` to read a file — and both sit behind named functions a test replaces (Caliper G8). Fixtures are files and directories, so nothing else needs `monkeypatch`.
 - **Fixtures.** Spec §5 tables in the clean, bare-`ACn` and unparseable-filename variants, and spec *directories* in the no-match and two-match variants for AC1.7. Results §3 tables in the clean, missing-row, `Not met`, uncited-`Carried`, unevidenced-`Met` and extra-row variants. Under `automation/fixtures/`, replacing what step 1 deletes.
 - **Naming.** Each test function name carries the AC it covers — `test_ac1_1_…` through `test_ac1_9_…`.
 - **Everything else is checked by the AC commands in §5**, against `SKILL.md` and the standards documents. There is no test double for "the skill merged to `main`"; AC5.2 is the test, and it runs once, for real.
@@ -370,10 +389,10 @@ Both AC2.4 counts are derived, so a review that adds or removes a preflight row 
 | --- | --- |
 | The skill performs a merge the operator did not intend | DR3 — no write happens until every preflight row passes — plus the §4.3 stop before the `main` merge. The two together mean an unintended merge requires both a green preflight and an explicit approval |
 | A `feature/*` deferred exit leaves work half-deployed | The restart moved ahead of the PR stop (§4.2, Caliper F8), so a defer leaves `dev` merged, bumped **and** restarted. What is outstanding is the tag and the Release, neither of which is a deployment |
-| A `feature/*` run holds the session open waiting on Ray's PR merge | §4.2's stop offers *defer*, which exits cleanly at a named resume point with steps 1–4 already committed. The wait is never mandatory |
+| A `feature/*` run holds the session open waiting on Ray's PR merge | §4.2's stop offers *defer*, which exits cleanly at a named resume point with steps 1–6 done. The wait is never mandatory |
 | AC5.2's circularity — using the skill to close out the issue that fixes the skill | This is the point, not the hazard: a broken skill fails its own close-out loudly and immediately. The fallback is closing out #90 by hand, which is what every issue before it had |
 | Dropping the AC re-judgement loses a real check | It was never performed: F21 found step 3's judgement instruction undefined for `chore/*`, which is what #84, #86 and #90 all are. DR4 replaces an unfalsifiable instruction with a disposition check that fails loudly |
 | A demonstration is specified against state that does not hold, as the first draft's was | §4.7 now uses this branch at two moments in its own life, so both fixtures are states this branch actually passes through rather than a copy assumed to behave a certain way. C20 records what #84 actually contains, checked rather than asserted |
-| `SKILL.md` grows into the spec | AC2.3 ties its preflight row count to this document's, so the two cannot drift silently, and DR9 keeps the one testable rule in a module rather than in prose |
+| `SKILL.md` grows into the spec | AC2.4 ties its preflight row count to this document's, so the two cannot drift silently, and DR9 keeps the one testable rule in a module rather than in prose |
 
 **Rollback.** Every step is additive or a deletion of this branch's own prior work: `git revert` of a step's commit restores it. Step 1 deletes files that `git revert` restores in full. No migration, no schema change, no application code touched. The one irreversible act is step 6's merge and branch deletion, which is why it is an authorization point.
