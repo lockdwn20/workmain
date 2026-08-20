@@ -73,7 +73,39 @@ This is a **design study**, not a recon — it makes a recommendation, which `_T
 | Q2 | Reference files currently restate the standards so a session reads `SKILL.md` plus one file and needs nothing else. Citing §2.x instead adds a third read. Which is worth more — self-containment, or one home per rule? | **Answered 20260820, Ray: cite, and go further.** A step should read `Restart the service — §2.6.` The restart rule is currently written four times — §2.6, `SKILL.md`, `feature.md:11`, `hotfix.md:17` — in four wordings. Sample rewrite takes `hotfix.md` from 290 words to 101 |
 | Q3 | Does the record phase settle on `feature`'s derive-the-version or `hotfix`'s bump-first (F5)? | **Answered 20260820: not an issue.** F5 withdrawn — see §3 |
 | Q4 | Should `SKILL.md` state the stop **order** per variant, given F8's inversion, or keep naming the pair without ordering them? | **Answered 20260820, Ray: neither.** `SKILL.md` should not state that a thing will be done when the reference file states it again and then does it. `SKILL.md` keeps only the invariant that spans variants — exactly two authorization points, nothing else stops. Which two and in what order is the reference file's ⏸ markers, said once. F8 needs no fix |
-| Q5 | Some rationale in the reference files is **not** in the standards and is load-bearing — `feature.md:11` places the restart before the PR "because a deferred exit at step 7 must not leave anything undeployed". Citing §2.6 alone would drop the reason and invite a later reorder. Which close-out-specific rationale survives the strip, and where does it live? | |
+| Q5 | Which close-out-specific rationale survives the strip, and where does it live? | **Answered 20260820, Ray: it is a combination, not one choice.** Resolved by census — see §7. Four homes; all four footnote-worthy fragments turn out to be in `feature.md` |
+
+## 7. Rationale census — where each fragment goes (Q5)
+
+Q5 has no single answer; the disposition differs per fragment, so every rationale fragment in the three reference files was classified against four homes. **D1** delete, the rule is a §2.x rule and the citation carries it. **D2** delete, `SKILL.md` already owns it. **D3** keep inline — it reads as rationale but is operative content. **D4** footnote — a close-out decision the standards do not imply, load-bearing because stripping it invites a wrong reorder.
+
+| File / step | Fragment | Home |
+| --- | --- | --- |
+| `chore.md:5` | "§2.2 allows no release on `chore/*`" | D1 |
+| `chore.md:5` | "so they reach `main` and `dev` through it rather than as a direct commit §2.2 forbids" | D1 — "before any merge" is operative and stays |
+| `chore.md:7` | "State the merge that is about to happen and wait for Ray's explicit approval before it (§1.4)" | D2 — `SKILL.md` § The two stops defines the stop protocol once |
+| `chore.md:9` | "Every merge here is `--no-ff` — §2.3 requires it, since a fast-forward leaves no merge commit…" | D1 — `DEVELOPMENT_STANDARDS.md:208` states it once and better |
+| `chore.md:13` | "The remote delete is a GitHub object deletion (§1.4); it follows immediately after the branch's last merge (§2.3)" | D1, **and corrected under F1** |
+| `chore.md:15` | "no bump, no `CHANGELOG.md`, no tag, no Release, no restart" | D3 — an assertion of absence, the same shape `SKILL.md` P11 insists on. The justification after it is D1 |
+| `feature.md:5` | "the minor bump … is deterministic under §2.5, so the version and tag are known here even though the bump itself lands at step 3" | **D4** — answers why the artifact may quote a version that does not exist yet |
+| `feature.md:5` | "The PR number is not known yet and reaches the issue through the closing comment" | **D4** — otherwise a session waits for a number that cannot arrive |
+| `feature.md:7` | "`feature/*` merges to `dev` only, never straight to `main` (§2.1, §2.2)" | D1 |
+| `feature.md:9` | "committed directly on `dev` — the one thing §2.2 permits there" | D3 for "on `dev`", D1 for the justification |
+| `feature.md:11` | "**Not a stop**" | D2 |
+| `feature.md:11` | "it happens here rather than after the PR … a deferred exit at step 7 must not leave anything undeployed" | **D4** — the reorder this prevents would leave `dev` undeployed on every deferred exit |
+| `feature.md:13` | "Its last merge has already happened at step 2; the remaining work is on `dev` and `main`" | **D4** — explains why `feature` deletes at step 5 rather than last |
+| `feature.md:15` | "§2.2 requires the PR; a local merge to `main` is forbidden" | D1 |
+| `feature.md:17` | "Two answers: *merged, continue*, or *defer*"; "`gh pr view --json state` must read `MERGED` before anything below runs" | D3 — both operative |
+| `feature.md:19` | "§2.2's tag-and-Release requirement, now reachable since the PR merged" | D1 |
+| `hotfix.md:7` | "Commit all of it on the branch, before any merge (§2.2, §2.8)" | D3 for "before any merge", D1 for the citation pair |
+| `hotfix.md:9` | "State the merge that is about to happen and wait for Ray's explicit approval" | D2 |
+| `hotfix.md:11` | "`--no-ff` per §2.3, since the branch is deleted at step 8 …" | D1 |
+| `hotfix.md:13` | "§2.2 requires the tag and the Release object, not the tag alone" | D1 |
+| `hotfix.md:15` | "§2.1 requires `hotfix/*` to reach both `main` and `dev`" | D1 |
+| `hotfix.md:17` | "**Not a stop** — §1.4 carves the post-merge restart out …" | D2 |
+| `hotfix.md:19` | "The remote delete is a GitHub object deletion (§1.4)" | D1, **and corrected under F1** |
+
+**The result is asymmetric, and that is the finding.** Every D4 fragment is in `feature.md` — four of them — because `feature` is the variant whose order §2.2 forces to be odd. `chore.md` and `hotfix.md` need no footnotes at all: once the D1 and D2 fragments are cited or dropped, nothing close-out-specific is left in either. So the reference files do not get a uniform treatment; `feature.md` keeps a short "Why this order" block and the other two do not.
 
 ## 6. Disposition
 
