@@ -25,7 +25,7 @@
 | 20260819 | Ray | Q7 — `CYCLE_CLOSEOUT_SPEC.md` and its results artifact are superseded, not edited | Accepted. §4.6, step 4 |
 | 20260819 | Ray | Q8 — the failing run is demonstrated on a **copy** of `chore/issue-84-queue-sequencing`, stopping before any merge; the passing run is #90 closing itself out | Accepted. §4.7, step 5 |
 | 20260819 | Spanner | Q4 reassigns the against-delivered-code duty: §1.1's close-out bullet and `_TEMPLATE_RESULTS.md` §3 both place it at close-out, where it no longer lives | Both reworded to name Anvil. The obligation moves to where it is already performed; it is not dropped. §4.6 |
-| 20260819 | Spanner | The issue-AC ↔ spec-sub-AC mapping Q4 depends on is practised in three of the eight live specs and required by none | `_TEMPLATE_SPEC.md` §5 and §1.2 require it. §4.6, AC4.4 |
+| 20260819 | Spanner | The issue-AC ↔ spec-sub-AC mapping Q4 depends on is practised in two forms and required by none, per C10 | `_TEMPLATE_SPEC.md` §5 and §1.2 require it. §4.6, AC4.4 |
 | 20260819 | Ray | Who authors the results artifact? **Anvil** — results-file generation becomes part of his session skill, #85. Statement only; nothing is built for it here | Accepted, and it confirms the Role 1 reading. Anvil writes it as his last implementation step; close-out completes only §5, whose facts do not exist until close-out time. DR5, §4.4, §1 out of scope |
 | 20260819 | Ray | Concern: does Q4 mean the results file is not checked at all? | **No.** P5 checks existence and `Status:`; P6 checks that every spec AC has a row, that every row is `Met` or a cited `Carried`, that every `Met` row carries evidence, and that no row carries an id the spec does not have. What is not checked is whether a `Met` is truthful — that is the redundant fourth pass Q4 removes. §4.1, §4.4 |
 | 20260819 | Ray | Supplied Anthropic's `skill-creator` SKILL.md as the authoring reference | Adopted for structure and writing style: progressive disclosure, one reference file per branch-type variant, imperative instructions, reasons rather than bare MUSTs. Its eval/benchmark loop is declined with cause. DR10, §4.8 |
@@ -52,6 +52,9 @@
 | 20260819 | Caliper | G6 — §5's mapping paragraph contradicted the `Issue AC` column beside it and duplicated its job | Accepted. The paragraph is deleted and the column kept: it is per-row, greppable, and correct. Two homes for one fact had already drifted, which is what `CLAUDE.md`'s one-home rule exists to prevent |
 | 20260819 | Caliper | G7 — two cross-references left stale by the F8 reordering and the AC renumbering | Accepted, both corrected |
 | 20260819 | Caliper | G8 — `--tree` needs `git ls-tree` to scan the specs directory, not only `git show`, so §6 understated the seam by one | Accepted, corrected |
+| 20260819 | Caliper | H1 — AC5.2 required the artifact to quote a closing comment composed after the artifact was committed, on a branch §2.3 had already deleted | Accepted; G1's last unpropagated edge. The quote clause is dropped — the printed comment goes in the step 6 commit message, where AC5.1 already puts the failing run's output, and DR1 already asserts its content |
+| 20260819 | Caliper | H2 — `_TEMPLATE_RESULTS.md`'s `**Released as:**` field had no author on a `feature/*` close-out, where the bump lands on `dev` after the artifact is committed | Accepted, and the premise that the version is unknown was wrong: §2.5 makes it deterministic from the current one, so close-out computes and writes it at step 1. The PR number and Release URL genuinely postdate the commit and move to the closing comment. DR5 and §4.6 |
+| 20260819 | Caliper | H3 — a transcribed count in a Decision Log row contradicted C10 as corrected | Accepted. Reworded to cite C10 rather than carry a number |
 
 ---
 
@@ -113,7 +116,7 @@ Every row was read at authoring time on this branch, cut from `main`. Findings r
 - **DR2 — Every stop is an `AskUserQuestion` call, and the only stops are §1.4 authorization points.** The skill halts by asking and resumes with the answer, in the same invocation. It stops nowhere else: a step that is not on §1.4's list runs without asking, including the post-merge restart, which §1.4 carves out by name.
 - **DR3 — Preflight is read-only and total.** Every preflight check runs and is reported in one pass, on a failing run as much as a passing one. **No write of any kind happens until every preflight check has run and passed** — so a failing close-out leaves the repository exactly as it found it, and the skill is re-runnable with nothing to undo.
 - **DR4 — Close-out checks AC completeness and disposition, never correctness.** Does the results artifact carry a row for every AC on the approved spec, and is every row `Met` or a `Carried` citing `#N`. Whether an AC is genuinely met was settled three times before close-out — Spanner writing it mechanically testable (§1.2), Caliper reviewing it (§1.2), Anvil running it. Close-out re-judging it is a redundant fourth pass, and the one it was asked to prevent — Item 32, closed with four ACs unmet — was a disposition failure, not a judgement failure.
-- **DR5 — The results artifact has one author and one completer.** Anvil writes it as his last implementation step, including §3's AC table, which only he can fill because only he ran the ACs. Close-out completes §5 alone — suite results, live verification, restart confirmation — whose facts do not exist until close-out runs. Neither writes the other's section.
+- **DR5 — The results artifact has one author and one completer.** Anvil writes it as his last implementation step, including §3's AC table, which only he can fill because only he ran the ACs. Close-out completes **§5 and the `**Released as:**` header field**, whose facts do not exist until close-out runs. Neither writes the other's section. What close-out writes is bounded by when it writes: the artifact is committed before the first merge (§4.2), so anything postdating that merge — the PR number, the Release URL, the confirmed `ActiveEnterTimestamp` — belongs to the closing comment instead, not to this file.
 - **DR6 — A check that could not be evaluated is a failure, never `n/a`.** `n/a` means the check does not apply to this branch type and carries the reason it does not. "Could not determine" is a failure, which is precisely what C5's version-bump row gets wrong today.
 - **DR7 — Every failure names its remedy.** A reported failure states what to do about it. A run that fails and leaves the operator guessing has moved the problem, not surfaced it.
 - **DR8 — Nothing is enumerated that can be derived.** The AC list comes from the approved spec, the branch from `git branch --show-current`, the type from its prefix, the version from `workmain/__version__.py`, the changed paths from git. No register of issues, no maintained issue-to-branch mapping, no literal counts in any document this spec writes.
@@ -174,7 +177,7 @@ Reached only when every §4.1 row passed. `⏸` marks an `AskUserQuestion` stop 
 
 **`chore/*`** — `references/chore.md`
 
-1. Set this issue's spec `**Status:**` to `Shipped` (§4.6); complete the results artifact's §5 — suite results, live verification, and the restart's `n/a` reason per §2.6. Commit both on the branch.
+1. Set this issue's spec `**Status:**` to `Shipped` (§4.6); complete the results artifact's `**Released as:**` field as `n/a` (§2.2 allows no release here) and its §5 — suite results, live verification, and the restart's `n/a` reason per §2.6. Commit both on the branch.
 2. ⏸ **Authorization: merge to `main`.**
 3. `git checkout main && git merge --no-ff <branch>`, push `main`.
 4. `git checkout dev && git merge --no-ff <branch>`, push `dev`.
@@ -184,7 +187,7 @@ Reached only when every §4.1 row passed. `⏸` marks an `AskUserQuestion` stop 
 **`hotfix/*`** — `references/hotfix.md`
 
 1. Bump `workmain/__version__.py` by a patch (§2.5) and add its `CHANGELOG.md` section.
-2. Set the spec `**Status:**` to `Shipped`; complete the results artifact's §5 — suite results and live verification. Commit all of it on the branch.
+2. Set the spec `**Status:**` to `Shipped`; complete the results artifact's `**Released as:**` field with the version and tag from step 1, and its §5 — suite results and live verification. Commit all of it on the branch.
 3. ⏸ **Authorization: merge to `main`.**
 4. `git checkout main && git merge --no-ff <branch>`, push `main`.
 5. `git tag v<version>` on `main`, push the tag; `gh release create v<version> --generate-notes`; confirm with `gh release view`.
@@ -194,7 +197,7 @@ Reached only when every §4.1 row passed. `⏸` marks an `AskUserQuestion` stop 
 
 **`feature/*`** — `references/feature.md`
 
-1. Set the spec `**Status:**` to `Shipped`; complete the results artifact's §5 — suite results and live verification. Commit on the branch. The version is not known yet and does not belong here; it reaches the issue through the closing comment.
+1. Set the spec `**Status:**` to `Shipped`; complete the results artifact's `**Released as:**` field — the minor bump from the current `workmain/__version__.py` is deterministic under §2.5, so the version and tag are known here even though the bump itself lands at step 3 — and its §5, suite results and live verification. Commit on the branch. The PR number is not known yet and reaches the issue through the closing comment.
 2. `git checkout dev && git merge --no-ff <branch>`, push `dev`.
 3. Bump `workmain/__version__.py` by a minor (§2.5) and add its `CHANGELOG.md` section, committed directly on `dev` — the one thing §2.2 permits there (C15). Push `dev`.
 4. `systemctl --user restart workmain-notify.service`; confirm `ActiveEnterTimestamp` postdates the `dev` merge. **Not a stop**, and it happens here rather than after the PR because `dev` is already carrying the code (§2.6, §2.8).
@@ -276,6 +279,10 @@ No DB migration, no force push, no service state change beyond the §1.4 carve-o
 
 > Every AC on the **approved spec**, by identifier, checked against **delivered code**. This table is written by Anvil as the last implementation step — he ran the ACs, so he is the only one who can fill it. Close-out verifies that every spec AC has a row and that every row is `Met` or a `Carried` citing its follow-up issue; it does not re-judge them. Item 32 was closed in Phase 13 Sprint 2 with all four ACs unmet and had to be reopened eleven days later; that is what this table exists to prevent.
 
+**`docs/dev/results/_TEMPLATE_RESULTS.md`'s `**Released as:**` field** gains the rule that says who fills it and when (Caliper H2):
+
+> **Released as:** the version and tag, computed at close-out from §2.5 and the current `workmain/__version__.py` — deterministic before the merge, which is when this file is committed. `n/a` on `chore/*`, which §2.2 allows no release. The PR number, the Release URL and the confirmed restart timestamp are **not** here: they postdate this commit and are carried by the issue's closing comment.
+
 **§2.2's `chore/*` path list** gains the directory this branch's main deliverable lives in (Caliper F15):
 
 > - For `docs/**`, standards documents, `.claude/`, and dev tooling that changes no application behaviour (`.gitignore`, `.githooks/`, `.github/`, `automation/`, editor/CI config).
@@ -353,7 +360,7 @@ Each row's **Issue AC** column names which of #90's six ACs it carries. The mapp
 | AC4.5 | §2.2's `chore/*` path list names `.claude/`, this branch's own deliverable | Within `awk '/^### 2.2/,/^### 2.3/' docs/DEVELOPMENT_STANDARDS.md`: `grep -c '.claude/'` prints at least `1` | — |
 | AC4.6 | Both superseded documents say so and point here | `grep -c 'Superseded'` prints at least `1` in each of `CYCLE_CLOSEOUT_SPEC.md` and `CYCLE_CLOSEOUT_RESULTS.md`, and each contains `CLOSEOUT_PERFORMS_SPEC.md` | — |
 | AC5.1 | The failing run is demonstrated on this branch before step 5 writes its artifact | `/closeout 90` run at the start of step 5, output recorded in that step's commit message: P1–P4 pass, P5 fails naming `docs/dev/results/CLOSEOUT_PERFORMS_RESULTS.md` and giving its remedy, every remaining row is still reported, and `git status --porcelain` is empty afterwards — the run wrote nothing | 5th |
-| AC5.2 | The passing run is demonstrated by #90 closing itself out | Step 6 is performed by `/closeout 90`. `CLOSEOUT_PERFORMS_RESULTS.md` §5 records the run and quotes the closing comment it printed. This spec's `**Status:**` reads `Shipped` afterwards, set by the skill and not by hand | 5th |
+| AC5.2 | The passing run is demonstrated by #90 closing itself out | Step 6 is performed by `/closeout 90`, and the comment it printed is recorded in the step 6 commit message — the same place AC5.1 puts the failing run's output. On `main` afterwards, this spec's `**Status:**` reads `Shipped` and `CLOSEOUT_PERFORMS_RESULTS.md` §5 carries the suite results, both set by the skill and not by hand. **The artifact does not quote the comment**: §4.2 commits §5 before the first merge and composes the comment after the last, so a quote would require a direct commit to `main` on a branch §2.3 has already deleted (Caliper H1) | 5th |
 | AC6.1 | Every one of #90's twenty-two defects is dispositioned | `CLOSEOUT_PERFORMS_RESULTS.md` carries a **disposition ledger** — one row per defect D1–D22, each `fixed` naming the AC that covers it, or `dropped` with its reason. This asserts that none was silently forgotten, not that each was independently verified; the fixes themselves are verified by the ACs above. The dropped or reclassified set is the recon's: **D9, D10, D12 in part, D13, D14, D16** (`RECON_CLOSEOUT_PERFORMS.md`, the reconciliation paragraph) | 6th |
 | AC6.2 | The application suite is untouched | `python -m pytest tests/` — zero failures, and the pass count equals the baseline recorded in the step 1 commit message. No test is added to `tests/` | — |
 
