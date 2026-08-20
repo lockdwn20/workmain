@@ -1,15 +1,14 @@
 # Fixture — Implementation Results
 
-**Status:** Active
-**Author:** Anvil (Role 3)
-**Date:** 20260820
+**Status:** Shipped
 **Spec:** `docs/dev/specs/FIXTURE_SPEC.md`
 
 ## 3. Acceptance criteria
 
 | AC | Status | Evidence |
 | --- | --- | --- |
-| Only AC text | Met | `pytest automation/closeout_checks_test.py` passes |
+| AC1.1 | Met | evidence |
+| AC9.9 | Met | evidence not claimed by any spec AC |
 
 ## 4. Deviations from spec
 
