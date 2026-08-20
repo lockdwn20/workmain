@@ -1,6 +1,6 @@
 # Queue Sequencing — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20260819
 **Branch:** `chore/issue-84-queue-sequencing` (from `main`, merges to `main` and `dev`)
@@ -28,6 +28,7 @@
 | 20260820 | Caliper | F2 — AC3.2's board-write grep hits `RECON_CYCLE_MECHANICS.md:96`, permanently, since recon artifacts are never rewritten | Accepted. Scoped to the surfaces the rule governs, with the expected count stated |
 | 20260820 | Caliper | F3 — #84's fourth AC, the preemption rule, is tested by nothing | Accepted, and it was the headline AC. AC4.1 and AC4.2 now test the preemption clauses; the "§1.6 exists" check moves to AC1.4 where its substance belongs |
 | 20260820 | Caliper | F4 — AC4.5 hard-codes `934` and `45`, so it fails when unrelated tests land on `main` | Accepted. The counts leave the document entirely; the check is that this branch changes no Python file and both suites pass. C12 loses its numbers for the same reason |
+| 20260820 | Ray | **Approved.** Caliper round 1 closed, F1–F8 all resolved | Status Draft → Approved. Implementation may begin at step 1 |
 | 20260820 | Ray | `--limit` is not a defect and does not belong in the standard, an AC or a risk row. We work the next issue on the list; the default never bites | Accepted, and Caliper's F5 falls with it. Every mention of truncation is removed — C4, the §1.6 sentence, AC1.3, the risk row, and AC1.2's limit assertions |
 | 20260820 | Caliper | F6 — AC3.1's comment claims labels are checked; the diff compares title and milestone only | Accepted. Labels are added to both sides rather than dropped from the comment — a board-local label is exactly what the AC exists to catch |
 | 20260820 | Caliper | F7 — §1.6's *"no document that names what to work on"* restates the rule #81 left `CLAUDE.md` owning, and AC4.4 greps a phrase that could never appear there | Accepted. The clause is removed from §1.6, `CLAUDE.md` keeps the rule, and AC4.5 tests the boundary by proving it lives in exactly one file |
