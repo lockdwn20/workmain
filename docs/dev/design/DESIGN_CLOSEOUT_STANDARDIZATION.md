@@ -73,9 +73,9 @@ This is a **design study**, not a recon — it makes a recommendation, which `_T
 | Q2 | Reference files currently restate the standards so a session reads `SKILL.md` plus one file and needs nothing else. Citing §2.x instead adds a third read. Which is worth more — self-containment, or one home per rule? | **Answered 20260820, Ray: cite, and go further.** A step should read `Restart the service — §2.6.` The restart rule is currently written four times — §2.6, `SKILL.md`, `feature.md:11`, `hotfix.md:17` — in four wordings. Sample rewrite takes `hotfix.md` from 290 words to 101 |
 | Q3 | Does the record phase settle on `feature`'s derive-the-version or `hotfix`'s bump-first (F5)? | **Answered 20260820: not an issue.** F5 withdrawn — see §3 |
 | Q4 | Should `SKILL.md` state the stop **order** per variant, given F8's inversion, or keep naming the pair without ordering them? | **Answered 20260820, Ray: neither.** `SKILL.md` should not state that a thing will be done when the reference file states it again and then does it. `SKILL.md` keeps only the invariant that spans variants — exactly two authorization points, nothing else stops. Which two and in what order is the reference file's ⏸ markers, said once. F8 needs no fix |
-| Q5 | Which close-out-specific rationale survives the strip, and where does it live? | **Answered 20260820, Ray: it is a combination, not one choice.** Resolved by census — see §7. Four homes; all four footnote-worthy fragments turn out to be in `feature.md` |
+| Q5 | Which close-out-specific rationale survives the strip, and where does it live? | **Answered 20260820, Ray: it is a combination, not one choice.** Resolved by census — see §6. Four homes; all four footnote-worthy fragments turn out to be in `feature.md` |
 
-## 7. Rationale census — where each fragment goes (Q5)
+## 6. Rationale census — where each fragment goes (Q5)
 
 Q5 has no single answer; the disposition differs per fragment, so every rationale fragment in the three reference files was classified against four homes. **D1** delete, the rule is a §2.x rule and the citation carries it. **D2** delete, `SKILL.md` already owns it. **D3** keep inline — it reads as rationale but is operative content. **D4** footnote — a close-out decision the standards do not imply, load-bearing because stripping it invites a wrong reorder.
 
@@ -107,7 +107,7 @@ Q5 has no single answer; the disposition differs per fragment, so every rational
 
 **The result is asymmetric, and that is the finding.** Every D4 fragment is in `feature.md` — four of them — because `feature` is the variant whose order §2.2 forces to be odd. `chore.md` and `hotfix.md` need no footnotes at all: once the D1 and D2 fragments are cited or dropped, nothing close-out-specific is left in either. So the reference files do not get a uniform treatment; `feature.md` keeps a short "Why this order" block and the other two do not.
 
-## 6. Disposition
+## 7. Disposition
 
 - Promoted to: *(pending — #91 rewrite, then spec)*
 - Q1–Q4 answered 20260820; F5 withdrawn; Q5 opened in their place
