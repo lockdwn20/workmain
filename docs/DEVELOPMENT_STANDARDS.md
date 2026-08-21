@@ -1,12 +1,8 @@
 # WorkmAIn Development Standards
 
-How work gets built. `CLAUDE.md` owns who does what (the three-role model), what this
-project is (stack, architecture), and domain decisions (tag system, time format, trigger
-terminology, write-path map). This document owns everything else — process, git workflow,
-code patterns, database, CLI structure, and testing.
+How work gets built. `CLAUDE.md` owns who does what (the three-role model), what this project is (stack, architecture), and domain decisions (tag system, time format, trigger terminology, write-path map). This document owns everything else — process, git workflow, code patterns, database, CLI structure, and testing.
 
-Read the relevant section before writing code. The only text here also stated in
-`CLAUDE.md` is its § Critical Rules subset; nothing else appears in both.
+Read the relevant section before writing code. The only text here also stated in `CLAUDE.md` is its § Critical Rules subset; nothing else appears in both.
 
 ---
 
@@ -14,8 +10,7 @@ Read the relevant section before writing code. The only text here also stated in
 
 ### 1.1 Recon before spec
 
-No spec is written without a read-only audit first. Recon produces a findings document in
-`docs/dev/design/`; decisions are made from it; only then is a spec written.
+No spec is written without a read-only audit first. Recon produces a findings document in `docs/dev/design/`; decisions are made from it; only then is a spec written.
 
 ```text
 RECON  →  ANALYSIS  →  SPEC  →  REVIEW  →  APPROVAL  →  IMPLEMENTATION  →  CLOSE-OUT
@@ -26,106 +21,66 @@ RECON  →  ANALYSIS  →  SPEC  →  REVIEW  →  APPROVAL  →  IMPLEMENTATION
 - **Spec** — written to `docs/dev/specs/`.
 - **Review** — Role 2 findings go back to Role 1, never forward to the implementer.
 - **Approval** — Ray approves explicitly. No implementation without an approved spec.
-- **Implementation** — Role 3, step by step, from the approved spec only. Steps commit
-  without a stop; authorization points are the hard stops — see §1.4.
-- **Close-out** — `/closeout <issue>`. Performs the close-out: merges the branch where
-  its type requires, bumps the version, writes the ledger entry, cuts the tag and the
-  Release, restarts the daemon, marks the spec `Shipped`, and completes the
-  `docs/dev/results/` artifact. It verifies that every AC on the approved spec was
-  disposed of — met, or carried to a cited follow-up — but does not re-judge them;
-  Anvil walks the ACs against delivered code and records the result before close-out
-  begins. It stops at each authorization point it crosses (§1.4) and nowhere else.
-  Posting the closing comment and closing the issue stay Ray's.
+- **Implementation** — Role 3, step by step, from the approved spec only.
+- **Close-out** — Invoked via the Claude Skill `/closeout <issue>`. Performs all closeout items based on the type of branch.
 
 ### 1.2 Spec authoring rules
 
-- Every claim about existing behaviour is verified against source at authoring time — cite
-  file and symbol. Assertions that were not verified are the most common spec defect.
+- Every claim about existing behaviour is verified against source at authoring time — cite file and symbol. Asertions that were not verified are the most common spec defect.
 - Changes to an existing spec are surgical, not wholesale rewrites.
 - Defects found during verification become their own hotfix, not sprint scope.
-- Acceptance criteria must be mechanically testable. If an AC cannot be checked by running
-  something, rewrite it until it can.
-- A spec's §5 maps its sub-ACs to the ACs on the originating issue, either as an opening
-  paragraph or as a fourth `Issue AC` column on the table. The issue's ACs state the
-  outcome; the spec's decompose it into what can be run. Sub-ACs are numbered `ACn.m`,
-  which is what lets close-out read the set mechanically. An unmapped sub-AC verifies
-  nothing the issue asked for.
+- Acceptance criteria must be mechanically testable. If an AC cannot be checked by running something, rewrite it until it can.
+- A spec may map sub-ACs to the ACs on the originating issue using the numbering `ACn.m`, which is what lets close-out read the set mechanically. An unmapped sub-AC verifies nothing the issue asked for.
 - At least one Role 2 review pass before a spec is approved.
 
 ### 1.3 Issue discipline
 
-- Work is tracked in GitHub Issues. State is GitHub's own — open or closed. There is no
-  status vocabulary to maintain in prose, and no register or statistics table to keep in
-  step.
-- Labels carry area. `bug`/`enhancement` is the type discriminator, applied *only* to
-  issues with no milestone — so a type label appearing inside a milestone means that work
-  was pulled in later, not planned as part of it. What each label means beyond that is its
-  description on GitHub, readable with `gh label list` — not enumerated here, since a
-  prose list is a register that goes stale the first time a label is added.
-- A milestone carries the exit condition that closes it, and that condition must cover
-  every issue in it.
-- An issue must be independently verifiable on its own: split into sub-issues only where
-  each piece leaves the repository in a coherent state its own acceptance criteria can
-  verify. Where steps are strictly sequential and individually meaningless, they stay
-  inline as steps in one issue — not split into a parent with children for its own sake.
-- **Verify every AC against delivered code before marking an item complete.** Item 32 was
-  marked complete in Phase 13 Sprint 2 (v1.21.0) with all four of its acceptance criteria
-  unmet, and had to be reopened eleven days later when the gap was noticed. The work
-  actually landed in Ops_Config_Correction_Sprint (v1.24.0), via
-  `TaskStatusRepository.set_forwarding_note()`. A spec's say-so is not evidence.
+- Work is tracked in GitHub Issues. State is GitHub's own — open or closed. There is no status vocabulary to maintain in prose, and no register or statistics table to keep in step.
+- Labels carry area or as a discriminator (`bug`/`enhancement`) for issues with no milestone. A label appearing inside a milestone using a discriminator means that work was pulled in later, not planned as part of it. What each label means beyond that is its description on GitHub, readable with `gh label list` — not enumerated here, since a  prose list is a register that goes stale the first time a label is added.
+- The Github type field is not utilized.
+- A milestone carries the exit condition that closes it, and that condition must cover every issue in it.
+- An issue must be independently verifiable on its own: split into sub-issues only where each piece leaves the repository in a coherent state its own acceptance criteria can verify. Where steps are strictly sequential and individually meaningless, they stay inline as steps in one issue — not split into a parent with children for its own sake.
+- Verification of every AC against delivered code before marking an item complete is required. A spec's say-so is not evidence.
 
 ### 1.4 Steps and authorization points
 
-A spec's §4 is ordered work, defined below.
+A spec's steps are ordered work, defined below.
 
-- **Steps.** Ordered work inside a spec. Committed individually, reviewable and revertible
-  individually. No approval stop. A step ends with a commit, not with a request to
-  continue.
-- **Authorization points.** Attached to specific *actions* that are irreversible or
-  reach outside the working tree. This is a property of the action, so it does not scale
-  with scope: a one-step issue can contain one and a twenty-step issue can contain none.
-  An authorization point is a hard stop — state what is about to happen, then wait for
-  Ray's explicit approval.
-- **The authorization set.** Executing a DB migration; deleting a GitHub object (issue,
-  label, milestone, branch, release); merging to `main`; force-pushing any branch; changing
-  the run state of a live service beyond the carve-out below. Anything not on this list is
-  a step.
-- **Carve-out — the post-merge restart is not an authorization point.** §2.6 requires
-  restarting `workmain-notify.service` after a merge to `dev`, and §2.8 forbids reporting a
-  merge as deployed without it. That restart is a documented obligation, not a
-  discretionary state change, so it is a step. The authorization set covers service state
-  changes *other than* that restart.
+- **Steps.** Ordered work inside a spec. Committed individually, reviewable and revertible individually. No approval stop. A step ends with a commit, not with a request to continue.
+- **Authorization points.** Attached to specific *actions* that are irreversible or reach outside the working tree.
+  - This is a property of the action, so it does not scale with scope: a one-step issue can contain one and a twenty-step issue can contain none.
+  - An authorization point is a hard stop — state what is about to happen, then wait for   Ray's explicit approval.
+  - **The authorization set (anything not on this list is a step):**
+    - Executing a DB migration
+    - Deleting a GitHub object (issue, label, milestone, branch, release)
+    - Merging to `main`
+    - Force-pushing any branch
+    - Changing the run state of a live service beyond the carve-out below.
+      - **Carve-out — the post-merge servce restart the is part of an Issue Closeout is not an authorization point.**
 
 ### 1.5 Documentation rules
 
-- Dev artifacts always live in `docs/dev/<type>/`, never in the `docs/` root: `design/`
-  (design studies and recon), `specs/`, `results/` (implementation results).
-- **Filenames are subject-based** — no version suffix, no date. Artifacts are updated in
-  place, so filenames never change and citations never break.
-- **Every artifact carries a `Status:` field** — specs carry `Draft`, `Approved`, `Shipped`
-  or `Superseded`; design and results artifacts carry `Active`, `Shipped` or `Superseded`.
-  - While work is live, retirement is a status edit, not a file move. An artifact stays
-    where it is, and where it is cited, for as long as it is being referenced.
-  - **`docs/archive/`** holds artifacts whose work is complete. Move an artifact there
-    once it is finished and no longer a live reference — it is kept for reference only,
-    is never authoritative, and is always superseded by the current `design/`, `specs/`,
-    and `results/`. It is git-tracked, so citations to it stay resolvable.
-  - Never cite an archived artifact as the basis for a current decision. If it still
-    governs something, it has not finished being live and does not belong in the archive.
-- **Specs carry a Decision Log** — decisions and review findings with their resolution,
-  only.
-  - Never a description of what changed in the document; git covers that.
+- Dev artifacts always live in `docs/dev/<type>/` (never in the `docs/` root):
+  - `design/` (design studies and recon)
+  - `specs/`
+  - `results/` (implementation results).
+- **Filenames are subject-based** — no version suffix, no date. Artifacts are updated in place, so filenames never change and citations never break.
+- **Every artifact carries a `Status:` field**:
+  - Specs carry `Draft`, `Approved`, `Shipped` or `Superseded`
+  - Design and Results artifacts carry `Active`, `Shipped` or `Superseded`.
+- While work is live, retirement is a status edit, not a file move. An artifact stays where it is, and where it is cited, for as long as it is being referenced.
+  - **`docs/archive/`** holds artifacts whose work is complete. Move an artifact there once it is finished and no longer a live reference — it is kept for reference only, is never authoritative, and is always superseded by the current `design/`, `specs/`,  and `results/`. It is git-tracked, so citations to it stay resolvable.
+  - Never cite an archived artifact as the basis for a current decision. If it still governs something, it has not finished being live and does not belong in the archive.
+- **Specs carry a Decision Log** — decisions and review findings with their resolution only.
+  - Never a description of what changed in the document or a restatement of information already included elsewhere in the spec.
   - Design and results artifacts carry neither a decision log nor a version history.
 - **Markdown is never hard-wrapped.** One line per paragraph, per list item, per table row — let the editor wrap it. A paragraph broken across source lines makes every later edit a reflow, and turns a one-word change into a multi-line diff nobody can review. `MD013` is off in `.markdownlint.json` for this reason.
-- **No version headers or version-history blocks in any document.** Git is the version
-  record. See §3.1 for the code equivalent.
-- Each `docs/dev/` subdirectory holds a `_TEMPLATE_*.md` starting point. Templates are
-  advisory — **template compliance is not a Caliper review criterion.**
-- Always create the spec in the correct subdirectory before writing any code.
+- **No version headers or version-history blocks in any document.** Git is the version record. See §3.1 for the code equivalent.
+- Each `docs/dev/` subdirectory holds a `_TEMPLATE_*.md` starting point. Templates are advisory — **template compliance is not a Caliper review criterion.**
 
 ### 1.6 Sequencing
 
-**The board is the order.** Every issue joins the `WorkmAIn Queue` project at creation (§1.3), and its position there is the sequence. The next open item on the list is what comes next. There is no priority label and no rank field.
+**The Github Project Board is the order.** Every issue joins the `WorkmAIn Queue` project at creation (§1.3), and its position there is the sequence. The next open item on the list is what comes next. There is no priority label and no rank field.
 
 ```bash
 gh project item-list 3 --owner lockdwn20 --format json --limit 200 --query "is:open" \
@@ -136,7 +91,7 @@ Items come back in board order. `milestone` and `labels` arrive on each item, so
 
 Ordering is Ray's. Position is set in the Web UI, and nothing in this repository writes to the board. The project's `Status` field is auto-populated by GitHub and cannot be removed; it is ignored.
 
-**Preemption is expressed by position, and by nothing else.** Work that preempts the schedule is moved to the top of the board. The cycle-mechanics parent (#80) and its children hold that position today: they preempt all scheduled work, because until they close the cycle has no working mechanics to schedule against. **No general category of preempting work is defined.** Future preemption is decided case by case, by Ray, and takes effect as a move on the board — not as a label, a milestone, or a rule added here.
+**Preemption is expressed by position, and by nothing else.** Work that preempts the schedule is moved to the top of the board. **No general category of preempting work is defined.** Future preemption is decided case by case, by Ray, and takes effect as a move on the board — not as a label, a milestone, or a rule added here.
 
 ---
 
@@ -152,7 +107,7 @@ hotfix/*   — targeted fixes. From main, merges to main AND dev.
 chore/*    — documentation/process/tooling only. From main, merges to main AND dev.
 ```
 
-**Branch names are `<type>/issue-<N>-<slug>`.** The issue number is what links a merge commit back to its issue once §2.3 deletes the branch. Work with no issue behind it is the exception and names itself descriptively — but it is an exception, not the default.
+**Branch names are `<type>/issue-<N>-<slug>`.** The issue number is what links a merge commit back to its issue once §2.3 deletes the branch. Work with no issue behind it is the exception and names itself descriptively — this is an exception, not the standard.
 
 ### 2.2 Branch rules
 
@@ -162,79 +117,83 @@ chore/*    — documentation/process/tooling only. From main, merges to main AND
 - Receives merges only from `dev` or `hotfix/*`.
 - Every merge bumps `workmain/__version__.py` and updates `CHANGELOG.md`.
 - Tag every merge: `git tag v<version>`.
-- **The tag alone is not a release.** Every tag on `main` needs a GitHub Release object
-  (`gh release create v<version> --generate-notes`), verified with `gh release view`.
-  *Added because the step was silently skipped for v1.25.0, v1.25.1, and v1.26.0.*
+- Generate a GitHub Release object for every tag: `gh release create v<version> --generate-notes`.
 
 **`dev`**
 
 - Always equal to, or one feature ahead of, `main`.
 - Direct commits permitted only for trivial version/changelog updates after a feature merge.
-- **`dev → main` MUST go through a GitHub PR — never a local merge.** Push `dev`,
-  `gh pr create`, verify on GitHub. **Ray merges the PR himself** — open it and stop.
+- **`dev → main` MUST go through a GitHub PR — never a local merge.**
+  - Push `dev`-> `gh pr create` -> verify on GitHub -> stop. **Ray merges the PR himself**.
 
-**`feature/*`** — from `dev`, merges to `dev` only. One per phase. Delete immediately after merge.
+**`feature/*`**
 
-**`hotfix/*`** — from `main`, merges to `main` then `dev`.
+- from `dev`
+- merges to `dev` then to `main` via PR only.
+- Stays local
+- Deleted after merge.
 
-- Escalate to `feature/*` if the fix touches more than 3 **application** files
-  (`workmain/**/*.py`, `config/*`, `templates/*`). Tests, `__version__.py`, and
-  `CHANGELOG.md` are mandatory companions and do not count. *Clarified after the Item #58
-  hotfix read as escalation-triggering at 8 total files despite being correctly scoped.*
-- File count is a proxy, not the test. The real question is whether the fix is one
-  traceable root cause. Bundled unrelated concerns escalate regardless of count.
+**`hotfix/*`**
 
-**`chore/*`** — from `main`, merges to `main` then `dev`.
+- from `main`
+- merges to `main` and `dev`.
+- Escalate to `feature/*` if the fix touches more than 3 **application** files (`workmain/**/*.py`, `config/*`, `templates/*`).
+  - Tests, `__version__.py`, `CHANGELOG.md` and docs/ are mandatory companions and do not count.
+  - File count is a proxy, not the test. The real metric is whether the fix is one traceable root cause.
+  - Bundled unrelated concerns escalate regardless of count.
 
+**`chore/*`**
+
+- from `main`
+- merges to `main` and `dev`.
 - For `docs/**`, standards documents, `.claude/`, and dev tooling that changes no application behaviour (`.gitignore`, `.githooks/`, `.github/`, `automation/`, editor/CI config).
-- **Exception:** a change to `workmain/**`, `tests/**`, or `scripts/**` may use `chore/*`
-  if it is mechanically proven behaviour-neutral (e.g. AST-equality) *and* the governing
-  spec states the proof method.
-- **No version bump, no `CHANGELOG.md` entry, no tag, no Release.** A doc-only change is
-  not an application release.
-- Scope: one document, or one tightly-related set edited for a single reason.
-- Backlog and checklist updates that document a branch's own just-shipped work ride that
-  feature branch — not a separate `chore/*`, even though `docs/**` would qualify on path alone.
+- **Exception:** a change to `workmain/**`, `tests/**`, or `scripts/**` may use `chore/*` if it is mechanically proven behaviour-neutral (e.g. AST-equality) *and* the governing spec states the proof method.
+- **No version bump, no `CHANGELOG.md` entry, no tag, no Release.** A doc-only change is not an application release.
+- Scope: One tightly-related set of files edited for a single reason.
 
-**Hotfix → feature exception.** When a hotfix is a direct prerequisite for a feature branch
-and has no standalone value: branch from `main`, merge into the feature branch before its
-step 1, delete it, and document the deviation in the feature spec. The version bump rides
-the feature.
+**hotfix/* → feature/* exception.**
+
+- When a hotfix is a direct prerequisite for a feature branch and has no standalone value
+  - Branch from `main`
+  - Merge the hotfix/** into the feature/* branch before its step 1
+  - Delete the hotfix/*
+  - Document the deviation in the feature spec.
+  - The version bump rides the feature.
 
 ### 2.3 Branch deletion
 
-Delete every branch, local and remote, immediately after merge. No exceptions.
+- `main` and `dev` are the only permanent local and remote branches.
+- All other local and remote branches are deleted once merged with `main` and `dev`.
 
-**Every merge is `--no-ff`.** A fast-forward leaves no merge commit, and once the branch is deleted the merge commit is the only record of what the branch contained — its subject names the branch, and its second parent is the tip. A fast-forwarded branch is unrecoverable the moment it is deleted. Tags, `CHANGELOG.md` and the merge commit are the permanent record; the branch ref itself adds nothing.
+**Every merge is `--no-ff`.**
+
+- A fast-forward leaves no merge commit
+- The merge commit is the only record of what the branch contained — its subject names the branch, and its second parent is the tip.
+- A fast-forwarded branch is unrecoverable the moment it is deleted.
+- Tags, `CHANGELOG.md` and the merge commit are the permanent record; the branch ref itself adds nothing.
 
 ### 2.4 Commit messages
 
 ```text
 <type>(<scope>): <short description>
 
-<body — what and why, not how. Files changed, decisions made, expected test count.
-Note any deviations from spec.>
+<body — what and why, not how. Files changed, decisions made, expected test count. Note any deviations from spec.>
 
 Co-Authored-By: Claude
 ```
 
 Types: `feat`, `fix`, `refactor`, `chore`, `docs`, `test`.
 
-- This is the **only** commit format. Step context belongs in the body, not the subject —
-  `feat(notes): converge write path` with `Step 3 of 7` in the body, never `Step 3: ...`
-  as the subject.
+- This is the **only** commit format. Step context belongs in the body, not the subject — `feat(notes): converge write path` with `Step 3 of 7` in the body, never `Step 3: ...` as the subject.
 - `git commit --no-verify` is **prohibited**. It bypasses commit validation.
+- **Enforced by `.githooks/commit-msg`.** Enable it once per clone — it is not automatic, because git does not track `.git/hooks/`:
 
-**Enforced by `.githooks/commit-msg`.** Enable it once per clone — it is not automatic,
-because git does not track `.git/hooks/`:
+  ```bash
+  git config core.hooksPath .githooks
+  ```
 
-```bash
-git config core.hooksPath .githooks
-```
-
-The hook exempts merge, revert, and fixup/squash subjects, which git generates itself.
-It validates format only — it cannot tell you a scope is wrong or a description is
-useless. Do not work around a rejection with `--no-verify`; fix the subject.
+  - The hook exempts merge, revert, and fixup/squash subjects, which git generates itself.
+  - It validates format only — it cannot tell you a scope is wrong or a description is useless.
 
 ### 2.5 Version bumps
 
@@ -244,31 +203,29 @@ useless. Do not work around a rejection with `--no-verify`; fix the subject.
 | Feature/phase → dev → main | Minor | 1.3.1 → 1.4.0 |
 | Breaking change | Major | 1.4.0 → 2.0.0 |
 
-Update `workmain/__version__.py` and `CHANGELOG.md` together on every merge to `main`.
+Update `workmain/__version__.py` and `CHANGELOG.md` together on every `feature/*` and `hotfix/*` merge to `main`.
 
 ### 2.6 Deployment
 
 `workmain-notify.service` (systemd `--user`) tracks **`dev`**, not `main`.
 
-**Every `feature/*` and `hotfix/*` branch ends with a service restart.** The daemon loads
-code once at process start, so a merge to `dev` is not deployed until it restarts.
-`chore/*` carries no restart — it changes no application code.
+**Every `feature/*` and `hotfix/*` branch ends with a service restart.** The daemon loads code once at process start, so a merge to `dev` is not deployed until it restarts. `chore/*` carries no restart — it changes no application code.
 
 ```bash
 systemctl --user restart workmain-notify.service
 systemctl --user show workmain-notify.service --property=ActiveEnterTimestamp
 ```
 
-Confirm the new `ActiveEnterTimestamp` postdates the merge commit before calling anything
-deployed. *An apparent Item #58 regression traced to a daemon running continuously since
-before the fix merged — the code was correct in `dev` and `main` the whole time.*
+Confirm the new `ActiveEnterTimestamp` postdates the merge commit before calling anything deployed.
 
 ### 2.7 Session start checklist
 
 1. `git status` — working directory clean.
 2. `git branch` — confirm where you are.
-3. Determine work type: phase/multi-step → `feature/*` from `dev`; targeted application
-   fix → `hotfix/*` from `main`; docs/process only → `chore/*` from `main`.
+3. Determine work type:
+   - phase/multi-step → `feature/*` from `dev`
+   - targeted application fix → `hotfix/*` from `main`
+   - docs/process only → `chore/*` from `main`.
 4. Create the branch **before** writing anything.
 5. Never work directly on `main` or `dev`.
 
@@ -281,8 +238,7 @@ before the fix merged — the code was correct in `dev` and `main` the whole tim
 - Combine hotfix and feature work on one branch.
 - Write code before creating the branch.
 - Leave a merged branch alive, or let `dev` sit ahead of `main`.
-- Use `chore/*` for application code, `config/*`, `templates/*`, `tests/**`, or
-  `CHANGELOG.md` — except under the proven-behaviour-neutral exception in §2.2.
+- Use `chore/*` for application code, `config/*`, `templates/*`, `tests/**`, or `CHANGELOG.md` — except under the `chore/* exception in §2.2.
 - Report a `dev` merge as deployed without a confirmed post-merge restart.
 - Use `git commit --no-verify`.
 
@@ -292,47 +248,45 @@ before the fix merged — the code was correct in `dev` and `main` the whole tim
 
 ### 3.1 Module headers
 
-PEP 257 module docstring, description only. **No version, no date, no version-history block.**
-Git tags, `CHANGELOG.md`, and `workmain/__version__.py` are the version record.
+- PEP 257 module docstring, description only. **No version, no date, no version-history block.** Git tags, `CHANGELOG.md`, and `workmain/__version__.py` are the version record.
 
-```python
-"""
-Provides tag parsing, validation, conversion, and display formatting.
-Tags are case-insensitive, normalized, and validated against config/tags.json.
-"""
-```
+  ```python
+  """
+  Provides tag parsing, validation, conversion, and display formatting.
+  Tags are case-insensitive, normalized, and validated against config/tags.json.
+  """
+  ```
 
-*Duplicating version history in every file invited drift and was retired in v1.29.0.*
+- *NOTE: Duplicating version history in every file was retired in v1.29.0.*
 
 ### 3.2 Import organization
 
-Standard library, then third-party, then local — blank line between groups.
+- Standard library, then third-party, then local — blank line between groups.
 
-```python
-from datetime import date, datetime
-from typing import List, Optional
+  ```python
+  from datetime import date, datetime
+  from typing import List, Optional
 
-from sqlalchemy import func, and_, or_
-from sqlalchemy.orm import Session
+  from sqlalchemy import func, and_, or_
+  from sqlalchemy.orm import Session
 
-from workmain.database.models import Note, Meeting, Project
-```
+  from workmain.database.models import Note, Meeting, Project
+  ```
 
 ### 3.3 Singletons
 
-Module-level `_<name>_instance = None`, created on first call, accessed through a
-**descriptive** getter.
+- Module-level `_<name>_instance = None`, created on first call, accessed through a **descriptive** getter.
 
-```python
-_tag_system_instance = None
+  ```python
+  _tag_system_instance = None
 
-def get_tag_system() -> TagSystem:
-    """Get singleton instance of TagSystem."""
-    global _tag_system_instance
-    if _tag_system_instance is None:
-        _tag_system_instance = TagSystem()
-    return _tag_system_instance
-```
+  def get_tag_system() -> TagSystem:
+      """Get singleton instance of TagSystem."""
+      global _tag_system_instance
+      if _tag_system_instance is None:
+          _tag_system_instance = TagSystem()
+      return _tag_system_instance
+  ```
 
 | Correct | Wrong |
 | --- | --- |
@@ -344,38 +298,38 @@ def get_tag_system() -> TagSystem:
 
 ### 3.4 Package `__init__.py`
 
-Descriptive docstring, import classes *and* singleton getters, declare `__all__`.
-No `__version__` constant.
+- Descriptive docstring, import classes *and* singleton getters, declare `__all__`. No `__version__` constant.
 
 ### 3.5 Type hints and docstrings
 
-Type hints on every parameter and return. Google-style docstrings on every public
-function and class.
+- Type hints on every parameter and return. Google-style docstrings on every public function and class.
 
-```python
-def create(self, content: str, tags: List[str], project_id: Optional[int] = None) -> Note:
-    """
-    Create a new note.
+  ```python
+  def create(self, content: str, tags: List[str], project_id: Optional[int] = None) -> Note:
+      """
+      Create a new note.
 
-    Args:
-        content: Note content (clean text without hashtags)
-        tags: List of full tag names (e.g., ['internal-only'])
-        project_id: Optional project ID to link
+      Args:
+          content: Note content (clean text without hashtags)
+          tags: List of full tag names (e.g., ['internal-only'])
+          project_id: Optional project ID to link
 
-    Returns:
-        Created Note object
-    """
-```
+      Returns:
+          Created Note object
+      """
+  ```
 
 ### 3.6 Integration over separation
 
-Enhance an existing command file when adding to an existing group. New files are only for
-approved distinct command groups.
+- Enhance an existing command file when adding to an existing group.
+- New files are only for approved distinct command groups.
 
 ### 3.7 Security
 
-Never commit secrets. API keys come from the environment and are Fernet-encrypted at rest.
-`.env` and `~/.workmain/encryption.key` are `chmod 600`.
+- Never commit secrets.
+- All secrets are stored as KV pairs in the .env and utilized through python-dotenv
+- API keys come from the environment and are Fernet-encrypted at rest.
+- `.env` and `~/.workmain/encryption.key` are `chmod 600`.
 
 ---
 
@@ -383,98 +337,97 @@ Never commit secrets. API keys come from the environment and are Fernet-encrypte
 
 ### 4.1 Session pattern
 
-`get_session()` is a **method on the `Database` class**, not a module-level function.
-Always `get_db()` first.
+- `get_session()` is a **method on the `Database` class**, not a module-level function.
+- Always `get_db()` first.
 
-```python
-from workmain.database.connection import get_db
+  ```python
+  from workmain.database.connection import get_db
 
-db = get_db()
-session = db.get_session()
-try:
-    repo = SomeRepository(session)
-    # ... work ...
-finally:
-    session.close()
-```
+  db = get_db()
+  session = db.get_session()
+  try:
+      repo = SomeRepository(session)
+      # ... work ...
+  finally:
+      session.close()
+  ```
 
 ### 4.2 Session discipline
 
-Objects must be re-queried inside the session that will modify them. Passing an ORM object
-across a session boundary causes **silent** persistence failures — no exception, no write.
+- Objects must be re-queried inside the session that will modify them. Passing an ORM object across a session boundary causes **silent** persistence failures — no exception, no write.
 
-In daemon code, access ORM relationships inside the `try` block, before `session.close()`.
+- In daemon code, access ORM relationships inside the `try` block, before `session.close()`.
 
 ### 4.3 Repository pattern
 
-All data access goes through a repository. Models are SQLAlchemy declarative base.
+- All data access goes through a repository.
+- Models are SQLAlchemy declarative base.
 
-```python
-class SomethingRepository:
-    def __init__(self, session: Session):
-        self.session = session
+  ```python
+  class SomethingRepository:
+      def __init__(self, session: Session):
+          self.session = session
 
-    def create(self, ...) -> Model:
-        obj = Model(...)
-        self.session.add(obj)
-        self.session.commit()
-        self.session.refresh(obj)
-        return obj
-```
+      def create(self, ...) -> Model:
+          obj = Model(...)
+          self.session.add(obj)
+          self.session.commit()
+          self.session.refresh(obj)
+          return obj
+  ```
 
 ### 4.4 PostgreSQL arrays
 
-```python
-query.filter(Model.tags.op('&&')(['tag1', 'tag2']))   # overlap — shares any element
-query.filter(Model.tags.op('@>')(['tag1']))           # contains all
-query.filter(~Model.tags.op('@>')(['tag1']))          # does not contain
-```
+  ```python
+  query.filter(Model.tags.op('&&')(['tag1', 'tag2']))   # overlap — shares any element
+  query.filter(Model.tags.op('@>')(['tag1']))           # contains all
+  query.filter(~Model.tags.op('@>')(['tag1']))          # does not contain
+  ```
 
 ### 4.5 Migrations
 
-SQL files, numbered `NNN_name.sql`. **Execution is an authorization point** — see §1.4. The
-approval is at execution, not the spec that contains it.
+- SQL files, numbered `NNN_name.sql`.
+- **Execution is an authorization point** — see §1.4.
+- The approval is at execution, not the spec that contains it.
 
 ### 4.6 Write-path convergence
 
-Note and paired-TimeEntry creation goes through the service layer only — see
-`CLAUDE.md` § Note Write-Path Convergence for the authoritative call map.
+- Note and paired-TimeEntry creation goes through the service layer only — see `CLAUDE.md` "§ Note Write-Path Convergence" design decision for the authoritative call map.
 
 ---
 
 ## 5. CLI Standards
 
-Governs everything in `workmain/cli/commands/`. Read before authoring or modifying a command.
+- Governs everything in `workmain/cli/commands/`.
+- Read before authoring or modifying a command.
 
 ### 5.1 Hierarchy
 
-```text
-workmain <group> <subcommand> [ARGUMENT] [OPTIONS]
-    │         │         │
-  noun      verb    what/how
-```
+  ```text
+  workmain <group> <subcommand> [ARGUMENT] [OPTIONS]
+      │         │         │
+    noun      verb    what/how
+  ```
 
-Top-level standalone commands (`eod`, `status`, `today`) are permitted **only** for
-orchestration workflows that coordinate across multiple groups. New ones need explicit
-justification against that criterion.
+- Top-level standalone commands (`eod`, `status`, `today`) are permitted **only** for orchestration workflows that coordinate across multiple groups.
+  - New ones need explicit justification and approval against that criterion.
 
 ### 5.2 Groups
 
 - Groups are nouns. Verb-named groups are not permitted.
-- Plural for collections (`notes`, `meetings`, `reports`); singular for a single
-  integration (`clockify`, `gdocs`, `slack`) or for configuration/state (`schedule`,
-  `notifications`). If `<group> list` would be valid, it should be plural.
+  - Plural for collections (`notes`, `meetings`, `reports`)
+  - singular for a single integration (`clockify`, `gdocs`, `slack`) or for configuration/state (`schedule`, `notifications`).
+  - If `<group> list` would be valid, it should be plural.
 - One domain, one group. Never split a service across two top-level groups.
 - Subgroups are permitted one level deep and follow the same noun rule, with three carve-outs:
-  - **`set`** as a configuration namespace (`clients set active`, `providers set default`,
-    `slack set channel`) — valid only when the parent has more than one configurable
-    property and the subcommands are the property nouns.
+  - **`set`** as a configuration namespace (`clients set active`, `providers set default`, `slack set channel`) — valid only when the parent has more than one configurable property and the subcommands are the property nouns.
   - **`sync`** with `push` / `pull` / `both` (`clockify sync push`).
   - **`upload`** with an artifact noun (`gdocs upload notes`).
 
 ### 5.3 Subcommands
 
-Imperative verbs. Use the standard vocabulary; do not invent synonyms.
+- Imperative verbs.
+- Use the standard vocabulary; do not invent synonyms.
 
 | Action | Verb | Do not use |
 | --- | --- | --- |
@@ -492,11 +445,13 @@ Imperative verbs. Use the standard vocabulary; do not invent synonyms.
 | Check integration state | `status` | `info`, `health`, `ping` |
 | Archive to an external store | `upload` | `send`, `push`, `sync` |
 
-`upload` archives to a personal store; `send` addresses a recipient. Slack uses `post`
-(publishing to a channel, not addressing a recipient) with a required `PERIOD` argument.
+- NOTES:
+  - `upload` archives to a personal store
+  - `send` addresses a recipient
+  - Slack uses `post` (publishing to a channel, not addressing a recipient) with a required `PERIOD` argument.
 
-**Domain-specific verbs** are permitted only with prior approval, must be imperative, must
-be documented in `--help`, and must not duplicate a standard verb. Currently approved:
+- **Domain-specific verbs** are permitted only with prior approval, must be imperative, must be documented in `--help`, and must not duplicate a standard verb.
+- Currently approved:
 
 | Verb | Used by | Rationale |
 | --- | --- | --- |
@@ -512,25 +467,32 @@ be documented in `--help`, and must not duplicate a standard verb. Currently app
 | `correct` | `reports correct` | Targeted correction with audit trail; distinct write target |
 | `carryover` | `tasks carryover` | **DEPRECATED (v1.16.0)** — alias for `tasks list`; retires Phase 15 |
 
-Aliases are permitted for discoverability but must be documented in `--help`. The canonical
-name must match the standard.
+- Aliases are permitted for discoverability but must be documented in `--help`.
+  - The canonical name must match the standard.
 
 ### 5.4 Arguments vs. options
 
-- **Positional** when the value is required and unambiguous. Cap at two per command;
-  beyond that, use named options for all but the primary target.
-- **Option** when the value is optional, is one of several independent modifiers, or needs
-  a label to be understood.
-- **Name-or-ID targeting is mandatory.** Every command operating on a database record
-  accepts either the ID or the name. Exact name match resolves directly; multiple matches
-  invoke the fuzzy picker with enough context (date, type, status) to disambiguate. Build
-  this in from the start — never as a retrofit.
-- **Free-form text** supports both inline (quoted positional) and an interactive prompt
-  when omitted. Use `click.prompt()` — raw `input()` is not permitted.
+- **Positional**
+  - when the value is required and unambiguous.
+  - Cap at two per command
+  - beyond that, use named options for all but the primary target.
+- **Option**
+  - when the value is optional
+  - is one of several independent modifiers
+  - or needs a label to be understood.
+- **Name-or-ID targeting is mandatory.**
+  - Every command operating on a database record accepts either the ID or the name.
+  - Exact name match resolves directly
+  - multiple matches invoke the fuzzy picker with enough context (date, type, status) to disambiguate.
+  - Build this in from the start — never as a retrofit.
+- **Free-form text**
+  - supports both inline (quoted positional) and an interactive prompt when omitted.
+  - Use `click.prompt()` — raw `input()` is not permitted.
 
 ### 5.5 Flags
 
-Every option has a `--long-form` in lowercase-hyphenated words. Short forms are optional.
+- Every option has a `--long-form` in lowercase-hyphenated words.
+- Short forms are optional.
 
 **Case convention:** lowercase short forms are for frequent flags; uppercase for the
 less-used variant of a related concept (`-t/--tags` vs `-T/--time`). This pairing is
@@ -540,37 +502,52 @@ Reserved across all commands — no flag may reuse these:
 
 | Short | Long | Scope |
 | --- | --- | --- |
-| `-h` | `--help` | Click built-in; never reassign |
-| `-t` / `-T` | `--tags` / `--time` | All / `time add` (required there) |
-| `-n` / `-N` | `--limit` / `--notes` | List commands / `time add` |
-| `-d` / `-D` | `--date` / `--description` | All / `time edit` |
-| `-c` / `-C` | `--content` / `--category` | `notes edit` / `time add`, `time edit` |
-| `-l` / `-L` | `--title` / `--duration` | `meetings edit`, `schedule *  add` / `time edit` |
-| `-m` | `--meeting` | `notes log`, `time add` |
-| `-p` / `-P` | `--project` / `--provider` | `time add` / costs commands |
-| `-M` | `--month` | costs commands |
-| `-s` | `--search` | Filter commands |
-| `-q` | `--silent` | Quiet-mode commands |
-| `-i` | `--show-ids` | Group level only |
+| `-b` | `--start` | `meetings edit` |
+| `-C` | `--category` | `time add`, `time edit` |
+| `-c` | `--content` | `notes edit` |
+| `-D` | `--description` | `time edit` |
+| `-d` | `--date` | All |
+| `-e` | `--end` | `meetings edit` |
 | `-f` | `--source` / `--fallback` | `notes add` / `providers set default` |
-| `-b` / `-e` | `--start` / `--end` | Ranged commands; "begin" avoids the `-s` conflict |
 | `-H` | `--history` | `notes list` with `--meeting` |
-| `-S` | `--skip` | `eod` |
+| `-h` | `--help` | Click built-in; never reassign |
+| `-i` | `--show-ids` | Group level only |
+| `-L` | `--duration` | `time edit` |
+| `-l` | `--title` | `meetings edit`, `schedule *  add` |
+| `-M` | `--month` | costs commands |
+| `-m` | `--meeting` | `notes log`, `time add` |
+| `-N` | `--notes` | `time add` |
+| `-n` | `--limit` | List commands |
+| `-P` | `--provider` | costs commands |
+| `-p` | `--project` | `time add` |
+| `-q` | `--silent` | Quiet-mode commands |
 | `-R` | `--type` | `reports list` |
+| `-S` | `--skip` | `eod` |
+| `-s` | `--search` | Filter commands |
+| `-T` | `--time` | `time add` (required there) |
+| `-t` | `--tags` | All |
 
-Check any new short form against this table **and** every other flag on the same command.
-If nothing unambiguous is available, omit it rather than create a conflict.
+- Check any new short form against this table **and** every other flag on the same command to prevent conflicts.
 
-**Intentionally no short form** — safety-critical or infrequent, where friction is the point:
-`--dry-run`, `--force`, `--send`, `--preview`, `--recurring`, `--until`,
-`--include-weekends`, `--cancelled`, `--status`, `--all`.
+- **Intentionally no short form** — safety-critical or infrequent, where friction is the point:
+  - `--dry-run`
+  - `--force`
+  - `--send`
+  - `--preview`
+  - `--recurring`
+  - `--until`
+  - `--include-weekends`
+  - `--cancelled`
+  - `--status`
+  - `--all`.
 
-Boolean flags use `is_flag=True`, never `type=bool`. Multi-value flags use `multiple=True`
-with comma-delimited input (`--tags ilo,cf`), never repeated flags.
+- Boolean flags use `is_flag=True`, never `type=bool`.
+- Multi-value flags use `multiple=True` with comma-delimited input (`--tags ilo,cf`), never repeated flags.
 
 ### 5.6 Output
 
-Rich is required. Raw `print()` is not permitted in command files.
+- Rich is required.
+- Raw `print()` is not permitted in command files.
 
 | Situation | Pattern |
 | --- | --- |
@@ -582,44 +559,46 @@ Rich is required. Raw `print()` is not permitted in command files.
 | Dry run | Prefix `[dim][DRY RUN][/dim]`; no side effects |
 | Prompt | `click.confirm()` / `click.prompt()` — never `input()` |
 
-Exit codes: `0` success, `1` user-facing error or unhandled exception (after logging),
-`2` integration error (API, auth). Never expose a raw stack trace — catch at the command
-level and emit a clean message.
+- Exit codes:
+  - `0` success
+  - `1` user-facing error or unhandled exception (after logging)
+  - `2` integration error (API, auth).
+    - Never expose a raw stack trace — catch at the command level and emit a clean message.
 
-Destructive or externally-sending commands must confirm unless `--force` is passed, and the
-prompt must state exactly what will happen.
+- Destructive or externally-sending commands must confirm unless `--force` is passed, and the prompt must state exactly what will happen.
 
-Every command needs a docstring serving as `--help`, with a one-line summary and at least
-one `Examples:` block.
+- Every command needs a docstring serving as `--help`, with a one-line summary and at least one `Examples:` block.
 
 ### 5.7 Files and registration
 
-One top-level group per file, at `workmain/cli/commands/<group>.py`. All groups registered
-explicitly in `workmain/cli/interface.py`, ordered: core data → output/generation →
-integrations → scheduling/automation → utilities.
+- One top-level group per file, at `workmain/cli/commands/<group>.py`.
+- All groups registered explicitly in `workmain/cli/interface.py`, ordered:
+
+  ```text
+  core data → output/generation → integrations → scheduling/automation → utilities.
+  ```
 
 ---
 
 ## 6. Testing Standards
 
-pytest is the exclusive runner. `testpaths` in `pyproject.toml` resolves a bare `pytest` to
-the application suite. Non-application suites exist and are reached by explicit path — §6.3
-is the owner of test placement.
+- pytest is the exclusive runner.
+- `testpaths` in `pyproject.toml` resolves a bare `pytest` to the application suite.
+- Non-application suites exist and are reached by explicit path — §6.3 is the owner of test placement.
 
-```bash
-pytest                              # full suite
-pytest -v                           # verbose
-pytest tests/test_x.py::TestClass::test_name
-```
+  ```bash
+  pytest                              # full suite
+  pytest -v                           # verbose
+  pytest tests/test_x.py::TestClass::test_name
+  ```
 
-The current expected pass count is whatever `main` last shipped — read it from the most
-recent `CHANGELOG.md` entry or run `pytest --collect-only -q`. Do not transcribe a baseline
-into this document; it goes stale immediately.
+- The current expected pass count is whatever `main` last shipped — read it from the most recent `CHANGELOG.md` entry or run `pytest --collect-only -q`.
+- Do not transcribe a baseline into this or any other document; it goes stale immediately.
 
 ### 6.1 The `db_session` fixture
 
-Every test touching the database **must** take `db_session`. It redirects `commit()` to
-`flush()` and rolls back at teardown, so nothing persists.
+- Every test touching the database **must** take `db_session`.
+- It redirects `commit()` to `flush()` and rolls back at teardown, so nothing persists.
 
 | Action | Effect |
 | --- | --- |
@@ -628,40 +607,37 @@ Every test touching the database **must** take `db_session`. It redirects `commi
 | Test ends | `rollback()` removes every write |
 | Production DB | Unaffected, always |
 
-Never call `get_db()` or `db.get_session()` directly in a test.
+- Never call `get_db()` or `db.get_session()` directly in a test.
 
-**Pitfall — fixture data is invisible to `CliRunner`.** A CLI command invoked through
-`CliRunner` opens its *own* session and transaction, so rows flushed-but-uncommitted by
-`db_session` are never visible to it. For any test that seeds data *and* invokes a CLI
-command, use a real committed session with explicit `tearDown` cleanup — the pattern in
-`tests/test_report_history.py`. Confirmed by direct probe during Item #56.
+- **Pitfall — fixture data is invisible to `CliRunner`.**
+  - A CLI command invoked through `CliRunner` opens its *own* session and transaction, so rows flushed-but-uncommitted by `db_session` are never visible to it.
+  - For any test that seeds data *and* invokes a CLI command, use a real committed session with explicit `tearDown` cleanup — the pattern in `tests/test_report_history.py`.
 
 ### 6.2 Writing a test
 
-```python
-"""
-<Feature> tests.
+  ```python
+  """
+  <Feature> tests.
 
-Uses db_session fixture from conftest.py for full transaction isolation.
-"""
+  Uses db_session fixture from conftest.py for full transaction isolation.
+  """
 
-import pytest
-from workmain.database.repositories.<repo> import <Repo>
+  import pytest
+  from workmain.database.repositories.<repo> import <Repo>
 
 
-class Test<Feature>:
-    """<What this class tests>."""
+  class Test<Feature>:
+      """<What this class tests>."""
 
-    def test_<scenario>(self, db_session):
-        repo = <Repo>(db_session)
-        # arrange, act, assert — no cleanup needed
-```
+      def test_<scenario>(self, db_session):
+          repo = <Repo>(db_session)
+          # arrange, act, assert — no cleanup needed
+  ```
 
 Rules:
 
 1. Always use `db_session`.
-2. **Sentinel dates** for anything asserting exact totals or counts — e.g.
-   `date(2099, 1, 1)` — so production data cannot skew the result.
+2. **Sentinel dates** for anything asserting exact totals or counts — e.g. `date(2099, 1, 1)` — so production data cannot skew the result.
 3. One assertion focus per test. Prefer several small tests over one large one.
 4. No manual cleanup; the fixture handles it. The only exception is a test of deletion itself.
 5. Group related tests in `class Test<Topic>` so `-k TestTopic` works.
@@ -674,16 +650,15 @@ Rules:
 | `tests/fixtures/` | Test data (JSON, CSV) — never Python test files |
 | `tests/mocks/` | Fakes for external services — never test files |
 | `scripts/` | Utilities and demos, never tests |
-| `automation/` | Non-application dev tooling and its own tests (`*_test.py`), never mixed with the application suite — `testpaths` keeps a bare `pytest` on `tests/` only |
+| `automation/` | Non-application dev tooling and its own tests (`*_test.py`), never mixed with the application suite — `testpaths` |
 
-`scripts-deprecated/` is excluded from collection. Do not add to it and do not run it with
-pytest; if you need a diagnostic script, put it in `scripts/`.
+- `scripts-deprecated/` is excluded from collection.
+  - Do not add to it and do not run it with pytest
+  - if you need a diagnostic script, put it in `scripts/`.
 
 ### 6.4 Spec-named test file doesn't exist
 
-If a spec names a test file that isn't there, use the established file for that coverage,
-document the deviation, and keep going. That is not a design question and does not stop
-implementation.
+- If a spec names a test file that isn't there, use the established file for that coverage and document the deviation.
 
 ---
 
