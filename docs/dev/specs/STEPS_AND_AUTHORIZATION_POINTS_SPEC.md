@@ -1,6 +1,6 @@
 # Steps and Authorization Points — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20260818
 **Branch:** `chore/issue-86-steps-authorization` (from `main`, merges to `main` and `dev`)

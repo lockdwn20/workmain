@@ -22,7 +22,7 @@ RECON  →  ANALYSIS  →  SPEC  →  REVIEW  →  APPROVAL  →  IMPLEMENTATION
 - **Review** — Role 2 findings go back to Role 1, never forward to the implementer.
 - **Approval** — Ray approves explicitly. No implementation without an approved spec.
 - **Implementation** — Role 3, step by step, from the approved spec only.
-- **Close-out** — Invoked via the Claude Skill `/closeout <issue>`. Performs all closeout items based on the type of branch.
+- **Close-out** — Ray runs the `/closeout` skill against the branch being closed out, or `--branch <name>` for one already merged. It performs the merges, artifact completion, and whatever version bump, tag, Release and service restart its branch type requires, stopping at each authorization point it crosses. It composes the issue's closing comment and prints the command that would post it; posting the comment and closing the issue are Ray's, on the same principle as merging the `dev → main` PR.
 
 ### 1.2 Spec authoring rules
 
@@ -36,7 +36,10 @@ RECON  →  ANALYSIS  →  SPEC  →  REVIEW  →  APPROVAL  →  IMPLEMENTATION
 ### 1.3 Issue discipline
 
 - Work is tracked in GitHub Issues. State is GitHub's own — open or closed. There is no status vocabulary to maintain in prose, and no register or statistics table to keep in step.
-- Labels carry area or as a discriminator (`bug`/`enhancement`) for issues with no milestone. A label appearing inside a milestone using a discriminator means that work was pulled in later, not planned as part of it. What each label means beyond that is its description on GitHub, readable with `gh label list` — not enumerated here, since a  prose list is a register that goes stale the first time a label is added.
+- Labels carry area. `defect`/`gap` is the discriminator pair, applied only to issues with no milestone.
+  - A **defect** is work the project asserted already worked — a spec acceptance criterion, a CHANGELOG entry, a man page — and does not. A **gap** is work never planned, documented, or designed.
+  - A discriminator appearing inside a milestone means that work was pulled in from the unscheduled pool later, not planned as part of it.
+- What each area label means is its description on GitHub, readable with `gh label list` — not enumerated here, since a prose list is a register that goes stale the first time a label is added.
 - The Github type field is not utilized.
 - A milestone carries the exit condition that closes it, and that condition must cover every issue in it.
 - An issue must be independently verifiable on its own: split into sub-issues only where each piece leaves the repository in a coherent state its own acceptance criteria can verify. Where steps are strictly sequential and individually meaningless, they stay inline as steps in one issue — not split into a parent with children for its own sake.
@@ -53,10 +56,11 @@ A spec's steps are ordered work, defined below.
   - **The authorization set (anything not on this list is a step):**
     - Executing a DB migration
     - Deleting a GitHub object (issue, label, milestone, branch, release)
+      - The branch entry covers a branch on `origin`. Deleting a local branch that was never pushed is not a GitHub object deletion — see §2.3.
     - Merging to `main`
     - Force-pushing any branch
     - Changing the run state of a live service beyond the carve-out below.
-      - **Carve-out — the post-merge servce restart the is part of an Issue Closeout is not an authorization point.**
+      - **Carve-out.** The post-merge service restart is not an authorization point. §2.6 requires it after every `feature/*` and `hotfix/*` merge to `dev`, so close-out performs it as a step. A restart that §2.6 does not require is not covered by this carve-out.
 
 ### 1.5 Documentation rules
 
@@ -65,7 +69,7 @@ A spec's steps are ordered work, defined below.
   - `specs/`
   - `results/` (implementation results).
 - **Filenames are subject-based** — no version suffix, no date. Artifacts are updated in place, so filenames never change and citations never break.
-- **Every artifact carries a `Status:` field**:
+- **Every artifact carries exactly one `Status:` field, in its header block.** A status on a section rather than on the document is not a status; it is a leftover from the retired per-section vocabulary.
   - Specs carry `Draft`, `Approved`, `Shipped` or `Superseded`
   - Design and Results artifacts carry `Active`, `Shipped` or `Superseded`.
 - While work is live, retirement is a status edit, not a file move. An artifact stays where it is, and where it is cited, for as long as it is being referenced.
@@ -114,10 +118,9 @@ chore/*    — documentation/process/tooling only. From main, merges to main AND
 **`main`**
 
 - Never commit directly.
-- Receives merges only from `dev` or `hotfix/*`.
-- Every merge bumps `workmain/__version__.py` and updates `CHANGELOG.md`.
-- Tag every merge: `git tag v<version>`.
-- Generate a GitHub Release object for every tag: `gh release create v<version> --generate-notes`.
+- Receives merges from `dev`, `hotfix/*` and `chore/*`.
+- **A merge carrying application code — from `dev` or `hotfix/*` — is a release.** It bumps `workmain/__version__.py`, updates `CHANGELOG.md`, is tagged `git tag v<version>`, and gets a GitHub Release: `gh release create v<version> --generate-notes`.
+- **A `chore/*` merge is not a release and does none of those four things.** It changes no application behaviour, so there is nothing to version. This is the only exception, and the `chore/*` block below is its full statement.
 
 **`dev`**
 
@@ -162,8 +165,9 @@ chore/*    — documentation/process/tooling only. From main, merges to main AND
 
 ### 2.3 Branch deletion
 
-- `main` and `dev` are the only permanent local and remote branches.
-- All other local and remote branches are deleted once merged with `main` and `dev`.
+- `main` and `dev` are the only branches on `origin`. **No `feature/*`, `hotfix/*` or `chore/*` branch is ever pushed** — feature branches merge to `dev` locally, and the only pull request is `dev → main`.
+- A working branch is deleted locally once it has merged everywhere §2.2 sends it. There is no remote branch to delete, and a close-out that tries to delete one is following a rule this project does not have.
+- A working branch that does reach `origin` is an exception, not the workflow. Deleting it there is a GitHub object deletion and an authorization point under §1.4.
 
 **Every merge is `--no-ff`.**
 
@@ -234,11 +238,11 @@ Confirm the new `ActiveEnterTimestamp` postdates the merge commit before calling
 - Commit to `main`, or to `dev` beyond trivial post-merge version/changelog updates.
 - Merge a feature branch straight to `main`, or merge `dev → main` locally.
 - Merge the `dev → main` PR yourself — Ray does that.
-- Skip the version bump, the tag, or the GitHub Release on a merge to `main`.
+- Skip the version bump, the tag, or the GitHub Release on a merge to `main` that carries application code. A `chore/*` merge carries none and takes none — §2.2.
 - Combine hotfix and feature work on one branch.
 - Write code before creating the branch.
 - Leave a merged branch alive, or let `dev` sit ahead of `main`.
-- Use `chore/*` for application code, `config/*`, `templates/*`, `tests/**`, or `CHANGELOG.md` — except under the `chore/* exception in §2.2.
+- Use `chore/*` for application code, `config/*`, `templates/*`, `tests/**`, or `CHANGELOG.md` — except under the `chore/*` exception in §2.2.
 - Report a `dev` merge as deployed without a confirmed post-merge restart.
 - Use `git commit --no-verify`.
 

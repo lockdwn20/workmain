@@ -1,6 +1,6 @@
 # Steps and Authorization Points — Recon
 
-**Status:** Active
+**Status:** Shipped
 **Kind:** Recon
 **Author:** Spanner (Role 1)
 **Date:** 20260818
@@ -137,24 +137,13 @@ other document), phase scope creep (`:235`), and component-verified ≠ integrat
   step vocabulary.** Not examined; they were read for vocabulary presence only. Depends on
   Q3.
 
-## 5. Open questions
+## 5. Open questions - all closed
 
-| Q | Question | Answer |
-| --- | --- | --- |
-| Q1 | Given F4 and F14–F25, which document owns the steps/authorization-point rule? The final AC forbids stating it in both. `DEVELOPMENT_STANDARDS.md` §1 owns the pipeline, but `CLAUDE.md` is the always-loaded context, so a pointer risks the authorization-point list not being read at the moment it applies | |
-| Q2 | Given F18 and F22–F25, how much of `CLAUDE.md` § Common Pitfalls is dismantled? Eight of nine bullets restate a `DEVELOPMENT_STANDARDS.md` rule, so the final AC cannot be met while the section stands as written | |
-| Q3 | Is `_TEMPLATE_RESULTS.md` (F12) in scope? No AC names it, and Caliper's fourth criterion tests for scope that was not in the originating item. Leaving it means the results template reports "by gate" against specs that no longer have gates | |
-| Q4 | Given F26, is the mandatory post-merge daemon restart an authorization point, or is authorization scoped to restarting production-affecting state such that §2.6's restart is exempt? The two documents cannot both stand unedited | |
-| Q5 | Given F31, does merging `chore/cycle-mechanics-recon` ride #86, or become its own item? The broken citation in #82's merged spec exists independently of #86 | |
-| Q6 | Given F29 and F30, do the two `Status: Approved` specs get advanced to `Shipped` here, or is that left for #83 to define and perform? | |
+Q1–Q6 were answered during Analysis on 20260819; the answers are recorded in `STEPS_AND_AUTHORIZATION_POINTS_SPEC.md`'s Decision Log
 
 ## 6. Disposition
 
-Analysis pending — Q1–Q6 are open with Ray. Findings are complete for the surfaces named
-in §2. N1 is closed by F34; N2 and N3 do not change scope. Taken with F33 and F34, the
-surfaces #86 touches are exactly four files: `CLAUDE.md`,
-`docs/DEVELOPMENT_STANDARDS.md`, `docs/dev/specs/_TEMPLATE_SPEC.md`, and — subject to Q3 —
-`docs/dev/results/_TEMPLATE_RESULTS.md`.
+Analysis complete — Q1–Q6 were answered on 20260819 and are recorded in the spec's Decision Log. Findings are complete for the surfaces named in §2. N1 is closed by F34; N2 and N3 do not change scope. Taken with F33 and F34, the surfaces #86 touched are exactly four files: `CLAUDE.md`, `docs/DEVELOPMENT_STANDARDS.md`, `docs/dev/specs/_TEMPLATE_SPEC.md`, and `docs/dev/results/_TEMPLATE_RESULTS.md`.
 
-- Promoted to: *pending — spec, not yet written*
+- Promoted to: `docs/dev/specs/STEPS_AND_AUTHORIZATION_POINTS_SPEC.md`
 - Superseded by: *n/a*

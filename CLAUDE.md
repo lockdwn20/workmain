@@ -14,26 +14,14 @@ The only text restated from it is the § Critical Rules subset; nothing else app
 
 ## Critical Rules
 
-These four are restated here in full because a session that has read nothing else must
-still have them — see `docs/DEVELOPMENT_STANDARDS.md` DR1a. Membership is Ray-approved:
-an entry is added, reworded, or removed only with his explicit approval.
+These four are restated here in full because a session that has read nothing else must still have them. This section is the one place in the project where duplication is deliberate; `docs/DEVELOPMENT_STANDARDS.md` states the same carve-out in its preamble. Membership is Ray-approved: an entry is added, reworded, or removed only with his explicit approval.
 
-- **Spec before implementation.** No implementation without an approved spec. Full
-  statement: `docs/DEVELOPMENT_STANDARDS.md` §1.1.
-- **Authorization points.** A hard stop for specific actions that are irreversible or
-  reach outside the working tree: executing a DB migration, deleting a GitHub object
-  (issue, label, milestone, branch, release), merging to `main`, force-pushing any
-  branch, or changing the run state of a live service beyond the post-merge-restart
-  carve-out. State what is about to happen, then wait for Ray's explicit approval — a
-  migration's approval is always at execution, not the spec that contains it. Full
-  statement: `docs/DEVELOPMENT_STANDARDS.md` §1.4.
+- **Spec before implementation.** No implementation without an approved spec. Full statement: `docs/DEVELOPMENT_STANDARDS.md` §1.1.
+- **Authorization points.** A hard stop for specific actions that are irreversible or reach outside the working tree: executing a DB migration, deleting a GitHub object (issue, label, milestone, a branch on `origin`, release), merging to `main`, force-pushing any branch, or changing the run state of a live service beyond the post-merge-restart carve-out. State what is about to happen, then wait for Ray's explicit approval — a   migration's approval is always at execution, not the spec that contains it. Full statement: `docs/DEVELOPMENT_STANDARDS.md` §1.4.
 - **Stop and surface.** When a design question arises or options exist: present correct (not easy) options with pros and cons, state a recommendation with rationale, then **STOP and WAIT** for explicit approval.
   - Never use ✓ or "Decision: X" to imply a decision Ray has not confirmed.
-  - This entry is the full statement of the global rule; Role 3 below holds the
-    implementation-specific form.
-- **Integration over separation.** Enhance existing command files when adding to an
-  existing group; new files only for approved distinct command groups. Full statement:
-  `docs/DEVELOPMENT_STANDARDS.md` §3.6.
+  - This entry is the full statement of the global rule; Role 3 below holds the implementation-specific form.
+- **Integration over separation.** Enhance existing command files when adding to an existing group; new files only for approved distinct command groups. Full statement: `docs/DEVELOPMENT_STANDARDS.md` §3.6.
 
 Coding, database, CLI, git, and testing rules all live in `docs/DEVELOPMENT_STANDARDS.md`.
 
@@ -90,8 +78,7 @@ If you encounter anything the spec doesn't cover, or that requires a design deci
 - **Version:** `workmain/__version__.py` · **Work tracking:** GitHub Issues (`gh issue list`)
 - **Test suite:** `pytest`
 
-Item state, priority, and sequencing live in GitHub Issues — never in a document. Read them
-with the JSON fields, not the plain list, so parent/child structure and milestone are visible:
+Item state, priority, and sequencing live in GitHub Issues — never in a document. Read them with the JSON fields, not the plain list, so parent/child structure and milestone are visible:
 
 ```bash
 gh issue list --state open --limit 200 \
@@ -104,9 +91,7 @@ Requires `gh` ≥ 2.6x for `parent` / `subIssues` / `subIssuesSummary` (Issues 2
 
 What milestones, labels, and parent/child structure mean: `docs/DEVELOPMENT_STANDARDS.md` §1.3.
 
-`docs/archive/FEATURE_BACKLOG.md` and `docs/archive/implementation-checklist.md` hold the
-pre-migration record for historical context only. They are not authoritative, are never
-updated, and must not be cited as the basis for a current decision.
+`docs/archive/FEATURE_BACKLOG.md` and `docs/archive/implementation-checklist.md` hold the pre-migration record for historical context only. They are not authoritative, are never updated, and must not be cited as the basis for a current decision.
 
 **Operating context:**
 

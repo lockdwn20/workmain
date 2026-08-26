@@ -5,7 +5,7 @@
   "milestone": null,
   "parent": 100,
   "labels": ["cli", "tests"],
-  "type": "bug",
+  "type": "defect",
   "blocked_by": [201, 202],
   "blocking": []
 }

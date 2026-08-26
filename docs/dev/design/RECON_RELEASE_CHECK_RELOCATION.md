@@ -1,6 +1,6 @@
 # Release-Check Relocation — Recon
 
-**Status:** Active
+**Status:** Shipped
 **Kind:** Recon
 **Author:** Spanner (Role 1)
 **Date:** 20260819
@@ -42,10 +42,10 @@ This is a **recon**: read-only. No file was modified, no fix was applied, and no
 | F3 | The destination directory's existing module does **not** use that pattern. `automation/issue_validator.py` calls `find_repo_root(Path(__file__))`, which walks `current` and `current.parents` for a `.git` entry and raises `ValidationAbort` if none is found. It is depth-independent; `.parent.parent` is depth-dependent. This is a divergence between the two files, not a defect in either | `automation/issue_validator.py:304`, `def find_repo_root` | Medium |
 | F4 | Nothing imports the script as a module. `grep -rn "import check_release_integrity\|from check_release_integrity"` returns no hits outside `.git/`. Its only programmatic caller is the hook | repository-wide grep | High |
 | F5 | `.githooks/pre-push` references the old path twice: once in prose (`# Runs scripts/check_release_integrity.py, which cross-checks git tags against`) and once executably (`checker="$repo_root/scripts/check_release_integrity.py"`), where `repo_root` comes from `git rev-parse --show-toplevel` | `.githooks/pre-push:5`, `:27` | Critical |
-| F6 | The hook guards the checker with `[ -f "$checker" ] || exit 0`. A stale path therefore **fails open and silent**: the push succeeds, no message is printed, and the release record is no longer verified. The relocation is precisely the event that triggers this, and nothing in the hook would report it | `.githooks/pre-push:29` | Critical |
+| F6 | The hook guards the checker with `[ -f "$checker" ] | | exit 0`. A stale path therefore **fails open and silent**: the push succeeds, no message is printed, and the release record is no longer verified. The relocation is precisely the event that triggers this, and nothing in the hook would report it | `.githooks/pre-push:29` | Critical |
 | F7 | The hook is live in this clone — `git config --get core.hooksPath` returns `.githooks`. F6 is therefore a real exposure here, not a hypothetical one | `git config --get core.hooksPath` | High |
 | F8 | Neither `scripts/check_release_integrity.py` nor `automation/issue_validator.py` carries the executable bit (`-rw-r--r--`). The hook invokes the checker as `python3 "$checker"`, so the mode is irrelevant and `git mv` preserves it either way | `ls -l`; `.githooks/pre-push:54` | Low |
-| F9 | Outdated gate wording in `.githooks/` is exactly two lines, both in `commit-msg`, verbatim: `  Gate context belongs in the body, never the subject:` and `    Gate 3 of 7. Files changed, decisions made, expected test count.` `pre-push` contains no occurrence of "gate" in any case | `.githooks/commit-msg:58`, `:62`; `grep -rni gate .githooks/` | High |
+| F9 | Outdated gate wording in `.githooks/` is exactly two lines, both in `commit-msg`, verbatim: `Gate context belongs in the body, never the subject:` and `Gate 3 of 7. Files changed, decisions made, expected test count.` `pre-push` contains no occurrence of "gate" in any case | `.githooks/commit-msg:58`, `:62`; `grep -rni gate .githooks/` | High |
 | F10 | §2.4 already carries the corrected form of both lines: "Step context belongs in the body, not the subject — `feat(notes): converge write path` with `Step 3 of 7` in the body, never `Step 3: ...` as the subject." The hook contradicts a canonical source that already states the replacement wording | `docs/DEVELOPMENT_STANDARDS.md` §2.4 | High |
 | F11 | `commit-msg`'s other references are current: it cites `docs/DEVELOPMENT_STANDARDS.md §2.4` twice (header comment and footer), and §2.4 does own commit-message format and does prohibit `--no-verify`. Its enable instruction `git config core.hooksPath .githooks` matches §2.4's | `.githooks/commit-msg:8`, `:64`; §2.4 | Low |
 | F12 | `pre-push` cites **no** standards section anywhere, though §2.2 owns the rule it enforces (CHANGELOG entry, tag, and GitHub Release on every merge to `main`). `commit-msg` cites its section twice. The two hooks are asymmetric on this point | `.githooks/pre-push` full file; §2.2 | Medium |
