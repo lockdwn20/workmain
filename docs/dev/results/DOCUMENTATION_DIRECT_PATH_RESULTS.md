@@ -43,7 +43,7 @@ Every AC on the approved spec, run against the delivered text. `<range 1.1>` is 
 | AC8.1 | Met | Against `docs/dev/specs/_TEMPLATE_SPEC.md`: `direct path, no recon was run` → 1, `§2 Verified current state is omitted` → 1, `§6 Test plan may be omitted` → 1; `ls docs/dev/specs/_TEMPLATE_*.md` returns one file |
 | AC9.1 | Met | Against `.claude/skills/closeout/SKILL.md`: `P5a.*the branch prefix is` → 1, `P5a.*permits no spec without a recon` → 0, `P5a.*never` → 0 |
 | AC9.2 | Met | `grep -c 'where the spec names one' .claude/skills/closeout/references/chore.md` → `1` |
-| AC10.1 | Met | `git diff --name-only <base> HEAD -- automation/` returns empty; the only preflight row in the `SKILL.md` diff is `P5a` (`git diff -U0 <base> HEAD -- .claude/skills/closeout/SKILL.md` shows one `-| P5a` and one `+| P5a`, no other `P` row) |
+| AC10.1 | Met | `git diff --name-only <base> HEAD -- automation/` returns empty; the only preflight row in the `SKILL.md` diff is `P5a` — `git diff -U0 <base> HEAD -- .claude/skills/closeout/SKILL.md` shows exactly one removed and one added row, both `P5a`, and no other `Pn` row |
 | AC10.2 | Met | `python3 automation/closeout_acs.py --branch chore/issue-113-documentation-direct-path` exits `0`; `pytest automation/` → 37 passed. `P4`, `P5`, `P6` are verified by the `/closeout` run this artifact is written for |
 | AC11.1 | Met | `grep -rn "Recon before spec" docs/DEVELOPMENT_STANDARDS.md CLAUDE.md .claude/` returns no hits, exit `1` |
 | AC12.1 | Met | The spec's `**Design study:**` reads `n/a`, it carries no §2 table, `git diff --name-only <base> HEAD -- docs/dev/design/` returns empty, and §1 above names this as the first use |
