@@ -8,12 +8,12 @@ GitHub state, then create the issue through `gh issue create`.
 
 The schema (`.github/ISSUE_TEMPLATE/issue.schema.json`) declares the key set
 and each key's type and required-ness. This script owns the rules the schema
-file cannot express: the §1.3 type-discriminator rule and existence checks
+file cannot express: the §1.3 discriminator-pair rule and existence checks
 against live GitHub state (labels, milestones, referenced issues).
 
 Why this exists: GitHub carries no type-vs-area marking on a label
 (`Repository.issueTypes` is null for this repository), so the discriminator
-name pair lives only in `docs/DEVELOPMENT_STANDARDS.md` §1.3, parsed at run
+pair lives only in `docs/DEVELOPMENT_STANDARDS.md` §1.3, parsed at run
 time rather than hardcoded here — a hardcoded pair would go stale the first
 time §1.3 changes.
 """
@@ -29,7 +29,7 @@ from pathlib import Path
 SCHEMA_RELATIVE_PATH = Path(".github/ISSUE_TEMPLATE/issue.schema.json")
 TEMPLATE_RELATIVE_PATH = Path(".github/ISSUE_TEMPLATE/issue.template.json")
 STANDARDS_RELATIVE_PATH = Path("docs/DEVELOPMENT_STANDARDS.md")
-DISCRIMINATOR_PHRASE = "type discriminator"
+DISCRIMINATOR_PHRASE = "discriminator pair"
 PROJECT_NAME = "WorkmAIn Queue"
 
 
@@ -46,11 +46,12 @@ def find_repo_root(start: Path) -> Path:
 
 
 def parse_type_labels(standards_path: Path) -> list:
-    """Parse the §1.3 type-discriminator names out of the standards file.
+    """Parse the §1.3 discriminator pair out of the standards file.
 
     Locates the section from a line starting `### 1.3` to the next line
     starting `###` or `---`, finds the single line containing the phrase
-    "type discriminator", and returns its backtick-delimited tokens.
+    "discriminator pair", and returns its backtick-delimited tokens. That line
+    must carry no other backticked text — every token on it is returned.
     """
     if not standards_path.exists():
         raise ValidationAbort(f"{standards_path}: file not found")

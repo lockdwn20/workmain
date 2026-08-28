@@ -1,6 +1,6 @@
 # Cycle Close-Out — Recon
 
-**Status:** Active
+**Status:** Superseded — by `docs/dev/specs/CLOSEOUT_PERFORMS_SPEC.md`
 **Kind:** Recon
 **Author:** Spanner (Role 1)
 **Date:** 20260819
@@ -137,5 +137,5 @@ Answered by Ray in Analysis on 20260819 except where marked.
 
 **F20 and F35 are superseded as of 20260820.** #87 shipped: `check_release_integrity.py` now lives at `automation/check_release_integrity.py`, `.githooks/pre-push` points there, and the script resolves the repository root by walking up for `.git` rather than assuming its own depth. The findings stand as read on 20260819.
 
-- Promoted to: *`docs/dev/specs/CYCLE_CLOSEOUT_SPEC.md`*
-- Superseded by: *n/a*
+- Promoted to: *`docs/archive/specs/CYCLE_CLOSEOUT_SPEC.md`*
+- Superseded by: *CLOSEOUT_PERFORMS_SPEC.md*

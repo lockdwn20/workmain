@@ -8,18 +8,12 @@
 
 > Delete this block before use.
 >
-> **Filename:** subject-based, no version suffix, no date —
-> `<SUBJECT>_RESULTS.md`.
+> **Filename:** subject-based, no version suffix, no date — `<SUBJECT>_RESULTS.md`.
 >
-> **Write this before the work is declared done, not after.** A results document that
-> never gets written is the most common way a sprint's real outcome is lost — the spec
-> says what was intended, and only this says what actually happened.
+> **Write this before the work is declared done, not after.** A results document that never gets written is the most common way a sprint's real outcome is lost — the spec says what was intended, and only this says what actually happened.
 >
-> **Released as:** the version and tag, computed at close-out from §2.5 and the current
-> `workmain/__version__.py` — deterministic before the merge, which is when this file is
-> committed. `n/a` on `chore/*`, which §2.2 allows no release. The PR number, the Release
-> URL and the confirmed restart timestamp are **not** here: they postdate this commit and
-> are carried by the issue's closing comment.
+> **Released as:** the version and tag, computed at close-out from §2.5 and the current `workmain/__version__.py` — deterministic before the merge, which is when this file is committed. `n/a` on `chore/*`, which §2.2 allows no release. The PR number, the Release
+> URL and the confirmed restart timestamp are **not** here: they postdate this commit and are carried by the issue's closing comment.
 >
 > This template is advisory. Template compliance is not a Caliper review criterion.
 
@@ -27,8 +21,7 @@
 
 ## 1. Summary
 
-What shipped, in a paragraph. State plainly whether the work is complete or partial.
-"Partial" is a legitimate outcome; a partial delivery reported as complete is not.
+What shipped, in a paragraph. State plainly whether the work is complete or partial. "Partial" is a legitimate outcome; a partial delivery is not reported as complete.
 
 ## 2. What shipped, by step
 
@@ -50,8 +43,7 @@ quietly drop an unmet AC.
 
 ## 4. Deviations from spec
 
-Where the implementation differs from what was specified, and why. Includes anything
-surfaced during implementation and resolved by Ray mid-flight.
+Where the implementation differs from what was specified, and why. Includes anything surfaced during implementation and resolved by Ray mid-flight.
 
 | # | Deviation | Reason | Approved by |
 | --- | --- | --- | --- |
@@ -60,12 +52,12 @@ surfaced during implementation and resolved by Ray mid-flight.
 
 - **Test suite:** N passed, 0 failed (baseline was M).
 - **Live verification:** what was exercised against the running system, and when.
-- **Daemon restart** (`feature/*` and `hotfix/*`, per §2.6): confirm
-  `ActiveEnterTimestamp` postdates the `dev` merge commit. A merge is not a deployment.
+- **Daemon restart** (`feature/*` and `hotfix/*`, per §2.6): confirm `ActiveEnterTimestamp` postdates the `dev` merge commit.
+  - A merge is not a deployment.
 
 ## 6. Follow-ups
 
-Backlog items opened by this work, and anything deliberately left for later.
+Additional issues created by this work, and any item deliberately left for later.
 
 | Item | Description | Why deferred |
 | --- | --- | --- |

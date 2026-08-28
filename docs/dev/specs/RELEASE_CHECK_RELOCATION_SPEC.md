@@ -1,6 +1,6 @@
 # Release-Check Relocation — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20260819
 **Branch:** `chore/issue-87-release-check-relocation` (from `main`, merges to `main` and `dev`)
@@ -61,10 +61,10 @@
 | C5 | `automation/` contains no `__init__.py`; it holds `issue_validator.py`, `issue_validator_test.py`, and `fixtures/` — `ls automation/` |
 | C6 | Nothing imports the script as a module; the hook is its only caller — repository-wide grep for `import check_release_integrity` returns no hits outside `.git/` |
 | C7 | `.githooks/pre-push` names the old path in prose at `:5` and executably at `:27` as `checker="$repo_root/scripts/check_release_integrity.py"`, where `repo_root` is `git rev-parse --show-toplevel` |
-| C8 | `.githooks/pre-push:29` is `[ -f "$checker" ] || exit 0` — a missing checker exits zero, printing nothing, and the push proceeds unverified |
+| C8 | `.githooks/pre-push:29` is `[ -f "$checker" ] | | exit 0` — a missing checker exits zero, printing nothing, and the push proceeds unverified |
 | C9 | `.githooks/pre-push` cites no `DEVELOPMENT_STANDARDS.md` section anywhere, although §2.2 owns the CHANGELOG / tag / GitHub Release rule it enforces — full file read |
 | C10 | `.githooks/commit-msg` cites §2.4 at `:8` and `:64`, and both citations are correct: §2.4 owns commit-message format and prohibits `--no-verify` |
-| C11 | Gate wording in `.githooks/` is exactly two lines, both in `commit-msg`: `:58` `  Gate context belongs in the body, never the subject:` and `:62` `    Gate 3 of 7. Files changed, decisions made, expected test count.` `grep -rni gate .githooks/` returns those two lines and nothing else |
+| C11 | Gate wording in `.githooks/` is exactly two lines, both in `commit-msg`: `:58` `Gate context belongs in the body, never the subject:` and `:62` `Gate 3 of 7. Files changed, decisions made, expected test count.` `grep -rni gate .githooks/` returns those two lines and nothing else |
 | C12 | §2.4 already carries the replacement wording: "Step context belongs in the body, not the subject — `feat(notes): converge write path` with `Step 3 of 7` in the body, never `Step 3: ...` as the subject" — `docs/DEVELOPMENT_STANDARDS.md` §2.4 |
 | C13 | `core.hooksPath` is `.githooks` in this clone, so both hooks are live — `git config --get core.hooksPath` |
 | C14 | Neither script carries the executable bit; the hook invokes `python3 "$checker"` at `:54`, so mode is irrelevant — `ls -l`, `.githooks/pre-push:54` |
@@ -106,7 +106,7 @@ Each step ends with a commit. There is no approval stop between steps.
 | AC1.3 | The anchor is the `automation/` pattern, and the old one is gone | Both required. **(a)** `grep -c 'find_repo_root' automation/check_release_integrity.py` prints at least `2` (definition and call). **(b)** `grep -c 'parent.parent' automation/check_release_integrity.py` prints `0` — compare stdout, not exit status, since `grep -c` exits `1` when it prints `0` |
 | AC1.4 | The script's own usage block names its real path | Both required: `grep -c 'automation/check_release_integrity.py' automation/check_release_integrity.py` prints `3`, and `grep -c 'scripts/check_release_integrity' automation/check_release_integrity.py` prints `0` |
 | AC2.1 | `pre-push` invokes the new path and names no old one | Within `.githooks/pre-push`: `grep -c 'automation/check_release_integrity.py'` prints `2`, and `grep -c 'scripts/check_release_integrity'` prints `0` |
-| AC2.2 | A missing checker fails loudly instead of exiting zero | `grep -c '|| exit 0' .githooks/pre-push` prints `0`. Behavioural check, **offline — no push**: invoke the hook directly with a crafted stdin line, `sha=$(git rev-parse HEAD); printf 'refs/tags/v0.0.0-hooktest %s refs/tags/v0.0.0-hooktest %s\n' "$sha" "$sha" \| .githooks/pre-push origin git@example.invalid:x.git`. A **tag** ref is used deliberately: it selects the hook's `--no-remote` branch, so the check depends on neither the network nor `gh` auth nor every enforced tag having a Release object. The tag name is synthetic — the hook only pattern-matches `refs/tags/*` and never dereferences it, so no real version is named here. With the checker present it exits `0`; with it temporarily renamed it exits non-zero and prints a message naming the missing file. Restore the file immediately and record both exit codes in the step 2 commit message |
+| AC2.2 | A missing checker fails loudly instead of exiting zero | `grep -c ' | | exit 0' .githooks/pre-push` prints `0`. Behavioural check, **offline — no push**: invoke the hook directly with a crafted stdin line,`sha=$(git rev-parse HEAD); printf 'refs/tags/v0.0.0-hooktest %s refs/tags/v0.0.0-hooktest %s\n' "$sha" "$sha" \| .githooks/pre-push origin <git@example.invalid>:x.git`. A **tag** ref is used deliberately: it selects the hook's`--no-remote` branch, so the check depends on neither the network nor `gh` auth nor every enforced tag having a Release object. The tag name is synthetic — the hook only pattern-matches `refs/tags/*` and never dereferences it, so no real version is named here. With the checker present it exits `0`; with it temporarily renamed it exits non-zero and prints a message naming the missing file. Restore the file immediately and record both exit codes in the step 2 commit message |
 | AC2.3 | `pre-push` cites the section that owns its rule | `grep -c 'DEVELOPMENT_STANDARDS.md §2.2' .githooks/pre-push` prints at least `1` |
 | AC3.1 | No file in `.githooks/` carries gate wording | `grep -rnic gate .githooks/` prints `0` for both files — compare stdout, not exit status |
 | AC3.2 | The replacement is §2.4's own wording, not a new phrasing | `grep -c 'Step context belongs in the body' .githooks/commit-msg` prints `1` and `grep -c 'Step 3 of 7' .githooks/commit-msg` prints `1`, and both strings appear in §2.4 — `awk '/^### 2\.4/,/^### 2\.5/' docs/DEVELOPMENT_STANDARDS.md \| grep -c 'Step context belongs in the body'` prints `1` |
