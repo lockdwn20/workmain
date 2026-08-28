@@ -5,7 +5,7 @@
   "milestone": "Phase 14 — Setup Wizard & Configuration",
   "parent": null,
   "labels": ["cli"],
-  "type": "bug",
+  "type": "defect",
   "blocked_by": [],
   "blocking": []
 }

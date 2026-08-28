@@ -5,7 +5,7 @@
   "milestone": null,
   "parent": null,
   "labels": ["not-a-real-label"],
-  "type": "bug",
+  "type": "defect",
   "blocked_by": [],
   "blocking": []
 }

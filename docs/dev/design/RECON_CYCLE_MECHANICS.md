@@ -1,6 +1,6 @@
 # Cycle Mechanics — Recon
 
-**Status:** Active
+**Status:** Shipped
 **Kind:** Recon
 **Author:** Spanner (Role 1)
 **Date:** 20260813
@@ -143,5 +143,5 @@ Analysis with Ray is complete — Q1–Q6 and the two follow-ups are answered, a
 "explicitly not verified" gap is closed (N1 by F30, N2 by F24/F25, N3 moot under Q1, N4 by
 Q4). The ranked queue exists as Project #3.
 
-- Promoted to: *pending — spec, not yet written*
+- Promoted to: `docs/dev/specs/QUEUE_SEQUENCING_SPEC.md`
 - Superseded by: *n/a*

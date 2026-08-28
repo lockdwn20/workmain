@@ -19,7 +19,7 @@ _spec.loader.exec_module(issue_validator)
 
 SCHEMA = issue_validator.load_schema(ROOT / ".github" / "ISSUE_TEMPLATE" / "issue.schema.json")
 TYPE_LABELS = issue_validator.parse_type_labels(ROOT / "docs" / "DEVELOPMENT_STANDARDS.md")
-LIVE_LABELS = {"cli", "bug", "enhancement", "tests", "documentation"}
+LIVE_LABELS = {"cli", "defect", "gap", "tests", "documentation"}
 LIVE_MILESTONES = {"Phase 14 — Setup Wizard & Configuration"}
 
 
@@ -103,12 +103,17 @@ class TestAC2:
         source = (ROOT / "automation" / "issue_validator.py").read_text()
         import re
 
-        assert re.findall(r"['\"](bug|enhancement)['\"]", source) == []
+        assert re.findall(r"['\"](defect|gap)['\"]", source) == []
 
     def test_ac2_6b_type_labels_are_parsed_from_the_standards_file(self):
         tokens = issue_validator.parse_type_labels(FIXTURES / "standards_alpha_beta.md")
         assert tokens == ["alpha", "beta"]
-        assert "bug" not in tokens
+        assert "defect" not in tokens
+
+    def test_the_live_standards_file_yields_exactly_the_discriminator_pair(self):
+        """A reflow of §1.3 that breaks this parse breaks every issue creation."""
+        tokens = issue_validator.parse_type_labels(ROOT / "docs" / "DEVELOPMENT_STANDARDS.md")
+        assert tokens == ["defect", "gap"]
 
     def test_ac2_7_validation_is_total(self):
         errors, _ = run_validate(fixture("ac2_7_three_errors.json"))
@@ -122,7 +127,7 @@ class TestAC2:
             issue_validator.parse_type_labels(FIXTURES / "standards_missing_discriminator.md")
         message = str(excinfo.value)
         assert "standards_missing_discriminator.md" in message
-        assert "type discriminator" in message
+        assert "discriminator pair" in message
 
     def test_ac2_9_closed_parent_is_reported_as_closed_not_missing(self):
         data = fixture("shape_scheduled_child.json")

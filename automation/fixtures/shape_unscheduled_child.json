@@ -5,7 +5,7 @@
   "milestone": null,
   "parent": 100,
   "labels": ["cli"],
-  "type": "enhancement",
+  "type": "gap",
   "blocked_by": [],
   "blocking": []
 }

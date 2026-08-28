@@ -1,6 +1,6 @@
 # Close-Out Performs Instead of Reports — Recon
 
-**Status:** Active
+**Status:** Shipped
 **Kind:** Recon
 **Author:** Spanner (Role 1)
 **Date:** 20260819
@@ -119,4 +119,4 @@ Of #90's twenty-two: D1 is F1–F2; D2 is F7 and Q2; D3 is F19; D4 is F3; D5 is 
 
 ## 6. Disposition
 
-- Promoted to: *spec pending — Analysis complete 20260819, all eight questions answered.*
+- Promoted to: CLOSEOUT_PERFORMS_SPEC.md

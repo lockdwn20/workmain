@@ -1,8 +1,16 @@
-WorkmAIn
-TASK_MATCH_DATA_INTEGRITY_SPRINT_SPEC v1.3
-20260728
+# Task Match Data Integrity Sprint — Spec
 
-Version History:
+**Status:** Shipped
+**Author:** Spanner (Role 1)
+**Date:** 20260728
+**Branch:** `feature/task-match-data-integrity` (from `dev`)
+**Released as:** v1.28.0 (PR #27, tag v1.28.0)
+**Originating item:** Backlog Items #71, #67, #70, #66
+**Design study:** `docs/dev/design/RECON_SPEC_TASK_MATCH_DATA_INTEGRITY_SPRINT_20260725.md`
+**Results:** `docs/dev/results/SESSION_HANDOFF_TASK_MATCH_DATA_INTEGRITY_SPRINT_20260729.md`
+
+## Decision Log
+
 - v1.0 (20260728): Initial draft. Gate 1's Step 3c fix left OPEN pending
   recon.
 - v1.1 (20260728): Addendum L and Addendum M incorporated. Gate 0 added
