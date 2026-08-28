@@ -4,8 +4,8 @@ Reached only after every `SKILL.md` preflight row has passed for a `feature/*` b
 
 | # | Step | Done when |
 | --- | --- | --- |
-| 1 | Set the spec, the design artifact and the results artifact to `**Status:** Shipped`. Complete the results artifact: `**Released as:**` with the minor version and tag derived under §2.5, §5 suite results, live verification. Commit on the branch | The branch tip carries all three at `Shipped` and §5 is complete |
-| 2 | `git checkout dev && git merge --no-ff <branch>`; push `dev` — §2.1, §2.2 | `git merge-base --is-ancestor <branch> dev` succeeds and `dev` equals `origin/dev` |
+| 1 | Set the spec, the design artifact and the results artifact to `**Status:** Shipped`. Complete the results artifact: `**Released as:**` with the minor version and tag derived under §2.5, §5 suite results, live verification. Commit on the branch, before any merge — §2.2 | The branch tip carries all three at `Shipped` and §5 is complete |
+| 2 | `git checkout dev && git merge --no-ff <branch>`; push `dev` — §2.2, §2.3 | `git merge-base --is-ancestor <branch> dev` succeeds and `dev` equals `origin/dev` |
 | 3 | Bump `workmain/__version__.py` by a minor and add its `CHANGELOG.md` section, committed on `dev` — §2.2, §2.5 | Both on `dev` name the version recorded at step 1 |
 | 4 | `systemctl --user restart workmain-notify.service` — §2.6 | `ActiveEnterTimestamp` postdates the step 2 merge commit |
 | 5 | `git branch -d <branch>` — §2.3 | `git rev-parse --verify <branch>` fails |

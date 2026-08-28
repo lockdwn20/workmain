@@ -58,11 +58,11 @@ Reached only when every preflight row passed. Read `P3`'s branch prefix and load
 - `feature/*` → `references/feature.md`
 - `hotfix/*` → `references/hotfix.md`
 
-Each carries that type's full perform sequence: what gets committed on the branch before the first merge, the merge order, the two authorization points, and — where the type carries one — the post-merge daemon restart.
+Each carries that type's full perform sequence: what gets committed on the branch before the first merge, the merge order, the authorization point, and — where the type carries one — the post-merge daemon restart.
 
 ## The stop
 
-Every close-out crosses exactly **one** authorization point (§1.4): **merging this branch to `main`** — which on `feature/*` takes the shape of waiting for Ray to merge the `dev → main` PR, since §2.2 requires the PR and he merges it himself. It is one `AskUserQuestion` call stating what is about to happen. Two answers — proceed, or stop — and *stop* ends the run naming what has already happened and what has not.
+Every close-out crosses exactly **one** authorization point (§1.4): **merging this branch to `main`** — which on `feature/*` takes the shape of waiting for Ray to merge the `dev → main` PR, since §2.2 requires the PR and he merges it himself. It is one `AskUserQuestion` call stating what is about to happen, and stopping ends the run naming what has already happened and what has not.
 
 Nothing else stops.
 
