@@ -8,7 +8,14 @@ Read the relevant section before writing code. The only text here also stated in
 
 ## 1. Development Workflow
 
-### 1.1 Recon before spec
+### 1.1 Two paths through the cycle
+
+There are two paths, and **the branch type is which one applies**. §2.7 step 3 already makes that the first decision of any session, so by the time work starts the path is settled and no further judgement is needed.
+
+- **`feature/*` and `hotfix/*` → the full path.** The change alters application behaviour.
+- **`chore/*` → the direct path.** §2.2 defines what `chore/*` covers: `docs/**`, standards documents, `.claude/`, and dev tooling that changes no application behaviour.
+
+**Full path**
 
 No spec is written without a read-only audit first. Recon produces a findings document in `docs/dev/design/`; decisions are made from it; only then is a spec written.
 
@@ -23,6 +30,25 @@ RECON  →  ANALYSIS  →  SPEC  →  REVIEW  →  APPROVAL  →  IMPLEMENTATION
 - **Approval** — Ray approves explicitly. No implementation without an approved spec.
 - **Implementation** — Role 3, step by step, from the approved spec only.
 - **Close-out** — Ray runs the `/closeout` skill against the branch being closed out, or `--branch <name>` for one already merged. It performs the merges, artifact completion, and whatever version bump, tag, Release and service restart its branch type requires, stopping at each authorization point it crosses. It composes the issue's closing comment and prints the command that would post it; posting the comment and closing the issue are Ray's, on the same principle as merging the `dev → main` PR.
+
+**Direct path**
+
+```text
+SPEC  →  APPROVAL  →  IMPLEMENTATION  →  CLOSE-OUT
+```
+
+**All four are required.** Nothing on this path is optional except the two things named below as optional.
+
+- **Spec** — written to `docs/dev/specs/`, from the same template. §1.2 states which sections it may omit and how it verifies existing state instead.
+- **Approval** — Ray approves explicitly. No implementation without an approved spec.
+- **Implementation** — Role 1, in the session that wrote the spec. A direct-path step quotes the exact replacement text, so there is nothing to hand off: a separate implementer would transcribe rather than implement, and a transcription is a new chance to get it wrong, not a second pair of eyes.
+- **Close-out** — the same `/closeout` run, unchanged. A direct-path spec meets its preconditions as a full-path spec does.
+
+**A recon is permitted on this path**, and earns its place when the change spans documents that may contradict each other — where a rule is stated in one place and cited or restated in others, and the change has to find every site before it can be specified. Run one where that is true; it produces a design artifact in `docs/dev/design/` exactly as on the full path.
+
+**Where no recon is run, no design artifact exists** and the spec's `**Design study:**` field reads `n/a`. That is the stated form of a direct-path spec, not a requirement quietly skipped: `/closeout`'s `P5a` accepts `n/a` only on a `chore/*` spec, and fails every other missing or broken design-study citation exactly as before.
+
+**What the direct path trades.** With no recon, no Role 2 pass and no separate implementer, **Ray's approval is the only review between the spec and the edit**, and scope that no acceptance criterion named is caught *after* implementation, by the results artifact's deviations table, rather than *before* it by recon and review. On a document that is recoverable — the text is there to read and the fix is another edit. On application code it is not, which is why the path is keyed on the branch type and not on how small the change looks.
 
 ### 1.2 Spec authoring rules
 
