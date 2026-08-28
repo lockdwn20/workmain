@@ -52,12 +52,14 @@ SPEC  →  APPROVAL  →  IMPLEMENTATION  →  CLOSE-OUT
 
 ### 1.2 Spec authoring rules
 
-- Every claim about existing behaviour is verified against source at authoring time — cite file and symbol. Asertions that were not verified are the most common spec defect.
+- Every claim about existing behaviour is verified against source at authoring time — cite file and symbol. Assertions that were not verified are the most common spec defect. This principle is the same on both paths; only its form differs.
+  - **Full path:** the §2 verified-current-state table carries the citations.
+  - **Direct path:** the §2 table is not required. The text being replaced is quoted inline in the step that replaces it, which *is* the verification — the claim and its evidence are the same lines, and a quote that no longer matches the file is caught the moment the edit is applied.
 - Changes to an existing spec are surgical, not wholesale rewrites.
 - Defects found during verification become their own hotfix, not sprint scope.
 - Acceptance criteria must be mechanically testable. If an AC cannot be checked by running something, rewrite it until it can.
 - A spec may map sub-ACs to the ACs on the originating issue using the numbering `ACn.m`, which is what lets close-out read the set mechanically. An unmapped sub-AC verifies nothing the issue asked for.
-- At least one Role 2 review pass before a spec is approved.
+- At least one Role 2 review pass before a spec is approved — on the full path. On the direct path a Caliper pass is optional and at Ray's discretion.
 
 ### 1.3 Issue discipline
 
