@@ -23,6 +23,7 @@ Complete. `docs/DEVELOPMENT_STANDARDS.md` §1.1 now defines two paths through th
 | 3 | Spec template — the `**Design study:** n/a` form and a direct-path note naming §2 and §6 as omittable | `docs/dev/specs/_TEMPLATE_SPEC.md` | +0 |
 | 4 | `P5a` given its one `n/a` condition and its remedy reworded; `chore.md` step 1 made conditional on the spec naming a design artifact | `.claude/skills/closeout/SKILL.md`, `.claude/skills/closeout/references/chore.md` | +0 |
 | 5 | This artifact | `docs/dev/results/DOCUMENTATION_DIRECT_PATH_RESULTS.md` | +0 |
+| 6 | Results template §3 no longer names Anvil as the only possible author of the AC table — it names whoever implemented the spec, and cites §1.1 for which role that is on each path | `docs/dev/results/_TEMPLATE_RESULTS.md` | +0 |
 
 No file under `tests/`, `automation/`, `workmain/`, `config/` or `templates/` was touched, so no test was added or changed.
 
@@ -50,12 +51,14 @@ Every AC on the approved spec, run against the delivered text. `<range 1.1>` is 
 
 ## 4. Deviations from spec
 
-Both were raised before the affected step ran, and both are recorded here rather than as acceptance criteria on #113 at Ray's direction.
+All three are recorded here rather than as acceptance criteria on #113, at Ray's direction. Deviations 1 and 2 were raised before the affected step ran; deviation 3 was found by step 5 and fixed after steps 1–5 had shipped.
 
 | # | Deviation | Reason | Approved by |
 | --- | --- | --- | --- |
 | 1 | §1.1's direct path names **Role 1** as the implementer rather than Role 3. No AC on #113 asks for this | The steps of a direct-path spec quote the exact replacement text, so a handoff to Role 3 adds a session boundary, a model change and a transcription risk while adding no judgement. §1.1 states the resulting cost — Ray's approval becomes the path's only review. Spec AC4.1 was extended so the wording is checked mechanically rather than only asserted | Ray, 20260828 |
 | 2 | No Caliper pass was run on this spec, though §1.2 as it stood at approval still required one | Step 2 of this spec is what makes the pass optional on the direct path. Waived as the first exercise of the rule: the spec is short, its §5 is mechanically checkable, and the one contradiction a review would have found — that `P5a` and `chore.md` made the issue's original AC9 impossible — was found and settled before the spec was written | Ray, 20260828 |
+
+| 3 | `docs/dev/results/_TEMPLATE_RESULTS.md` §3 corrected, added as step 6 after steps 1–5 had shipped. No AC on #113 asks for it | Its §3 read "written by Anvil … he is the only one who can fill it", which deviation 1 makes false on the direct path. Left as a follow-up at first; Ray directed it onto this branch instead, since the branch is what made the sentence wrong. Evidenced by `grep -c 'Anvil on the full path, Role 1 on the direct path' docs/dev/results/_TEMPLATE_RESULTS.md` → `1`, and no `ACn.m` id was invented for it — there is no issue AC it could honestly map to | Ray, 20260828 |
 
 An earlier draft of #113's AC9 asserted that no change to `.claude/skills/closeout/**` was needed. That was corrected on the issue before the spec was written, not deviated from here.
 
@@ -68,6 +71,4 @@ An earlier draft of #113's AC9 asserted that no change to `.claude/skills/closeo
 
 ## 6. Follow-ups
 
-| Item | Description | Why deferred |
-| --- | --- | --- |
-| — | `docs/dev/results/_TEMPLATE_RESULTS.md` §3 reads "written by Anvil as the last implementation step — he ran the ACs, so he is the only one who can fill it", which is not true on the direct path where Role 1 implements. The header's author line already permits `Spanner (Role 1)`, so only the §3 prose is stale | Surfaced by deviation 1, after step 3 had shipped. One sentence, no AC on #113 covers it, and it changes no rule — it belongs to the next `chore/*` touching the results template rather than reopening a shipped step |
+None. The one follow-up this work surfaced — the results template's §3 naming Anvil as the AC table's only possible author — was fixed on this branch as step 6 rather than deferred (deviation 3).

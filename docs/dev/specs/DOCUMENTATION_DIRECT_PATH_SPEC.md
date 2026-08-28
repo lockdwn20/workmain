@@ -20,6 +20,7 @@
 | 20260828 | Spanner | §2.7 step 3 could back-cite §1.1 so the reader is pointed at the path from the branch decision | Not taken. §1.1 cites §2.2 and §2.7; a back-citation would make §2.7 a second place stating the discriminator. §1.1 owns it |
 | 20260828 | Ray | Handing a direct-path spec to Role 3 is needless overhead and a fresh chance to get it wrong — the steps already quote the exact replacement text, so Anvil would transcribe, not implement | The direct path's implementer is Role 1, in the session that wrote the spec. §1.1 says so and states the cost: with no recon, no Caliper pass and no separate implementer, Ray's approval is the path's only review. **No AC on #113 covers this** — it is carried as a deviation in the results artifact §4 at Ray's direction, and checked by AC4.1. Step 1 |
 | 20260828 | Ray | Today's §1.2 requires a Role 2 pass before approval, and step 2 is what makes that optional on the direct path — so this spec is owed a Caliper round under the rule it is replacing | Waived, at Ray's direction, as the first exercise of the rule. Recorded here rather than left as a silent omission. Carried as a deviation in the results artifact §4 |
+| 20260828 | Ray | Step 5 surfaced that `_TEMPLATE_RESULTS.md` §3 names Anvil as the only possible author of the AC table, which deviation 1 makes false on the direct path. Offered as a follow-up for the next `chore/*` | Fix it on this branch. Added as step 6 after steps 1–5 had shipped. No AC on #113 covers it — carried as a deviation in the results artifact §4 and evidenced there, not given an `ACn.m` id it could not honestly map to |
 | 20260828 | Spanner | This spec is written in the form it defines — no recon, `**Design study:** n/a`, no §2 table — before the rule permitting that form has shipped | Deliberate, and required by AC12. The standards are being written by this issue; the spec is its own first use |
 
 ---
@@ -67,6 +68,7 @@ Anything this spec does not cover: stop at the step and escalate per `CLAUDE.md`
 | 3 | Spec template — `**Design study:**` form and the direct-path note | `docs/dev/specs/_TEMPLATE_SPEC.md` |
 | 4 | `P5a` gains its one `n/a` condition; `chore.md` step 1 made conditional | `.claude/skills/closeout/SKILL.md`, `.claude/skills/closeout/references/chore.md` |
 | 5 | Results artifact written and §3 filled against delivered text | `docs/dev/results/DOCUMENTATION_DIRECT_PATH_RESULTS.md` |
+| 6 | Results template §3 no longer names Anvil as the only possible author of the AC table | `docs/dev/results/_TEMPLATE_RESULTS.md` |
 
 ### Step 1 — §1.1
 
@@ -211,6 +213,22 @@ The corrected spelling of "Assertions" rides this edit; it is the same line.
 ### Step 5 — results artifact
 
 Write `docs/dev/results/DOCUMENTATION_DIRECT_PATH_RESULTS.md` from `_TEMPLATE_RESULTS.md`. §1 records that this issue is the first use of the direct path (AC12.1). §3 carries a row for every AC id in §5 below, each run against the delivered text. `**Released as:** n/a`.
+
+### Step 6 — results template
+
+**Replace this phrase** in `docs/dev/results/_TEMPLATE_RESULTS.md` §3:
+
+```markdown
+This table is written by Anvil as the last implementation step — he ran the ACs, so he is the only one who can fill it.
+```
+
+**With:**
+
+```markdown
+This table is written by whoever implemented the spec, as the last implementation step — Anvil on the full path, Role 1 on the direct path (`docs/DEVELOPMENT_STANDARDS.md` §1.1). They ran the ACs, so they are the only one who can fill it.
+```
+
+The header's `**Author:**` line already offers `Anvil (Role 3) | Spanner (Role 1)` and needs no change. Nothing else in the template names a role.
 
 ### Authorization points
 
