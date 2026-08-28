@@ -1,6 +1,6 @@
 # Close-Out Reference File Standardization — Design Study
 
-**Status:** Active
+**Status:** Shipped
 **Kind:** Design study
 **Author:** Spanner (Role 1)
 **Date:** 20260820
@@ -109,5 +109,6 @@ Q5 has no single answer; the disposition differs per fragment, so every rational
 
 ## 7. Disposition
 
-- Promoted to: *(pending — #91 rewrite, then spec)*
-- Q1–Q4 answered 20260820; F5 withdrawn; Q5 opened in their place
+- Promoted to: issue #91, executed directly against the issue's acceptance criteria with no spec between — see `docs/dev/results/CLOSEOUT_STANDARDIZATION_RESULTS.md` deviation 1. Option C was taken.
+- Q1–Q4 answered 20260820; F5 withdrawn; Q5 opened in their place and answered by §6's census.
+- §6's census was walked row by row under AC14 on 20260827 and is closed. All 23 rows are disposed as written; three fragments the census had not classified were found and were already correctly disposed. The walk-through's record is commit `afb11d9` and the results artifact's AC14 row.
