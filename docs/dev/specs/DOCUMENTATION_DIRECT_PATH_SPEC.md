@@ -1,6 +1,6 @@
 # Documentation Direct Path — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20260828
 **Branch:** `chore/issue-113-documentation-direct-path` (from `main`)
@@ -18,6 +18,8 @@
 | 20260828 | Spanner | Which sections a direct-path spec may omit — AC8 says "sections", plural, and only §2 is named by AC5 | §2 and §6. §6 is omittable only where the change touches no file under `tests/`, `automation/`, `workmain/`, `config/` or `templates/` — `P8` and `P9` still run at close-out regardless. Every other section is required. Step 3 |
 | 20260828 | Spanner | Issue AC11's command is `grep -n "Recon before spec" … .claude/`, which errors on a directory without `-r` | The spec's AC checks the same thing with `grep -rn`. The intent is unchanged; the quoted form could not have run |
 | 20260828 | Spanner | §2.7 step 3 could back-cite §1.1 so the reader is pointed at the path from the branch decision | Not taken. §1.1 cites §2.2 and §2.7; a back-citation would make §2.7 a second place stating the discriminator. §1.1 owns it |
+| 20260828 | Ray | Handing a direct-path spec to Role 3 is needless overhead and a fresh chance to get it wrong — the steps already quote the exact replacement text, so Anvil would transcribe, not implement | The direct path's implementer is Role 1, in the session that wrote the spec. §1.1 says so and states the cost: with no recon, no Caliper pass and no separate implementer, Ray's approval is the path's only review. **No AC on #113 covers this** — it is carried as a deviation in the results artifact §4 at Ray's direction, and checked by AC4.1. Step 1 |
+| 20260828 | Ray | Today's §1.2 requires a Role 2 pass before approval, and step 2 is what makes that optional on the direct path — so this spec is owed a Caliper round under the rule it is replacing | Waived, at Ray's direction, as the first exercise of the rule. Recorded here rather than left as a silent omission. Carried as a deviation in the results artifact §4 |
 | 20260828 | Spanner | This spec is written in the form it defines — no recon, `**Design study:** n/a`, no §2 table — before the rule permitting that form has shipped | Deliberate, and required by AC12. The standards are being written by this issue; the spec is its own first use |
 
 ---
@@ -124,14 +126,14 @@ SPEC  →  APPROVAL  →  IMPLEMENTATION  →  CLOSE-OUT
 
 - **Spec** — written to `docs/dev/specs/`, from the same template. §1.2 states which sections it may omit and how it verifies existing state instead.
 - **Approval** — Ray approves explicitly. No implementation without an approved spec.
-- **Implementation** — Role 3, step by step, from the approved spec only.
+- **Implementation** — Role 1, in the session that wrote the spec. A direct-path step quotes the exact replacement text, so there is nothing to hand off: a separate implementer would transcribe rather than implement, and a transcription is a new chance to get it wrong, not a second pair of eyes.
 - **Close-out** — the same `/closeout` run, unchanged. A direct-path spec meets its preconditions as a full-path spec does.
 
 **A recon is permitted on this path**, and earns its place when the change spans documents that may contradict each other — where a rule is stated in one place and cited or restated in others, and the change has to find every site before it can be specified. Run one where that is true; it produces a design artifact in `docs/dev/design/` exactly as on the full path.
 
 **Where no recon is run, no design artifact exists** and the spec's `**Design study:**` field reads `n/a`. That is the stated form of a direct-path spec, not a requirement quietly skipped: `/closeout`'s `P5a` accepts `n/a` only on a `chore/*` spec, and fails every other missing or broken design-study citation exactly as before.
 
-**What the direct path trades.** Scope that no acceptance criterion named is caught *after* implementation, by the results artifact's deviations table, rather than *before* it by recon and review. On a document that is recoverable — the text is there to read and the fix is another edit. On application code it is not, which is why the path is keyed on the branch type and not on how small the change looks.
+**What the direct path trades.** With no recon, no Role 2 pass and no separate implementer, **Ray's approval is the only review between the spec and the edit**, and scope that no acceptance criterion named is caught *after* implementation, by the results artifact's deviations table, rather than *before* it by recon and review. On a document that is recoverable — the text is there to read and the fix is another edit. On application code it is not, which is why the path is keyed on the branch type and not on how small the change looks.
 ````
 
 ### Step 2 — §1.2
@@ -226,7 +228,7 @@ Sub-ACs map to issue #113's ACs in order — `ACn.m` where `n` is the issue AC's
 | AC2.1 | §1.1 no longer opens with the unconditional recon sentence; it appears only under the full-path subheading | In the same range, the line `**Full path**` precedes the line containing `No spec is written without a read-only audit first`, and that sentence occurs exactly once |
 | AC3.1 | §1.1 states that a recon is permitted on the direct path and when it earns its place | In the same range: `grep -c 'A recon is permitted on this path'` prints `1` and `grep -c 'may contradict each other'` prints `1` |
 | AC3.2 | §1.1 states that where no recon is run, no design artifact exists and `**Design study:**` reads `n/a` | In the same range: `grep -c 'Where no recon is run'` prints `1` and `grep -c 'not a requirement quietly skipped'` prints `1` |
-| AC4.1 | §1.1's direct path names all four of spec, approval, results artifact and close-out, and states that they are required | In the same range: `grep -c '\*\*All four are required'` prints `1`, and the direct-path block contains `**Spec**`, `**Approval**`, `**Implementation**` and `**Close-out**` |
+| AC4.1 | §1.1's direct path names all four of spec, approval, results artifact and close-out and states that they are required, names Role 1 as the implementer with the reason, and states that Ray's approval is the path's only review | In the same range: `grep -c '\*\*All four are required'` prints `1`, the direct-path block contains `**Spec**`, `**Approval**`, `**Implementation**` and `**Close-out**`, `grep -c 'Role 1, in the session that wrote the spec'` prints `1`, and `grep -c "only review between the spec and the edit"` prints `1` |
 | AC5.1 | §1.2 states the §2 table is not required on the direct path and that the replaced text is quoted inline instead, with the principle unchanged | Within `awk '/^### 1.2/,/^### 1.3/' docs/DEVELOPMENT_STANDARDS.md`: `grep -c 'the §2 table is not required'` prints `1`, `grep -c 'quoted inline in the step that replaces it'` prints `1`, `grep -c 'only its form differs'` prints `1` |
 | AC6.1 | §1.2 scopes the Role 2 pass to the full path and states it is optional and at Ray's discretion on the direct path | In the same range: `grep -c "on the full path"` is ≥ `1` and `grep -c "optional and at Ray's discretion"` prints `1` |
 | AC7.1 | The §1.1 heading no longer names the rule it now conditions | `grep -c '^### 1.1 Recon before spec' docs/DEVELOPMENT_STANDARDS.md` prints `0` |
