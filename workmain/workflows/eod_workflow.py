@@ -8,7 +8,6 @@ All user interaction uses stdlib input() via _confirm() / _prompt_choice() helpe
 
 import inspect as _inspect
 import re
-import subprocess
 import sys
 import threading
 import time
@@ -18,21 +17,18 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Optional
 
-# Resolve the absolute path to the workmain entry-point script.  When the
-# daemon runs as a systemd service the venv is not activated, so 'workmain'
-# is not on PATH.  sys.executable is the venv Python, so the workmain script
-# lives in the same bin/ directory.
-def _resolve_workmain_bin() -> str:
-    candidate = Path(sys.executable).parent / "workmain"
-    return str(candidate) if candidate.is_file() else "workmain"
-
-_WORKMAIN_BIN = _resolve_workmain_bin()
-
 from workmain.daemon import state_io
 from workmain.database.connection import get_db
 from workmain.database.repositories.meetings_repo import MeetingsRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
 from workmain.utils.editor import edit_in_editor
+from workmain.utils.self_invoke import (
+    TIMEOUT_AI,
+    TIMEOUT_INTERACTIVE,
+    TIMEOUT_LOCAL,
+    TIMEOUT_NETWORK,
+    run_workmain,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -100,9 +96,25 @@ def _is_interactive() -> bool:
 
     Returns False in daemon/systemd context (stdin is /dev/null).
     Step runners use this to skip interactive retry/review prompts and return
-    EodStepStatus.FAILED instead of silently swallowing subprocess failures.
+    EodStepStatus.FAILED instead of silently continuing past a failed child
+    command.
     """
     return sys.stdin.isatty()
+
+
+def _echo_workmain(run, *, stdout: bool = False) -> None:
+    """Echo a captured child command's output to the operator's terminal.
+
+    stderr is always echoed when non-empty (spec DR9 — before capture it went
+    straight to the terminal, and the warn-and-continue sites would otherwise
+    lose it). stdout is echoed only where the operator was previously reading
+    the child's screen output (spec DR5). Both are no-ops when the call ran
+    in pass-through mode, since nothing was captured.
+    """
+    if stdout and run.stdout.strip():
+        print(run.stdout.rstrip())
+    if run.stderr.strip():
+        print(run.stderr.rstrip())
 
 
 
@@ -210,8 +222,18 @@ def _run_condense_step(dry_run: bool, target_date: date) -> EodStepResult:
         for mtg, total_count, non_ifo_count in pending:
             print(f"  → {mtg.title}")
             if _confirm(f"    Condense {total_count} note(s)?"):
-                result = subprocess.run([_WORKMAIN_BIN, 'meetings', 'condense', mtg.title])
-                if result.returncode != 0:
+                run = run_workmain(
+                    ['meetings', 'condense', mtg.title],
+                    timeout=TIMEOUT_AI,
+                    capture=not _is_interactive(),
+                )
+                _echo_workmain(run, stdout=True)
+                if run.timed_out:
+                    return EodStepResult(
+                        status=EodStepStatus.FAILED,
+                        error=run.failure_message(f"Condensing '{mtg.title}'"),
+                    )
+                if run.returncode != 0:
                     print(f"  ⚠ Condensation returned non-zero for '{mtg.title}'")
             else:
                 print(f"  Skipped: {mtg.title}")
@@ -233,17 +255,29 @@ def _run_sync_step(dry_run: bool, target_date: date) -> EodStepResult:
         return EodStepResult(status=EodStepStatus.COMPLETED)
 
     try:
-        result = subprocess.run([_WORKMAIN_BIN, 'clockify', 'sync', 'push'])
+        run = run_workmain(['clockify', 'sync', 'push'], timeout=TIMEOUT_NETWORK)
+        _echo_workmain(run, stdout=True)
+        if run.timed_out:
+            return EodStepResult(
+                status=EodStepStatus.FAILED,
+                error=run.failure_message("Clockify sync"),
+            )
 
-        if result.returncode != 0:
+        if run.returncode != 0:
             print()
-            print(f"  ⚠ Sync returned exit code {result.returncode}")
+            print(f"  ⚠ Sync returned exit code {run.returncode}")
             action = _prompt_choice(
                 "  Continue? [y]es / [r]etry / [s]kip", default='y'
             )
 
             if action == 'r':
-                subprocess.run([_WORKMAIN_BIN, 'clockify', 'sync', 'push'])
+                retry = run_workmain(['clockify', 'sync', 'push'], timeout=TIMEOUT_NETWORK)
+                _echo_workmain(retry, stdout=True)
+                if retry.timed_out:
+                    return EodStepResult(
+                        status=EodStepStatus.FAILED,
+                        error=retry.failure_message("Clockify sync retry"),
+                    )
             elif action == 's':
                 print("  Sync skipped")
 
@@ -299,9 +333,17 @@ def _run_review_step(dry_run: bool, target_date: date, non_interactive: bool = F
     try:
         while True:
             if target_date == date.today():
-                subprocess.run([_WORKMAIN_BIN, 'time', 'today'])
+                run = run_workmain(['time', 'today'], timeout=TIMEOUT_LOCAL)
             else:
-                subprocess.run([_WORKMAIN_BIN, 'time', 'date', target_date.isoformat()])
+                run = run_workmain(
+                    ['time', 'date', target_date.isoformat()], timeout=TIMEOUT_LOCAL
+                )
+            _echo_workmain(run, stdout=True)
+            if run.timed_out:
+                return EodStepResult(
+                    status=EodStepStatus.FAILED,
+                    error=run.failure_message("Time entry review"),
+                )
             print()
 
             if _confirm("  Are these time entries correct?"):
@@ -843,7 +885,7 @@ def _run_report_review_step(
     exactly as before, so the Slack EOD (surface #5) path is unaffected.
     """
     date_str = target_date.isoformat()
-    cmd = [_WORKMAIN_BIN, 'reports', 'save', report_type, '--date', date_str]
+    cmd_args = ['reports', 'save', report_type, '--date', date_str]
 
     if dry_run:
         print(f"  Would run: workmain reports save {report_type} --date {date_str}")
@@ -889,19 +931,31 @@ def _run_report_review_step(
     else:
         # Generate report
         try:
-            result = subprocess.run(cmd)
-            if result.returncode != 0:
+            run = run_workmain(cmd_args, timeout=TIMEOUT_AI)
+            _echo_workmain(run, stdout=True)
+            if run.timed_out:
+                return EodStepResult(
+                    status=EodStepStatus.FAILED,
+                    error=run.failure_message(f"{label} report generation"),
+                )
+            if run.returncode != 0:
                 print()
-                print(f"  ⚠ {label} report generation returned exit code {result.returncode}")
+                print(f"  ⚠ {label} report generation returned exit code {run.returncode}")
                 if not _is_interactive():
                     return EodStepResult(
                         status=EodStepStatus.FAILED,
-                        error=f"{label} report generation failed (exit code {result.returncode})",
+                        error=run.failure_message(f"{label} report generation"),
                     )
                 action = _prompt_choice("  Continue? [r]etry / [s]kip", default='s')
                 if action == 'r':
-                    result = subprocess.run(cmd)
-                    if result.returncode != 0:
+                    retry = run_workmain(cmd_args, timeout=TIMEOUT_AI)
+                    _echo_workmain(retry, stdout=True)
+                    if retry.timed_out:
+                        return EodStepResult(
+                            status=EodStepStatus.FAILED,
+                            error=retry.failure_message(f"{label} report generation retry"),
+                        )
+                    if retry.returncode != 0:
                         print("  ✗ Retry failed")
                         return EodStepResult(
                             status=EodStepStatus.FAILED,
@@ -1040,22 +1094,36 @@ def _run_email_step(dry_run: bool, target_date: date) -> EodStepResult:
         return EodStepResult(status=EodStepStatus.COMPLETED)
 
     try:
-        result = subprocess.run([_WORKMAIN_BIN, 'email', 'save', 'daily_internal'])
+        run = run_workmain(['email', 'save', 'daily_internal'], timeout=TIMEOUT_NETWORK)
+        _echo_workmain(run, stdout=True)
+        if run.timed_out:
+            return EodStepResult(
+                status=EodStepStatus.FAILED,
+                error=run.failure_message("Email draft"),
+            )
 
-        if result.returncode != 0:
+        if run.returncode != 0:
             print()
-            print(f"  ⚠ Email draft returned exit code {result.returncode}")
+            print(f"  ⚠ Email draft returned exit code {run.returncode}")
             print("  No recipients configured? Run: workmain email recipients add <email>")
             if not _is_interactive():
                 return EodStepResult(
                     status=EodStepStatus.FAILED,
-                    error=f"Email draft failed (exit code {result.returncode})",
+                    error=run.failure_message("Email draft"),
                 )
             action = _prompt_choice("  Continue? [r]etry / [s]kip", default='s')
 
             if action == 'r':
-                result = subprocess.run([_WORKMAIN_BIN, 'email', 'save', 'daily_internal'])
-                if result.returncode != 0:
+                retry = run_workmain(
+                    ['email', 'save', 'daily_internal'], timeout=TIMEOUT_NETWORK
+                )
+                _echo_workmain(retry, stdout=True)
+                if retry.timed_out:
+                    return EodStepResult(
+                        status=EodStepStatus.FAILED,
+                        error=retry.failure_message("Email draft retry"),
+                    )
+                if retry.returncode != 0:
                     print("  ⚠ Retry failed — skipping email draft")
 
         return EodStepResult(status=EodStepStatus.COMPLETED)
@@ -1068,8 +1136,8 @@ def _run_email_step(dry_run: bool, target_date: date) -> EodStepResult:
 def _run_clockify_step(dry_run: bool, target_date: date) -> EodStepResult:
     """Step 5: Pull Clockify PDF to staging/clockify/."""
     date_str = target_date.isoformat()
-    cmd = [_WORKMAIN_BIN, 'clockify', 'report', 'save', 'daily',
-           '--start', date_str, '--end', date_str]
+    cmd_args = ['clockify', 'report', 'save', 'daily',
+                '--start', date_str, '--end', date_str]
     if dry_run:
         print(
             f"  Would run: workmain clockify report save daily "
@@ -1080,21 +1148,33 @@ def _run_clockify_step(dry_run: bool, target_date: date) -> EodStepResult:
         return EodStepResult(status=EodStepStatus.COMPLETED)
 
     try:
-        result = subprocess.run(cmd)
+        run = run_workmain(cmd_args, timeout=TIMEOUT_NETWORK)
+        _echo_workmain(run, stdout=True)
+        if run.timed_out:
+            return EodStepResult(
+                status=EodStepStatus.FAILED,
+                error=run.failure_message("Clockify PDF download"),
+            )
 
-        if result.returncode != 0:
+        if run.returncode != 0:
             print()
-            print(f"  ⚠ Clockify report returned exit code {result.returncode}")
+            print(f"  ⚠ Clockify report returned exit code {run.returncode}")
             if not _is_interactive():
                 return EodStepResult(
                     status=EodStepStatus.FAILED,
-                    error=f"Clockify PDF download failed (exit code {result.returncode})",
+                    error=run.failure_message("Clockify PDF download"),
                 )
             action = _prompt_choice("  Continue? [r]etry / [s]kip", default='s')
 
             if action == 'r':
-                result = subprocess.run(cmd)
-                if result.returncode != 0:
+                retry = run_workmain(cmd_args, timeout=TIMEOUT_NETWORK)
+                _echo_workmain(retry, stdout=True)
+                if retry.timed_out:
+                    return EodStepResult(
+                        status=EodStepStatus.FAILED,
+                        error=retry.failure_message("Clockify PDF download retry"),
+                    )
+                if retry.returncode != 0:
                     print("  ⚠ Retry failed — skipping Clockify PDF")
         else:
             print("  Staged to staging/clockify/ — gdocs step will upload to Drive")
@@ -1110,9 +1190,9 @@ def _run_gdocs_step(dry_run: bool, target_date: date) -> EodStepResult:
     """Step 6: Upload artifacts to Google Drive."""
     date_str = target_date.strftime('%Y%m%d')
     backdated = target_date != date.today()
-    cmd = [_WORKMAIN_BIN, 'gdocs', 'upload', 'all', '--date', date_str]
+    cmd_args = ['gdocs', 'upload', 'all', '--date', date_str]
     if backdated:
-        cmd.append('--force')
+        cmd_args.append('--force')
     if dry_run:
         force_note = ' --force' if backdated else ''
         print(f"  Would run: workmain gdocs upload all --date {date_str}{force_note}")
@@ -1120,15 +1200,23 @@ def _run_gdocs_step(dry_run: bool, target_date: date) -> EodStepResult:
         return EodStepResult(status=EodStepStatus.COMPLETED)
 
     try:
-        result = subprocess.run(cmd)
+        run = run_workmain(
+            cmd_args, timeout=TIMEOUT_INTERACTIVE, capture=not _is_interactive()
+        )
+        _echo_workmain(run, stdout=True)
+        if run.timed_out:
+            return EodStepResult(
+                status=EodStepStatus.FAILED,
+                error=run.failure_message("Drive upload"),
+            )
 
-        if result.returncode != 0:
+        if run.returncode != 0:
             print()
-            print(f"  ⚠ Drive upload returned exit code {result.returncode}")
+            print(f"  ⚠ Drive upload returned exit code {run.returncode}")
             if not _is_interactive():
                 return EodStepResult(
                     status=EodStepStatus.FAILED,
-                    error=f"Drive upload failed (exit code {result.returncode})",
+                    error=run.failure_message("Drive upload"),
                 )
             action = _prompt_choice(
                 "  Not authenticated. Skip Drive upload? [Y/n]",
@@ -1161,16 +1249,26 @@ def _run_slack_weekly_step(dry_run: bool, target_date: date) -> EodStepResult:
         return EodStepResult(status=EodStepStatus.COMPLETED)
 
     try:
-        result = subprocess.run([_WORKMAIN_BIN, 'slack', 'post', 'weekly'])
+        run = run_workmain(
+            ['slack', 'post', 'weekly'],
+            timeout=TIMEOUT_INTERACTIVE,
+            capture=not _is_interactive(),
+        )
+        _echo_workmain(run, stdout=True)
+        if run.timed_out:
+            return EodStepResult(
+                status=EodStepStatus.FAILED,
+                error=run.failure_message("Slack weekly post"),
+            )
 
-        if result.returncode != 0:
+        if run.returncode != 0:
             print()
             print("  ⚠ Slack post weekly returned non-zero "
                   "(user aborted or already posted)")
             if not _is_interactive():
                 return EodStepResult(
                     status=EodStepStatus.FAILED,
-                    error=f"Slack weekly post failed (exit code {result.returncode})",
+                    error=run.failure_message("Slack weekly post"),
                 )
             print("  Continuing to Complete.")
 
@@ -1202,15 +1300,21 @@ def _run_weekly_email_step(dry_run: bool, target_date: date) -> EodStepResult:
         return EodStepResult(status=EodStepStatus.COMPLETED)
 
     try:
-        result = subprocess.run([_WORKMAIN_BIN, 'email', 'save', 'weekly_client'])
+        run = run_workmain(['email', 'save', 'weekly_client'], timeout=TIMEOUT_NETWORK)
+        _echo_workmain(run, stdout=True)
+        if run.timed_out:
+            return EodStepResult(
+                status=EodStepStatus.FAILED,
+                error=run.failure_message("Weekly email draft"),
+            )
 
-        if result.returncode != 0:
+        if run.returncode != 0:
             print()
-            print(f"  ⚠ Weekly email draft returned exit code {result.returncode}")
+            print(f"  ⚠ Weekly email draft returned exit code {run.returncode}")
             if not _is_interactive():
                 return EodStepResult(
                     status=EodStepStatus.FAILED,
-                    error=f"Weekly email draft failed (exit code {result.returncode})",
+                    error=run.failure_message("Weekly email draft"),
                 )
             print("  Continuing to Complete.")
 
