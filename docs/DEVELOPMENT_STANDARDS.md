@@ -101,7 +101,7 @@ A spec's steps are ordered work, defined below.
   - Specs carry `Draft`, `Approved`, `Shipped` or `Superseded`
   - Design and Results artifacts carry `Active`, `Shipped` or `Superseded`.
 - While work is live, retirement is a status edit, not a file move. An artifact stays where it is, and where it is cited, for as long as it is being referenced.
-  - **`docs/archive/`** holds artifacts whose work is complete. Move an artifact there once it is finished and no longer a live reference — it is kept for reference only, is never authoritative, and is always superseded by the current `design/`, `specs/`,  and `results/`. It is git-tracked, so citations to it stay resolvable.
+  - **`docs/archive/`** holds artifacts whose work is complete. An artifact moves there when its issue closes out — `/closeout` performs the move as a step — and `docs/archive/<type>/` mirrors `docs/dev/<type>/`. It is kept for reference only, is never authoritative, and is always superseded by `docs/dev/design/`, `docs/dev/specs/` and `docs/dev/results/`. It is git-tracked, and filenames never change on the move, so citations to it stay resolvable.
   - Never cite an archived artifact as the basis for a current decision. If it still governs something, it has not finished being live and does not belong in the archive.
 - **Specs carry a Decision Log** — decisions and review findings with their resolution only.
   - Never a description of what changed in the document or a restatement of information already included elsewhere in the spec.
