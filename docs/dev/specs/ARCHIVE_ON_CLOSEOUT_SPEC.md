@@ -1,6 +1,6 @@
 # Archive on close-out — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20260831
 **Branch:** `chore/issue-112-archive-on-closeout`
