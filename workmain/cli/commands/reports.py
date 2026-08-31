@@ -13,7 +13,6 @@ Commands:
 - reports costs
 """
 
-import subprocess
 import click
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -31,6 +30,7 @@ from workmain.database.repositories.reports_repo import get_reports_repository
 from workmain.ai import get_report_generator, ReportFormat, ProviderType
 from workmain.utils.date_utils import resolve_date_window, format_date_window_label
 from workmain.utils.editor import edit_in_editor
+from workmain.utils.self_invoke import TIMEOUT_NETWORK, run_workmain
 
 VALID_REPORT_TYPES = ['daily_internal', 'weekly_client']
 VALID_REPORT_STATUSES = ('unconfirmed', 'confirmed', 'corrected', 'all')
@@ -741,15 +741,16 @@ def report_resend(id: int):
         staging_path.write_text(report.content or "", encoding='utf-8')
         console.print(f"[green]✓ Report #{id} staged to {staging_path.relative_to(project_root)}[/green]")
 
-        # Invoke email pipeline via subprocess (no get_email_generator() API exists)
-        try:
-            result = subprocess.run(
-                ['workmain', 'email', 'save', report_type],
-                check=True
-            )
+        # Invoke email pipeline via the workmain binary (no get_email_generator() API exists)
+        run = run_workmain(['email', 'save', report_type], timeout=TIMEOUT_NETWORK)
+        if run.stdout.strip():
+            console.print(run.stdout.rstrip())
+        if run.stderr.strip():
+            console.print(run.stderr.rstrip())
+        if run.ok:
             console.print(f"[green]✓ Email draft created. View with: workmain email list[/green]")
-        except subprocess.CalledProcessError as e:
-            console.print(f"[red]✗ Email draft failed: {e}[/red]")
+        else:
+            console.print(f"[red]✗ Email draft failed: {run.failure_message('Email draft')}[/red]")
             console.print(f"[dim]Note: staging file written. Retry with: workmain email save {report_type}[/dim]")
 
     except SystemExit:

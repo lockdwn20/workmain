@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.30.0] - 2026-08-31
+
+### Changed
+- Every self-invocation of the `workmain` binary now routes through one hardened runner, `workmain/utils/self_invoke.py`. It resolves the binary absolutely, takes a required per-call `timeout`, captures stdout/stderr as text by default, and returns a `WorkmainRun` reporting a timeout or a non-zero exit instead of hanging or raising. All 14 `subprocess.run` sites in `workmain/workflows/eod_workflow.py` and the one in `reports resend` were converted; `_resolve_workmain_bin()` / `_WORKMAIN_BIN` and both `import subprocess` statements were removed.
+- A child that exceeds its timeout now fails its EOD step, including at the sites that previously ignored the exit code entirely (the `clockify sync push` retry and the time-entry review loop) and the condense site that only warned. A non-zero exit keeps each site's existing retry, skip or fatal policy unchanged.
+- Captured stdout is echoed where the operator was reading the child's screen output, and non-empty captured stderr is always echoed so the warn-and-continue sites no longer lose it.
+- The three sites whose child can prompt — `meetings condense`, `gdocs upload all`, `slack post weekly` — capture only when the workflow is non-interactive, so the prompt still reaches a terminal.
+
+### Fixed
+- `reports resend` invoked the bare name `workmain`, which does not resolve under systemd, and passed no timeout.
+
+Suite: 953 passed (baseline 934).
+
 ## [1.29.0] - 2026-08-03
 
 File Header Removal — six gates on `feature/file-header-removal`, retiring
