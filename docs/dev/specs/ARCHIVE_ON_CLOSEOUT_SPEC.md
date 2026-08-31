@@ -18,6 +18,8 @@
 | 20260831 | Ray | A spec set to `Shipped` has no business being citable — citing spec references from production documents is the pattern that causes trouble. | Accepted, and it collapses the trigger: completion *is* the archive condition. §1.5's "and no longer a live reference" clause is struck, since it is what made the two conditions look separate. |
 | 20260831 | Ray | The archive step is step 2 in `chore` and `feature`, step 3 in `hotfix`; every later step moves down one. | Accepted. In all three variants that position is the same one — on the branch, immediately after the `Status: Shipped` commit and before any merge — correctly translated for `hotfix`, whose version bump occupies step 1. |
 | 20260831 | Spanner | `automation/closeout_acs.py` hard-codes `docs/dev/specs` and `docs/dev/results`, so once a set is archived a `--branch` re-run reads `git ls-tree <merge>^2:docs/dev/specs/` and finds nothing — `P4`, `P5`, `P5a` and `P6` all fail before § Resume point can observe the close-out is complete. Scope not named by issue #112. | Ray: rides #112. Without it the issue would close having reintroduced the re-entry defect #91 was raised to fix. |
+| 20260831 | Ray | After sweeping the shipped backlog into `docs/archive/`, asked whether the existing archived files can be left as they are, with the repointing applied only from here on. | Yes. `--branch` re-runs read every file from `<merge>^2`, where those paths were correct, so nothing mechanical breaks; only a working-tree read of an old artifact dangles, and filenames never change. The existing archive is left alone. |
+| 20260831 | Ray | Proposed writing citations relative — `../design/<file>.md` — instead of repointing them on the move. | Adopted, and it replaces DR4 rather than refining it. `docs/archive/<type>/` mirrors `docs/dev/<type>/` and a set moves whole, so a relative intra-set pointer is invariant under the move: the archive step becomes a pure rename with nothing to repoint, and `P5a` resolves relative to the spec instead of searching two roots. Non-set citations stay repo-root, which makes the form itself the difference between a pointer and a record — the distinction the repointing rule would otherwise have had to judge case by case. |
 | 20260831 | Ray | Asked to confirm the script must search the archive for re-entry to work. | Confirmed by probe: a set resolvable only from `docs/archive/` fails the current script with `no spec names branch <name>`, exit 2 — `P4`, `P5`, `P5a` and `P6` all abort before § Resume point runs. Added DR5a: resolution finds the set in either root and forms no opinion about which is correct. |
 | 20260831 | Ray | Asked whether the archive step ends with a commit of its own, as step 1 does. | Yes, and the step's `Done when` was tightened to require it — as first written it observed the working tree, which a staged-but-uncommitted `git mv` would have satisfied. The move and the citation repointing commit together; see §4 Step 4. |
 | 20260831 | Ray | `automation/closeout_acs.py`'s module docstring cited `docs/dev/specs/CLOSEOUT_PERFORMS_SPEC.md` §4.4 as the source of the module's behaviour. | Ray corrected it directly in the working tree; the edit is carried onto this branch as part of step 2. A second instance at line 151 citing the archived `CYCLE_CLOSEOUT_SPEC.md` is fixed by the same step. |
@@ -33,13 +35,14 @@
 - `automation/closeout_acs.py` and `automation/closeout_acs_test.py` — spec and results lookup across both roots, and the two spec-file citations in its docstrings.
 - `.claude/skills/closeout/SKILL.md` — `P4`, `P5`, `P5a`.
 - `.claude/skills/closeout/references/{chore,feature,hotfix}.md` — the new archive step and the renumbering it forces.
+- `docs/DEVELOPMENT_STANDARDS.md` §1.5 — the citation-form rule that makes the move a pure rename, and the three `docs/dev/*/_TEMPLATE_*.md` header fields that carry it.
 
 **Out of scope:**
 
 - Archiving anything other than the closing branch's own artifact set. A sweep of `docs/dev/` for other eligible sets is a different mechanism with a different trigger, and nothing in issue #112 asks for one.
 - `docs/archive/`'s existing `handoffs/` and `hotfixes/` subdirectories. They are pre-migration, and no artifact this skill moves is ever routed to them.
 - The `_TEMPLATE_*.md` files. The step moves a named set, never a directory, so no template is reachable by it and no exclusion rule is needed.
-- Retroactively archiving the sets already sitting `Shipped` in `docs/dev/`. They will archive as their issues' close-outs are re-run, or not at all; either way that is not this change.
+- Rewriting the citations already in `docs/archive/`. They are repo-root paths written before the citation-form rule existed; nothing mechanical reads them, and `--branch` re-runs resolve from `<merge>^2` where those paths were correct.
 - `docs/DEVELOPMENT_STANDARDS.md` §7's placement table. It states where dev artifacts are *written*, which this change does not alter.
 
 ## 2. Verified current state
@@ -51,7 +54,9 @@ Omitted — direct path (`docs/DEVELOPMENT_STANDARDS.md` §1.2). Each step below
 - **DR1 — The unit is the set, never the directory.** The step moves exactly the three files close-out has already resolved by name: the spec from `P4`, the results artifact from `P5`, and the design artifact from `P5a` where the spec names one. It never lists a directory and never moves a file it did not resolve.
 - **DR2 — `docs/archive/<type>/` mirrors `docs/dev/<type>/`.** `design/` → `design/`, `specs/` → `specs/`, `results/` → `results/`. A hotfix spec archives to `docs/archive/specs/`, not to `docs/archive/hotfixes/`.
 - **DR3 — Filenames never change.** §1.5 already requires it. The basename that arrives in the archive is the basename that left `docs/dev/`, so a citation that carries only the filename stays resolvable without an edit.
-- **DR4 — A move that leaves a citation pointing at `docs/dev/` is an incomplete move.** Repointing citations to the moved files is part of the step, not a follow-up.
+- **DR4 — A pointer between artifacts of the same set is relative, so the move repoints nothing.** `../design/<file>.md` from a spec, `../specs/<file>_SPEC.md` from a results artifact. `docs/archive/<type>/` mirrors `docs/dev/<type>/` (DR2) and the set moves whole (DR6), so a relative pointer resolves identically on both sides of the move and the archive step is a pure rename.
+  - Every other citation stays a repo-root path — a standards section, an artifact from a different set, and any path inside a `git show <ref>:<path>` or quoted command output. Those are either targets that do not move or records of where something was at a stated moment, and rewriting a record makes it false.
+  - Artifacts written before this rule keep their repo-root pointers. The existing `docs/archive/` is not rewritten.
 - **DR5 — Lookup is dev-first, then archive.** Both `automation/closeout_acs.py` and preflight resolve an artifact by searching `docs/dev/<type>/` and then `docs/archive/<type>/`. A spec found in both roots is a half-finished move and is reported as the existing "more than one spec names branch" failure.
 - **DR5a — Resolution is location-agnostic; it never judges location.** Finding a set in `docs/archive/` is a normal result, not a finding. A script that treated the archive root as wrong would fail the preflight of every close-out that had already completed its archive step — the re-entry defect this rule exists to prevent, relocated one layer down. Whether the move has happened is the archive step's own `Done when`, checked once, when that step runs.
 - **DR6 — The results artifact is looked for in the same root its spec was found in.** A set moves as a unit, so spec and results are always co-located; deriving the results root from the spec's own path keeps that an invariant rather than a second search.
@@ -67,6 +72,7 @@ Anything this spec does not cover: `CLAUDE.md` Role 3 escalation — stop at the
 | 2 | `closeout_acs.py` resolves a spec dev-first then archive, derives the results path from the spec's own root, and carries no spec-file citation in its docstrings. Tests cover both roots. | `automation/closeout_acs.py`, `automation/closeout_acs_test.py` |
 | 3 | `P4`, `P5` and `P5a` state the two-root lookup. | `.claude/skills/closeout/SKILL.md` |
 | 4 | The archive step exists in all three variants at Ray's placement, with every later step renumbered. | `.claude/skills/closeout/references/{chore,feature,hotfix}.md` |
+| 5 | §1.5 states the citation-form rule; the three templates carry it in their header fields; the archive step and `P5a` are rewritten against it. | `docs/DEVELOPMENT_STANDARDS.md`, `docs/dev/*/_TEMPLATE_*.md`, `.claude/skills/closeout/SKILL.md`, `.claude/skills/closeout/references/{chore,feature,hotfix}.md` |
 
 ### Step 1 — the standard
 
@@ -110,14 +116,11 @@ Inserted at step 2 of `chore.md`, step 2 of `feature.md` and step 3 of `hotfix.m
 
 | # | Step | Done when |
 | --- | --- | --- |
-| n | `git mv` this branch's artifact set — the spec from `P4`, the results artifact from `P5`, and the design artifact from `P5a` where the spec names one — from `docs/dev/<type>/` to `docs/archive/<type>/`, and repoint every citation to a moved path. Commit the move and the repointing together, on the branch, in a commit of their own, before any merge — `docs/DEVELOPMENT_STANDARDS.md` §1.5, §2.2 | The branch tip carries each of the set under `docs/archive/<type>/` and none of it under `docs/dev/<type>/`, `git status --porcelain` is empty, and `grep -rn` for `docs/dev/<type>/<basename>` across the working tree returns nothing |
+| n | `git mv` this branch's artifact set — the spec from `P4`, the results artifact from `P5`, and the design artifact from `P5a` where the spec names one — from `docs/dev/<type>/` to `docs/archive/<type>/`. Commit on the branch, in a commit of its own, before any merge. Nothing is repointed (DR4) — `docs/DEVELOPMENT_STANDARDS.md` §1.5, §2.2 | The branch tip carries each of the set under `docs/archive/<type>/` and none of it under `docs/dev/<type>/`, `git status --porcelain` is empty, and the commit is a pure rename |
 
-**The step's own commit.** The move is committed separately from the `Status: Shipped` commit that precedes it, and the repointing is committed with the move rather than after it. Two reasons, neither of which the general "a step ends with a commit" rule (`docs/DEVELOPMENT_STANDARDS.md` §1.4) covers on its own:
+**The step's own commit.** The move is committed separately from the `Status: Shipped` commit that precedes it — a reason the general "a step ends with a commit" rule (`docs/DEVELOPMENT_STANDARDS.md` §1.4) does not cover on its own: the move is the first thing in this sequence that touches paths rather than content. Folding it into the `Shipped` commit would mix a rename set with a status edit, and the first live run is exactly where that wants to be revertible on its own.
 
-- The move is the first thing in this sequence that touches paths rather than content. Folding it into the `Shipped` commit would mix a rename set with a status edit, and the first live run is exactly where that wants to be revertible on its own.
-- Committing the repointing with the move keeps every commit on the branch internally coherent: at no commit does a citation point at a path that does not exist.
-
-The commit's subject names the action and the issue, so the archive is legible in `git log` without reading the diff — `docs(closeout): archive the issue #<N> artifact set`. `git mv` records the moves as renames, so the diff shows the repointing rather than three whole files.
+The commit's subject names the action and the issue, so the archive is legible in `git log` without reading the diff — `docs(closeout): archive the issue #<N> artifact set`. `git mv` records the moves as renames, and because DR4 leaves nothing to repoint the commit carries no content change at all — which is what its **Done when** checks.
 
 ### Authorization points
 
@@ -137,8 +140,10 @@ Sub-ACs map to issue #112's two ACs: `AC1.m` to its first, `AC2.m` to its second
 | AC2.3 | `closeout_acs.py` resolves a spec whose set has already been archived | `python3 -m pytest automation/closeout_acs_test.py` — a new test placing spec and results under `docs/archive/` exits `0` |
 | AC2.4 | A spec present in both roots is reported, not silently resolved | new test asserts the "more than one spec names branch" error |
 | AC2.5 | No file under `automation/` cites a spec, design or results artifact by filename | `grep -rnE '_(SPEC|RESULTS)(_v[0-9_]+)?\.md\|RECON_[A-Z_]+\.md' automation/*.py` returns nothing outside fixture filenames |
-| AC2.6 | `P4`, `P5` and `P5a` state the two-root lookup | Ray reads `.claude/skills/closeout/SKILL.md` — semantic, per `docs/DEVELOPMENT_STANDARDS.md` §1.2 |
+| AC2.6 | `P4` states the two-root lookup, and `P5` and `P5a` state that they follow from the spec rather than searching | Ray reads `.claude/skills/closeout/SKILL.md` — semantic, per `docs/DEVELOPMENT_STANDARDS.md` §1.2 |
 | AC2.7 | Both suites stay green | `pytest` and `pytest automation/` |
+| AC2.8 | §1.5 states the citation-form rule, and all three templates carry a relative intra-set pointer | `grep -n '\.\./design/\|\.\./specs/' docs/dev/specs/_TEMPLATE_SPEC.md docs/dev/results/_TEMPLATE_RESULTS.md docs/dev/design/_TEMPLATE_DESIGN.md` returns a hit in each, and `docs/DEVELOPMENT_STANDARDS.md` §1.5 carries the rule |
+| AC2.9 | The archive step repoints nothing, in all three variants | `grep -c 'Nothing is repointed' .claude/skills/closeout/references/{chore,feature,hotfix}.md` returns `1` each |
 
 ## 6. Test plan
 

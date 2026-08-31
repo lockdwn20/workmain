@@ -6,11 +6,11 @@
 **Branch:** `feature/<name>` (from `dev`) | `hotfix/<name>` (from `main`) | `chore/<name>`
 **Target release:** vX.Y.Z
 **Originating item:** Backlog Item #N | Ray request, YYYYMMDD
-**Design study:** `docs/dev/design/<file>.md` | `n/a` — direct path, no recon was run
+**Design study:** `../design/<file>.md` | `n/a` — direct path, no recon was run
 
 > Delete this block before use.
 >
-> **Filename:** subject-based, no version suffix, no date — `<SUBJECT>_SPEC.md`. Revisions edit this file in place; the Decision Log records what was decided and git records what changed. Citations never break because the path never moves.
+> **Filename:** subject-based, no version suffix, no date — `<SUBJECT>_SPEC.md`. Revisions edit this file in place; the Decision Log records what was decided and git records what changed. Citations never break because the filename never changes, and a pointer to this spec's own design study or results artifact is relative, so it survives the move to `docs/archive/` (§1.5).
 >
 > **Direct path** (`chore/*` — `docs/DEVELOPMENT_STANDARDS.md` §1.1): §2 Verified current state is omitted; quote the text being replaced inline in the step that replaces it. §6 Test plan may be omitted where the change touches no file under `tests/`, `automation/`, `workmain/`, `config/` or `templates/` — close-out runs the suites regardless. Every other section is required, and this stays one template.
 >

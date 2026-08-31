@@ -3,7 +3,7 @@
 **Status:** Shipped | Superseded
 **Author:** Anvil (Role 3) | Spanner (Role 1)
 **Date:** YYYYMMDD
-**Spec:** `docs/dev/specs/<file>_SPEC.md`
+**Spec:** `../specs/<file>_SPEC.md`
 **Released as:** vX.Y.Z (PR #N, tag vX.Y.Z)
 
 > Delete this block before use.

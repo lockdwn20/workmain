@@ -3,7 +3,7 @@
 **Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20260831
-**Spec:** `docs/dev/specs/ARCHIVE_ON_CLOSEOUT_SPEC.md`
+**Spec:** `../specs/ARCHIVE_ON_CLOSEOUT_SPEC.md`
 **Released as:** n/a — `chore/*` (`docs/DEVELOPMENT_STANDARDS.md` §2.2)
 
 ---
@@ -23,6 +23,7 @@ The change issue #112 did not name is the one that makes the rest work: `automat
 | 3 | `P4`, `P5` and `P5a` state the two-root lookup, and a new paragraph states that resolving from the archive is a normal result rather than a finding | `.claude/skills/closeout/SKILL.md` | +0 |
 | 4 | The archive step at step 2 of `chore` and `feature` and step 3 of `hotfix`, with every later step and every step-number cross-reference renumbered | `.claude/skills/closeout/references/{chore,feature,hotfix}.md`, `.claude/skills/closeout/SKILL.md` | +0 |
 | 4a | A fixture that cited a live spec by name and a review finding id now describes the AC shape it is a fixture for | `automation/fixtures/closeout_spec_bare_acn.md` | +0 |
+| 5 | §1.5 states that a pointer between artifacts of the same set is relative and every other citation is repo-root; the three templates carry it; the archive step repoints nothing and `P5a` resolves relative to its spec | `docs/DEVELOPMENT_STANDARDS.md`, `docs/dev/*/_TEMPLATE_*.md`, `.claude/skills/closeout/SKILL.md`, `.claude/skills/closeout/references/{chore,feature,hotfix}.md`, `docs/dev/results/ARCHIVE_ON_CLOSEOUT_RESULTS.md` | +0 |
 
 ## 3. Acceptance criteria
 
@@ -36,8 +37,10 @@ The change issue #112 did not name is the one that makes the rest work: `automat
 | AC2.3 | Met | `pytest automation/closeout_acs_test.py` — `test_ac2_3_archived_set_resolves_and_passes` and `test_ac2_3_results_root_follows_the_spec_root` pass. Also exercised end to end: a scratch repo holding a set only under `docs/archive/` exited `2` with `no spec names branch chore/probe` before the change and `0` after, in both working-tree and `--tree HEAD` mode |
 | AC2.4 | Met | `test_ac2_4_spec_in_both_roots_is_reported_not_resolved` asserts `more than one spec` and a `None` label |
 | AC2.5 | Met | Every `.md` basename under `docs/dev/**` and `docs/archive/**` grepped against `automation/` returns no hit. One hit existed at verification time and was fixed — see step 4a and deviation 2 |
-| AC2.6 | Met | Semantic, per `docs/DEVELOPMENT_STANDARDS.md` §1.2 — Ray to read `.claude/skills/closeout/SKILL.md` `P4`, `P5`, `P5a` and the paragraph above § "If any row fails" |
+| AC2.6 | Met | Semantic, per `docs/DEVELOPMENT_STANDARDS.md` §1.2 — Ray to read `.claude/skills/closeout/SKILL.md` `P4`, `P5`, `P5a` and the three paragraphs above § "If any row fails" |
 | AC2.7 | Met | `pytest` 934 passed, 0 failed; `pytest automation/` 41 passed, 0 failed |
+| AC2.8 | Met | `grep -c '\.\./design/\|\.\./specs/'` returns `1` for each of the three templates; `docs/DEVELOPMENT_STANDARDS.md` §1.5 carries the rule as a bullet with two sub-bullets |
+| AC2.9 | Met | `grep -c 'Nothing is repointed' .claude/skills/closeout/references/{chore,feature,hotfix}.md` returns `1` each, and each step's `Done when` requires the commit to be a pure rename |
 
 ## 4. Deviations from spec
 
@@ -48,6 +51,8 @@ The change issue #112 did not name is the one that makes the rest work: `automat
 | 3 | Step 4 also touched `.claude/skills/closeout/SKILL.md`, which §4 assigned to step 3 | The closing comment's "the path to the results artifact" is ambiguous once the artifact moves. One clause added saying it is the archived path, since the comment is composed after the move in all three variants | Spanner |
 | 4 | `feature.md`'s "Why this order" gained a fifth bullet, and its count word with it | The archive step's placement before the merge is exactly the kind of thing that section exists to explain, and the standards do not explain it: archiving after the merge would mean editing documents directly on `dev` or `main`, which §2.2 forbids | Spanner |
 | 5 | All past design, spec and results files marked as shipped have been moved to their perspective folders in the docs/archive/ | This branch resolves the issue of archiving development docs and this provides a clean slate for future development. | Ray |
+| 6 | DR4 replaced rather than refined, after Ray proposed relative citations | The sweep left 13 repo-root header fields in `docs/archive/` dangling, and the repointing rule DR4 originally stated would also have rewritten evidence — `git show <ref>:<path>` commands correct at that ref, and quotations of what a run printed. Ray's proposal removes the problem instead of adjudicating it: `docs/archive/<type>/` mirrors `docs/dev/<type>/` and a set moves whole, so `../design/<file>.md` is invariant under the move. The archive step became a pure rename, `P5a` resolves relative to its spec instead of searching two roots, and the repo-root form now marks a record. Added as step 5, with AC2.8 and AC2.9 | Ray |
+| 7 | The existing `docs/archive/` is not rewritten, so its citations stay repo-root and the 13 broken by the sweep stay broken | Nothing mechanical reads them, and `--branch` re-runs read from `<merge>^2` where those paths were correct. Rewriting them would mean editing archived documents to no mechanical benefit | Ray |
 
 ## 5. Verification
 
