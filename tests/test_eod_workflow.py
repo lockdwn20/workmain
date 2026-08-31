@@ -1164,5 +1164,94 @@ class TestReportReviewStepEditBranch(unittest.TestCase):
         self.assertIsNone(report.corrected_content)
 
 
+class TestSubprocessHardening(unittest.TestCase):
+    """EOD subprocess hardening (Issue #94) — a timeout always fails the step
+    (DR7); a non-zero exit keeps each site's existing policy.
+    """
+
+    def _run_condense(self, run_result):
+        fake_mtg = MagicMock(id=1, title='Fake Meeting', condensed_summary=None,
+                             start_time=datetime(2099, 1, 1, 10, 0))
+        repo = MagicMock()
+        repo.get_by_date.return_value = [fake_mtg]
+        repo.get_note_count.return_value = 3
+        with patch('workmain.workflows.eod_workflow.get_db'), \
+             patch('workmain.workflows.eod_workflow.MeetingsRepository', return_value=repo), \
+             patch('workmain.workflows.eod_workflow._confirm', return_value=True), \
+             patch('workmain.workflows.eod_workflow.run_workmain',
+                   return_value=run_result) as m:
+            result = _run_condense_step(dry_run=False, target_date=date(2099, 1, 1))
+        return result, m
+
+    # --- AC3.1 / AC3.2: a timeout returns FAILED with the timeout named ---
+
+    def test_condense_timeout_returns_failed(self):
+        result, _ = self._run_condense(
+            WorkmainRun(returncode=None, timed_out=True, timeout=1800))
+        self.assertEqual(result.status, EodStepStatus.FAILED)
+        self.assertIn('1800', result.error)
+
+    def test_review_timeout_returns_failed(self):
+        with patch('workmain.workflows.eod_workflow.run_workmain',
+                   return_value=WorkmainRun(returncode=None, timed_out=True, timeout=120)), \
+             patch('workmain.workflows.eod_workflow._confirm', return_value=True):
+            result = _run_review_step(dry_run=False, target_date=date(2026, 4, 27))
+        self.assertEqual(result.status, EodStepStatus.FAILED)
+        self.assertIn('120', result.error)
+
+    def test_email_timeout_returns_failed_with_value_named(self):
+        with patch('workmain.workflows.eod_workflow.run_workmain',
+                   return_value=WorkmainRun(returncode=None, timed_out=True, timeout=300)):
+            result = _run_email_step(dry_run=False, target_date=date(2099, 1, 1))
+        self.assertEqual(result.status, EodStepStatus.FAILED)
+        self.assertIn('300', result.error)
+
+    # --- AC4.1: a non-zero exit at a FAILED site carries captured stderr ---
+
+    def test_email_nonzero_stderr_in_failed_message(self):
+        with patch('workmain.workflows.eod_workflow._is_interactive', return_value=False), \
+             patch('workmain.workflows.eod_workflow.run_workmain',
+                   return_value=WorkmainRun(returncode=1, stderr='no recipients configured')):
+            result = _run_email_step(dry_run=False, target_date=date(2099, 1, 1))
+        self.assertEqual(result.status, EodStepStatus.FAILED)
+        self.assertIn('no recipients configured', result.error)
+
+    # --- AC4.2: a non-zero exit changes no site's existing policy ---
+
+    def test_condense_nonzero_policy_unchanged_continues(self):
+        result, _ = self._run_condense(WorkmainRun(returncode=1, stderr='boom'))
+        self.assertEqual(result.status, EodStepStatus.COMPLETED)
+
+    def test_review_nonzero_policy_unchanged_continues(self):
+        with patch('workmain.workflows.eod_workflow.run_workmain',
+                   return_value=WorkmainRun(returncode=1, stderr='boom')), \
+             patch('workmain.workflows.eod_workflow._confirm', return_value=True):
+            result = _run_review_step(dry_run=False, target_date=date(2026, 4, 27))
+        self.assertEqual(result.status, EodStepStatus.COMPLETED)
+
+    def test_sync_retry_nonzero_policy_unchanged_continues(self):
+        with patch('workmain.workflows.eod_workflow.run_workmain',
+                   return_value=WorkmainRun(returncode=1, stderr='conflict')) as m, \
+             patch('workmain.workflows.eod_workflow._prompt_choice', return_value='r'):
+            result = _run_sync_step(dry_run=False, target_date=date(2099, 1, 1))
+        self.assertEqual(result.status, EodStepStatus.COMPLETED)
+        self.assertEqual(m.call_count, 2)
+
+    # --- AC4.4: captured stderr reaches the operator at a warn-and-continue site ---
+
+    def test_email_retry_stderr_echoed_when_warn_and_continue(self):
+        import contextlib
+        import io
+        buf = io.StringIO()
+        with patch('workmain.workflows.eod_workflow._is_interactive', return_value=True), \
+             patch('workmain.workflows.eod_workflow.run_workmain',
+                   return_value=WorkmainRun(returncode=1, stderr='SMTP down')), \
+             patch('workmain.workflows.eod_workflow._prompt_choice', return_value='r'), \
+             contextlib.redirect_stdout(buf):
+            result = _run_email_step(dry_run=False, target_date=date(2099, 1, 1))
+        self.assertEqual(result.status, EodStepStatus.COMPLETED)
+        self.assertIn('SMTP down', buf.getvalue())
+
+
 if __name__ == '__main__':
     unittest.main()
