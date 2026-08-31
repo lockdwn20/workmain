@@ -142,6 +142,38 @@ class TestAC2:
         assert not any("closed" in e for e in errors)
 
 
+class TestLabelPairCases:
+    """§1.3's one rule, case by case (#105). Each asserts the message, not merely that errors exist."""
+
+    def test_label_pair_unscheduled_with_neither_label_fails_naming_what_is_missing(self):
+        errors, _ = run_validate(fixture("shape_invalid_unscheduled_no_pair_standalone.json"))
+        assert "unscheduled issue carries none of defect/gap" in errors
+
+    def test_label_pair_unscheduled_with_both_labels_fails_naming_both(self):
+        errors, _ = run_validate(fixture("shape_invalid_unscheduled_both_pair_labels.json"))
+        offending = [e for e in errors if "more than one" in e]
+        assert len(offending) == 1
+        assert "defect" in offending[0] and "gap" in offending[0]
+
+    def test_label_pair_unscheduled_with_exactly_one_label_validates_and_reaches_the_label_flags(self, tmp_path):
+        data = fixture("shape_unscheduled_standalone.json")
+        errors, normalized = run_validate(data)
+        assert errors == []
+
+        cmd = issue_validator.build_command(normalized, tmp_path / "body.md")
+        label_values = [cmd[i + 1] for i, part in enumerate(cmd) if part == "--label"]
+        assert "defect" in label_values
+
+    def test_label_pair_a_milestone_carrying_a_pair_label_validates(self):
+        """Scheduling work pulled in from the unscheduled pool does not strip its label."""
+        for name in (
+            "shape_scheduled_with_pair_standalone.json",
+            "shape_scheduled_with_pair_child.json",
+        ):
+            errors, _ = run_validate(fixture(name))
+            assert errors == [], f"{name} unexpectedly failed: {errors}"
+
+
 class TestAC3:
     def test_ac3_1_default_run_creates_nothing(self, tmp_path, monkeypatch, capsys):
         issue_file = tmp_path / "issue.json"
