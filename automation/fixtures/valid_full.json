@@ -1,11 +1,10 @@
 {
   "title": "Fully populated valid issue",
-  "context": "Two labels, a type, and two blocked_by entries.",
+  "context": "Two area labels, one pair label, and two blocked_by entries.",
   "acs": ["AC1: something is true"],
   "milestone": null,
   "parent": 100,
-  "labels": ["cli", "tests"],
-  "type": "defect",
+  "labels": ["cli", "tests", "defect"],
   "blocked_by": [201, 202],
   "blocking": []
 }

@@ -1,0 +1,10 @@
+{
+  "title": "Invalid: unscheduled child carrying neither pair label",
+  "context": "Milestone null, parent set, and labels carrying neither defect nor gap.",
+  "acs": ["AC1: something is true"],
+  "milestone": null,
+  "parent": 100,
+  "labels": ["cli"],
+  "blocked_by": [],
+  "blocking": []
+}

@@ -5,7 +5,6 @@
   "milestone": "Not A Real Milestone",
   "parent": null,
   "labels": ["cli"],
-  "type": null,
   "blocked_by": [],
   "blocking": []
 }
