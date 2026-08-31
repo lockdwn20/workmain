@@ -82,24 +82,24 @@ def test_ac1_6_extra_row_fails_naming_the_id():
 
 def test_ac1_7_one_match_derives_the_results_path():
     specs_dir = FIXTURES / "closeout_specs_one_match"
-    spec_label, spec_text, error = ca.find_spec(BRANCH, specs_dir)
+    spec_label, spec_text, error = ca.find_spec(BRANCH, (specs_dir,))
     assert error is None
     assert spec_text is not None
     results_path, error = ca.derive_results_path(spec_label)
     assert error is None
-    assert results_path == ca.RESULTS_DIR / "ONLY_SUBJECT_RESULTS.md"
+    assert results_path == specs_dir.parent / "results" / "ONLY_SUBJECT_RESULTS.md"
 
 
 def test_ac1_7_no_match_fails():
     specs_dir = FIXTURES / "closeout_specs_no_match"
-    spec_label, spec_text, error = ca.find_spec(BRANCH, specs_dir)
+    spec_label, spec_text, error = ca.find_spec(BRANCH, (specs_dir,))
     assert spec_label is None
     assert error is not None
 
 
 def test_ac1_7_two_matches_fails_naming_both():
     specs_dir = FIXTURES / "closeout_specs_two_match"
-    spec_label, spec_text, error = ca.find_spec(BRANCH, specs_dir)
+    spec_label, spec_text, error = ca.find_spec(BRANCH, (specs_dir,))
     assert spec_label is None
     assert "A_SUBJECT_SPEC.md" in error
     assert "B_SUBJECT_SPEC.md" in error
@@ -107,7 +107,7 @@ def test_ac1_7_two_matches_fails_naming_both():
 
 def test_ac1_7_unparseable_filename_fails_naming_it():
     specs_dir = FIXTURES / "closeout_specs_bad_filename"
-    spec_label, spec_text, error = ca.find_spec(BRANCH, specs_dir)
+    spec_label, spec_text, error = ca.find_spec(BRANCH, (specs_dir,))
     assert error is None
     results_path, error = ca.derive_results_path(spec_label)
     assert results_path is None
@@ -190,3 +190,65 @@ def test_ac1_9_bare_acn_spec_exits_1_through_main(monkeypatch, tmp_path, capsys)
     captured = capsys.readouterr()
     assert exit_code == 1
     assert "no ACn.m ids" in captured.err
+
+
+# ---------------------------------------------------------------------------
+# AC2.3, AC2.4 — the archived set stays resolvable, so close-out can re-enter
+# ---------------------------------------------------------------------------
+
+def _wire_archived(monkeypatch, tmp_path, spec_text, results_text):
+    """A set that has already been archived: nothing under docs/dev/ at all."""
+    monkeypatch.setattr(ca, "ROOT", tmp_path)
+    (tmp_path / "docs" / "dev" / "specs").mkdir(parents=True)
+    (tmp_path / "docs" / "dev" / "results").mkdir(parents=True)
+    specs_dir = tmp_path / "docs" / "archive" / "specs"
+    specs_dir.mkdir(parents=True)
+    (specs_dir / "FIXTURE_SPEC.md").write_text(spec_text)
+    results_dir = tmp_path / "docs" / "archive" / "results"
+    results_dir.mkdir(parents=True)
+    (results_dir / "FIXTURE_RESULTS.md").write_text(results_text)
+
+
+def test_ac2_3_archived_set_resolves_and_passes(monkeypatch, tmp_path, capsys):
+    _wire_archived(
+        monkeypatch,
+        tmp_path,
+        fixture_text("closeout_spec_clean.md"),
+        fixture_text("closeout_results_clean.md"),
+    )
+    exit_code = ca.main(["--branch", BRANCH])
+    assert exit_code == 0
+    assert capsys.readouterr().err == ""
+
+
+def test_ac2_3_results_root_follows_the_spec_root():
+    """DR6 — a set is archived whole, so the results artifact is looked for beside
+    the spec rather than at a fixed docs/dev/ constant."""
+    archived, error = ca.derive_results_path("docs/archive/specs/SUBJECT_SPEC.md")
+    assert error is None
+    assert archived == Path("docs/archive/results/SUBJECT_RESULTS.md")
+
+    live, error = ca.derive_results_path("docs/dev/specs/SUBJECT_SPEC.md")
+    assert error is None
+    assert live == Path("docs/dev/results/SUBJECT_RESULTS.md")
+
+
+def test_ac2_4_spec_in_both_roots_is_reported_not_resolved(monkeypatch, tmp_path):
+    """A half-finished move leaves the spec in both roots. Resolving it silently
+    would pick one arbitrarily; the collision is the existing two-match failure."""
+    monkeypatch.setattr(ca, "ROOT", tmp_path)
+    spec_text = fixture_text("closeout_spec_clean.md")
+    for root in ("docs/dev/specs", "docs/archive/specs"):
+        d = tmp_path / root
+        d.mkdir(parents=True)
+        (d / "FIXTURE_SPEC.md").write_text(spec_text)
+
+    spec_label, _, error = ca.find_spec(BRANCH, ca.SPEC_ROOTS)
+    assert spec_label is None
+    assert "more than one spec" in error
+
+
+def test_ac2_3_live_root_wins_when_a_stale_copy_sits_in_the_archive():
+    """DR5 — dev-first ordering, asserted on the constant itself so a reordering
+    that would make close-out prefer an archived spec fails here."""
+    assert ca.SPEC_ROOTS == (Path("docs/dev/specs"), Path("docs/archive/specs"))
