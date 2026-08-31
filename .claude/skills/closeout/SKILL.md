@@ -11,7 +11,7 @@ User-initiated only. This skill **performs** the necessary branch close-out step
 
 ## When this runs
 
-Once the last implementation commit lands on the branch being closed out, before that branch has merged anywhere. `--branch <name>` is the escape hatch for an issue whose branch has already merged and been deleted (§2.3) — in that case the branch is resolved from the merge commit instead, and every file read below comes from its second parent, `git show <merge>:<path>`, not the working tree. These are the only two modes, and this skill states which one it is in before reporting a single row.
+Once the last implementation commit lands on the branch being closed out, before that branch has merged anywhere. `--branch <name>` is the escape hatch for an issue whose branch has already merged and been deleted (§2.3) — in that case the branch is resolved from the merge commit instead, and every file read below comes from its second parent, `git show <merge>^2:<path>`, not the working tree. These are the only two modes, and this skill states which one it is in before reporting a single row.
 
 **Base ref.** Anything asking what this branch changed diffs against `git merge-base main <branch>`, never against `main` itself — a branch cut before a later change landed on `main` differs from it without having touched it.
 
