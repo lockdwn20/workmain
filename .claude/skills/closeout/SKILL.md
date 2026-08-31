@@ -79,7 +79,7 @@ Composed once the variant's last step is done, printed, and not run — `/closeo
 The body carries, in this order, every item that applies to the branch type:
 
 - the merge commit SHA on `main`, and the branch it merged
-- the path to the results artifact
+- the path to the results artifact — its archived path, since the comment is composed after the archive step has moved it
 - the AC verdict from `automation/closeout_acs.py` — the verdict itself, not a restatement of the table
 - the version, the tag, and the Release URL — `feature/*` and `hotfix/*` only; `docs/DEVELOPMENT_STANDARDS.md` §2.2 gives `chore/*` none of the three
 - the confirmed `ActiveEnterTimestamp` — `feature/*` and `hotfix/*` only; `docs/DEVELOPMENT_STANDARDS.md` §2.6 requires no restart on `chore/*`
