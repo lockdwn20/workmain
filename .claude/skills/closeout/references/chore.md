@@ -5,7 +5,8 @@ Reached only after every `SKILL.md` preflight row has passed for a `chore/*` bra
 | # | Step | Done when |
 | --- | --- | --- |
 | 1 | Set the spec, the design artifact **where the spec names one**, and the results artifact to `**Status:** Shipped`. Complete the results artifact: `**Released as:** n/a`, §5 suite results, live verification, and the restart's `n/a` reason. Commit on the branch, before any merge — `docs/DEVELOPMENT_STANDARDS.md` §2.2 | The branch tip carries the spec, the results artifact, and any design artifact the spec names, each at `Shipped`, and the results artifact's §5 is complete |
-| 2 | ⏸ **Authorization — merge this branch to `main`** | — |
-| 3 | `git checkout main && git merge --no-ff <branch>`; push `main` — `docs/DEVELOPMENT_STANDARDS.md` §2.2, §2.3 | `git merge-base --is-ancestor <branch> main` succeeds and `main` equals `origin/main` |
-| 4 | `git checkout dev && git merge --no-ff <branch>`; push `dev` — `docs/DEVELOPMENT_STANDARDS.md` §2.2, §2.3 | `git merge-base --is-ancestor <branch> dev` succeeds and `dev` equals `origin/dev` |
-| 5 | `git branch -d <branch>` — `docs/DEVELOPMENT_STANDARDS.md` §2.3 | `git rev-parse --verify <branch>` fails |
+| 2 | `git mv` this branch's artifact set — the spec `P4` resolved, the results artifact `P5` resolved, and the design artifact `P5a` resolved where the spec names one — from `docs/dev/<type>/` to `docs/archive/<type>/`, in a commit of its own, before any merge, subject `docs(closeout): archive the issue #<N> artifact set`. Nothing is repointed: `docs/DEVELOPMENT_STANDARDS.md` §1.5 makes every pointer between these three relative, so all three survive the move unedited — `docs/DEVELOPMENT_STANDARDS.md` §1.5, §2.2 | The branch tip carries each of the set under `docs/archive/<type>/` and none of it under `docs/dev/<type>/`, `git status --porcelain` is empty, and the commit is a pure rename — `git show --stat` reports no content change |
+| 3 | ⏸ **Authorization — merge this branch to `main`** | — |
+| 4 | `git checkout main && git merge --no-ff <branch>`; push `main` — `docs/DEVELOPMENT_STANDARDS.md` §2.2, §2.3 | `git merge-base --is-ancestor <branch> main` succeeds and `main` equals `origin/main` |
+| 5 | `git checkout dev && git merge --no-ff <branch>`; push `dev` — `docs/DEVELOPMENT_STANDARDS.md` §2.2, §2.3 | `git merge-base --is-ancestor <branch> dev` succeeds and `dev` equals `origin/dev` |
+| 6 | `git branch -d <branch>` — `docs/DEVELOPMENT_STANDARDS.md` §2.3 | `git rev-parse --verify <branch>` fails |

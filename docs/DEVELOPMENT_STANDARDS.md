@@ -101,8 +101,11 @@ A spec's steps are ordered work, defined below.
   - Specs carry `Draft`, `Approved`, `Shipped` or `Superseded`
   - Design and Results artifacts carry `Active`, `Shipped` or `Superseded`.
 - While work is live, retirement is a status edit, not a file move. An artifact stays where it is, and where it is cited, for as long as it is being referenced.
-  - **`docs/archive/`** holds artifacts whose work is complete. Move an artifact there once it is finished and no longer a live reference — it is kept for reference only, is never authoritative, and is always superseded by the current `design/`, `specs/`,  and `results/`. It is git-tracked, so citations to it stay resolvable.
+  - **`docs/archive/`** holds artifacts whose work is complete. An artifact moves there when its issue closes out — `/closeout` performs the move as a step — and `docs/archive/<type>/` mirrors `docs/dev/<type>/`. It is kept for reference only, is never authoritative, and is always superseded by `docs/dev/design/`, `docs/dev/specs/` and `docs/dev/results/`. It is git-tracked, and filenames never change on the move, so citations to it stay resolvable.
   - Never cite an archived artifact as the basis for a current decision. If it still governs something, it has not finished being live and does not belong in the archive.
+- **A pointer between artifacts of the same set is written relative; every other citation is written from the repository root.** The set is a spec, its design study and its results artifact — the three that are archived together.
+  - `**Design study:** `../design/<file>.md`` from a spec, `**Spec:** `../specs/<file>_SPEC.md`` from a results artifact. Because `docs/archive/<type>/` mirrors `docs/dev/<type>/` and a set is archived whole, a relative pointer resolves before and after the move and is never repointed.
+  - Everything else is a repo-root path: a standards section, an artifact from a different set, and any path inside a `git show <ref>:<path>` or quoted command output. The form is therefore the tell — a relative path is a pointer to resolve now, a repo-root path is either a target that does not move or a record of where something was at a stated moment.
 - **Specs carry a Decision Log** — decisions and review findings with their resolution only.
   - Never a description of what changed in the document or a restatement of information already included elsewhere in the spec.
   - Design and results artifacts carry neither a decision log nor a version history.
