@@ -47,6 +47,7 @@ The change issue #112 did not name is the one that makes the rest work: `automat
 | 2 | AC2.5's stated check — `grep -rnE '_(SPEC\|RESULTS)...' automation/*.py` — was too broad and too narrow at once | It matched the module's own filename-pattern regexes and its tests' synthetic fixture names, none of which are citations, while missing `automation/fixtures/*.md`, where the one real citation was. Verified against the precise predicate instead: every real artifact basename under `docs/dev/**` and `docs/archive/**`, grepped across all of `automation/`. That found `closeout_spec_bare_acn.md` naming a live spec, fixed in step 4a | Spanner |
 | 3 | Step 4 also touched `.claude/skills/closeout/SKILL.md`, which §4 assigned to step 3 | The closing comment's "the path to the results artifact" is ambiguous once the artifact moves. One clause added saying it is the archived path, since the comment is composed after the move in all three variants | Spanner |
 | 4 | `feature.md`'s "Why this order" gained a fifth bullet, and its count word with it | The archive step's placement before the merge is exactly the kind of thing that section exists to explain, and the standards do not explain it: archiving after the merge would mean editing documents directly on `dev` or `main`, which §2.2 forbids | Spanner |
+| 5 | All past design, spec and results files marked as shipped have been moved to their perspective folders in the docs/archive/ | This branch resolves the issue of archiving development docs and this provides a clean slate for future development. | Ray |
 
 ## 5. Verification
 
@@ -59,4 +60,3 @@ The change issue #112 did not name is the one that makes the rest work: `automat
 
 | Item | Description | Why deferred |
 | --- | --- | --- |
-| — | The sets already sitting `Shipped` in `docs/dev/` — six design, seven spec, four results artifacts — are not archived by this work | Out of scope by §1: the step archives the closing branch's own set. Whether the existing backlog is swept, and by what, is a separate decision for Ray |
