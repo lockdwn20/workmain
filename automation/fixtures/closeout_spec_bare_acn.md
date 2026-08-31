@@ -12,5 +12,4 @@
 
 ## 6. Test plan
 
-Not relevant to this fixture. This is the `STEPS_AND_AUTHORIZATION_POINTS_SPEC.md`
-shape (C21) — bare `ACn` ids, no sub-AC dot notation.
+Not relevant to this fixture. This is the bare-`ACn` shape — top-level ids with no sub-AC dot notation — which the guard must still parse.

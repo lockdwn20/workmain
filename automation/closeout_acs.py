@@ -1,11 +1,9 @@
 """
 Path derivation and the AC guard for `/closeout` (`.claude/skills/closeout/SKILL.md`).
 
-Answers two questions, both stated in `docs/dev/specs/CLOSEOUT_PERFORMS_SPEC.md` §4.4
-because nothing else states them: which results artifact belongs to a branch, and does
+Answers two questions: which results artifact belongs to a branch, and does
 that artifact carry a disposed row for every AC on the branch's approved spec.
-Judgement — whether an AC is genuinely met — is not here; Anvil settles that before
-this ever runs (DR4).
+No determination is made with this script on whether an AC is genuinely met. 
 
     python3 automation/closeout_acs.py --branch <name> [--tree <ref>]
 
@@ -41,8 +39,11 @@ def find_repo_root(start: Path) -> Path:
 
 ROOT = find_repo_root(Path(__file__))
 
-SPECS_DIR = Path("docs/dev/specs")
-RESULTS_DIR = Path("docs/dev/results")
+# Ordered, live root first. A set moves to the archive whole at close-out, so an
+# artifact is resolved from wherever it is and never judged for being there — a
+# lookup that treated the archive as wrong would fail the preflight of every
+# close-out that had already archived (`docs/DEVELOPMENT_STANDARDS.md` §1.5).
+SPEC_ROOTS = (Path("docs/dev/specs"), Path("docs/archive/specs"))
 
 _SPEC_BRANCH_FIELD_RE = re.compile(r"^\*\*Branch:\*\*\s*`([^`]+)`", re.MULTILINE)
 _SPEC_SUFFIX_RE = re.compile(r"_SPEC(_v[0-9_]+)?\.md$")
@@ -83,24 +84,33 @@ def git_show_file(ref: str, path: str):
 # §4.4 — Path derivation
 # ---------------------------------------------------------------------------
 
-def _list_spec_files(specs_dir: Path, tree_ref: str = None):
-    """(path_label, text) pairs for every spec markdown file — working tree or `tree_ref`."""
+def _list_spec_files(spec_root: Path, tree_ref: str = None):
+    """(path_label, text) pairs for every spec markdown file under `spec_root` —
+    working tree or `tree_ref`. Labels carry the root, which is what lets the
+    results path be derived from the spec's own location."""
     if tree_ref is None:
-        return [(str(p), p.read_text()) for p in sorted(Path(specs_dir).glob("*.md"))]
+        base = ROOT / spec_root
+        return [
+            (str(Path(spec_root) / path.name), path.read_text())
+            for path in sorted(base.glob("*.md"))
+        ]
     pairs = []
-    for path in git_ls_tree_paths(tree_ref, str(SPECS_DIR)):
+    for path in git_ls_tree_paths(tree_ref, str(spec_root)):
         text = git_show_file(tree_ref, path)
         if text is not None:
             pairs.append((path, text))
     return pairs
 
 
-def find_spec(branch_name: str, specs_dir: Path, tree_ref: str = None):
-    """The spec whose `**Branch:**` field names `branch_name`. Returns
-    `(path_label, text, error)` — `path_label` and `text` are `None` on error."""
+def find_spec(branch_name: str, spec_roots, tree_ref: str = None):
+    """The spec whose `**Branch:**` field names `branch_name`, searched across
+    `spec_roots` in order. Returns `(path_label, text, error)` — `path_label` and
+    `text` are `None` on error. A spec found in more than one root is a
+    half-finished archive move and is reported, not silently resolved."""
     matches = [
         (path_label, text)
-        for path_label, text in _list_spec_files(specs_dir, tree_ref)
+        for spec_root in spec_roots
+        for path_label, text in _list_spec_files(spec_root, tree_ref)
         if (m := _SPEC_BRANCH_FIELD_RE.search(text)) and m.group(1) == branch_name
     ]
     if not matches:
@@ -113,13 +123,16 @@ def find_spec(branch_name: str, specs_dir: Path, tree_ref: str = None):
 
 
 def derive_results_path(spec_path_label: str):
-    """§4.4 steps 2-3: strip the spec suffix, append `_RESULTS.md`."""
-    filename = Path(spec_path_label).name
+    """Strip the spec suffix, append `_RESULTS.md`, and look for it in the results
+    directory beside the spec's own root — a set is archived whole, so its spec
+    and its results artifact are always co-located."""
+    spec_path = Path(spec_path_label)
+    filename = spec_path.name
     suffix_m = _SPEC_SUFFIX_RE.search(filename)
     if not suffix_m:
         return None, f"spec filename does not match _SPEC(_vN).md: {filename}"
     subject = filename[: suffix_m.start()]
-    return RESULTS_DIR / f"{subject}_RESULTS.md", None
+    return spec_path.parent.parent / "results" / f"{subject}_RESULTS.md", None
 
 
 # ---------------------------------------------------------------------------
@@ -150,8 +163,7 @@ def parse_spec_ac_ids(spec_text: str):
 def _split_table_row(line: str):
     """Cells of one markdown table row, respecting `\\|` as a literal pipe rather
     than a column separator — an unescaped split on `|` mis-parses any evidence
-    cell that quotes a pipe-bearing command or regex (the `CYCLE_CLOSEOUT_SPEC.md`
-    F12 lesson)."""
+    cell that quotes a pipe-bearing command or regex."""
     parts = re.split(r"(?<!\\)\|", line)
     cells = [p.strip().replace("\\|", "|") for p in parts]
     if cells and cells[0] == "":
@@ -226,8 +238,7 @@ def evaluate(spec_ids, artifact_rows):
 # ---------------------------------------------------------------------------
 
 def run(branch_name: str, tree_ref: str = None) -> int:
-    specs_dir = ROOT / SPECS_DIR
-    spec_label, spec_text, error = find_spec(branch_name, specs_dir, tree_ref)
+    spec_label, spec_text, error = find_spec(branch_name, SPEC_ROOTS, tree_ref)
     if error:
         print(error, file=sys.stderr)
         return 2

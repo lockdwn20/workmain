@@ -3,7 +3,7 @@
 **Status:** Shipped | Superseded
 **Author:** Anvil (Role 3) | Spanner (Role 1)
 **Date:** YYYYMMDD
-**Spec:** `docs/dev/specs/<file>_SPEC.md`
+**Spec:** `../specs/<file>_SPEC.md`
 **Released as:** vX.Y.Z (PR #N, tag vX.Y.Z)
 
 > Delete this block before use.
@@ -12,8 +12,7 @@
 >
 > **Write this before the work is declared done, not after.** A results document that never gets written is the most common way a sprint's real outcome is lost — the spec says what was intended, and only this says what actually happened.
 >
-> **Released as:** the version and tag, computed at close-out from §2.5 and the current `workmain/__version__.py` — deterministic before the merge, which is when this file is committed. `n/a` on `chore/*`, which §2.2 allows no release. The PR number, the Release
-> URL and the confirmed restart timestamp are **not** here: they postdate this commit and are carried by the issue's closing comment.
+> **Released as:** the version and tag, computed at close-out from §2.5 and the current `workmain/__version__.py` — deterministic before the merge, which is when this file is committed. `n/a` on `chore/*`, which `docs/DEVELOPMENT_STANDARDS.md` §2.2 allows no release. The PR number, the Release URL and the confirmed restart timestamp are **not** here: they postdate this commit and are carried by the issue's closing comment.
 >
 > This template is advisory. Template compliance is not a Caliper review criterion.
 
@@ -38,8 +37,7 @@ Every AC on the **approved spec**, by identifier, checked against **delivered co
 | --- | --- | --- |
 | AC1.1 | Met / **Not met** / Carried | `pytest ...` output, file:line, or command result |
 
-Anything not met is listed here and carried to the backlog with an item number. Do not
-quietly drop an unmet AC.
+Anything not met is listed here and carried to the backlog with an item number. Do not quietly drop an unmet AC.
 
 ## 4. Deviations from spec
 
@@ -52,7 +50,7 @@ Where the implementation differs from what was specified, and why. Includes anyt
 
 - **Test suite:** N passed, 0 failed (baseline was M).
 - **Live verification:** what was exercised against the running system, and when.
-- **Daemon restart** (`feature/*` and `hotfix/*`, per §2.6): confirm `ActiveEnterTimestamp` postdates the `dev` merge commit.
+- **Daemon restart** (`feature/*` and `hotfix/*`, per `docs/DEVELOPMENT_STANDARDS.md` §2.6): confirm `ActiveEnterTimestamp` postdates the `dev` merge commit.
   - A merge is not a deployment.
 
 ## 6. Follow-ups

@@ -60,5 +60,5 @@ Numbered, so answers can be cited later (`Q3 answered YYYYMMDD: ...`). Each ques
 
 What happened to this study. Filled in when the work lands:
 
-- Promoted to: <spec filename, Locked Architecture Decision, or backlog item>
+- Promoted to: <`../specs/<file>_SPEC.md`, Locked Architecture Decision, or backlog item>
 - Superseded by: <filename, if applicable>
