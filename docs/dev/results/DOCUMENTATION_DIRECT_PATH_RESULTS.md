@@ -1,6 +1,6 @@
 # Documentation Direct Path — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20260831
 **Spec:** `docs/dev/specs/DOCUMENTATION_DIRECT_PATH_SPEC.md`
@@ -66,7 +66,7 @@ An earlier draft of #113's AC9 asserted that no change to `.claude/skills/closeo
 
 - **Test suite:** 934 passed, 0 failed. Baseline on `main` at this branch's point was the same 934 — no file under `tests/` was touched, and the spec required the count to be identical rather than higher.
 - **`pytest automation/`:** 37 passed, 0 failed. `closeout_acs.py` is untouched; its suite is the regression check that AC10.1 held.
-- **Live verification:** this issue's own close-out. The direct path is exercised end to end — a spec with `**Design study:** n/a` and no §2 table, implemented by Role 1, reaching `/closeout` and passing `P4`, `P5`, `P5a`, `P6` and `P7` with no change to `automation/`. AC10.2 and AC12.1 are that verification.
+- **Live verification:** this issue's own close-out. The direct path is exercised end to end — a spec with `**Design study:** n/a` and no §2 table, implemented by Role 1, reaching `/closeout` on 20260831 with `P4`, `P5`, `P6` and `P7` passing and **`P5a` returning `n/a`** — the first time that condition has been met, on the branch that created it — with no change to `automation/`. AC10.2 and AC12.1 are that verification.
 - **Daemon restart:** n/a. §2.6 requires a restart after `feature/*` and `hotfix/*` merges only; this is `chore/*` and changes no application code.
 
 ## 6. Follow-ups

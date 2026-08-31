@@ -1,6 +1,6 @@
 # Documentation Direct Path — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20260828
 **Branch:** `chore/issue-113-documentation-direct-path` (from `main`)
