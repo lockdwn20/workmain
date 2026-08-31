@@ -1,11 +1,10 @@
 {
   "title": "Unscheduled child issue",
-  "context": "Context for an unscheduled child issue.",
+  "context": "Context for an unscheduled child issue, carrying exactly one pair label.",
   "acs": ["AC1: something is true"],
   "milestone": null,
   "parent": 100,
-  "labels": ["cli"],
-  "type": "gap",
+  "labels": ["cli", "gap"],
   "blocked_by": [],
   "blocking": []
 }

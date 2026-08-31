@@ -35,7 +35,7 @@
 - `.github/ISSUE_TEMPLATE/issue.schema.json` — the top-level `type` key removed; a `single_line` constraint added.
 - `.github/ISSUE_TEMPLATE/issue.template.json` — the `type` key removed.
 - `automation/issue_validator.py` — the label pair read from `labels`; every `type`-named symbol removed; single-line enforcement added to `validate_schema`.
-- `automation/fixtures/**` — the `type` key removed from all fourteen JSON fixtures, five filenames retired, three fixtures added, two standards fixtures updated.
+- `automation/fixtures/**` — the `type` key removed from all seventeen JSON fixtures, five filenames retired, three fixtures added, two standards fixtures updated.
 - `automation/issue_validator_test.py` — tests updated to the new signatures and four label-pair case tests plus single-line tests added.
 - `../results/ISSUE_JSON_SHAPE_CORRECTION_RESULTS.md` — written at Step 5.
 
@@ -128,7 +128,7 @@ In `automation/issue_validator_test.py`, `TYPE_LABELS` becomes `LABEL_PAIR`, the
 - `validate_issue`'s third parameter is renamed `label_pair` and is passed to `validate_label_pair_rule`, no longer to `validate_live_state`.
 - `main` renames its local `type_labels` to `label_pair`.
 
-All fourteen `automation/fixtures/*.json`: the `"type"` line is deleted from each, and where its value was not `null` that value is appended to the `labels` array. Then:
+All seventeen `automation/fixtures/*.json`: the `"type"` line is deleted from each, and where its value was not `null` that value is appended to the `labels` array. Then:
 
 - `ac2_4_type_label_in_labels.json` is **deleted**, not renamed. It exists to prove a pair label inside `labels` is an error, and that is now the correct form. Its filename is one of the five #105 names, and this is the reason the rename count reads four rather than five.
 - `shape_invalid_scheduled_with_type_child.json` → `shape_scheduled_with_pair_child.json` and `shape_invalid_scheduled_with_type_standalone.json` → `shape_scheduled_with_pair_standalone.json`. Both stop being invalid: they are the milestone-plus-pair case Ray's §1.3 wording describes.

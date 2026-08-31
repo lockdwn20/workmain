@@ -48,22 +48,22 @@ def run_validate(data, label_pair=LABEL_PAIR, live_labels=LIVE_LABELS, live_mile
 
 
 class TestAC1:
-    def test_ac1_4_shapes_satisfying_the_type_rule_validate(self):
+    def test_ac1_4_shapes_satisfying_the_label_pair_rule_validate(self):
         for name in (
             "shape_scheduled_standalone.json",
             "shape_scheduled_child.json",
+            "shape_scheduled_with_pair_standalone.json",
+            "shape_scheduled_with_pair_child.json",
             "shape_unscheduled_standalone.json",
             "shape_unscheduled_child.json",
         ):
             errors, _ = run_validate(fixture(name))
             assert errors == [], f"{name} unexpectedly failed: {errors}"
 
-    def test_ac1_4_shapes_violating_the_type_rule_fail(self):
+    def test_ac1_4_shapes_violating_the_label_pair_rule_fail(self):
         for name in (
-            "shape_invalid_unscheduled_no_type_standalone.json",
-            "shape_invalid_unscheduled_no_type_child.json",
-            "shape_invalid_scheduled_with_type_standalone.json",
-            "shape_invalid_scheduled_with_type_child.json",
+            "shape_invalid_unscheduled_no_pair_standalone.json",
+            "shape_invalid_unscheduled_no_pair_child.json",
         ):
             errors, _ = run_validate(fixture(name))
             assert errors, f"{name} unexpectedly passed"
@@ -78,16 +78,12 @@ class TestAC2:
         errors, _ = run_validate(fixture("ac2_2_unknown_key.json"))
         assert any("mileston" in e for e in errors)
 
-    def test_ac2_3_both_halves_of_the_type_rule_are_distinguishable(self):
-        errors_a, _ = run_validate(fixture("shape_invalid_unscheduled_no_type_standalone.json"))
-        errors_b, _ = run_validate(fixture("shape_invalid_scheduled_with_type_standalone.json"))
-        assert "unscheduled issue carries no type label" in errors_a
-        assert "a scheduled issue must not carry a type label" in errors_b
+    def test_ac2_3_the_two_label_pair_failures_are_distinguishable(self):
+        errors_a, _ = run_validate(fixture("shape_invalid_unscheduled_no_pair_standalone.json"))
+        errors_b, _ = run_validate(fixture("shape_invalid_unscheduled_both_pair_labels.json"))
+        assert "unscheduled issue carries none of defect/gap" in errors_a
+        assert any(e.startswith("unscheduled issue carries more than one of") for e in errors_b)
         assert errors_a != errors_b
-
-    def test_ac2_4_type_label_inside_labels_fails(self):
-        errors, _ = run_validate(fixture("ac2_4_type_label_in_labels.json"))
-        assert any("type label" in e for e in errors)
 
     def test_ac2_5_nonexistent_label_milestone_and_parent_each_fail(self):
         errors, _ = run_validate(fixture("ac2_5_bad_label.json"))
@@ -99,7 +95,7 @@ class TestAC2:
         errors, _ = run_validate(fixture("ac2_5_bad_parent.json"), get_issue_state=fake_issue_state())
         assert any("999999" in e and "does not exist" in e for e in errors)
 
-    def test_ac2_6a_type_label_names_are_not_hardcoded(self):
+    def test_ac2_6a_label_pair_names_are_not_hardcoded(self):
         source = (ROOT / "automation" / "issue_validator.py").read_text()
         import re
 
@@ -119,7 +115,7 @@ class TestAC2:
         errors, _ = run_validate(fixture("ac2_7_three_errors.json"))
         assert any("unknown key: extra_bogus_key" in e for e in errors)
         assert any("not-a-real-label" in e for e in errors)
-        assert any("type label" in e for e in errors)
+        assert any("carries none of" in e for e in errors)
         assert len(errors) >= 3
 
     def test_ac2_8_missing_label_pair_line_aborts_before_other_checks(self):
@@ -132,7 +128,7 @@ class TestAC2:
     def test_ac2_9_closed_parent_is_reported_as_closed_not_missing(self):
         data = fixture("shape_scheduled_child.json")
         errors = issue_validator.validate_live_state(
-            data, LABEL_PAIR, LIVE_LABELS, LIVE_MILESTONES, fake_issue_state(closed_numbers=(100,))
+            data, LIVE_LABELS, LIVE_MILESTONES, fake_issue_state(closed_numbers=(100,))
         )
         assert any("closed" in e for e in errors)
         assert not any("does not exist" in e for e in errors)
@@ -140,7 +136,7 @@ class TestAC2:
     def test_ac2_9_nonexistent_parent_is_reported_as_missing_not_closed(self):
         data = fixture("shape_scheduled_child.json")
         errors = issue_validator.validate_live_state(
-            data, LABEL_PAIR, LIVE_LABELS, LIVE_MILESTONES, fake_issue_state()
+            data, LIVE_LABELS, LIVE_MILESTONES, fake_issue_state()
         )
         assert any("does not exist" in e for e in errors)
         assert not any("closed" in e for e in errors)
@@ -184,7 +180,7 @@ class TestAC3:
         assert "--project" in cmd
         assert "WorkmAIn Queue" in cmd
 
-    def test_ac3_4_type_flag_is_never_passed(self):
+    def test_ac3_4_the_type_flag_is_never_passed(self):
         source = (ROOT / "automation" / "issue_validator.py").read_text()
         assert source.count("--type") == 0
 

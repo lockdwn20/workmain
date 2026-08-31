@@ -1,0 +1,10 @@
+{
+  "title": "Scheduled standalone carrying a pair label",
+  "context": "Milestone set and a pair label kept from before it was scheduled.",
+  "acs": ["AC1: something is true"],
+  "milestone": "Phase 14 — Setup Wizard & Configuration",
+  "parent": null,
+  "labels": ["cli", "defect"],
+  "blocked_by": [],
+  "blocking": []
+}

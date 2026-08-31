@@ -4,8 +4,7 @@
   "acs": ["AC1: something is true"],
   "milestone": null,
   "parent": null,
-  "labels": ["not-a-real-label"],
-  "type": "defect",
+  "labels": ["not-a-real-label", "defect"],
   "blocked_by": [],
   "blocking": []
 }

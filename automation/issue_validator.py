@@ -162,25 +162,22 @@ def validate_schema(data, schema: dict):
     return errors, normalized
 
 
-def validate_type_rule(data: dict) -> list:
-    """§1.3's discriminator rule: a type label exists if and only if no milestone is set."""
-    milestone = data.get("milestone")
-    type_value = data.get("type")
-    errors = []
-    if milestone is None and type_value is None:
-        errors.append("unscheduled issue carries no type label")
-    if milestone is not None and type_value is not None:
-        errors.append("a scheduled issue must not carry a type label")
-    return errors
+def validate_label_pair_rule(data: dict, label_pair: list) -> list:
+    """§1.3: an issue with no milestone carries exactly one of the label pair.
 
+    An issue with a milestone is not checked at all. Carrying a pair label
+    there is the normal record of work pulled in from the unscheduled pool.
+    """
+    if data.get("milestone") is not None:
+        return []
 
-def validate_labels_not_type(data: dict, type_labels: list) -> list:
-    type_set = set(type_labels)
-    return [
-        f"labels must not contain a type label: {label}"
-        for label in data.get("labels", [])
-        if label in type_set
-    ]
+    named = "/".join(label_pair)
+    present = [label for label in data.get("labels") or [] if label in set(label_pair)]
+    if not present:
+        return [f"unscheduled issue carries none of {named}"]
+    if len(present) > 1:
+        return [f"unscheduled issue carries more than one of {named}: {', '.join(present)}"]
+    return []
 
 
 def _check_open_issue(field: str, number: int, get_issue_state) -> list:
@@ -192,20 +189,13 @@ def _check_open_issue(field: str, number: int, get_issue_state) -> list:
     return []
 
 
-def validate_live_state(data: dict, type_labels: list, live_labels: set, live_milestones: set, get_issue_state) -> list:
+def validate_live_state(data: dict, live_labels: set, live_milestones: set, get_issue_state) -> list:
     """Check `data` against live GitHub state. `get_issue_state` is the per-number lookup seam."""
     errors = []
 
     for label in data.get("labels", []):
         if label not in live_labels:
             errors.append(f"label does not exist: {label}")
-
-    type_value = data.get("type")
-    if type_value is not None:
-        if type_value not in type_labels:
-            errors.append(f"type is not a recognized type label: {type_value}")
-        if type_value not in live_labels:
-            errors.append(f"label does not exist: {type_value}")
 
     milestone = data.get("milestone")
     if milestone is not None and milestone not in live_milestones:
@@ -239,8 +229,6 @@ def build_command(data: dict, body_file: Path) -> list:
 
     for label in data.get("labels", []):
         cmd += ["--label", label]
-    if data.get("type") is not None:
-        cmd += ["--label", data["type"]]
 
     blocked_by = data.get("blocked_by") or []
     if blocked_by:
@@ -289,9 +277,8 @@ def gh_live_milestones() -> set:
 def validate_issue(data: dict, schema: dict, label_pair: list, live_labels: set, live_milestones: set, get_issue_state):
     """Run every check and return (errors, normalized_data). Total reporting — DR4."""
     errors, normalized = validate_schema(data, schema)
-    errors += validate_type_rule(normalized)
-    errors += validate_labels_not_type(normalized, label_pair)
-    errors += validate_live_state(normalized, label_pair, live_labels, live_milestones, get_issue_state)
+    errors += validate_label_pair_rule(normalized, label_pair)
+    errors += validate_live_state(normalized, live_labels, live_milestones, get_issue_state)
     return errors, normalized
 
 

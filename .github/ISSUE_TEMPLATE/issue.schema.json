@@ -30,11 +30,6 @@
     "required": true,
     "min_items": 1
   },
-  "type": {
-    "type": "string",
-    "nullable": true,
-    "required": true
-  },
   "blocked_by": {
     "type": "array",
     "items": "integer",
