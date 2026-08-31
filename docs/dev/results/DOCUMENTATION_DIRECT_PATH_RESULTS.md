@@ -12,7 +12,7 @@
 
 Complete. `docs/DEVELOPMENT_STANDARDS.md` §1.1 now defines two paths through the implementation cycle, keyed on the branch type and on nothing else: `feature/*` and `hotfix/*` take the full path unchanged, `chore/*` takes a direct path of `SPEC → APPROVAL → IMPLEMENTATION → CLOSE-OUT`. §1.2 scopes the verified-current-state table and the Role 2 review pass to the full path, and states the direct path's substitute for each. The spec template carries both changes as a note inside the one template. `/closeout`'s `P5a` accepts the direct path's stated `**Design study:** n/a` form, and the `chore` variant's step 1 no longer assumes a design artifact exists.
 
-**This issue is the first use of the direct path it defines.** No recon was run, the spec's `**Design study:**` field reads `n/a`, the spec carries no §2 verified-current-state table, and each step quotes the text it replaces inline. Two decisions surfaced during the work that no acceptance criterion named; both are in §4 below, which is exactly the trade §1.1 now states the path makes.
+**This issue is the first use of the direct path it defines.** No recon was run, the spec's `**Design study:**` field reads `n/a`, the spec carries no §2 verified-current-state table, and each step quotes the text it replaces inline. Four changes were made during the work that no acceptance criterion named; all four are in §4 below, which is exactly the trade §1.1 now states the path makes.
 
 ## 2. What shipped, by step
 
@@ -51,7 +51,7 @@ Every AC on the approved spec, run against the delivered text. `<range 1.1>` is 
 
 ## 4. Deviations from spec
 
-All three are recorded here rather than as acceptance criteria on #113, at Ray's direction. Deviations 1 and 2 were raised before the affected step ran; deviation 3 was found by step 5 and fixed after steps 1–5 had shipped.
+All four are recorded here rather than as acceptance criteria on #113, at Ray's direction. Deviations 1 and 2 were raised before the affected step ran; deviations 3 and 4 were found and fixed after steps 1–5 had shipped.
 
 | # | Deviation | Reason | Approved by |
 | --- | --- | --- | --- |
