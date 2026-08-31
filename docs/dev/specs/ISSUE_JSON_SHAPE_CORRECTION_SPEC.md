@@ -195,7 +195,7 @@ Add tests: the AC fixture fails with an error naming `acs[1]`; the title fixture
 | AC88.2 | The rejection participates in total reporting — it does not stop the run before other errors are collected | The Step 4 total-reporting test passes, asserting both the newline error and a second unrelated error are present in one run |
 | AC88.3 | A fixture with a newline inside an AC exits non-zero; the existing valid fixtures still exit zero | The Step 4 tests over `single_line_newline_in_ac.json`, `valid_minimal.json` and `valid_full.json` pass |
 | AC88.4 | Both are covered in `automation/issue_validator_test.py`, with the test name carrying what it covers | `pytest automation/issue_validator_test.py -k single_line -v` lists the Step 4 tests by name, all passing |
-| AC88.5 | `render_body()` is unchanged — the fix is refusal at validation, not repair at render (DR6) | `git diff main...HEAD -- automation/issue_validator.py \| grep -c '^[-+].*render_body'` prints `0`, and the function body is absent from the diff |
+| AC88.5 | `render_body()` is unchanged — the fix is refusal at validation, not repair at render (DR6) | `git diff main...HEAD -- automation/issue_validator.py \| grep -cE '^[-+].*def render_body'` prints `0`, and the function extracted from `git show main:` and `git show HEAD:` is byte-identical |
 
 Ray verifies AC105.3 and AC105.4 semantically, per `docs/DEVELOPMENT_STANDARDS.md` §1.2. The greps beside them check the mechanical half only.
 
