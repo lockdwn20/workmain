@@ -95,6 +95,16 @@ def load_schema(schema_path: Path) -> dict:
     return json.loads(schema_path.read_text())
 
 
+def _has_line_break(value: str) -> bool:
+    """A line break in a single-line field is refused, not repaired (#88).
+
+    `render_body()` emits one `- ` marker per `acs` item, so an embedded
+    newline renders as a bullet followed by a loose line belonging to no AC,
+    and the created issue silently misrepresents its own AC list.
+    """
+    return "\n" in value or "\r" in value
+
+
 def _check_type(value, type_name: str) -> bool:
     if type_name == "integer":
         return isinstance(value, int) and not isinstance(value, bool)
@@ -147,6 +157,8 @@ def validate_schema(data, schema: dict):
             max_length = spec.get("max_length")
             if max_length is not None and len(value) > max_length:
                 errors.append(f"key '{key}' must be at most {max_length} characters")
+            if spec.get("single_line") and _has_line_break(value):
+                errors.append(f"key '{key}' must be a single line")
 
         if expected == "array":
             min_items = spec.get("min_items")
@@ -158,6 +170,8 @@ def validate_schema(data, schema: dict):
                     errors.append(f"key '{key}[{i}]' must be of type {item_type}")
                 elif item_type == "string" and not item.strip():
                     errors.append(f"key '{key}[{i}]' must be non-empty")
+                elif item_type == "string" and spec.get("single_line") and _has_line_break(item):
+                    errors.append(f"key '{key}[{i}]' must be a single line")
 
     return errors, normalized
 

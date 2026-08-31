@@ -174,6 +174,48 @@ class TestLabelPairCases:
             assert errors == [], f"{name} unexpectedly failed: {errors}"
 
 
+class TestSingleLine:
+    """Every string-typed value is a single line; `context` is the sole exception (#88)."""
+
+    def test_single_line_newline_in_an_ac_is_refused_naming_the_index(self):
+        errors, _ = run_validate(fixture("single_line_newline_in_ac.json"))
+        assert "key 'acs[1]' must be a single line" in errors
+
+    def test_single_line_newline_in_the_title_is_refused(self):
+        errors, _ = run_validate(fixture("single_line_newline_in_title.json"))
+        assert "key 'title' must be a single line" in errors
+
+    def test_single_line_refusal_participates_in_total_reporting(self):
+        """DR5 — the newline does not stop the run before other errors are collected."""
+        data = fixture("single_line_newline_in_ac.json")
+        data["labels"] = ["not-a-real-label", "defect"]
+        data["extra_bogus_key"] = True
+
+        errors, _ = run_validate(data)
+        assert "key 'acs[1]' must be a single line" in errors
+        assert any("not-a-real-label" in e for e in errors)
+        assert any("unknown key: extra_bogus_key" in e for e in errors)
+
+    def test_single_line_the_valid_fixtures_are_unaffected(self):
+        open_all = fake_issue_state(open_numbers=(100, 101, 102, 201, 202))
+        for name in ("valid_minimal.json", "valid_full.json"):
+            errors, _ = run_validate(fixture(name), get_issue_state=open_all)
+            assert errors == [], f"{name} unexpectedly failed: {errors}"
+
+    def test_single_line_a_multi_line_context_is_still_accepted(self):
+        """`context` is the issue body's prose and is deliberately exempt."""
+        data = fixture("valid_minimal.json")
+        data["context"] = "First paragraph.\n\nSecond paragraph."
+        errors, _ = run_validate(data)
+        assert errors == []
+
+    def test_single_line_render_body_is_not_repaired(self):
+        """DR6 — the fix is refusal at validation, not repair at render."""
+        rendered = issue_validator.render_body("Context line.", ["one", "two\nsplit"])
+        assert rendered.count("- ") == 2
+        assert "\nsplit" in rendered
+
+
 class TestAC3:
     def test_ac3_1_default_run_creates_nothing(self, tmp_path, monkeypatch, capsys):
         issue_file = tmp_path / "issue.json"

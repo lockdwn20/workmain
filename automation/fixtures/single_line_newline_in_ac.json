@@ -1,0 +1,10 @@
+{
+  "title": "Newline inside an AC",
+  "context": "Otherwise valid; acs[1] carries an embedded newline.",
+  "acs": ["single line AC", "wrapped AC\nsecond physical line", "third AC"],
+  "milestone": null,
+  "parent": null,
+  "labels": ["cli", "defect"],
+  "blocked_by": [],
+  "blocking": []
+}
