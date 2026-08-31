@@ -1,10 +1,9 @@
 # EOD subprocess hardening — Implementation Results
 
-**Status:** Shipped
+**Status:** Active
 **Author:** Anvil (Role 3)
 **Date:** 20260831
 **Spec:** `../specs/EOD_SUBPROCESS_HARDENING_SPEC.md`
-**Released as:** v1.30.0 (tag v1.30.0)
 
 ---
 
@@ -57,8 +56,8 @@ Issue #94's original AC1, AC2 and AC4 are superseded by the rows above per spec 
 
 | Item | Description | Why deferred |
 | --- | --- | --- |
-| (to open) | `config/ai_settings.json` `timeout_seconds` is read nowhere; the Claude and Gemini clients construct with no per-call timeout and `retry_attempts: 3` loops an unbounded call. Wire `timeout_seconds` through the providers; `TIMEOUT_AI` then derives from it rather than being a chosen ceiling. | Separate defect — spec §4 and Decision Log (Caliper, 20260831). Named for Ray to open. |
-| (to open) | Milestone 6 exit text — "No `subprocess.run` in `workmain/**` lacks `timeout=`" — is unsatisfiable because `utils/editor.py:43` must not carry one. Milestone-text edit. | Out of spec scope — Decision Log (Caliper, 20260831). Raised to Ray. |
+| #114 | `config/ai_settings.json` `timeout_seconds` is read nowhere; the Claude and Gemini clients construct with no per-call timeout and `retry_attempts: 3` loops an unbounded call. Wire `timeout_seconds` through the providers; `TIMEOUT_AI` then derives from it rather than being a chosen ceiling. | Separate defect — spec §4 and Decision Log (Caliper, 20260831). Opened 20260831. |
+| — | Milestone 6's exit text carried an absolute "No `subprocess.run` in `workmain/**` lacks `timeout=`", which `utils/editor.py:43` cannot satisfy. | Closed 20260831 — Ray amended the milestone to carve out a `$EDITOR` launch. |
 | #104 | Extract daily-internal email generation into a service and remove its subprocess call — pilots removing the subprocess boundary this spec only hardened. | Out of scope — spec §1. |
 | — | Making `slack post weekly` / `gdocs upload all` non-interactive (spec Option C). Changes two CLI command contracts issue #94 does not name. | Out of scope — spec §1; belongs in its own issue. |
 | — | A step-level deadline (monotonic clock threaded through multi-call loops, plus a decision on what a half-condensed step returns). Today a step is bounded at N × its per-call timeout. | Out of scope — spec DR3; different mechanism, its own issue. |
