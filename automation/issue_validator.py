@@ -8,11 +8,11 @@ GitHub state, then create the issue through `gh issue create`.
 
 The schema (`.github/ISSUE_TEMPLATE/issue.schema.json`) declares the key set
 and each key's type and required-ness. This script owns the rules the schema
-file cannot express: the §1.3 discriminator-pair rule and existence checks
+file cannot express: the §1.3 label-pair rule and existence checks
 against live GitHub state (labels, milestones, referenced issues).
 
 Why this exists: GitHub carries no type-vs-area marking on a label
-(`Repository.issueTypes` is null for this repository), so the discriminator
+(`Repository.issueTypes` is null for this repository), so the label
 pair lives only in `docs/DEVELOPMENT_STANDARDS.md` §1.3, parsed at run
 time rather than hardcoded here — a hardcoded pair would go stale the first
 time §1.3 changes.
@@ -29,12 +29,12 @@ from pathlib import Path
 SCHEMA_RELATIVE_PATH = Path(".github/ISSUE_TEMPLATE/issue.schema.json")
 TEMPLATE_RELATIVE_PATH = Path(".github/ISSUE_TEMPLATE/issue.template.json")
 STANDARDS_RELATIVE_PATH = Path("docs/DEVELOPMENT_STANDARDS.md")
-DISCRIMINATOR_PHRASE = "discriminator pair"
+LABEL_PAIR_PHRASE = "label pair"
 PROJECT_NAME = "WorkmAIn Queue"
 
 
 class ValidationAbort(Exception):
-    """Raised when the §1.3 discriminator parse itself fails (DR4's ordering exception)."""
+    """Raised when the §1.3 label-pair parse itself fails (DR4's ordering exception)."""
 
 
 def find_repo_root(start: Path) -> Path:
@@ -45,12 +45,12 @@ def find_repo_root(start: Path) -> Path:
     raise ValidationAbort(f"could not find a repository root above {start}")
 
 
-def parse_type_labels(standards_path: Path) -> list:
-    """Parse the §1.3 discriminator pair out of the standards file.
+def parse_label_pair(standards_path: Path) -> list:
+    """Parse the §1.3 label pair out of the standards file.
 
     Locates the section from a line starting `### 1.3` to the next line
-    starting `###` or `---`, finds the single line containing the phrase
-    "discriminator pair", and returns its backtick-delimited tokens. That line
+    starting `###` or `---`, finds the first line containing the phrase
+    "label pair", and returns its backtick-delimited tokens. That line
     must carry no other backticked text — every token on it is returned.
     """
     if not standards_path.exists():
@@ -74,19 +74,19 @@ def parse_type_labels(standards_path: Path) -> list:
 
     target_line = None
     for line in lines[start:end]:
-        if DISCRIMINATOR_PHRASE in line:
+        if LABEL_PAIR_PHRASE in line:
             target_line = line
             break
     if target_line is None:
         raise ValidationAbort(
-            f"{standards_path}: could not find the phrase '{DISCRIMINATOR_PHRASE}' in section 1.3"
+            f"{standards_path}: could not find the phrase '{LABEL_PAIR_PHRASE}' in section 1.3"
         )
 
     tokens = re.findall(r"`([^`]+)`", target_line)
     if not tokens:
         raise ValidationAbort(
             f"{standards_path}: no backtick-delimited tokens found on the "
-            f"'{DISCRIMINATOR_PHRASE}' line"
+            f"'{LABEL_PAIR_PHRASE}' line"
         )
     return tokens
 
@@ -286,12 +286,12 @@ def gh_live_milestones() -> set:
     return {line for line in result.stdout.splitlines() if line}
 
 
-def validate_issue(data: dict, schema: dict, type_labels: list, live_labels: set, live_milestones: set, get_issue_state):
+def validate_issue(data: dict, schema: dict, label_pair: list, live_labels: set, live_milestones: set, get_issue_state):
     """Run every check and return (errors, normalized_data). Total reporting — DR4."""
     errors, normalized = validate_schema(data, schema)
     errors += validate_type_rule(normalized)
-    errors += validate_labels_not_type(normalized, type_labels)
-    errors += validate_live_state(normalized, type_labels, live_labels, live_milestones, get_issue_state)
+    errors += validate_labels_not_type(normalized, label_pair)
+    errors += validate_live_state(normalized, label_pair, live_labels, live_milestones, get_issue_state)
     return errors, normalized
 
 
@@ -316,7 +316,7 @@ def main(argv=None) -> int:
 
     standards_path = repo_root / STANDARDS_RELATIVE_PATH
     try:
-        type_labels = parse_type_labels(standards_path)
+        label_pair = parse_label_pair(standards_path)
     except ValidationAbort as exc:
         print(str(exc), file=sys.stderr)
         return 1
@@ -326,7 +326,7 @@ def main(argv=None) -> int:
     live_milestones = gh_live_milestones()
 
     errors, normalized = validate_issue(
-        data, schema, type_labels, live_labels, live_milestones, gh_issue_state
+        data, schema, label_pair, live_labels, live_milestones, gh_issue_state
     )
 
     if errors:

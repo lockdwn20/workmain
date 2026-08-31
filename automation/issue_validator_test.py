@@ -18,7 +18,7 @@ issue_validator = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(issue_validator)
 
 SCHEMA = issue_validator.load_schema(ROOT / ".github" / "ISSUE_TEMPLATE" / "issue.schema.json")
-TYPE_LABELS = issue_validator.parse_type_labels(ROOT / "docs" / "DEVELOPMENT_STANDARDS.md")
+LABEL_PAIR = issue_validator.parse_label_pair(ROOT / "docs" / "DEVELOPMENT_STANDARDS.md")
 LIVE_LABELS = {"cli", "defect", "gap", "tests", "documentation"}
 LIVE_MILESTONES = {"Phase 14 — Setup Wizard & Configuration"}
 
@@ -41,10 +41,10 @@ def fake_issue_state(open_numbers=(), closed_numbers=()):
     return get_issue_state
 
 
-def run_validate(data, type_labels=TYPE_LABELS, live_labels=LIVE_LABELS, live_milestones=LIVE_MILESTONES, get_issue_state=None):
+def run_validate(data, label_pair=LABEL_PAIR, live_labels=LIVE_LABELS, live_milestones=LIVE_MILESTONES, get_issue_state=None):
     if get_issue_state is None:
         get_issue_state = fake_issue_state(open_numbers=(100, 101, 102))
-    return issue_validator.validate_issue(data, SCHEMA, type_labels, live_labels, live_milestones, get_issue_state)
+    return issue_validator.validate_issue(data, SCHEMA, label_pair, live_labels, live_milestones, get_issue_state)
 
 
 class TestAC1:
@@ -105,14 +105,14 @@ class TestAC2:
 
         assert re.findall(r"['\"](defect|gap)['\"]", source) == []
 
-    def test_ac2_6b_type_labels_are_parsed_from_the_standards_file(self):
-        tokens = issue_validator.parse_type_labels(FIXTURES / "standards_alpha_beta.md")
+    def test_ac2_6b_the_label_pair_is_parsed_from_the_standards_file(self):
+        tokens = issue_validator.parse_label_pair(FIXTURES / "standards_alpha_beta.md")
         assert tokens == ["alpha", "beta"]
         assert "defect" not in tokens
 
-    def test_the_live_standards_file_yields_exactly_the_discriminator_pair(self):
+    def test_the_live_standards_file_yields_exactly_the_label_pair(self):
         """A reflow of §1.3 that breaks this parse breaks every issue creation."""
-        tokens = issue_validator.parse_type_labels(ROOT / "docs" / "DEVELOPMENT_STANDARDS.md")
+        tokens = issue_validator.parse_label_pair(ROOT / "docs" / "DEVELOPMENT_STANDARDS.md")
         assert tokens == ["defect", "gap"]
 
     def test_ac2_7_validation_is_total(self):
@@ -122,17 +122,17 @@ class TestAC2:
         assert any("type label" in e for e in errors)
         assert len(errors) >= 3
 
-    def test_ac2_8_missing_discriminator_line_aborts_before_other_checks(self):
+    def test_ac2_8_missing_label_pair_line_aborts_before_other_checks(self):
         with pytest.raises(issue_validator.ValidationAbort) as excinfo:
-            issue_validator.parse_type_labels(FIXTURES / "standards_missing_discriminator.md")
+            issue_validator.parse_label_pair(FIXTURES / "standards_missing_label_pair.md")
         message = str(excinfo.value)
-        assert "standards_missing_discriminator.md" in message
-        assert "discriminator pair" in message
+        assert "standards_missing_label_pair.md" in message
+        assert "label pair" in message
 
     def test_ac2_9_closed_parent_is_reported_as_closed_not_missing(self):
         data = fixture("shape_scheduled_child.json")
         errors = issue_validator.validate_live_state(
-            data, TYPE_LABELS, LIVE_LABELS, LIVE_MILESTONES, fake_issue_state(closed_numbers=(100,))
+            data, LABEL_PAIR, LIVE_LABELS, LIVE_MILESTONES, fake_issue_state(closed_numbers=(100,))
         )
         assert any("closed" in e for e in errors)
         assert not any("does not exist" in e for e in errors)
@@ -140,7 +140,7 @@ class TestAC2:
     def test_ac2_9_nonexistent_parent_is_reported_as_missing_not_closed(self):
         data = fixture("shape_scheduled_child.json")
         errors = issue_validator.validate_live_state(
-            data, TYPE_LABELS, LIVE_LABELS, LIVE_MILESTONES, fake_issue_state()
+            data, LABEL_PAIR, LIVE_LABELS, LIVE_MILESTONES, fake_issue_state()
         )
         assert any("does not exist" in e for e in errors)
         assert not any("closed" in e for e in errors)
