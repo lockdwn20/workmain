@@ -85,15 +85,15 @@ The tension is F4/F5 against the issue's second AC, *"Every subprocess.run call 
 
 | Q | Question | Answer |
 | --- | --- | --- |
-| Q1 | Which option in §4 governs the two interactive children — A (literal capture, accept the broken prompts), B (pass through), or C (de-interactivise the children first)? | |
-| Q2 | Approve Option D's helper, and with it the rewording of issue #94's first AC from a `grep -c` identity to *"`subprocess.run` appears exactly once in `eod_workflow.py`, inside `_run_workmain()`, which passes `timeout=` and `capture_output=`"*? | |
-| Q3 | Are the four proposed timeout constants and their values acceptable, and do they belong in `eod_workflow.py` rather than `config/`? | |
-| Q4 | The issue's ACs do not mention `text=True`, but without it captured stderr is `bytes` and cannot go into a result message as written. Confirm `text=True` is in scope. | |
-| Q5 | The issue's ACs do not require `check=`. Recommend not adding it — the file's existing style inspects `returncode` explicitly, which is what the milestone's *"explicit exit-code handling"* asks for. Confirm. | |
-| Q6 | F7 — should captured stdout from `time today` / `time date` be echoed to the operator before the `_confirm()`, or does the review step move to reading entries from the DB as the non-interactive branch already does at `eod_workflow.py:270-296`? | |
-| Q7 | F10 — `reports.py:746` is unhardened and cannot resolve its binary under systemd. Pull into #94, or open as its own issue under the same milestone? | |
-| Q8 | F13 — issue #94's body cites an unresolvable "C10". Correct the issue body before implementation? | |
+| Q1 | Which option in §4 governs the two interactive children — A (literal capture, accept the broken prompts), B (pass through), or C (de-interactivise the children first)? | **Answered 20260831, Spanner.** Moot once the acceptance criteria stopped being read as design input (Q2). Capturing a child that prompts on stdout is wrong on its own terms, so no fork remains: the runner captures by default and the two interactive sites capture only when the parent is non-interactive. Recorded as DR4 in the spec. |
+| Q2 | Approve Option D's helper, and with it the rewording of issue #94's first AC? | **Answered 20260831, Ray.** Option D approved — "it introduces a reusable function rather than attempting 14 different ways to do the same thing." Acceptance criteria validate work; they do not specify it. The design is set on its merits and the issue's criteria are adjusted to match. |
+| Q3 | Are the four proposed timeout constants and their values acceptable, and do they belong in `eod_workflow.py` rather than `config/`? | **Answered 20260831, Spanner.** Values as proposed. Home moves to `workmain/utils/workmain_cli.py` because Q7 gives the runner a second caller — the constants belong with the runner, not with one of its callers. |
+| Q4 | Is `text=True` in scope? | **Answered 20260831, Spanner.** Yes. Without it captured output is `bytes` and cannot be put in a result message. |
+| Q5 | Add `check=`? | **Answered 20260831, Spanner.** No. Each site already carries its own retry/skip/fatal policy keyed on `returncode`; raising instead would collapse all of them into one. Recorded as DR6. |
+| Q6 | Should captured stdout from `time today` / `time date` be echoed before the `_confirm()`? | **Answered 20260831, Spanner.** Yes — the caller echoes, the runner never prints. Recorded as DR5. |
+| Q7 | F10 — `reports.py:746`. Pull into #94, or open as its own issue? | **Answered 20260831, Ray.** Pull into #94 — "it specifically applies to the issue we are correcting." |
+| Q8 | F13 — issue #94's body cites an unresolvable "C10". | **Answered 20260831, Ray.** Corrected in the issue; the body now reads "Issue #104 pilots that." |
 
 ## 6. Disposition
 
-- Promoted to: pending — spec to be written once Q1–Q8 are answered.
+- Promoted to: `../specs/EOD_SUBPROCESS_HARDENING_SPEC.md`
