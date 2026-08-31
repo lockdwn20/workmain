@@ -1,9 +1,10 @@
 # EOD subprocess hardening — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Anvil (Role 3)
 **Date:** 20260831
 **Spec:** `../specs/EOD_SUBPROCESS_HARDENING_SPEC.md`
+**Released as:** v1.30.0 (tag v1.30.0)
 
 ---
 
