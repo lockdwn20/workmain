@@ -25,6 +25,7 @@ Separately, every string-typed value is now refused if it carries a line break, 
 | 3 | `TestLabelPairCases` — one named test per case: neither label, both labels, exactly one traced through to `build_command`'s `--label` flags, and a milestone carrying a pair label | `automation/issue_validator_test.py` | 44 (+4) |
 | 4 | `single_line` declared on `title`, `milestone`, `labels`, `acs`; enforced in `validate_schema` via `_has_line_break`. `context` exempt | `.github/ISSUE_TEMPLATE/issue.schema.json`, `automation/issue_validator.py`, `automation/issue_validator_test.py`, 2 new fixtures | 50 (+6) |
 | 5 | This artifact | `docs/dev/results/ISSUE_JSON_SHAPE_CORRECTION_RESULTS.md` | 50, flat |
+| 6 | The at-most-one half of the pair rule ungated from the milestone, closing a scheduled issue carrying both labels | `automation/issue_validator.py`, `automation/issue_validator_test.py`, 1 new fixture | 51 (+1) |
 
 ## 3. Acceptance criteria
 
@@ -41,11 +42,12 @@ Separately, every string-typed value is now refused if it carries a line break, 
 | AC105.9 | Met | `test_label_pair_unscheduled_with_neither_label_fails_naming_what_is_missing`. Live: `unscheduled issue carries none of defect/gap`, exit 1 |
 | AC105.10 | Met | `test_label_pair_unscheduled_with_both_labels_fails_naming_both`. Live: `unscheduled issue carries more than one of defect/gap: defect, gap`, exit 1 |
 | AC105.11 | Met | `test_label_pair_unscheduled_with_exactly_one_label_validates_and_reaches_the_label_flags`. Live run exits 0 and prints the pair among the `--label` flags |
-| AC105.12 | Met | `pytest automation/issue_validator_test.py -k TestLabelPairCases -v` → 4 passed, 19 deselected, each named for its case |
+| AC105.12 | Met | `pytest automation/issue_validator_test.py -k TestLabelPairCases -v` → 5 passed, each named for its case: the four #105 names plus AC105.17's |
 | AC105.13 | Met | `grep -rn '^  "type"' automation/fixtures/` returns zero hits. Eleven fixtures carried a non-null value; each now carries it in `labels` |
 | AC105.14 | Met | `ls automation/fixtures/ \| grep -c type` prints `0`. Four renamed, one deleted — see deviation 2 |
-| AC105.15 | Met | `pytest automation/ -q` → 50 passed, against a baseline of 41 measured on `main` |
+| AC105.15 | Met | `pytest automation/ -q` → 51 passed, against a baseline of 41 measured on `main` |
 | AC105.16 | Met | `pytest -q` → 934 passed, 0 failed, flat against the CHANGELOG baseline. `git diff --name-only main...HEAD \| grep -cE '^(workmain\|tests)/'` prints `0` |
+| AC105.17 | Met | `test_label_pair_a_milestone_carrying_both_labels_still_fails` and `test_label_pair_unscheduled_with_both_labels_fails_naming_both` pass. Matrix re-run: milestone + `['defect','gap']` now fails with `issue carries more than one of defect/gap: defect, gap`, and every other row is unchanged |
 | AC88.1 | Met | `test_single_line_newline_in_an_ac_is_refused_naming_the_index` asserts `key 'acs[1]' must be a single line` |
 | AC88.2 | Met | `test_single_line_refusal_participates_in_total_reporting`. Live run reported the `title` and `acs[1]` refusals together in one invocation |
 | AC88.3 | Met | `single_line_newline_in_ac.json` and `single_line_newline_in_title.json` fail; `test_single_line_the_valid_fixtures_are_unaffected` holds `valid_minimal.json` and `valid_full.json` clean |
@@ -62,10 +64,11 @@ Separately, every string-typed value is now refused if it carries a line break, 
 | 4 | Six single-line tests, not the five §6 projected; final count 50, not 49 | The sixth asserts `context` is still accepted multi-line. Without it the exemption is undeclared in the tests, and a later tightening would pass | Spanner, 20260831 |
 | 5 | Two AC check commands were corrected in the spec during implementation. AC105.12's `-k label_pair` matched 11 tests once the Step 1 renames landed, and was tightened to `-k TestLabelPairCases`. AC88.5's `grep -c '^[-+].*render_body'` returned 1 on a docstring *mention* in the new `_has_line_break` helper, and was replaced with a `def render_body` grep plus a byte-identity extraction | Both were loose checks that would have passed or failed for the wrong reason. The criteria themselves are unchanged; only how they are checked | Spanner, 20260831 |
 | 6 | The spec said "fourteen JSON fixtures" in §1 and §4; there are seventeen | Miscounted at authoring time. Corrected in the spec at Step 2 | Spanner, 20260831 |
+| 7 | **Step 6 and `AC105.17` were added after the first five steps shipped**, ungating the at-most-one half of the pair rule from the milestone. The error text drops the word *unscheduled*, since it now fires on scheduled issues too | Ray verified the shipped matrix and found a milestoned issue carrying both `defect` and `gap` passed. Gating that half on the milestone was a misreading of his direction: one kept label is the record of work pulled in from the unscheduled pool, two is incoherent regardless. `AC105.17` has no counterpart bullet on #105 yet — see §6 | Ray, 20260831 |
 
 ## 5. Verification
 
-- **Test suite:** 934 passed, 0 failed (baseline was 934). `pytest automation/` 50 passed (baseline 41): one test deleted with its fixture, four label-pair cases added, six single-line tests added.
+- **Test suite:** 934 passed, 0 failed (baseline was 934). `pytest automation/` 51 passed (baseline 41): one test deleted with its fixture, four label-pair cases added, six single-line tests added, one scheduled-both-labels case added at Step 6.
 - **Live verification:** `automation/issue_validator.py` run against live GitHub label and milestone state, 20260831. `--new` emits the eight-key skeleton. A valid unscheduled issue exits 0 and prints `--label process --label defect` through one loop, with no `--type` anywhere. The three failure shapes exit 1 with the expected messages, and the newline probe reported its `title` and `acs[1]` refusals in a single run. **No issue was created** — `--create` was never passed.
 - The #88 defect was reproduced against the shipped `render_body()` before the fix, returning `'...\n- single line AC\n- wrapped AC\nsecond physical line\n- third AC\n'` — the orphan line the issue describes.
 - **Daemon restart:** not applicable. `chore/*` carries none (`docs/DEVELOPMENT_STANDARDS.md` §2.6), and nothing on this branch is imported by the application, the daemon or the CLI.
@@ -74,4 +77,4 @@ Separately, every string-typed value is now refused if it carries a line break, 
 
 | Item | Description | Why deferred |
 | --- | --- | --- |
-| — | None. | Both issues are complete on this branch. |
+| #105 | `AC105.17` is a criterion this branch meets that #105 does not yet state. The matching bullet to add: *"An issue carrying both `defect` and `gap` fails validation whatever its milestone, naming both."* | The criterion arose from Ray's verification after the spec was approved. Editing the issue body is Ray's, as merging and closing are |

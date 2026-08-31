@@ -82,7 +82,7 @@ class TestAC2:
         errors_a, _ = run_validate(fixture("shape_invalid_unscheduled_no_pair_standalone.json"))
         errors_b, _ = run_validate(fixture("shape_invalid_unscheduled_both_pair_labels.json"))
         assert "unscheduled issue carries none of defect/gap" in errors_a
-        assert any(e.startswith("unscheduled issue carries more than one of") for e in errors_b)
+        assert any(e.startswith("issue carries more than one of") for e in errors_b)
         assert errors_a != errors_b
 
     def test_ac2_5_nonexistent_label_milestone_and_parent_each_fail(self):
@@ -172,6 +172,13 @@ class TestLabelPairCases:
         ):
             errors, _ = run_validate(fixture(name))
             assert errors == [], f"{name} unexpectedly failed: {errors}"
+
+    def test_label_pair_a_milestone_carrying_both_labels_still_fails(self):
+        """At-most-one is not gated on the milestone: one kept label is a record, two is incoherent."""
+        errors, _ = run_validate(fixture("shape_invalid_scheduled_both_pair_labels.json"))
+        offending = [e for e in errors if "more than one" in e]
+        assert len(offending) == 1
+        assert "defect" in offending[0] and "gap" in offending[0]
 
 
 class TestSingleLine:

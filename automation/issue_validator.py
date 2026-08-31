@@ -177,20 +177,22 @@ def validate_schema(data, schema: dict):
 
 
 def validate_label_pair_rule(data: dict, label_pair: list) -> list:
-    """§1.3: an issue with no milestone carries exactly one of the label pair.
+    """§1.3: an issue carries at most one of the label pair, and exactly one when unscheduled.
 
-    An issue with a milestone is not checked at all. Carrying a pair label
-    there is the normal record of work pulled in from the unscheduled pool.
+    The two halves are gated differently, on purpose. *At most one* holds
+    whatever the milestone: two pair labels is incoherent however the issue
+    was scheduled. *At least one* applies only with no milestone — a pair
+    label kept after the work was scheduled is the normal record of
+    something pulled in from the unscheduled pool, and a scheduled issue
+    need not carry one at all.
     """
-    if data.get("milestone") is not None:
-        return []
-
     named = "/".join(label_pair)
     present = [label for label in data.get("labels") or [] if label in set(label_pair)]
-    if not present:
-        return [f"unscheduled issue carries none of {named}"]
+
     if len(present) > 1:
-        return [f"unscheduled issue carries more than one of {named}: {', '.join(present)}"]
+        return [f"issue carries more than one of {named}: {', '.join(present)}"]
+    if not present and data.get("milestone") is None:
+        return [f"unscheduled issue carries none of {named}"]
     return []
 
 

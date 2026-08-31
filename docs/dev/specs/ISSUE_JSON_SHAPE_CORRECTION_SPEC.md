@@ -23,6 +23,8 @@
 | 20260831 | Ray | #88's single-line refusal extends beyond `acs` | Every string-typed value is single-line; `context` is the sole exception, being the issue body's prose. One schema flag covers `title`, `milestone`, `labels[]` and `acs[]`. DR4 |
 | 20260831 | Spanner | #105's third AC still ends *"and an issue with a milestone carries neither"*, which is the rule Ray struck in the same session | The approved §1.3 wording governs the standards text; the residual clause is superseded by Ray's 20260831 direction and is not implemented. Recorded here so it is not re-raised. `AC105.3` is written to the approved wording |
 | 20260831 | Spanner | #105's tenth AC reads *"neither `gap` or `defect` labels fails validation, naming both"*, duplicating the ninth. *"naming both"* is unambiguous about intent | Read as the both-labels-present case. `AC105.10` states it that way |
+| 20260831 | Ray | **The at-most-one half of the pair rule must not be gated on the milestone.** Found by Ray verifying the shipped matrix: a milestoned issue carrying both `defect` and `gap` passed, because the rule returned early whenever a milestone was set. One kept label is the record of work pulled in from the unscheduled pool; two is incoherent however the issue was scheduled | Implemented as Step 6 (option b of three offered). The at-least-one half stays gated on the milestone. DR2 rewritten, `AC105.17` added |
+| 20260831 | Spanner | Also offered requiring a non-pair area label alongside the pair, which would close `["defect"]` with no area label | **Not taken** — Ray, 20260831, for the second time. This is D3 again and stays declined |
 | 20260831 | Spanner | #105's twelfth AC says *"each of the four cases above"* where three bullets now stand | Four cases are tested: none, both, exactly one, and milestone-with-a-pair-label validating — the fourth being what Ray's §1.3 wording newly permits and the only case with no test today |
 
 ---
@@ -50,7 +52,7 @@
 ## 3. Design rules
 
 - **DR1 — The pair is parsed from §1.3, never hardcoded.** `docs/archive/specs/ISSUE_CREATION_VALIDATION_SPEC.md` AC2.6 established this so the names cannot go stale, and that reason is unchanged. No string literal `"defect"` or `"gap"` appears in `automation/issue_validator.py`.
-- **DR2 — One rule governs the pair: an issue with no milestone carries exactly one of it.** An issue with a milestone is not checked against the pair at all — carrying one is the normal record of work pulled in from the unscheduled pool. There is no second rule and no rule about where the pair may appear, because it appears in `labels` like every other label.
+- **DR2 — One rule governs the pair, in two halves gated differently.** *At most one* holds whatever the milestone: two pair labels is incoherent however the issue was scheduled. *At least one* applies only when there is no milestone — a pair label kept after the work was scheduled is the normal record of something pulled in from the unscheduled pool, and a scheduled issue need not carry one at all. There is no rule about where the pair may appear, because it appears in `labels` like every other label, and none requiring an area label beside it.
 - **DR3 — The parse anchor and §1.3 are one contract.** The phrase `parse_label_pair` matches must exist in §1.3 on a line whose only backticked tokens are the pair itself. Changing either side without the other breaks `pytest automation/` at import, since the pair is computed at module scope in the test file.
 - **DR4 — Every string a key contributes is a single line; `context` is the sole exception.** Declared per key in the schema, enforced in `validate_schema`, so it is inside total reporting by construction.
 - **DR5 — Total reporting (`docs/archive/specs/ISSUE_CREATION_VALIDATION_SPEC.md` DR4) is preserved.** Every check appends to one error list and the run reports all of them. The one exception stays the §1.3 parse itself, which raises `ValidationAbort` before any other check.
@@ -69,6 +71,7 @@ Each step ends with a commit. There is no approval stop between steps. Every ste
 | 3 | The four label-pair cases, each with its own named test | `automation/fixtures/shape_invalid_unscheduled_both_pair_labels.json`, `automation/issue_validator_test.py` |
 | 4 | Single-line enforcement across every string-typed key | `.github/ISSUE_TEMPLATE/issue.schema.json`, `automation/issue_validator.py`, two new fixtures, `automation/issue_validator_test.py` |
 | 5 | Results artifact | `../results/ISSUE_JSON_SHAPE_CORRECTION_RESULTS.md` |
+| 6 | The at-most-one half ungated from the milestone | `automation/issue_validator.py`, `automation/fixtures/shape_invalid_scheduled_both_pair_labels.json`, `automation/issue_validator_test.py` |
 
 ### Step 1 — §1.3 and the parse anchor
 
@@ -186,11 +189,12 @@ Add tests: the AC fixture fails with an error naming `acs[1]`; the title fixture
 | AC105.9 | No milestone and neither pair label fails validation, naming what is missing | The Step 3 test for that case passes, asserting the message names the pair |
 | AC105.10 | No milestone and both pair labels fails validation, naming both | The Step 3 test for that case passes, asserting both label names appear in the message |
 | AC105.11 | No milestone and exactly one pair label validates, and the printed command carries that label among its `--label` flags | The Step 3 test for that case passes, asserting `errors == []` and the label's presence in `build_command`'s output |
-| AC105.12 | Each of the four cases has its own test, named for the case it covers | `pytest automation/issue_validator_test.py -k TestLabelPairCases -v` lists four tests, all passing — the three above plus the milestone-with-a-pair-label case |
+| AC105.12 | Each of the four cases has its own test, named for the case it covers | `pytest automation/issue_validator_test.py -k TestLabelPairCases -v` lists the four cases #105 names — `..._neither_label_...`, `..._both_labels_...`, `..._exactly_one_label_...` and `..._a_milestone_carrying_a_pair_label_validates` — all passing. The class also holds `AC105.17`'s test, so the class count is five |
 | AC105.13 | No fixture declares a `type` key, and every fixture that carried a non-null one now carries that value in `labels` | `grep -rn '^  "type"' automation/fixtures/` returns zero hits; the Step 2 fixture set is the evidence for the second half, recorded per file in the results artifact |
 | AC105.14 | No fixture filename contains `type` | `ls automation/fixtures/ \| grep -c type` prints `0`. Four of the five are renamed; `ac2_4_type_label_in_labels.json` is deleted, its case having become the correct form — see the Decision Log |
 | AC105.15 | `pytest automation/` passes, with the count recorded against the baseline | `pytest automation/ -q`; baseline 41 passed, recorded in the results artifact §5 |
 | AC105.16 | `pytest` passes at or above the CHANGELOG baseline, and nothing under `workmain/**` or `tests/**` is touched | `pytest -q` reports 934 or more passed; `git diff --name-only main...HEAD \| grep -E '^(workmain\|tests)/'` returns zero hits |
+| AC105.17 | A pair label is refused in duplicate whatever the milestone: an issue carrying both `defect` and `gap` fails whether or not it is scheduled | `test_label_pair_a_milestone_carrying_both_labels_still_fails` and `test_label_pair_unscheduled_with_both_labels_fails_naming_both` both pass; the error names both labels and does not say "unscheduled" |
 | AC88.1 | A newline inside an `acs` item is rejected, naming the offending item's index | The Step 4 test passes, asserting an error containing `acs[1]` |
 | AC88.2 | The rejection participates in total reporting — it does not stop the run before other errors are collected | The Step 4 total-reporting test passes, asserting both the newline error and a second unrelated error are present in one run |
 | AC88.3 | A fixture with a newline inside an AC exits non-zero; the existing valid fixtures still exit zero | The Step 4 tests over `single_line_newline_in_ac.json`, `valid_minimal.json` and `valid_full.json` pass |
@@ -202,7 +206,7 @@ Ray verifies AC105.3 and AC105.4 semantically, per `docs/DEVELOPMENT_STANDARDS.m
 ## 6. Test plan
 
 - **Baseline before this work:** `pytest` 934 passed, 0 failed — last CHANGELOG.md entry, per `docs/DEVELOPMENT_STANDARDS.md` §6. `pytest automation/` 41 passed, measured on `main` at authoring time.
-- **Expected after:** `pytest` flat at 934 — no file under `workmain/**` or `tests/**` is touched. `pytest automation/` at 41 − 1 + 9 = 49: one test deleted with its fixture at Step 2, four label-pair case tests added at Step 3, five single-line tests added at Step 4.
+- **Expected after:** `pytest` flat at 934 — no file under `workmain/**` or `tests/**` is touched. `pytest automation/` at 41 − 1 + 11 = 51: one test deleted with its fixture at Step 2, four label-pair case tests added at Step 3, six single-line tests at Step 4, and one scheduled-both-labels case at Step 6.
 - All additions land in `automation/issue_validator_test.py`, the established file for this module. `automation/closeout_acs_test.py` is not touched.
 - Coverage added: the four label-pair cases at the `validate_issue` boundary and, for the passing case, through `build_command`; the single-line refusal on an `acs` item and on `title`; its participation in total reporting; and the two valid fixtures as the negative control.
 
