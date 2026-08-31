@@ -10,7 +10,8 @@ from unittest.mock import patch, call, MagicMock
 
 from click.testing import CliRunner
 
-from workmain.workflows.eod_workflow import _build_step_sequence, _run_review_step, _WORKMAIN_BIN
+from workmain.workflows.eod_workflow import _build_step_sequence, _run_review_step
+from workmain.utils.self_invoke import TIMEOUT_LOCAL, WorkmainRun
 from workmain.cli.commands.eod import eod
 
 MONDAY    = 0
@@ -124,7 +125,8 @@ class TestReviewStepDispatch(unittest.TestCase):
     """Tests that _run_review_step calls the correct time subcommand for the date."""
 
     def _run_review(self, target_date: date):
-        with patch('workmain.workflows.eod_workflow.subprocess.run') as mock_run, \
+        with patch('workmain.workflows.eod_workflow.run_workmain',
+                   return_value=WorkmainRun(returncode=0)) as mock_run, \
              patch('workmain.workflows.eod_workflow._confirm', return_value=True):
             _run_review_step(dry_run=False, target_date=target_date)
         return mock_run
@@ -132,12 +134,12 @@ class TestReviewStepDispatch(unittest.TestCase):
     def test_review_step_uses_time_date_for_past_date(self):
         """Past date: review step runs 'time date YYYY-MM-DD', not 'time today'."""
         mock_run = self._run_review(date(2026, 4, 27))
-        mock_run.assert_called_once_with([_WORKMAIN_BIN, 'time', 'date', '2026-04-27'])
+        mock_run.assert_called_once_with(['time', 'date', '2026-04-27'], timeout=TIMEOUT_LOCAL)
 
     def test_review_step_uses_time_today_for_today(self):
         """Today: review step runs 'time today'."""
         mock_run = self._run_review(date.today())
-        mock_run.assert_called_once_with([_WORKMAIN_BIN, 'time', 'today'])
+        mock_run.assert_called_once_with(['time', 'today'], timeout=TIMEOUT_LOCAL)
 
 
 if __name__ == '__main__':

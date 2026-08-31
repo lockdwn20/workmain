@@ -35,8 +35,9 @@ from workmain.workflows.eod_workflow import (
     _score_match,
     _keyword_score_match,
     _keyword_note_dedup_match,
-    _WORKMAIN_BIN,
 )
+from workmain.workflows.eod_workflow import _run_condense_step, _run_sync_step, _run_email_step
+from workmain.utils.self_invoke import TIMEOUT_LOCAL, WorkmainRun
 
 MONDAY    = 0
 THURSDAY  = 3
@@ -165,7 +166,8 @@ class TestReviewStepDispatch(unittest.TestCase):
     """
 
     def _run_review(self, target_date: date):
-        with patch('workmain.workflows.eod_workflow.subprocess.run') as mock_run, \
+        with patch('workmain.workflows.eod_workflow.run_workmain',
+                   return_value=WorkmainRun(returncode=0)) as mock_run, \
              patch('workmain.workflows.eod_workflow._confirm', return_value=True):
             _run_review_step(dry_run=False, target_date=target_date)
         return mock_run
@@ -173,19 +175,20 @@ class TestReviewStepDispatch(unittest.TestCase):
     def test_review_step_uses_time_date_for_past_date(self):
         """Past date: review step runs 'time date YYYY-MM-DD', not 'time today'."""
         mock_run = self._run_review(date(2026, 4, 27))
-        mock_run.assert_called_once_with([_WORKMAIN_BIN, 'time', 'date', '2026-04-27'])
+        mock_run.assert_called_once_with(['time', 'date', '2026-04-27'], timeout=TIMEOUT_LOCAL)
 
     def test_review_step_uses_time_today_for_today(self):
         """Today: review step runs 'time today'."""
         mock_run = self._run_review(date.today())
-        mock_run.assert_called_once_with([_WORKMAIN_BIN, 'time', 'today'])
+        mock_run.assert_called_once_with(['time', 'today'], timeout=TIMEOUT_LOCAL)
 
     def test_review_step_dry_run_returns_completed(self):
         result = _run_review_step(dry_run=True, target_date=SENTINEL_DATE)
         self.assertEqual(result.status, EodStepStatus.COMPLETED)
 
     def test_review_step_returns_eod_step_result(self):
-        with patch('workmain.workflows.eod_workflow.subprocess.run'), \
+        with patch('workmain.workflows.eod_workflow.run_workmain',
+                   return_value=WorkmainRun(returncode=0)), \
              patch('workmain.workflows.eod_workflow._confirm', return_value=True):
             result = _run_review_step(dry_run=False, target_date=date(2026, 4, 27))
         self.assertIsInstance(result, EodStepResult)
@@ -985,7 +988,7 @@ class TestReportReviewStepCollapse(unittest.TestCase):
     def test_daily_g2_existing_confirmed_report_skips_generation_and_reviews(self):
         self._seed('daily_internal', 'confirmed')
         with patch('workmain.workflows.eod_workflow._is_interactive', return_value=True), \
-             patch('workmain.workflows.eod_workflow.subprocess.run') as mock_run, \
+             patch('workmain.workflows.eod_workflow.run_workmain') as mock_run, \
              patch('workmain.workflows.eod_workflow._prompt_choice', return_value='s'):
             result = _run_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
         mock_run.assert_not_called()
@@ -994,7 +997,7 @@ class TestReportReviewStepCollapse(unittest.TestCase):
     def test_weekly_g2_existing_corrected_report_skips_generation_and_reviews(self):
         self._seed('weekly_client', 'corrected')
         with patch('workmain.workflows.eod_workflow._is_interactive', return_value=True), \
-             patch('workmain.workflows.eod_workflow.subprocess.run') as mock_run, \
+             patch('workmain.workflows.eod_workflow.run_workmain') as mock_run, \
              patch('workmain.workflows.eod_workflow._prompt_choice', return_value='s'), \
              patch.object(SystemStateRepository, 'get_int', return_value=1):
             result = _run_weekly_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
@@ -1007,8 +1010,8 @@ class TestReportReviewStepCollapse(unittest.TestCase):
         self._seed('daily_internal', 'confirmed',
                     report_date=date(2098, 11, 4))
         with patch('workmain.workflows.eod_workflow._is_interactive', return_value=True), \
-             patch('workmain.workflows.eod_workflow.subprocess.run',
-                   return_value=MagicMock(returncode=0)) as mock_run, \
+             patch('workmain.workflows.eod_workflow.run_workmain',
+                   return_value=WorkmainRun(returncode=0)) as mock_run, \
              patch('workmain.workflows.eod_workflow._prompt_choice', return_value='s'):
             _run_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
         mock_run.assert_called_once()
@@ -1019,7 +1022,7 @@ class TestReportReviewStepCollapse(unittest.TestCase):
         already exists for the exact date."""
         self._seed('daily_internal', 'confirmed')
         with patch('workmain.workflows.eod_workflow._is_interactive', return_value=False), \
-             patch('workmain.workflows.eod_workflow.subprocess.run') as mock_run, \
+             patch('workmain.workflows.eod_workflow.run_workmain') as mock_run, \
              patch('workmain.workflows.eod_workflow._prompt_choice') as mock_choice:
             result = _run_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
         mock_run.assert_not_called()
@@ -1031,7 +1034,7 @@ class TestReportReviewStepCollapse(unittest.TestCase):
 
     def test_weekly_g1_no_active_client_skips_without_generating(self):
         with patch.object(SystemStateRepository, 'get_int', return_value=None), \
-             patch('workmain.workflows.eod_workflow.subprocess.run') as mock_run:
+             patch('workmain.workflows.eod_workflow.run_workmain') as mock_run:
             result = _run_weekly_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
         mock_run.assert_not_called()
         self.assertEqual(result.status, EodStepStatus.COMPLETED)
@@ -1042,7 +1045,7 @@ class TestReportReviewStepCollapse(unittest.TestCase):
         """generation_error_fatal=True — daily FAILED even when
         interactive (unchanged from pre-collapse behavior)."""
         with patch('workmain.workflows.eod_workflow._is_interactive', return_value=True), \
-             patch('workmain.workflows.eod_workflow.subprocess.run',
+             patch('workmain.workflows.eod_workflow.run_workmain',
                    side_effect=OSError('boom')):
             result = _run_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
         self.assertEqual(result.status, EodStepStatus.FAILED)
@@ -1051,7 +1054,7 @@ class TestReportReviewStepCollapse(unittest.TestCase):
         """generation_error_fatal=False — weekly stays COMPLETED
         ("non-fatal in CLI") interactively (unchanged)."""
         with patch('workmain.workflows.eod_workflow._is_interactive', return_value=True), \
-             patch('workmain.workflows.eod_workflow.subprocess.run',
+             patch('workmain.workflows.eod_workflow.run_workmain',
                    side_effect=OSError('boom')), \
              patch.object(SystemStateRepository, 'get_int', return_value=1):
             result = _run_weekly_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
@@ -1059,7 +1062,7 @@ class TestReportReviewStepCollapse(unittest.TestCase):
 
     def test_weekly_generation_error_fatal_when_non_interactive(self):
         with patch('workmain.workflows.eod_workflow._is_interactive', return_value=False), \
-             patch('workmain.workflows.eod_workflow.subprocess.run',
+             patch('workmain.workflows.eod_workflow.run_workmain',
                    side_effect=OSError('boom')), \
              patch.object(SystemStateRepository, 'get_int', return_value=1):
             result = _run_weekly_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
@@ -1115,8 +1118,8 @@ class TestReportReviewStepEditBranch(unittest.TestCase):
     def test_daily_edit_branch_applies_correction_with_note(self):
         report = self._seed('daily_internal')
         with patch('workmain.workflows.eod_workflow._is_interactive', return_value=True), \
-             patch('workmain.workflows.eod_workflow.subprocess.run',
-                   return_value=MagicMock(returncode=0)), \
+             patch('workmain.workflows.eod_workflow.run_workmain',
+                   return_value=WorkmainRun(returncode=0)), \
              patch('workmain.workflows.eod_workflow._prompt_choice', return_value='e'), \
              patch('workmain.workflows.eod_workflow._prompt_raw', return_value='Fixed a typo'), \
              patch('workmain.workflows.eod_workflow.edit_in_editor',
@@ -1132,8 +1135,8 @@ class TestReportReviewStepEditBranch(unittest.TestCase):
     def test_weekly_edit_branch_no_note_leaves_correction_note_unset(self):
         report = self._seed('weekly_client')
         with patch('workmain.workflows.eod_workflow._is_interactive', return_value=True), \
-             patch('workmain.workflows.eod_workflow.subprocess.run',
-                   return_value=MagicMock(returncode=0)), \
+             patch('workmain.workflows.eod_workflow.run_workmain',
+                   return_value=WorkmainRun(returncode=0)), \
              patch('workmain.workflows.eod_workflow._prompt_choice', return_value='e'), \
              patch('workmain.workflows.eod_workflow._prompt_raw', return_value=''), \
              patch('workmain.workflows.eod_workflow.edit_in_editor',
@@ -1150,8 +1153,8 @@ class TestReportReviewStepEditBranch(unittest.TestCase):
         content = 'Unchanged content.'
         report = self._seed('daily_internal', content=content)
         with patch('workmain.workflows.eod_workflow._is_interactive', return_value=True), \
-             patch('workmain.workflows.eod_workflow.subprocess.run',
-                   return_value=MagicMock(returncode=0)), \
+             patch('workmain.workflows.eod_workflow.run_workmain',
+                   return_value=WorkmainRun(returncode=0)), \
              patch('workmain.workflows.eod_workflow._prompt_choice', return_value='e'), \
              patch('workmain.workflows.eod_workflow.edit_in_editor', return_value=content):
             result = _run_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
