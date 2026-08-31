@@ -2,9 +2,9 @@
 
 **Status:** Active
 **Author:** Spanner (Role 1)
-**Date:** 20260828
+**Date:** 20260831
 **Spec:** `docs/dev/specs/DOCUMENTATION_DIRECT_PATH_SPEC.md`
-**Released as:** n/a — `chore/*` carries no version bump, tag or Release (§2.2)
+**Released as:** n/a
 
 ---
 
@@ -59,6 +59,8 @@ All three are recorded here rather than as acceptance criteria on #113, at Ray's
 | 2 | No Caliper pass was run on this spec, though §1.2 as it stood at approval still required one | Step 2 of this spec is what makes the pass optional on the direct path. Waived as the first exercise of the rule: the spec is short, its §5 is mechanically checkable, and the one contradiction a review would have found — that `P5a` and `chore.md` made the issue's original AC9 impossible — was found and settled before the spec was written | Ray, 20260828 |
 
 | 3 | `docs/dev/results/_TEMPLATE_RESULTS.md` §3 corrected, added as step 6 after steps 1–5 had shipped. No AC on #113 asks for it | Its §3 read "written by Anvil … he is the only one who can fill it", which deviation 1 makes false on the direct path. Left as a follow-up at first; Ray directed it onto this branch instead, since the branch is what made the sentence wrong. Evidenced by `grep -c 'Anvil on the full path, Role 1 on the direct path' docs/dev/results/_TEMPLATE_RESULTS.md` → `1`, and no `ACn.m` id was invented for it — there is no issue AC it could honestly map to | Ray, 20260828 |
+
+| 4 | The `docs/DEVELOPMENT_STANDARDS.md` and all docs in .claude/skills/closeout were modified to modify role references, references to specs and properly reference the `docs/DEVELOPMENT_STANDARDS.md` | Spanner continues to put spec references in production documents and uses role names and role numbers interchangeably completely disregarding its instructions. All items corrected without the help of Spanner to prevent further scope creep. | Ray, 20260831 |
 
 An earlier draft of #113's AC9 asserted that no change to `.claude/skills/closeout/**` was needed. That was corrected on the issue before the spec was written, not deviated from here.
 

@@ -59,7 +59,7 @@ SPEC  →  APPROVAL  →  IMPLEMENTATION  →  CLOSE-OUT
 - Defects found during verification become their own hotfix, not sprint scope.
 - Acceptance criteria must be mechanically testable. If an AC cannot be checked by running something, rewrite it until it can.
 - A spec may map sub-ACs to the ACs on the originating issue using the numbering `ACn.m`, which is what lets close-out read the set mechanically. An unmapped sub-AC verifies nothing the issue asked for.
-- At least one Role 2 review pass before a spec is approved — on the full path. On the direct path a Caliper pass is optional and at Ray's discretion.
+- At least one Role 2 review pass before a spec is approved — on the full path. On the direct path a Role 2 pass is optional and at Ray's discretion.
 
 ### 1.3 Issue discipline
 
@@ -108,7 +108,7 @@ A spec's steps are ordered work, defined below.
   - Design and results artifacts carry neither a decision log nor a version history.
 - **Markdown is never hard-wrapped.** One line per paragraph, per list item, per table row — let the editor wrap it. A paragraph broken across source lines makes every later edit a reflow, and turns a one-word change into a multi-line diff nobody can review. `MD013` is off in `.markdownlint.json` for this reason.
 - **No version headers or version-history blocks in any document.** Git is the version record. See §3.1 for the code equivalent.
-- Each `docs/dev/` subdirectory holds a `_TEMPLATE_*.md` starting point. Templates are advisory — **template compliance is not a Caliper review criterion.**
+- Each `docs/dev/` subdirectory holds a `_TEMPLATE_*.md` starting point. Templates are advisory — **template compliance is not a Role 2 review criterion.**
 
 ### 1.6 Sequencing
 
