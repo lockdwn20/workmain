@@ -64,11 +64,11 @@ SPEC  →  APPROVAL  →  IMPLEMENTATION  →  CLOSE-OUT
 ### 1.3 Issue discipline
 
 - Work is tracked in GitHub Issues. State is GitHub's own — open or closed. There is no status vocabulary to maintain in prose, and no register or statistics table to keep in step.
-- Labels carry area. `defect`/`gap` is the discriminator pair, applied only to issues with no milestone.
+- Labels carry area, and `defect`/`gap` is the label pair that says what an unscheduled issue is. An issue with no milestone carries exactly one of them.
   - A **defect** is work the project asserted already worked — a spec acceptance criterion, a CHANGELOG entry, a man page — and does not. A **gap** is work never planned, documented, or designed.
-  - A discriminator appearing inside a milestone means that work was pulled in from the unscheduled pool later, not planned as part of it.
+  - The pair is not removed when an issue is later pulled into a milestone. A milestone carrying one means that work came from the unscheduled pool rather than being planned as part of it.
 - What each area label means is its description on GitHub, readable with `gh label list` — not enumerated here, since a prose list is a register that goes stale the first time a label is added.
-- The Github type field is not utilized.
+- GitHub's native issue Type field is not used, and cannot be: Types are an organisation-level feature, so `Repository.issueTypes` is null for this repository and `gh issue create --type` is inert. `defect` and `gap` are ordinary labels and travel as `--label`.
 - A milestone carries the exit condition that closes it, and that condition must cover every issue in it.
 - An issue must be independently verifiable on its own: split into sub-issues only where each piece leaves the repository in a coherent state its own acceptance criteria can verify. Where steps are strictly sequential and individually meaningless, they stay inline as steps in one issue — not split into a parent with children for its own sake.
 - Verification of every AC against delivered code before marking an item complete is required. A spec's say-so is not evidence.

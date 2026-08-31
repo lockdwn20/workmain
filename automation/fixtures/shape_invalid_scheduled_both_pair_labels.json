@@ -1,0 +1,10 @@
+{
+  "title": "Invalid: scheduled standalone carrying both pair labels",
+  "context": "Milestone set and labels carrying defect and gap at once, which no scheduling explains.",
+  "acs": ["AC1: something is true"],
+  "milestone": "Phase 14 — Setup Wizard & Configuration",
+  "parent": null,
+  "labels": ["cli", "defect", "gap"],
+  "blocked_by": [],
+  "blocking": []
+}

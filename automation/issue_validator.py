@@ -8,11 +8,11 @@ GitHub state, then create the issue through `gh issue create`.
 
 The schema (`.github/ISSUE_TEMPLATE/issue.schema.json`) declares the key set
 and each key's type and required-ness. This script owns the rules the schema
-file cannot express: the §1.3 discriminator-pair rule and existence checks
+file cannot express: the §1.3 label-pair rule and existence checks
 against live GitHub state (labels, milestones, referenced issues).
 
 Why this exists: GitHub carries no type-vs-area marking on a label
-(`Repository.issueTypes` is null for this repository), so the discriminator
+(`Repository.issueTypes` is null for this repository), so the label
 pair lives only in `docs/DEVELOPMENT_STANDARDS.md` §1.3, parsed at run
 time rather than hardcoded here — a hardcoded pair would go stale the first
 time §1.3 changes.
@@ -29,12 +29,12 @@ from pathlib import Path
 SCHEMA_RELATIVE_PATH = Path(".github/ISSUE_TEMPLATE/issue.schema.json")
 TEMPLATE_RELATIVE_PATH = Path(".github/ISSUE_TEMPLATE/issue.template.json")
 STANDARDS_RELATIVE_PATH = Path("docs/DEVELOPMENT_STANDARDS.md")
-DISCRIMINATOR_PHRASE = "discriminator pair"
+LABEL_PAIR_PHRASE = "label pair"
 PROJECT_NAME = "WorkmAIn Queue"
 
 
 class ValidationAbort(Exception):
-    """Raised when the §1.3 discriminator parse itself fails (DR4's ordering exception)."""
+    """Raised when the §1.3 label-pair parse itself fails (DR4's ordering exception)."""
 
 
 def find_repo_root(start: Path) -> Path:
@@ -45,12 +45,12 @@ def find_repo_root(start: Path) -> Path:
     raise ValidationAbort(f"could not find a repository root above {start}")
 
 
-def parse_type_labels(standards_path: Path) -> list:
-    """Parse the §1.3 discriminator pair out of the standards file.
+def parse_label_pair(standards_path: Path) -> list:
+    """Parse the §1.3 label pair out of the standards file.
 
     Locates the section from a line starting `### 1.3` to the next line
-    starting `###` or `---`, finds the single line containing the phrase
-    "discriminator pair", and returns its backtick-delimited tokens. That line
+    starting `###` or `---`, finds the first line containing the phrase
+    "label pair", and returns its backtick-delimited tokens. That line
     must carry no other backticked text — every token on it is returned.
     """
     if not standards_path.exists():
@@ -74,25 +74,35 @@ def parse_type_labels(standards_path: Path) -> list:
 
     target_line = None
     for line in lines[start:end]:
-        if DISCRIMINATOR_PHRASE in line:
+        if LABEL_PAIR_PHRASE in line:
             target_line = line
             break
     if target_line is None:
         raise ValidationAbort(
-            f"{standards_path}: could not find the phrase '{DISCRIMINATOR_PHRASE}' in section 1.3"
+            f"{standards_path}: could not find the phrase '{LABEL_PAIR_PHRASE}' in section 1.3"
         )
 
     tokens = re.findall(r"`([^`]+)`", target_line)
     if not tokens:
         raise ValidationAbort(
             f"{standards_path}: no backtick-delimited tokens found on the "
-            f"'{DISCRIMINATOR_PHRASE}' line"
+            f"'{LABEL_PAIR_PHRASE}' line"
         )
     return tokens
 
 
 def load_schema(schema_path: Path) -> dict:
     return json.loads(schema_path.read_text())
+
+
+def _has_line_break(value: str) -> bool:
+    """A line break in a single-line field is refused, not repaired (#88).
+
+    `render_body()` emits one `- ` marker per `acs` item, so an embedded
+    newline renders as a bullet followed by a loose line belonging to no AC,
+    and the created issue silently misrepresents its own AC list.
+    """
+    return "\n" in value or "\r" in value
 
 
 def _check_type(value, type_name: str) -> bool:
@@ -147,6 +157,8 @@ def validate_schema(data, schema: dict):
             max_length = spec.get("max_length")
             if max_length is not None and len(value) > max_length:
                 errors.append(f"key '{key}' must be at most {max_length} characters")
+            if spec.get("single_line") and _has_line_break(value):
+                errors.append(f"key '{key}' must be a single line")
 
         if expected == "array":
             min_items = spec.get("min_items")
@@ -158,29 +170,30 @@ def validate_schema(data, schema: dict):
                     errors.append(f"key '{key}[{i}]' must be of type {item_type}")
                 elif item_type == "string" and not item.strip():
                     errors.append(f"key '{key}[{i}]' must be non-empty")
+                elif item_type == "string" and spec.get("single_line") and _has_line_break(item):
+                    errors.append(f"key '{key}[{i}]' must be a single line")
 
     return errors, normalized
 
 
-def validate_type_rule(data: dict) -> list:
-    """§1.3's discriminator rule: a type label exists if and only if no milestone is set."""
-    milestone = data.get("milestone")
-    type_value = data.get("type")
-    errors = []
-    if milestone is None and type_value is None:
-        errors.append("unscheduled issue carries no type label")
-    if milestone is not None and type_value is not None:
-        errors.append("a scheduled issue must not carry a type label")
-    return errors
+def validate_label_pair_rule(data: dict, label_pair: list) -> list:
+    """§1.3: an issue carries at most one of the label pair, and exactly one when unscheduled.
 
+    The two halves are gated differently, on purpose. *At most one* holds
+    whatever the milestone: two pair labels is incoherent however the issue
+    was scheduled. *At least one* applies only with no milestone — a pair
+    label kept after the work was scheduled is the normal record of
+    something pulled in from the unscheduled pool, and a scheduled issue
+    need not carry one at all.
+    """
+    named = "/".join(label_pair)
+    present = [label for label in data.get("labels") or [] if label in set(label_pair)]
 
-def validate_labels_not_type(data: dict, type_labels: list) -> list:
-    type_set = set(type_labels)
-    return [
-        f"labels must not contain a type label: {label}"
-        for label in data.get("labels", [])
-        if label in type_set
-    ]
+    if len(present) > 1:
+        return [f"issue carries more than one of {named}: {', '.join(present)}"]
+    if not present and data.get("milestone") is None:
+        return [f"unscheduled issue carries none of {named}"]
+    return []
 
 
 def _check_open_issue(field: str, number: int, get_issue_state) -> list:
@@ -192,20 +205,13 @@ def _check_open_issue(field: str, number: int, get_issue_state) -> list:
     return []
 
 
-def validate_live_state(data: dict, type_labels: list, live_labels: set, live_milestones: set, get_issue_state) -> list:
+def validate_live_state(data: dict, live_labels: set, live_milestones: set, get_issue_state) -> list:
     """Check `data` against live GitHub state. `get_issue_state` is the per-number lookup seam."""
     errors = []
 
     for label in data.get("labels", []):
         if label not in live_labels:
             errors.append(f"label does not exist: {label}")
-
-    type_value = data.get("type")
-    if type_value is not None:
-        if type_value not in type_labels:
-            errors.append(f"type is not a recognized type label: {type_value}")
-        if type_value not in live_labels:
-            errors.append(f"label does not exist: {type_value}")
 
     milestone = data.get("milestone")
     if milestone is not None and milestone not in live_milestones:
@@ -239,8 +245,6 @@ def build_command(data: dict, body_file: Path) -> list:
 
     for label in data.get("labels", []):
         cmd += ["--label", label]
-    if data.get("type") is not None:
-        cmd += ["--label", data["type"]]
 
     blocked_by = data.get("blocked_by") or []
     if blocked_by:
@@ -286,12 +290,11 @@ def gh_live_milestones() -> set:
     return {line for line in result.stdout.splitlines() if line}
 
 
-def validate_issue(data: dict, schema: dict, type_labels: list, live_labels: set, live_milestones: set, get_issue_state):
+def validate_issue(data: dict, schema: dict, label_pair: list, live_labels: set, live_milestones: set, get_issue_state):
     """Run every check and return (errors, normalized_data). Total reporting — DR4."""
     errors, normalized = validate_schema(data, schema)
-    errors += validate_type_rule(normalized)
-    errors += validate_labels_not_type(normalized, type_labels)
-    errors += validate_live_state(normalized, type_labels, live_labels, live_milestones, get_issue_state)
+    errors += validate_label_pair_rule(normalized, label_pair)
+    errors += validate_live_state(normalized, live_labels, live_milestones, get_issue_state)
     return errors, normalized
 
 
@@ -316,7 +319,7 @@ def main(argv=None) -> int:
 
     standards_path = repo_root / STANDARDS_RELATIVE_PATH
     try:
-        type_labels = parse_type_labels(standards_path)
+        label_pair = parse_label_pair(standards_path)
     except ValidationAbort as exc:
         print(str(exc), file=sys.stderr)
         return 1
@@ -326,7 +329,7 @@ def main(argv=None) -> int:
     live_milestones = gh_live_milestones()
 
     errors, normalized = validate_issue(
-        data, schema, type_labels, live_labels, live_milestones, gh_issue_state
+        data, schema, label_pair, live_labels, live_milestones, gh_issue_state
     )
 
     if errors:

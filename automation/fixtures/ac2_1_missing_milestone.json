@@ -3,8 +3,7 @@
   "context": "A required key is absent, not just null.",
   "acs": ["AC1: something is true"],
   "parent": null,
-  "labels": ["cli"],
-  "type": "defect",
+  "labels": ["cli", "defect"],
   "blocked_by": [],
   "blocking": []
 }

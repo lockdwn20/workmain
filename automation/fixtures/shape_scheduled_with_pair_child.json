@@ -1,0 +1,10 @@
+{
+  "title": "Scheduled child carrying a pair label",
+  "context": "Milestone set, parent set, and a pair label kept from before it was scheduled.",
+  "acs": ["AC1: something is true"],
+  "milestone": "Phase 14 — Setup Wizard & Configuration",
+  "parent": 100,
+  "labels": ["cli", "defect"],
+  "blocked_by": [],
+  "blocking": []
+}

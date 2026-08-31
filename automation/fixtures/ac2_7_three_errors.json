@@ -1,11 +1,10 @@
 {
   "title": "Three independent errors in one file",
-  "context": "Unknown key, a bad label, and a type-rule violation, all at once.",
+  "context": "Unknown key, a label that is not live, and an unscheduled issue carrying neither pair label.",
   "acs": ["AC1: something is true"],
   "milestone": null,
   "parent": null,
   "labels": ["not-a-real-label"],
-  "type": null,
   "blocked_by": [],
   "blocking": [],
   "extra_bogus_key": true

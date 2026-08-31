@@ -2,7 +2,8 @@
   "title": {
     "type": "string",
     "required": true,
-    "max_length": 256
+    "max_length": 256,
+    "single_line": true
   },
   "context": {
     "type": "string",
@@ -12,12 +13,14 @@
     "type": "array",
     "items": "string",
     "required": true,
-    "min_items": 1
+    "min_items": 1,
+    "single_line": true
   },
   "milestone": {
     "type": "string",
     "nullable": true,
-    "required": true
+    "required": true,
+    "single_line": true
   },
   "parent": {
     "type": "integer",
@@ -28,12 +31,8 @@
     "type": "array",
     "items": "string",
     "required": true,
-    "min_items": 1
-  },
-  "type": {
-    "type": "string",
-    "nullable": true,
-    "required": true
+    "min_items": 1,
+    "single_line": true
   },
   "blocked_by": {
     "type": "array",
