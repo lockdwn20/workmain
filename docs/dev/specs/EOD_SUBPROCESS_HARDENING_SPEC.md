@@ -21,7 +21,9 @@
 | 20260831 | Spanner | Capturing the stdout of a child that prompts the operator hides the prompt while the child still blocks on stdin. `slack post weekly` prompts unconditionally; `gdocs upload all` prompts on sub-upload failure. | DR4 — those two sites capture only when the parent is non-interactive. Under systemd the child aborts on EOF, so capture there is pure gain; in the CLI the prompt is preserved. |
 | 20260831 | Spanner | A timeout is not the same event as a non-zero exit. Four sites currently ignore `returncode` entirely and must still fail on a timeout, because a hung child is exactly what this issue exists to stop. | DR7 — a timeout is always `FAILED`; a non-zero exit keeps each site's existing policy. |
 | 20260831 | Spanner | `check=` would collapse every site's distinct retry/skip/fatal policy into one exception path. | DR6 — not used. Exit codes stay explicit. |
-| 20260831 | Spanner | Timeout constants live with the runner, not with a caller, because Step 3 gives the runner a second caller. | `workmain/utils/workmain_cli.py`. |
+| 20260831 | Ray | `workmain_cli` is the wrong module name — it reads as a general CLI-calling facility, inside a package already called `workmain`. | Renamed `workmain/utils/self_invoke.py`. The module owns self-invocation of the `workmain` entry point and nothing else; DR1 states the boundary and §1 names the three `subprocess` sites that must never route through it. |
+| 20260831 | Spanner | Census: `subprocess` appears in `workmain/**` at five places. Fifteen calls invoke the `workmain` binary (14 in `eod_workflow`, 1 in `report_resend`) and all are in scope; the other three invoke `$EDITOR` or `wsl-notify-send`. The runner therefore covers every self-invocation that exists, and there is no second tranche to extend it to later. | §1 out of scope. Issue #104 removes one self-invocation by extracting a service, so the count trends down, not up. |
+| 20260831 | Spanner | Timeout constants live with the runner, not with a caller, because Step 3 gives the runner a second caller. | `workmain/utils/self_invoke.py`. |
 
 ---
 
@@ -29,17 +31,18 @@
 
 **In scope**
 
-- New module `workmain/utils/workmain_cli.py`: binary resolution, timeout constants, a `WorkmainRun` result, and `run_workmain()` — the only place in the project that invokes the `workmain` binary as a subprocess.
+- New module `workmain/utils/self_invoke.py`: binary resolution, timeout constants, a `WorkmainRun` result, and `run_workmain()` — the only place in the project that invokes the `workmain` binary as a subprocess.
 - `workmain/workflows/eod_workflow.py`: all 14 `subprocess.run` sites converted to `run_workmain()`; `_resolve_workmain_bin()` and `_WORKMAIN_BIN` removed; timeout handling added to every affected step; captured stdout echoed where the operator was previously reading the child's screen output.
 - `workmain/cli/commands/reports.py` `report_resend`: its one `subprocess.run(['workmain', ...])` converted to `run_workmain()`, which also fixes its unresolvable bare binary name.
 - `tests/test_eod_workflow.py`, `tests/test_eod_pipeline.py`: repointed to the new patch target and call signature.
-- New `tests/test_workmain_cli.py`.
+- New `tests/test_self_invoke.py`.
 
 **Out of scope**
 
 - Removing the subprocess boundary. Issue #104 pilots that; this spec only stops the boundary hanging the daemon.
 - `workmain/utils/editor.py:43` and `workmain/cli/commands/notes.py:587`. Both launch `$EDITOR` and wait on a human by design; a timeout there would be a defect, not a fix.
 - `workmain/daemon/delivery.py:120`. Already passes `timeout=`, `check=`, `capture_output=` and `text=`, and invokes `wsl-notify-send`, not the `workmain` binary. It is the pattern this spec follows, not a target of it.
+- Generalising the runner to any binary other than the `workmain` entry point. It is not a shared `subprocess` facility, and a later caller wanting to run something else does not extend it.
 - Making `slack post weekly` or `gdocs upload all` non-interactive. That is the correct end state and belongs in its own issue; it changes two CLI command contracts that issue #94 does not name.
 - Any change to which steps run, in what order, or to any step's existing retry/skip/fatal policy on a non-zero exit.
 
@@ -67,7 +70,7 @@
 
 ## 3. Design rules
 
-- **DR1 — One runner.** `workmain/utils/workmain_cli.py` holds the only `subprocess` invocation of the `workmain` binary in the project. After this work, `grep -rn "subprocess" workmain/ --include=*.py` returns hits only in that module, `utils/editor.py`, `cli/commands/notes.py` and `daemon/delivery.py` — none of which invoke the `workmain` binary.
+- **DR1 — One runner.** `workmain/utils/self_invoke.py` holds the only `subprocess` invocation of the `workmain` binary in the project. After this work, `grep -rn "subprocess" workmain/ --include=*.py` returns hits only in that module, `utils/editor.py`, `cli/commands/notes.py` and `daemon/delivery.py` — none of which invoke the `workmain` binary. The module is not a general `subprocess` facility: `$EDITOR` and `wsl-notify-send` callers stay where they are, because a timeout on `$EDITOR` would be a defect rather than a fix.
 - **DR2 — The runner never raises for the two conditions it exists to report.** A timeout and a non-zero exit are both reported on the returned `WorkmainRun`. Everything else — a missing binary, an `OSError` — propagates unchanged, so each step's existing `except Exception` handler keeps working exactly as it does today.
 - **DR3 — Every call passes an explicit `timeout=`.** `run_workmain()` has no default timeout and the parameter is keyword-only and required. A caller that does not know its bound is given one in §4's table; it is never allowed to omit it.
 - **DR4 — Capture is the default; two sites capture conditionally.** `slack post weekly` and `gdocs upload all` prompt the operator on stdout, so they pass `capture=not _is_interactive()`: captured in the daemon, where the child would abort on EOF anyway and the captured text is the only thing the Slack surface can relay; passed through in the CLI, where the prompt has to reach a human. No other site is conditional.
@@ -84,7 +87,7 @@ Each step ends with a commit.
 
 | Step | Deliverable | Files |
 | --- | --- | --- |
-| 1 | `workmain/utils/workmain_cli.py` — `resolve_workmain_bin()`, the four timeout constants, `WorkmainRun`, `run_workmain()`. Unit tests for timeout capture, non-zero capture, success, `capture=False`, and `OSError` propagation. | `workmain/utils/workmain_cli.py`, `tests/test_workmain_cli.py` |
+| 1 | `workmain/utils/self_invoke.py` — `resolve_workmain_bin()`, the four timeout constants, `WorkmainRun`, `run_workmain()`. Unit tests for timeout capture, non-zero capture, success, `capture=False`, and `OSError` propagation. | `workmain/utils/self_invoke.py`, `tests/test_self_invoke.py` |
 | 2 | Convert all 14 `eod_workflow.py` sites to `run_workmain()` per the table below. Delete `_resolve_workmain_bin` and `_WORKMAIN_BIN`. Add the DR7 timeout branch to every affected step. Echo captured stdout in `_run_review_step` before `_confirm()`, and at the condense, sync, clockify-report and report-generation sites. Repoint the 17 existing test patch sites and the two `_WORKMAIN_BIN` imports. | `workmain/workflows/eod_workflow.py`, `tests/test_eod_workflow.py`, `tests/test_eod_pipeline.py` |
 | 3 | Convert `report_resend`'s call to `run_workmain()`, replacing `check=True` + `except CalledProcessError` with a `WorkmainRun` check, and add a test that a non-zero exit still reports the draft failure without raising. | `workmain/cli/commands/reports.py`, `tests/test_report_history.py` |
 | 4 | Step-level failure tests: a timeout returns `FAILED` with the timeout named, and a non-zero exit returns `FAILED` with stderr in the message, at a representative step of each policy class. | `tests/test_eod_workflow.py` |
@@ -109,7 +112,7 @@ Each step ends with a commit.
 | 1205 | `email save weekly_client` | `TIMEOUT_NETWORK` | default | |
 | `reports.py:746` | `email save <report_type>` | `TIMEOUT_NETWORK` | default | Step 3. |
 
-**Timeout constants** — `workmain/utils/workmain_cli.py`:
+**Timeout constants** — `workmain/utils/self_invoke.py`:
 
 | Constant | Seconds | Rationale |
 | --- | --- | --- |
@@ -128,11 +131,11 @@ Issue #94's AC1 and AC2 are written against fourteen hand-written call sites and
 
 | AC | Criterion | How it is checked |
 | --- | --- | --- |
-| AC1.1 | `subprocess` is invoked against the `workmain` binary in exactly one place. `grep -rn "subprocess" workmain/ --include=*.py` returns hits only in `utils/workmain_cli.py`, `utils/editor.py`, `cli/commands/notes.py` and `daemon/delivery.py`. | the stated `grep` |
+| AC1.1 | `subprocess` is invoked against the `workmain` binary in exactly one place. `grep -rn "subprocess" workmain/ --include=*.py` returns hits only in `utils/self_invoke.py`, `utils/editor.py`, `cli/commands/notes.py` and `daemon/delivery.py`. | the stated `grep` |
 | AC1.2 | `grep -c "subprocess" workmain/workflows/eod_workflow.py` returns 0. | the stated `grep` |
-| AC1.3 | `run_workmain` has no default timeout: calling it without `timeout=` raises `TypeError`. | `pytest tests/test_workmain_cli.py::TestRunWorkmain::test_timeout_is_required` |
+| AC1.3 | `run_workmain` has no default timeout: calling it without `timeout=` raises `TypeError`. | `pytest tests/test_self_invoke.py::TestRunWorkmain::test_timeout_is_required` |
 | AC1.4 | All 15 converted call sites pass an explicit `timeout=`. | `grep -n "run_workmain(" workmain/ -r --include=*.py` — every hit passes `timeout=`, count is 15 |
-| AC2.1 | `run_workmain` passes `capture_output=True, text=True` when `capture` is true, and neither when it is false. | `pytest tests/test_workmain_cli.py::TestRunWorkmain::test_capture_flags` |
+| AC2.1 | `run_workmain` passes `capture_output=True, text=True` when `capture` is true, and neither when it is false. | `pytest tests/test_self_invoke.py::TestRunWorkmain::test_capture_flags` |
 | AC2.2 | The two prompting sites pass `capture=not _is_interactive()`; no other site passes `capture=`. | `grep -n "capture=" workmain/workflows/eod_workflow.py` returns exactly 2 hits, both `not _is_interactive()` |
 | AC3.1 | A subprocess exceeding its timeout returns `EodStepStatus.FAILED` with the timeout value named in the result message. | `pytest tests/test_eod_workflow.py -k timeout` — patches `subprocess.run` to raise `TimeoutExpired` |
 | AC3.2 | A timeout fails the step even at a site whose non-zero-exit path only warns (`_run_condense_step`) and at one that discards the result (`_run_review_step`). | `pytest tests/test_eod_workflow.py -k "timeout and (condense or review)"` |
@@ -148,7 +151,7 @@ Issue #94's AC1 and AC2 are written against fourteen hand-written call sites and
 
 | File | Covers |
 | --- | --- |
-| `tests/test_workmain_cli.py` (new, ~7 tests) | `resolve_workmain_bin` both branches; `timeout=` required; capture flags on and off; `TimeoutExpired` → `WorkmainRun(timed_out=True)`; non-zero → `returncode` and `stderr` carried; `OSError` propagates rather than being swallowed (DR2). |
+| `tests/test_self_invoke.py` (new, ~7 tests) | `resolve_workmain_bin` both branches; `timeout=` required; capture flags on and off; `TimeoutExpired` → `WorkmainRun(timed_out=True)`; non-zero → `returncode` and `stderr` carried; `OSError` propagates rather than being swallowed (DR2). |
 | `tests/test_eod_workflow.py` (~6 new) | AC3.1, AC3.2, AC4.1, AC4.2. Repoint 14 patch targets from `eod_workflow.subprocess.run` to `eod_workflow.run_workmain`; update the 4 exact-call assertions to the new signature; the 3 `side_effect=OSError` tests keep working unchanged under DR2. |
 | `tests/test_eod_pipeline.py` (0 new) | Repoint 1 patch target and 2 call assertions; repoint the `_WORKMAIN_BIN` import. |
 | `tests/test_report_history.py` (~1 new) | AC4.3. |
