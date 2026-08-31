@@ -1,6 +1,6 @@
 # EOD subprocess hardening — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20260831
 **Branch:** `feature/issue-94-eod-subprocess-hardening` (from `dev`)
