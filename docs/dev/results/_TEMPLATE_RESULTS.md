@@ -32,7 +32,7 @@ What shipped, in a paragraph. State plainly whether the work is complete or part
 
 ## 3. Acceptance criteria
 
-Every AC on the **approved spec**, by identifier, checked against **delivered code**. This table is written by Anvil as the last implementation step — he ran the ACs, so he is the only one who can fill it. Close-out verifies that every spec AC has a row and that every row is `Met` or a `Carried` citing its follow-up issue; it does not re-judge them. Item 32 was closed in Phase 13 Sprint 2 with all four ACs unmet and had to be reopened eleven days later; that is what this table exists to prevent.
+Every AC on the **approved spec**, by identifier, checked against **delivered code**. This table is written by whoever implemented the spec, as the last implementation step — Anvil on the full path, Role 1 on the direct path (`docs/DEVELOPMENT_STANDARDS.md` §1.1). They ran the ACs, so they are the only one who can fill it. Close-out verifies that every spec AC has a row and that every row is `Met` or a `Carried` citing its follow-up issue; it does not re-judge them. Item 32 was closed in Phase 13 Sprint 2 with all four ACs unmet and had to be reopened eleven days later; that is what this table exists to prevent.
 
 | AC | Status | Evidence |
 | --- | --- | --- |
