@@ -1,6 +1,6 @@
 # Issue JSON Shape Correction — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20260831
 **Branch:** `chore/issue-105-88-issue-json-shape` (from `main`)
