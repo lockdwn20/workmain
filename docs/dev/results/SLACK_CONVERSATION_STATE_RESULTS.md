@@ -4,7 +4,7 @@
 **Author:** Anvil (Role 3)
 **Date:** 20260901
 **Spec:** `../specs/SLACK_CONVERSATION_STATE_SPEC.md`
-**Released as:** v1.31.0 (planned — tag created at close-out)
+**Released as:** v1.31.0 (tag `v1.31.0`)
 
 ---
 
@@ -88,7 +88,7 @@ Nothing unmet. No AC carried to the backlog.
 ## 5. Verification
 
 - **Test suite:** 972 passed, 0 failed (baseline 953). Clean working tree on `feature/issue-101-slack-conversation-state`.
-- **Live verification:** not yet performed — no running daemon exercised. To confirm post-merge: (a) start the daemon with no `conversation_state.json` and an in-flight `eod_session.json` present → legacy file is unlinked with an INFO log, no session offered; (b) parse an intent, click Approve, then type `yes` → action executes once, second input falls through to a fresh parse; (c) start an EOD session, restart the daemon mid-session → "Welcome back" resume offer.
+- **Live verification:** deferred to after the close-out's post-merge restart, and owned by Ray — the three checks need a running daemon and an operator Slack client, and a pre-merge restart would deploy branch code outside `docs/DEVELOPMENT_STANDARDS.md` §1.4's carve-out. Decided at close-out, 20260901. Procedure: (a) start the daemon with no `conversation_state.json` and an in-flight `eod_session.json` present → legacy file is unlinked with an INFO log, no session offered; (b) parse an intent, click Approve, then type `yes` → action executes once, second input falls through to a fresh parse; (c) start an EOD session, restart the daemon mid-session → "Welcome back" resume offer. Nothing in this document claims these have been run.
 - **Daemon restart** (`feature/*`, `docs/DEVELOPMENT_STANDARDS.md` §2.6): required after the `dev` merge — confirm `ActiveEnterTimestamp` of `workmain-notify.service` postdates the merge commit. Carried by the issue's closing comment, not this file.
   - A merge is not a deployment.
 
