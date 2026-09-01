@@ -1,6 +1,6 @@
 # Slack Conversation State — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20260901
 **Branch:** `feature/issue-101-slack-conversation-state` (from `dev`)
