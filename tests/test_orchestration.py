@@ -1203,5 +1203,34 @@ class TestPreviousWorkingDayGuard(unittest.TestCase):
         self.assertEqual(acceptable_dates_arg, [date.today()])
 
 
+# ---------------------------------------------------------------------------
+# Group 11 — Atomic state-file writer (Issue #101 step 1)
+# ---------------------------------------------------------------------------
+
+class TestWriteJsonAtomic(unittest.TestCase):
+
+    def setUp(self):
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self._dir = Path(self._tmpdir.name)
+
+    def tearDown(self):
+        self._tmpdir.cleanup()
+
+    def test_write_json_atomic(self):
+        """Replaces content rather than appending, sets mode 600, leaves no
+        temp sibling behind, and creates the parent directory itself."""
+        from workmain.daemon.state_io import write_json_atomic
+        path = self._dir / 'nested' / 'state.json'
+
+        write_json_atomic(path, {'a': 1, 'b': [1, 2, 3]})
+        self.assertEqual(json.loads(path.read_text()), {'a': 1, 'b': [1, 2, 3]})
+
+        write_json_atomic(path, {'a': 2})
+        self.assertEqual(json.loads(path.read_text()), {'a': 2})
+
+        self.assertTrue(oct(os.stat(path).st_mode).endswith('600'))
+        self.assertEqual(list(path.parent.glob('*.tmp')), [])
+
+
 if __name__ == '__main__':
     unittest.main()

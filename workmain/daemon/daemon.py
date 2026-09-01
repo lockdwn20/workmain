@@ -104,7 +104,7 @@ def _write_scheduled_jobs(reminders: list, target_date: date) -> None:
         'target_date': str(target_date),
         'pre_meeting_reminders': reminders,
     }
-    _daemon_state_path('scheduled_jobs.json').write_text(json.dumps(payload, indent=2))
+    state_io.write_json_atomic(_daemon_state_path('scheduled_jobs.json'), payload)
 
 
 # ---------------------------------------------------------------------------
