@@ -3,7 +3,7 @@
 **Status:** Draft
 **Author:** Spanner (Role 1)
 **Date:** 20260901
-**Branch:** `feature/slack-conversation-state` (from `dev`)
+**Branch:** `feature/issue-101-slack-conversation-state` (from `dev`)
 **Target release:** v1.31.0
 **Originating item:** Issue #101, child of #99, milestone 7 *Slack Intent Contract*
 **Design study:** `../design/DESIGN_SLACK_CONVERSATION_STATE.md`
