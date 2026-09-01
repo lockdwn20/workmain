@@ -19,6 +19,7 @@ import os
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from workmain.daemon import state_io
 from workmain.daemon.models import Observation
 
 ACK_TTL_DAYS = 7
@@ -99,6 +100,5 @@ class AcknowledgmentStore:
             return []
 
     def _save(self, acks: list) -> None:
-        """Write acknowledgments to disk, creating the directory if needed."""
-        self._path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        self._path.write_text(json.dumps(acks, indent=2))
+        """Write acknowledgments to disk atomically."""
+        state_io.write_json_atomic(self._path, acks)

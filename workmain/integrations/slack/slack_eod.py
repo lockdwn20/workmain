@@ -5,18 +5,16 @@ workflow. Plain-text I/O in Sprint 2. Block Kit UX upgrade in Sprint 3.
 
 from __future__ import annotations
 
-import json
 import logging
-import os
 import threading
-from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
-from pathlib import Path
-from typing import ClassVar, Dict, Optional
+from datetime import date
 
+from workmain.daemon.conversation_state import ConversationStore, SlackEodSession
 from workmain.utils.date_format import format_date_display
 
 logger = logging.getLogger(__name__)
+
+__all__ = ['SlackEodSession', 'SlackEodManager', 'build_morning_briefing']
 
 # ---------------------------------------------------------------------------
 # Control word sets — checked before IntentParser in handle_reply()
@@ -39,105 +37,9 @@ CONTROL_RESUME = frozenset({"continue", "resume"})
 _LONG_RUNNING_STEPS = frozenset({'task_match', 'note_dedup'})
 
 
-# ---------------------------------------------------------------------------
-# Session state
-# ---------------------------------------------------------------------------
-
-@dataclass
-class SlackEodSession:
-    """In-memory state for a single T5 EOD session.
-
-    One session per user_id. Persisted to _SESSION_PATH (chmod 600) after
-    every step so daemon restarts can offer resume. Sessions older than 24 h
-    are discarded on load.
-    """
-    user_id: str
-    channel_id: str
-    target_date: date
-    steps: list
-    current_step_idx: int
-    paused: bool
-    completed: list
-    skipped: list
-    skip_targets: list = field(default_factory=list)  # NEW (Gate 5 §5.2) —
-        # the original --skip argument's value, captured at session
-        # construction time. Distinct from `skipped` (runtime, populated
-        # during execution). Always [] today — the Slack surface has no
-        # mechanism to specify skip targets at 'start eod' time, unlike the
-        # CLI's --skip flag; this field exists so the round-trip is correct
-        # if that ever changes, not because it holds anything today.
-    pending_action: Optional[dict] = None
-    started_at: datetime = field(default_factory=datetime.now)
-
-    # Runtime-only — not persisted, not compared/repr'd. Set by
-    # SlackEodManager when a long-running step (task_match, note_dedup) is
-    # dispatched to a background thread (Gate 5 §5.1).
-    _step_thread: Optional[threading.Thread] = field(default=None, repr=False, compare=False)
-    _cancel_event: Optional[threading.Event] = field(default=None, repr=False, compare=False)
-
-    # Class-level constant — excluded from __init__/__repr__/__eq__ by ClassVar
-    _SESSION_PATH: ClassVar[Path] = Path(
-        os.environ.get('WORKMAIN_STATE_DIR', '~/.workmain')
-    ).expanduser() / 'daemon' / 'eod_session.json'
-
-    def save(self) -> None:
-        """Persist session state to disk (chmod 600). Creates parent dirs."""
-        self._SESSION_PATH.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        payload = {
-            'user_id': self.user_id,
-            'channel_id': self.channel_id,
-            'target_date': str(self.target_date),
-            'current_step_idx': self.current_step_idx,
-            'completed': self.completed,
-            'skipped': self.skipped,
-            'started_at': self.started_at.isoformat(),
-            'paused': self.paused,
-            'pending_action': self.pending_action,
-            'skip_targets': self.skip_targets,
-        }
-        self._SESSION_PATH.write_text(json.dumps(payload, indent=2))
-        self._SESSION_PATH.chmod(0o600)
-
-    @classmethod
-    def load(cls) -> Optional['SlackEodSession']:
-        """Restore session from disk. Returns None if absent, stale, or corrupt."""
-        if not cls._SESSION_PATH.exists():
-            return None
-        try:
-            data = json.loads(cls._SESSION_PATH.read_text())
-            started_at = datetime.fromisoformat(data['started_at'])
-            if datetime.now() - started_at > timedelta(hours=24):
-                cls._SESSION_PATH.unlink(missing_ok=True)
-                return None
-
-            from workmain.workflows.eod_workflow import get_step_sequence
-            session = cls.__new__(cls)
-            session.user_id = data['user_id']
-            session.channel_id = data['channel_id']
-            session.target_date = date.fromisoformat(data['target_date'])
-            session.current_step_idx = data['current_step_idx']
-            session.completed = list(data['completed'])
-            session.skipped = list(data['skipped'])
-            session.started_at = started_at
-            session.paused = data.get('paused', False)
-            session.pending_action = data.get('pending_action')
-            session.skip_targets = data.get('skip_targets', [])
-            session.steps = get_step_sequence(
-                weekday=session.target_date.weekday(),
-                skip=session.skip_targets,
-            )
-            session._step_thread = None
-            session._cancel_event = None
-            return session
-
-        except (KeyError, ValueError, json.JSONDecodeError):
-            cls._SESSION_PATH.unlink(missing_ok=True)
-            return None
-
-    @classmethod
-    def clear(cls) -> None:
-        """Delete the persisted session file."""
-        cls._SESSION_PATH.unlink(missing_ok=True)
+# SlackEodSession lives in workmain/daemon/conversation_state.py alongside
+# ConversationStore, which owns its persistence. Imported above and
+# re-exported for existing callers.
 
 
 # ---------------------------------------------------------------------------
@@ -158,10 +60,10 @@ class SlackEodManager:
     offers to resume or abort.
     """
 
-    def __init__(self, slack_client, daemon) -> None:
+    def __init__(self, slack_client, daemon, store: ConversationStore) -> None:
         self._client = slack_client
         self._daemon = daemon
-        self._sessions: Dict[str, SlackEodSession] = {}
+        self._store = store
         self._intent_parser = None   # lazy
 
     # ------------------------------------------------------------------
@@ -170,16 +72,27 @@ class SlackEodManager:
 
     def has_session(self, user_id: str) -> bool:
         """Return True if user_id has an active T5 session."""
-        return user_id in self._sessions
+        return self._store.has_session(user_id)
+
+    def has_any_session(self) -> bool:
+        """Return True if any user has an active T5 session."""
+        return self._store.has_any_session()
+
+    def discard_session(self, user_id: str) -> None:
+        """Remove an EOD session from memory and disk together."""
+        self._store.discard_session(user_id)
 
     def handle_start_eod(self, user_id: str, channel_id: str) -> None:
         """Start (or offer to resume/abort) a T5 EOD session."""
-        if user_id in self._sessions:
+        if self._store.has_session(user_id):
             self._send(
                 channel_id,
                 "EOD already in progress — reply *resume* to continue or *stop* to end it.",
             )
             return
+
+        # DR10 — an offer made before the session must not survive it.
+        self._store.take_pending(user_id)
 
         steps = self._build_steps()
         session = SlackEodSession(
@@ -194,13 +107,13 @@ class SlackEodManager:
             skip_targets=[],  # Slack has no mechanism to specify skip
                 # targets at 'start eod' time — always empty here.
         )
-        self._sessions[user_id] = session
+        self._store.save_session(session)
         self._send(channel_id, "Starting EOD workflow...")
         self._advance_step(session)
 
     def handle_reply(self, user_id: str, text: str) -> None:
         """Process a reply within an active T5 session."""
-        session = self._sessions.get(user_id)
+        session = self._store.get_session(user_id)
         if session is None:
             return
 
@@ -208,19 +121,19 @@ class SlackEodManager:
 
         # Pending inline correction — check confirmation BEFORE control words
         if session.pending_action is not None:
-            pending = session.pending_action
-            session.pending_action = None
-            from workmain.orchestration.confirmation_gate import ConfirmationGate
-            gate = ConfirmationGate()
-            if gate.is_confirmation(normalized):
-                self._execute_and_reprompt(session, pending)
-                return
-            elif gate.is_rejection(normalized):
-                self._send(session.channel_id, "Cancelled.")
-                self._reprompt_current_step(session)
-                return
-            # Neither — cancel pending, fall through to control word check
-            logger.info("EOD pending action cancelled by new message user=%s", user_id)
+            pending = self._store.take_session_pending(user_id)
+            if pending is not None:
+                from workmain.orchestration.confirmation_gate import ConfirmationGate
+                gate = ConfirmationGate()
+                if gate.is_confirmation(normalized):
+                    self._execute_and_reprompt(session, pending)
+                    return
+                elif gate.is_rejection(normalized):
+                    self._send(session.channel_id, "Cancelled.")
+                    self._reprompt_current_step(session)
+                    return
+                # Neither — cancel pending, fall through to control word check
+                logger.info("EOD pending action cancelled by new message user=%s", user_id)
 
         # Control words. CONTROL_STOP always acts, regardless of whether a
         # step is paused or actively running in a background thread — it's
@@ -334,7 +247,7 @@ class SlackEodManager:
                     fallback_text=f"{header}\n{footer}",
                 )
                 session.paused = True
-                session.save()
+                self._store.save_session(session)
                 return
 
             if not self._handle_step_result(session, step, result):
@@ -343,9 +256,8 @@ class SlackEodManager:
             # loop continues to the next step
 
         # All steps done
-        SlackEodSession.clear()
         self._send_completion_summary(session)
-        del self._sessions[session.user_id]
+        self._store.discard_session(session.user_id)
 
     def _handle_step_result(self, session: SlackEodSession, step: dict, result) -> bool:
         """Apply one EodStepResult to session state and notify Slack.
@@ -371,13 +283,13 @@ class SlackEodManager:
                 blocks=[{"type": "section", "text": {"type": "mrkdwn", "text": f"*✓ {msg}*"}}],
                 fallback_text=f"✓ {msg}",
             )
-            session.save()
+            self._store.save_session(session)
             return True
 
         elif result.status == EodStepStatus.SKIPPED:
             session.skipped.append(step['key'])
             session.current_step_idx += 1
-            session.save()
+            self._store.save_session(session)
             return True
 
         elif result.status == EodStepStatus.PAUSED:
@@ -392,7 +304,7 @@ class SlackEodManager:
                 ],
                 fallback_text=f"{pause_msg}\n{hint}",
             )
-            session.save()
+            self._store.save_session(session)
             return False
 
         elif result.status == EodStepStatus.FAILED:
@@ -408,13 +320,13 @@ class SlackEodManager:
                 ],
                 fallback_text=f"{header}\n{footer}",
             )
-            session.save()
+            self._store.save_session(session)
             return False
 
         # Unrecognized status — treat as a stop, do not silently loop forever.
         logger.error("EOD step '%s' returned unrecognized status: %s", step['key'], result.status)
         session.paused = True
-        session.save()
+        self._store.save_session(session)
         return False
 
     def _run_step_async(self, session: SlackEodSession, step: dict) -> None:
@@ -432,6 +344,9 @@ class SlackEodManager:
             daemon=True,
         )
         session._step_thread = thread
+        # Persist the index a control word just advanced past before a
+        # minutes-long step begins, not after it ends (DR6a).
+        self._store.save_session(session)
         thread.start()
 
     def _run_step_thread(self, session: SlackEodSession, step: dict, cancel_event: threading.Event) -> None:
@@ -442,7 +357,7 @@ class SlackEodManager:
         Once cancel_event is set, this thread must not mutate session state
         at all: the thread that handled 'stop' (_abort_session()) already
         owns cleanup and has already sent the abort message. Touching
-        session/self._sessions here after that point would race it.
+        session state or the store here after that point would race it.
         """
         from workmain.workflows.eod_workflow import run_step
 
@@ -470,7 +385,7 @@ class SlackEodManager:
                 fallback_text=f"{header}\n{footer}",
             )
             session.paused = True
-            session.save()
+            self._store.save_session(session)
             return
 
         if cancel_event.is_set():
@@ -530,7 +445,7 @@ class SlackEodManager:
 
         from workmain.orchestration.confirmation_gate import ConfirmationGate
         prompt = ConfirmationGate().format_prompt(action)
-        session.pending_action = action
+        self._store.set_session_pending(session.user_id, action)
         self._send(session.channel_id, prompt)
 
     def _execute_and_reprompt(self, session: SlackEodSession, action: dict) -> None:
@@ -568,7 +483,6 @@ class SlackEodManager:
         """
         if session._cancel_event is not None:
             session._cancel_event.set()
-        SlackEodSession.clear()
         completed_str = ", ".join(session.completed) if session.completed else "—"
         skipped_str = ", ".join(session.skipped) if session.skipped else "—"
         self._send_blocks(
@@ -579,7 +493,7 @@ class SlackEodManager:
             ],
             fallback_text=f"EOD aborted.\nCompleted: {completed_str}\nSkipped: {skipped_str}",
         )
-        del self._sessions[user_id]
+        self._store.discard_session(user_id)
 
     def _send_completion_summary(self, session: SlackEodSession) -> None:
         """Send the EOD completion summary DM."""

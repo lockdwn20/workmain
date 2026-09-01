@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.31.0] - 2026-09-01
+
+### Changed
+- One module, `workmain/daemon/conversation_state.py`, now owns every piece of Slack DM conversational state: pending confirmation actions (`PendingAction`) and in-progress T5 EOD sessions (`SlackEodSession`, moved here from `slack_eod.py`). `ConversationStore` holds both in memory under one lock, mirrors the whole state to one `conversation_state.json` on every mutation, and reads it once at daemon start — pruning both TTLs and unlinking the legacy `eod_session.json`.
+- The Block Kit button value is now an opaque correlation id rather than the serialized action, so a long note or correction can no longer exceed Slack's 2000-character cap, and the action that executes comes from the store rather than round-tripping through the client. Delivered ahead of issue #102, which owned it.
+- `_execute_action()` posts `result.message or 'Action completed.'`, so an empty result message can no longer reach Slack as an empty DM on the text path.
+- All four daemon state files are written atomically — `write_json_atomic()` in `state_io.py` writes a temp sibling, flushes, fsyncs and renames, and owns parent-directory creation. `last_inspection.json`, `scheduled_jobs.json` and `acknowledgments.json` adopted it alongside the new file.
+
+### Fixed
+- Clicking Approve and then typing an affirmative executed the same action twice, writing duplicate records: the block-action path executed straight from the button value and never cleared the pending action. `take_pending()` is now the single function that consumes a pending record, called by the text path, the approve branch and the reject branch, and atomic under the store's lock.
+- The EOD error branch discarded a session from memory without clearing the persisted file, so the next daemon start offered to resume a session that had been discarded as broken. Discarding is now one call that clears both.
+- A pending action had no expiry, so an offer made in the morning executed on any later affirmative. It now expires after 15 minutes.
+- `SlackEodSession.pending_action` was an unguarded read-modify-write consumed on a different inbound message from the one that set it, so two affirmatives arriving together could both execute an inline correction. Both sides now go through the store under the lock.
+- Advancing onto a long-running EOD step (`task_match`, `note_dedup`) persisted nothing until the background thread finished, so a daemon killed inside that window restored a session that re-ran a step the operator had already advanced past.
+- A pending action offered before `start eod` survived the whole session and could still fire afterwards.
+
+Suite: 972 passed (baseline 953).
+
 ## [1.30.0] - 2026-08-31
 
 ### Changed

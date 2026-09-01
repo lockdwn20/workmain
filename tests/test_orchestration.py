@@ -26,7 +26,14 @@ SENTINEL_DATE = date(2099, 1, 1)
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_daemon(dm_channel='D_TEST'):
+def _make_store(tmp_path=None):
+    """A ConversationStore backed by a throwaway temp file."""
+    from workmain.daemon.conversation_state import ConversationStore
+    base = Path(tmp_path) if tmp_path else Path(tempfile.mkdtemp())
+    return ConversationStore(path=base / 'daemon' / 'conversation_state.json')
+
+
+def _make_daemon(dm_channel='D_TEST', store=None):
     """Build a WorkmAInDaemon with a mock socket client (no real Slack)."""
     from workmain.daemon.daemon import WorkmAInDaemon
     from workmain.integrations.slack.slack_eod import SlackEodManager
@@ -34,13 +41,14 @@ def _make_daemon(dm_channel='D_TEST'):
 
     daemon = WorkmAInDaemon.__new__(WorkmAInDaemon)
     daemon._dm_channel = dm_channel
-    daemon._pending = {}
+    daemon._operator_user_id = 'U_OP'
+    daemon._store = store or _make_store()
     daemon._gate = ConfirmationGate()
     daemon._intent_parser = None
     daemon._socket_client = MagicMock()
     daemon._eod_manager = MagicMock(spec=SlackEodManager)
     daemon._eod_manager.has_session.return_value = False
-    daemon._eod_manager._sessions = {}
+    daemon._eod_manager.has_any_session.return_value = False
     return daemon
 
 
@@ -69,8 +77,8 @@ def _dm_event(ts='1000000001.000000', text='log 1h for testing', user='U_OP',
     }
 
 
-def _block_action_payload(action_id, value, action_ts='2000000001.000000'):
-    return {
+def _block_action_payload(action_id, value, action_ts='2000000001.000000', user='U_OP'):
+    payload = {
         'type': 'block_actions',
         'actions': [
             {
@@ -80,6 +88,9 @@ def _block_action_payload(action_id, value, action_ts='2000000001.000000'):
             }
         ],
     }
+    if user is not None:
+        payload['user'] = {'id': user}
+    return payload
 
 
 # ---------------------------------------------------------------------------
@@ -129,30 +140,24 @@ class TestDaemonSocketDispatch(unittest.TestCase):
         handler.assert_not_called()
 
     def test_block_actions_approve_routes_to_executor(self):
-        """wm_approve block action payload reaches handle_block_action."""
+        """wm_approve correlates by token and reaches _execute_action."""
         daemon = _make_daemon()
         action_dict = {'action': 'create_note', 'content': 'test'}
-        payload = _block_action_payload('wm_approve', json.dumps(action_dict))
+        pending = daemon._store.put_pending('U_OP', action_dict)
+        payload = _block_action_payload('wm_approve', pending.action_id)
 
-        with patch.object(daemon, '_execute_action') as mock_exec, \
-             patch.object(daemon, '_maybe_post_correction_summary'):
-            # Simulate block_actions directly (not via socket) to stay synchronous
-            from workmain.orchestration.action_executor import ActionResult
-            mock_result = ActionResult(success=True, message='Done.')
-            with patch('workmain.daemon.daemon.get_db') as mock_db:
-                mock_session = MagicMock()
-                mock_db.return_value.get_session.return_value = mock_session
-                with patch('workmain.orchestration.action_executor.ActionExecutor') as mock_ae:
-                    mock_ae.return_value.execute.return_value = mock_result
-                    daemon.handle_block_action(payload)
-            daemon._socket_client.post_message.assert_called()
+        with patch.object(daemon, '_execute_action') as mock_exec:
+            daemon.handle_block_action(payload)
+        mock_exec.assert_called_once_with(action_dict)
 
     def test_block_actions_reject_sends_rejection_message(self):
-        """wm_reject block action posts 'Action rejected.' DM."""
+        """wm_reject with a matching token posts 'Action rejected.' and clears."""
         daemon = _make_daemon()
-        payload = _block_action_payload('wm_reject', 'reject')
+        pending = daemon._store.put_pending('U_OP', {'action': 'create_note', 'content': 'x'})
+        payload = _block_action_payload('wm_reject', pending.action_id)
         daemon.handle_block_action(payload)
         daemon._socket_client.post_message.assert_called_once_with('D_TEST', 'Action rejected.')
+        self.assertIsNone(daemon._store.take_pending('U_OP'))
 
     def test_acknowledgment_sent_before_dispatch(self):
         """Socket ack (send_socket_mode_response) is called before handler thread."""
@@ -231,37 +236,38 @@ class TestConfirmationGateBlocks(unittest.TestCase):
 
     def test_format_blocks_returns_two_block_list(self):
         action = {'action': 'create_note', 'content': 'test note'}
-        blocks = self.gate.format_blocks(action)
+        blocks = self.gate.format_blocks(action, 'ID1')
         self.assertEqual(len(blocks), 2)
         self.assertEqual(blocks[0]['type'], 'section')
         self.assertEqual(blocks[1]['type'], 'actions')
 
     def test_format_blocks_approve_action_id(self):
         action = {'action': 'create_note', 'content': 'test'}
-        blocks = self.gate.format_blocks(action)
+        blocks = self.gate.format_blocks(action, 'ID1')
         elements = blocks[1]['elements']
         approve = next(e for e in elements if e.get('action_id') == 'wm_approve')
         self.assertEqual(approve['style'], 'primary')
 
     def test_format_blocks_reject_action_id(self):
         action = {'action': 'create_note', 'content': 'test'}
-        blocks = self.gate.format_blocks(action)
+        blocks = self.gate.format_blocks(action, 'ID1')
         elements = blocks[1]['elements']
         reject = next(e for e in elements if e.get('action_id') == 'wm_reject')
         self.assertEqual(reject['style'], 'danger')
 
-    def test_format_blocks_action_serialized_in_value(self):
+    def test_format_blocks_opaque_id_in_both_values(self):
+        """Both button values carry the opaque correlation id — never the
+        serialized action (delivers #102 AC3 early; deviations table)."""
         action = {'action': 'create_note', 'content': 'hello'}
-        blocks = self.gate.format_blocks(action)
+        blocks = self.gate.format_blocks(action, 'ID-XYZ')
         elements = blocks[1]['elements']
-        approve = next(e for e in elements if e.get('action_id') == 'wm_approve')
-        deserialized = json.loads(approve['value'])
-        self.assertEqual(deserialized, action)
+        for e in elements:
+            self.assertEqual(e['value'], 'ID-XYZ')
 
     def test_format_blocks_truncates_long_description(self):
         long_content = 'x' * 200
         action = {'action': 'create_note', 'content': long_content}
-        blocks = self.gate.format_blocks(action)
+        blocks = self.gate.format_blocks(action, 'ID1')
         section_text = blocks[0]['text']['text']
         # format_prompt truncates at 80 chars for create_note
         self.assertNotIn('(yes/no)', section_text)
@@ -439,8 +445,7 @@ class TestT4Checkin(unittest.TestCase):
         """_send_t4_checkin does not post DM if T5 EOD session is active."""
         import workmain.daemon.scheduler as sched_mod
         daemon = MagicMock()
-        daemon._eod_manager._sessions = {'U_OP': MagicMock()}
-        daemon._eod_manager.has_session.return_value = True
+        daemon._eod_manager.has_any_session.return_value = True
         with patch('workmain.daemon.scheduler._reschedule_t4_checkin') as mock_resched:
             sched_mod._send_t4_checkin(daemon)
         daemon.post_message.assert_not_called()
@@ -508,8 +513,7 @@ class TestT4Checkin(unittest.TestCase):
     def test_t4_rescheduled_after_firing(self):
         """_send_t4_checkin reschedules the next window after posting the DM."""
         daemon = MagicMock()
-        daemon._eod_manager._sessions = {}
-        daemon._eod_manager.has_session.return_value = False
+        daemon._eod_manager.has_any_session.return_value = False
         mock_resched = self._run_send_t4_checkin(daemon, note_hit=None, entry_hit=None)
         daemon.post_message.assert_called_once_with('What are you working on right now?')
         mock_resched.assert_called_once_with(daemon)
@@ -517,8 +521,7 @@ class TestT4Checkin(unittest.TestCase):
     def test_t4_checkin_fires_normally_with_no_recent_activity(self):
         """No recent Note or TimeEntry → DM sent, reschedule called (AC 3)."""
         daemon = MagicMock()
-        daemon._eod_manager._sessions = {}
-        daemon._eod_manager.has_session.return_value = False
+        daemon._eod_manager.has_any_session.return_value = False
         mock_resched = self._run_send_t4_checkin(daemon, note_hit=None, entry_hit=None)
         daemon.post_message.assert_called_once_with('What are you working on right now?')
         mock_resched.assert_called_once_with(daemon)
@@ -526,8 +529,7 @@ class TestT4Checkin(unittest.TestCase):
     def test_t4_checkin_suppressed_by_recent_note(self):
         """Recent Note found → DM suppressed, reschedule called (AC 1/2/5)."""
         daemon = MagicMock()
-        daemon._eod_manager._sessions = {}
-        daemon._eod_manager.has_session.return_value = False
+        daemon._eod_manager.has_any_session.return_value = False
         note = MagicMock()
         note.created_at = datetime.now()
         mock_resched = self._run_send_t4_checkin(daemon, note_hit=note, entry_hit=None)
@@ -537,8 +539,7 @@ class TestT4Checkin(unittest.TestCase):
     def test_t4_checkin_suppressed_by_recent_time_entry(self):
         """Recent TimeEntry found → DM suppressed, reschedule called (AC 1/2/5)."""
         daemon = MagicMock()
-        daemon._eod_manager._sessions = {}
-        daemon._eod_manager.has_session.return_value = False
+        daemon._eod_manager.has_any_session.return_value = False
         entry = MagicMock()
         entry.created_at = datetime.now()
         mock_resched = self._run_send_t4_checkin(daemon, note_hit=None, entry_hit=entry)
@@ -549,8 +550,7 @@ class TestT4Checkin(unittest.TestCase):
         """Suppression path logs at DEBUG level (AC 6)."""
         import workmain.daemon.scheduler as sched_mod
         daemon = MagicMock()
-        daemon._eod_manager._sessions = {}
-        daemon._eod_manager.has_session.return_value = False
+        daemon._eod_manager.has_any_session.return_value = False
         note = MagicMock()
         note.created_at = datetime.now()
         mock_service = MagicMock()
@@ -572,8 +572,7 @@ class TestT4Checkin(unittest.TestCase):
         later of the two timestamps (observability-only, non-blocking)."""
         import workmain.daemon.scheduler as sched_mod
         daemon = MagicMock()
-        daemon._eod_manager._sessions = {}
-        daemon._eod_manager.has_session.return_value = False
+        daemon._eod_manager.has_any_session.return_value = False
         earlier = datetime.now().replace(hour=9, minute=0, second=0, microsecond=0)
         later = datetime.now().replace(hour=9, minute=45, second=0, microsecond=0)
         note = MagicMock()
@@ -693,131 +692,114 @@ class TestT6CorrectionRepresentation(unittest.TestCase):
 # Group 6 — T5 session persistence
 # ---------------------------------------------------------------------------
 
+def _eod_session(user_id='U_OP', channel_id='D_TEST', step_idx=2,
+                 completed=None, skipped=None, paused=False, started_at=None):
+    from workmain.daemon.conversation_state import SlackEodSession
+    kwargs = dict(
+        user_id=user_id,
+        channel_id=channel_id,
+        target_date=date(2099, 1, 1),
+        steps=[
+            {'key': 'note_review', 'num': 1, 'desc': 'Note review'},
+            {'key': 'task_match', 'num': 2, 'desc': 'Task match'},
+            {'key': 'time_review', 'num': 3, 'desc': 'Time review'},
+        ],
+        current_step_idx=step_idx,
+        paused=paused,
+        completed=completed if completed is not None else ['note_review', 'task_match'],
+        skipped=skipped or [],
+    )
+    session = SlackEodSession(**kwargs)
+    if started_at is not None:
+        session.started_at = started_at
+    return session
+
+
 class TestT5SessionPersistence(unittest.TestCase):
+    """ConversationStore persists and restores EOD sessions across restarts."""
 
     def setUp(self):
         self._tmpdir = tempfile.TemporaryDirectory()
-        self._state_dir = self._tmpdir.name
-        # Patch _SESSION_PATH to use temp dir
-        from workmain.integrations.slack.slack_eod import SlackEodSession
-        self._original_path = SlackEodSession._SESSION_PATH
-        SlackEodSession._SESSION_PATH = (
-            Path(self._state_dir) / 'daemon' / 'eod_session.json'
-        )
+        self._path = Path(self._tmpdir.name) / 'daemon' / 'conversation_state.json'
 
     def tearDown(self):
-        from workmain.integrations.slack.slack_eod import SlackEodSession
-        SlackEodSession._SESSION_PATH = self._original_path
         self._tmpdir.cleanup()
 
-    def _make_session(self, user_id='U_OP', channel_id='D_TEST',
-                      step_idx=2, completed=None, skipped=None):
-        from workmain.integrations.slack.slack_eod import SlackEodSession
-        session = SlackEodSession(
-            user_id=user_id,
-            channel_id=channel_id,
-            target_date=date(2099, 1, 1),
-            steps=[
-                {'key': 'note_review', 'num': 1, 'desc': 'Note review'},
-                {'key': 'task_match', 'num': 2, 'desc': 'Task match'},
-                {'key': 'time_review', 'num': 3, 'desc': 'Time review'},
-            ],
-            current_step_idx=step_idx,
-            paused=False,
-            completed=completed or ['note_review', 'task_match'],
-            skipped=skipped or [],
-        )
-        return session
+    def _store(self):
+        from workmain.daemon.conversation_state import ConversationStore
+        return ConversationStore(path=self._path)
 
-    def test_session_save_creates_file(self):
-        session = self._make_session()
-        session.save()
-        self.assertTrue(session._SESSION_PATH.exists())
-        data = json.loads(session._SESSION_PATH.read_text())
-        self.assertEqual(data['user_id'], 'U_OP')
-        self.assertEqual(data['channel_id'], 'D_TEST')
-        self.assertEqual(data['current_step_idx'], 2)
-        self.assertEqual(data['completed'], ['note_review', 'task_match'])
+    def test_save_session_creates_file_mode_600(self):
+        self._store().save_session(_eod_session())
+        self.assertTrue(self._path.exists())
+        self.assertTrue(oct(os.stat(self._path).st_mode).endswith('600'))
+        data = json.loads(self._path.read_text())
+        self.assertEqual(data['sessions'][0]['user_id'], 'U_OP')
+        self.assertEqual(data['sessions'][0]['current_step_idx'], 2)
 
-    def test_session_save_sets_permissions_600(self):
-        session = self._make_session()
-        session.save()
-        import stat
-        mode = oct(os.stat(session._SESSION_PATH).st_mode)
-        self.assertTrue(mode.endswith('600'), f'Expected 600, got {mode}')
+    def test_store_round_trip(self):
+        """Both record types survive a fresh load()."""
+        s1 = self._store()
+        s1.put_pending('U_OP', {'action': 'create_note', 'content': 'hi'})
+        s1.save_session(_eod_session(step_idx=1, completed=['note_review']))
 
-    def test_session_load_restores_correct_fields(self):
-        from workmain.integrations.slack.slack_eod import SlackEodSession
-        session = self._make_session(step_idx=1, completed=['note_review'])
-        session.save()
-        with patch('workmain.workflows.eod_workflow.get_step_sequence',
-                   return_value=session.steps):
-            restored = SlackEodSession.load()
+        s2 = self._store()
+        s2.load()
+        self.assertEqual(s2.take_pending('U_OP'), {'action': 'create_note', 'content': 'hi'})
+        restored = s2.get_session('U_OP')
         self.assertIsNotNone(restored)
-        self.assertEqual(restored.user_id, 'U_OP')
         self.assertEqual(restored.current_step_idx, 1)
         self.assertEqual(restored.completed, ['note_review'])
-        self.assertIsInstance(restored.completed, list)
-        self.assertFalse(restored.paused)
         self.assertIsNone(restored.pending_action)
 
-    def test_session_load_returns_none_if_absent(self):
-        from workmain.integrations.slack.slack_eod import SlackEodSession
-        result = SlackEodSession.load()
-        self.assertIsNone(result)
+    def test_store_load_corrupt_file(self):
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        self._path.write_text('not valid json {{{{')
+        store = self._store()
+        store.load()   # must not raise
+        self.assertFalse(store.has_any_session())
+        self.assertIsNone(store.take_pending('U_OP'))
 
-    def test_session_load_returns_none_if_stale(self):
-        from workmain.integrations.slack.slack_eod import SlackEodSession
-        session = self._make_session()
-        # Write with started_at > 24h ago
-        session._SESSION_PATH.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        stale_time = (datetime.now() - timedelta(hours=25)).isoformat()
-        payload = {
-            'user_id': session.user_id,
-            'channel_id': session.channel_id,
-            'target_date': str(session.target_date),
-            'current_step_idx': session.current_step_idx,
-            'completed': session.completed,
-            'skipped': session.skipped,
-            'started_at': stale_time,
-        }
-        session._SESSION_PATH.write_text(json.dumps(payload))
-        result = SlackEodSession.load()
-        self.assertIsNone(result)
-        self.assertFalse(session._SESSION_PATH.exists())
+    def test_load_absent_file_is_empty_state(self):
+        store = self._store()
+        store.load()
+        self.assertFalse(store.has_any_session())
 
-    def test_session_load_returns_none_on_corrupt_json(self):
-        from workmain.integrations.slack.slack_eod import SlackEodSession
-        session = self._make_session()
-        session._SESSION_PATH.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        session._SESSION_PATH.write_text('not valid json {{{{')
-        result = SlackEodSession.load()
-        self.assertIsNone(result)
-        self.assertFalse(session._SESSION_PATH.exists())
+    def test_stale_session_not_restored(self):
+        """A session older than EOD_SESSION_TTL is dropped on load (DR9a)."""
+        s1 = self._store()
+        s1.save_session(_eod_session(started_at=datetime.now() - timedelta(hours=25)))
+        s2 = self._store()
+        s2.load()
+        self.assertFalse(s2.has_any_session())
+        self.assertEqual(s2.restored_sessions(), [])
 
-    def test_session_clear_deletes_file(self):
-        from workmain.integrations.slack.slack_eod import SlackEodSession
-        session = self._make_session()
-        session.save()
-        self.assertTrue(session._SESSION_PATH.exists())
-        SlackEodSession.clear()
-        self.assertFalse(session._SESSION_PATH.exists())
+    def test_legacy_session_file_removed_on_load(self):
+        legacy = self._path.parent / 'eod_session.json'
+        legacy.parent.mkdir(parents=True, exist_ok=True)
+        legacy.write_text('{}')
+        self._store().load()
+        self.assertFalse(legacy.exists())
+
+    def test_discard_session_removes_from_memory_and_disk(self):
+        store = self._store()
+        store.save_session(_eod_session())
+        store.discard_session('U_OP')
+        self.assertFalse(store.has_session('U_OP'))
+        fresh = self._store()
+        fresh.load()
+        self.assertFalse(fresh.has_session('U_OP'))
 
     def test_session_not_started_when_one_already_active(self):
-        """handle_start_eod guard fires when session already in _sessions."""
-        from workmain.integrations.slack.slack_eod import SlackEodManager, SlackEodSession
+        """handle_start_eod guard fires when a session is already registered."""
+        from workmain.integrations.slack.slack_eod import SlackEodManager
         mock_client = MagicMock()
-        mock_daemon = MagicMock()
-        manager = SlackEodManager(mock_client, mock_daemon)
-        existing = self._make_session()
-        manager._sessions['U_OP'] = existing
+        store = self._store()
+        store.save_session(_eod_session())
+        manager = SlackEodManager(mock_client, MagicMock(), store)
         manager.handle_start_eod('U_OP', 'D_TEST')
-        # Should send the guard message, not start a new session
         mock_client.post_message.assert_called_once()
-        msg = mock_client.post_message.call_args[0][1]
-        self.assertIn('resume', msg.lower())
-        # Session count unchanged
-        self.assertEqual(len(manager._sessions), 1)
+        self.assertIn('resume', mock_client.post_message.call_args[0][1].lower())
 
 
 # ---------------------------------------------------------------------------
@@ -1201,6 +1183,286 @@ class TestPreviousWorkingDayGuard(unittest.TestCase):
         mock_logger.warning.assert_called_once()
         acceptable_dates_arg = mock_get_obs.call_args[0][0]
         self.assertEqual(acceptable_dates_arg, [date.today()])
+
+
+# ---------------------------------------------------------------------------
+# Group 11 — Atomic state-file writer (Issue #101 step 1)
+# ---------------------------------------------------------------------------
+
+class TestWriteJsonAtomic(unittest.TestCase):
+
+    def setUp(self):
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self._dir = Path(self._tmpdir.name)
+
+    def tearDown(self):
+        self._tmpdir.cleanup()
+
+    def test_write_json_atomic(self):
+        """Replaces content rather than appending, sets mode 600, leaves no
+        temp sibling behind, and creates the parent directory itself."""
+        from workmain.daemon.state_io import write_json_atomic
+        path = self._dir / 'nested' / 'state.json'
+
+        write_json_atomic(path, {'a': 1, 'b': [1, 2, 3]})
+        self.assertEqual(json.loads(path.read_text()), {'a': 1, 'b': [1, 2, 3]})
+
+        write_json_atomic(path, {'a': 2})
+        self.assertEqual(json.loads(path.read_text()), {'a': 2})
+
+        self.assertTrue(oct(os.stat(path).st_mode).endswith('600'))
+        self.assertEqual(list(path.parent.glob('*.tmp')), [])
+
+
+# ---------------------------------------------------------------------------
+# Group 12 — Conversation store: pending actions, correlation, concurrency
+# (Issue #101 steps 2 & 5)
+# ---------------------------------------------------------------------------
+
+class TestConversationStorePending(unittest.TestCase):
+
+    def _store(self):
+        return _make_store()
+
+    def test_mismatched_action_id_leaves_record(self):
+        store = self._store()
+        pa = store.put_pending('U_OP', {'action': 'create_note', 'content': 'x'})
+        self.assertIsNone(store.take_pending('U_OP', 'not-the-id'))
+        self.assertEqual(store.take_pending('U_OP', pa.action_id),
+                         {'action': 'create_note', 'content': 'x'})
+
+    def test_expired_pending_not_executed(self):
+        store = self._store()
+        store.put_pending('U_OP', {'action': 'create_note', 'content': 'x'})
+        store._pending['U_OP'].created_at = datetime.now() - timedelta(minutes=30)
+        self.assertIsNone(store.take_pending('U_OP'))
+        # and the expired record is gone
+        self.assertIsNone(store.take_pending('U_OP'))
+
+    def test_concurrent_take_pending_returns_one_winner(self):
+        import threading as _t
+        store = self._store()
+        store.put_pending('U_OP', {'action': 'create_note', 'content': 'x'})
+        results = []
+        barrier = _t.Barrier(2)
+
+        def grab():
+            barrier.wait()
+            results.append(store.take_pending('U_OP'))
+
+        threads = [_t.Thread(target=grab) for _ in range(2)]
+        for th in threads:
+            th.start()
+        for th in threads:
+            th.join()
+        self.assertEqual(sum(1 for r in results if r is not None), 1)
+
+    def test_long_action_button_value_under_slack_cap(self):
+        from workmain.orchestration.confirmation_gate import ConfirmationGate
+        store = self._store()
+        action = {'action': 'write_correction_note', 'note': 'z' * 4000}
+        pa = store.put_pending('U_OP', action)
+        blocks = ConfirmationGate().format_blocks(action, pa.action_id)
+        for e in blocks[1]['elements']:
+            self.assertLess(len(e['value']), 2000)
+
+
+class TestDoubleExecution(unittest.TestCase):
+    """A confirmed action executes exactly once regardless of the order the
+    button click and the affirmative text arrive in (AC2)."""
+
+    def test_block_approve_then_yes_executes_once(self):
+        daemon = _make_daemon()
+        action = {'action': 'create_note', 'content': 'once'}
+        pa = daemon._store.put_pending('U_OP', action)
+        with patch.object(daemon, '_execute_action') as mock_exec, \
+             patch.object(daemon, '_dispatch_message') as mock_dispatch:
+            daemon.handle_block_action(_block_action_payload('wm_approve', pa.action_id))
+            daemon.handle_message(_dm_event(text='yes'))
+        mock_exec.assert_called_once_with(action)
+        mock_dispatch.assert_called_once()   # 'yes' fell through to a fresh parse
+
+    def test_yes_then_block_approve_executes_once(self):
+        daemon = _make_daemon()
+        action = {'action': 'create_note', 'content': 'once'}
+        pa = daemon._store.put_pending('U_OP', action)
+        with patch.object(daemon, '_execute_action') as mock_exec, \
+             patch.object(daemon, '_dispatch_message'):
+            daemon.handle_message(_dm_event(text='yes'))
+            daemon.handle_block_action(_block_action_payload('wm_approve', pa.action_id))
+        mock_exec.assert_called_once_with(action)
+        # the stale click was refused
+        self.assertTrue(any(
+            'no longer active' in c.args[1]
+            for c in daemon._socket_client.post_message.call_args_list
+        ))
+
+    def test_block_reject_clears_pending(self):
+        daemon = _make_daemon()
+        pa = daemon._store.put_pending('U_OP', {'action': 'create_note', 'content': 'x'})
+        with patch.object(daemon, '_execute_action') as mock_exec, \
+             patch.object(daemon, '_dispatch_message'):
+            daemon.handle_block_action(_block_action_payload('wm_reject', pa.action_id))
+            daemon.handle_message(_dm_event(text='yes'))
+        mock_exec.assert_not_called()
+
+    def test_stale_reject_does_not_clear_current_pending(self):
+        daemon = _make_daemon()
+        pa = daemon._store.put_pending('U_OP', {'action': 'create_note', 'content': 'x'})
+        daemon.handle_block_action(_block_action_payload('wm_reject', 'stale-id'))
+        self.assertTrue(any(
+            'no longer active' in c.args[1]
+            for c in daemon._socket_client.post_message.call_args_list
+        ))
+        self.assertEqual(daemon._store.take_pending('U_OP', pa.action_id),
+                         {'action': 'create_note', 'content': 'x'})
+
+    def test_actor_resolution(self):
+        # payload with user.id present → used
+        daemon = _make_daemon()
+        pa = daemon._store.put_pending('U_ALICE', {'action': 'create_note', 'content': 'x'})
+        with patch.object(daemon, '_execute_action') as mock_exec:
+            daemon.handle_block_action(_block_action_payload('wm_approve', pa.action_id, user='U_ALICE'))
+        mock_exec.assert_called_once()
+
+        # payload without user → falls back to cached operator id
+        daemon2 = _make_daemon()
+        pa2 = daemon2._store.put_pending('U_OP', {'action': 'create_note', 'content': 'x'})
+        with patch.object(daemon2, '_execute_action') as mock_exec2:
+            daemon2.handle_block_action(_block_action_payload('wm_approve', pa2.action_id, user=None))
+        mock_exec2.assert_called_once()
+
+    def test_empty_result_message_posts_fallback(self):
+        from workmain.orchestration.action_executor import ActionResult
+        daemon = _make_daemon()
+        with patch('workmain.daemon.daemon.get_db') as mock_db, \
+             patch('workmain.orchestration.action_executor.ActionExecutor') as mock_ae, \
+             patch.object(daemon, '_maybe_post_correction_summary'):
+            mock_db.return_value.get_session.return_value = MagicMock()
+            mock_ae.return_value.execute.return_value = ActionResult(success=True, message='')
+            daemon._execute_action({'action': 'create_note', 'content': 'x'})
+        daemon._socket_client.post_message.assert_any_call('D_TEST', 'Action completed.')
+
+
+class TestEodStateThroughStore(unittest.TestCase):
+    """EOD session lifecycle and session.pending_action go through the store
+    (AC6, AC14, AC16, AC17)."""
+
+    def setUp(self):
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self._path = Path(self._tmpdir.name) / 'daemon' / 'conversation_state.json'
+
+    def tearDown(self):
+        self._tmpdir.cleanup()
+
+    def _store(self):
+        from workmain.daemon.conversation_state import ConversationStore
+        return ConversationStore(path=self._path)
+
+    def _manager(self, store):
+        from workmain.integrations.slack.slack_eod import SlackEodManager
+        return SlackEodManager(MagicMock(), MagicMock(), store)
+
+    def test_eod_error_leaves_no_resumable_state(self):
+        daemon = _make_daemon(store=self._store())
+        daemon._store.save_session(_eod_session())
+        daemon._eod_manager.has_session.return_value = True
+        daemon._eod_manager.handle_reply.side_effect = RuntimeError('boom')
+        daemon.handle_message(_dm_event(text='anything'))
+        fresh = self._store()
+        fresh.load()
+        self.assertFalse(fresh.has_any_session())
+
+    def test_start_eod_discards_pending_action(self):
+        store = self._store()
+        store.put_pending('U_OP', {'action': 'create_note', 'content': 'stale offer'})
+        manager = self._manager(store)
+        with patch.object(manager, '_advance_step'):
+            manager.handle_start_eod('U_OP', 'D_TEST')
+        self.assertIsNone(store.take_pending('U_OP'))
+
+    def test_start_eod_persists_session_on_insert(self):
+        store = self._store()
+        manager = self._manager(store)
+        with patch.object(manager, '_advance_step'):
+            manager.handle_start_eod('U_OP', 'D_TEST')
+        fresh = self._store()
+        fresh.load()
+        self.assertTrue(fresh.has_session('U_OP'))
+
+    def test_resume_offer_from_restored_session(self):
+        s1 = self._store()
+        s1.save_session(_eod_session(step_idx=1, paused=True))
+        s2 = self._store()
+        s2.load()
+        daemon = _make_daemon(store=s2)
+        daemon._maybe_offer_eod_resume()
+        self.assertTrue(any(
+            'Welcome back' in c.args[1]
+            for c in daemon._socket_client.post_message.call_args_list
+        ))
+
+    def test_cleared_inline_pending_not_resurrected(self):
+        store = self._store()
+        session = _eod_session()
+        session.pending_action = {'action': 'create_note', 'content': 'inline'}
+        store.save_session(session)
+        self.assertEqual(store.take_session_pending('U_OP'),
+                         {'action': 'create_note', 'content': 'inline'})
+        fresh = self._store()
+        fresh.load()
+        self.assertIsNone(fresh.get_session('U_OP').pending_action)
+
+    def test_set_inline_pending_persisted(self):
+        store = self._store()
+        store.save_session(_eod_session())
+        store.set_session_pending('U_OP', {'action': 'create_note', 'content': 'inline'})
+        fresh = self._store()
+        fresh.load()
+        self.assertEqual(fresh.get_session('U_OP').pending_action,
+                         {'action': 'create_note', 'content': 'inline'})
+
+    def test_concurrent_take_session_pending_returns_one_winner(self):
+        import threading as _t
+        store = self._store()
+        session = _eod_session()
+        session.pending_action = {'action': 'create_note', 'content': 'inline'}
+        store.save_session(session)
+        results = []
+        barrier = _t.Barrier(2)
+
+        def grab():
+            barrier.wait()
+            results.append(store.take_session_pending('U_OP'))
+
+        threads = [_t.Thread(target=grab) for _ in range(2)]
+        for th in threads:
+            th.start()
+        for th in threads:
+            th.join()
+        self.assertEqual(sum(1 for r in results if r is not None), 1)
+
+    def test_async_dispatch_persists_before_thread_start(self):
+        import workmain.integrations.slack.slack_eod as se
+        store = self._store()
+        manager = self._manager(store)
+        session = _eod_session(step_idx=0, paused=False)
+        store.save_session(session)
+
+        order = []
+        real_save = store.save_session
+        store.save_session = lambda s: (order.append('save'), real_save(s))
+
+        class _FakeThread:
+            def __init__(self, *a, **kw):
+                pass
+            def start(self):
+                order.append('start')
+
+        with patch.object(se.threading, 'Thread', _FakeThread):
+            manager._run_step_async(session, {'key': 'task_match', 'num': 1, 'desc': 'Task match'})
+
+        self.assertEqual(order, ['save', 'start'])
 
 
 if __name__ == '__main__':
