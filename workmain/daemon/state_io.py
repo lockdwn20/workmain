@@ -17,10 +17,27 @@ def daemon_state_path(filename: str) -> Path:
     return state_dir / 'daemon' / filename
 
 
+def write_json_atomic(path, payload, mode: int = 0o600) -> None:
+    """Write payload as JSON to path atomically.
+
+    Writes a sibling temp file, flushes, fsyncs, sets the mode, then
+    os.replace()s it into place so a crash or full disk mid-write can never
+    truncate the live file. Owns parent-directory creation (mode 0o700) so
+    callers do not.
+    """
+    path = Path(path)
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + '.tmp')
+    with open(tmp, 'w') as f:
+        json.dump(payload, f, indent=2)
+        f.flush()
+        os.fsync(f.fileno())
+    os.chmod(tmp, mode)
+    os.replace(tmp, path)
+
+
 def write_last_inspection(observations: list, summary: str, target_date: date) -> None:
     """Write inspection results to the daemon state file for status display."""
-    path = daemon_state_path('last_inspection.json')
-    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     payload = {
         'run_at': datetime.now().isoformat(timespec='seconds'),
         'target_date': str(target_date),
@@ -30,7 +47,7 @@ def write_last_inspection(observations: list, summary: str, target_date: date) -
         ],
         'summary': summary,
     }
-    path.write_text(json.dumps(payload, indent=2))
+    write_json_atomic(daemon_state_path('last_inspection.json'), payload)
 
 
 def read_last_inspection() -> Optional[dict]:

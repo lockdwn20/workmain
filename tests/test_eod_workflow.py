@@ -7,9 +7,11 @@ returns, and review step subprocess dispatch (canonical location after
 extraction).
 """
 
+import tempfile
 import threading
 import unittest
 from datetime import date, datetime
+from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 import pytest
@@ -847,9 +849,11 @@ class TestControlResumeRetries:
 
     def _manager_with_session(self):
         from workmain.integrations.slack.slack_eod import SlackEodManager, SlackEodSession
+        from workmain.daemon.conversation_state import ConversationStore
         client = MagicMock()
         daemon = MagicMock()
-        manager = SlackEodManager(client, daemon)
+        store = ConversationStore(path=Path(tempfile.mkdtemp()) / 'conversation_state.json')
+        manager = SlackEodManager(client, daemon, store)
         session = SlackEodSession(
             user_id='U1', channel_id='D1', target_date=SENTINEL_DATE,
             steps=[
@@ -858,7 +862,7 @@ class TestControlResumeRetries:
             ],
             current_step_idx=0, paused=True, completed=[], skipped=[],
         )
-        manager._sessions['U1'] = session
+        store.save_session(session)
         return manager, session, client
 
     def test_resume_does_not_append_to_skipped(self):
@@ -892,16 +896,18 @@ class TestHandleReplyMidFlightGuard:
 
     def _manager_with_running_session(self):
         from workmain.integrations.slack.slack_eod import SlackEodManager, SlackEodSession
+        from workmain.daemon.conversation_state import ConversationStore
         client = MagicMock()
         daemon = MagicMock()
-        manager = SlackEodManager(client, daemon)
+        store = ConversationStore(path=Path(tempfile.mkdtemp()) / 'conversation_state.json')
+        manager = SlackEodManager(client, daemon, store)
         session = SlackEodSession(
             user_id='U1', channel_id='D1', target_date=SENTINEL_DATE,
             steps=[{'key': 'task_match', 'num': '1/1', 'desc': 'Task match', 'runner': MagicMock()}],
             current_step_idx=0, paused=False, completed=[], skipped=[],
         )
         session._cancel_event = threading.Event()
-        manager._sessions['U1'] = session
+        store.save_session(session)
         return manager, session, client
 
     def test_skip_blocked_while_not_paused(self):
@@ -929,7 +935,7 @@ class TestHandleReplyMidFlightGuard:
         cancellation must work regardless of paused state."""
         manager, session, client = self._manager_with_running_session()
         manager.handle_reply('U1', 'stop')
-        assert 'U1' not in manager._sessions
+        assert not manager.has_session('U1')
         assert session._cancel_event.is_set()
 
 

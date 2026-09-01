@@ -8,7 +8,6 @@ Run via systemd user service (workmain-notify.service).
 Do not run as root — enforced by _check_not_root().
 """
 
-import json
 import logging
 import os
 import signal
@@ -26,6 +25,7 @@ from workmain.daemon.delivery import deliver
 from workmain.daemon.inspection_engine import InspectionEngine
 from workmain.daemon.narration import narrate
 from workmain.daemon import state_io
+from workmain.daemon.conversation_state import ConversationStore
 from workmain.database.connection import get_db
 from workmain.database.repositories.notification_repository import NotificationConfigRepository
 from workmain.services.schedule_service import ScheduleService
@@ -33,7 +33,7 @@ import workmain.daemon.scheduler as _sched_module
 from workmain.daemon.scheduler import build_scheduler, register_all_jobs, scheduler_start, scheduler_stop
 from workmain.integrations.slack import auth
 from workmain.integrations.slack.socket_client import WorkmAInSocketClient
-from workmain.integrations.slack.slack_eod import SlackEodManager, SlackEodSession
+from workmain.integrations.slack.slack_eod import SlackEodManager
 from workmain.orchestration.confirmation_gate import ConfirmationGate
 
 
@@ -104,7 +104,7 @@ def _write_scheduled_jobs(reminders: list, target_date: date) -> None:
         'target_date': str(target_date),
         'pre_meeting_reminders': reminders,
     }
-    _daemon_state_path('scheduled_jobs.json').write_text(json.dumps(payload, indent=2))
+    state_io.write_json_atomic(_daemon_state_path('scheduled_jobs.json'), payload)
 
 
 # ---------------------------------------------------------------------------
@@ -324,7 +324,8 @@ class WorkmAInDaemon:
         self._socket_client: Optional[WorkmAInSocketClient] = None
         self._eod_manager: Optional[SlackEodManager] = None  # set in start()
         self._dm_channel: Optional[str] = None
-        self._pending: dict = {}         # {user_id: action_dict}
+        self._operator_user_id: Optional[str] = None   # cached in start()
+        self._store = ConversationStore()
         self._gate = ConfirmationGate()
         self._intent_parser = None       # lazy
 
@@ -339,6 +340,7 @@ class WorkmAInDaemon:
         bot_token = auth.get_token()
         app_token = auth.get_socket_token()
         operator_user_id = auth.get_operator_user_id()
+        self._operator_user_id = operator_user_id
 
         _warmup_ollama()
 
@@ -351,9 +353,11 @@ class WorkmAInDaemon:
             block_action_handler=self.handle_block_action,
         )
 
+        self._store.load()   # restore persisted conversation state, prune TTLs
+
         # SlackEodManager requires socket_client (for _send) and daemon
         # (for _maybe_post_correction_summary on Path 3 corrections).
-        self._eod_manager = SlackEodManager(self._socket_client, self)
+        self._eod_manager = SlackEodManager(self._socket_client, self, self._store)
 
         _register_signal_handlers(on_shutdown=self.stop)
 
@@ -416,12 +420,12 @@ class WorkmAInDaemon:
                 self._eod_manager.handle_reply(user_id, text)
             except Exception as e:
                 logger.error("EOD handle_reply raised for user=%s: %s", user_id, e)
-                self._eod_manager._sessions.pop(user_id, None)
+                self._store.discard_session(user_id)
                 self.post_message("EOD session error — please reply 'start eod' to begin again.")
             return
 
-        if user_id in self._pending:
-            pending = self._pending.pop(user_id)
+        pending = self._store.take_pending(user_id)
+        if pending is not None:
             if self._gate.is_confirmation(text):
                 self._execute_action(pending)
                 return
@@ -434,36 +438,35 @@ class WorkmAInDaemon:
         self._dispatch_message(user_id, text)
 
     def handle_block_action(self, payload: dict) -> None:
-        """Handle Slack block_actions interactive payload."""
+        """Handle Slack block_actions interactive payload.
+
+        The button value is an opaque correlation token — the store supplies
+        the action that gets executed. A click whose token no longer matches
+        a live pending record (expired, already handled, or stale) is
+        refused, and the current offer is left untouched (DR5).
+        """
         actions = payload.get('actions', [])
         if not actions:
             return
         action = actions[0]
         action_id = action.get('action_id', '')
+        value = action.get('value', '')
+        user_id = (payload.get('user') or {}).get('id') or self._operator_user_id
+
+        _STALE = "That confirmation is no longer active — it may have expired or been handled already."
 
         if action_id == 'wm_approve':
-            try:
-                action_dict = json.loads(action['value'])
-            except (KeyError, json.JSONDecodeError) as e:
-                logger.error("handle_block_action: could not parse action value: %s", e)
-                self.post_message("Error: could not read action data.")
+            pending = self._store.take_pending(user_id, value)
+            if pending is None:
+                self.post_message(_STALE)
                 return
-            db = get_db()
-            session = db.get_session()
-            try:
-                from workmain.orchestration.action_executor import ActionExecutor, ActionExecutorError
-                result = ActionExecutor(session).execute(action_dict)
-                self.post_message(result.message or 'Action completed.')
-                self._maybe_post_correction_summary(result, action_dict)
-            except ActionExecutorError as e:
-                self.post_message(f"Error: {e}")
-            except Exception as e:
-                logger.error("handle_block_action execute error: %s", e)
-                self.post_message("An unexpected error occurred.")
-            finally:
-                session.close()
+            self._execute_action(pending)
 
         elif action_id == 'wm_reject':
+            pending = self._store.take_pending(user_id, value)
+            if pending is None:
+                self.post_message(_STALE)
+                return
             self.post_message('Action rejected.')
 
         else:
@@ -498,9 +501,9 @@ class WorkmAInDaemon:
             self._eod_manager.handle_start_eod(user_id, self._dm_channel)
             return
 
-        self._pending[user_id] = action
+        pending = self._store.put_pending(user_id, action)
         self.post_blocks(
-            blocks=self._gate.format_blocks(action),
+            blocks=self._gate.format_blocks(action, pending.action_id),
             fallback_text=self._gate.format_prompt(action),
         )
 
@@ -511,7 +514,7 @@ class WorkmAInDaemon:
         session = db.get_session()
         try:
             result = ActionExecutor(session).execute(action)
-            self.post_message(result.message)
+            self.post_message(result.message or 'Action completed.')
             self._maybe_post_correction_summary(result, action)
         except ActionExecutorError as e:
             self.post_message(f"Error: {e}")
@@ -558,23 +561,23 @@ class WorkmAInDaemon:
             return None
 
     def _maybe_offer_eod_resume(self) -> None:
-        """Restore persisted T5 session on daemon start and offer resume via DM."""
-        from workmain.integrations.slack.slack_eod import SlackEodSession
-        session = SlackEodSession.load()
-        if session is None:
-            return
+        """Offer resume via DM for any T5 session load() brought back from disk.
+
+        The store already holds the restored sessions — restored_sessions()
+        is the only way to reach one whose user_id the daemon does not
+        otherwise know.
+        """
         if self._eod_manager is None:
             return
-        self._eod_manager._sessions[session.user_id] = session
-        logger.info(
-            "Restored T5 EOD session for user=%s at step=%d",
-            session.user_id, session.current_step_idx,
-        )
-        self._send_eod_resume_offer(session)
+        for session in self._store.restored_sessions():
+            logger.info(
+                "Restored T5 EOD session for user=%s at step=%d",
+                session.user_id, session.current_step_idx,
+            )
+            self._send_eod_resume_offer(session)
 
     def _send_eod_resume_offer(self, session) -> None:
         """Post a resume offer DM for a disk-restored T5 session."""
-        from workmain.integrations.slack.slack_eod import SlackEodSession
         step_idx = session.current_step_idx
         if step_idx < len(session.steps):
             step = session.steps[step_idx]
@@ -584,8 +587,7 @@ class WorkmAInDaemon:
                 f"Reply *resume* to continue or *stop* to end it."
             )
         else:
-            SlackEodSession.clear()
-            self._eod_manager._sessions.pop(session.user_id, None)
+            self._store.discard_session(session.user_id)
 
     def _maybe_post_correction_summary(self, result, action_dict: dict) -> None:
         """T6 — Post updated report summary after a correction action succeeds."""

@@ -342,10 +342,7 @@ def _send_t4_checkin(daemon: Any) -> None:
     fire_at recomputation — suppression simply re-runs the already-correct
     _reschedule_t4_checkin(), which always draws a fresh future delay.
     """
-    if any(
-        daemon._eod_manager.has_session(uid)
-        for uid in list(daemon._eod_manager._sessions)
-    ):
+    if daemon._eod_manager.has_any_session():
         _reschedule_t4_checkin(daemon)
         return
 
