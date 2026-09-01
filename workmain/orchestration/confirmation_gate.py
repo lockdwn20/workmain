@@ -6,8 +6,6 @@ returns formatted strings or Block Kit payloads for the surface to transmit.
 Sprint 2: plain conversational text. Sprint 3: Block Kit upgrade.
 """
 
-import json
-
 _CONFIRMATIONS = frozenset({
     "yes", "y", "yep", "yeah", "yup",
     "confirm", "confirmed", "ok", "okay",
@@ -91,14 +89,17 @@ class ConfirmationGate:
 
         return f"I'll execute '{action_type}'. Confirm? (yes/no)"
 
-    def format_blocks(self, action: dict) -> list:
+    def format_blocks(self, action: dict, action_id: str) -> list:
         """Return a Block Kit payload for confirming the given action.
 
         Section block contains the description text (120-char truncation,
-        same as format_prompt). Actions block contains Approve and Reject buttons.
+        same as format_prompt). Actions block contains Approve and Reject
+        buttons, both carrying action_id as an opaque correlation token —
+        the store, not the button, supplies the action that gets executed.
 
         Args:
             action: Structured action dict from IntentParser.parse().
+            action_id: The pending record's id, put in both button values.
 
         Returns:
             List of Block Kit block dicts.
@@ -121,14 +122,14 @@ class ConfirmationGate:
                         "text": {"type": "plain_text", "text": "Approve"},
                         "style": "primary",
                         "action_id": "wm_approve",
-                        "value": json.dumps(action),
+                        "value": action_id,
                     },
                     {
                         "type": "button",
                         "text": {"type": "plain_text", "text": "Reject"},
                         "style": "danger",
                         "action_id": "wm_reject",
-                        "value": "reject",
+                        "value": action_id,
                     },
                 ],
             },
