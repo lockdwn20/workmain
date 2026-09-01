@@ -23,6 +23,12 @@
 | 20260831 | Ray | Issue #101 AC5's "a configured TTL" prejudges Q3 | Accepted. Restated as "a stated TTL" in AC5.1. Edit the issue's AC at close-out. Design study §5 Q5 |
 | 20260901 | Spanner | `SlackEodSession` must move modules, which issue #101 does not name | Required rather than chosen: the store persists both record types, so co-locating the record with the store is what makes AC8 true without a lazy import between the two modules. Stated in §1 |
 | 20260901 | Spanner | Design study §5 Q6 — whether `SlackEodSession.pending_action` is in scope as a third pending store — is open | Spanner's position is no, recorded in §1 out of scope with its reasoning. Ray to confirm or overturn before approval |
+| 20260901 | Ray | AC10.1's grep is wider than §1's scope: `acknowledgment.py:104` is a fourth bare `write_text` on a daemon state file, named in neither §1 nor step 1 | Accepted. Widened §1 and step 1 rather than narrowing the AC — narrowing would have made DR8 false. §2's "three files, three bare writers" was itself wrong and is corrected here and at design study F8 |
+| 20260901 | Ray | DR5 read literally makes the text path always fail — a user typing an affirmative supplies no action id, and AC2.2 depends on the comparison being conditional | Accepted. DR5 now states that the id is compared only when one is given |
+| 20260901 | Ray | Four of §6's coverage bullets had no AC behind them, including the two-thread `take_pending()` race that §7 itself calls load-bearing; close-out verifies ACs, so that coverage could silently not land | Accepted. Added AC10.2 and AC11–AC14, and every §6 bullet now names its AC |
+| 20260901 | Ray | A pending action offered before `start eod` survives the whole session and can still fire afterwards — `_dispatch_message()` sets pending and the `start_eod` branch returns without touching it | Accepted. New DR10, implemented in step 3, verified by AC14.1 |
+| 20260901 | Ray | Step 4 bundled about seven distinct changes across three modules and reverted all-or-nothing, against §1.4 | Accepted. The `confirmation_gate.py` change is now step 4 on its own; the daemon and scheduler work is step 5 |
+| 20260901 | Ray | DR2 and DR3 together put the fsync inside the lock, which is correct, but nothing said how far the lock may extend | Accepted. DR3 now states the lock is held across a store method and nothing else — never across an Ollama call, a Slack post, or an EOD step |
 
 ---
 
@@ -31,7 +37,7 @@
 **In scope:**
 
 - New module `workmain/daemon/conversation_state.py` — `PendingAction`, `SlackEodSession` (moved, not rewritten), and `ConversationStore`, which owns both in memory and persists both to one file.
-- `workmain/daemon/state_io.py` — new `write_json_atomic()`; `write_last_inspection()` and `_write_scheduled_jobs()` (currently in `daemon.py`) adopt it.
+- `workmain/daemon/state_io.py` — new `write_json_atomic()`; `write_last_inspection()`, `_write_scheduled_jobs()` (currently in `daemon.py`) and `AcknowledgmentStore._save()` (`workmain/daemon/acknowledgment.py`) adopt it. All four daemon state files, not only the new one — DR8 says every one of them, so naming three would make DR8 false.
 - `workmain/daemon/daemon.py` — `_pending` removed; the store is owned, loaded at start and reached through one clearing function on both the text and block-action paths; the duplicated executor block in `handle_block_action` collapses into the existing `_execute_action()`; the three ad-hoc EOD-session cleanups converge on one call.
 - `workmain/integrations/slack/slack_eod.py` — `SlackEodManager` loses `_sessions` and takes the store; `SlackEodSession` loses `save()`/`load()`/`clear()`/`_SESSION_PATH`.
 - `workmain/daemon/scheduler.py` — `_send_t4_checkin()`'s reach into `_eod_manager._sessions`.
@@ -65,7 +71,7 @@ Verified against source on 20260831 on `main` at `e589f9d`. This table carries t
 | The T4 suppression check iterates the manager's private dict | `workmain/daemon/scheduler.py:346-347` |
 | The session holds a live `Thread` and `Event` that are never persisted, and `_abort_session()` depends on that `Event`'s identity | `slack_eod.py:71-75` (`compare=False, repr=False`); `slack_eod.py:569-570` |
 | Session staleness is an inline 24-hour literal, not a named constant | `slack_eod.py:109`, `timedelta(hours=24)` |
-| No daemon state file is written atomically; three files, three bare writers, one chmod | `state_io.py:14` `daemon_state_path()`; `state_io.py:33` `write_text`; `daemon.py:107` `write_text`; `slack_eod.py:98-99` `write_text` + `chmod(0o600)` |
+| No daemon state file is written atomically; four files under `{WORKMAIN_STATE_DIR}/daemon/`, four bare writers, one chmod | `state_io.py:14` `daemon_state_path()`; `state_io.py:33` `write_text`; `daemon.py:107` `write_text`; `acknowledgment.py:104` `write_text`; `slack_eod.py:98-99` `write_text` + `chmod(0o600)` |
 | Nothing outside `slack_eod.py` names the session file; one document does | `grep -rn 'eod_session' workmain/` returns one hit, `slack_eod.py:81`; `docs/SLACK_SETUP.md:215` |
 | Inbound events are dispatched one unbounded thread per event, so two handlers can run at once | `socket_client.py:126-131`, `:137-142` |
 | The `block_actions` payload carries the acting user at `payload['user']['id']` — **asserted from the Slack API contract, not verified against this tree** | design study F19; `daemon.py:436-471`; `tests/test_orchestration.py:72-82` |
@@ -74,13 +80,15 @@ Verified against source on 20260831 on `main` at `e589f9d`. This table carries t
 
 - **DR1 — One module owns conversational state.** `workmain/daemon/conversation_state.py` defines every record type and the only store. `daemon.py` and `slack_eod.py` hold a reference to the store and reach state through its methods; neither keeps a dict of its own, and neither touches the other's state directly.
 - **DR2 — Memory is authoritative, the file is a mirror.** The store holds live objects, because `SlackEodSession._cancel_event` and `._step_thread` cannot be serialized and `_abort_session()` depends on their identity. Every mutating method writes the whole file through before returning. The file is read exactly once, at daemon start.
-- **DR3 — Every mutation happens under one `threading.RLock` held by the store.** Inbound events arrive one thread per event and long-running EOD steps continue on their own thread, so read-decide-write must not be split across the lock. `take_pending()` in particular is one atomic pop.
+- **DR3 — Every mutation happens under one `threading.RLock` held by the store.** Inbound events arrive one thread per event and long-running EOD steps continue on their own thread, so read-decide-write must not be split across the lock. `take_pending()` in particular is one atomic pop. The write-through of DR2, fsync included, happens inside the lock — releasing it first would race memory against the file. **The lock is held across a store method and nothing else.** No caller holds it across an Ollama call, a Slack post, or an `eod_workflow` step: a background step that took the lock before its LLM call would stall every inbound DM for the duration.
 - **DR4 — `take_pending()` is the only function that clears a pending action.** The text path, the approve path and the reject path all call it. Nothing else removes a pending record.
-- **DR5 — A pending record is returned once or never.** `take_pending(user_id, action_id)` returns the record only if it exists, has not outlived `PENDING_ACTION_TTL`, and its id matches the one supplied. A mismatched id leaves the record in place — a stale button click must not destroy the current offer. An expired record is removed and `None` is returned.
+- **DR5 — A pending record is returned once or never.** `take_pending(user_id, action_id=None)` returns the record only if it exists, has not outlived `PENDING_ACTION_TTL`, and the id matches. **The id is compared only when one is given:** a call with no id matches whatever record the user has, which is the text path, where someone typing an affirmative supplies nothing; a call with an id matches only the record carrying it, which is the button path. A mismatched id leaves the record in place — a stale button click must not destroy the current offer. An expired record is removed and `None` is returned.
 - **DR6 — The store, not the client, supplies the action that gets executed.** The button value is an opaque correlation token. No execution path parses an action out of a Slack payload.
 - **DR7 — Discarding an EOD session is one call.** `discard_session(user_id)` removes it from memory and from the file together. No caller pairs those two operations by hand.
 - **DR8 — Every daemon state file is written atomically.** `state_io.write_json_atomic()` writes a sibling temp file, flushes, fsyncs, sets the mode, then `os.replace()`s it into place. No `write_text()` call remains for a state file.
 - **DR9 — This spec adds no database access.** Offering, expiring, correlating and clearing a pending action touch no session and no repository.
+
+- **DR10 — Opening an EOD session discards any pending action for that user.** The two state machines share one channel and one reply stream, so an offer made before a session starts must not survive it: today `_dispatch_message()` sets pending and the `start_eod` branch returns without touching it, so a 09:00 offer outlives the whole session and an affirmative afterwards still fires it. `handle_start_eod()` calls `take_pending()` and drops the result.
 
 An implementer hitting anything these rules do not cover stops at the current step and reports it — `CLAUDE.md` Role 3.
 
@@ -88,11 +96,12 @@ An implementer hitting anything these rules do not cover stops at the current st
 
 | Step | Deliverable | Files |
 | --- | --- | --- |
-| 1 | `write_json_atomic(path, payload, mode=0o600)` in `state_io.py` — temp sibling, flush, fsync, chmod, `os.replace`. `write_last_inspection()` and `_write_scheduled_jobs()` adopt it. Both files become mode 600, which the 700 state directory already implies. | `workmain/daemon/state_io.py`, `workmain/daemon/daemon.py`, `tests/test_orchestration.py` |
-| 2 | New `workmain/daemon/conversation_state.py`: `PENDING_ACTION_TTL = timedelta(minutes=15)`, `EOD_SESSION_TTL = timedelta(hours=24)` (the inline literal, named), `PendingAction`, `SlackEodSession` moved verbatim except that `save`/`load`/`clear`/`_SESSION_PATH` become `to_dict()`/`from_dict()`, and `ConversationStore`. Store API: `load()`, `put_pending()`, `take_pending()`, `get_session()`, `has_session()`, `has_any_session()`, `save_session()`, `discard_session()`. One file, `conversation_state.json`, written via DR8. `load()` unlinks a legacy `eod_session.json` with an INFO log. `slack_eod.py` imports `SlackEodSession` from its new home. | `workmain/daemon/conversation_state.py`, `workmain/integrations/slack/slack_eod.py` |
-| 3 | `SlackEodManager` takes the store in its constructor and loses `_sessions`. `has_session()` delegates; `has_any_session()` and `discard_session()` added. Every `session.save()` becomes `store.save_session(session)`; both `SlackEodSession.clear()` + `del self._sessions[...]` pairs become `store.discard_session(user_id)`. | `workmain/integrations/slack/slack_eod.py` |
-| 4 | `format_blocks(action, action_id)` puts the id in both button values. `daemon.py`: `_pending` deleted; store constructed in `__init__`, `load()`ed in `start()` before the manager is built, passed to it; `_operator_user_id` cached in `start()`. `handle_message()` uses `take_pending(user_id)`. `handle_block_action()` resolves the actor (`payload['user']['id']`, falling back to the cached operator id), calls `take_pending(user_id, value)`, refuses with a message when it gets `None`, and otherwise calls the existing `_execute_action()` — deleting its duplicated executor block. The three EOD cleanups call `discard_session()`. `scheduler._send_t4_checkin()` calls `has_any_session()`. | `workmain/orchestration/confirmation_gate.py`, `workmain/daemon/daemon.py`, `workmain/daemon/scheduler.py` |
-| 5 | Tests per §6, and the `docs/SLACK_SETUP.md:215` file-table row. | `tests/test_orchestration.py`, `tests/test_eod_workflow.py`, `docs/SLACK_SETUP.md` |
+| 1 | `write_json_atomic(path, payload, mode=0o600)` in `state_io.py` — temp sibling, flush, fsync, chmod, `os.replace`. All three pre-existing writers adopt it: `write_last_inspection()`, `_write_scheduled_jobs()` and `AcknowledgmentStore._save()`. All three files become mode 600, which the 700 state directory already implies. | `workmain/daemon/state_io.py`, `workmain/daemon/daemon.py`, `workmain/daemon/acknowledgment.py`, `tests/test_orchestration.py` |
+| 2 | New `workmain/daemon/conversation_state.py`: `PENDING_ACTION_TTL = timedelta(minutes=15)`, `EOD_SESSION_TTL = timedelta(hours=24)` (the inline literal, named), `PendingAction`, `SlackEodSession` moved verbatim except that `save`/`load`/`clear`/`_SESSION_PATH` become `to_dict()`/`from_dict()`, and `ConversationStore`. Store API: `load()`, `put_pending()`, `take_pending()`, `get_session()`, `has_session()`, `has_any_session()`, `save_session()`, `discard_session()`. One file, `conversation_state.json`, written via DR8, mutated under DR3's lock. `load()` unlinks a legacy `eod_session.json` with an INFO log. `slack_eod.py` imports `SlackEodSession` from its new home. | `workmain/daemon/conversation_state.py`, `workmain/integrations/slack/slack_eod.py` |
+| 3 | `SlackEodManager` takes the store in its constructor and loses `_sessions`. `has_session()` delegates; `has_any_session()` and `discard_session()` added. Every `session.save()` becomes `store.save_session(session)`; both `SlackEodSession.clear()` + `del self._sessions[...]` pairs become `store.discard_session(user_id)`. `handle_start_eod()` discards any pending action for the user per DR10. | `workmain/integrations/slack/slack_eod.py` |
+| 4 | `format_blocks(action, action_id)` puts the id in both button values instead of the serialized action. Its one production caller is updated in step 5; this step stands alone so the module that no other step touches has its own revert point. | `workmain/orchestration/confirmation_gate.py` |
+| 5 | `daemon.py`: `_pending` deleted; store constructed in `__init__`, `load()`ed in `start()` before the manager is built, passed to it; `_operator_user_id` cached in `start()`. `handle_message()` uses `take_pending(user_id)`. `handle_block_action()` resolves the actor (`payload['user']['id']`, falling back to the cached operator id), calls `take_pending(user_id, value)`, refuses with a message when it gets `None`, and otherwise calls the existing `_execute_action()` — deleting its duplicated executor block. The three EOD cleanups call `discard_session()`. `scheduler._send_t4_checkin()` calls `has_any_session()`. | `workmain/daemon/daemon.py`, `workmain/daemon/scheduler.py` |
+| 6 | Tests per §6, and the `docs/SLACK_SETUP.md:215` file-table row. | `tests/test_orchestration.py`, `tests/test_eod_workflow.py`, `docs/SLACK_SETUP.md` |
 
 ### Authorization points
 
@@ -100,7 +109,7 @@ An implementer hitting anything these rules do not cover stops at the current st
 
 ## 5. Acceptance criteria
 
-AC1–AC7 map to issue #101's ACs in order. AC5 restates the issue's wording per the Decision Log. AC8 is new and has no counterpart in the issue yet. Edit both at close-out.
+AC1–AC7 map to issue #101's ACs in order, and AC5 restates the issue's wording per the Decision Log. AC8–AC14 have no counterpart in the issue: AC8 closes the two-stores loophole, AC9 records the two #102 ACs delivered early, and AC10–AC14 exist so that no coverage §6 promises can quietly fail to land while the issue still closes green. Edit the issue's ACs at close-out.
 
 | AC | Criterion | How it is checked |
 | --- | --- | --- |
@@ -120,23 +129,34 @@ AC1–AC7 map to issue #101's ACs in order. AC5 restates the issue's wording per
 | AC9.1 | The button value is an opaque id, not the action (delivers #102 AC3 early) | `grep -n 'json.dumps(action)' workmain/orchestration/confirmation_gate.py` returns zero hits |
 | AC9.2 | A 4000-character note produces a button value under 2000 characters (delivers #102 AC4 early) | `pytest tests/test_orchestration.py -k test_long_action_button_value_under_slack_cap` |
 | AC10.1 | Every daemon state file is written atomically | `grep -rn 'write_text' workmain/daemon/ workmain/integrations/slack/slack_eod.py` returns zero hits |
+| AC10.2 | The atomic writer replaces content rather than appending, sets mode 600, and leaves no temp sibling behind | `pytest tests/test_orchestration.py -k test_write_json_atomic` |
+| AC11.1 | Two threads calling `take_pending()` for the same record return it to exactly one caller | `pytest tests/test_orchestration.py -k test_concurrent_take_pending_returns_one_winner` |
+| AC11.2 | The store round-trips both record types through a fresh `load()`, and loads a corrupt file as empty state rather than raising | `pytest tests/test_orchestration.py -k test_store_round_trip or test_store_load_corrupt_file` |
+| AC11.3 | A mismatched action id leaves the pending record in place | `pytest tests/test_orchestration.py -k test_mismatched_action_id_leaves_record` |
+| AC11.4 | A legacy `eod_session.json` is unlinked at load | `pytest tests/test_orchestration.py -k test_legacy_session_file_removed_on_load` |
+| AC12.1 | A block payload carrying `user.id` uses it; one without falls back to the cached operator id | `pytest tests/test_orchestration.py -k test_actor_resolution` |
+| AC13.1 | T4 suppression asks the manager, not a dict | `pytest tests/test_orchestration.py -k test_t4_suppressed_during_active_t5_session`; `grep -n 'has_any_session' workmain/daemon/scheduler.py` returns one hit |
+| AC14.1 | Opening an EOD session discards any pending action for that user (DR10) | `pytest tests/test_orchestration.py -k test_start_eod_discards_pending_action` |
 
 ## 6. Test plan
 
 - **Baseline before this work:** 953 passed, 0 failed — `CHANGELOG.md` [1.30.0].
-- **Expected after:** 953 + ~22 = ~975 passed.
+- **Expected after:** 953 + ~26 = ~979 passed.
 
 `tests/test_orchestration.py` is the established home for daemon dispatch, Block Kit and T5 persistence coverage and takes the bulk of this. Its `TestT5SessionPersistence` group currently patches `SlackEodSession._SESSION_PATH`; that attribute is gone, so the group's setUp switches to pointing a `ConversationStore` at a temp directory. `_make_daemon()` loses `daemon._pending` and gains a store. `test_format_blocks_action_serialized_in_value` asserts the defect this spec removes and is rewritten to assert the opaque id — record it in the results artifact's deviations table with the two #102 ACs.
 
 New coverage:
 
-- **Store unit tests** — put/take round-trip; take returns `None` on an unknown user, an expired record, and a mismatched id; a mismatched id leaves the record in place; write-through survives a fresh `load()`; a corrupt file loads as empty state rather than raising; a legacy `eod_session.json` is unlinked at load; concurrent `take_pending()` from two threads returns the record to exactly one caller.
+Every bullet below carries an AC, so none of it can quietly fail to land and still close green:
+
+- **Store unit tests** — round-trip and corrupt-file handling (AC11.2), mismatched id leaves the record (AC11.3), legacy file unlinked (AC11.4), and two threads racing `take_pending()` (AC11.1). AC11.1 is the one that proves "exactly one write" under the concurrency §2 establishes; §7 calls it the load-bearing part, so it is an AC and not a promise.
 - **Double-execution** — AC2.1 and AC2.2, both orderings.
 - **TTL** — AC5.1, plus an expired pending falling through to a fresh intent parse rather than executing.
-- **Session lifecycle** — the `handle_reply` error branch, `_abort_session()` and the past-the-end resume branch each leave no resumable state; `discard_session()` is the only path that does it.
-- **Actor resolution** — a payload carrying `user.id` uses it; a payload without one falls back to the cached operator id.
-- **Atomic write** — `write_json_atomic()` leaves no `.tmp` sibling behind, sets mode 600, and replaces existing content rather than appending.
-- **T4** — `has_any_session()` suppresses the check-in; the existing tests that set `daemon._eod_manager._sessions` directly are rewritten against the public method.
+- **Session lifecycle** — AC6.1: the `handle_reply` error branch, `_abort_session()` and the past-the-end resume branch each leave no resumable state, and `discard_session()` is the only path that does it.
+- **Pending discarded at session start** — AC14.1, covering DR10.
+- **Actor resolution** — AC12.1, both branches.
+- **Atomic write** — AC10.2.
+- **T4** — AC13.1; the existing tests that set `daemon._eod_manager._sessions` directly are rewritten against the public method.
 
 All Slack and Ollama calls stay mocked; no test touches the real state directory.
 
