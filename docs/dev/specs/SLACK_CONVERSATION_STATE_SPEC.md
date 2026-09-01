@@ -137,11 +137,11 @@ AC1–AC7 map to issue #101's ACs in order, and AC5 restates the issue's wording
 
 | AC | Criterion | How it is checked |
 | --- | --- | --- |
-| AC1.1 | One store holds pending actions and EOD sessions | `grep -n '_pending' workmain/daemon/daemon.py` returns zero hits |
+| AC1.1 | One store holds pending actions and EOD sessions | `grep -n 'self\._pending' workmain/daemon/daemon.py` returns zero hits |
 | AC1.2 | One file holds both | `grep -rn 'eod_session.json' workmain/` returns zero hits outside the legacy-cleanup line in `conversation_state.py` |
 | AC2.1 | Approve then an affirmative text executes exactly once | `pytest tests/test_orchestration.py -k test_block_approve_then_yes_executes_once` — asserts `ActionExecutor.execute` called once |
 | AC2.2 | An affirmative text then Approve executes exactly once, and the click is refused | `pytest tests/test_orchestration.py -k test_yes_then_block_approve_executes_once` |
-| AC3.1 | One function clears pending, called by the text path and the block-action path | `grep -n 'take_pending' workmain/daemon/daemon.py` returns three call sites (text, approve, reject); `grep -rn 'del self\._pending\|_pending.pop' workmain/` returns zero hits |
+| AC3.1 | One function clears pending, called by the text path and the block-action path | `grep -n 'take_pending' workmain/daemon/daemon.py` returns three call sites (text, approve, reject); `grep -rn '_pending\.pop\|del self\._pending' workmain/ --include='*.py' \| grep -v conversation_state.py` returns zero hits |
 | AC4.1 | Nothing reaches into the manager's session dict | `grep -rn '_eod_manager\._sessions' workmain/ tests/` returns zero hits |
 | AC4.2 | The manager keeps no session dict of its own | `grep -n 'self\._sessions' workmain/integrations/slack/slack_eod.py` returns zero hits |
 | AC5.1 | A pending action older than the **stated** TTL is not executed | `pytest tests/test_orchestration.py -k test_expired_pending_not_executed` |

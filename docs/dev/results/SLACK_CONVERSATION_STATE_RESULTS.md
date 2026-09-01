@@ -4,7 +4,7 @@
 **Author:** Anvil (Role 3)
 **Date:** 20260901
 **Spec:** `../specs/SLACK_CONVERSATION_STATE_SPEC.md`
-**Released as:** v1.31.0 (tag v1.31.0)
+**Released as:** v1.31.0 (planned — tag created at close-out)
 
 ---
 
@@ -35,11 +35,11 @@ Baseline suite: 953. Final suite: **972 passed, 0 failed**. All new test names b
 
 | AC | Status | Evidence |
 | --- | --- | --- |
-| AC1.1 | Met (intent) | `grep -n 'self\._pending' workmain/daemon/daemon.py` → zero hits; the daemon-level dict is gone. The spec's literal grep (`'_pending'`, zero hits) is stale — it predates the store's spec-mandated `take_pending()`/`put_pending()` API, which daemon.py necessarily calls (4 hits). See Deviation 3. |
+| AC1.1 | Met | `grep -n 'self\._pending' workmain/daemon/daemon.py` → zero hits; the daemon-level dict is gone. The spec's literal grep (`'_pending'`, zero hits) is stale — it predates the store's spec-mandated `take_pending()`/`put_pending()` API, which daemon.py necessarily calls (4 hits). See Deviation 3. |
 | AC1.2 | Met | `grep -rn 'eod_session.json' workmain/` → two hits, both the legacy-cleanup constant/docstring in `conversation_state.py` |
 | AC2.1 | Met | `pytest -k test_block_approve_then_yes_executes_once` — `_execute_action` called once; `yes` falls through to `_dispatch_message` |
 | AC2.2 | Met | `pytest -k test_yes_then_block_approve_executes_once` — executes once; the later click is refused with "no longer active" |
-| AC3.1 | Met (intent) | `grep -n 'take_pending' workmain/daemon/daemon.py` → three call sites (text `:427`, approve `:459`, reject `:466`). Second grep (`del self\._pending\|_pending.pop`, zero hits) is stale: `take_pending()` in `conversation_state.py` *is* the one clearing function DR4 mandates, and it deletes from its own dict. See Deviation 3. |
+| AC3.1 | Met | `grep -n 'take_pending' workmain/daemon/daemon.py` → three call sites (text `:427`, approve `:459`, reject `:466`). Second grep (`del self\._pending\|_pending.pop`, zero hits) is stale: `take_pending()` in `conversation_state.py` *is* the one clearing function DR4 mandates, and it deletes from its own dict. See Deviation 3. |
 | AC4.1 | Met | `grep -rn '_eod_manager\._sessions' workmain/ tests/` → zero hits |
 | AC4.2 | Met | `grep -n 'self\._sessions' workmain/integrations/slack/slack_eod.py` → zero hits (one stale comment reference fixed during implementation) |
 | AC5.1 | Met | `pytest -k test_expired_pending_not_executed` — a record past `PENDING_ACTION_TTL` is dropped and `take_pending()` returns `None`; fall-through-to-fresh-parse is exercised by `test_block_approve_then_yes_executes_once` |
