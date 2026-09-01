@@ -212,7 +212,7 @@ The daemon calls `conversations.open()` at startup to resolve the DM channel.
 | `.env` — `SLACK_BOT_TOKEN` | Bot Token (`xoxb-`) | 600 |
 | `.env` — `SLACK_SOCKET_TOKEN` | App-Level Token (`xapp-`) for Socket Mode | 600 |
 | `~/.workmain/integrations/slack/config.json` | workspace_name, operator_user_id | 600 |
-| `~/.workmain/daemon/eod_session.json` | T5 EOD session state (persisted across restarts) | 600 |
+| `~/.workmain/daemon/conversation_state.json` | Pending confirmation actions and T5 EOD session state (persisted across restarts) | 600 |
 
 None of these files should be committed to version control.
 
