@@ -14,6 +14,7 @@ import os
 import tempfile
 from pathlib import Path
 from unittest.mock import patch, MagicMock
+import pytest
 from click.testing import CliRunner
 
 from workmain.ai.base_provider import (
@@ -22,6 +23,7 @@ from workmain.ai.base_provider import (
     ProviderStatus,
     ProviderError,
     ProviderUnavailableError,
+    ConfigurationError,
 )
 from workmain.ai.providers import PROVIDER_REGISTRY, ClaudeProvider, GeminiProvider, OllamaProvider
 from workmain.ai.providers.ollama import OllamaProvider as OllamaProviderDirect
@@ -155,7 +157,6 @@ _GEMINI_ENV = {'GOOGLE_API_KEY': 'A' * 39}
 @patch.dict(os.environ, _CLAUDE_ENV)
 def test_claude_provider_reads_model_from_config():
     """ClaudeProvider({'model': 'test-model'}) has provider.model == 'test-model'."""
-    from workmain.ai.providers.claude import _FALLBACK_MODEL
     config = {
         'model': 'test-model',
         'api_key_env': 'ANTHROPIC_API_KEY',
@@ -166,13 +167,12 @@ def test_claude_provider_reads_model_from_config():
 
 
 @patch.dict(os.environ, _CLAUDE_ENV)
-def test_claude_provider_uses_fallback_when_no_model_in_config():
-    """ClaudeProvider({}) has provider.model == fallback constant."""
-    from workmain.ai.providers.claude import _FALLBACK_MODEL
+def test_claude_provider_requires_model_in_config():
+    """ClaudeProvider with no model raises ConfigurationError — no hardcoded default (DR5)."""
     config = {'api_key_env': 'ANTHROPIC_API_KEY'}
     with patch('anthropic.Anthropic'):
-        p = ClaudeProvider(config)
-    assert p.model == _FALLBACK_MODEL
+        with pytest.raises(ConfigurationError):
+            ClaudeProvider(config)
 
 
 @patch.dict(os.environ, _GEMINI_ENV)
@@ -188,13 +188,12 @@ def test_gemini_provider_reads_model_from_config():
 
 
 @patch.dict(os.environ, _GEMINI_ENV)
-def test_gemini_provider_uses_fallback_when_no_model_in_config():
-    """GeminiProvider({}) has provider.model == fallback constant."""
-    from workmain.ai.providers.gemini import _FALLBACK_MODEL
+def test_gemini_provider_requires_model_in_config():
+    """GeminiProvider with no model raises ConfigurationError — no hardcoded default (DR5)."""
     config = {'api_key_env': 'GOOGLE_API_KEY'}
     with patch('google.genai.Client'):
-        p = GeminiProvider(config)
-    assert p.model == _FALLBACK_MODEL
+        with pytest.raises(ConfigurationError):
+            GeminiProvider(config)
 
 
 # ---------------------------------------------------------------------------

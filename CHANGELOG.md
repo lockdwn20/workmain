@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.32.0] - 2026-09-02
+
+### Added
+
+- Per-provider request payload policy in `config/providers/<name>_settings.json`
+  — what each provider *sends*, never what a model *supports*. `ai_settings.json`
+  keeps which provider and how it is orchestrated; no key appears in both.
+  Values are the vendor's own parameter shapes, passed through verbatim.
+- `REQUIRED_POLICY_KEYS` on each provider class; `ProviderManager` validates the
+  policy before construction, so an absent, unparseable or incomplete policy
+  raises `ConfigurationError` instead of silently disabling the provider.
+
+### Fixed
+
+- `ClaudeProvider` could not run a current-generation model. It sent
+  `temperature` on every request, which Claude Sonnet 5 and every model from
+  Opus 4.7 forward reject with HTTP 400. The payload now carries no sampling
+  parameter and sets `thinking: {"type": "disabled"}` explicitly, so
+  `max_tokens` bounds response text on any model and no call site needs a
+  budget audit. `generate()` and `check_availability()` build from one helper.
+- A permanently invalid request was retried three times. A 4xx other than 408,
+  409 and 429 now fails on the first attempt with the API's own message; 5xx
+  and connection errors keep the existing backoff.
+- `_FALLBACK_MODEL` removed from both `ClaudeProvider` and `GeminiProvider` —
+  a hardcoded copy of a config value that had already gone stale. `model` comes
+  from config or the provider refuses to construct.
+
+### Changed
+
+- `config/ai_settings.json` names `claude-sonnet-5` at $2/$10 per MTok. Unread
+  `default_max_tokens` and `default_temperature` keys deleted.
+- `docs/AI_SETTINGS_GUIDE.md` is the single live home of the two-file ownership
+  boundary; adding a provider is four steps, not three.
+
+Suite: 988 passed (baseline 972).
+
 ## [1.31.0] - 2026-09-01
 
 ### Changed

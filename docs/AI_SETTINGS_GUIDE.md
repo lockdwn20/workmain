@@ -6,9 +6,12 @@ Annotated schema reference for `config/ai_settings.json`.
 
 ## Overview
 
-`config/ai_settings.json` is the single source of truth for all AI provider configuration.
-It is directly user-editable — the CLI commands are convenience wrappers, not gatekeepers.
-Both paths (direct edit and `workmain providers set default`) are equally valid.
+AI provider configuration lives in two files with a strict ownership boundary — no key appears in both:
+
+- `config/ai_settings.json` owns **which provider and how it is orchestrated**: `enabled`, `model`, `api_key_env`, costs, rate limits, retry, `report_types` routing, fallback, cost tracking.
+- `config/providers/<name>_settings.json` owns **how we talk to that provider**: the request payload policy — what parameters every request carries. This file declares what we *send*, never what a model *supports*. See § The request payload policy below.
+
+Both files are directly user-editable — the CLI commands are convenience wrappers, not gatekeepers. For `ai_settings.json`, direct edit and `workmain providers set default` are equally valid.
 
 ---
 
@@ -111,9 +114,29 @@ using `--provider <fallback>`.
 
 ---
 
+## The request payload policy
+
+`config/providers/<name>_settings.json` declares the parameters every request to that provider carries. It exists so a payload change — Claude's thinking or sampling, Gemini's sampling — is a config edit, not a code edit.
+
+**Values are the vendor's own shapes, passed through verbatim.** `claude_settings.json` holds `"thinking": {"type": "disabled"}` — the literal Anthropic parameter object — and the provider sends it untranslated. There is no string that a loader maps to an object; whatever the vendor's API accepts can be typed into the file.
+
+**It declares what we *send*, never what a model *supports*.** `"thinking": {"type": "disabled"}` is our decision and belongs here. A key like `"supports_temperature": false` is a fact about a vendor's model and must not appear in any file in this repository.
+
+Shipped files:
+
+| File | Contents | Meaning |
+| --- | --- | --- |
+| `claude_settings.json` | `{"thinking": {"type": "disabled"}, "sampling": {}}` | Thinking off, so `max_tokens` bounds response text on any model. `sampling: {}` sends no `temperature` / `top_p` / `top_k` — current Claude models reject them. |
+| `gemini_settings.json` | `{"sampling": {"temperature": "from_request"}}` | `"from_request"` means read that parameter off the `GenerationRequest` at call time. A literal value there would be sent as-is. |
+| `ollama_settings.json` | no policy keys | Ollama's generation parameters are Modelfile-baked and rebuilt outside this repo. |
+
+**An unusable policy is a configuration error, not a default.** A file that is absent, unparseable, or missing a key its provider requires raises `ConfigurationError` out of `ProviderManager` — it does not silently disable the provider or fall back to a built-in default. Each provider class names the keys it reads in `REQUIRED_POLICY_KEYS` (`ClaudeProvider`: `{'thinking', 'sampling'}`; `GeminiProvider`: `{'sampling'}`; `BaseProvider` defaults to empty).
+
+---
+
 ## How to add a new provider
 
-Adding a provider requires exactly three steps — no other code changes needed:
+Adding a provider requires four steps — no other code changes needed:
 
 1. **Create the implementation file:**
    ```
@@ -121,7 +144,9 @@ Adding a provider requires exactly three steps — no other code changes needed:
    ```
    Implement all five abstract methods from `BaseProvider` (generate, estimate_cost,
    validate_config, count_tokens, check_availability). See `providers/claude.py` for
-   a complete example.
+   a complete example. If `generate()` or `check_availability()` reads any policy key,
+   declare those keys in a `REQUIRED_POLICY_KEYS` class attribute so `ProviderManager`
+   rejects an incomplete policy before construction rather than failing at request time.
 
 2. **Register it in PROVIDER_REGISTRY:**
    ```python
@@ -135,7 +160,7 @@ Adding a provider requires exactly three steps — no other code changes needed:
    }
    ```
 
-3. **Add a config section:**
+3. **Add a config section** to `config/ai_settings.json`:
    ```json
    "providers": {
      "<name>": {
@@ -146,6 +171,12 @@ Adding a provider requires exactly three steps — no other code changes needed:
      }
    }
    ```
+
+4. **Add a payload policy file** at `config/providers/<name>_settings.json` with a
+   `description` and every key the provider reads (vendor-native values — see
+   § The request payload policy). An enabled provider with no policy file fails to
+   construct. If the provider reads no payload parameters, ship a file with just a
+   `description`.
 
 That is all. `providers list`, `providers test`, `providers costs --provider`, and
 `providers set default` all update automatically via `get_registered_provider_names()`.

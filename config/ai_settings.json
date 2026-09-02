@@ -1,29 +1,25 @@
 {
   "version": "1.3",
   "description": "WorkmAIn AI Provider Configuration",
-  "last_updated": "20260813",
+  "last_updated": "20260902",
   "providers": {
     "claude": {
       "enabled": true,
-      "model": "claude-sonnet-4-5-20250929",
+      "model": "claude-sonnet-5",
       "api_key_env": "ANTHROPIC_API_KEY",
-      "default_max_tokens": 4096,
-      "default_temperature": 0.7,
-      "cost_per_1k_prompt_tokens": 0.003,
-      "cost_per_1k_completion_tokens": 0.015,
-      "cost_structure": "$3/MTok prompt, $15/MTok completion",
+      "cost_per_1k_prompt_tokens": 0.002,
+      "cost_per_1k_completion_tokens": 0.01,
+      "cost_structure": "$2/MTok prompt, $10/MTok completion",
       "rate_limit_rpm": 50,
       "timeout_seconds": 60,
       "retry_attempts": 3,
       "retry_delay_seconds": 1.0,
-      "notes": "Claude Sonnet 4.5 - Best for internal reports and note condensation"
+      "notes": "Claude Sonnet 5 - fallback provider for all report types and note condensation. Request payload policy (thinking disabled, no sampling) lives in config/providers/claude_settings.json."
     },
     "gemini": {
       "enabled": true,
       "model": "gemini-3.5-flash-lite",
       "api_key_env": "GOOGLE_API_KEY",
-      "default_max_tokens": 8192,
-      "default_temperature": 0.7,
       "cost_per_1k_prompt_tokens": 0.0003,
       "cost_per_1k_completion_tokens": 0.0025,
       "cost_structure": "$.30/MTok prompt, $2.5/MTok completion",
