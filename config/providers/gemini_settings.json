@@ -1,0 +1,4 @@
+{
+  "description": "Gemini (Google AI) request payload policy. Declares what we SEND, never what a model SUPPORTS. Required key read by GeminiProvider: sampling. A sampling value of \"from_request\" means read that parameter off the GenerationRequest.",
+  "sampling": {"temperature": "from_request"}
+}

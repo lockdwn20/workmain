@@ -1,0 +1,3 @@
+{
+  "description": "Ollama request payload policy. Declares what we SEND, never what a model SUPPORTS. OllamaProvider requires no policy keys: its generation parameters (temperature, top_p, top_k, repeat_penalty) are Modelfile-baked and set outside this repository; only num_predict is sent per request."
+}
