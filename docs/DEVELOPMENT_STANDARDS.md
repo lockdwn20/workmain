@@ -58,6 +58,14 @@ SPEC  →  APPROVAL  →  IMPLEMENTATION  →  CLOSE-OUT
 - Changes to an existing spec are surgical, not wholesale rewrites.
 - Defects found during verification become their own hotfix, not sprint scope.
 - Acceptance criteria must be mechanically testable. If an AC cannot be checked by running something, rewrite it until it can.
+- **A criterion names a property of the delivered system. The command is evidence for that property, not the criterion itself.** Write it as "*<property>*, checked by `<command>`" — not as "`<command>` returns zero hits" standing alone. A command is a proxy, and a proxy has many ways to read green, only one of which is the change that was wanted. Naming the property is what tells a reviewer, and an implementer, which of those ways is the work.
+  - The same criterion, written both ways:
+    - **Check as the criterion:** `grep -rn '^Version:' workmain/ --include='*.py'` returns zero hits.
+    - **Property, with the check as evidence:** no Python module under `workmain/` carries a version header in its docstring — git is the version record (§3.1) — checked by `grep -rn '^Version:' workmain/ --include='*.py'` returning zero hits.
+    - The first is satisfied by renaming the header to `Ver:`. The second is not, and the difference is readable at review time, before any code exists.
+  - `docs/dev/specs/_TEMPLATE_SPEC.md` §5 carries the two as separate columns, `Criterion` and `How it is checked`. On an issue, where `.github/ISSUE_TEMPLATE/issue.schema.json` types an acceptance criterion as one string, the wording is what carries that separation instead.
+- **Where a criterion is a property of a document rather than of running code, the check may be a stated reading by Ray.** It is still a check, and it still names what is being read: the section, and what the reader is reading it for. `docs/dev/specs/_TEMPLATE_SPEC.md` §5 states the same and cites here.
+- **The wording rule applies to criteria authored from here forward.** Criteria already written are not rewritten and no issue is reopened to reword one; there is no retrospective sweep of the queue.
 - A spec may map sub-ACs to the ACs on the originating issue using the numbering `ACn.m`, which is what lets close-out read the set mechanically. An unmapped sub-AC verifies nothing the issue asked for.
 - At least one Role 2 review pass before a spec is approved — on the full path. On the direct path a Role 2 pass is optional and at Ray's discretion.
 
