@@ -32,9 +32,6 @@ from workmain.ai.base_provider import (
     ProviderUnavailableError,
 )
 
-_FALLBACK_MODEL = "gemini-2.5-flash"
-
-
 class GeminiProvider(BaseProvider):
     """
     Gemini (Google AI) provider implementation.
@@ -58,7 +55,7 @@ class GeminiProvider(BaseProvider):
         """
         super().__init__(config, policy)
 
-        self.model = config.get('model', _FALLBACK_MODEL)
+        self.model = config.get('model')
         self._retry_attempts = config.get('retry_attempts', 3)
         self._retry_delay = config.get('retry_delay_seconds', 1.0)
         self._cost_per_1k_prompt = config.get('cost_per_1k_prompt_tokens', 0.00015)

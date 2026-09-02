@@ -188,13 +188,12 @@ def test_gemini_provider_reads_model_from_config():
 
 
 @patch.dict(os.environ, _GEMINI_ENV)
-def test_gemini_provider_uses_fallback_when_no_model_in_config():
-    """GeminiProvider({}) has provider.model == fallback constant."""
-    from workmain.ai.providers.gemini import _FALLBACK_MODEL
+def test_gemini_provider_requires_model_in_config():
+    """GeminiProvider with no model raises ConfigurationError — no hardcoded default (DR5)."""
     config = {'api_key_env': 'GOOGLE_API_KEY'}
     with patch('google.genai.Client'):
-        p = GeminiProvider(config)
-    assert p.model == _FALLBACK_MODEL
+        with pytest.raises(ConfigurationError):
+            GeminiProvider(config)
 
 
 # ---------------------------------------------------------------------------
