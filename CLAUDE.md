@@ -57,6 +57,7 @@ Reviews every spec before implementation begins, against these criteria:
 4. What here is scope that wasn't in the originating item?
 5. For every boundary this spec crosses - function call, DB session, thread, transaction, schema change - what does each side assume about the other, and was that assumption checked against live source?
 6. Does this spec introduce a new path where an existing service, orchestrator, or workflow already covers the case?
+7. Which acceptance criteria could be satisfied by a change that does not achieve what the criterion is for? — how a criterion is worded so that difference is visible: `docs/DEVELOPMENT_STANDARDS.md` §1.2.
 
 Findings go BACK to Role 1, never forward. You do not implement.
 
@@ -70,6 +71,8 @@ If you encounter anything the spec doesn't cover, or that requires a design deci
 2. **Document the issue clearly** in chat
 3. **Tell Ray** - he will bring it to Spanner
 4. **Do NOT self-resolve** - no scope adjustments, no in-flow architecture calls
+
+**Choosing the cheapest way to turn an acceptance criterion green is a design decision.** Where the least-effort way to satisfy a criterion and the way that achieves what it is for come apart, that is not an implementer's call — it is the case above, and it stops at 1 through 4. How a criterion is worded so the two are distinguishable: `docs/DEVELOPMENT_STANDARDS.md` §1.2.
 
 ---
 
