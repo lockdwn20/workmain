@@ -33,7 +33,7 @@ Close-out (the merge to `main`, version bump to v1.32.0, CHANGELOG section, tag,
 
 ## 3. Acceptance criteria
 
-Against issue #79's criteria and spec §5 (fifteen, after the Step 11 revision added AC15.1).
+Against issue #79's criteria and spec §5, including AC15.1 which the Step 11 revision added.
 
 | AC | Status | Evidence |
 | --- | --- | --- |
