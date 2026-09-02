@@ -43,17 +43,20 @@ class GeminiProvider(BaseProvider):
     Google Generative AI SDK. Model is read from config dict at instantiation.
     """
 
-    def __init__(self, config: dict):
+    REQUIRED_POLICY_KEYS = {'sampling'}
+
+    def __init__(self, config: dict, policy: dict = None):
         """
         Initialize Gemini provider from config dict.
 
         Args:
             config: Provider config section from ai_settings.json
+            policy: Request payload policy from config/providers/gemini_settings.json
 
         Raises:
             ConfigurationError: If API key is missing or invalid
         """
-        super().__init__(config)
+        super().__init__(config, policy)
 
         self.model = config.get('model', _FALLBACK_MODEL)
         self._retry_attempts = config.get('retry_attempts', 3)
@@ -76,6 +79,23 @@ class GeminiProvider(BaseProvider):
         if not self.validate_config():
             raise ConfigurationError("Invalid Gemini configuration")
 
+    def _resolve_sampling(self, request: GenerationRequest) -> dict:
+        """
+        Resolve the policy's sampling map into concrete generation-config values.
+
+        Each entry maps an API parameter name to either a literal value or the
+        sentinel ``"from_request"``, meaning read that attribute off the
+        GenerationRequest. Values are the vendor's own shapes, passed through
+        untranslated.
+        """
+        resolved = {}
+        for param, value in self.policy["sampling"].items():
+            if value == "from_request":
+                resolved[param] = getattr(request, param)
+            else:
+                resolved[param] = value
+        return resolved
+
     def generate(self, request: GenerationRequest) -> GenerationResponse:
         """
         Generate text using Gemini.
@@ -95,10 +115,8 @@ class GeminiProvider(BaseProvider):
 
         while attempt < self._retry_attempts:
             try:
-                config_dict = {
-                    'max_output_tokens': request.max_tokens,
-                    'temperature': request.temperature
-                }
+                config_dict = {'max_output_tokens': request.max_tokens}
+                config_dict.update(self._resolve_sampling(request))
 
                 # New google-genai API does not support system_instruction —
                 # prepend system prompt to user message instead
