@@ -207,7 +207,9 @@ def test_cost_estimation():
         claude = ClaudeProvider(_make_claude_config())
 
         cost = claude.estimate_cost(1000, 500)
-        expected = (1000 / 1000 * 0.003) + (500 / 1000 * 0.015)
+        claude_cfg = _load_ai_settings()['claude']
+        expected = (1000 / 1000 * claude_cfg['cost_per_1k_prompt_tokens']) + \
+                   (500 / 1000 * claude_cfg['cost_per_1k_completion_tokens'])
         assert abs(cost - expected) < 0.0001
         print(f"✓ Claude cost estimation: 1000 prompt + 500 completion = ${cost:.6f}")
 
