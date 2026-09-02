@@ -10,6 +10,7 @@ Features:
 - Disabled provider tracking (no connectivity check for disabled providers)
 """
 
+import json
 import os
 from typing import Dict, Optional, List, Tuple
 from enum import Enum
@@ -23,9 +24,11 @@ from workmain.ai.base_provider import (
     GenerationRequest,
     GenerationResponse,
     ProviderError,
-    RateLimitError
+    RateLimitError,
+    ConfigurationError,
 )
 from workmain.ai.providers import PROVIDER_REGISTRY
+from workmain.config_manager.loader import ConfigLoader
 
 
 class FallbackMode(Enum):
@@ -282,13 +285,55 @@ class ProviderManager:
         provider = self.get_provider(provider_type.value)
         return provider.estimate_cost(prompt_tokens, completion_tokens)
 
+    def _load_provider_policy(self, name: str, cls: type) -> dict:
+        """Load and validate a provider's request payload policy.
+
+        Reads config/providers/<name>_settings.json through ConfigLoader and
+        checks it against the provider class's REQUIRED_POLICY_KEYS. An absent
+        file, unparseable JSON, or a missing required key each raises
+        ConfigurationError naming the file — the failure must reach the caller
+        rather than being absorbed into _disabled, so a payload typo cannot
+        silently reproduce the request shape this policy exists to fix.
+
+        Args:
+            name: Provider name (e.g. 'claude').
+            cls: Provider class from PROVIDER_REGISTRY.
+
+        Returns:
+            The loaded policy dict.
+
+        Raises:
+            ConfigurationError: If the policy is absent, unparseable, or
+                missing a key the provider requires.
+        """
+        config_name = f"providers/{name}_settings"
+        rel_path = f"config/{config_name}.json"
+        try:
+            policy = ConfigLoader().load(config_name)
+        except FileNotFoundError as e:
+            raise ConfigurationError(
+                f"Provider '{name}' payload policy file is missing: {rel_path}"
+            ) from e
+        except json.JSONDecodeError as e:
+            raise ConfigurationError(
+                f"Provider '{name}' payload policy file is not valid JSON: {rel_path} ({e})"
+            ) from e
+
+        required = getattr(cls, 'REQUIRED_POLICY_KEYS', set())
+        missing = set(required) - set(policy or {})
+        if missing:
+            raise ConfigurationError(
+                f"Provider '{name}' payload policy file {rel_path} is missing "
+                f"required key(s): {', '.join(sorted(missing))}"
+            )
+        return policy or {}
+
     def _load_config(self):
         """Load provider and report-type configuration from ai_settings.json.
 
         Instantiates enabled providers from PROVIDER_REGISTRY.
         Tracks disabled providers in _disabled (no connectivity check).
         """
-        import json
         from pathlib import Path
 
         config_file = self.config_path or str(
@@ -309,8 +354,14 @@ class ProviderManager:
                 continue
             cls = PROVIDER_REGISTRY.get(name)
             if cls:
+                # Load the payload policy BEFORE construction, so an unusable
+                # policy raises out of here rather than being absorbed into
+                # _disabled by the blanket except below.
+                policy = self._load_provider_policy(name, cls)
                 try:
-                    self._providers[name] = cls(provider_cfg)
+                    instance = cls(provider_cfg)
+                    instance.policy = policy
+                    self._providers[name] = instance
                 except Exception:
                     # Provider instantiation failed (e.g. missing API key in env).
                     # Mark as disabled so callers get a clear error rather than
