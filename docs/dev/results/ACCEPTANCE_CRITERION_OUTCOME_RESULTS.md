@@ -57,4 +57,4 @@ Nothing else. Every step landed as specified.
 
 | Item | Description | Why deferred |
 | --- | --- | --- |
-| Not yet opened | Split `acs` in `.github/ISSUE_TEMPLATE/issue.schema.json` from an array of strings into structured objects carrying the criterion and its check as separate fields, so the distinction §1.2 now states in prose is enforced by the schema | Issue #118 records it as a follow-up and states it is not done here. No such issue exists yet; opening it and placing it on the board is Ray's |
+| #120 | Split `acs` in `.github/ISSUE_TEMPLATE/issue.schema.json` from an array of strings into structured objects carrying the criterion and its check as separate fields, so the distinction §1.2 now states in prose is enforced by the schema | Issue #118 records it as a follow-up and states it is not done here. Opened 20260902 on Ray's instruction, `blocked_by` #118; its position on the board is Ray's |
