@@ -39,7 +39,9 @@ class GenerationRequest:
     Attributes:
         prompt: The prompt text to send to AI
         max_tokens: Maximum tokens to generate
-        temperature: Sampling temperature (0.0-1.0)
+        temperature: Sampling temperature (0.0-1.0). Honoured by GeminiProvider
+            (its payload policy maps it in via "from_request"). Ignored by
+            ClaudeProvider, whose policy sends no sampling parameter at all.
         system_prompt: Optional system prompt
         context: Additional context data
     """
@@ -91,15 +93,26 @@ class BaseProvider(ABC):
     dataclass. Each provider reads its own required fields via config.get().
     """
 
-    def __init__(self, config: dict):
+    # Keys a provider's payload policy file (config/providers/<name>_settings.json)
+    # must contain. Declared beside the code that reads them on each subclass;
+    # BaseProvider requires none. ProviderManager checks this before construction.
+    REQUIRED_POLICY_KEYS: set = set()
+
+    def __init__(self, config: dict, policy: Optional[dict] = None):
         """
         Initialize provider with config dict from ai_settings.json section.
 
         Accepts raw dict to support N-provider extensibility. Each provider
         reads its own required fields via config.get(). Previously accepted
         ProviderConfig dataclass — changed in v1.1 Provider Foundation Sprint.
+
+        Args:
+            config: Provider config section from ai_settings.json.
+            policy: Request payload policy from config/providers/<name>_settings.json,
+                loaded and validated by ProviderManager. Defaults to an empty dict.
         """
         self.config = config
+        self.policy = policy or {}
         self._status = ProviderStatus.AVAILABLE
         self._last_error: Optional[str] = None
 

@@ -16,7 +16,12 @@ import os
 import time
 from typing import Optional
 import anthropic
-from anthropic import Anthropic, APIError, RateLimitError as AnthropicRateLimitError
+from anthropic import (
+    Anthropic,
+    APIError,
+    APIStatusError,
+    RateLimitError as AnthropicRateLimitError,
+)
 
 from workmain.ai.base_provider import (
     BaseProvider,
@@ -31,30 +36,33 @@ from workmain.ai.base_provider import (
     ProviderUnavailableError,
 )
 
-_FALLBACK_MODEL = "claude-sonnet-4-5-20250929"
-
 
 class ClaudeProvider(BaseProvider):
     """
     Claude (Anthropic) AI provider implementation.
 
     Implements the BaseProvider interface for Claude models using the
-    Anthropic SDK. Model is read from config dict at instantiation.
+    Anthropic SDK. Model is read from config dict at instantiation; the
+    request payload (thinking, sampling) is read from the policy dict
+    supplied by ProviderManager.
     """
 
-    def __init__(self, config: dict):
+    REQUIRED_POLICY_KEYS = {'thinking', 'sampling'}
+
+    def __init__(self, config: dict, policy: dict = None):
         """
         Initialize Claude provider from config dict.
 
         Args:
             config: Provider config section from ai_settings.json
+            policy: Request payload policy from config/providers/claude_settings.json
 
         Raises:
             ConfigurationError: If API key is missing or invalid
         """
-        super().__init__(config)
+        super().__init__(config, policy)
 
-        self.model = config.get('model', _FALLBACK_MODEL)
+        self.model = config.get('model')
         self._retry_attempts = config.get('retry_attempts', 3)
         self._retry_delay = config.get('retry_delay_seconds', 1.0)
         self._cost_per_1k_prompt = config.get('cost_per_1k_prompt_tokens', 0.003)
@@ -71,6 +79,24 @@ class ClaudeProvider(BaseProvider):
 
         if not self.validate_config():
             raise ConfigurationError("Invalid Claude configuration")
+
+    def _base_api_params(self, max_tokens: int) -> dict:
+        """
+        Build the request payload shared by generate() and check_availability().
+
+        Returns model, max_tokens, the policy's thinking object, and whatever
+        sampling parameters the policy carries — nothing else. One builder so a
+        payload-contract change cannot land in one path and miss the other.
+        With the shipped ``"sampling": {}`` the request is byte-identical to one
+        that never mentions sampling.
+        """
+        params = {
+            "model": self.model,
+            "max_tokens": max_tokens,
+            "thinking": self.policy["thinking"],
+        }
+        params.update(self.policy["sampling"])
+        return params
 
     def generate(self, request: GenerationRequest) -> GenerationResponse:
         """
@@ -91,14 +117,10 @@ class ClaudeProvider(BaseProvider):
 
         while attempt < self._retry_attempts:
             try:
-                messages = [{"role": "user", "content": request.prompt}]
-
-                api_params = {
-                    "model": self.model,
-                    "max_tokens": request.max_tokens,
-                    "temperature": request.temperature,
-                    "messages": messages
-                }
+                api_params = self._base_api_params(request.max_tokens)
+                api_params["messages"] = [
+                    {"role": "user", "content": request.prompt}
+                ]
 
                 # Claude API rejects system=None
                 if request.system_prompt:
@@ -138,6 +160,20 @@ class ClaudeProvider(BaseProvider):
                 raise RateLimitError(f"Claude rate limit exceeded: {e}") from e
 
             except APIError as e:
+                # Fail fast on a permanently-rejected request: any 4xx other
+                # than 408, 409 and 429. Retrying cannot change the outcome.
+                # 5xx, 408/409/429 and connection errors fall through to the
+                # backoff below unchanged.
+                if (
+                    isinstance(e, APIStatusError)
+                    and e.status_code < 500
+                    and e.status_code not in (408, 409, 429)
+                ):
+                    self._set_status(ProviderStatus.ERROR, str(e))
+                    raise GenerationError(
+                        f"Claude rejected the request ({e.status_code}): {e}"
+                    ) from e
+
                 last_error = e
                 attempt += 1
 
@@ -220,11 +256,9 @@ class ClaudeProvider(BaseProvider):
             Provider status
         """
         try:
-            self.client.messages.create(
-                model=self.model,
-                max_tokens=1,
-                messages=[{"role": "user", "content": "test"}]
-            )
+            api_params = self._base_api_params(1)
+            api_params["messages"] = [{"role": "user", "content": "test"}]
+            self.client.messages.create(**api_params)
             self._set_status(ProviderStatus.AVAILABLE)
             return ProviderStatus.AVAILABLE
 
