@@ -1,6 +1,6 @@
 # An acceptance criterion names an outcome, not the command that checks it — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20260901
 **Branch:** `chore/issue-118-acceptance-criterion-outcome`

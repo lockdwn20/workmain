@@ -1,6 +1,6 @@
 # An acceptance criterion names an outcome, not the command that checks it — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20260902
 **Spec:** `../specs/ACCEPTANCE_CRITERION_OUTCOME_SPEC.md`
