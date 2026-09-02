@@ -4,15 +4,15 @@
 **Author:** Anvil (Role 3)
 **Date:** 20260902
 **Spec:** `../specs/CLAUDE_PROVIDER_CURRENT_MODEL_SPEC.md`
-**Released as:** v1.32.0 (Step 11 — version bump, CHANGELOG, PR — is not Anvil's; pending)
+**Released as:** v1.32.0 (close-out — merge, version bump, CHANGELOG, tag, Release, restart — is owned by `/closeout`, not this document)
 
 ---
 
 ## 1. Summary
 
-Complete for Steps 1–10. Each provider's request payload is now declared in `config/providers/<name>_settings.json` — what we *send*, never what a model *supports*. `ClaudeProvider` builds one payload from that policy for both `generate()` and `check_availability()`: `thinking={"type": "disabled"}` and no sampling parameter, so `max_tokens` bounds response text on any model. `_FALLBACK_MODEL` is gone — `model` comes from config or the provider refuses to construct. A 4xx other than 408/409/429 now fails on the first attempt with the API's own message; 5xx and connection errors keep the existing backoff. `GeminiProvider` reads its sampling from policy through the same mechanism with no behaviour change. `config/ai_settings.json` names `claude-sonnet-5`, its price fields were set by Ray (Step 9), and the dead `default_max_tokens` / `default_temperature` keys are deleted from the `claude` and `gemini` blocks. Live `workmain providers test claude` succeeded against `claude-sonnet-5` with `stop_reason` `end_turn`.
+Complete for Steps 1–12 (the implementation steps). Each provider's request payload is now declared in `config/providers/<name>_settings.json` — what we *send*, never what a model *supports*. `ClaudeProvider` builds one payload from that policy for both `generate()` and `check_availability()`: `thinking={"type": "disabled"}` and no sampling parameter, so `max_tokens` bounds response text on any model. `_FALLBACK_MODEL` is gone from **both** providers — `model` comes from config or the provider refuses to construct. A 4xx other than 408/409/429 now fails on the first attempt with the API's own message; 5xx and connection errors keep the existing backoff. `GeminiProvider` reads its sampling from policy through the same mechanism with no behaviour change. `config/ai_settings.json` names `claude-sonnet-5`, its price fields were set by Ray (Step 9), and the dead `default_max_tokens` / `default_temperature` keys are deleted from the `claude` and `gemini` blocks. `docs/AI_SETTINGS_GUIDE.md` is now the single live home of the two-file ownership boundary and documents the payload policy file. Live `workmain providers test claude` succeeded against `claude-sonnet-5` with `stop_reason` `end_turn`.
 
-Step 11 (version bump to v1.32.0, CHANGELOG entry, `dev` → `main` PR) is owned by Role 1, not Anvil, and is not done here.
+Close-out (the merge to `main`, version bump to v1.32.0, CHANGELOG section, tag, Release, daemon restart, and marking the spec and design studies Shipped) is owned by `/closeout` per the spec's revised §4, and is not done here.
 
 ## 2. What shipped, by step
 
@@ -28,10 +28,12 @@ Step 11 (version bump to v1.32.0, CHANGELOG entry, `dev` → `main` PR) is owned
 | 8 | `model` → `claude-sonnet-5`; `notes` rewritten; `last_updated` → `20260902`; `default_max_tokens` and `default_temperature` deleted from the `claude` and `gemini` blocks. Price fields left for Step 9. | `config/ai_settings.json` | — |
 | 9 | (Ray) `cost_per_1k_prompt_tokens` `0.002`, `cost_per_1k_completion_tokens` `0.01`, `cost_structure` `"$2/MTok prompt, $10/MTok completion"`. Anvil follow-up: `test_cost_estimation` derives its Claude expectation from config rather than the old hardcoded `0.003`/`0.015`, matching the Gemini half's pattern. | `config/ai_settings.json` (Ray), `tests/test_ai_clients.py` | 0 net |
 | 10 | Live: `workmain providers test claude` — `✓ API test successful`, model `claude-sonnet-5`, 29 tokens, cost `$0.000114`. | — | — |
+| 11 | `docs/AI_SETTINGS_GUIDE.md`: Overview no longer claims `ai_settings.json` is the single source of truth for all provider config — it now states the two-file boundary. New § The request payload policy documents the file's shape (vendor-native values, `"from_request"` sentinel, unusable-policy-is-an-error, `REQUIRED_POLICY_KEYS`). *How to add a new provider* is now four steps (implementation, `PROVIDER_REGISTRY`, `ai_settings.json` section, policy file), with `REQUIRED_POLICY_KEYS` called out in step 1. | `docs/AI_SETTINGS_GUIDE.md` | — |
+| 12 | `GeminiProvider._FALLBACK_MODEL` deleted; `self.model = config.get('model')`. `validate_config()` already raises `ConfigurationError` on a falsy model. `test_provider_foundation.py` fallback test replaced with a `ConfigurationError` assertion, mirroring the Claude test. | `workmain/ai/providers/gemini.py`, `tests/test_provider_foundation.py` | 0 net |
 
 ## 3. Acceptance criteria
 
-Against issue #79's fourteen criteria and spec §5.
+Against issue #79's criteria and spec §5 (fifteen, after the Step 11 revision added AC15.1).
 
 | AC | Status | Evidence |
 | --- | --- | --- |
@@ -45,12 +47,13 @@ Against issue #79's fourteen criteria and spec §5.
 | AC8.1 | Carried to Ray's reading | Property of a document; check is Ray's reading of the `GenerationRequest.temperature` docstring (`workmain/ai/base_provider.py`), which now names both the provider that ignores the field (Claude) and the one that reads it (Gemini). |
 | AC9.1 | Met | `...::TestClaudeRetryPolicy::test_claude_no_retry_on_4xx` and `test_claude_fails_fast_on_401` — the error propagates and `messages.create` was called exactly once. Message carries the API's own text (`f"Claude rejected the request ({e.status_code}): {e}"`). |
 | AC10.1 | Met | `...::TestClaudeRetryPolicy::test_claude_retries_on_500` — `call_count == 3` (`retry_attempts`). |
-| AC11.1 | Met | `grep -rn "_FALLBACK_MODEL" workmain/` returns only `gemini.py` — Gemini's fallback constant is explicitly out of scope (spec §1, Step 4 changes sampling only). Zero Claude hits. `...::TestClaudeModelRequired::test_claude_requires_model` and `test_provider_foundation.py::test_claude_provider_requires_model_in_config` assert `ConfigurationError` on missing `model`. |
+| AC11.1 | Met | `grep -rn "_FALLBACK_MODEL" workmain/` returns **zero hits** (Step 12 removed the Gemini constant too). `TestClaudeModelRequired::test_claude_requires_model`, `test_provider_foundation.py::test_claude_provider_requires_model_in_config` and `::test_gemini_provider_requires_model_in_config` assert `ConfigurationError` on missing `model` for both providers. |
 | AC12.1 | Carried to Ray's reading | Check is Ray's reading of the `providers.claude` block against the live pricing page at close-out. Current state: `model` `claude-sonnet-5`, `cost_per_1k_prompt_tokens` `0.002`, `cost_per_1k_completion_tokens` `0.01`, `cost_structure` `"$2/MTok prompt, $10/MTok completion"` — set by Ray in Step 9. |
 | AC13.1 | Met | `workmain providers test claude` on 20260902: non-empty content (`API connection successful`), model `claude-sonnet-5`, 29 tokens (22 prompt / 7 completion). The response completed rather than truncating at the 20-token budget, so thinking did not consume it. |
 | AC14.1 | Met | `SKIP_API_TESTS=1 pytest` → **988 passed, 0 failed** (baseline 972; +16 offline tests). `pytest automation/` → 51 passed. |
+| AC15.1 | Carried to Ray's reading | Property of a document; check is Ray's reading of `docs/AI_SETTINGS_GUIDE.md`. Delivered: the Overview's single-source-of-truth claim is replaced with the two-file boundary; *How to add a new provider* opens "Adding a provider requires four steps" and step 4 is the policy file; the boundary is stated in this doc and no other live document restates it (spec §11, DR9). |
 
-Nothing dropped. AC3.1, AC8.1 and AC12.1 are properties of documents whose spec-defined check is a stated reading by Ray; they are carried to that reading, not to a follow-up issue.
+Nothing dropped. AC3.1, AC8.1, AC12.1 and AC15.1 are properties of documents whose spec-defined check is a stated reading by Ray; they are carried to that reading, not to a follow-up issue.
 
 ## 4. Deviations from spec
 
@@ -58,13 +61,14 @@ Nothing dropped. AC3.1, AC8.1 and AC12.1 are properties of documents whose spec-
 | --- | --- | --- | --- |
 | 1 | Step 2 attaches the policy by setting `instance.policy` immediately after `cls(provider_cfg)` rather than passing it as a constructor argument. | Spec §1 keeps `OllamaProvider` at "no code change", and its `__init__(self, config)` signature would break on a second positional or keyword argument. Post-construction assignment keeps the shared `cls(provider_cfg)` call intact for all three providers; `_base_api_params` / `_resolve_sampling` only read `self.policy` at call time, well after construction. `ClaudeProvider` / `GeminiProvider` `__init__` still accept an optional `policy` for direct test construction. | Anvil (mechanical; within "passed to the provider at construction") |
 | 2 | `tests/test_ai_clients.py::test_cost_estimation` changed to read the Claude cost fields from `ai_settings.json` instead of asserting the literal `0.003` / `0.015`. | Step 9's price edit broke the hardcoded expectation. The fix mirrors the test's own Gemini half, which already reads its values back. | Anvil (consequence of Step 9; required for AC14.1) |
-| 3 | `docs/AI_SETTINGS_GUIDE.md` not updated. | It calls `config/ai_settings.json` "the single source of truth for all AI provider configuration" and is an annotated schema reference, but the new `config/providers/<name>_settings.json` files are not in the spec's scope list. Surfaced to Spanner rather than self-resolved (`CLAUDE.md` Role 3). | Pending Spanner |
+
+The `docs/AI_SETTINGS_GUIDE.md` gap flagged in the first draft of this document is now spec Step 11, not a deviation.
 
 ## 5. Verification
 
 - **Test suite:** 988 passed, 0 failed (baseline was 972). `pytest automation/` 51 passed, separately.
 - **Live verification:** `workmain providers test claude` run against the local venv on 20260902 — provider available, test request returned `API connection successful`, model `claude-sonnet-5`, cost `$0.000114`, no error. This exercises `check_availability()` and `generate()`, both built from `_base_api_params`, against the real Anthropic API on a current-generation model — the payload shape that returned HTTP 400 before this work.
-- **Daemon restart** (`feature/*`, per `docs/DEVELOPMENT_STANDARDS.md` §2.6): pending. Postdates the `dev` merge; the confirmed `ActiveEnterTimestamp` is carried by the issue's closing comment, not this file.
+- **Daemon restart** (`feature/*`, per `docs/DEVELOPMENT_STANDARDS.md` §2.6): owned by `/closeout`. Postdates the `dev` merge; the confirmed `ActiveEnterTimestamp` is carried by the issue's closing comment, not this file.
 
 ## 6. Follow-ups
 
@@ -73,4 +77,3 @@ Nothing dropped. AC3.1, AC8.1 and AC12.1 are properties of documents whose spec-
 | Dependent issue (capability check) | `workmain providers check` and everything model-capability-related. | Spec §1 out of scope; its own issue, dependent on #79. |
 | #114 | Providers ignore `timeout_seconds`. | Already open; recommended after #79. |
 | `count_tokens` issue | `ClaudeProvider.count_tokens()` calls a method `anthropic` 0.75.0 does not have; provider-plus-SDK retry multiplication. | Spec §1 out of scope; "becomes its own issue at close-out" (Decision Log, 20260902). |
-| `docs/AI_SETTINGS_GUIDE.md` | Add the `config/providers/<name>_settings.json` policy files to the schema reference and state the ownership boundary. | Deviation #3 — not in spec scope; Spanner's call. |
