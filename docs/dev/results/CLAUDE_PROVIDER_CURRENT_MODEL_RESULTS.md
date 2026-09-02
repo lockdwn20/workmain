@@ -4,7 +4,7 @@
 **Author:** Anvil (Role 3)
 **Date:** 20260902
 **Spec:** `../specs/CLAUDE_PROVIDER_CURRENT_MODEL_SPEC.md`
-**Released as:** v1.32.0 (close-out — merge, version bump, CHANGELOG, tag, Release, restart — is owned by `/closeout`, not this document)
+**Released as:** v1.32.0, tag `v1.32.0`
 
 ---
 

@@ -1,6 +1,6 @@
 # Provider Payload Policy and Current-Generation Model Compatibility — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20260902
 **Branch:** `feature/issue-79-provider-payload-policy` (from `dev`)

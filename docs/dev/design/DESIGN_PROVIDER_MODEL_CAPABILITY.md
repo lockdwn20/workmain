@@ -1,6 +1,6 @@
 # Provider Model Capability — Making a Model Swap Safe — Design Study
 
-**Status:** Active
+**Status:** Shipped
 **Kind:** Design study
 **Author:** Spanner (Role 1)
 **Date:** 20260902
