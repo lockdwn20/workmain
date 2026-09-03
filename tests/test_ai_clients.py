@@ -25,10 +25,12 @@ from workmain.ai.base_provider import (
     ProviderStatus,
     GenerationRequest,
     ConfigurationError,
-    ProviderError
+    ProviderError,
+    RateLimitError,
+    GenerationError,
 )
 from workmain.ai.providers.claude import ClaudeProvider
-from workmain.ai.providers.gemini import GeminiProvider
+from workmain.ai.providers.gemini import GeminiProvider, _is_rate_limit_error
 from workmain.ai.provider_manager import ProviderManager, FallbackMode, get_provider_manager
 from workmain.ai.cost_tracker import CostTracker
 
@@ -602,6 +604,103 @@ class TestGeminiPolicySampling:
         provider.generate(GenerationRequest(prompt="hi", max_tokens=20, temperature=0.9))
         config = client.models.generate_content.call_args.kwargs["config"]
         assert config.temperature == 0.1
+
+
+from google.genai import errors as genai_errors
+
+
+def _offline_gemini_config(**overrides):
+    cfg = {
+        "model": "gemini-2.0-flash",
+        "api_key_env": "GOOGLE_API_KEY",
+        "retry_attempts": 3,
+        "retry_delay_seconds": 0,
+        "cost_per_1k_prompt_tokens": 0.00015,
+        "cost_per_1k_completion_tokens": 0.0006,
+    }
+    cfg.update(overrides)
+    return cfg
+
+
+class _FakeGeminiAPIError(genai_errors.APIError):
+    """A vendor APIError whose constructor is stable across the SDK upgrade.
+
+    ``genai_errors.APIError`` / ``ClientError`` take different arguments at
+    0.3.0 and 2.22.0 (DR6), so tests never call them. This sets the one
+    attribute the provider reads — ``code`` — plus a message, satisfies
+    ``isinstance(e, APIError)`` so DR2's handler catches it, and constructs
+    identically at both SDK versions.
+    """
+
+    def __init__(self, code, message="boom"):
+        self.code = code
+        self.message = message
+        self.status = None
+        self.details = {}
+        Exception.__init__(self, f"{code} {message}")
+
+
+def _build_gemini(config=None, policy=None):
+    """Construct a GeminiProvider with the genai client patched out."""
+    env = {"GOOGLE_API_KEY": "A" * 39}
+    with patch.dict(os.environ, env), \
+         patch("workmain.ai.providers.gemini.genai.Client") as fake_cls:
+        fake_client = MagicMock()
+        fake_cls.return_value = fake_client
+        provider = GeminiProvider(
+            config or _offline_gemini_config(),
+            policy if policy is not None else {"sampling": {}},
+        )
+    return provider, fake_client
+
+
+class TestGeminiRateLimitTranslation:
+    """Step 1 — typed rate-limit classification (DR1/DR2/DR2a/DR7/DR9)."""
+
+    def test_is_rate_limit_error_true_for_429(self):
+        assert _is_rate_limit_error(_FakeGeminiAPIError(429)) is True
+
+    def test_is_rate_limit_error_false_for_400(self):
+        assert _is_rate_limit_error(_FakeGeminiAPIError(400)) is False
+
+    def test_is_rate_limit_error_false_without_code(self):
+        assert _is_rate_limit_error(RuntimeError("no code here")) is False
+
+    def test_generate_429_raises_rate_limit_error(self):
+        provider, client = _build_gemini()
+        client.models.generate_content.side_effect = _FakeGeminiAPIError(429)
+        with pytest.raises(RateLimitError):
+            provider.generate(GenerationRequest(prompt="hi", max_tokens=20))
+        assert provider.status == ProviderStatus.RATE_LIMITED
+        assert client.models.generate_content.call_count == 1
+
+    def test_generate_400_fails_fast_as_generation_error(self):
+        provider, client = _build_gemini()
+        client.models.generate_content.side_effect = _FakeGeminiAPIError(400)
+        with pytest.raises(GenerationError):
+            provider.generate(GenerationRequest(prompt="hi", max_tokens=20))
+        assert client.models.generate_content.call_count == 1
+
+    def test_generate_500_retries_and_raises_generation_error(self):
+        provider, client = _build_gemini()
+        client.models.generate_content.side_effect = _FakeGeminiAPIError(500)
+        with pytest.raises(GenerationError):
+            provider.generate(GenerationRequest(prompt="hi", max_tokens=20))
+        assert client.models.generate_content.call_count == 3
+
+    def test_generate_message_containing_generate_is_not_a_rate_limit(self):
+        provider, client = _build_gemini()
+        client.models.generate_content.side_effect = RuntimeError("failed to generate output")
+        with pytest.raises(GenerationError):
+            provider.generate(GenerationRequest(prompt="hi", max_tokens=20))
+        assert client.models.generate_content.call_count == 3
+
+    def test_check_availability_429_and_500(self):
+        provider, client = _build_gemini()
+        client.models.generate_content.side_effect = _FakeGeminiAPIError(429)
+        assert provider.check_availability() == ProviderStatus.RATE_LIMITED
+        client.models.generate_content.side_effect = _FakeGeminiAPIError(500)
+        assert provider.check_availability() == ProviderStatus.UNAVAILABLE
 
 
 def run_all_tests():
