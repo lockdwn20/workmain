@@ -14,6 +14,7 @@ An intelligent personal work management system that captures notes, tracks time,
 ## Quick Start
 ```bash
 # Install
+pip install -r requirements.txt
 pip install -e .
 
 # Initialize
