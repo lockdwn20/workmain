@@ -31,7 +31,7 @@
 | 20260903 | Caliper | **F4** — `_make_gemini_config()` reads live `config/ai_settings.json`, where `retry_delay_seconds` is 1.0; the retry-exhausting tests would sleep ~6s per suite run and depend on a file Ray edits | Accepted. Step 2 adds `_offline_gemini_config()` mirroring `_offline_claude_config`, with `retry_delay_seconds: 0`. |
 | 20260903 | Caliper | **F5** — no step produces AC2.1/AC2.2's fresh virtualenv | Accepted. Step 5 now builds it and captures the comparison. |
 | 20260903 | Caliper | **F6** — the stated rollback restores nothing: floors are already satisfied by the upgraded packages, so pip leaves them installed | Accepted, and the same flaw was in the pydantic risk row. Step 5 captures `pip freeze` before the upgrade; §7 rolls back from that file. |
-| 20260903 | Caliper | **F7** — AC selectors use `-k` names §6 never defines, and a no-match `-k` exits 5 | Accepted. §6 names all seven test methods; the AC selectors use them. |
+| 20260903 | Caliper | **F7** — AC selectors use `-k` names §6 never defines, and a no-match `-k` exits 5 | Accepted. §6 names every test method and the AC selectors use them — seven when this row was written, eight once AC5.3 was added. |
 | 20260903 | Caliper | **F8** — `google-api-core==2.30.3` was neither installed nor latest, with no rationale | Accepted, and it exposed a missing rule rather than a wrong number. DR3 now states how a pin's value is chosen, and this pin becomes the installed, exercised **2.28.1**. |
 | 20260903 | Caliper | **F9** — `icalendar` 7.0.3 → 7.3.0 was a real version move with no risk row and no check | Accepted, and DR3's new rule deletes the move: nothing forces `icalendar`, so it pins at the installed **7.0.3**. No risk row needed because no version changes. The same rule drops `pydantic-settings` from the cascade entirely — 2.1.0 requires `pydantic>=2.3.0` and holds. |
 | 20260903 | Caliper | **F10** — the `_status_error` probe was run at `httpx==0.27.2`, not the shipped 0.28.1 | Accepted. Re-probed at `anthropic==1.3.0` + `httpx==0.28.1`; §2's row updated. |
@@ -152,7 +152,7 @@ Mapped to the acceptance criteria on issue #126 as rewritten 20260903. **Two of 
 | AC1.2 | Every dependency line carries a pin, none dropped or left bare | `grep -cE '^[a-zA-Z]' requirements.txt` and `grep -c '==' requirements.txt` return the same number |
 | AC1.3 | `google-api-core` is declared, so the transitive Drive and Docs depend on is under this project's control rather than another package's | `grep -n 'google-api-core' requirements.txt` returns one pinned line |
 | AC2.1 | A virtualenv built from `requirements.txt` installs the versions this spec ships, not whatever the resolver prefers that day | Step 5's throwaway venv: `pip install -r requirements.txt`, then `pip freeze` reports `anthropic==1.3.0`, `google-genai==2.22.0`, `google-api-python-client==2.111.0`, `google-api-core==2.28.1` |
-| AC2.2 | Every dependency `requirements.txt` **names** installs at the same version in two independently built environments — the transitives D1 deliberately left unpinned are excluded, as is the editable `workmain` install the working `.venv` carries, which is not a dependency | on both Step 5 environments, `pip freeze \| grep -Ff <(grep -oE '^[A-Za-z][A-Za-z0-9._-]*' requirements.txt) \| sort`; `diff` of the two outputs is empty |
+| AC2.2 | Every dependency `requirements.txt` **names** installs at the same version in two independently built environments — the transitives D1 deliberately left unpinned are excluded, as is the editable `workmain` install the working `.venv` carries, which is not a dependency | the **declared-set comparison** below, run in both Step 5 environments; `diff` of the two outputs is empty |
 | AC3.1 | `setup.py` declares no dependency versions, so `requirements.txt` is the only file in the repository naming one (DR5) | `grep -n 'install_requires' setup.py` returns zero hits |
 | AC3.2 | `README.md`'s install instruction produces a working install rather than the seven-package subset — it names `requirements.txt` before the editable install | Ray reads `README.md:17`ff for `pip install -r requirements.txt` preceding `pip install -e .` |
 | AC4.1 | `GeminiProvider` translates a vendor 429 into `RateLimitError` by reading the error's own `code`, so the translation is a property of the error rather than of its message | `pytest tests/test_ai_clients.py::TestGeminiRateLimitTranslation::test_generate_429_raises_rate_limit_error` |
@@ -164,6 +164,23 @@ Mapped to the acceptance criteria on issue #126 as rewritten 20260903. **Two of 
 | AC7.1 | Google Drive and Docs still work against the pinned client stack | live `workmain gdocs upload`, run by Ray |
 | AC8.1 | Both upgraded SDKs still serve real generation requests | live `workmain providers test claude` and `workmain providers test gemini`, run by Ray |
 | AC9.1 | The suite passes with no net test loss against the pre-change baseline, under the upgraded SDKs | `pytest`, run in Step 5 after the environment upgrade |
+
+### AC2.2's declared-set comparison
+
+One command, defined once because both Step 5 environments run it and AC2.2 is the diff of its two outputs:
+
+```bash
+pip freeze | grep -iE "^($(grep -oE '^[A-Za-z][A-Za-z0-9._-]*' requirements.txt \
+  | sed 's/[._-]/[._-]/g' | paste -sd'|'))==" | tr 'A-Z_' 'a-z-' | sort
+```
+
+Three things it does deliberately, each of which a simpler filter gets wrong:
+
+- **Anchors on the line start and requires `==`.** A bare fixed-string match is a substring match, and it readmits precisely the unpinned transitives AC2.2 exists to exclude — verified against the working `.venv`, where it emits 35 lines from 30 declared dependencies (`google-auth-httplib2`, `pydantic-core`, `requests-oauthlib`, `pytz-deprecation-shim`, `mypy-extensions`), and after the upgrade `httpx2` joins them under the pattern `httpx`.
+- **Treats `.`, `-` and `_` as interchangeable.** `pip freeze` normalizes inconsistently — this environment emits `pydantic-settings==2.1.0` but `pydantic_core==2.14.1`, and the upgraded set adds `typing_extensions` and `pyasn1_modules`. A fixed pattern whose freeze spelling uses the other separator silently *drops* that dependency from the comparison, which fails open.
+- **Lowercases and sorts both sides**, so case and ordering drift between two independently built environments cannot show up as a false difference.
+
+Verified 20260903 against the working `.venv`: 30 lines out, against 30 dependencies declared in `requirements.txt`.
 
 ## 6. Test plan
 
