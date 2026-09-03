@@ -4,7 +4,7 @@
 **Author:** Anvil (Role 3)
 **Date:** 20260903
 **Spec:** `../specs/VENDOR_SDK_PINNING_SPEC.md`
-**Released as:** v1.33.0
+**Released as:** v1.33.0 (tag `v1.33.0`)
 
 ---
 

@@ -1,6 +1,6 @@
 # Vendor SDK Pinning and the Gemini Rate-Limit Handler — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20260903
 **Branch:** `feature/issue-126-vendor-sdk-pinning` (from `dev`)
