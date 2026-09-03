@@ -1,6 +1,6 @@
 # Vendor SDK Pinning and the Gemini Rate-Limit Handler — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20260903
 **Branch:** `feature/issue-126-vendor-sdk-pinning` (from `dev`)
@@ -41,6 +41,7 @@
 | 20260903 | Caliper | **G3** — three ACs now contradict issue #126: its AC4 prescribes the vendor constructor DR6 forbids, its AC5 says a 400 retries where DR2a fails fast, and AC5.3 has no counterpart | Accepted. Designed on the merits per §1.2 and *acceptance criteria validate, they never specify* — the issue is what changes, not the spec. §5's preamble now records both supersessions and marks AC5.3 spec-originated; the issue edit is Ray's at close-out. |
 | 20260903 | Caliper | **G4** — §2's resolution row cited a dry-run of the pre-F8/F9 pin set | Accepted; the claim was true and the citation stale. Re-run against the shipped DR3 values, exit 0. |
 | 20260903 | Caliper | **G5** — AC4.2's `grep 'ClientError('` misses `APIError(` and `ServerError(`, which DR6 forbids equally | Accepted, and widened past the suggestion: the check is now alias-independent, so an implementer importing the class directly cannot evade it. |
+| 20260903 | Ray | Spec approved after Caliper's third pass | Status set to Approved. Two review rounds closed: F1–F11, then G1–G5, then H1–H2 with a pass verdict. |
 | 20260903 | Caliper | Q7 note — AC3.1 greps only `setup.py` while DR5 claims no file in the repo names a dependency version | Not taken. Verified sufficient today (`pyproject.toml` carries pytest config only; `requirements-dev.txt` is empty). Recorded so it is not re-raised. |
 
 ---
