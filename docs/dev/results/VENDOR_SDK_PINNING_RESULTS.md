@@ -68,13 +68,17 @@ Complete. The Gemini provider's rate-limit handler is now a single typed predica
 Direct use of automatic function calling (AFC) in Models.generate_content is not recommended. Instead, we recommend to use AFC in Chat.send_message. Similarly, direct use of AFC in Models.generate_content_stream is not recommended. Instead, we recommend to use AFC in Chat.send_message_stream.
 ```
 
-New at 2.22.0; the 0.3.0 SDK did not emit it. It is a vendor advisory printed unconditionally by `google-genai` whenever `models.generate_content` is called without an explicit `config` disabling automatic function calling — the provider passes no tools, so nothing is actually being auto-called. The generation request itself succeeded. Not fixed here: silencing it means adding an `automatic_function_calling` field to every `GenerateContentConfig` the provider builds, which is a payload-contract change outside this spec's scope (§1, "Retry multiplication and `timeout_seconds` … `retry_attempts` semantics are unchanged" — and this is the same class of out-of-scope payload edit). Recorded for a follow-up; harmless as-is.
+New at 2.22.0; the 0.3.0 SDK did not emit it. It is **not** a cosmetic advisory, and it is not printed unconditionally. It is a `logger.warning` on the `google_genai.models` logger, guarded by a class flag so it appears once per process, and it is raised only when automatic function calling is enabled for the call.
+
+It is enabled for ours. `Models.generate_content` branches on `_extra_utils.should_disable_afc(config)`, which returns `False` when `automatic_function_calling` is unset — the provider never sets it. The call therefore does not take the direct `self._generate_content(...)` path; it enters the AFC loop (`while remaining_remote_calls_afc > 0`), which deep-copies the config each iteration, builds a function map, and keeps AFC call history. The provider passes no tools, so nothing is auto-called and the response is unaffected — but every Gemini request is running through a code path the application never chose, and the warning is the SDK saying so.
+
+Correctly not fixed here: declaring the field is a payload-contract change, outside this spec's scope (§1). **The fix is not to silence the warning.** `config/providers/gemini_settings.json` is the file that declares what this provider sends, and `automatic_function_calling` is that kind of value; setting `{"disable": true}` there takes the direct path and stops the warning at its source, because the condition raising it is no longer true. Filed as **issue #129**.
 
 ## 6. Follow-ups
 
 | Item | Description | Why deferred |
 | --- | --- | --- |
-| new (to file) | Silence the `google-genai` 2.22.0 AFC stderr warning by setting `automatic_function_calling={'disable': True}` on the `GenerateContentConfig` the Gemini provider builds. | Payload-contract change; outside this spec's scope. Cosmetic — the request succeeds. |
+| #129 | Gemini requests take the SDK's automatic function calling path unintentionally. Declare `automatic_function_calling` in `config/providers/gemini_settings.json` so the provider sends `{"disable": true}` and takes the direct path. | Payload-contract change; outside this spec's scope (§1). Not cosmetic — responses are unaffected, but the code path is one the application never chose. |
 | #107 | `setup.py` `version='0.1.0'` source, `requirements-dev.txt`, runtime/dev split, and (if ever wanted) a committed lockfile. | Explicitly out of scope (§1, D1, D2). |
 | #108 | Remove unused pins `alembic` / `fastapi` / `uvicorn`. | Out of scope (§1). |
 | #124 | `ClaudeProvider.count_tokens` — absent at both 0.75.0 and 1.3.0. | Unblocked by this work, not fixed by it (design study F13). |
