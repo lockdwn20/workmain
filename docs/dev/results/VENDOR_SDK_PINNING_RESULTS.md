@@ -42,17 +42,17 @@ Complete. The Gemini provider's rate-limit handler is now a single typed predica
 | AC6.1 | Met | `grep -rn 'google.api_core' workmain/` → 0 hits |
 | AC7.1 | Met | Ray ran `workmain gdocs upload all --date 20260302 --force` — Notes and Report uploaded to Drive; see §5 for the Clockify note |
 | AC8.1 | Met | Ray ran `workmain providers test claude` and `workmain providers test gemini` — both returned live generations; see §5 for the Gemini warning |
-| AC9.1 | Met | `pytest` under the upgraded SDKs — 996 passed, 0 failed (baseline 988) |
+| AC9.1 | Carried #131 | Bare `pytest` from the repository root, under the upgraded SDKs in the working `.venv` — **992 passed, 4 failed**. All four are `tests/test_ai_clients.py::{test_claude_generation, test_gemini_generation, test_provider_status, test_cost_tracking_integration}`, and all four are pre-existing: the same four fail identically when the **merge-base** copy of the file (`git show 80896a8:tests/test_ai_clients.py`) is run against this code, so they predate this branch. Root cause is #130. The suite cannot be green until it is fixed, so this criterion is carried to **#131**, which owns the suite's invocation, its skip reporting, and the file the four live in. This branch's own eight tests are green (AC4.x, AC5.x). Under `SKIP_API_TESTS=1` the suite is 996 passed, 0 failed — recorded here as the number the earlier run produced, not as evidence for this criterion. |
 
 ## 4. Deviations from spec
 
 | # | Deviation | Reason | Approved by |
 | --- | --- | --- | --- |
-| — | None. | | |
+| 1 | Close-out proceeded past a failing preflight `P8`. `/closeout` states that a close-out cannot proceed past a red suite. | The four failures are proven pre-existing and belong to #130, not to this branch. Fixing them first would require a hotfix off `main` and a merge back into this branch, adding a third level of nesting on top of an issue that is already complete and live-verified. | Ray, 20260903 — explicit direction after reviewing the root-cause analysis with Anvil on both the #79 and #126 implementation sessions. |
 
 ## 5. Verification
 
-- **Test suite:** 996 passed, 0 failed (baseline 988). +8 from `TestGeminiRateLimitTranslation`. Run under the upgraded `anthropic==1.3.0` / `google-genai==2.22.0` in the working `.venv`.
+- **Test suite:** bare `pytest` from the repository root, under the upgraded `anthropic==1.3.0` / `google-genai==2.22.0` in the working `.venv` — **992 passed, 4 failed, 0 skipped**. The four failures are pre-existing and are carried to #131; see the AC9.1 row for the evidence that they predate this branch. The eight tests this branch adds are green. `SKIP_API_TESTS=1 pytest` gives 996 passed, 0 failed, because the four gated tests bail with a bare `return` and a test that returns reports as passed — which is the mechanism #131 exists to remove, and is why that number is not evidence of a green suite.
 - **Environment upgrade:** `pip install -r requirements.txt` in `.venv` → `anthropic 1.3.0`, `google-genai 2.22.0`, `google-auth 2.56.0`, `pydantic 2.12.5`, `httpx 0.28.1`. `httpx2 2.12.0` and `httpcore2 2.12.0` arrived as transitives beside `httpx`, exactly as DR3 and Decision Log G2 anticipate — both HTTP stacks are installed and nothing first-party imports either. `pip check`: no broken requirements, in both the working `.venv` and the throwaway venv.
 - **Live verification (Ray, 20260903):**
   - `workmain providers test claude` — available, test request returned "API connection successful", 29 tokens, $0.000114 on `claude-sonnet-5`.
@@ -83,3 +83,15 @@ Correctly not fixed here: declaring the field is a payload-contract change, outs
 | #108 | Remove unused pins `alembic` / `fastapi` / `uvicorn`. | Out of scope (§1). |
 | #124 | `ClaudeProvider.count_tokens` — absent at both 0.75.0 and 1.3.0. | Unblocked by this work, not fixed by it (design study F13). |
 | #114 / #125 | Provider `timeout_seconds` and retry multiplication. | Out of scope (§1). |
+| #130 | A provider built outside `ProviderManager` gets an empty policy and fails deep inside `generate()`. Root cause of the four failures carried from AC9.1. Fix shape is a design question — provider self-loads, callers route through `ProviderManager`, or construction fails loudly. | Pre-existing defect from #79, surfaced by running the suite as AC9.1 specifies. Not this branch's to fix. |
+| #131 | Split `tests/test_ai_clients.py`, and make the suite's invocation and skip reporting explicit in `docs/DEVELOPMENT_STANDARDS.md` §6. **AC9.1 is carried here.** | The four failures cannot be resolved without #130, and the reporting mechanism that hid them is its own concern. |
+| #122 | Ollama construction bypasses `ProviderManager` and hardcodes its configuration at `daemon.py:258`, `eod_workflow.py:470` and `:712`. Folded into #122 as a sixth AC rather than opened separately — it is the same misalignment as the rest of that issue, expressed in code rather than file layout. | Out of scope (§1); #122 already owns Ollama's alignment. |
+
+### Standards changes proposed by this close-out
+
+Four rules, each tied to one failure this work surfaced. Recorded here at Ray's direction rather than opened as a `chore/*`, because he is folding them into the skills work.
+
+1. **A contract change enumerates its call sites.** When a spec changes a signature, a required input, or an invariant of something already called elsewhere, §2 must list every call site found by search, and an AC must cover the whole set. This is my `verify transitively` correction from a previous session — it's in my memory and not in your standards, which is why it didn't bind Anvil.
+2. **The recorded command is the command that was run, and it must reproduce.** §6 gets: the suite is bare `pytest` from the repo root; a results artifact records the exact invocation; any flag or environment variable that changes which tests run is a deviation that must be named and justified in the artifact. Close-out's P8 then compares the recorded evidence against its own run instead of trusting the number.
+3. **A test that does not run reports as skipped.** `pytest.skip`/`skipif`, never an early `return`. Mechanically checkable, and it makes the masking impossible rather than merely discouraged. Same class as Caliper's `-k`-exits-5 point.
+4. **Verification names the path it exercised.** An AC verifying changed behaviour states which entry path it goes through, and where more than one exists, the set must be complete or the omission stated. This is the Pitfalls line given teeth.
