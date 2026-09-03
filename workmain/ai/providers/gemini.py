@@ -17,7 +17,7 @@ import time
 from typing import Optional
 from google import genai
 from google.genai import types
-from google.api_core import exceptions as google_exceptions
+from google.genai import errors as genai_errors
 
 from workmain.ai.base_provider import (
     BaseProvider,
@@ -31,6 +31,16 @@ from workmain.ai.base_provider import (
     GenerationError,
     ProviderUnavailableError,
 )
+
+
+def _is_rate_limit_error(exc) -> bool:
+    """True only when a vendor error carries HTTP 429 in its own ``code``.
+
+    The Gemini error hierarchy has no ``status_code`` (see the spec's §2); the
+    integer ``code`` attribute is the single fact that decides a rate limit.
+    """
+    return getattr(exc, 'code', None) == 429
+
 
 class GeminiProvider(BaseProvider):
     """
@@ -166,9 +176,39 @@ class GeminiProvider(BaseProvider):
                     metadata=metadata
                 )
 
-            except google_exceptions.ResourceExhausted as e:
-                self._set_status(ProviderStatus.RATE_LIMITED, str(e))
-                raise RateLimitError(f"Gemini rate limit exceeded: {e}") from e
+            except genai_errors.APIError as e:
+                # One clause for 4xx, 5xx and a bare APIError from the SDK's
+                # error dispatch. The predicate decides a rate limit; a
+                # permanently-rejected request fails fast; everything else
+                # runs the backoff below — same shape as ClaudeProvider.generate().
+                if _is_rate_limit_error(e):
+                    self._set_status(ProviderStatus.RATE_LIMITED, str(e))
+                    raise RateLimitError(f"Gemini rate limit exceeded: {e}") from e
+
+                # Fail fast on a permanently-rejected request: any 4xx other
+                # than 408, 409 and 429. Retrying cannot change the outcome.
+                code = getattr(e, 'code', None)
+                if (
+                    isinstance(code, int)
+                    and 400 <= code < 500
+                    and code not in (408, 409, 429)
+                ):
+                    self._set_status(ProviderStatus.ERROR, str(e))
+                    raise GenerationError(
+                        f"Gemini rejected the request ({code}): {e}"
+                    ) from e
+
+                last_error = e
+                attempt += 1
+
+                if attempt < self._retry_attempts:
+                    delay = self._retry_delay * (2 ** (attempt - 1))
+                    time.sleep(delay)
+                else:
+                    self._set_status(ProviderStatus.ERROR, str(e))
+                    raise GenerationError(
+                        f"Gemini generation failed after {attempt} attempts: {e}"
+                    ) from e
 
             except TypeError as e:
                 self._set_status(ProviderStatus.ERROR, str(e))
@@ -177,10 +217,6 @@ class GeminiProvider(BaseProvider):
             except Exception as e:
                 last_error = e
                 attempt += 1
-
-                if "quota" in str(e).lower() or "rate" in str(e).lower():
-                    self._set_status(ProviderStatus.RATE_LIMITED, str(e))
-                    raise RateLimitError(f"Gemini rate limit exceeded: {e}") from e
 
                 if attempt < self._retry_attempts:
                     delay = self._retry_delay * (2 ** (attempt - 1))
@@ -270,14 +306,13 @@ class GeminiProvider(BaseProvider):
             self._set_status(ProviderStatus.AVAILABLE)
             return ProviderStatus.AVAILABLE
 
-        except google_exceptions.ResourceExhausted:
-            self._set_status(ProviderStatus.RATE_LIMITED)
-            return ProviderStatus.RATE_LIMITED
+        except genai_errors.APIError as e:
+            if _is_rate_limit_error(e):
+                self._set_status(ProviderStatus.RATE_LIMITED)
+                return ProviderStatus.RATE_LIMITED
+            self._set_status(ProviderStatus.UNAVAILABLE, str(e))
+            return ProviderStatus.UNAVAILABLE
 
         except Exception as e:
-            if "quota" in str(e).lower() or "rate" in str(e).lower():
-                self._set_status(ProviderStatus.RATE_LIMITED, str(e))
-                return ProviderStatus.RATE_LIMITED
-            else:
-                self._set_status(ProviderStatus.UNAVAILABLE, str(e))
-                return ProviderStatus.UNAVAILABLE
+            self._set_status(ProviderStatus.UNAVAILABLE, str(e))
+            return ProviderStatus.UNAVAILABLE
