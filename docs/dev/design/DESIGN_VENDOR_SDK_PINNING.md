@@ -97,16 +97,16 @@ Verified 20260903 unless a row says otherwise.
 
 | Q | Question | Answer |
 | --- | --- | --- |
-| Q1 | D1 — Option A (pin the direct set + `google-api-core`) rather than a committed lockfile? | |
-| Q2 | D2 — delete `install_requires` from `setup.py` and add the `pip install -r requirements.txt` line to `README.md`, leaving #107 the version source and the dev/runtime split? | |
-| Q3 | D3 — one typed predicate, and the `"quota"`/`"rate"` string heuristic deleted from both `generate()` and `check_availability()`? | |
-| Q4 | The four cascade pins (F6) are not optional — `google-auth` 2.57.0, `pydantic` 2.13.5, `pydantic-settings` 2.15.0, `httpx` 0.28.1 — and `pydantic` moves eight minors. Is that acceptable inside this issue, given F7 shows no first-party import of either package? | |
-| Q5 | F14 — the substring false positive — is fixed as a consequence of D3 Option A. Does it need its own issue for the record, or is being named in this study and its spec's decision log enough? | |
-| Q6 | AC7 requires live `workmain providers test claude` and `providers test gemini`, and AC6 a live `workmain gdocs` upload. These spend real API calls and touch Drive. Confirmed as the spec's verification, run by Ray at the step that needs them? | |
-| Q7 | The issue's ACs carry the three premises F1, F2 and F5 corrects. Rewrite them in place at spec time — the #79 precedent — or leave them and record the corrections in the spec? | |
+| Q1 | D1 — Option A (pin the direct set + `google-api-core`) rather than a committed lockfile? | **Answered 20260903 (Ray): yes.** Option A — direct pins plus `google-api-core`. No lockfile; if one is wanted it belongs in #107. |
+| Q2 | D2 — delete `install_requires` from `setup.py` and add the `pip install -r requirements.txt` line to `README.md`, leaving #107 the version source and the dev/runtime split? | **Answered 20260903 (Ray): yes.** Option A — `install_requires` deleted, `README.md` install line corrected, #107 keeps the version source and the dev/runtime split. |
+| Q3 | D3 — one typed predicate, and the `"quota"`/`"rate"` string heuristic deleted from both `generate()` and `check_availability()`? | **Answered 20260903 (Ray): yes.** Option A — one typed predicate on `errors.APIError`, string heuristic deleted from both methods. |
+| Q4 | The four cascade pins (F6) are not optional — `google-auth` 2.57.0, `pydantic` 2.13.5, `pydantic-settings` 2.15.0, `httpx` 0.28.1 — and `pydantic` moves eight minors. Is that acceptable inside this issue, given F7 shows no first-party import of either package? | **Answered 20260903 (Ray): yes.** The four cascade pins move inside this issue. |
+| Q5 | F14 — the substring false positive — is fixed as a consequence of D3 Option A. Does it need its own issue for the record, or is being named in this study and its spec's decision log enough? | **Answered 20260903 (Ray):** no separate issue. F14 is recorded here and in the spec; D3 Option A resolves it. |
+| Q6 | AC7 requires live `workmain providers test claude` and `providers test gemini`, and AC6 a live `workmain gdocs` upload. These spend real API calls and touch Drive. Confirmed as the spec's verification, run by Ray at the step that needs them? | **Answered 20260903 (Ray):** Ray runs AC6 and AC7 live and validates them. |
+| Q7 | The issue's ACs carry the three premises F1, F2 and F5 corrects. Rewrite them in place at spec time — the #79 precedent — or leave them and record the corrections in the spec? | **Answered 20260903 (Ray):** rewrite. Spanner supplies the corrected text; Ray edits the issue. |
 
 ## 6. Disposition
 
-- Promoted to: *(pending — spec for issue #126)*
+- Promoted to: *(pending — spec for issue #126; Q1–Q7 answered 20260903, D1/D2/D3 all Option A)*
 - Related: `docs/archive/design/DESIGN_PROVIDER_MODEL_CAPABILITY.md` F13–F15 and `DESIGN_PROVIDER_CAPABILITY_CHECK.md` D1/Q1 (branch `feature/issue-121-provider-capability-check`), which is where #126 came from and which is blocked on it. F3 corrects the latter's F14.
 - Adjacent issues left alone deliberately: **#107** (setup.py version source, dev/runtime split), **#108** (unused pins `alembic`/`fastapi`/`uvicorn`), **#124** (`count_tokens`, F13), **#125** and **#114** (retry and timeout).
