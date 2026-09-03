@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.33.0] - 2026-09-03
+
+### Changed
+
+- **Vendor SDKs pinned and upgraded (#126).** `anthropic` 0.75.0 → 1.3.0 and `google-genai` 0.3.0 → 2.22.0, both previously declared as version floors. Every dependency in `requirements.txt` is now an exact pin: `google-auth`, `pydantic` and `httpx` move the minimum distance the upgrade forces, `icalendar` pins at the version already installed, and `google-api-core` — the transitive Google Drive and Docs depend on — is declared for the first time. The stale version-history block at the top of `requirements.txt` is gone.
+- **`setup.py` no longer declares dependencies.** Its `install_requires` listed seven packages against `requirements.txt`'s thirty, with floors two majors stale; `README.md` now installs `requirements.txt` before the editable install. The version literal and the runtime/dev split remain #107's.
+- **Report providers switched to Claude.** `daily_internal` and `weekly_client` now run primary `claude`, fallback `gemini`, while the Gemini output problems are open. Operational change, unrelated to #126. `note_condensation` stays on `gemini`.
+
+### Fixed
+
+- **Gemini rate-limit handling (#126).** `GeminiProvider` caught `google.api_core.exceptions.ResourceExhausted`, which the `google-genai` SDK has never raised — the handler was dead in both `generate()` and `check_availability()`, and 429s were being classified by a `"quota"`/`"rate"` substring test on the error message. That test also misread any failure whose message contained *generate*. Both handlers now branch on a single typed predicate over `google.genai.errors.APIError.code`.
+- **A permanently-rejected Gemini request is no longer retried.** A 4xx other than 408, 409 and 429 raises immediately instead of retrying three times, matching `ClaudeProvider`.
+
 ## [1.32.0] - 2026-09-02
 
 ### Added
