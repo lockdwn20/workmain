@@ -107,6 +107,6 @@ Verified 20260903 unless a row says otherwise.
 
 ## 6. Disposition
 
-- Promoted to: *(pending — spec for issue #126; Q1–Q7 answered 20260903, D1/D2/D3 all Option A)*
+- Promoted to: `../specs/VENDOR_SDK_PINNING_SPEC.md` (Q1–Q7 answered 20260903; D1, D2 and D3 all Option A).
 - Related: `docs/archive/design/DESIGN_PROVIDER_MODEL_CAPABILITY.md` F13–F15 and `DESIGN_PROVIDER_CAPABILITY_CHECK.md` D1/Q1 (branch `feature/issue-121-provider-capability-check`), which is where #126 came from and which is blocked on it. F3 corrects the latter's F14.
 - Adjacent issues left alone deliberately: **#107** (setup.py version source, dev/runtime split), **#108** (unused pins `alembic`/`fastapi`/`uvicorn`), **#124** (`count_tokens`, F13), **#125** and **#114** (retry and timeout).
