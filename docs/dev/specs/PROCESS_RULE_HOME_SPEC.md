@@ -118,7 +118,7 @@ An implementer who hits something these do not cover stops at the step — `CLAU
 | Step | Deliverable | Files |
 | --- | --- | --- |
 | 1 | `automation/rule_census.py` implementing DR8 (`--headers`) and DR9 (`--text`), with `automation/rule_census_test.py` covering one fixture per class in both modes, a file with no header, and a clean file — so a classifier that never matches fails its own tests. Fixtures are inline strings written to `tmp_path` per DR10. Record both modes' output for the untouched tree as the branch-point census. | `automation/rule_census.py`, `automation/rule_census_test.py` |
-| 2 | Standards edits. §1.5 gains **one repo-wide bullet** applying `CLAUDE.md`'s one-home rule to near-code text, **worded by class** — text that travels with the code may say what a thing does and may not carry a process rule — naming the two homes and citing `CLAUDE.md` for the general rule rather than restating it (F5, G4). No file kinds, directories or exempt paths are enumerated (DR1). Its form follows §1.5's existing "No version headers … in any document" bullet (F7). It records the failure it exists for. No preamble is added. §3.1 gains the explicit exclusion (DR2) and a summary-plus-description example. §3.4 gains the two package shapes (DR4). §3.5 is rescoped to function and class level. §5.6's closing bullet is scoped to the Click command function. | `docs/DEVELOPMENT_STANDARDS.md` |
+| 2 | Standards edits — the five verbatim replacements in §4.1 below. Nothing else in `docs/DEVELOPMENT_STANDARDS.md` changes. | `docs/DEVELOPMENT_STANDARDS.md` |
 | 3 | **Set A** — every header `--headers` flags `COMMAND`, `FLAG`, `TRIGGER` or `VERSION`, rewritten to DR2. Ordering constraints survive as prose (DR3). | as reported by Step 1 |
 | 4 | **Set B** — every header flagged `INVENTORY`, rewritten to DR2 under DR6. `workmain/cli/commands/eod.py` and `reports.py` need their conceptual description written, since the inventory currently does that work. | as reported by Step 1 |
 | 5 | **Set C** — 16 `__init__.py` files. The 14 empty ones are package markers under DR4 and receive a §3.1 header and nothing else: `workmain/`, `workmain/cli/`, `workmain/cli/commands/`, `workmain/config_manager/`, `workmain/core/`, `workmain/database/`, `workmain/database/migrations/`, `workmain/integrations/`, `workmain/notifications/`, `workmain/utils/`, `workmain/web/`, `tests/`, `tests/fixtures/`, `tests/mocks/`. `workmain/ai/__init__.py` and `workmain/ai/providers/__init__.py` already carry imports and `__all__` and need their inventory docstrings reshaped only. **No import and no `__all__` is added or removed in this step.** | 16 `__init__.py` files |
@@ -127,6 +127,68 @@ An implementer who hits something these do not cover stops at the step — `CLAU
 | 8 | **Set D** — delete the `__main__` block from the 12 test modules that have one, and the five in-module runners (`run_all_tests` in `tests/test_ai_clients.py` and `tests/test_ai_foundation.py`; `main` in `tests/test_config_system.py`, `tests/test_tag_system.py`, `tests/test_templates.py`). Delete imports left unused. **`tests/google_drive/gdrive_probe.py` keeps its `__main__` block** — a standalone program's argparse entry point, not a test runner (F3). | 12 files under `tests/` |
 | 9 | **Set F** — run `--text`, adjudicate **every** hit it returns, and act on each adjudication. Three are already known and must appear in the record with their outcome: the two `.sql` ordering constraints in `workmain/database/migrations/`, which are DR3 adjudications of the same kind Step 3 makes for the migration script headers, and the `SKIP_API_TESTS` gate comment at `tests/test_ai_clients.py:361-363`. Where an adjudication says the text is a process rule, it is removed under DR3; where it says the text describes the code, it stays and the reasoning is recorded. | as reported by Step 1, plus `docs/dev/results/PROCESS_RULE_HOME_RESULTS.md` |
 | 10 | Delete `CONTRIBUTING.md`. Re-run both census modes and record their output against the branch-point census from Step 1. Complete the results artifact: both classifiers, both commands, every hit and its adjudication — which is what issue #134's second acceptance criterion asks for. | `CONTRIBUTING.md`, `docs/dev/results/PROCESS_RULE_HOME_RESULTS.md` |
+
+### 4.1 Step 2 — the five edits, stated literally
+
+Line numbers are as of `83ff5f9`. Match on the quoted text, not the number.
+
+**Edit 1 — §1.5, insert after line 121** (`- **No version headers or version-history blocks in any document.** …`), as the next bullet:
+
+```markdown
+- **A process rule never travels with the code.** Text that ships alongside what it describes — a docstring, an inline comment, a template, a file whose name invites it — says what the thing does and what it requires. It never says what a person should do about that. `CLAUDE.md` and this document are the two homes for a process rule; per `CLAUDE.md`'s opening, everywhere else cites them. This bullet exists because `tests/test_ai_clients.py` stated that an environment variable would skip its live API tests. Two roles, in two sessions, read a statement of what the flag did as an instruction to set it, ran a modified command in place of the suite, and shipped four real failures to `main` and to the running daemon.
+```
+
+**Edit 2 — §3.1, replace line 294** in full:
+
+- Current: `- PEP 257 module docstring, description only. **No version, no date, no version-history block.** Git tags, `CHANGELOG.md`, and `workmain/__version__.py` are the version record.`
+- Replacement:
+
+```markdown
+- PEP 257 module docstring: a one-line summary, then a paragraph describing what the module does and why. **No version, no date, no version-history block** — git tags, `CHANGELOG.md`, and `workmain/__version__.py` are the version record. **No terminal command, no environment variable, no command-line flag, no invocation, no trigger for when to run something, and no inventory of the module's own contents.** A command belongs to `argparse` or to a Click command's own docstring (§5.6), which is where a reader looking for it will be.
+```
+
+**Edit 2b — §3.1, replace the example at lines 296-301** so it shows the shape Edit 2 describes:
+
+```python
+"""
+Parses, validates, converts and formats tags for display.
+
+Tags are case-insensitive, are normalized on entry, and are validated
+against config/tags.json. Callers receive full names; short forms are an
+input convenience and are never stored.
+"""
+```
+
+**Edit 3 — §3.4, replace line 344** in full:
+
+- Current: `- Descriptive docstring, import classes *and* singleton getters, declare `__all__`. No `__version__` constant.`
+- Replacement:
+
+```markdown
+- A package that exposes an API gets a §3.1 docstring, imports of its classes *and* singleton getters, and an `__all__` declaring them. A package that exposes nothing — a namespace holding modules that callers import directly — gets the §3.1 docstring and nothing else. Which one a package is, is a fact about it: if no caller writes `from <package> import <name>`, it exposes nothing, and inventing exports to satisfy this section is not conformance. No `__version__` constant in either.
+```
+
+**Edit 4 — §3.5, replace lines 346 and 348.**
+
+- Current heading: `### 3.5 Type hints and docstrings`
+- Replacement heading: `### 3.5 Function and class docstrings`
+- Current line 348: `- Type hints on every parameter and return. Google-style docstrings on every public function and class.`
+- Replacement:
+
+```markdown
+- **This section governs functions and classes. It does not govern module headers, which are §3.1's.** Type hints on every parameter and return. Google-style docstrings on every public function and class — `Args:`, `Returns:`, `Raises:`, `Attributes:`. Those blocks belong to a function or a class and never appear in a module header.
+```
+
+**Edit 5 — §5.6, replace line 613** in full:
+
+- Current: `- Every command needs a docstring serving as `--help`, with a one-line summary and at least one `Examples:` block.`
+- Replacement:
+
+```markdown
+- Every Click command function needs a docstring, with a one-line summary and at least one `Examples:` block. That docstring *is* the `--help` output, so it is written for the person running the command and is the one place invocations and flags belong. It is not a module header — §3.1 governs those and excludes exactly this content.
+```
+
+Any cross-reference this spec makes elsewhere to §1.5, §3.1, §3.4, §3.5 or §5.6 means the text above once Step 2 is committed.
 
 ### Authorization points
 
