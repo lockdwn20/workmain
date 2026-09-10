@@ -64,6 +64,8 @@
 | 20260910 | Ray | Twelve one-time migration and utility scripts deleted; `db-setup.sh` and `ai_dependencies.sh` moved to `scripts/setup/`. | Committed as `97de27b` after verifying no code, config, doc or shell file references any deleted script — the only surviving mentions are `CHANGELOG.md` entries, which are the historical record. Most of `scripts/`'s census candidates were those migration headers; they are gone rather than adjudicated. |
 | 20260910 | Ray | H5 — whether a pattern matches the raw line or extracted text should not matter; a grep does not care. | Accepted, and it resolves the ambiguity rather than dismissing it: every pattern matches the raw line with leading whitespace ignored, exactly as `grep` does. A `#` or `--` comment therefore never matches `INVENTORY`, which is right — `INVENTORY` is a §3.1 module-header shape with no meaning in a comment. |
 | 20260910 | Spanner | Four review rounds on one spec. Caliper's criteria never changed — Role 2's seven questions were constant. The spec did: round 1 reviewed a classifier that returned verdicts, round 2 a specified classifier, round 3 a census that gathers with Ray adjudicating, round 4 directory pre-adjudication and JSON by field. Each round reviewed largely new text because the mechanism was rebuilt under it each time. | Cause was building surface issue #134 never asked for — a classifier, an `automation/` module with its own test suite, a close-out preflight row, a `pre-push` hook, a two-mode census. Every added surface generated findings. The issue asked to remove four lines from a docstring and state a rule. Recorded so the next spec is sized to its issue. |
+| 20260910 | Ray | `automation/issue_validator.py` should be fixed here rather than sent to adjudication. | Accepted. Checked the repository first, having originally raised it from one directory: it is the **only** file where a module docstring is consumed at runtime — one `__doc__` reference repo-wide, no `inspect.getdoc`, no attribute reads. The other two `automation/` argparse tools pass no description or a literal string. Its `--help` also already renders the invocations as a collapsed run-on, because argparse's default formatter reflows whitespace, so the fix is strictly an improvement. Specified in §4.2 and pre-adjudicated as edit. |
+| 20260910 | Spanner | Edit 5 stays as written. §5.6 sits in `## 5. CLI Standards`, which governs the `workmain` Click CLI; `automation/issue_validator.py` is dev tooling under §6.3. Widening §5.6 to reach argparse would put module headers back into a §5.6 sentence and reopen the ambiguity Edit 5 exists to close, to cover one file. | Not taken. A standard settles a class; one file is a determination, and that determination is now §4.2. |
 
 **Reading the rows above.** The Caliper F and G rows record findings and the resolutions taken *at the time*. Several of those resolutions — the `automation/` placement, the census test file, DR10's `tmp_path` fixtures, DR11, the A-to-F set vocabulary and the step numbering they imply — were superseded by Ray's 20260909 decisions in the rows that follow. The findings still stand and are still answered; the mechanism changed. §1 through §7 are the current spec, and where a row above disagrees with them, they win.
 
@@ -85,6 +87,7 @@ Also in scope: the `__main__` blocks and in-module runners under `tests/`, each 
 - **`tests/test_ai_clients.py`'s file split, its `SKIP_API_TESTS` gate, and §6's invocation and skip-reporting rules** — issue #131. This spec removes three lines from that file's header and its `__main__` block and runner.
 - **`config/intent_parse_system_prompt.txt`, and the `CLAUDE.md` § Intent Parser Config lines describing it.** A documented exclusion, adjudicated in advance as leave-as-is and deferred to **#122**, which realigns Ollama configuration with the per-provider structure and already owns the ownership boundary between those two files. The census still reports the file's rows; their determination is recorded and no edit follows. What #122 inherits is stated in the Decision Log so it is not rediscovered.
 - **Pre-adjudicated as remove.** Every line inside a `__main__` block under `tests/`, and every line of the five in-module runners named in §2, except in `tests/google_drive/gdrive_probe.py`, whose `__main__` is a standalone program's argparse entry point. Step 6 carries it out.
+- **Pre-adjudicated as edit — `automation/issue_validator.py`.** Its module docstring is its `--help` text, so DR3's "argparse already carries it" does not hold: `argparse` carries it *by reading the docstring*, and deleting the invocations from the header deletes them from `--help`. The fix is specified in §4.2 rather than left to adjudication, because the case is understood and the current output is already wrong.
 - **Pre-adjudicated as leave-as-is, by directory.** These are surveyed and appear in the report like everything else; their determination is recorded in advance so they do not consume adjudication:
   - **Any `fixtures/` or `mocks/` directory** — test data, not text a session reads as guidance. `tests/fixtures/*.ics` is RFC 5545 calendar data whose `TZID=`/`UNTIL=`/`BYDAY=` parameter syntax collides with the `FLAG` category by construction; `automation/fixtures/` holds deliberately spec-shaped inputs for `closeout_acs_test.py` and `issue_validator_test.py`.
   - **`workmain/database/migrations/`** — one-time updates already applied. Their comments record what was done, which is the v1.29.0 precedent for a one-time file carrying historical information. Scoped to that directory, so a re-runnable utility elsewhere is censused normally.
@@ -115,6 +118,9 @@ Also in scope: the `__main__` blocks and in-module runners under `tests/`, each 
 | `config/intent_parse_system_prompt.txt:11-32` states a VERSION AUTHORITY rule, a versioning rule and a five-step tuning workflow. Its versioning rule says to increment an `ollama_model` suffix (`workmain-intent-1`, `-2`). `CLAUDE.md:174` says the model is always referenced as `model_built: workmain-intent:latest` — which names the wrong field: the live header's `model_built` is `workmain-intent:v1.6` and its `ollama_model` is `workmain-intent:latest`. Excluded from this spec and deferred to #122; recorded here because §2 is where a later reader checks what was true. | that file; `CLAUDE.md` § Intent Parser Config |
 | `workmain/ai/providers/claude.py:5` and `gemini.py:5` state a construction constraint with no command, flag or trigger. Compliant. | those files |
 | `CONTRIBUTING.md` is 0 bytes with no references. | `CONTRIBUTING.md`; `grep -rn CONTRIBUTING` |
+| `automation/issue_validator.py:302` is the **only** place in the repository where a module docstring is consumed at runtime — `argparse.ArgumentParser(description=__doc__)`. No other `__doc__` reference, `inspect.getdoc` or `.__doc__` read exists. `check_release_integrity.py:82` passes no description; `closeout_acs.py:276` passes a literal string. | `grep -rn "__doc__" --include="*.py" .` |
+| That file's `--help` already renders its docstring's three invocation lines as a collapsed run-on paragraph, because argparse's default `HelpFormatter` reflows whitespace. The `Usage:` block does not serve its purpose today. | `python3 automation/issue_validator.py --help` |
+| Click uses a decorated function's own docstring as its `--help`, which is §5.6's subject. Those are function docstrings, not module headers, and DR8.2 applies only `TRIGGER` and `COMMAND` below module level. | `workmain/cli/commands/*.py`; §5.6 |
 
 | This repository carries prose inside JSON, so a JSON file is not free of process text by virtue of its format. `config/intent_parse_prompt.json` carries prose at `_doc.description` ("listed here as the editable reference for rebuilds" — an instruction about which file to edit), `_doc.version_authority` ("Do not add version fields here"), `_doc.notes` (a four-step update workflow) and `generation_options._comment` ("Edit here first, then sync to Modelfile and rebuild"). `config/providers/claude_settings.json`, `gemini_settings.json` and `ollama_settings.json` each state "Declares what we SEND, never what a model SUPPORTS" in `description`. | those files |
 | `workmain/database/migrations/022_intent_action_constraints.sql:14` states `-- Verification (run manually after applying):` followed by two `SELECT`s and `-- Both should return 0.` | that file |
@@ -217,6 +223,34 @@ input convenience and are never stored.
 
 Any cross-reference this spec makes elsewhere to §1.5, §3.1, §3.4, §3.5 or §5.6 means the text above once Step 2 is committed.
 
+### 4.2 Step 5 — `automation/issue_validator.py`, stated literally
+
+Three changes, one file.
+
+1. **Remove the three invocation lines** from the module docstring (currently lines 5-7) — `python3 automation/issue_validator.py --new`, `… issue.json`, `… issue.json --create` with their trailing comments. Everything else in the header stays: it is the conceptual description §3.1 asks for.
+2. **Move them to the parser's `epilog`**, where `--help` still shows them.
+3. **Keep `description=__doc__`.** It is a citation of the one home, not a second copy — replacing it with a literal string would put the same summary in two places, which is the rule this issue exists to enforce.
+
+Replace `automation/issue_validator.py:302`:
+
+- Current: `    parser = argparse.ArgumentParser(description=__doc__)`
+- Replacement:
+
+```python
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        epilog=(
+            "examples:\n"
+            "  python3 automation/issue_validator.py --new              # print the skeleton\n"
+            "  python3 automation/issue_validator.py issue.json         # validate, print command\n"
+            "  python3 automation/issue_validator.py issue.json --create  # validate, then create\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+```
+
+`RawDescriptionHelpFormatter` is what stops argparse reflowing the epilog into the run-on paragraph it currently produces. Verify with `python3 automation/issue_validator.py --help`.
+
 ### Authorization points
 
 **None.** No migration, no GitHub object deleted, no merge to `main`, no force-push, no change to a live service's run state. The `dev → main` PR, version bump, tag and restart belong to `/closeout`.
@@ -241,6 +275,7 @@ Issue #136's final acceptance criterion deletes three leaked rows from the live 
 | AC11.2 | No in-module test runner remains | `grep -rn "^def run_all_tests\|^def main" tests/` returns no matches |
 | AC11.3 | No file exists whose name reserves a home for process text it does not hold | `CONTRIBUTING.md` is absent |
 | AC12.1 | The candidates verified in §2 each appear in the report with a determination — **the module docstring at `tests/test_ai_clients.py:9-12`, which is the text issue #134 exists to remove**, the `SKIP_API_TESTS` gate comment at `tests/test_ai_clients.py:361-363`, and the JSON prose blocks named in §2 — `config/intent_parse_prompt.json` at `_doc.description`, `_doc.version_authority`, `_doc.notes` and `generation_options._comment`, and `description` in each of `config/providers/claude_settings.json`, `gemini_settings.json` and `ollama_settings.json`. Named, never counted (DR12) | `grep` for each location in the results artifact; stated reading by Ray. **`tests/test_ai_clients.py:9-12` is the originating instance — a `leave as is` determination on it closes the issue without doing the thing the issue asks for, so its determination is read on its own** |
+| AC12.3 | `automation/issue_validator.py`'s `--help` shows its invocations on separate lines, and its module header carries none | `python3 automation/issue_validator.py --help`; stated reading by Ray |
 | AC12.2 | The `config/intent_parse_system_prompt.txt` determination is recorded with its reason and its owning issue, and the file is unchanged on the branch | `git diff $(git merge-base main HEAD)..HEAD -- config/intent_parse_system_prompt.txt` is empty; the artifact names #122; stated reading by Ray |
 
 Issue #134's AC1 and AC2 are replaced by AC1.1 and AC2.1; AC6 through AC12 are added; and AC3 is met by a bullet that cites rather than restates the general rule (F5). The issue is edited to match at close-out — a spec is designed on the merits and the issue's criteria are reconciled to it, never the reverse.
