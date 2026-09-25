@@ -1,6 +1,6 @@
 # A process rule has one home — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20260909
 **Branch:** `feature/issue-134-process-rule-home` (from `dev`)

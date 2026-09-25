@@ -1,10 +1,10 @@
 # A process rule has one home — Implementation Results
 
-**Status:** Shipped — pending Ray's stated-reading confirmation on the criteria the spec assigns to him
+**Status:** Shipped
 **Author:** Anvil (Role 3)
 **Date:** 20260925
 **Spec:** `../specs/PROCESS_RULE_HOME_SPEC.md`
-**Released as:** TBD
+**Released as:** v1.34.0 (tag `v1.34.0`)
 
 ---
 
@@ -80,7 +80,7 @@ Nine of these criteria are checked by Ray's stated reading, per the spec's own �
 
 - **Test suite:** 992 passed, 0 unexpected failures (4 known, named, unchanged) — baseline was identical (§2.1). `pytest automation/`: 51 passed, unchanged.
 - **Live verification:** None performed — this branch changes only module/package docstrings, comments, one JSON config file's prose fields, test-file headers and `__main__` blocks, and deletes an empty file. No runtime behavior changes (confirmed by the unchanged test counts and by `ast`-parsing every edited `.py` file after each edit).
-- **Daemon restart:** Not applicable — no code path executed by the daemon or CLI changed; docstrings and comments are not evaluated at runtime except `automation/issue_validator.py`'s `--help` (verified directly) and the `_doc`/`_comment` JSON fields (verified unread by any code, Decision Log 20260909 row citing `workmain/ai/intent_parser.py:19`).
+- **Daemon restart:** Performed at close-out. `docs/DEVELOPMENT_STANDARDS.md` §2.6 keys the restart on **branch type, not file path** — every `feature/*` branch ends with one — so the absence of a runtime-behaviour change does not excuse it. An earlier draft of this line read "Not applicable" on a `workmain/**` predicate, which is the re-derivation §2.6 exists to prevent. Confirmed `ActiveEnterTimestamp` is recorded in the closing comment.
 
 ## 6. Follow-ups
 
