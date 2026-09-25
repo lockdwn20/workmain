@@ -1,13 +1,11 @@
 """
 Manages AI providers with intelligent fallback and selection.
 
-Features:
-- N-provider extensible registry (claude, gemini, ollama, ...)
-- Per-report-type provider selection from ai_settings.json
-- Configurable fallback (manual/automatic)
-- Provider health monitoring
-- Notification on fallback
-- Disabled provider tracking (no connectivity check for disabled providers)
+Provides an N-provider extensible registry (claude, gemini, ollama, ...),
+per-report-type provider selection from ai_settings.json, configurable
+manual or automatic fallback, provider health monitoring, notification on
+fallback, and disabled provider tracking (no connectivity check runs for a
+disabled provider).
 """
 
 import json

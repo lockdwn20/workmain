@@ -1,12 +1,11 @@
 """
 CLI commands for managing AI providers.
 
-Commands:
-- providers list: Show all providers, status, model, cost structure
-- providers test <provider>: Test provider API connection
-- providers costs: Show aggregate cost totals
-- providers set default <REPORT_TYPE> <PROVIDER>: Update provider assignment
-- providers config show: Display full ai_settings.json detail view
+Provides providers list to show all providers, status, model and cost
+structure; providers test to test a provider's API connection; providers
+costs to show aggregate cost totals; providers set default to update a
+report type's provider assignment; and providers config show to display the
+full ai_settings.json detail view.
 """
 
 import json

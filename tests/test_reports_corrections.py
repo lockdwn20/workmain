@@ -1,7 +1,7 @@
 """
 Tests for 'workmain reports corrections' — default 7-day window (by
-updated_at), --search/--limit/--type/--all, sort order, and display
-format (Hotfix Item #56 Gate 2).
+updated_at), its search, limit, type and all-time filters, sort order, and
+display format (Hotfix Item #56 Gate 2).
 
 Uses unittest.TestCase with a real (committed) session, mirroring
 test_report_history.py's established pattern for this file — not the
@@ -15,10 +15,10 @@ is committed for real and deleted by ID in tearDown, same as
 test_report_history.py.
 
 Each test isolates its own rows from real production data with either a
-unique correction_note marker term (--search) or a sentinel far-future
-report_date (--date) — never by exact result count against an unfiltered
-query, since production corrected reports exist and are not test data
-this file controls.
+unique correction_note marker term (matched via the search filter) or a
+sentinel far-future report_date (matched via the date filter) — never by
+exact result count against an unfiltered query, since production corrected
+reports exist and are not test data this file controls.
 """
 
 import unittest

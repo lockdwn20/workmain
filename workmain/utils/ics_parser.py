@@ -33,11 +33,11 @@ RECURRENCE-ID exceptions: VEVENTs with a RECURRENCE-ID property override a
     specific occurrence of a recurring series (RFC 5545 §3.8.4.4). These events
     are routed to a separate ``recurrence_exceptions`` map (keyed by UID) and
     never enter Pass 2 deduplication. During RRULE expansion (Pass 3), each
-    occurrence date is checked against the exception map for the same UID:
-      - Exception found, not cancelled → emit exception's DTSTART/DTEND with
-        synthetic UID ``{series_uid}_{exc_dtstart_YYYYMMDDTHHMMSS}``
-      - Exception found, cancelled → skip the occurrence entirely
-      - No exception → emit normal occurrence
+    occurrence date is checked against the exception map for the same UID: an
+    uncancelled exception emits its own DTSTART/DTEND with a synthetic UID
+    ``{series_uid}_{exc_dtstart_YYYYMMDDTHHMMSS}``, a cancelled exception
+    skips the occurrence entirely, and no exception emits the normal
+    occurrence.
 
 Date-shift protection: When a UID match would move an existing meeting to a different
     calendar date AND that meeting has notes attached, the existing record is re-keyed

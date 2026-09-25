@@ -1,15 +1,12 @@
 """
 Integration tests for Phase 8 Slack integration.
 
-Test classes:
-- TestSlackReportsIntegration      — real DB, reports table
-- TestSlackAuth                    — token loading
-- TestFormatForSlack                — markdown conversion
-- TestDraftDateRange                — date range calculation
-- TestSlackClient                   — mocked Slack API
-- TestDraftLabel                    — DRAFT label prepend behaviour
-- TestSlackPostWeeklySharedRunner   — slack_post() driving the shared
-  eod_workflow review runner + separate delivery step (Item #61 Gate 4)
+Test classes: TestSlackReportsIntegration (real DB, reports table),
+TestSlackAuth (token loading), TestFormatForSlack (markdown conversion),
+TestDraftDateRange (date range calculation), TestSlackClient (mocked Slack
+API), TestDraftLabel (DRAFT label prepend behaviour), and
+TestSlackPostWeeklySharedRunner (slack_post() driving the shared
+eod_workflow review runner and a separate delivery step, Item #61 Gate 4).
 
 All Slack API calls are mocked via unittest.mock.patch.
 No real API calls are made in these tests.

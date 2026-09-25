@@ -1,10 +1,9 @@
 """
 CLI commands for Clockify report retrieval, sync, and connection status.
 
-Commands:
-- clockify report save [period]      # Download PDF report (daily/weekly/monthly)
-- clockify status                    # Show connection and sync status
-- clockify sync push/pull/both       # Sync time entries with Clockify
+Provides clockify report save for downloading a PDF report (daily, weekly or
+monthly), clockify status for connection and sync status, and clockify sync
+for syncing time entries with Clockify in either direction.
 """
 
 import calendar

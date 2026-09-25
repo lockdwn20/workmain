@@ -94,7 +94,3 @@ def test_database():
     console.print("[bold green]Database test complete![/bold green]\n")
     
     return 0
-
-
-if __name__ == "__main__":
-    sys.exit(test_database())

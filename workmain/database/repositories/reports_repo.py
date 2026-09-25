@@ -1,11 +1,9 @@
 """
 Repository for managing generated reports in the database.
 
-Provides methods to:
-- Create report records with metadata
-- Query reports by type, date, or status
-- Get cost summaries and analytics
-- Link reports to files on disk
+Provides methods to create report records with metadata, query reports by
+type, date or status, get cost summaries and analytics, and link reports to
+files on disk.
 """
 
 from datetime import date, datetime

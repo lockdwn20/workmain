@@ -1,20 +1,13 @@
 """
 Dynamic prompt construction for AI report generation.
 
-Features:
-- Integrates template structure with database data
-- Applies user's writing style
-- Includes Master Log examples for context
-- Manages context window limits
-- Builds system and user prompts
-- Supports both Claude and Gemini formats
-Workflow:
-1. Load template structure
-2. Get relevant data from database (filtered by tags)
-3. Load user's writing style preferences
-4. Select relevant Master Log examples
-5. Build comprehensive prompt
-6. Manage token limits
+Integrates template structure with database data, applies the user's writing
+style, includes Master Log examples for context, manages context window
+limits, and builds system and user prompts for both Claude and Gemini
+formats. Building a prompt loads the template structure, gets relevant data
+from the database filtered by tags, loads the user's writing style
+preferences, selects relevant Master Log examples, and assembles and trims
+the result to the token limit.
 """
 
 from datetime import date, datetime, timedelta

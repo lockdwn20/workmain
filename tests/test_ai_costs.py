@@ -1,8 +1,8 @@
 """
-Tests for the cost tracking persistence sprint:
-- AiCostRepository (create, get_filtered, get_summary with provider filter)
-- resolve_date_window and format_date_window_label (date_utils)
-- ProviderManager config loading from ai_settings.json
+Tests for the cost tracking persistence sprint: AiCostRepository (create,
+get_filtered, get_summary with provider filter), resolve_date_window and
+format_date_window_label (date_utils), and ProviderManager config loading
+from ai_settings.json.
 """
 
 import pytest

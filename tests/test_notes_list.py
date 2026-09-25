@@ -2,16 +2,11 @@
 Tests for 'workmain notes list' — the unified filter command — and the
 underlying get_filtered() method in notes_repo.py.
 
-Covers:
-  - get_filtered() exact date filter
-  - get_filtered() date range (start/end, boundary inclusion)
-  - get_filtered() meeting_ids filter
-  - get_filtered() FTS search keyword
-  - get_filtered() include_tags OR logic
-  - get_filtered() limit cap and ordering
-  - get_filtered() combined AND filters
-  - CLI: error paths, --history warning, invalid date, deprecated aliases
-  - CLI: notes today --search flag acceptance
+Covers get_filtered()'s exact date filter, date range (start/end, boundary
+inclusion), meeting_ids filter, FTS search keyword, include_tags OR logic,
+limit cap and ordering, and combined AND filters; and the CLI's error paths
+(the history warning, an invalid date, deprecated aliases) and the notes
+today search-flag acceptance.
 
 Uses db_session fixture from conftest.py for full transaction isolation.
 All test data uses sentinel dates (2099-xx-xx) to avoid collisions with

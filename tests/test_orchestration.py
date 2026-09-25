@@ -1463,7 +1463,3 @@ class TestEodStateThroughStore(unittest.TestCase):
             manager._run_step_async(session, {'key': 'task_match', 'num': 1, 'desc': 'Task match'})
 
         self.assertEqual(order, ['save', 'start'])
-
-
-if __name__ == '__main__':
-    unittest.main()

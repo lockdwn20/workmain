@@ -3,7 +3,7 @@ Email command group for Outlook email draft pipeline (Phase 6).
 
 Action-first command structure -- template is an argument.
 
-Commands:
+Provides these commands:
   workmain email preview <template>          # display draft in terminal
   workmain email save <template>             # save draft to staging/email/
   workmain email send <template>             # OAuth stub -> push to Outlook drafts

@@ -1,17 +1,16 @@
 {
   "_doc": {
     "name": "WorkmAIn Intent Parse — Generation Config",
-    "description": "Generation parameters for Mistral 7B intent parsing via Ollama. Controls max_tokens only at runtime — temperature/top_p/top_k/repeat_penalty are baked into the Modelfile and listed here as the editable reference for rebuilds.",
+    "description": "Generation parameters for Mistral 7B intent parsing via Ollama. Controls max_tokens only at runtime — temperature/top_p/top_k/repeat_penalty are baked into the Modelfile and are the editable reference for rebuilds.",
     "system_prompt_source": "config/intent_parse_system_prompt.txt",
     "ollama_model": "workmain-intent:latest",
     "ollama_host": "workmain-ollama.lab.haloschaos.com:11434",
-    "version_authority": "Version metadata (config_version, config_updated, model_built) is maintained exclusively in config/intent_parse_system_prompt.txt header. Do not add version fields here — read the .txt header for current version state.",
-    "notes": "To update generation parameters: edit generation_options below, sync PARAMETER blocks in the Modelfile (IaC repo), rebuild model via build_workmain_intent.sh, then update config_version/config_updated/model_built in intent_parse_system_prompt.txt only."
+    "version_authority": "Version metadata (config_version, config_updated, model_built) is maintained exclusively in config/intent_parse_system_prompt.txt header."
   },
   "system_prompt_file": "config/intent_parse_system_prompt.txt",
   "max_tokens": 256,
   "generation_options": {
-    "_comment": "Reference only — runtime source of truth is Modelfile PARAMETER blocks. Edit here first, then sync to Modelfile and rebuild.",
+    "_comment": "Reference only — runtime source of truth is Modelfile PARAMETER blocks.",
     "temperature": 0.4,
     "top_p": 0.9,
     "top_k": 40,

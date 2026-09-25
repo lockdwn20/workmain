@@ -1,10 +1,10 @@
 """
-Coverage for note_condenser.py's Item 69 Gate 5 changes:
-- _compute_condensed_tags(): the condensed-summary tag classifier (Design
-  Rule 8), replacing every caller's former hard-coded tags=['both'].
-- condense_meeting()'s two return paths (the early "Attended <Meeting>"
-  fallback and the AI-summary path) both now return (summary, resolved_tags)
-  instead of a bare str (Design Rule 14).
+Coverage for note_condenser.py's Item 69 Gate 5 changes: _compute_condensed_tags()
+(the condensed-summary tag classifier, Design Rule 8, replacing every
+caller's former hard-coded tags=['both']) and condense_meeting()'s two
+return paths (the early "Attended <Meeting>" fallback and the AI-summary
+path), both now returning (summary, resolved_tags) instead of a bare str
+(Design Rule 14).
 
 No dedicated test file existed for NoteCondenser before this item — this is
 new coverage, not a redirect from a spec-named file that already exists

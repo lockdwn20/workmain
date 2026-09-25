@@ -1,25 +1,17 @@
 """
 Verify that the four places recording a release agree with each other.
 
-Checks, for every `vN.N.N` tag on the repository:
-
-  1. `CHANGELOG.md` has a matching `## [N.N.N]` section
-  2. that section is non-empty (a heading with no body is a silent loss)
-  3. a GitHub Release object exists for the tag
-
-and, for `workmain/__version__.py`:
-
-  4. `__version__` and `__version_info__` agree with each other
-  5. `__version__` is not behind the newest tag (a stale version file)
-  6. if `__version__` is ahead of every tag — a release in flight — CHANGELOG.md
-     already carries its section, per §2.5's "update both together"
+For every `vN.N.N` tag on the repository, checks that `CHANGELOG.md` has a
+matching, non-empty `## [N.N.N]` section (a heading with no body is a silent
+loss) and that a GitHub Release object exists for the tag. For
+`workmain/__version__.py`, checks that `__version__` and `__version_info__`
+agree with each other, that `__version__` is not behind the newest tag (a
+stale version file), and that if `__version__` is ahead of every tag — a
+release in flight — CHANGELOG.md already carries its section, per §2.5's
+"update both together".
 
 Exits non-zero on any mismatch at or above BASELINE, so it can gate a push to `main`.
 Older releases are reported as accepted history and never fail the run.
-
-    python3 automation/check_release_integrity.py             # full check
-    python3 automation/check_release_integrity.py --no-remote # skip the gh Release check
-    python3 automation/check_release_integrity.py --show-historical
 
 Why this exists: `DEVELOPMENT_STANDARDS.md` §2.2 already requires a CHANGELOG entry
 and a GitHub Release on every merge to `main`. The prose rule did not prevent four

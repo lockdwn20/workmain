@@ -229,39 +229,3 @@ def test_section_structure():
     )
     
     return daily_match and weekly_match
-
-
-def main():
-    """Run all tests."""
-    print("\nWorkmAIn Template Test - Priority 2")
-    print("=" * 60)
-    
-    results = {
-        "Template Loading": test_template_loading(),
-        "Template Validation": test_template_validation(),
-        "Template Info": test_template_info(),
-        "Variable Substitution": test_variable_substitution(),
-        "Section Structure": test_section_structure(),
-    }
-    
-    # Summary
-    print_header("Test Summary")
-    
-    all_passed = True
-    for test_name, passed in results.items():
-        status = "✓ PASSED" if passed else "✗ FAILED"
-        print(f"{status:12} {test_name}")
-        all_passed = all_passed and passed
-    
-    print()
-    if all_passed:
-        print("✓ All template tests passed!")
-        print("\nTemplates are ready to use!")
-        return 0
-    else:
-        print("✗ Some tests failed")
-        return 1
-
-
-if __name__ == "__main__":
-    sys.exit(main())

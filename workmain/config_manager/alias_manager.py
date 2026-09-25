@@ -1,12 +1,8 @@
 """
 Manages template aliases for simplified CLI usage.
 
-Features:
-- Load aliases from config/template_aliases.json
-- Register new aliases
-- Unregister aliases
-- Resolve alias to template name
-- List all aliases
+Loads aliases from config/template_aliases.json, and registers, unregisters,
+resolves and lists them.
 
 Example:
     alias_manager = get_alias_manager()

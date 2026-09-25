@@ -119,6 +119,7 @@ A spec's steps are ordered work, defined below.
   - Design and results artifacts carry neither a decision log nor a version history.
 - **Markdown is never hard-wrapped.** One line per paragraph, per list item, per table row — let the editor wrap it. A paragraph broken across source lines makes every later edit a reflow, and turns a one-word change into a multi-line diff nobody can review. `MD013` is off in `.markdownlint.json` for this reason.
 - **No version headers or version-history blocks in any document.** Git is the version record. See §3.1 for the code equivalent.
+- **A process rule never travels with the code.** Text that ships alongside what it describes says what the thing does and what it requires. It never says what a person should do about that. `CLAUDE.md` and this document are the two homes for a process rule; per `CLAUDE.md`'s opening, everywhere else cites them. This bullet exists because `tests/test_ai_clients.py` stated that an environment variable would skip its live API tests. Two roles, in two sessions, read a statement of what the flag did as an instruction to set it, ran a modified command in place of the suite, and shipped four real failures to `main` and to the running daemon.
 - Each `docs/dev/` subdirectory holds a `_TEMPLATE_*.md` starting point. Templates are advisory — **template compliance is not a Role 2 review criterion.**
 
 ### 1.6 Sequencing
@@ -291,12 +292,15 @@ Confirm the new `ActiveEnterTimestamp` postdates the merge commit before calling
 
 ### 3.1 Module headers
 
-- PEP 257 module docstring, description only. **No version, no date, no version-history block.** Git tags, `CHANGELOG.md`, and `workmain/__version__.py` are the version record.
+- PEP 257 module docstring: a one-line summary, then a paragraph describing what the module does and why. **No version, no date, no version-history block** — git tags, `CHANGELOG.md`, and `workmain/__version__.py` are the version record. **No terminal command, no instruction to set an environment variable, no command-line flag, no terminal invocation, no trigger for when to run something, and no inventory of the module's own contents.** Naming an environment variable the module reads, or the API call that yields an instance of it, is a description of what the module requires and how it is obtained, and belongs here. A command belongs to `argparse` or to a Click command's own docstring (§5.6), which is where a reader looking for it will be.
 
   ```python
   """
-  Provides tag parsing, validation, conversion, and display formatting.
-  Tags are case-insensitive, normalized, and validated against config/tags.json.
+  Parses, validates, converts and formats tags for display.
+
+  Tags are case-insensitive, are normalized on entry, and are validated
+  against config/tags.json. Callers receive full names; short forms are an
+  input convenience and are never stored.
   """
   ```
 
@@ -341,11 +345,11 @@ Confirm the new `ActiveEnterTimestamp` postdates the merge commit before calling
 
 ### 3.4 Package `__init__.py`
 
-- Descriptive docstring, import classes *and* singleton getters, declare `__all__`. No `__version__` constant.
+- A package that exposes an API gets a §3.1 docstring, imports of its classes *and* singleton getters, and an `__all__` declaring them. A package that exposes nothing — a namespace holding modules that callers import directly — gets the §3.1 docstring and nothing else. Which one a package is, is a fact about it: if no caller writes `from <package> import <name>`, it exposes nothing, and inventing exports to satisfy this section is not conformance. No `__version__` constant in either.
 
-### 3.5 Type hints and docstrings
+### 3.5 Function and class docstrings
 
-- Type hints on every parameter and return. Google-style docstrings on every public function and class.
+- **This section governs functions and classes. It does not govern module headers, which are §3.1's.** Type hints on every parameter and return. Google-style docstrings on every public function and class — `Args:`, `Returns:`, `Raises:`, `Attributes:`. Those blocks belong to a function or a class and never appear in a module header.
 
   ```python
   def create(self, content: str, tags: List[str], project_id: Optional[int] = None) -> Note:
@@ -610,7 +614,7 @@ Reserved across all commands — no flag may reuse these:
 
 - Destructive or externally-sending commands must confirm unless `--force` is passed, and the prompt must state exactly what will happen.
 
-- Every command needs a docstring serving as `--help`, with a one-line summary and at least one `Examples:` block.
+- Every Click command function needs a docstring, with a one-line summary and at least one `Examples:` block. That docstring *is* the `--help` output, so it is written for the person running the command and is the one place invocations and flags belong. It is not a module header — §3.1 governs those and excludes exactly this content.
 
 ### 5.7 Files and registration
 

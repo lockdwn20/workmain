@@ -1,13 +1,12 @@
 """
 Tests for PC-1 — EOD Step 3c task matching algorithm.
 
-Covers:
-  - _tokenize(): lowercases, strips punctuation, removes stop words, returns set
-  - _score_match(): ratio of overlap to task token count; 0.0 for empty task_tokens
-  - Confidence thresholds: High ≥ 0.5, Medium 0.2–0.49, Low < 0.2 (not surfaced)
-  - _run_task_match_step(): returns COMPLETED immediately when no CF observations
-  - _run_task_match_step(): returns COMPLETED immediately when no active tasks
-  - _run_task_match_step(): exception handling returns COMPLETED (non-blocking)
+Covers _tokenize() (lowercases, strips punctuation, removes stop words,
+returns a set) and _score_match() (ratio of overlap to task token count, 0.0
+for empty task_tokens) against confidence thresholds of High >= 0.5, Medium
+0.2-0.49 and Low < 0.2 (not surfaced), plus _run_task_match_step()'s three
+non-blocking exits: no CF observations, no active tasks, and exception
+handling, each returning COMPLETED immediately.
 
 Pure-Python functions are tested with no database.
 Step-level entry-condition tests use a temporary state file

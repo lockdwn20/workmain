@@ -1,18 +1,11 @@
 """
-Tests for AI provider implementations:
-- ClaudeProvider (Anthropic)
-- GeminiProvider (Google AI)
-- Real API generation
-- Token counting
-- Cost estimation
-- Error handling
-Note: These tests make real API calls and will consume tokens.
-Set SKIP_API_TESTS=1 to skip real API tests.
+Tests for AI provider implementations: ClaudeProvider (Anthropic) and
+GeminiProvider (Google AI), covering real API generation, token counting,
+cost estimation and error handling.
 
-Run with: python3 test_ai_clients.py
+Note: These tests make real API calls and will consume tokens.
 """
 
-import sys
 import os
 from datetime import date
 from dotenv import load_dotenv
@@ -701,61 +694,3 @@ class TestGeminiRateLimitTranslation:
         assert provider.check_availability() == ProviderStatus.RATE_LIMITED
         client.models.generate_content.side_effect = _FakeGeminiAPIError(500)
         assert provider.check_availability() == ProviderStatus.UNAVAILABLE
-
-
-def run_all_tests():
-    """Run all tests."""
-    print("=" * 60)
-    print("WorkmAIn AI Clients Test Suite")
-    print("=" * 60)
-
-    anthropic_key = os.getenv('ANTHROPIC_API_KEY')
-    google_key = os.getenv('GOOGLE_API_KEY')
-
-    print("\nAPI Key Status:")
-    print(f"  ANTHROPIC_API_KEY: {'✓ Set' if anthropic_key else '✗ Not set'}")
-    print(f"  GOOGLE_API_KEY:    {'✓ Set' if google_key else '✗ Not set'}")
-
-    if not anthropic_key or not google_key:
-        print("\n⚠ Warning: API keys not found in environment")
-        print("  Make sure .env file exists with:")
-        print("    ANTHROPIC_API_KEY=sk-ant-...")
-        print("    GOOGLE_API_KEY=...")
-        print("  Most tests will be skipped without API keys.\n")
-
-    if SKIP_API_TESTS:
-        print("\n⚠ SKIP_API_TESTS=1: Real API tests will be skipped")
-
-    print()
-
-    try:
-        test_claude_client_initialization()
-        test_gemini_client_initialization()
-        test_claude_generation()
-        test_gemini_generation()
-        test_token_counting()
-        test_cost_estimation()
-        test_provider_status()
-        test_integrated_generation()
-        test_cost_tracking_integration()
-
-        print("\n" + "=" * 60)
-        print("✓ ALL TESTS PASSED")
-        print("=" * 60)
-        return True
-
-    except AssertionError as e:
-        print(f"\n✗ TEST FAILED: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-    except Exception as e:
-        print(f"\n✗ UNEXPECTED ERROR: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-
-
-if __name__ == "__main__":
-    success = run_all_tests()
-    sys.exit(0 if success else 1)

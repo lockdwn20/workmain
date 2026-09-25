@@ -1,8 +1,7 @@
 """
-Handles notification delivery via three methods:
-  - 'wsl-notify' → wsl-notify-send (WSL) or notify-send (native Linux)
-  - 'slack'      → Slack DM via daemon.post_message()
-  - 'both'       → wsl-notify + slack
+Handles notification delivery via three methods: 'wsl-notify' (wsl-notify-send
+on WSL, or notify-send on native Linux), 'slack' (a Slack DM via
+daemon.post_message()), and 'both' (wsl-notify and slack together).
 
 WSL detection is performed once at import time and cached.
 wsl-notify-send is located via PATH first, then via a glob of common WSL

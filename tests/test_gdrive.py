@@ -1,9 +1,7 @@
 """
-Integration tests for Phase 7 Google Drive components:
-  - GDriveRepository (DB layer)
-  - cache.py (folder ID cache)
-  - _format_notes_markdown (§3.8 notes formatter)
-  - gdocs upload all --dry-run (CLI)
+Integration tests for Phase 7 Google Drive components: GDriveRepository (DB
+layer), cache.py (folder ID cache), _format_notes_markdown (§3.8 notes
+formatter), and the gdocs upload all dry-run path (CLI).
 
 All Drive API calls are mocked — no real Drive operations in this suite.
 """

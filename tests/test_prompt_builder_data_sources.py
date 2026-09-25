@@ -1,8 +1,8 @@
 """
-Verifies Phase 13 prompt builder behaviors:
-  - data_sources gating: time_entries omitted from prompt when absent from section config
-  - client filter forwarding: filter_client=True propagated to repo calls
-  - preview_report filter parity: same client filter applied as full report generation
+Verifies Phase 13 prompt builder behaviors: data_sources gating (time_entries
+omitted from the prompt when absent from section config), client filter
+forwarding (filter_client propagated to repo calls), and preview_report
+filter parity (the same client filter applied as full report generation).
 
 All repository calls are mocked; no DB writes occur in this file.
 """

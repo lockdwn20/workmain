@@ -1,28 +1,25 @@
 """
-Tests for PC-3 — report status fields, confirm/correct commands,
---status filter on reports list, and weekly aggregation filter.
+Tests for PC-3 — report status fields, the confirm and correct commands, the
+reports list status filter, and the weekly aggregation filter.
 
-Covers:
-  - Report model: new report defaults to status='unconfirmed'
-  - reports confirm: sets status='confirmed'; idempotent on already-confirmed
-  - reports correct: saves corrected_content, sets status='corrected',
-                     original content unchanged
-  - reports list --status: filters by unconfirmed/confirmed/corrected/all
-  - reports list (no flag): existing behavior preserved (shows all)
-  - reports list --status invalid: validation error
-  - EOD Step 4a pre-check: skips generation if confirmed/corrected report exists
-  - EOD Step 4a: report starts as unconfirmed after generation
-  - weekly_client generation via build_prompt(): always template-formatted
-    and correctly tag-filtered regardless of daily_internal confirmation
-    state; get_confirmed_dailies()/build_weekly_prompt() retired (Item 61
-    Gate 3, resolving Item 34/46 as a side effect)
-  - ReportsRepository.get_filtered(): status/type/date/updated_after floor/
-    search/limit, sort order (Item 56 Gate 1)
-  - ReportsRepository.apply_correction(): corrected_content/status write,
-    note delegation to set_correction_note() (Item 61 Gate 2)
-  - reports correct (CLI): now routed through edit_in_editor() +
-    apply_correction() — same observable behavior, new write path (Item 61
-    Gate 2)
+Covers the Report model's default status of 'unconfirmed' on creation;
+reports confirm setting status to 'confirmed' (idempotent on an
+already-confirmed report); reports correct saving corrected_content, setting
+status to 'corrected', and leaving the original content unchanged; reports
+list's status filtering across unconfirmed/confirmed/corrected/all, its
+existing show-all behavior when no filter is given, and its validation error
+on an invalid status; EOD Step 4a's pre-check skipping generation when a
+confirmed or corrected report exists, and a freshly generated report
+starting as unconfirmed; weekly_client generation via build_prompt() always
+being template-formatted and correctly tag-filtered regardless of
+daily_internal confirmation state, with get_confirmed_dailies() and
+build_weekly_prompt() retired (Item 61 Gate 3, resolving Item 34/46 as a
+side effect); ReportsRepository.get_filtered()'s status/type/date/
+updated_after floor/search/limit and sort order (Item 56 Gate 1);
+ReportsRepository.apply_correction()'s corrected_content/status write and
+its note delegation to set_correction_note() (Item 61 Gate 2); and reports
+correct (CLI) now routed through edit_in_editor() and apply_correction() —
+same observable behavior, new write path (Item 61 Gate 2).
 
 Uses db_session fixture for repo/model tests.
 Uses unittest.TestCase with real sessions for CLI command tests that need

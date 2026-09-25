@@ -1,13 +1,9 @@
 """
-Tests for AI provider foundation:
-- Base provider abstract class
-- Cost tracking system
-- Provider manager with fallback
-- Configuration structures
-Run with: python3 test_ai_foundation.py
+Tests for the AI provider foundation: the base provider abstract class, the
+cost tracking system, the provider manager with fallback, and the
+configuration structures.
 """
 
-import sys
 from datetime import date, datetime
 from typing import Dict, Any
 import json
@@ -366,40 +362,3 @@ def test_config_structure():
     assert weekly['primary_provider'] != weekly['fallback_provider']
 
     print("✓ Configuration structure valid")
-
-
-def run_all_tests():
-    """Run all tests."""
-    print("=" * 60)
-    print("WorkmAIn AI Foundation Test Suite")
-    print("=" * 60)
-
-    try:
-        test_base_provider()
-        test_cost_tracker()
-        test_provider_manager()
-        test_fallback_modes()
-        test_cost_estimation()
-        test_provider_status()
-        test_config_structure()
-
-        print("\n" + "=" * 60)
-        print("✓ ALL TESTS PASSED")
-        print("=" * 60)
-        return True
-
-    except AssertionError as e:
-        print(f"\n✗ TEST FAILED: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-    except Exception as e:
-        print(f"\n✗ UNEXPECTED ERROR: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-
-
-if __name__ == "__main__":
-    success = run_all_tests()
-    sys.exit(0 if success else 1)
