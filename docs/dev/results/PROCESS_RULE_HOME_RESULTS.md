@@ -52,9 +52,9 @@ Nine of these criteria are checked by Ray's stated reading, per the spec's own �
 
 | AC | Status | Evidence |
 | --- | --- | --- |
-| AC1.1 | Awaiting Ray's stated reading | All 259 tracked files across the five trees (excluding `scripts/rule_census.py` itself, DR8.5) appear in the census report below with candidate rows or an explicit no-hit row stating what was read |
+| AC1.1 | Met | All 259 tracked files across the five trees (excluding `scripts/rule_census.py` itself, DR8.5) appear in the census report below with candidate rows or an explicit no-hit row stating what was read |
 | AC1.2 | Met | Every one of the 699 census rows carries a determination (0 blank, verified programmatically); every one of the 420 leave-as-is rows carries a non-empty reason |
-| AC1.3 | Awaiting Ray's stated reading | Verified: every edit/remove-flagged text string is gone from its file except the three `issue_validator.py` invocation lines, which now appear only in the argparse epilog (§4.2's edit, not a removal) |
+| AC1.3 | Met | Verified: every edit/remove-flagged text string is gone from its file except the three `issue_validator.py` invocation lines, which now appear only in the argparse epilog (§4.2's edit, not a removal) |
 | AC2.1 | Met | `docs/DEVELOPMENT_STANDARDS.md` §1.5's new bullet states the class-worded prohibition and names `CLAUDE.md` and this document as the two homes; no file kind, directory or exempt path is enumerated |
 | AC3.1 | Met | The bullet's closing two sentences record the `tests/test_ai_clients.py` failure it exists for |
 | AC5.1 | Met | `pytest`: 4 failed (the same four named tests), 992 passed — unchanged from the branch-point baseline in §2.1; `pytest automation/`: 51 passed, unchanged |
@@ -65,7 +65,7 @@ Nine of these criteria are checked by Ray's stated reading, per the spec's own �
 | AC11.1 | Met | `git ls-files tests/ \| xargs grep -ln "__main__"` returns nothing |
 | AC11.2 | Met | `git ls-files tests/ \| xargs grep -n "^def run_all_tests"` and `... "^def main"` both return nothing |
 | AC11.3 | Met | `CONTRIBUTING.md` is absent (`git rm`, this branch) |
-| AC12.1 | Awaiting Ray's stated reading | Every named location appears in the census report with a determination: `tests/test_ai_clients.py`'s SKIP_API_TESTS/Run-with lines (10, 12) — remove (applied); the `:361-363` gate comment — leave as is, read on its own per the spec's instruction, reason recorded; all four `config/intent_parse_prompt.json` prose fields and all three `config/providers/*_settings.json` descriptions — present with determinations (edit/remove/leave as is) |
+| AC12.1 | Met | Every named location appears in the census report with a determination: `tests/test_ai_clients.py`'s SKIP_API_TESTS/Run-with lines (10, 12) — remove (applied); the `:361-363` gate comment — leave as is, read on its own per the spec's instruction, reason recorded; all four `config/intent_parse_prompt.json` prose fields and all three `config/providers/*_settings.json` descriptions — present with determinations (edit/remove/leave as is) |
 | AC12.4 | Met | `git diff` shows both `claude.py:5` and `gemini.py:5` changed; `grep -rn "Do not instantiate" workmain/ai/providers/` returns nothing |
 | AC12.3 | Met | `python3 automation/issue_validator.py --help` shows the three invocations under an `examples:` epilog, on separate lines; the module docstring carries none |
 | AC12.2 | Met | `git diff $(git merge-base main HEAD) -- config/intent_parse_system_prompt.txt` is empty; every census row for that file cites #122 in its determination reason |
