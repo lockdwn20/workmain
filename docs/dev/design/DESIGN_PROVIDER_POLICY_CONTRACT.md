@@ -58,7 +58,7 @@ Not read: provider callers beyond construction (report generation, condensation)
 - **Pros:** the fault surfaces at the line that caused it, names the key, and is a `ConfigurationError` — for both `generate()` and `check_availability()`, since neither can be reached. No second load path. On the manager path the constructor check can never fire, because the identical check already passed; F2's absorption risk is closed by construction order, not by a new exception type.
 - **Cons:** every test that constructs Claude or Gemini without a policy must supply one (F10, F11) — eleven tests. The five live tests that pass today would fail at construction until edited; that edit is part of this work, not a regression to accept.
 
-**Recommendation: B as the contract, C as its enforcement.** A provider that reads policy keys cannot exist without them (C). Production code obtains providers from `ProviderManager`, which is the one component that loads configuration and policy together (B). Direct construction remains legitimate only where the caller supplies the policy itself — which in practice means tests. A is rejected because it answers the bypass by building a second configuration loader, and the only way to keep it single-path re-opens a failure #79 already closed.
+**Recommendation: B as the contract, C as its enforcement.** Approved by Ray 20260925. A provider that reads policy keys cannot exist without them (C). Production code obtains providers from `ProviderManager`, which is the one component that loads configuration and policy together (B). Direct construction remains legitimate only where the caller supplies the policy itself — which in practice means tests. A is rejected because it answers the bypass by building a second configuration loader, and the only way to keep it single-path re-opens a failure #79 already closed.
 
 Consequences under the recommendation:
 
@@ -71,9 +71,9 @@ Consequences under the recommendation:
 
 | Q | Question | Answer |
 | --- | --- | --- |
-| Q1 | The three Ollama direct-construction sites comply with C and violate B. #122 already owns converting them — along with the timeout and `OLLAMA_HOST`/`OLLAMA_PORT` override questions that conversion drags in (F8). Recommendation: leave them to #122; #130's spec names each one in its AC2 evidence as compliant with C and tracked for B by #122. The alternative is to convert them here, which pulls #122's configuration design into a defect fix. | |
+| Q1 | The three Ollama direct-construction sites comply with C and violate B. #122 already owns converting them — along with the timeout and `OLLAMA_HOST`/`OLLAMA_PORT` override questions that conversion drags in (F8). Recommendation: leave them to #122; #130's spec names each one in its AC2 evidence as compliant with C and tracked for B by #122. The alternative is to convert them here, which pulls #122's configuration design into a defect fix. | Answered 20260925 by Ray: left to #122 — `ProviderManager` manages every provider. #122 moved to directly after #130 on the board, and its Notes now record that the two `eod_workflow` probes must not absorb a configuration fault. |
 
 ## 6. Disposition
 
-- Promoted to:
+- Promoted to: `../specs/PROVIDER_POLICY_CONTRACT_SPEC.md`
 - Superseded by:
