@@ -2,16 +2,15 @@
 Tests for PC-2 — task_status repository, eager creation hooks,
 and tasks CLI command group.
 
-Covers:
-  - TaskStatusRepository: create_active, ensure_active, set_completed,
-    set_dismissed, set_dismissed_by_tag_removal, get_by_note_id, get_filtered,
-    count_filtered
-  - CLI error paths: tasks list --status invalid, tasks show/complete nonexistent
-  - CLI: tasks list --all removes the row cap independent of --status; --status
-    all shows every lifecycle state; header is truncation-honest; tasks
-    carryover no longer resolves
-  - Notes carry-forward hook: ensure_active and set_dismissed_by_tag_removal
-    called at the right points (tested at the repo level)
+Covers TaskStatusRepository's create_active, ensure_active, set_completed,
+set_dismissed, set_dismissed_by_tag_removal, get_by_note_id, get_filtered and
+count_filtered; the CLI's error paths for an invalid status filter and for
+showing or completing a nonexistent task; the CLI's all-tasks view removing
+the row cap independent of the status filter, the status-all view showing
+every lifecycle state with a truncation-honest header, and tasks carryover
+no longer resolving; and the notes carry-forward hook calling ensure_active
+and set_dismissed_by_tag_removal at the right points (tested at the repo
+level).
 
 Uses db_session fixture from conftest.py for full transaction isolation.
 Sentinel dates (2099-xx-xx) prevent collisions with production data.

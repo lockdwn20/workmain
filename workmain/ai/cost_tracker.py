@@ -2,12 +2,8 @@
 Tracks AI usage costs per provider, per report, and per section.
 Provides cost analytics and budget monitoring.
 
-Features:
-- Per-section cost tracking (detailed)
-- Per-report cost aggregation
-- Provider-specific tracking
-- Cost history and analytics
-- Budget alerts
+Provides detailed per-section cost tracking, per-report cost aggregation,
+provider-specific tracking, cost history and analytics, and budget alerts.
 """
 
 from datetime import datetime, date

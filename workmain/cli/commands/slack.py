@@ -1,13 +1,13 @@
 """
 CLI commands for posting reports to Slack.
 
-Commands:
-- slack setup                           # Interactive setup checklist
-- slack auth [--reauth]                 # Validate Bot Token, cache workspace name
-- slack status                          # Auth state + recent Slack posts
-- slack set channel <channel>           # Set Slack channel for the active client
-- slack set workspace                   # Show workspace config file path (informational)
-- slack post PERIOD [flags]             # Generate/review (shared runner) → post; PERIOD=weekly|daily|monthly
+Provides slack setup as an interactive setup checklist; slack auth to
+validate the Bot Token and cache the workspace name; slack status for auth
+state and recent Slack posts; slack set channel to set the Slack channel for
+the active client; slack set workspace to show the workspace config file
+path (informational); and slack post to generate and review a report
+through the shared runner, then post it, for a weekly, daily or monthly
+period.
 """
 
 from datetime import date, datetime, timedelta

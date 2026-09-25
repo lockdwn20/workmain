@@ -4,8 +4,8 @@ WorkmAInDaemon owns the Slack socket connection, EOD manager, and
 outbound DM dispatch. Replaces the module-level SlackMessageDispatcher
 and SlackPoller infrastructure.
 
-Run via systemd user service (workmain-notify.service).
-Do not run as root — enforced by _check_not_root().
+Runs as the systemd user service workmain-notify.service. Refuses to run as
+root, enforced by _check_not_root().
 """
 
 import logging

@@ -1,3 +1,11 @@
+"""
+Strips privacy-sensitive iCalendar fields from an .ics file.
+
+Removes ATTENDEE, DESCRIPTION, ORGANIZER and Outlook-specific metadata lines,
+including their folded continuation lines, so a calendar export can be
+shared without leaking attendee or meeting-body content.
+"""
+
 import re
 
 def sanitize_ics(input_file, output_file):

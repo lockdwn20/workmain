@@ -1,7 +1,7 @@
 """
 Calendar command group for Outlook calendar integration (Phase 6).
 
-Commands:
+Provides these commands:
   workmain calendar                        # help + local Outlook event count
   workmain calendar today                  # local DB, today's Outlook events
   workmain calendar week                   # local DB, this week's Outlook events

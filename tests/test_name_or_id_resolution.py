@@ -2,10 +2,9 @@
 Tests for Item 26 (CLI V18) — name-or-ID resolution added to repository
 lookup methods used by edit/delete commands.
 
-Covers:
-- NotesRepository.find_by_content_like()
-- TimeEntriesRepository.find_by_description_like()
-- Both ID-path and name-path resolution logic
+Covers NotesRepository.find_by_content_like(),
+TimeEntriesRepository.find_by_description_like(), and both the ID-path and
+name-path resolution logic.
 """
 
 from datetime import date, datetime

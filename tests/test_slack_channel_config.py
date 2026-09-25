@@ -1,10 +1,10 @@
 """
-Tests for Phase 11.5 Slack channel configuration:
-- slack set channel: writes clients.slack_channel for active client
-- slack set workspace: informational, no writes
-- slack channel set: retired (command not found)
-- post-weekly channel resolution: clients.slack_channel first, config fallback
-- slack status: displays clients.slack_channel as primary channel value
+Tests for Phase 11.5 Slack channel configuration: slack set channel writing
+clients.slack_channel for the active client; slack set workspace being
+informational with no writes; slack channel set being retired (command not
+found); post-weekly channel resolution preferring clients.slack_channel with
+a config fallback; and slack status displaying clients.slack_channel as the
+primary channel value.
 
 Repository tests use db_session fixture for transaction isolation.
 CLI tests use CliRunner and manage their own DB state with save/restore fixtures.

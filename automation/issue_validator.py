@@ -2,10 +2,6 @@
 Validate a WorkmAIn issue JSON file against the schema and against live
 GitHub state, then create the issue through `gh issue create`.
 
-    python3 automation/issue_validator.py --new              # print the skeleton
-    python3 automation/issue_validator.py issue.json         # validate, print command
-    python3 automation/issue_validator.py issue.json --create  # validate, then create
-
 The schema (`.github/ISSUE_TEMPLATE/issue.schema.json`) declares the key set
 and each key's type and required-ness. This script owns the rules the schema
 file cannot express: the §1.3 label-pair rule and existence checks
@@ -299,7 +295,16 @@ def validate_issue(data: dict, schema: dict, label_pair: list, live_labels: set,
 
 
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        epilog=(
+            "examples:\n"
+            "  python3 automation/issue_validator.py --new              # print the skeleton\n"
+            "  python3 automation/issue_validator.py issue.json         # validate, print command\n"
+            "  python3 automation/issue_validator.py issue.json --create  # validate, then create\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("file", nargs="?", help="path to the issue JSON file")
     parser.add_argument("--new", action="store_true", help="print the skeleton template to stdout")
     parser.add_argument("--create", action="store_true", help="run gh issue create after validation succeeds")

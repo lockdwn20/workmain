@@ -1,16 +1,13 @@
 """
 Static action-first command structure — template is an argument.
 
-Commands:
-- reports preview <template>   # preview prompts, no AI cost
-- reports save <template>      # generate with AI, save to staging/reports/
-- reports send <template>      # stub — chains to email send (OAuth required)
-- reports list / history       # list reports from DB (history is alias)
-- reports show <id|file>       # show by DB id (int) or filename (str)
-- reports resend <id>          # recreate email draft from stored report
-- reports corrections [-d DATE] [-s SEARCH] [-n LIMIT] [-R TYPE] [--all]
-                                # list reports with status 'corrected'
-- reports costs
+Provides reports preview to preview prompts with no AI cost; reports save to
+generate with AI and save to staging/reports/; reports send as a stub that
+chains to email send (OAuth required); reports list, aliased as history, to
+list reports from the database; reports show to show a report by its
+database id or filename; reports resend to recreate an email draft from a
+stored report; reports corrections to list reports with status 'corrected';
+and reports costs.
 """
 
 import click

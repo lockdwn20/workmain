@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.34.0] - 2026-09-25
+
+A process rule stated in a module docstring was read as project policy by two
+roles in two sessions, and four real failures reached `main` and the running
+daemon. This closes the class rather than the instance (issue #134).
+
+### Changed
+
+- `docs/DEVELOPMENT_STANDARDS.md` §1.5 gains a repo-wide bullet stating by
+  class that text travelling with the code says what a thing does and never
+  carries a process rule; `CLAUDE.md` and that document are the two homes. It
+  records the failure it exists for, so a later reader can tell it from style
+  advice
+- §3.1 states the one-line-summary-plus-description shape for a module header
+  and excludes terminal commands, flags, terminal invocations, triggers and
+  inventories by name, while permitting a header to name an environment
+  variable the module reads or the API call that yields an instance
+- §3.4 states which `__init__.py` gets imports and `__all__` and which is a
+  package marker that gets only a docstring, with the test that decides
+- §3.5 retitled to Function and class docstrings and scoped so it cannot be
+  read as governing a module header; §5.6's docstring bullet scoped to the
+  Click command function, whose docstring is its `--help`
+- Every tracked file across `tests/`, `workmain/`, `automation/`, `scripts/`
+  and `config/` surveyed once by `scripts/rule_census.py` and adjudicated by
+  Ray row by row — 699 rows, 420 of them left as is with a recorded reason
+- `tests/test_ai_clients.py`'s `SKIP_API_TESTS` and `Run with:` docstring
+  lines removed — the instance that caused this
+- `workmain/ai/providers/{claude,gemini}.py` module headers restated
+  descriptively, naming the consequence the imperative omitted
+- `automation/issue_validator.py`'s invocations moved from its module
+  docstring to an argparse epilog, so `--help` renders them on separate lines
+  instead of the collapsed paragraph the default formatter produced
+
+### Removed
+
+- `__main__` blocks from all twelve tracked test modules carrying one, and the
+  five in-module runners behind them. `run_all_tests()` in
+  `tests/test_ai_clients.py` called nine of that module's thirty-three tests
+  and printed `ALL TESTS PASSED`
+- `CONTRIBUTING.md`, empty since creation and a third named home for text the
+  two homes own
+
+### Added
+
+- `scripts/rule_census.py` — one-time census surveying `git ls-files` across
+  the five trees, reporting every file with its candidate rows or an explicit
+  no-hit row stating what was read
+
+
 ## [1.33.0] - 2026-09-03
 
 ### Changed

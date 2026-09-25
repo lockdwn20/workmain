@@ -2,7 +2,7 @@
 CLI command group: workmain clients
 Manages client records and active client context.
 
-Commands:
+Provides these commands:
   add <name>                  — Create a new client
   list                        — List all clients
   show <id-or-name>           — Show client detail

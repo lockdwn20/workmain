@@ -3,26 +3,24 @@ Thin CLI surface for the EOD workflow. All step runner logic lives in
 workmain.workflows.eod_workflow (surface-agnostic service layer) and
 returns EodStepResult instead of bool so any surface can interpret results.
 
-Base sequence (Mon–Wed):
-  1.  Condense pending meeting notes (meetings with notes, no condensed_summary)
-  2.  Sync time entries to Clockify (clockify sync push)
-  3.  Review time entries (loop until confirmed; uses target date when --date is set)
-  3b. Run pre-flight inspection (rules-based gap detection + AI narration)
-  3c. Resolve carry-forward tasks (keyword match against time entries)
-  4a. Generate daily report (reports save daily_internal) + review menu
-  4b. Create email draft (email save daily_internal)
-  5.  Pull Clockify PDF (clockify report save daily → staging/clockify/)
-  6.  Upload to Google Drive (gdocs upload all)
-  7.  Complete — step summary and sign-off
+The Monday-through-Wednesday base sequence: condense pending meeting notes
+(meetings with notes, no condensed_summary); sync time entries to Clockify
+(clockify sync push); review time entries in a loop until confirmed, using a
+target date when one is given (step 3); run pre-flight inspection —
+rules-based gap detection plus AI narration (step 3b); resolve
+carry-forward tasks by keyword match against time entries (step 3c);
+generate the daily report and its review menu (reports save daily_internal,
+step 4a); create the email draft (email save daily_internal, step 4b); pull
+the Clockify PDF to staging/clockify/ (clockify report save daily, step 5);
+upload to Google Drive (gdocs upload all, step 6); and complete with a step
+summary and sign-off (step 7).
 
-Thursday adds:
-  7. Post weekly draft to Slack (slack post weekly)
-  8. Complete
+Thursday's sequence adds posting the weekly draft to Slack (slack post
+weekly, step 7) before completing (step 8).
 
-Friday adds:
-  7. Generate weekly report (reports save weekly_client)
-  8. Create weekly email draft (email save weekly_client)
-  9. Complete
+Friday's sequence adds generating the weekly report (reports save
+weekly_client, step 7) and creating the weekly email draft (email save
+weekly_client, step 8) before completing (step 9).
 """
 
 from datetime import date

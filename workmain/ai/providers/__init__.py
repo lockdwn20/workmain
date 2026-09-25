@@ -1,11 +1,8 @@
 """
 Single registration point for all AI provider implementations.
-To add a new provider:
-  1. Create workmain/ai/providers/<name>.py implementing BaseProvider
-  2. Import and add one line to PROVIDER_REGISTRY below
-  3. Add a section to config/ai_settings.json
-  That is all. ProviderManager, providers list, and all CLI validation
-  update automatically.
+
+Each provider module implements BaseProvider and is added here; ProviderManager,
+the providers list, and CLI validation all read from PROVIDER_REGISTRY.
 """
 
 from .claude import ClaudeProvider
