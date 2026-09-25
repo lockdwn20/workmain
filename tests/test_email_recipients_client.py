@@ -1,9 +1,8 @@
 """
-Tests for Phase 11.5 email recipient client dimension:
-- assign_recipient() client_id scoping
-- unassign_recipient() client_id filtering
-- list_for_client() global + client-scoped merge
-- _get_draft_recipients() client-aware resolution and deduplication
+Tests for Phase 11.5 email recipient client dimension: assign_recipient()
+client_id scoping, unassign_recipient() client_id filtering, list_for_client()
+global + client-scoped merge, and _get_draft_recipients() client-aware
+resolution and deduplication.
 
 All DB tests use db_session fixture from conftest.py for full transaction
 isolation. Sentinel client IDs and dates used to avoid colliding with

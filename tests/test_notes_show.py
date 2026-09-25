@@ -2,11 +2,9 @@
 Tests for 'workmain notes show' — single record detail command — and the
 underlying _resolve_note() resolution logic in notes.py.
 
-Covers:
-  - CLI: 'notes show <id>' not-found error path
-  - CLI: 'notes show <keyword>' not-found error path
-  - Repo: get_by_id() for valid and invalid IDs
-  - Repo: find_by_content_like() substring match (backs the name-path)
+Covers the CLI's 'notes show <id>' and 'notes show <keyword>' not-found error
+paths, and the repository's get_by_id() for valid and invalid IDs and
+find_by_content_like() substring match (backs the name-path).
 
 Uses db_session fixture from conftest.py for full transaction isolation.
 CLI tests use ID 999999 (guaranteed non-existent in sentinel space) or

@@ -101,7 +101,3 @@ class TestRunWorkmain(unittest.TestCase):
             run = run_workmain(['x'], timeout=1)
         self.assertEqual(run.stdout, 'partial')
         self.assertEqual(run.stderr, 'err')
-
-
-if __name__ == '__main__':
-    unittest.main()

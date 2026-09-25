@@ -333,7 +333,3 @@ class TestReportResend(unittest.TestCase):
         self.assertIn('Aborted', result.output)
         # File must remain unchanged
         self.assertEqual(staging.read_text(), "original sentinel content")
-
-
-if __name__ == '__main__':
-    unittest.main()

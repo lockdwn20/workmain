@@ -140,7 +140,3 @@ class TestReviewStepDispatch(unittest.TestCase):
         """Today: review step runs 'time today'."""
         mock_run = self._run_review(date.today())
         mock_run.assert_called_once_with(['time', 'today'], timeout=TIMEOUT_LOCAL)
-
-
-if __name__ == '__main__':
-    unittest.main()

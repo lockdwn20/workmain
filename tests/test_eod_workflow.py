@@ -2,7 +2,7 @@
 Tests for workmain/workflows/eod_workflow.py — the surface-agnostic service
 layer extracted from cli/commands/eod.py in Phase 13 Sprint 2 Gate 2.
 
-Covers: EodStepResult/EodStepStatus, get_step_sequence, run_step, dry-run
+Covers EodStepResult/EodStepStatus, get_step_sequence, run_step, dry-run
 returns, and review step subprocess dispatch (canonical location after
 extraction).
 """
@@ -1257,7 +1257,3 @@ class TestSubprocessHardening(unittest.TestCase):
             result = _run_email_step(dry_run=False, target_date=date(2099, 1, 1))
         self.assertEqual(result.status, EodStepStatus.COMPLETED)
         self.assertIn('SMTP down', buf.getvalue())
-
-
-if __name__ == '__main__':
-    unittest.main()
