@@ -4,14 +4,12 @@ structured Observation objects. No AI call at this layer — observations
 are plain data. The narration layer (narration.py) converts them to
 natural language.
 
-Five checks:
-  1. Time gap       — meeting exists with no linked time entry
-  2. Coverage       — total logged time vs. expected workday hours
-  3. Tag anomaly    — notes with no tags (all notes should have at least
-                       internal-only)
-  4. Missing notes  — meeting occurred with no notes at all
-  5. Carry-forward  — open cf-tagged tasks from previous business day
-                       not explicitly brought forward to target_date
+Checks for a time gap (a meeting with no linked time entry), coverage (total
+logged time against expected workday hours), a tag anomaly (notes with no
+tags — every note should carry at least internal-only), missing notes (a
+meeting that occurred with no notes at all), and carry-forward (open
+cf-tagged tasks from the previous business day not explicitly brought
+forward to target_date).
 """
 
 import os

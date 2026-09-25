@@ -1,13 +1,10 @@
 """
 AI provider integration for report generation.
 
-This package provides:
-- Abstract base provider class
-- Provider registry (claude, gemini, ollama)
-- Provider manager with fallback
-- Cost tracking system
-- Prompt builder for report generation
-- Report generator orchestrator
+This package provides the abstract base provider class, the provider registry
+(claude, gemini, ollama), the provider manager with fallback, the cost
+tracking system, the prompt builder for report generation, and the report
+generator orchestrator.
 """
 
 from workmain.ai.base_provider import (

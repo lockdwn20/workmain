@@ -1,25 +1,17 @@
 """
 High-level orchestrator for AI report generation with database integration.
 
-Features:
-- Orchestrates full report generation pipeline
-- Combines prompt_builder + AI clients + templates
-- Handles section-by-section generation (optional)
-- Saves reports to files (markdown, text)
-- Saves report metadata to database for analytics
-- Provides generation status and logging
-- Manages errors and retries
-- Tracks costs in database (not JSON file)
-Workflow:
-1. Load template and validate
-2. Build prompts with prompt_builder
-3. Start cost tracking (start_report)
-4. Generate content with AI client
-5. Track costs (track_section)
-6. Format output
-7. Save to file
-8. Save to database with report_metadata (costs, tokens, provider)
-9. End cost tracking (end_report with timing)
+Orchestrates the full report generation pipeline, combining prompt_builder,
+the AI clients and templates. Supports optional section-by-section
+generation, saves reports to files (markdown, text) and their metadata to
+the database for analytics, reports generation status and logs errors and
+retries, and tracks costs in the database rather than a JSON file.
+
+Generating a report loads and validates the template, builds prompts with
+prompt_builder, starts cost tracking, generates content with the AI client,
+tracks costs per section, formats the output, saves it to file and to the
+database with its metadata (costs, tokens, provider), and ends cost tracking
+with timing.
 """
 
 from datetime import date, datetime

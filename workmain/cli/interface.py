@@ -1,6 +1,5 @@
 """
-Main CLI interface using Click framework
-Updated for CLI Standardization Sprint Part 1
+Main CLI interface using the Click framework.
 """
 
 import click

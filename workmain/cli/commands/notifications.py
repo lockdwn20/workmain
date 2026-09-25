@@ -2,7 +2,7 @@
 CLI command group: workmain notifications
 Owns delivery method configuration and notification delivery status.
 
-Commands:
+Provides these commands:
   set     — Set notification delivery method
   test    — Send a test notification via current (or specified) method
   status  — Show delivery config + today's inspection observations + today's schedule

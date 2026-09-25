@@ -4,7 +4,6 @@ Token is stored in .env (SLACK_BOT_TOKEN) — never in config.json.
 Config file stores workspace name and operator_user_id (Phase 13).
 
 Config file: ~/.workmain/integrations/slack/config.json  (chmod 600)
-Token:       .env SLACK_BOT_TOKEN=xoxb-...
 """
 
 import json

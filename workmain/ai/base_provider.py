@@ -2,12 +2,10 @@
 Abstract base class for AI provider implementations.
 Defines standard interface for Claude, Gemini, Ollama, and future providers.
 
-All providers must implement:
-- generate() for text generation
-- estimate_cost() for cost calculation
-- validate_config() for configuration validation
-- count_tokens() for token estimation
-- check_availability() for connectivity
+All providers must implement generate() for text generation, estimate_cost()
+for cost calculation, validate_config() for configuration validation,
+count_tokens() for token estimation, and check_availability() for
+connectivity.
 """
 
 from abc import ABC, abstractmethod

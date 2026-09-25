@@ -3,13 +3,7 @@ Path derivation and the AC guard for `/closeout` (`.claude/skills/closeout/SKILL
 
 Answers two questions: which results artifact belongs to a branch, and does
 that artifact carry a disposed row for every AC on the branch's approved spec.
-No determination is made with this script on whether an AC is genuinely met. 
-
-    python3 automation/closeout_acs.py --branch <name> [--tree <ref>]
-
-`--tree <ref>` reads the spec and the artifact from that git ref instead of the
-working tree, for the case where the branch has already merged and been deleted
-(§4.1). Absent, both are working-tree reads.
+No determination is made with this script on whether an AC is genuinely met.
 
 Exit 0 — every check passed.
 Exit 1 — one or more AC checks failed. Each is named on stderr, one line per

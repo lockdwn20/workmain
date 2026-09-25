@@ -1,13 +1,12 @@
 """
 CLI commands for archiving daily work artifacts to Google Drive.
 
-Commands:
-- gdocs auth [--reauth]          # Authenticate / re-authenticate
-- gdocs status                   # Auth state, cached folders, recent uploads
-- gdocs upload notes             # DB notes → markdown → staging/notes/ → Drive
-- gdocs upload report            # staging/reports/daily_internal_YYYY-MM-DD.md → Drive
-- gdocs upload clockify          # staging/clockify/Clockify_YYYYMMDD.pdf → Drive
-- gdocs upload all               # Runs all three in sequence
+Provides gdocs auth for authenticating or re-authenticating; gdocs status for
+auth state, cached folders and recent uploads; gdocs upload notes for
+converting DB notes to markdown and uploading via staging/notes/; gdocs
+upload report for uploading staging/reports/daily_internal_YYYY-MM-DD.md;
+gdocs upload clockify for uploading staging/clockify/Clockify_YYYYMMDD.pdf;
+and gdocs upload all for running all three in sequence.
 
 Drive structure:
     {GDRIVE_TIMECARDS_ROOT}/YYYYMM/Raw_Notes/

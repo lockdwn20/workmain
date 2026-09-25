@@ -1,15 +1,13 @@
 """
 Claude (Anthropic) provider implementation.
 
-Receives config dict from ProviderManager via PROVIDER_REGISTRY.
-Do not instantiate directly — use get_provider_manager().get_provider('claude').
+Receives its config dict from ProviderManager via PROVIDER_REGISTRY.
+Instances come from get_provider_manager().get_provider('claude'); constructing
+one directly leaves the request-payload policy unloaded.
 
-Features:
-- Anthropic SDK integration
-- Config-driven model selection (reads model from ai_settings.json)
-- Token counting with Anthropic client
-- Retry logic with exponential backoff
-- Cost tracking
+Wraps the Anthropic SDK with config-driven model selection (reads the model
+from ai_settings.json), token counting, retry with exponential backoff, and
+cost tracking.
 """
 
 import os
