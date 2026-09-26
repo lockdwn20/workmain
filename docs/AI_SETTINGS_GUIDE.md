@@ -130,7 +130,7 @@ Shipped files:
 | `gemini_settings.json` | `{"sampling": {"temperature": "from_request"}}` | `"from_request"` means read that parameter off the `GenerationRequest` at call time. A literal value there would be sent as-is. |
 | `ollama_settings.json` | no policy keys | Ollama's generation parameters are Modelfile-baked and rebuilt outside this repo. |
 
-**An unusable policy is a configuration error, not a default.** A file that is absent, unparseable, or missing a key its provider requires raises `ConfigurationError` out of `ProviderManager` — it does not silently disable the provider or fall back to a built-in default. Each provider class names the keys it reads in `REQUIRED_POLICY_KEYS` (`ClaudeProvider`: `{'thinking', 'sampling'}`; `GeminiProvider`: `{'sampling'}`; `BaseProvider` defaults to empty).
+**An unusable policy is a configuration error, not a default.** A file that is absent, unparseable, or missing a key its provider requires raises `ConfigurationError` out of `ProviderManager` — it does not silently disable the provider or fall back to a built-in default. Each provider class names the keys it reads in `REQUIRED_POLICY_KEYS` (`ClaudeProvider`: `{'thinking', 'sampling'}`; `GeminiProvider`: `{'sampling'}`; `BaseProvider` defaults to empty). A provider constructed with a policy missing a declared key refuses construction with the same error, and application code obtains providers from `ProviderManager` (`get_provider_manager().get_provider(name)`), the one component that loads both files.
 
 ---
 
@@ -145,8 +145,8 @@ Adding a provider requires four steps — no other code changes needed:
    Implement all five abstract methods from `BaseProvider` (generate, estimate_cost,
    validate_config, count_tokens, check_availability). See `providers/claude.py` for
    a complete example. If `generate()` or `check_availability()` reads any policy key,
-   declare those keys in a `REQUIRED_POLICY_KEYS` class attribute so `ProviderManager`
-   rejects an incomplete policy before construction rather than failing at request time.
+   declare those keys in a `REQUIRED_POLICY_KEYS` class attribute so an incomplete
+   policy is refused at construction rather than failing at request time.
 
 2. **Register it in PROVIDER_REGISTRY:**
    ```python
