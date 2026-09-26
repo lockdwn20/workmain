@@ -39,19 +39,6 @@ def _load_ai_settings() -> dict:
         return json.load(f)['providers']
 
 
-def _make_claude_config():
-    """Build Claude config dict from ai_settings.json."""
-    cfg = _load_ai_settings()['claude']
-    return {
-        'model': cfg['model'],
-        'api_key_env': cfg['api_key_env'],
-        'retry_attempts': cfg.get('retry_attempts', 3),
-        'retry_delay_seconds': cfg.get('retry_delay_seconds', 1.0),
-        'cost_per_1k_prompt_tokens': cfg.get('cost_per_1k_prompt_tokens', 0.003),
-        'cost_per_1k_completion_tokens': cfg.get('cost_per_1k_completion_tokens', 0.015),
-    }
-
-
 def _make_gemini_config():
     """Build Gemini config dict from ai_settings.json — always uses the configured model."""
     cfg = _load_ai_settings()['gemini']
@@ -74,7 +61,7 @@ def test_claude_client_initialization():
         print("  ⚠ ANTHROPIC_API_KEY not set, skipping")
         return
 
-    client = ClaudeProvider(_make_claude_config())
+    client = ProviderManager().get_provider('claude')
 
     assert client.model == _load_ai_settings()['claude']['model']
 
@@ -90,7 +77,7 @@ def test_gemini_client_initialization():
         print("  ⚠ GOOGLE_API_KEY not set, skipping")
         return
 
-    client = GeminiProvider(_make_gemini_config())
+    client = ProviderManager().get_provider('gemini')
 
     expected_model = _load_ai_settings()['gemini']['model']
     assert client.model == expected_model
@@ -111,7 +98,7 @@ def test_claude_generation():
         print("  ⚠ ANTHROPIC_API_KEY not set, skipping")
         return
 
-    client = ClaudeProvider(_make_claude_config())
+    client = ProviderManager().get_provider('claude')
 
     request = GenerationRequest(
         prompt="Say 'Hello from Claude!' and nothing else.",
@@ -148,7 +135,7 @@ def test_gemini_generation():
         print("  ⚠ GOOGLE_API_KEY not set, skipping")
         return
 
-    client = GeminiProvider(_make_gemini_config())
+    client = ProviderManager().get_provider('gemini')
 
     request = GenerationRequest(
         prompt="Say 'Hello from Gemini!' and nothing else.",
@@ -180,14 +167,14 @@ def test_token_counting():
 
     claude_key = os.getenv('ANTHROPIC_API_KEY')
     if claude_key:
-        claude = ClaudeProvider(_make_claude_config())
+        claude = ProviderManager().get_provider('claude')
         claude_tokens = claude.count_tokens(test_text)
         assert claude_tokens > 0
         print(f"✓ Claude token counting: {claude_tokens} tokens")
 
     gemini_key = os.getenv('GOOGLE_API_KEY')
     if gemini_key:
-        gemini = GeminiProvider(_make_gemini_config())
+        gemini = ProviderManager().get_provider('gemini')
         gemini_tokens = gemini.count_tokens(test_text)
         assert gemini_tokens > 0
         print(f"✓ Gemini token counting: {gemini_tokens} tokens")
@@ -199,7 +186,7 @@ def test_cost_estimation():
 
     claude_key = os.getenv('ANTHROPIC_API_KEY')
     if claude_key:
-        claude = ClaudeProvider(_make_claude_config())
+        claude = ProviderManager().get_provider('claude')
 
         cost = claude.estimate_cost(1000, 500)
         claude_cfg = _load_ai_settings()['claude']
@@ -210,7 +197,7 @@ def test_cost_estimation():
 
     gemini_key = os.getenv('GOOGLE_API_KEY')
     if gemini_key:
-        gemini = GeminiProvider(_make_gemini_config())
+        gemini = ProviderManager().get_provider('gemini')
 
         cost = gemini.estimate_cost(1000, 500)
         gemini_cfg = _load_ai_settings()['gemini']
@@ -230,14 +217,14 @@ def test_provider_status():
 
     claude_key = os.getenv('ANTHROPIC_API_KEY')
     if claude_key:
-        claude = ClaudeProvider(_make_claude_config())
+        claude = ProviderManager().get_provider('claude')
         status = claude.check_availability()
         assert status == ProviderStatus.AVAILABLE
         print(f"✓ Claude status: {status.value}")
 
     gemini_key = os.getenv('GOOGLE_API_KEY')
     if gemini_key:
-        gemini = GeminiProvider(_make_gemini_config())
+        gemini = ProviderManager().get_provider('gemini')
         status = gemini.check_availability()
         assert status == ProviderStatus.AVAILABLE
         print(f"✓ Gemini status: {status.value}")
@@ -317,7 +304,7 @@ def test_cost_tracking_integration():
     tracker = CostTracker()
     tracker.start_report("test_report", date.today())
 
-    claude = ClaudeProvider(_make_claude_config())
+    claude = ProviderManager().get_provider('claude')
 
     request = GenerationRequest(
         prompt="Write a one-sentence summary of AI.",
@@ -490,8 +477,8 @@ class TestClaudeModelRequired:
     def test_claude_requires_model(self):
         with patch.dict(os.environ, _FAKE_ANTHROPIC_ENV), \
              patch("workmain.ai.providers.claude.Anthropic"):
-            with pytest.raises(ConfigurationError):
-                ClaudeProvider(_offline_claude_config(model=None))
+            with pytest.raises(ConfigurationError, match="model name is required"):
+                ClaudeProvider(_offline_claude_config(model=None), dict(_CLAUDE_POLICY))
 
 
 def _temp_ai_settings(tmp_path):
