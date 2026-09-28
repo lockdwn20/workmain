@@ -38,8 +38,7 @@ Complete. `BaseProvider.__init__` now refuses construction when the policy it is
 
 | # | Deviation | Reason | Approved by |
 | --- | --- | --- | --- |
-
-None.
+| 1 | `docs/AI_SETTINGS_GUIDE.md` § The request payload policy was rewritten after Step 4, during Ray's AC3.1 reading: the per-class key lists were removed in favour of naming `REQUIRED_POLICY_KEYS` as the only place the set is listed, the `ProviderManager` contract became its own paragraph, and the Shipped files table lost its `Contents` column, which copied each policy file. | Step 4's text restated state owned elsewhere — the class attributes and the policy files — and would go stale on the first key change. | Ray, 20260928 |
 
 ## 5. Verification
 

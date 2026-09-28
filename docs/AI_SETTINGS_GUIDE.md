@@ -124,13 +124,15 @@ using `--provider <fallback>`.
 
 Shipped files:
 
-| File | Contents | Meaning |
-| --- | --- | --- |
-| `claude_settings.json` | `{"thinking": {"type": "disabled"}, "sampling": {}}` | Thinking off, so `max_tokens` bounds response text on any model. `sampling: {}` sends no `temperature` / `top_p` / `top_k` — current Claude models reject them. |
-| `gemini_settings.json` | `{"sampling": {"temperature": "from_request"}}` | `"from_request"` means read that parameter off the `GenerationRequest` at call time. A literal value there would be sent as-is. |
-| `ollama_settings.json` | no policy keys | Ollama's generation parameters are Modelfile-baked and rebuilt outside this repo. |
+| File | Why |
+| --- | --- |
+| `claude_settings.json` | Thinking is off, so `max_tokens` bounds response text on any model. No sampling parameters are sent; the model's own defaults apply. |
+| `gemini_settings.json` | Temperature comes from each request. The value `"from_request"` means read that parameter off the `GenerationRequest` at call time; a literal value is sent as-is. |
+| `ollama_settings.json` | Carries no policy keys. Ollama's generation parameters are Modelfile-baked and rebuilt outside this repo. |
 
-**An unusable policy is a configuration error, not a default.** A file that is absent, unparseable, or missing a key its provider requires raises `ConfigurationError` out of `ProviderManager` — it does not silently disable the provider or fall back to a built-in default. Each provider class names the keys it reads in `REQUIRED_POLICY_KEYS` (`ClaudeProvider`: `{'thinking', 'sampling'}`; `GeminiProvider`: `{'sampling'}`; `BaseProvider` defaults to empty). A provider constructed with a policy missing a declared key refuses construction with the same error, and application code obtains providers from `ProviderManager` (`get_provider_manager().get_provider(name)`), the one component that loads both files.
+**An unusable policy is a configuration error, not a default.** A policy file that is absent, unparseable, or missing a key its provider requires raises `ConfigurationError`. The provider is never silently disabled and never falls back to a built-in default. The keys a provider requires are the ones its code reads, and they are declared in `REQUIRED_POLICY_KEYS` on the provider class, next to that code. The class is the only place that set is listed.
+
+**Application code obtains providers from `ProviderManager`**, via `get_provider_manager().get_provider(name)`. It is the one component that loads both a provider's `ai_settings.json` section and its policy file. A provider constructed directly must be given its policy. If that policy is missing a required key, construction is refused with a `ConfigurationError` naming the key, so the fault shows up where it was made rather than at the first request.
 
 ---
 
