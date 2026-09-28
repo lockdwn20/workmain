@@ -73,7 +73,7 @@ The call types after D1: `daily_internal`, `weekly_client`, `note_condensation`,
 | --- | --- | --- | --- |
 | Q1 | Where per-call-type `max_tokens` lives (§5). | **Option B.** | |
 | Q2 | The Gemini temperature. It applies to every call type Gemini serves, reports included, whatever the current routing (F1). | **0.3.** It is the value chosen for consistency at `note_condenser.py`, the one call type that ran well on Gemini, and consistency is what the reports were moved off Gemini for. Moving reports back to Gemini stays your config change after this ships, and it also depends on #129. | |
-| Q3 | The `max_tokens` values. | **Today's values:** 4000, 4000, 1024, 200, 256, 64, 64. Nothing observed says any is wrong; condensation's 1024 was raised deliberately for Gemini thinking tokens. | |
+| Q3 | The `max_tokens` values. Each must hold on every provider its call type can be routed to (F1). Gemini's policy does not disable thinking, so on Gemini thinking tokens count against `max_output_tokens` — the reason condensation went from 200 to 1024 (`note_condenser.py:141`). Claude's policy disables thinking, so its limit is response text only. | **Condensation 1024, narration 200, intent parse 256, task match 64, note dedup 64 as today.** Reports at 4000 have only ever been sized for Claude-style budgets; whether a Gemini report was truncated at 4000 is not visible in code. If you saw truncated Gemini reports, the report value needs raising, or the Gemini policy should disable thinking, which is a separate payload decision. | |
 
 ## 7. Disposition
 
