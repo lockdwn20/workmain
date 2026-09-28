@@ -55,7 +55,7 @@ Not read: the Modelfile and `update_workmain_intent.sh` in the IaC repo.
 | D1 | `config/providers/` becomes a directory per provider. `settings.json` in it is the request payload policy, with the meaning `<name>_settings.json` has today (F2). An optional `models/<model>/` holds the build source for a model we define, in that provider's own format. Claude and Gemini have no `models/`. `ai_settings.json` keeps owning which provider and model are used. | Ray, 20260928 |
 | D2 | A template provider directory, `config/providers/_template/`, shows the shape: a `settings.json`, a `models/` example, and a short statement of what each part is and requires. The leading underscore follows the `docs/dev/<type>/_TEMPLATE_*.md` precedent; F19 means it is never loaded. | Ray, 20260928 |
 | D3 | The `config/providers/` layout is interim. The wider `config/` organisation — including `config/providers/` — is #147, blocked by #122. | Ray, 20260928 |
-| D4 | The intent parser's per-call `max_tokens` values move to the call sites in `IntentParser`, where the other two already are, following every other caller (F5). | Precedent (F5) |
+| D4 | Withdrawn 20260928. F5 is not a precedent: a request value hardcoded at the call site is the defect #127 describes for temperature, and `max_tokens` sits beside it in the same plumbing. Where per-call `max_tokens` values live is Q5. | Ray, 20260928 |
 | D5 | `OLLAMA_HOST` / `OLLAMA_PORT` reads are removed, not moved (F11). | Follows from F11 |
 | D6 | The `.txt` header's `ollama_model`, `ollama_host` and Versioning / Tuning workflow prose are removed (F8). The procedure's home is `CLAUDE.md` § Intent Parser Config, rewritten for the new paths with F9's errors fixed. | `DEVELOPMENT_STANDARDS.md` §1.5, a process rule never travels with the code |
 
@@ -95,6 +95,7 @@ These follow from the issue and existing rules.
 | Q2 | Model build source format — Option A or B (§5)? | **B.** | |
 | Q3 | Delete `_warmup_ollama`? With the model resident on the LXC (F13), a daemon-start warm-up almost never meets a cold model, and deleting it removes one construction site and the 120 s timeout (F12). The EOD probes then use the single configured 30 s timeout: an unreachable host costs each step 30 s instead of 15. | **Delete.** | |
 | Q4 | Should daemon start call `get_provider_manager()` once, so a broken provider policy fails the start rather than the first Slack DM (F16)? It is the same rule as the EOD probes. | **Yes.** | |
+| Q5 | Where per-call `max_tokens` values live, and which issue moves them (D4). | See chat, 20260928. | |
 
 ## 8. Disposition
 
