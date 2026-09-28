@@ -95,7 +95,7 @@ These follow from the issue and existing rules.
 | Q2 | Model build source format — Option A or B (§5)? | **B.** | |
 | Q3 | Delete `_warmup_ollama`? With the model resident on the LXC (F13), a daemon-start warm-up almost never meets a cold model, and deleting it removes one construction site and the 120 s timeout (F12). The EOD probes then use the single configured 30 s timeout: an unreachable host costs each step 30 s instead of 15. | **Delete.** | |
 | Q4 | Should daemon start call `get_provider_manager()` once, so a broken provider policy fails the start rather than the first Slack DM (F16)? It is the same rule as the EOD probes. | **Yes.** | |
-| Q5 | Where per-call `max_tokens` values live, and which issue moves them (D4). | See chat, 20260928. | |
+| Q5 | Where per-call `max_tokens` values live, and which issue moves them (D4). | — | 20260928, Ray: #127 is widened to cover `max_tokens`, one value per call type, declared in configuration. #122 is blocked by #127 and resumes after it ships; the intent parser's runtime `max_tokens` leaves `config/intent_parse_prompt.json` there, not here. |
 
 ## 8. Disposition
 
