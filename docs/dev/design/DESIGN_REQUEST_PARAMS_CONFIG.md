@@ -10,7 +10,7 @@
 
 ## 1. Purpose
 
-Issue #127 asks that the `temperature` and `max_tokens` every AI request carries come from configuration, not from Python defaults and call-site literals. The issue fixes most of the design: temperature is one literal per provider in its payload policy, `GenerationRequest.temperature` is deleted, and `max_tokens` is one value per call type. It leaves the `max_tokens` key structure to the spec. This study answers that question and records two findings that change what the issue says about the system as it runs today.
+Issue #127 asks that the `temperature` and `max_tokens` every AI request carries come from configuration, not from Python defaults and call-site literals. The issue fixes most of the design: temperature is one literal per provider in its payload policy, `GenerationRequest.temperature` is deleted, and `max_tokens` is one value per call type. It leaves the `max_tokens` key structure to the spec. This study answers that question. The design holds for any provider assignment in `report_types`: which provider serves a call type is configuration (F1).
 
 ## 2. Scope of the read
 
@@ -22,8 +22,8 @@ Not read: `sync_modelfile.sh` in the IaC repo. Its read of `max_tokens` is taken
 
 | # | Finding | Evidence |
 | --- | --- | --- |
-| F1 | **The issue's premise that Gemini serves all three report types is stale.** Daily and weekly reports were switched to Claude primary, Gemini fallback, eleven hours after the issue was opened. Gemini is primary only for note condensation. | `config/ai_settings.json` `report_types`; commit `b330dee` 2026-09-03 15:18 -0700; issue created 2026-09-03T05:43Z |
-| F2 | **The Gemini temperature does not govern report prose on the primary path.** Claude's policy sends no sampling (`"sampling": {}`), and `claude-sonnet-5` rejects `temperature` with a 400. Report variance under Claude cannot be changed by any temperature. After this issue, the Gemini value governs note condensation, and reports and narration only when they fall back. | `config/providers/claude_settings.json`; `docs/archive/design/DESIGN_PROVIDER_MODEL_CAPABILITY.md` F10, F25 |
+| F1 | **Which provider serves a call type is a configuration value, and today's values are a workaround for this issue.** Daily and weekly reports were moved to Claude primary, Gemini fallback, while the Gemini output problems are open (#127 temperature, #129 automatic function calling). Note condensation stayed on Gemini because its call-site 0.3 suited it. The design therefore cannot depend on the current assignment: every call type must run correctly on every provider it can be routed to. | commit `b330dee` message; `config/ai_settings.json` `report_types` |
+| F2 | Claude's policy sends no sampling (`"sampling": {}`), and `claude-sonnet-5` rejects `temperature` with a 400. A temperature setting affects a call only while Gemini serves it. | `config/providers/claude_settings.json`; `docs/archive/design/DESIGN_PROVIDER_MODEL_CAPABILITY.md` F10, F25 |
 | F3 | Every call type reaches a provider through `ProviderManager.generate()`. The Ollama calls pass `provider_override=ProviderType.OLLAMA`; reports and condensation pass `report_type`. The two connectivity probes are the only direct `provider.generate()` calls. | `intent_parser.py:92`, `:193`, `:239`; `report_generator.py:157`; `note_condenser.py:151`; `narration.py:98`; `providers.py:158`; `daemon.py:264` |
 | F4 | `report_types` in `ai_settings.json` is the existing per-call-type block, but it holds **routing**: `ProviderManager` builds a `ReportTypeConfig` from each entry, `providers config show` lists every entry as a report type assignment, and `providers set default` accepts any entry name. An absent `fallback_provider` loads as Gemini, so "no fallback" cannot be expressed. | `provider_manager.py:378-391`; `providers.py:356-400`, `:469` |
 | F5 | Daemon narration has no configuration of its own. It borrows `daily_internal`'s routing by passing `report_type='daily_internal'`. | `narration.py:98-101` |
@@ -72,9 +72,8 @@ The call types after D1: `daily_internal`, `weekly_client`, `note_condensation`,
 | Q | Question | Recommendation | Answer |
 | --- | --- | --- | --- |
 | Q1 | Where per-call-type `max_tokens` lives (§5). | **Option B.** | |
-| Q2 | The Gemini temperature. | **0.3.** Given F1 and F2, its main job is note condensation, which already runs at 0.3 for consistency. The value doesn't change on Gemini's primary path; reports that fall back to Gemini move from 0.7 to 0.3. | |
+| Q2 | The Gemini temperature. It applies to every call type Gemini serves, reports included, whatever the current routing (F1). | **0.3.** It is the value chosen for consistency at `note_condenser.py`, the one call type that ran well on Gemini, and consistency is what the reports were moved off Gemini for. Moving reports back to Gemini stays your config change after this ships, and it also depends on #129. | |
 | Q3 | The `max_tokens` values. | **Today's values:** 4000, 4000, 1024, 200, 256, 64, 64. Nothing observed says any is wrong; condensation's 1024 was raised deliberately for Gemini thinking tokens. | |
-| Q4 | F2 means the complaint the issue opens with — reports read differently day to day — is not addressed by this issue while Claude is primary, and no request parameter can address it. Open an issue for it? | **No new issue** unless you still see the variance. The remaining levers are the prompt and the model, not configuration, and the issue body is corrected at close-out to say the value serves condensation and fallback. | |
 
 ## 7. Disposition
 
