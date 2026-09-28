@@ -42,9 +42,9 @@ Complete. `BaseProvider.__init__` now refuses construction when the policy it is
 
 ## 5. Verification
 
-- **Test suite:** 1002 passed, 0 failed (baseline was 992 passed, 4 failed). Both `ANTHROPIC_API_KEY` and `GOOGLE_API_KEY` were set for both runs (`set -a && source .env && set +a`). Baseline was captured by `git stash`-ing this work and running bare `pytest` against the unmodified tree before restoring it.
+- **Test suite:** 1002 passed, 0 failed, 0 skipped (baseline was 992 passed, 4 failed, 0 skipped). Both `ANTHROPIC_API_KEY` and `GOOGLE_API_KEY` were set for both runs (`set -a && source .env && set +a`). Baseline was captured by `git stash`-ing this work and running bare `pytest` against the unmodified tree before restoring it.
 - **Live verification:** none — the four now-passing live-API tests (`test_claude_generation`, `test_gemini_generation`, `test_provider_status`, `test_cost_tracking_integration`) exercise the real Claude and Gemini APIs as part of the suite run above; no daemon-path or schema change is in scope.
-- **Daemon restart:** not applicable — this is a `hotfix/*` branch with no daemon-facing behavior change; close-out determines restart need per `docs/DEVELOPMENT_STANDARDS.md` §2.6.
+- **Daemon restart** (`hotfix/*`, per `docs/DEVELOPMENT_STANDARDS.md` §2.6): required — every `feature/*`/`hotfix/*` merge to `dev` gets one, branch type alone, regardless of which files changed. Performed by `/closeout`; `ActiveEnterTimestamp` must postdate the `dev` merge commit. Timestamp carried by the issue's closing comment, not here.
 
 ## 6. Follow-ups
 
