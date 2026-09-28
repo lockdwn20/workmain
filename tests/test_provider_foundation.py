@@ -151,6 +151,8 @@ def test_ollama_provider_check_availability_returns_unavailable():
 
 _CLAUDE_ENV = {'ANTHROPIC_API_KEY': 'sk-ant-test1234567890123456789012345678901234567'}
 _GEMINI_ENV = {'GOOGLE_API_KEY': 'A' * 39}
+_VALID_CLAUDE_POLICY = {'thinking': {'type': 'disabled'}, 'sampling': {}}
+_VALID_GEMINI_POLICY = {'sampling': {}}
 
 
 @patch.dict(os.environ, _CLAUDE_ENV)
@@ -161,7 +163,7 @@ def test_claude_provider_reads_model_from_config():
         'api_key_env': 'ANTHROPIC_API_KEY',
     }
     with patch('anthropic.Anthropic'):
-        p = ClaudeProvider(config)
+        p = ClaudeProvider(config, dict(_VALID_CLAUDE_POLICY))
     assert p.model == 'test-model'
 
 
@@ -170,8 +172,8 @@ def test_claude_provider_requires_model_in_config():
     """ClaudeProvider with no model raises ConfigurationError — no hardcoded default (DR5)."""
     config = {'api_key_env': 'ANTHROPIC_API_KEY'}
     with patch('anthropic.Anthropic'):
-        with pytest.raises(ConfigurationError):
-            ClaudeProvider(config)
+        with pytest.raises(ConfigurationError, match="model name is required"):
+            ClaudeProvider(config, dict(_VALID_CLAUDE_POLICY))
 
 
 @patch.dict(os.environ, _GEMINI_ENV)
@@ -182,7 +184,7 @@ def test_gemini_provider_reads_model_from_config():
         'api_key_env': 'GOOGLE_API_KEY',
     }
     with patch('google.genai.Client'):
-        p = GeminiProvider(config)
+        p = GeminiProvider(config, dict(_VALID_GEMINI_POLICY))
     assert p.model == 'test-model'
 
 
@@ -191,8 +193,83 @@ def test_gemini_provider_requires_model_in_config():
     """GeminiProvider with no model raises ConfigurationError — no hardcoded default (DR5)."""
     config = {'api_key_env': 'GOOGLE_API_KEY'}
     with patch('google.genai.Client'):
-        with pytest.raises(ConfigurationError):
-            GeminiProvider(config)
+        with pytest.raises(ConfigurationError, match="model name is required"):
+            GeminiProvider(config, dict(_VALID_GEMINI_POLICY))
+
+
+# ---------------------------------------------------------------------------
+# Construction contract — Issue #130
+# ---------------------------------------------------------------------------
+
+class TestProviderPolicyContract:
+    """A provider refuses construction when its policy lacks a required key."""
+
+    @patch.dict(os.environ, _CLAUDE_ENV)
+    def test_claude_missing_policy_names_both_keys(self):
+        with patch('workmain.ai.providers.claude.Anthropic') as fake_cls:
+            with pytest.raises(ConfigurationError) as exc_info:
+                ClaudeProvider({'model': 'test-model', 'api_key_env': 'ANTHROPIC_API_KEY'})
+        assert 'sampling' in str(exc_info.value)
+        assert 'thinking' in str(exc_info.value)
+        fake_cls.assert_not_called()
+
+    @patch.dict(os.environ, _CLAUDE_ENV)
+    def test_claude_missing_policy_names_only_absent_key(self):
+        with patch('workmain.ai.providers.claude.Anthropic'):
+            with pytest.raises(ConfigurationError) as exc_info:
+                ClaudeProvider(
+                    {'model': 'test-model', 'api_key_env': 'ANTHROPIC_API_KEY'},
+                    {'sampling': {}},
+                )
+        assert 'thinking' in str(exc_info.value)
+        assert 'sampling' not in str(exc_info.value)
+
+    @patch.dict(os.environ, _GEMINI_ENV)
+    def test_gemini_missing_policy_names_key(self):
+        with patch('workmain.ai.providers.gemini.genai.Client') as fake_cls:
+            with pytest.raises(ConfigurationError) as exc_info:
+                GeminiProvider({'model': 'test-model', 'api_key_env': 'GOOGLE_API_KEY'})
+        assert 'sampling' in str(exc_info.value)
+        fake_cls.assert_not_called()
+
+    def test_ollama_constructs_with_no_policy(self):
+        p = OllamaProvider({'model': 'mistral-7b', 'host': 'localhost', 'port': 11434})
+        assert p.policy == {}
+
+    @patch.dict(os.environ, _CLAUDE_ENV)
+    def test_constructor_uses_missing_policy_keys(self):
+        with patch('workmain.ai.providers.claude.Anthropic'), \
+             patch.object(ClaudeProvider, 'missing_policy_keys', return_value=['x']):
+            with pytest.raises(ConfigurationError) as exc_info:
+                ClaudeProvider(
+                    {'model': 'test-model', 'api_key_env': 'ANTHROPIC_API_KEY'},
+                    dict(_VALID_CLAUDE_POLICY),
+                )
+        assert 'x' in str(exc_info.value)
+
+    @patch.dict(os.environ, _CLAUDE_ENV)
+    def test_manager_precheck_uses_missing_policy_keys(self, tmp_path):
+        settings = {
+            'version': '1.1',
+            'last_updated': '20260603',
+            'providers': {
+                'claude': {'enabled': True, 'model': 'claude-test',
+                           'api_key_env': 'ANTHROPIC_API_KEY'},
+                'gemini': {'enabled': False, 'model': 'gemini-test'},
+                'ollama': {'enabled': False, 'model': 'mistral-7b',
+                           'host': 'localhost', 'port': 11434},
+            },
+            'report_types': {},
+            'fallback_settings': {},
+            'cost_tracking': {},
+            'advanced': {},
+        }
+        with patch('workmain.ai.providers.claude.Anthropic'), \
+             patch.object(ClaudeProvider, 'missing_policy_keys', return_value=['x']):
+            with pytest.raises(ConfigurationError) as exc_info:
+                _manager_from_dict(settings)
+        assert 'x' in str(exc_info.value)
+        assert 'claude_settings.json' in str(exc_info.value)
 
 
 # ---------------------------------------------------------------------------

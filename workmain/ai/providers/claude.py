@@ -3,7 +3,7 @@ Claude (Anthropic) provider implementation.
 
 Receives its config dict from ProviderManager via PROVIDER_REGISTRY.
 Instances come from get_provider_manager().get_provider('claude'); constructing
-one directly leaves the request-payload policy unloaded.
+one directly requires passing its payload policy.
 
 Wraps the Anthropic SDK with config-driven model selection (reads the model
 from ai_settings.json), token counting, retry with exponential backoff, and
