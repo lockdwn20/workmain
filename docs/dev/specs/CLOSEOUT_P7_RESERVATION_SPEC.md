@@ -1,6 +1,6 @@
 # Closeout preflight P7 reservation — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20260928
 **Branch:** `chore/issue-146-closeout-p7`
