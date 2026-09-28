@@ -317,8 +317,7 @@ class ProviderManager:
                 f"Provider '{name}' payload policy file is not valid JSON: {rel_path} ({e})"
             ) from e
 
-        required = getattr(cls, 'REQUIRED_POLICY_KEYS', set())
-        missing = set(required) - set(policy or {})
+        missing = cls.missing_policy_keys(policy or {})
         if missing:
             raise ConfigurationError(
                 f"Provider '{name}' payload policy file {rel_path} is missing "
@@ -357,8 +356,7 @@ class ProviderManager:
                 # _disabled by the blanket except below.
                 policy = self._load_provider_policy(name, cls)
                 try:
-                    instance = cls(provider_cfg)
-                    instance.policy = policy
+                    instance = cls(provider_cfg, policy)
                     self._providers[name] = instance
                 except Exception:
                     # Provider instantiation failed (e.g. missing API key in env).

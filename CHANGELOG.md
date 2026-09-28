@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.34.1] - 2026-09-28
+
+A provider constructed outside `ProviderManager` carried an empty payload policy and failed deep inside `generate()` — as a `KeyError` reported as a generation error, or, in Claude's `check_availability()`, as an unexplained `UNAVAILABLE` (issue #130).
+
+### Fixed
+
+- `BaseProvider.__init__` refuses construction when the policy it is given lacks a key the provider declares in `REQUIRED_POLICY_KEYS`, raising `ConfigurationError` naming each missing key before the vendor client is built
+- `ProviderManager` passes the policy at construction instead of attaching it afterwards, and its pre-construction check and the constructor share one comparison, `BaseProvider.missing_policy_keys()`
+- The four live-API tests in `tests/test_ai_clients.py` that failed whenever API keys were present now pass: every live test obtains its provider from `ProviderManager`
+- Model-required tests construct with a valid policy and match the model message, so they fail on the model and not on the policy
+
+### Changed
+
+- `OllamaProvider.__init__` accepts the `policy` argument its siblings accept
+- `docs/AI_SETTINGS_GUIDE.md` states that application code obtains providers from `ProviderManager`, and names `REQUIRED_POLICY_KEYS` as the only place a provider's required keys are listed
+
 ## [1.34.0] - 2026-09-25
 
 A process rule stated in a module docstring was read as project policy by two

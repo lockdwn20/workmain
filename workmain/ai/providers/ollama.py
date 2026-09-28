@@ -5,6 +5,7 @@ Ollama local inference provider — Mistral 7B on Proxmox via REST API.
 import json
 import urllib.request
 import urllib.error
+from typing import Optional
 
 from workmain.ai.base_provider import (
     BaseProvider,
@@ -19,8 +20,8 @@ from workmain.ai.base_provider import (
 class OllamaProvider(BaseProvider):
     """Ollama local inference provider — wraps POST /api/generate."""
 
-    def __init__(self, config: dict):
-        super().__init__(config)
+    def __init__(self, config: dict, policy: Optional[dict] = None):
+        super().__init__(config, policy)
         self._host = config.get("host", "localhost")
         self._port = config.get("port", 11434)
         self._model = config.get("model", "mistral")

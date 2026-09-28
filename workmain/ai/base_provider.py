@@ -93,8 +93,15 @@ class BaseProvider(ABC):
 
     # Keys a provider's payload policy file (config/providers/<name>_settings.json)
     # must contain. Declared beside the code that reads them on each subclass;
-    # BaseProvider requires none. ProviderManager checks this before construction.
+    # BaseProvider requires none. Construction enforces this; ProviderManager
+    # also checks it before construction so a policy fault raises there
+    # instead of landing in _disabled (DR3).
     REQUIRED_POLICY_KEYS: set = set()
+
+    @classmethod
+    def missing_policy_keys(cls, policy: dict) -> list[str]:
+        """Return the declared required keys absent from policy, sorted."""
+        return sorted(cls.REQUIRED_POLICY_KEYS - set(policy))
 
     def __init__(self, config: dict, policy: Optional[dict] = None):
         """
@@ -107,10 +114,22 @@ class BaseProvider(ABC):
         Args:
             config: Provider config section from ai_settings.json.
             policy: Request payload policy from config/providers/<name>_settings.json,
-                loaded and validated by ProviderManager. Defaults to an empty dict.
+                loaded and validated by ProviderManager. Must hold every key
+                the subclass declares in REQUIRED_POLICY_KEYS. Defaults to an
+                empty dict.
+
+        Raises:
+            ConfigurationError: If policy is missing a key this provider
+                declares required.
         """
         self.config = config
         self.policy = policy or {}
+        missing = self.missing_policy_keys(self.policy)
+        if missing:
+            raise ConfigurationError(
+                f"{type(self).__name__} payload policy is missing required "
+                f"key(s): {', '.join(missing)}"
+            )
         self._status = ProviderStatus.AVAILABLE
         self._last_error: Optional[str] = None
 
