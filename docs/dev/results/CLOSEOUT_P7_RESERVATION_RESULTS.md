@@ -1,6 +1,6 @@
 # Closeout preflight P7 reservation — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20260928
 **Spec:** `../specs/CLOSEOUT_P7_RESERVATION_SPEC.md`
@@ -34,8 +34,9 @@ Complete except for two checks that are Ray's to make. `P7` is reserved and `P6`
 
 ## 5. Verification
 
-- **Test suite:** not run. The change touches no file under `tests/`, `automation/`, `workmain/`, `config/` or `templates/`; close-out runs the suites.
-- **Daemon restart:** none — `chore/*`.
+- **Test suite:** 1002 passed, 0 failed (baseline was 1002, per the v1.34.1 CHANGELOG entry). The change touches no file under `tests/`, `automation/`, `workmain/`, `config/` or `templates/`.
+- **Live verification:** Ray ran `/closeout --branch hotfix/issue-130-provider-policy-contract` against the amended `SKILL.md`, and I re-ran its preflight on 20260928. Every evaluated row passed and `P7` reported `n/a`, reason `reserved`.
+- **Daemon restart:** `n/a` — `chore/*` changes no application code (`docs/DEVELOPMENT_STANDARDS.md` §2.6).
 
 ## 6. Follow-ups
 
