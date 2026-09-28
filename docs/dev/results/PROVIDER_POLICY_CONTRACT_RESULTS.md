@@ -4,7 +4,7 @@
 **Author:** Anvil (Role 3)
 **Date:** 20260925
 **Spec:** `../specs/PROVIDER_POLICY_CONTRACT_SPEC.md`
-**Released as:** n/a (not yet merged/tagged)
+**Released as:** v1.34.1 (tag v1.34.1)
 
 ---
 
@@ -44,6 +44,7 @@ Complete. `BaseProvider.__init__` now refuses construction when the policy it is
 
 - **Test suite:** 1002 passed, 0 failed, 0 skipped (baseline was 992 passed, 4 failed, 0 skipped). Both `ANTHROPIC_API_KEY` and `GOOGLE_API_KEY` were set for both runs (`set -a && source .env && set +a`). Baseline was captured by `git stash`-ing this work and running bare `pytest` against the unmodified tree before restoring it.
 - **Transient flake observed, not reproducible:** a later full-suite rerun (20260928, after the §5 restart/skipped-count corrections, no code changed in between) showed `test_ai_clients.py::test_provider_status` fail with an `AssertionError` — that test makes a real, live call to `check_availability()` against the Claude and Gemini APIs. Run alone, it passed; a second full-suite run passed 1002/0/0 again. Cause is a transient condition on the live vendor call (network or momentary rate limit), not this work — no commit sat between the failing and passing runs. Recorded here because it surfaced during this work's own verification, not because it is a defect in it.
+- **Close-out run (20260928):** bare `pytest` on the branch tip with both keys set, twice (the two preflight runs): 1002 passed, 0 failed, 0 skipped each time.
 - **Live verification:** none — the four now-passing live-API tests (`test_claude_generation`, `test_gemini_generation`, `test_provider_status`, `test_cost_tracking_integration`) exercise the real Claude and Gemini APIs as part of the suite run above; no daemon-path or schema change is in scope.
 - **Daemon restart** (`hotfix/*`, per `docs/DEVELOPMENT_STANDARDS.md` §2.6): required — every `feature/*`/`hotfix/*` merge to `dev` gets one, branch type alone, regardless of which files changed. Performed by `/closeout`; `ActiveEnterTimestamp` must postdate the `dev` merge commit. Timestamp carried by the issue's closing comment, not here.
 

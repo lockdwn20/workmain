@@ -1,6 +1,6 @@
 # Provider Construction Refuses an Incomplete Payload Policy — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20260925
 **Branch:** `hotfix/issue-130-provider-policy-contract` (from `main`)
