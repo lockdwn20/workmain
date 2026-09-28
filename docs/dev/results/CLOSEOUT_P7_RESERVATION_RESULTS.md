@@ -1,6 +1,6 @@
 # Closeout preflight P7 reservation — Implementation Results
 
-**Status:** Approved
+**Status:** Active
 **Author:** Spanner (Role 1)
 **Date:** 20260928
 **Spec:** `../specs/CLOSEOUT_P7_RESERVATION_SPEC.md`
@@ -22,9 +22,9 @@ Complete except for two checks that are Ray's to make. `P7` is reserved and `P6`
 
 | AC | Status | Evidence |
 | --- | --- | --- |
-| AC1.1 | Not met | Pending Ray's stated reading of the `SKILL.md` preflight table against §1.2. Evidence so far: `grep -n 'Issue AC' .claude/skills/closeout/SKILL.md` returns no hits |
+| AC1.1 | Met | Per Ray, `SKILL.md` properly reflects preflight table against §1.2. `grep -n 'Issue AC' .claude/skills/closeout/SKILL.md` returns no hits |
 | AC1.2 | Met | `git diff main -- .claude/skills/closeout/SKILL.md` shows the `P6` and `P7` lines only, one removed and one added each |
-| AC2.1 | Not met | Pending Ray's run of `/closeout --branch hotfix/issue-130-provider-policy-contract`. The skill is user-initiated only, so it was not run here |
+| AC2.1 | Met | Ray ran `/closeout --branch hotfix/issue-130-provider-policy-contract`. P7 was identified as `n/a` and `reserved` |
 
 ## 4. Deviations from spec
 
