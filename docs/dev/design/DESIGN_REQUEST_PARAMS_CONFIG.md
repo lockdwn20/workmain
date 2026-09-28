@@ -97,4 +97,4 @@ The call types after D1: `daily_internal`, `weekly_client`, `note_condensation`,
 
 ## 7. Disposition
 
-- Promoted to: —
+- Promoted to: `../specs/REQUEST_PARAMS_CONFIG_SPEC.md`
