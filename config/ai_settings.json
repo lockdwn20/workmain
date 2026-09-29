@@ -18,16 +18,16 @@
     },
     "gemini": {
       "enabled": true,
-      "model": "gemini-3.5-flash-lite",
+      "model": "gemini-3.6-flash",
       "api_key_env": "GOOGLE_API_KEY",
-      "cost_per_1k_prompt_tokens": 0.0003,
-      "cost_per_1k_completion_tokens": 0.0025,
-      "cost_structure": "$.30/MTok prompt, $2.5/MTok completion",
+      "cost_per_1k_prompt_tokens": 0.00075,
+      "cost_per_1k_completion_tokens": 0.00375,
+      "cost_structure": "$.75/MTok prompt, $3.75/MTok completion",
       "rate_limit_rpm": 60,
       "timeout_seconds": 60,
       "retry_attempts": 3,
       "retry_delay_seconds": 1.0,
-      "notes": "Gemini 3.5 Flash Lite - $0.30/MTok input, $2.5/MTok output"
+      "notes": "Gemini 3.6 Flash - $0.75/MTok input, $3.75/MTok output"
     },
     "ollama": {
       "enabled": true,
