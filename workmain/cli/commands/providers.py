@@ -151,8 +151,7 @@ def test_provider(provider: str):
 
         request = GenerationRequest(
             prompt="Respond with exactly: 'API connection successful'",
-            max_tokens=20,
-            temperature=0.0
+            max_tokens=512,
         )
 
         response = client.generate(request)

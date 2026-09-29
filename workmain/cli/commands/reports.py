@@ -110,8 +110,6 @@ def generate_report_impl(
     template_name: str,
     preview_only: bool = False,
     provider: Optional[str] = None,
-    max_tokens: int = 4000,
-    temperature: float = 0.7,
     report_date: Optional[date] = None,
 ):
     """
@@ -121,8 +119,6 @@ def generate_report_impl(
         template_name: Template name (daily_internal, weekly_client)
         preview_only: If True, preview without generating
         provider: AI provider override (claude/gemini)
-        max_tokens: Maximum tokens
-        temperature: Temperature for generation
         report_date: Date to generate report for (default: today)
     """
     db = get_db()
@@ -191,8 +187,6 @@ def generate_report_impl(
                 template_name=template_name,
                 report_date=report_date,
                 provider=provider_type,
-                max_tokens=max_tokens,
-                temperature=temperature,
                 save_to_file=True,
                 output_format=ReportFormat.MARKDOWN,
                 client_id=active_client_id,
