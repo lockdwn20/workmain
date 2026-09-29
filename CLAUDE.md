@@ -172,7 +172,7 @@ Two files govern IntentParser. They own different things and must never duplicat
 
 - `config/intent_parse_system_prompt.txt` - system prompt content AND version metadata (`config_version`, `config_updated`, `model_built`). The ONLY place version state lives.
   - The model is always referenced as `model_built: workmain-intent:latest`.
-- `config/intent_parse_prompt.json` - runtime generation parameters ONLY (`ollama_model`, `ollama_host`, `max_tokens`, `generation_options`). No version fields - do not add them.
+- `config/intent_parse_prompt.json` - runtime generation parameters ONLY (`ollama_model`, `ollama_host`, `generation_options`). No version fields - do not add them.
 - All model rebuilds happen outside this repository through a separate process.
 
 **Version bump workflow:** edit the system prompt → Ray syncs the SYSTEM block to the Modelfile in the IaC repo → Ray runs `build_workmain_intent.sh` on the Proxmox LXC → update `config_version` / `config_updated` / `model_built` in the system prompt header ONLY → update `ollama_model` in `ai_settings.json` only if the model name or tag changed.

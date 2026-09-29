@@ -8,7 +8,7 @@ Annotated schema reference for `config/ai_settings.json`.
 
 AI provider configuration lives in two files with a strict ownership boundary — no key appears in both:
 
-- `config/ai_settings.json` owns **which provider and how it is orchestrated**: `enabled`, `model`, `api_key_env`, costs, rate limits, retry, `report_types` routing, fallback, cost tracking.
+- `config/ai_settings.json` owns **which provider and how it is orchestrated**: `enabled`, `model`, `api_key_env`, costs, rate limits, retry, `report_types` routing, fallback, cost tracking, and each call type's `max_tokens` — a report type's own `report_types` entry, and every other call type in `application_functions`.
 - `config/providers/<name>_settings.json` owns **how we talk to that provider**: the request payload policy — what parameters every request carries. This file declares what we *send*, never what a model *supports*. See § The request payload policy below.
 
 Both files are directly user-editable — the CLI commands are convenience wrappers, not gatekeepers. For `ai_settings.json`, direct edit and `workmain providers set default` are equally valid.
@@ -23,7 +23,8 @@ Both files are directly user-editable — the CLI commands are convenience wrapp
 | `description` | string | Human label |
 | `last_updated` | string | YYYYMMDD — updated by `providers set default` on every write |
 | `providers` | object | One section per provider (see below) |
-| `report_types` | object | Provider assignments per report type |
+| `report_types` | object | Provider assignments and `max_tokens` cap per report type |
+| `application_functions` | object | `max_tokens` cap for every non-report-type call (see § `application_functions` below) |
 | `fallback_settings` | object | Global fallback behaviour defaults |
 | `cost_tracking` | object | Cost alerting thresholds |
 | `advanced` | object | Context window and caching settings |
@@ -83,6 +84,7 @@ Each key is a report type name used throughout the codebase
 | `fallback_provider` | string | Provider to use if primary fails. Set via `providers set default --fallback`. |
 | `fallback_mode` | `"auto"` \| `"manual"` | `auto` = silently fall back; `manual` = raise error and ask user to retry with `--provider` |
 | `max_cost_per_report` | float | Soft cost ceiling (informational — not enforced in current version) |
+| `max_tokens` | int | Required, no default. The total output ceiling for this report type — thinking plus answer, on every provider. Each provider maps it to its own vendor parameter (Claude `max_tokens`, Gemini `max_output_tokens`, Ollama `num_predict`). Absent or non-positive → `ConfigurationError` naming the entry. |
 
 ### How to change provider assignments
 
@@ -114,6 +116,21 @@ using `--provider <fallback>`.
 
 ---
 
+## `application_functions` Section
+
+`max_tokens` for every AI call that is not a `report_types` entry. A name may appear in only one of the two blocks — `ProviderManager` refuses construction if the same call type is declared in both.
+
+| Key | Description |
+|-----|-------------|
+| `daemon_narration` | The daemon's pre-flight check narration (`workmain/daemon/narration.py`). Routes as `daily_internal` for provider selection; this key only sets its cap. |
+| `intent_parse` | `IntentParser.parse()` — free-text Slack intent parsing via Ollama. |
+| `task_match` | `IntentParser.parse_task_match()` — carry-forward task/note matching via Ollama. |
+| `note_dedup` | `IntentParser.parse_note_duplicate()` — note-to-note dedup via Ollama. |
+
+Each entry is `{"max_tokens": <positive int>}`. Same rule as `report_types.max_tokens`: required, no default, `ConfigurationError` naming the entry if absent or non-positive. Read via `ProviderManager.get_max_tokens(call_type)`, which checks `report_types` first, then `application_functions`, then raises naming the key.
+
+---
+
 ## The request payload policy
 
 `config/providers/<name>_settings.json` declares the parameters every request to that provider carries. It exists so a payload change — Claude's thinking or sampling, Gemini's sampling — is a config edit, not a code edit.
@@ -126,8 +143,8 @@ Shipped files:
 
 | File | Why |
 | --- | --- |
-| `claude_settings.json` | Thinking is off, so `max_tokens` bounds response text on any model. No sampling parameters are sent; the model's own defaults apply. |
-| `gemini_settings.json` | Temperature comes from each request. The value `"from_request"` means read that parameter off the `GenerationRequest` at call time; a literal value is sent as-is. |
+| `claude_settings.json` | Thinking is off, so `max_tokens` is the total output ceiling, which on Claude is response text because there is no thinking to share the budget with. No sampling parameters are sent; the model's own defaults apply. |
+| `gemini_settings.json` | `sampling.temperature` is a literal value (`0.3`) sent on every request. `thinking_config.thinking_level` is fixed at `"high"` for every Gemini call type, so notes and reports are produced at the same depth; `max_tokens` is the total ceiling, thinking plus answer. |
 | `ollama_settings.json` | Carries no policy keys. Ollama's generation parameters are Modelfile-baked and rebuilt outside this repo. |
 
 **An unusable policy is a configuration error, not a default.** A policy file that is absent, unparseable, or missing a key its provider requires raises `ConfigurationError`. The provider is never silently disabled and never falls back to a built-in default. The keys a provider requires are the ones its code reads, and they are declared in `REQUIRED_POLICY_KEYS` on the provider class, next to that code. The class is the only place that set is listed.
