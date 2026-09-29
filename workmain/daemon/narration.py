@@ -8,12 +8,14 @@ skipped and the notification body is a standard "nothing flagged" message.
 
 Uses the existing provider abstraction (workmain/ai/). Uses the default
 provider configured for daily_internal reports unless overridden.
-Max tokens: 200. This is a brief summary, not a full report.
 """
 
+import logging
 from typing import List, Optional
 
 from workmain.daemon.models import Observation
+
+logger = logging.getLogger(__name__)
 
 NARRATION_SYSTEM_PROMPT = """
 You are a concise work assistant summarizing a pre-flight check of
@@ -54,15 +56,15 @@ def narrate(observations: List[Observation],
     )
 
     try:
-        return _call_provider(prompt, provider, max_tokens=200, temperature=0.3)
-    except Exception:
+        return _call_provider(prompt, provider)
+    except Exception as e:
+        logger.warning("Narration cap or generation failure: %s", e)
         fallback = "Pre-flight check found the following:\n"
         fallback += "\n".join(f"• {o.message}" for o in observations)
         return fallback
 
 
-def _call_provider(prompt: str, provider: Optional[str],
-                   max_tokens: int, temperature: float) -> str:
+def _call_provider(prompt: str, provider: Optional[str]) -> str:
     """Call the AI provider using the existing abstraction.
 
     Registers Claude and Gemini clients on the shared provider manager
@@ -71,8 +73,6 @@ def _call_provider(prompt: str, provider: Optional[str],
     Args:
         prompt: The user prompt to send.
         provider: Optional provider name override ('claude', 'gemini').
-        max_tokens: Maximum tokens for the response.
-        temperature: Sampling temperature.
 
     Returns:
         Generated text content from the provider.
@@ -91,8 +91,7 @@ def _call_provider(prompt: str, provider: Optional[str],
 
     request = GenerationRequest(
         prompt=prompt,
-        max_tokens=max_tokens,
-        temperature=temperature,
+        max_tokens=manager.get_max_tokens('daemon_narration'),
         system_prompt=NARRATION_SYSTEM_PROMPT.strip(),
     )
     response, _ = manager.generate(

@@ -86,7 +86,7 @@ class IntentParser:
         request = GenerationRequest(
             system_prompt=None,
             prompt=user_message,
-            max_tokens=self._prompt_config.get("max_tokens", 256),
+            max_tokens=self._provider_manager.get_max_tokens("intent_parse"),
         )
 
         response, _fallback_used = self._provider_manager.generate(
@@ -186,7 +186,7 @@ class IntentParser:
         request = GenerationRequest(
             system_prompt=None,
             prompt=prompt,
-            max_tokens=64,
+            max_tokens=self._provider_manager.get_max_tokens("task_match"),
             generation_options={"raw": True, "format": "json"},
         )
 
@@ -233,7 +233,7 @@ class IntentParser:
         request = GenerationRequest(
             system_prompt=None,
             prompt=f"Are these two notes describing the same item?\n\nNote A: {note_a}\nNote B: {note_b}",
-            max_tokens=64,
+            max_tokens=self._provider_manager.get_max_tokens("note_dedup"),
             generation_options={"raw": True, "format": "json"},
         )
         response, _ = self._provider_manager.generate(

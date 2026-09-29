@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.34.2] - 2026-09-28
+
+Request temperature and token caps came from Python defaults and call-site literals that no configuration could change, and Gemini's temperature was read off each request through a `"from_request"` sentinel that resolved to an unchosen 0.7 (issue #127).
+
+### Fixed
+
+- Every call type's `max_tokens` is declared in `config/ai_settings.json`: on each `report_types` entry, and in a new `application_functions` block for daemon narration, intent parse, task match and note dedup. `ProviderManager.get_max_tokens()` is the one lookup, and a missing or invalid cap raises `ConfigurationError` naming the entry instead of inheriting a default
+- `max_tokens` means the total output ceiling, thinking plus answer, on every provider
+- Gemini's temperature (0.3) and thinking level (`thinking_level: high`) are literals in `config/providers/gemini_settings.json`; the `"from_request"` sentinel is gone
+- `GeminiProvider.check_availability()` builds its request through the same helper as `generate()`, so the probe carries the payload policy
+- `GenerationRequest.max_tokens` is required, `GenerationRequest.temperature` is removed, and `OllamaProvider`'s 512 fallback is removed
+- `workmain providers test` sends a 512-token cap, sized so Gemini's thinking cannot consume it before the answer
+- Daemon narration logs the exception when it falls back to plain text
+
+### Changed
+
+- Report caps raised to 16000, note condensation to 4000 and narration to 2000, to leave room for Gemini thinking
+- Gemini runs on `gemini-3.6-flash`
+- `max_tokens` and `temperature` removed from template metadata, which nothing read
+- `ReportGenerator.generate_section()`, which had no caller, is deleted
+- `docs/AI_SETTINGS_GUIDE.md` documents the caps, `application_functions` and Gemini's policy keys
+
 ## [1.34.1] - 2026-09-28
 
 A provider constructed outside `ProviderManager` carried an empty payload policy and failed deep inside `generate()` — as a `KeyError` reported as a generation error, or, in Claude's `check_availability()`, as an unexplained `UNAVAILABLE` (issue #130).

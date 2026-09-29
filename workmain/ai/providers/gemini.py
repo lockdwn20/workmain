@@ -48,7 +48,7 @@ class GeminiProvider(BaseProvider):
     Google Generative AI SDK. Model is read from config dict at instantiation.
     """
 
-    REQUIRED_POLICY_KEYS = {'sampling'}
+    REQUIRED_POLICY_KEYS = {'sampling', 'thinking_config'}
 
     def __init__(self, config: dict, policy: dict = None):
         """
@@ -84,22 +84,20 @@ class GeminiProvider(BaseProvider):
         if not self.validate_config():
             raise ConfigurationError("Invalid Gemini configuration")
 
-    def _resolve_sampling(self, request: GenerationRequest) -> dict:
+    def _generation_config(self, max_tokens: int) -> dict:
         """
-        Resolve the policy's sampling map into concrete generation-config values.
+        Build the generation config shared by generate() and check_availability().
 
-        Each entry maps an API parameter name to either a literal value or the
-        sentinel ``"from_request"``, meaning read that attribute off the
-        GenerationRequest. Values are the vendor's own shapes, passed through
-        untranslated.
+        Returns max_output_tokens, the policy's sampling parameters, and the
+        policy's thinking_config — nothing else. One builder so a
+        payload-contract change cannot land in one path and miss the other.
+        Values are the vendor's own shapes, passed through untranslated.
         """
-        resolved = {}
-        for param, value in self.policy["sampling"].items():
-            if value == "from_request":
-                resolved[param] = getattr(request, param)
-            else:
-                resolved[param] = value
-        return resolved
+        return {
+            'max_output_tokens': max_tokens,
+            **self.policy["sampling"],
+            'thinking_config': self.policy["thinking_config"],
+        }
 
     def generate(self, request: GenerationRequest) -> GenerationResponse:
         """
@@ -120,8 +118,7 @@ class GeminiProvider(BaseProvider):
 
         while attempt < self._retry_attempts:
             try:
-                config_dict = {'max_output_tokens': request.max_tokens}
-                config_dict.update(self._resolve_sampling(request))
+                config_dict = self._generation_config(request.max_tokens)
 
                 # New google-genai API does not support system_instruction —
                 # prepend system prompt to user message instead
@@ -295,7 +292,7 @@ class GeminiProvider(BaseProvider):
             Provider status
         """
         try:
-            config_dict = {'max_output_tokens': 100}
+            config_dict = self._generation_config(100)
             self.client.models.generate_content(
                 model=self.model,
                 contents=["test"],

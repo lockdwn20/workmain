@@ -90,7 +90,7 @@ class TestGenerate:
 
         with patch("urllib.request.urlopen", side_effect=[tags_resp, gen_resp]):
             p = _make_provider()
-            request = GenerationRequest(prompt="spent 90 min on XSOAR migration")
+            request = GenerationRequest(prompt="spent 90 min on XSOAR migration", max_tokens=64)
             response = p.generate(request)
 
         assert isinstance(response, GenerationResponse)
@@ -105,7 +105,7 @@ class TestGenerate:
         """check_availability returns UNAVAILABLE → generate raises ProviderUnavailableError."""
         with patch("urllib.request.urlopen", return_value=_tags_response([])):
             p = _make_provider()
-            request = GenerationRequest(prompt="test")
+            request = GenerationRequest(prompt="test", max_tokens=64)
             try:
                 p.generate(request)
                 assert False, "Expected ProviderUnavailableError"
@@ -119,7 +119,7 @@ class TestGenerate:
 
         with patch("urllib.request.urlopen", side_effect=[tags_resp, url_error]):
             p = _make_provider()
-            request = GenerationRequest(prompt="test")
+            request = GenerationRequest(prompt="test", max_tokens=64)
             try:
                 p.generate(request)
                 assert False, "Expected ProviderUnavailableError"
@@ -133,7 +133,7 @@ class TestGenerate:
         with patch.object(OllamaProvider, "check_availability", return_value=ProviderStatus.AVAILABLE), \
              patch("urllib.request.urlopen", return_value=gen_resp) as mock_urlopen:
             p = _make_provider()
-            request = GenerationRequest(prompt="test", generation_options={"raw": True})
+            request = GenerationRequest(prompt="test", max_tokens=64, generation_options={"raw": True})
             p.generate(request)
 
         sent_req = mock_urlopen.call_args[0][0]
@@ -148,7 +148,7 @@ class TestGenerate:
         with patch.object(OllamaProvider, "check_availability", return_value=ProviderStatus.AVAILABLE), \
              patch("urllib.request.urlopen", return_value=gen_resp) as mock_urlopen:
             p = _make_provider()
-            request = GenerationRequest(prompt="test")
+            request = GenerationRequest(prompt="test", max_tokens=64)
             p.generate(request)
 
         sent_req = mock_urlopen.call_args[0][0]
@@ -165,7 +165,7 @@ class TestGenerate:
         with patch.object(OllamaProvider, "check_availability", return_value=ProviderStatus.AVAILABLE), \
              patch("urllib.request.urlopen", return_value=gen_resp) as mock_urlopen:
             p = _make_provider()
-            request = GenerationRequest(prompt="test", generation_options={"format": "json"})
+            request = GenerationRequest(prompt="test", max_tokens=64, generation_options={"format": "json"})
             p.generate(request)
 
         sent_req = mock_urlopen.call_args[0][0]
@@ -180,7 +180,7 @@ class TestGenerate:
         with patch.object(OllamaProvider, "check_availability", return_value=ProviderStatus.AVAILABLE), \
              patch("urllib.request.urlopen", return_value=gen_resp) as mock_urlopen:
             p = _make_provider()
-            request = GenerationRequest(prompt="test")
+            request = GenerationRequest(prompt="test", max_tokens=64)
             p.generate(request)
 
         sent_req = mock_urlopen.call_args[0][0]
@@ -195,7 +195,7 @@ class TestGenerate:
 
         with patch("urllib.request.urlopen", side_effect=[tags_resp, timeout_error]):
             p = _make_provider()
-            request = GenerationRequest(prompt="test")
+            request = GenerationRequest(prompt="test", max_tokens=64)
             try:
                 p.generate(request)
                 assert False, "Expected ProviderUnavailableError"
@@ -211,6 +211,7 @@ class TestBuildPrompt:
         p = _make_provider()
         request = GenerationRequest(
             prompt="spent 90 min on XSOAR",
+            max_tokens=64,
             system_prompt="You are a work assistant.",
         )
         result = p._build_prompt(request)
@@ -219,6 +220,6 @@ class TestBuildPrompt:
     def test_build_prompt_without_system(self):
         """No system prompt → [INST] wraps prompt only."""
         p = _make_provider()
-        request = GenerationRequest(prompt="finished the Splunk review")
+        request = GenerationRequest(prompt="finished the Splunk review", max_tokens=64)
         result = p._build_prompt(request)
         assert result == "[INST] finished the Splunk review [/INST]"
