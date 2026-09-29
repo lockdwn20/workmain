@@ -1,6 +1,6 @@
 # Request Temperature, Thinking and Token Caps From Configuration — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20260928
 **Branch:** `hotfix/issue-127-request-params-config` (from `main`)
@@ -36,7 +36,7 @@
 | 20260928 | Caliper | **R2-1** — §6 (b) does not say how the `ReportGenerator` test avoids what runs after `generate`: a report file in `staging/reports/` and rows in `reports` and `ai_costs`, the last through an `AiCostRepository` the code builds itself (`report_generator.py:216`). | **Accepted, sentinel form.** The stub raises a sentinel exception once it has recorded the request, so no code after `generate` runs in any of the four callers. |
 | 20260928 | Caliper | **R2-2** — AC6.9 does not say how `get_max_tokens` is made to raise, which invites patching it; a patched method proves only that the handler logs something. | **Accepted.** AC6.9 uses the copied configuration with `daemon_narration` removed from `application_functions`, so the real lookup raises. The no-patching rule covers AC6.9. |
 | 20260928 | Ray | Spec approved after two Caliper rounds. | Status `Approved`; handed to Anvil. |
-| 20260929 | Close-out P6 | §5 carried one row with the range id `AC6.1–6.7`; `automation/closeout_acs.py` reads one `ACn.m` id per row, so the spec supplied none of the seven. | Split into `AC6.1`–`AC6.7`, one row per call type, criteria unchanged. The results table is split to match. |
+| 20260928 | Close-out P6 | §5 carried one row with the range id `AC6.1–6.7`; `automation/closeout_acs.py` reads one `ACn.m` id per row, so the spec supplied none of the seven. | Split into `AC6.1`–`AC6.7`, one row per call type, criteria unchanged. The results table is split to match. |
 
 ---
 

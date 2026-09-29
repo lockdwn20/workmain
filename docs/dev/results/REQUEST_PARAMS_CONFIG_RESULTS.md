@@ -4,7 +4,7 @@
 **Author:** Anvil (Role 3)
 **Date:** 20260928
 **Spec:** `../specs/REQUEST_PARAMS_CONFIG_SPEC.md`
-**Released as:** n/a — release and restart are `/closeout`'s job, not this document's.
+**Released as:** v1.34.2, tag `v1.34.2`
 
 ---
 
