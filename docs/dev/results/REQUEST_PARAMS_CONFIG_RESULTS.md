@@ -50,6 +50,8 @@ AC5.1, AC5.2 and AC9.1 required a stated reading by Ray per the spec's own check
 | --- | --- | --- | --- |
 | — | None | Implementation followed the approved spec and its Decision Log exactly | — |
 
+**Post-implementation correction (`d0bb890`):** Caliper caught that `tests/test_ai_clients.py::test_gemini_generation` (cap 100) and `test_integrated_generation`'s Gemini-routed request (cap 20) could spend their entire budget on thinking under `gemini-3.6-flash`'s `thinking_level: high` policy and return empty text (`finish_reason: MAX_TOKENS`, `completion_tokens=0`) — the same defect DR5 sized `providers test`'s cap (512) to avoid, but these two live tests were never resized to match, so they failed intermittently (3 of 4 reruns passed). Not a spec deviation — the live-test caps were never covered by DR5 — but a test-value defect in this implementation. Fixed: both raised to 512; `test_integrated_generation`'s Claude-routed request also raised, since a Claude failure falls back to Gemini with the same request object; `test_cost_tracking_integration` checked and confirmed it never reaches Gemini (calls `claude.generate()` directly), left unchanged. Verified with three consecutive reruns, then the full suite.
+
 ## 5. Verification
 
 - **Baseline** (branch start, both API keys set): `pytest` — 1002 passed, 0 failed, 0 skipped. `pytest automation/` — 51 passed.
