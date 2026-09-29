@@ -180,6 +180,7 @@ def test_provider_manager():
     manager.configure_report_type(
         report_type="daily_internal",
         primary_provider=ProviderType.CLAUDE,
+        max_tokens=20,
         fallback_provider=ProviderType.GEMINI,
         fallback_mode=FallbackMode.AUTO
     )
@@ -236,6 +237,7 @@ def test_fallback_modes():
     manager.configure_report_type(
         report_type="test_report",
         primary_provider=ProviderType.CLAUDE,
+        max_tokens=20,
         fallback_provider=ProviderType.GEMINI,
         fallback_mode=FallbackMode.MANUAL
     )
@@ -275,7 +277,8 @@ def test_cost_estimation():
     manager._providers['claude'] = provider
     manager.configure_report_type(
         report_type="daily_internal",
-        primary_provider=ProviderType.CLAUDE
+        primary_provider=ProviderType.CLAUDE,
+        max_tokens=20
     )
 
     cost = manager.estimate_cost(

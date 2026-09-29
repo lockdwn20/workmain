@@ -43,12 +43,14 @@ class ReportTypeConfig:
     Attributes:
         report_type: Type of report (daily_internal, weekly_client)
         primary_provider: Primary provider to use
+        max_tokens: Total output ceiling (thinking plus answer) for this call type
         fallback_provider: Fallback provider if primary fails
         fallback_mode: AUTO or MANUAL fallback
         max_cost_per_report: Optional cost limit
     """
     report_type: str
     primary_provider: ProviderType
+    max_tokens: int
     fallback_provider: Optional[ProviderType] = None
     fallback_mode: FallbackMode = FallbackMode.AUTO
     max_cost_per_report: Optional[float] = None
@@ -76,6 +78,7 @@ class ProviderManager:
         self._all_configs: Dict[str, dict] = {}          # name → config dict (all providers)
         self._settings: dict = {}                        # full ai_settings.json
         self._report_configs: Dict[str, ReportTypeConfig] = {}
+        self._application_functions: Dict[str, int] = {}
         self._fallback_notifications: List[str] = []
 
         self._load_config()
@@ -123,6 +126,7 @@ class ProviderManager:
         self,
         report_type: str,
         primary_provider: ProviderType,
+        max_tokens: int,
         fallback_provider: Optional[ProviderType] = None,
         fallback_mode: FallbackMode = FallbackMode.AUTO,
         max_cost: Optional[float] = None
@@ -133,6 +137,7 @@ class ProviderManager:
         Args:
             report_type: Report type name
             primary_provider: Primary provider to use
+            max_tokens: Total output ceiling (thinking plus answer) for this call type
             fallback_provider: Optional fallback provider
             fallback_mode: Fallback behavior (AUTO/MANUAL)
             max_cost: Optional max cost per report
@@ -140,11 +145,38 @@ class ProviderManager:
         config = ReportTypeConfig(
             report_type=report_type,
             primary_provider=primary_provider,
+            max_tokens=max_tokens,
             fallback_provider=fallback_provider,
             fallback_mode=fallback_mode,
             max_cost_per_report=max_cost
         )
         self._report_configs[report_type] = config
+
+    def get_max_tokens(self, call_type: str) -> int:
+        """
+        Return the configured max_tokens cap for a call type.
+
+        Checks report_types first, then application_functions. DR3: no
+        default, no fallback — a call type absent from both raises.
+
+        Args:
+            call_type: A report_types key or an application_functions key.
+
+        Returns:
+            The configured max_tokens cap.
+
+        Raises:
+            ConfigurationError: If call_type is not configured in either block.
+        """
+        if call_type in self._report_configs:
+            return self._report_configs[call_type].max_tokens
+        if call_type in self._application_functions:
+            return self._application_functions[call_type]
+        raise ConfigurationError(
+            f"No max_tokens configured for call type '{call_type}'. "
+            f"Add it to 'report_types' or 'application_functions' in "
+            f"config/ai_settings.json."
+        )
 
     def generate(
         self,
@@ -375,19 +407,53 @@ class ProviderManager:
             'manual': FallbackMode.MANUAL,
         }
 
-        for report_type, cfg in self._settings.get('report_types', {}).items():
+        report_types_cfg = self._settings.get('report_types', {})
+        application_functions_cfg = self._settings.get('application_functions', {})
+
+        overlap = set(report_types_cfg) & set(application_functions_cfg)
+        if overlap:
+            raise ConfigurationError(
+                f"Call type(s) {sorted(overlap)} appear in both 'report_types' and "
+                f"'application_functions' in config/ai_settings.json — a call type "
+                f"may be declared in only one block."
+            )
+
+        for report_type, cfg in report_types_cfg.items():
             primary  = provider_map.get(cfg.get('primary_provider',  'claude'), ProviderType.CLAUDE)
             fallback = provider_map.get(cfg.get('fallback_provider', 'gemini'), ProviderType.GEMINI)
             fb_mode  = fallback_mode_map.get(cfg.get('fallback_mode', 'auto'), FallbackMode.AUTO)
             max_cost = cfg.get('max_cost_per_report', 1.0)
+            max_tokens = self._require_positive_int(
+                cfg.get('max_tokens'), f"report_types.{report_type}.max_tokens"
+            )
 
             self.configure_report_type(
                 report_type=report_type,
                 primary_provider=primary,
+                max_tokens=max_tokens,
                 fallback_provider=fallback,
                 fallback_mode=fb_mode,
                 max_cost=max_cost,
             )
+
+        for name, entry in application_functions_cfg.items():
+            entry_tokens = entry.get('max_tokens') if isinstance(entry, dict) else None
+            self._application_functions[name] = self._require_positive_int(
+                entry_tokens, f"application_functions.{name}.max_tokens"
+            )
+
+    @staticmethod
+    def _require_positive_int(value, key_name: str) -> int:
+        """Return value if it is a positive int; else raise ConfigurationError naming key_name.
+
+        Booleans are excluded — bool is a subclass of int in Python and a
+        stray `true`/`false` must not silently pass as 1/0 (DR3).
+        """
+        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+            raise ConfigurationError(
+                f"'{key_name}' must be a positive integer in config/ai_settings.json."
+            )
+        return value
 
 
 # Singleton instance

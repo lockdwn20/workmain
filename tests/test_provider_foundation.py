@@ -293,6 +293,7 @@ def _make_temp_settings(*, ollama_enabled=False):
                 "fallback_provider": "claude",
                 "fallback_mode": "auto",
                 "max_cost_per_report": 1.0,
+                "max_tokens": 16000,
             }
         },
         "fallback_settings": {},
@@ -669,3 +670,58 @@ def test_status_message_matches_active_provider():
     # The display string (used in "Sending to...") is derived from primary_provider.value
     display = rc.primary_provider.value.capitalize()
     assert display == 'Gemini'
+
+
+# ---------------------------------------------------------------------------
+# get_max_tokens() and the caps validation of DR3 — Issue #127 Step 1, §6 (a)
+# ---------------------------------------------------------------------------
+
+def test_get_max_tokens_returns_report_types_value():
+    """get_max_tokens() returns a report_types entry's configured cap."""
+    settings = _make_temp_settings()
+    manager = _manager_from_dict(settings)
+    assert manager.get_max_tokens('daily_internal') == 16000
+
+
+def test_get_max_tokens_returns_application_functions_value():
+    """get_max_tokens() returns an application_functions entry's configured cap."""
+    settings = _make_temp_settings()
+    settings['application_functions'] = {'daemon_narration': {'max_tokens': 2000}}
+    manager = _manager_from_dict(settings)
+    assert manager.get_max_tokens('daemon_narration') == 2000
+
+
+def test_get_max_tokens_unknown_call_type_raises_naming_it():
+    """get_max_tokens('no_such_call') raises ConfigurationError naming the key."""
+    settings = _make_temp_settings()
+    manager = _manager_from_dict(settings)
+    with pytest.raises(ConfigurationError, match="no_such_call"):
+        manager.get_max_tokens('no_such_call')
+
+
+def test_report_types_entry_missing_max_tokens_raises_naming_it():
+    """A report_types entry without max_tokens refuses construction, naming it."""
+    settings = _make_temp_settings()
+    del settings['report_types']['daily_internal']['max_tokens']
+    with pytest.raises(ConfigurationError, match="report_types.daily_internal.max_tokens"):
+        _manager_from_dict(settings)
+
+
+def test_application_functions_entry_non_positive_int_raises_naming_it():
+    """An application_functions entry whose max_tokens is not a positive integer refuses
+    construction, naming it."""
+    settings = _make_temp_settings()
+    settings['application_functions'] = {'daemon_narration': {'max_tokens': 0}}
+    with pytest.raises(
+        ConfigurationError, match="application_functions.daemon_narration.max_tokens"
+    ):
+        _manager_from_dict(settings)
+
+
+def test_call_type_in_both_blocks_raises_naming_it():
+    """A name declared in both report_types and application_functions refuses
+    construction, naming the overlapping name."""
+    settings = _make_temp_settings()
+    settings['application_functions'] = {'daily_internal': {'max_tokens': 100}}
+    with pytest.raises(ConfigurationError, match="daily_internal"):
+        _manager_from_dict(settings)

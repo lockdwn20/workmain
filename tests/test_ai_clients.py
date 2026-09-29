@@ -252,6 +252,7 @@ def test_integrated_generation():
     manager.configure_report_type(
         report_type="test_daily",
         primary_provider=ProviderType.CLAUDE,
+        max_tokens=20,
         fallback_provider=ProviderType.GEMINI,
         fallback_mode=FallbackMode.AUTO
     )
@@ -259,6 +260,7 @@ def test_integrated_generation():
     manager.configure_report_type(
         report_type="test_weekly",
         primary_provider=ProviderType.GEMINI,
+        max_tokens=20,
         fallback_provider=ProviderType.CLAUDE,
         fallback_mode=FallbackMode.AUTO
     )
