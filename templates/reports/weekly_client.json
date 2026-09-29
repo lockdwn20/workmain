@@ -138,8 +138,6 @@
   "metadata": {
     "frequency": "weekly",
     "ai_provider_default": "gemini",
-    "max_tokens": 3000,
-    "temperature": 0.6,
     "based_on_user_examples": true
   }
 }

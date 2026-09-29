@@ -17,12 +17,17 @@ occurs. condense_meeting() end-to-end tests use db_session and mock
 ProviderManager.generate to avoid a live AI call.
 """
 
+import json
 from datetime import datetime
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import pytest
+
 from workmain.ai.base_provider import GenerationResponse, ProviderType
 from workmain.ai.note_condenser import NoteCondenser, _compute_condensed_tags
+from workmain.ai.provider_manager import ProviderManager
 from workmain.database.models import Meeting, Note
 from workmain.database.repositories.notes_repo import NotesRepository
 
@@ -133,3 +138,62 @@ class TestCondenseMeetingReturnsTuple:
 
         assert summary == "Client review: discussed Q3 roadmap"
         assert resolved_tags == ["client-report"]
+
+
+# ---------------------------------------------------------------------------
+# Issue #127 Step 2, §6 (b) AC6.3 — note_condensation's configured cap
+# reaches the request. Real config copy, real ProviderManager, generate()
+# stubbed to record the request and raise a sentinel — patching
+# get_max_tokens is not permitted.
+# ---------------------------------------------------------------------------
+
+_SENTINEL_TOKENS = 7002
+
+
+class _SentinelStop(Exception):
+    """Raised by the generate() stub once the request is recorded."""
+
+
+def _stubbed_manager(tmp_path):
+    with open("config/ai_settings.json") as f:
+        settings = json.load(f)
+    settings["report_types"]["note_condensation"]["max_tokens"] = _SENTINEL_TOKENS
+    path = tmp_path / "ai_settings.json"
+    path.write_text(json.dumps(settings))
+
+    pm = ProviderManager(config_path=str(path))
+    recorded = {}
+
+    def _stub_generate(request, **kwargs):
+        recorded["request"] = request
+        raise _SentinelStop()
+
+    pm.generate = _stub_generate
+    return pm, recorded
+
+
+class TestNoteCondensationCap:
+    def test_note_condensation_cap_reaches_request(self, tmp_path, db_session):
+        meeting = Meeting(
+            title="Sentinel Cap Meeting 2099",
+            start_time=_MEETING_START,
+            end_time=datetime(2099, 6, 5, 9, 30),
+            is_recurring=False,
+        )
+        db_session.add(meeting)
+        db_session.commit()
+        db_session.refresh(meeting)
+
+        NotesRepository(db_session).create(
+            content="Discussed the cap test", tags=["client-report"],
+            meeting_id=meeting.id, source="meeting", created_at=_MEETING_START,
+        )
+
+        pm, recorded = _stubbed_manager(tmp_path)
+        condenser = NoteCondenser(db_session)
+        condenser.provider_manager = pm
+
+        with pytest.raises(_SentinelStop):
+            condenser.condense_meeting(meeting)
+
+        assert recorded["request"].max_tokens == _SENTINEL_TOKENS

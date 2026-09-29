@@ -103,7 +103,6 @@ def test_claude_generation():
     request = GenerationRequest(
         prompt="Say 'Hello from Claude!' and nothing else.",
         max_tokens=20,
-        temperature=0.0
     )
 
     response = client.generate(request)
@@ -137,10 +136,12 @@ def test_gemini_generation():
 
     client = ProviderManager().get_provider('gemini')
 
+    # 512, sized from the measured 73-136 thinking + 2-3 answer tokens at
+    # thinking_level high (DR5) — 100 lets the model spend it all on thinking
+    # and return empty text with finish_reason MAX_TOKENS (Issue #127).
     request = GenerationRequest(
         prompt="Say 'Hello from Gemini!' and nothing else.",
-        max_tokens=100,
-        temperature=0.0
+        max_tokens=512,
     )
 
     response = client.generate(request)
@@ -252,6 +253,7 @@ def test_integrated_generation():
     manager.configure_report_type(
         report_type="test_daily",
         primary_provider=ProviderType.CLAUDE,
+        max_tokens=20,
         fallback_provider=ProviderType.GEMINI,
         fallback_mode=FallbackMode.AUTO
     )
@@ -259,15 +261,16 @@ def test_integrated_generation():
     manager.configure_report_type(
         report_type="test_weekly",
         primary_provider=ProviderType.GEMINI,
+        max_tokens=20,
         fallback_provider=ProviderType.CLAUDE,
         fallback_mode=FallbackMode.AUTO
     )
 
-    # Test daily report (should use Claude)
+    # Test daily report (should use Claude, falls back to Gemini on failure —
+    # 512 so a fallback isn't truncated by thinking_level high either)
     request = GenerationRequest(
         prompt="Say 'Daily report test' and nothing else.",
-        max_tokens=20,
-        temperature=0.0
+        max_tokens=512,
     )
 
     response, fallback_used = manager.generate(request, report_type="test_daily")
@@ -275,11 +278,13 @@ def test_integrated_generation():
     assert not fallback_used
     print(f"✓ Daily report used Claude: {response.content[:40]}...")
 
-    # Test weekly report (should use Gemini)
+    # Test weekly report (should use Gemini). 512, sized from the measured
+    # 73-136 thinking + 2-3 answer tokens at thinking_level high (DR5) — 20
+    # lets the model spend it all on thinking and return empty text with
+    # finish_reason MAX_TOKENS (Issue #127).
     request = GenerationRequest(
         prompt="Say 'Weekly report test' and nothing else.",
-        max_tokens=20,
-        temperature=0.0
+        max_tokens=512,
     )
 
     response, fallback_used = manager.generate(request, report_type="test_weekly")
@@ -309,7 +314,6 @@ def test_cost_tracking_integration():
     request = GenerationRequest(
         prompt="Write a one-sentence summary of AI.",
         max_tokens=50,
-        temperature=0.7
     )
 
     response = claude.generate(request)
@@ -445,6 +449,31 @@ class TestClaudePayloadContract:
     def test_claude_declares_required_policy_keys(self):
         assert ClaudeProvider.REQUIRED_POLICY_KEYS == {"thinking", "sampling"}
 
+    def test_claude_check_availability_carries_thinking_policy(self):
+        """AC1.3 — check_availability() carries the policy's thinking object,
+        same as generate()."""
+        policy = {"thinking": {"type": "enabled", "budget_tokens": 1024}, "sampling": {}}
+        provider, client = _build_claude(policy=policy)
+        client.messages.create.return_value = _fake_message()
+        provider.check_availability()
+        kwargs = client.messages.create.call_args.kwargs
+        assert kwargs["thinking"] == {"type": "enabled", "budget_tokens": 1024}
+
+
+class TestGenerationRequestContract:
+    """AC3.1, AC8.1 — the request contract itself."""
+
+    def test_no_temperature_field(self):
+        """AC3.1 — GenerationRequest has no temperature field."""
+        import dataclasses
+        from workmain.ai.base_provider import GenerationRequest
+        assert "temperature" not in {f.name for f in dataclasses.fields(GenerationRequest)}
+
+    def test_max_tokens_required(self):
+        """AC8.1 — a request cannot silently inherit a cap."""
+        with pytest.raises(TypeError):
+            GenerationRequest(prompt="x")
+
 
 class TestClaudeRetryPolicy:
     """DR4 — permanent 4xx fails on the first attempt; transient errors retry."""
@@ -547,7 +576,8 @@ class TestProviderManagerPolicyLoading:
 
 
 class TestGeminiPolicySampling:
-    """Step 4 — Gemini reads sampling from its policy file."""
+    """Issue #127 Step 3 — Gemini's temperature and thinking level come from
+    its policy file (AC1.1, AC1.2, AC1.3, AC3.1, AC8.1)."""
 
     def _build_gemini(self, policy):
         env = {"GOOGLE_API_KEY": "A" * 39}
@@ -567,23 +597,43 @@ class TestGeminiPolicySampling:
         resp.candidates = []
         return resp
 
-    def test_gemini_sampling_from_request(self):
-        provider, client = self._build_gemini(
-            {"sampling": {"temperature": "from_request"}}
-        )
-        client.models.generate_content.return_value = self._fake_gemini_response()
-        provider.generate(GenerationRequest(prompt="hi", max_tokens=20, temperature=0.33))
-        config = client.models.generate_content.call_args.kwargs["config"]
-        assert config.temperature == 0.33
-
     def test_gemini_sampling_literal_value(self):
+        """AC1.1 — the temperature Gemini receives is the one in the policy."""
         provider, client = self._build_gemini(
-            {"sampling": {"temperature": 0.1}}
+            {"sampling": {"temperature": 0.42}, "thinking_config": {"thinking_level": "high"}}
         )
         client.models.generate_content.return_value = self._fake_gemini_response()
-        provider.generate(GenerationRequest(prompt="hi", max_tokens=20, temperature=0.9))
+        provider.generate(GenerationRequest(prompt="hi", max_tokens=20))
         config = client.models.generate_content.call_args.kwargs["config"]
-        assert config.temperature == 0.1
+        assert config.temperature == 0.42
+
+    def test_gemini_thinking_level_from_policy(self):
+        """AC1.2 — the thinking level Gemini receives is the one in the policy."""
+        provider, client = self._build_gemini(
+            {"sampling": {"temperature": 0.3}, "thinking_config": {"thinking_level": "low"}}
+        )
+        client.models.generate_content.return_value = self._fake_gemini_response()
+        provider.generate(GenerationRequest(prompt="hi", max_tokens=20))
+        config = client.models.generate_content.call_args.kwargs["config"]
+        assert config.thinking_config.thinking_level.name == "LOW"
+
+    def test_gemini_missing_thinking_config_refused(self):
+        """AC1.2 — a policy missing thinking_config raises, naming it."""
+        with pytest.raises(ConfigurationError, match="thinking_config"):
+            self._build_gemini({"sampling": {"temperature": 0.3}})
+
+    def test_gemini_check_availability_carries_policy(self):
+        """AC1.3 — check_availability() carries the policy's temperature and
+        thinking_config, same as generate()."""
+        provider, client = self._build_gemini(
+            {"sampling": {"temperature": 0.42}, "thinking_config": {"thinking_level": "high"}}
+        )
+        client.models.generate_content.return_value = self._fake_gemini_response()
+        provider.check_availability()
+        config = client.models.generate_content.call_args.kwargs["config"]
+        assert config.temperature == 0.42
+        assert config.thinking_config.thinking_level.name == "HIGH"
+        assert config.max_output_tokens == 100
 
 
 from google.genai import errors as genai_errors
@@ -629,7 +679,9 @@ def _build_gemini(config=None, policy=None):
         fake_cls.return_value = fake_client
         provider = GeminiProvider(
             config or _offline_gemini_config(),
-            policy if policy is not None else {"sampling": {}},
+            policy if policy is not None else {
+                "sampling": {}, "thinking_config": {"thinking_level": "high"}
+            },
         )
     return provider, fake_client
 

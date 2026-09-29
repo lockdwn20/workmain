@@ -91,8 +91,6 @@ class ReportGenerator:
         template_name: str,
         report_date: date,
         provider: Optional[ProviderType] = None,
-        max_tokens: int = 4000,
-        temperature: float = 0.7,
         save_to_file: bool = True,
         output_format: ReportFormat = ReportFormat.MARKDOWN,
         filename: Optional[str] = None,
@@ -107,8 +105,6 @@ class ReportGenerator:
             template_name: Name of template to use
             report_date: Date for the report
             provider: AI provider to use (None = use template default)
-            max_tokens: Maximum tokens for generation
-            temperature: Temperature for generation
             save_to_file: Whether to save report to file
             output_format: Output format
             filename: Custom filename (optional)
@@ -145,12 +141,13 @@ class ReportGenerator:
                 client_id=client_id_filter,
             )
 
-            # Create generation request
+            # Create generation request. max_tokens is the template's own
+            # report_types cap — resolved through the manager, never a
+            # caller-supplied default (DR3, DR6).
             request = GenerationRequest(
                 prompt=user_prompt,
                 system_prompt=system_prompt,
-                max_tokens=max_tokens,
-                temperature=temperature
+                max_tokens=self.provider_manager.get_max_tokens(template_name),
             )
             
             # Generate with AI
@@ -243,90 +240,6 @@ class ReportGenerator:
         
         except Exception as e:
             # End cost tracking on error (with 0 time)
-            self.cost_tracker.end_report(0.0)
-            raise
-    
-    def generate_section(
-        self,
-        template_name: str,
-        section_name: str,
-        report_date: date,
-        provider: Optional[ProviderType] = None,
-        max_tokens: int = 2000,
-        temperature: float = 0.7
-    ) -> Dict[str, Any]:
-        """
-        Generate a single section of a report.
-        
-        Args:
-            template_name: Name of template
-            section_name: Name of section to generate
-            report_date: Date for the report
-            provider: AI provider to use
-            max_tokens: Maximum tokens
-            temperature: Temperature
-            
-        Returns:
-            Dictionary with section content and metadata
-        """
-        # Start timing
-        start_time = time.time()
-        
-        # Initialize cost tracking for this section
-        self.cost_tracker.start_report(f"{template_name}_{section_name}", report_date)
-        
-        try:
-            # Build prompts for specific section
-            system_prompt, user_prompt = self.prompt_builder.build_prompt(
-                template_name=template_name,
-                report_date=report_date,
-                section_name=section_name
-            )
-            
-            # provider stays None unless --provider flag was passed by caller;
-            # provider_manager.generate() resolves from ai_settings.json config.
-
-            # Create request
-            request = GenerationRequest(
-                prompt=user_prompt,
-                system_prompt=system_prompt,
-                max_tokens=max_tokens,
-                temperature=temperature
-            )
-            
-            # Generate
-            response, fallback_used = self.provider_manager.generate(
-                request=request,
-                report_type=template_name,
-                provider_override=provider
-            )
-            
-            # Track costs
-            self.cost_tracker.track_section(
-                section_name=section_name,
-                provider=response.provider.value,
-                model=response.model,
-                prompt_tokens=response.prompt_tokens,
-                completion_tokens=response.completion_tokens,
-                cost=response.cost
-            )
-            
-            # Calculate generation time
-            generation_time = time.time() - start_time
-            
-            # End cost tracking
-            self.cost_tracker.end_report(generation_time)
-            
-            return {
-                "section_name": section_name,
-                "content": response.content,
-                "provider": response.provider.value,
-                "tokens_used": response.tokens_used,
-                "cost": response.cost
-            }
-        
-        except Exception as e:
-            # End cost tracking on error
             self.cost_tracker.end_report(0.0)
             raise
     

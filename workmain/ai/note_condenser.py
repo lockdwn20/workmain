@@ -138,8 +138,7 @@ class NoteCondenser:
         # Generate condensed summary
         request = GenerationRequest(
             prompt=prompt,
-            max_tokens=1024,  # Gemini 2.5 Flash thinking tokens count against this budget; 200 caused truncation
-            temperature=0.3,  # Low temperature for consistency
+            max_tokens=self.provider_manager.get_max_tokens('note_condensation'),
             system_prompt=self._get_system_prompt()
         )
         

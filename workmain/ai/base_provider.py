@@ -36,16 +36,15 @@ class GenerationRequest:
 
     Attributes:
         prompt: The prompt text to send to AI
-        max_tokens: Maximum tokens to generate
-        temperature: Sampling temperature (0.0-1.0). Honoured by GeminiProvider
-            (its payload policy maps it in via "from_request"). Ignored by
-            ClaudeProvider, whose policy sends no sampling parameter at all.
+        max_tokens: Total output ceiling (thinking plus answer), required —
+            the caller's per-call-type cap from ProviderManager.get_max_tokens().
+            No default: a request that forgets its cap must fail construction,
+            not silently inherit one.
         system_prompt: Optional system prompt
         context: Additional context data
     """
     prompt: str
-    max_tokens: int = 4096
-    temperature: float = 0.7
+    max_tokens: int
     system_prompt: Optional[str] = None
     context: Optional[Dict[str, Any]] = None
     generation_options: Optional[Dict[str, Any]] = None
