@@ -92,11 +92,11 @@ These follow from the issue and existing rules.
 | Q | Question | Recommendation | Answer |
 | --- | --- | --- | --- |
 | Q1 | Where Ollama's build source lives. | — | 20260928, Ray: D1, D2, D3. |
-| Q2 | Model build source format — Option A or B (§5)? | **B.** | |
-| Q3 | Delete `_warmup_ollama`? With the model resident on the LXC (F13), a daemon-start warm-up almost never meets a cold model, and deleting it removes one construction site and the 120 s timeout (F12). The EOD probes then use the single configured 30 s timeout: an unreachable host costs each step 30 s instead of 15. | **Delete.** | |
-| Q4 | Should daemon start call `get_provider_manager()` once, so a broken provider policy fails the start rather than the first Slack DM (F16)? It is the same rule as the EOD probes. | **Yes.** | |
+| Q2 | Model build source format — Option A or B (§5)? | **B.** | 20260929, Ray: **B**, the literal Modelfile. workmain reads the build source only in `IntentParser.__init__`, to fail fast if it is missing (F6), so nothing in workmain depends on its format. The IaC script reduces to building a directory. |
+| Q3 | Delete `_warmup_ollama`? With the model resident on the LXC (F13), a daemon-start warm-up almost never meets a cold model, and deleting it removes one construction site and the 120 s timeout (F12). The EOD probes then use the single configured 30 s timeout: an unreachable host costs each step 30 s instead of 15. | **Delete.** | 20260929, Ray: **delete.** `docs/AI_SETTINGS_GUIDE.md` states that workmain never pre-loads a model: a model that must be resident before its first request is loaded where the model server is run, not by workmain. |
+| Q4 | Should daemon start call `get_provider_manager()` once, so a broken provider policy fails the start rather than the first Slack DM (F16)? It is the same rule as the EOD probes. | **Yes.** | 20260929, Ray: **yes**, performed in line in `start()` where the warm-up call is today, not in a separate thread or process. |
 | Q5 | Where per-call `max_tokens` values live, and which issue moves them (D4). | — | 20260928, Ray: #127 is widened to cover `max_tokens`, one value per call type, declared in configuration. #122 is blocked by #127 and resumes after it ships; the intent parser's runtime `max_tokens` leaves `config/intent_parse_prompt.json` there, not here. |
 
 ## 8. Disposition
 
-- Promoted to: —
+- Promoted to: `../specs/OLLAMA_PROVIDER_ALIGNMENT_SPEC.md`
