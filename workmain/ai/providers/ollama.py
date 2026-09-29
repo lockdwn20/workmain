@@ -49,9 +49,10 @@ class OllamaProvider(BaseProvider):
             )
 
         # The workmain-intent Modelfile owns temperature, top_p, top_k, repeat_penalty.
-        # Only num_predict (max_tokens) is sent per-request — it can legitimately vary
-        # by call type. generation_options is reserved for explicit per-request overrides.
-        options = {"num_predict": request.max_tokens or 512}
+        # Only num_predict (max_tokens) is sent per-request — it is the caller's
+        # per-call-type cap from ProviderManager.get_max_tokens(), required, no
+        # fallback. generation_options is reserved for explicit per-request overrides.
+        options = {"num_predict": request.max_tokens}
         if request.generation_options:
             options.update(request.generation_options)
         raw_mode = bool(options.pop("raw", False))

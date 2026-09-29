@@ -264,3 +264,74 @@ class TestParseTaskMatchAndNoteDuplicateRawMode:
         parser.parse("hey")
         request = manager.generate.call_args[0][0]
         assert not (request.generation_options and request.generation_options.get("raw"))
+
+
+# ---------------------------------------------------------------------------
+# Issue #127 Step 2, §6 (b) AC6.5/AC6.6/AC6.7 — intent_parse, task_match and
+# note_dedup's configured caps reach the request. Real config copy, real
+# ProviderManager (set as the module singleton), generate() stubbed to
+# record the request and raise a sentinel — patching get_max_tokens is not
+# permitted.
+# ---------------------------------------------------------------------------
+
+import json as _json
+
+from workmain.ai import provider_manager as _provider_manager_module
+from workmain.ai.provider_manager import ProviderManager
+
+_SENTINEL_TOKENS = 7003
+
+
+class _SentinelStop(Exception):
+    """Raised by the generate() stub once the request is recorded."""
+
+
+def _stubbed_manager(tmp_path, call_type: str):
+    with open("config/ai_settings.json") as f:
+        settings = _json.load(f)
+    settings["application_functions"][call_type]["max_tokens"] = _SENTINEL_TOKENS
+    path = tmp_path / "ai_settings.json"
+    path.write_text(_json.dumps(settings))
+
+    pm = ProviderManager(config_path=str(path))
+    recorded = {}
+
+    def _stub_generate(request, **kwargs):
+        recorded["request"] = request
+        raise _SentinelStop()
+
+    pm.generate = _stub_generate
+    return pm, recorded
+
+
+class TestIntentParserCallTypeCaps:
+
+    def test_intent_parse_cap_reaches_request(self, tmp_path, monkeypatch):
+        pm, recorded = _stubbed_manager(tmp_path, "intent_parse")
+        monkeypatch.setattr(_provider_manager_module, "_provider_manager_instance", pm)
+        parser = IntentParser()
+
+        with pytest.raises(_SentinelStop):
+            parser.parse("hey")
+
+        assert recorded["request"].max_tokens == _SENTINEL_TOKENS
+
+    def test_task_match_cap_reaches_request(self, tmp_path, monkeypatch):
+        pm, recorded = _stubbed_manager(tmp_path, "task_match")
+        monkeypatch.setattr(_provider_manager_module, "_provider_manager_instance", pm)
+        parser = IntentParser()
+
+        with pytest.raises(_SentinelStop):
+            parser.parse_task_match(_make_task(), _make_notes())
+
+        assert recorded["request"].max_tokens == _SENTINEL_TOKENS
+
+    def test_note_dedup_cap_reaches_request(self, tmp_path, monkeypatch):
+        pm, recorded = _stubbed_manager(tmp_path, "note_dedup")
+        monkeypatch.setattr(_provider_manager_module, "_provider_manager_instance", pm)
+        parser = IntentParser()
+
+        with pytest.raises(_SentinelStop):
+            parser.parse_note_duplicate("Note A text", "Note B text")
+
+        assert recorded["request"].max_tokens == _SENTINEL_TOKENS
