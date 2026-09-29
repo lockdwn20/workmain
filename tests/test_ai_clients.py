@@ -136,9 +136,12 @@ def test_gemini_generation():
 
     client = ProviderManager().get_provider('gemini')
 
+    # 512, sized from the measured 73-136 thinking + 2-3 answer tokens at
+    # thinking_level high (DR5) — 100 lets the model spend it all on thinking
+    # and return empty text with finish_reason MAX_TOKENS (Issue #127).
     request = GenerationRequest(
         prompt="Say 'Hello from Gemini!' and nothing else.",
-        max_tokens=100,
+        max_tokens=512,
     )
 
     response = client.generate(request)
@@ -263,10 +266,11 @@ def test_integrated_generation():
         fallback_mode=FallbackMode.AUTO
     )
 
-    # Test daily report (should use Claude)
+    # Test daily report (should use Claude, falls back to Gemini on failure —
+    # 512 so a fallback isn't truncated by thinking_level high either)
     request = GenerationRequest(
         prompt="Say 'Daily report test' and nothing else.",
-        max_tokens=20,
+        max_tokens=512,
     )
 
     response, fallback_used = manager.generate(request, report_type="test_daily")
@@ -274,10 +278,13 @@ def test_integrated_generation():
     assert not fallback_used
     print(f"✓ Daily report used Claude: {response.content[:40]}...")
 
-    # Test weekly report (should use Gemini)
+    # Test weekly report (should use Gemini). 512, sized from the measured
+    # 73-136 thinking + 2-3 answer tokens at thinking_level high (DR5) — 20
+    # lets the model spend it all on thinking and return empty text with
+    # finish_reason MAX_TOKENS (Issue #127).
     request = GenerationRequest(
         prompt="Say 'Weekly report test' and nothing else.",
-        max_tokens=20,
+        max_tokens=512,
     )
 
     response, fallback_used = manager.generate(request, report_type="test_weekly")
