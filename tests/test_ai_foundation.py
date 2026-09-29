@@ -185,7 +185,7 @@ def test_provider_manager():
         fallback_mode=FallbackMode.AUTO
     )
 
-    request = GenerationRequest(prompt="Test prompt")
+    request = GenerationRequest(prompt="Test prompt", max_tokens=20)
     response, fallback_used = manager.generate(request, report_type="daily_internal")
 
     assert response.provider == ProviderType.CLAUDE
@@ -242,7 +242,7 @@ def test_fallback_modes():
         fallback_mode=FallbackMode.MANUAL
     )
 
-    request = GenerationRequest(prompt="Test")
+    request = GenerationRequest(prompt="Test", max_tokens=50)
 
     try:
         manager.generate(request, report_type="test_report")

@@ -111,7 +111,7 @@ def test_ollama_provider_generate_raises_unavailable():
     from workmain.ai.base_provider import GenerationRequest
     # localhost:11434 not running → check_availability() returns UNAVAILABLE → raises
     p = OllamaProvider({'model': 'mistral-7b', 'host': 'localhost', 'port': 11434})
-    request = GenerationRequest(prompt="test")
+    request = GenerationRequest(prompt="test", max_tokens=64)
     try:
         p.generate(request)
         assert False, "Expected ProviderUnavailableError"
@@ -152,7 +152,7 @@ def test_ollama_provider_check_availability_returns_unavailable():
 _CLAUDE_ENV = {'ANTHROPIC_API_KEY': 'sk-ant-test1234567890123456789012345678901234567'}
 _GEMINI_ENV = {'GOOGLE_API_KEY': 'A' * 39}
 _VALID_CLAUDE_POLICY = {'thinking': {'type': 'disabled'}, 'sampling': {}}
-_VALID_GEMINI_POLICY = {'sampling': {}}
+_VALID_GEMINI_POLICY = {'sampling': {}, 'thinking_config': {'thinking_level': 'high'}}
 
 
 @patch.dict(os.environ, _CLAUDE_ENV)
