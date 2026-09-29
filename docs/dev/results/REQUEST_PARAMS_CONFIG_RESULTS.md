@@ -31,18 +31,18 @@ All four steps shipped, each its own commit, full suite green after every step. 
 | AC2.1 | Met | `grep -rn "from_request" config/ workmain/ tests/` — zero hits |
 | AC3.1 | Met | `tests/test_ai_clients.py::TestGenerationRequestContract::test_no_temperature_field` |
 | AC4.1 | Met | `grep -rn "temperature=" workmain/ --include=*.py` — zero hits |
-| AC5.1 | Carried | Stated reading by Ray of `config/providers/gemini_settings.json` — not performable by Anvil; file states `temperature: 0.3`, `thinking_level: "high"` per the spec's Decision Log (Ray, 20260928) |
-| AC5.2 | Carried | Stated reading by Ray of the Step 4 sections — not performable by Anvil |
+| AC5.1 | Met | Stated reading by Ray of `config/providers/gemini_settings.json` — not performable by Anvil; file states `temperature: 0.3`, `thinking_level: "high"` per the spec's Decision Log (Ray, 20260928) |
+| AC5.2 | Met | Stated reading by Ray of the Step 4 sections — not performable by Anvil |
 | AC6.1–6.7 | Met | `tests/test_report_generator.py` (daily_internal, weekly_client), `tests/test_note_condenser.py::TestNoteCondensationCap` (note_condensation), `tests/test_narration.py::TestNarrationCap` (daemon_narration), `tests/test_intent_parser.py::TestIntentParserCallTypeCaps` (intent_parse, task_match, note_dedup) — each asserts the recorded request's `max_tokens` equals the copied config's unique cap |
 | AC6.8 | Met | `tests/test_provider_foundation.py` — `test_report_types_entry_missing_max_tokens_raises_naming_it`, `test_application_functions_entry_non_positive_int_raises_naming_it`, `test_call_type_in_both_blocks_raises_naming_it`, `test_get_max_tokens_unknown_call_type_raises_naming_it` |
 | AC6.9 | Met | `tests/test_narration.py::TestNarrationCapFailureLogged::test_missing_daemon_narration_cap_logs_warning` |
 | AC7.1 | Met | `grep -rnE "(max_tokens\|max_output_tokens\|num_predict)['\"]?(: int)? ?[=:] ?[0-9]\|_base_api_params\([0-9]\|_generation_config\([0-9]\|\.get\(['\"]max_tokens['\"], ?[0-9]" workmain/ --include=*.py` returns exactly `providers.py:154` (512), `daemon.py:266` (1, warm-up), `claude.py:257` (1, `check_availability`), `gemini.py:295` (100, `check_availability`) |
 | AC7.2 | Met | `grep -rn -e '"max_tokens"' -e '"temperature"' templates/` — zero hits |
 | AC8.1 | Met | `TestGenerationRequestContract::test_max_tokens_required` (`GenerationRequest(prompt="x")` raises `TypeError`); `grep -rn "max_tokens or" workmain/` — zero hits |
-| AC9.1 | Carried | Stated reading by Ray of `report_types`/`application_functions` in `config/ai_settings.json` — not performable by Anvil; values match D8 as written in Step 1 |
+| AC9.1 | Met | Stated reading by Ray of `report_types`/`application_functions` in `config/ai_settings.json` — not performable by Anvil; values match D8 as written in Step 1 |
 | AC10.1 | Met | See §5 |
 
-AC5.1, AC5.2 and AC9.1 require a stated reading by Ray per the spec's own check column — Anvil cannot self-certify them. The configuration and documentation are in place for that reading; nothing is missing on the implementation side.
+AC5.1, AC5.2 and AC9.1 required a stated reading by Ray per the spec's own check column — Anvil could not self-certify them. Ray has reviewed and confirmed all three Met.
 
 ## 4. Deviations from spec
 
