@@ -20,6 +20,7 @@
 | 20260929 | Ray | Q3: delete the daemon warm-up; the guide states that pre-loading a model is the model server's concern. | Taken — DR7, Steps 4 and 5. |
 | 20260929 | Ray | Q4: daemon start loads the provider manager in line, not in a separate thread or process, so a configuration fault fails the start. | Taken — DR7, Step 4. |
 | 20260929 | Spanner | The issue's AC3 names a two-file boundary (version metadata in one file, runtime generation parameters in another) that Q2 replaces with one build source and no runtime generation parameters at all. Its purpose — no value lives in two places, and version state lives in one — is kept. | Restated as AC3.1–AC3.3. The issue's AC3 text is edited at close-out. |
+| 20260929 | Spanner | The Modelfile drops `PARAMETER num_predict 256`. Every workmain call sends `num_predict` per request (#127's per-call cap), which overrides the Modelfile value for that key, so the line never governs workmain and restates `application_functions.intent_parse.max_tokens` — an edit to it would change nothing. | Taken — DR3, DR8. The deployed model keeps its baked value until Ray's next rebuild; that value is overridden on every workmain call, so AC3.1 compares only the `PARAMETER` lines the Modelfile carries. |
 | 20260929 | Spanner | The Modelfile carries `# version:` only. `config_updated` and `model_built` do not carry over: the date is in git, and the built tag is derived from the version by the build. | Taken — DR3. |
 
 ---
@@ -91,10 +92,9 @@ Verified on this branch at `e0f8b8c`, which includes the #127 merge.
   PARAMETER top_p 0.9
   PARAMETER top_k 40
   PARAMETER repeat_penalty 1.1
-  PARAMETER num_predict 256
   ```
 
-  The `# version: <v>` line is Ray's build record and the only version state in the repository.
+  The `# version: <v>` line is Ray's build record and the only version state in the repository. There is no `PARAMETER num_predict`: every workmain request sends `num_predict` from `application_functions` (#127), and a request option overrides the Modelfile's value for that key, so a baked value would never take effect for workmain and would restate the `intent_parse` cap (DR8).
 - **DR4 — The application names the model once.** `workmain-intent:latest` appears only in `config/ai_settings.json` `providers.ollama.model`. The Modelfile does not name the model; the build does.
 - **DR5 — Ollama comes from `ProviderManager`.** No module outside `workmain/ai/providers/` constructs `OllamaProvider`, and nothing reads `OLLAMA_HOST` or `OLLAMA_PORT`.
 - **DR6 — A configuration fault is not an availability result.** `IntentParser.is_available()` returns `False` only for `ProviderUnavailableError`. Every other exception — including `ConfigurationError` from `get_provider_manager()` and anything from `IntentParser()` — reaches the caller. No new code catches `ProviderError` or `Exception` around the probe.
@@ -143,7 +143,7 @@ None. Every step edits the working tree. The live-model checks in §5 are read-o
 | AC1.1 | Every provider is configured through the same structure, so a reader finds any provider's policy at the same relative path. | `ls config/providers/*/settings.json` lists `_template`, `claude`, `gemini`, `ollama`, and `ls config/providers/` lists nothing else |
 | AC1.2 | The policies still load from their new paths, and a policy fault still names its file. | `pytest tests/test_provider_foundation.py` passes, including the updated `:272` assertion |
 | AC2.1 | No reference to a moved or deleted file points at its old path. | `git grep -nE "intent_parse_prompt|intent_parse_system_prompt|providers/[a-z<>]+_settings|(claude|gemini|ollama)_settings\.json" -- '*.py' '*.md' '*.json' ':!docs/archive' ':!CHANGELOG.md' ':!docs/dev/*/*OLLAMA_PROVIDER_ALIGNMENT*'` returns zero hits. The excluded set is this issue's own record of the old paths |
-| AC3.1 | The Modelfile is the same model that is deployed, so moving the source changed nothing Ollama builds. | The live model's `system` from `POST /api/show` equals the Modelfile's SYSTEM block, and each Modelfile `PARAMETER` value equals the live `parameters` value of the same name |
+| AC3.1 | The Modelfile is the same model that is deployed, so moving the source changed nothing workmain receives. | The live model's `system` from `POST /api/show` equals the Modelfile's SYSTEM block, and each `PARAMETER` the Modelfile carries equals the live `parameters` value of the same name |
 | AC3.2 | Version state lives in one place. | `grep -rn "config_version\|model_built\|# version:" config/ workmain/` returns only the Modelfile's `# version:` line |
 | AC3.3 | No Modelfile value is also held in runtime configuration, and the application reads nothing from a model directory. Property of documents — Ray's stated reading of the Modelfile, `config/providers/ollama/settings.json`, `ai_settings.json` `providers.ollama` and `application_functions`, and `CLAUDE.md` § Local Model Definitions, for any value in two places. | Stated reading by Ray; and `grep -rn "models/" workmain/ --include='*.py'` returns zero hits |
 | AC4.1 | Intent parsing works end to end against the live model after the move. | `python -c "from workmain.ai.intent_parser import IntentParser; p=IntentParser(); assert p.is_available(); print(p.parse('note: alignment check'))"` prints a dict whose `action` is `create_note` |
