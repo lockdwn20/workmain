@@ -33,6 +33,8 @@
 | 20260928 | Caliper | **6** — the Gemini model edit is already on the branch and §2 does not say so. | **Accepted.** Split into its own commit, `c959010`; §2 records it and there is no Step 5. |
 | 20260928 | Caliper | **7** — narration docstrings still describe a cap of 200 and the parameters Step 2 removes. | **Accepted.** Step 2. |
 | 20260928 | Caliper | **8** — narration catches every exception and returns fallback text, so a missing cap never appears anywhere. | **Accepted.** Step 2 logs the exception in that handler. The report command already prints the error text. |
+| 20260928 | Caliper | **R2-1** — §6 (b) does not say how the `ReportGenerator` test avoids what runs after `generate`: a report file in `staging/reports/` and rows in `reports` and `ai_costs`, the last through an `AiCostRepository` the code builds itself (`report_generator.py:216`). | **Accepted, sentinel form.** The stub raises a sentinel exception once it has recorded the request, so no code after `generate` runs in any of the four callers. |
+| 20260928 | Caliper | **R2-2** — AC6.9 does not say how `get_max_tokens` is made to raise, which invites patching it; a patched method proves only that the handler logs something. | **Accepted.** AC6.9 uses the copied configuration with `daemon_narration` removed from `application_functions`, so the real lookup raises. The no-patching rule covers AC6.9. |
 
 ---
 
@@ -138,7 +140,7 @@ None. No step migrates the database, deletes a GitHub object, merges to `main`, 
 | AC5.2 | `docs/AI_SETTINGS_GUIDE.md`, `CLAUDE.md` and `config/intent_parse_prompt.json` describe the shipped behaviour: DR1, DR2, the two `max_tokens` homes, the Gemini policy keys, and `intent_parse_prompt.json`'s `max_tokens` as build input only. | Stated reading by Ray of the Step 4 sections. |
 | AC6.1–6.7 | Each call type's cap is the value declared for it in configuration: `daily_internal`, `weekly_client`, `note_condensation`, `daemon_narration`, `intent_parse`, `task_match`, `note_dedup`. | One test per call type, built as §6 (b) states → the `GenerationRequest` the caller hands to `ProviderManager.generate` carries the cap set in the copied configuration. |
 | AC6.8 | A missing cap stops the call with its name rather than inheriting one. | Tests: a `report_types` entry without `max_tokens`, an `application_functions` entry that is not a positive integer, and a name in both blocks each make `ProviderManager` construction raise `ConfigurationError` naming the entry; `get_max_tokens("no_such_call")` raises `ConfigurationError` naming the key. |
-| AC6.9 | A cap failure in the daemon's narration reaches the log. | Test: `get_max_tokens` raising inside narration → the fallback text is returned and a `warning` record carries the exception. |
+| AC6.9 | A cap failure in the daemon's narration reaches the log. | Test, built as §6 (b) states but with `daemon_narration` removed from the copied `application_functions`: `narrate` returns its fallback text, and a `warning` record carries the `ConfigurationError` naming `daemon_narration`. |
 | AC7.1 | No call site or function default supplies a cap except the four connectivity probes in DR5. | The command below returns only `workmain/cli/commands/providers.py`, `workmain/daemon/daemon.py`, `workmain/ai/providers/claude.py` (`check_availability`) and `workmain/ai/providers/gemini.py` (`check_availability`). |
 | AC7.2 | No template file declares a cap or a temperature, so neither has a home outside DR1's two files. | `grep -rn -e '"max_tokens"' -e '"temperature"' templates/` returns zero hits. |
 | AC8.1 | A request cannot silently inherit a cap. | Test: `GenerationRequest(prompt="x")` raises `TypeError`. `grep -rn "max_tokens or" workmain/` returns zero hits. |
@@ -159,9 +161,11 @@ grep -rnE "(max_tokens|max_output_tokens|num_predict)['\"]?(: int)? ?[=:] ?[0-9]
 - **(b) Step 2, the AC6.1–6.7 tests.**
   - Each test copies the live `config/ai_settings.json` to a temporary file and changes only the cap under test, to a value no code or template holds (for example 7001). So the test reads the real configuration's shape and never carries a stale copy of it.
   - It builds `ProviderManager(config_path=<temp file>)`. No API call is made: provider construction contacts no vendor, and a missing API key only disables that provider.
-  - It replaces that instance's `generate` with a stub that records the request and returns a `GenerationResponse`.
+  - It replaces that instance's `generate` with a stub that records the request and then raises a sentinel exception defined in the test file, so no code after `generate` runs: no report file, no `reports` or `ai_costs` row, no condensed summary.
+  - The test asserts on the recorded request. `ReportGenerator`, `NoteCondenser` and `IntentParser` let the sentinel propagate, so the test expects it with `pytest.raises`; narration catches it and returns its fallback text.
+  - Code before `generate` still runs. `ReportGenerator` builds its prompt and `NoteCondenser` reads the meeting's notes, so both tests run under the `db_session` fixture, and the `NoteCondenser` test seeds its meeting as `tests/test_note_condenser.py`'s existing `condense_meeting` tests do.
   - It hands the manager to the caller: `ReportGenerator(session, provider_manager=pm)`, and for narration, `NoteCondenser` and `IntentParser`, by setting `workmain.ai.provider_manager._provider_manager_instance` to `pm` with `monkeypatch`, since each calls `get_provider_manager()`.
-  - Patching `get_max_tokens` is not permitted: the test must pass through it.
+  - Patching `get_max_tokens` is not permitted in AC6.1–6.9: every test passes through the real lookup.
   - Files: `tests/test_note_condenser.py` and `tests/test_intent_parser.py`, plus new files `tests/test_report_generator.py` and `tests/test_narration.py`, since neither `ReportGenerator` nor narration has a test file today. AC6.9 goes in `tests/test_narration.py`.
 - **(c) Step 3:** `tests/test_ai_clients.py` — delete `test_gemini_sampling_from_request`; `test_gemini_sampling_literal_value` becomes AC1.1; add AC1.2, AC1.3, AC3.1, AC8.1; remove every `temperature=` argument. The fourteen constructions in `tests/test_ai_foundation.py`, `tests/test_ollama_provider.py` and `tests/test_provider_foundation.py` gain an explicit `max_tokens`. Every Gemini policy fixture gains `thinking_config`.
 
