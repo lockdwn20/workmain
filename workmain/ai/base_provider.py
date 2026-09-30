@@ -90,7 +90,7 @@ class BaseProvider(ABC):
     dataclass. Each provider reads its own required fields via config.get().
     """
 
-    # Keys a provider's payload policy file (config/providers/<name>_settings.json)
+    # Keys a provider's payload policy file (config/providers/<name>/settings.json)
     # must contain. Declared beside the code that reads them on each subclass;
     # BaseProvider requires none. Construction enforces this; ProviderManager
     # also checks it before construction so a policy fault raises there
@@ -112,7 +112,7 @@ class BaseProvider(ABC):
 
         Args:
             config: Provider config section from ai_settings.json.
-            policy: Request payload policy from config/providers/<name>_settings.json,
+            policy: Request payload policy from config/providers/<name>/settings.json,
                 loaded and validated by ProviderManager. Must hold every key
                 the subclass declares in REQUIRED_POLICY_KEYS. Defaults to an
                 empty dict.
