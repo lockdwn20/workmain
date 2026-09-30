@@ -80,10 +80,10 @@ class TestCheckAvailability:
             assert p.check_availability() == ProviderStatus.AVAILABLE
 
     def test_check_availability_different_tag_not_available(self):
-        """AC5.5: configured 'workmain-intent:latest' with only
-        'workmain-intent:v1.6' listed → UNAVAILABLE (DR10)."""
+        """AC5.5: configured 'workmain-intent:latest' with only an older
+        tag of the same model listed → UNAVAILABLE (DR10)."""
         config = {**_CONFIG, "model": "workmain-intent:latest"}
-        with patch("urllib.request.urlopen", return_value=_tags_response(["workmain-intent:v1.6"])):
+        with patch("urllib.request.urlopen", return_value=_tags_response(["workmain-intent:previous"])):
             p = _make_provider(config)
             assert p.check_availability() == ProviderStatus.UNAVAILABLE
 
