@@ -1,6 +1,6 @@
 # Ollama Provider Alignment — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20260929
 **Branch:** `feature/issue-122-ollama-provider-alignment` (from `dev`)
@@ -40,6 +40,7 @@
 | 20260929 | Caliper | **F9** — two entries dated 20260930. | **Accepted.** The `/api/show` `modified_at` is UTC; locally it is 20260929. |
 | 20260929 | Caliper | **R2-1** — with `is_available()` calling `test_connection()`, a `MagicMock` returned by `get_provider` makes `test_connection()` return a truthy mock: the `True` case tests nothing and the `UNAVAILABLE` case fails, inviting a call to `check_availability()` that undoes F7. | **Accepted.** §6: `get_provider` returns a real `OllamaProvider` with `check_availability` patched. |
 | 20260929 | Caliper | **R2-2** — §5.1 checks only that each Modelfile `PARAMETER` exists live, so a Modelfile missing `num_thread 4` passes and a rebuild from it brings back 1–2 tokens/s. | **Accepted.** §5.1 also checks that every live parameter except `stop` has a `PARAMETER` line; `stop` comes from the base model's template, which DR3 does not set. |
+| 20260929 | Ray | Spec approved after two Caliper rounds. | Status `Approved`; handed to Anvil. |
 
 ---
 
