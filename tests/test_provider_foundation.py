@@ -269,7 +269,7 @@ class TestProviderPolicyContract:
             with pytest.raises(ConfigurationError) as exc_info:
                 _manager_from_dict(settings)
         assert 'x' in str(exc_info.value)
-        assert 'claude_settings.json' in str(exc_info.value)
+        assert 'config/providers/claude/settings.json' in str(exc_info.value)
 
 
 # ---------------------------------------------------------------------------

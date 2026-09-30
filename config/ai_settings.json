@@ -14,7 +14,7 @@
       "timeout_seconds": 60,
       "retry_attempts": 3,
       "retry_delay_seconds": 1.0,
-      "notes": "Claude Sonnet 5 - fallback provider for all report types and note condensation. Request payload policy (thinking disabled, no sampling) lives in config/providers/claude_settings.json."
+      "notes": "Claude Sonnet 5 - fallback provider for all report types and note condensation. Request payload policy (thinking disabled, no sampling) lives in config/providers/claude/settings.json."
     },
     "gemini": {
       "enabled": true,

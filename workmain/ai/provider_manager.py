@@ -318,7 +318,7 @@ class ProviderManager:
     def _load_provider_policy(self, name: str, cls: type) -> dict:
         """Load and validate a provider's request payload policy.
 
-        Reads config/providers/<name>_settings.json through ConfigLoader and
+        Reads config/providers/<name>/settings.json through ConfigLoader and
         checks it against the provider class's REQUIRED_POLICY_KEYS. An absent
         file, unparseable JSON, or a missing required key each raises
         ConfigurationError naming the file — the failure must reach the caller
@@ -336,7 +336,7 @@ class ProviderManager:
             ConfigurationError: If the policy is absent, unparseable, or
                 missing a key the provider requires.
         """
-        config_name = f"providers/{name}_settings"
+        config_name = f"providers/{name}/settings"
         rel_path = f"config/{config_name}.json"
         try:
             policy = ConfigLoader().load(config_name)

@@ -56,7 +56,7 @@ class GeminiProvider(BaseProvider):
 
         Args:
             config: Provider config section from ai_settings.json
-            policy: Request payload policy from config/providers/gemini_settings.json
+            policy: Request payload policy from config/providers/gemini/settings.json
 
         Raises:
             ConfigurationError: If API key is missing or invalid

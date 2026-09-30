@@ -461,24 +461,9 @@ def _run_task_match_step(dry_run: bool, target_date: date, non_interactive: bool
         notes_by_id = {n.id: n for n in notes_today}
 
         # Check Ollama availability — semantic matching when available, keyword fallback otherwise
-        ollama_available = False
-        intent_parser = None
-        try:
-            from workmain.ai.providers.ollama import OllamaProvider
-            from workmain.ai.base_provider import ProviderStatus
-            import os as _os
-            _probe = OllamaProvider({
-                "model": "workmain-intent:latest",
-                "host": _os.environ.get("OLLAMA_HOST", "workmain-ollama.lab.haloschaos.com"),
-                "port": int(_os.environ.get("OLLAMA_PORT", "11434")),
-                "timeout": 15,
-            })
-            if _probe.check_availability() == ProviderStatus.AVAILABLE:
-                from workmain.ai.intent_parser import IntentParser
-                intent_parser = IntentParser()
-                ollama_available = True
-        except Exception:
-            pass
+        from workmain.ai.intent_parser import IntentParser
+        intent_parser = IntentParser()
+        ollama_available = intent_parser.is_available()
 
         from workmain.ai.base_provider import ProviderError
 
@@ -703,24 +688,9 @@ def _run_note_dedup_step(dry_run: bool, target_date: date, non_interactive: bool
             return EodStepResult(status=EodStepStatus.COMPLETED)
 
         # Check Ollama availability — semantic matching when available, keyword fallback otherwise
-        ollama_available = False
-        intent_parser = None
-        try:
-            from workmain.ai.providers.ollama import OllamaProvider
-            from workmain.ai.base_provider import ProviderStatus
-            import os as _os
-            _probe = OllamaProvider({
-                "model": "workmain-intent:latest",
-                "host": _os.environ.get("OLLAMA_HOST", "workmain-ollama.lab.haloschaos.com"),
-                "port": int(_os.environ.get("OLLAMA_PORT", "11434")),
-                "timeout": 15,
-            })
-            if _probe.check_availability() == ProviderStatus.AVAILABLE:
-                from workmain.ai.intent_parser import IntentParser
-                intent_parser = IntentParser()
-                ollama_available = True
-        except Exception:
-            pass
+        from workmain.ai.intent_parser import IntentParser
+        intent_parser = IntentParser()
+        ollama_available = intent_parser.is_available()
 
         from workmain.ai.base_provider import ProviderError
 

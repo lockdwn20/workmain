@@ -1,0 +1,1 @@
+{"description": "Request payload policy: the parameters every request to this provider carries. Holds every key the provider class declares in REQUIRED_POLICY_KEYS, and only those."}

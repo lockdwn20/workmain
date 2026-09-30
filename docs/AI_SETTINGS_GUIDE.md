@@ -9,7 +9,7 @@ Annotated schema reference for `config/ai_settings.json`.
 AI provider configuration lives in two files with a strict ownership boundary — no key appears in both:
 
 - `config/ai_settings.json` owns **which provider and how it is orchestrated**: `enabled`, `model`, `api_key_env`, costs, rate limits, retry, `report_types` routing, fallback, cost tracking, and each call type's `max_tokens` — a report type's own `report_types` entry, and every other call type in `application_functions`.
-- `config/providers/<name>_settings.json` owns **how we talk to that provider**: the request payload policy — what parameters every request carries. This file declares what we *send*, never what a model *supports*. See § The request payload policy below.
+- `config/providers/<name>/settings.json` owns **how we talk to that provider**: the request payload policy — what parameters every request carries. This file declares what we *send*, never what a model *supports*. See § The request payload policy below.
 
 Both files are directly user-editable — the CLI commands are convenience wrappers, not gatekeepers. For `ai_settings.json`, direct edit and `workmain providers set default` are equally valid.
 
@@ -68,8 +68,12 @@ Same fields as Claude. Gemini 2.5 Flash paid-tier pricing:
 |-------|-------------|
 | `host` | Hostname of the Ollama server (default: `localhost`) |
 | `port` | Port of the Ollama server (default: `11434`) |
+| `model` | The model to use, named only here — `workmain-intent:latest` today. A version tag is never application configuration; see `CLAUDE.md` § Local Model Definitions. |
+| `timeout` | Per-request timeout in seconds (default: `30`) — also how long `check_availability()` waits. |
 
 Ollama has no `api_key_env` — it is a local inference server with no API cost.
+
+workmain never pre-loads a model. Keep-alive (`CLAUDE.md` § OLLAMA_KEEP_ALIVE) keeps a loaded model resident but does not load one, so after the model server restarts, the first request loads the model from disk inside that request's `timeout` and can fail. Loading the model after a restart is the model server's job, not workmain's.
 
 ---
 
@@ -133,19 +137,21 @@ Each entry is `{"max_tokens": <positive int>}`. Same rule as `report_types.max_t
 
 ## The request payload policy
 
-`config/providers/<name>_settings.json` declares the parameters every request to that provider carries. It exists so a payload change — Claude's thinking or sampling, Gemini's sampling — is a config edit, not a code edit.
+`config/providers/<name>/settings.json` declares the parameters every request to that provider carries. It exists so a payload change — Claude's thinking or sampling, Gemini's sampling — is a config edit, not a code edit.
 
-**Values are the vendor's own shapes, passed through verbatim.** `claude_settings.json` holds `"thinking": {"type": "disabled"}` — the literal Anthropic parameter object — and the provider sends it untranslated. There is no string that a loader maps to an object; whatever the vendor's API accepts can be typed into the file.
+**Values are the vendor's own shapes, passed through verbatim.** `claude/settings.json` holds `"thinking": {"type": "disabled"}` — the literal Anthropic parameter object — and the provider sends it untranslated. There is no string that a loader maps to an object; whatever the vendor's API accepts can be typed into the file.
 
 **It declares what we *send*, never what a model *supports*.** `"thinking": {"type": "disabled"}` is our decision and belongs here. A key like `"supports_temperature": false` is a fact about a vendor's model and must not appear in any file in this repository.
 
-Shipped files:
+Each provider is a directory under `config/providers/`: `settings.json` (this policy) and, for a provider whose model this project builds, `models/<model>/` — its build source, in the provider's own format, never read by workmain (see `config/providers/_template/models/README.md`). `config/providers/_template/` is the shape a new provider directory copies; it is never loaded (DR9).
 
-| File | Why |
+Shipped directories:
+
+| Directory | Why |
 | --- | --- |
-| `claude_settings.json` | Thinking is off, so `max_tokens` is the total output ceiling, which on Claude is response text because there is no thinking to share the budget with. No sampling parameters are sent; the model's own defaults apply. |
-| `gemini_settings.json` | `sampling.temperature` is a literal value (`0.3`) sent on every request. `thinking_config.thinking_level` is fixed at `"high"` for every Gemini call type, so notes and reports are produced at the same depth; `max_tokens` is the total ceiling, thinking plus answer. |
-| `ollama_settings.json` | Carries no policy keys. Ollama's generation parameters are Modelfile-baked and rebuilt outside this repo. |
+| `claude/` | Thinking is off, so `max_tokens` is the total output ceiling, which on Claude is response text because there is no thinking to share the budget with. No sampling parameters are sent; the model's own defaults apply. |
+| `gemini/` | `sampling.temperature` is a literal value (`0.3`) sent on every request. `thinking_config.thinking_level` is fixed at `"high"` for every Gemini call type, so notes and reports are produced at the same depth; `max_tokens` is the total ceiling, thinking plus answer. |
+| `ollama/` | `settings.json` carries no policy keys. Its `models/workmain-intent/Modelfile` is the model's only source — see `CLAUDE.md` § Local Model Definitions. |
 
 **An unusable policy is a configuration error, not a default.** A policy file that is absent, unparseable, or missing a key its provider requires raises `ConfigurationError`. The provider is never silently disabled and never falls back to a built-in default. The keys a provider requires are the ones its code reads, and they are declared in `REQUIRED_POLICY_KEYS` on the provider class, next to that code. The class is the only place that set is listed.
 
@@ -191,27 +197,12 @@ Adding a provider requires four steps — no other code changes needed:
    }
    ```
 
-4. **Add a payload policy file** at `config/providers/<name>_settings.json` with a
-   `description` and every key the provider reads (vendor-native values — see
-   § The request payload policy). An enabled provider with no policy file fails to
-   construct. If the provider reads no payload parameters, ship a file with just a
-   `description`.
+4. **Copy `config/providers/_template/`** to `config/providers/<name>/` and edit its
+   `settings.json` `description` and every key the provider reads (vendor-native
+   values — see § The request payload policy). An enabled provider with no policy
+   file fails to construct. If the provider reads no payload parameters, keep the
+   template's `description` alone. Delete `models/` unless this provider has a
+   model this project builds (DR2).
 
 That is all. `providers list`, `providers test`, `providers costs --provider`, and
 `providers set default` all update automatically via `get_registered_provider_names()`.
-
----
-
-## Phase 13-1 Ollama Activation Checklist
-
-Ollama is currently a disabled stub. To activate for local inference:
-
-1. Set `enabled: true` in `config/ai_settings.json` under `providers.ollama`
-2. Set `host` and `port` to your Proxmox Ollama instance
-3. Implement `generate()` body in `workmain/ai/providers/ollama.py` —
-   Ollama REST API: `POST host:port/api/generate`
-4. Implement `check_availability()` health check — `GET host:port/api/tags`
-5. Extend `ai_costs` CHECK constraint: add `'intent_parse'` to valid interaction types
-6. Update ProviderType usage where `intent_parse` costs are written
-
-See `workmain/ai/providers/ollama.py` docstring for the full checklist with context.
