@@ -347,7 +347,7 @@ class TestActionExecutorCreateTimeEntry:
         """Item 69 Gate 3 (#11): _execute_create_time_entry already reads
         action.get("tags") and forwards it to time_entry_service.create_time_entry()
         (action_executor.py:122-130) — that plumbing predates this gate. Only the
-        LLM-facing schema (config/intent_parse_system_prompt.txt) omits a tags
+        LLM-facing schema (the Ollama model's Modelfile) omits a tags
         field for create_time_entry today, so no live Slack/Ollama turn produces
         this action dict yet. This exercises the code-level path directly to
         confirm a carry-forward tag on a Slack-originated time entry now creates

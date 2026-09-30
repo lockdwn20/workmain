@@ -1,0 +1,3 @@
+{
+  "description": "Ollama request payload policy. OllamaProvider requires no policy keys. The model's generation parameters are set in its Modelfile under config/providers/ollama/models/."
+}

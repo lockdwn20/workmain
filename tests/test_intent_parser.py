@@ -4,14 +4,11 @@ No real network or database access in this suite.
 """
 
 import json
-import tempfile
-import os
-from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 import pytest
 
-from workmain.ai.intent_parser import IntentParser, IntentParseError, PROMPT_CONFIG_PATH
+from workmain.ai.intent_parser import IntentParser, IntentParseError
 from workmain.ai.base_provider import (
     GenerationResponse,
     ProviderType,
@@ -152,45 +149,55 @@ class TestIntentParserParse:
 
 
 # ---------------------------------------------------------------------------
-# Config loading tests
+# AC5.2 — IntentParser.is_available()
 # ---------------------------------------------------------------------------
 
-class TestIntentParserConfig:
-    """Tests for IntentParser config and system prompt loading."""
+class TestIntentParserIsAvailable:
+    """Tests for IntentParser.is_available() (DR6). The manager is a
+    MagicMock; for the True/False cases get_provider() returns a real
+    OllamaProvider (as in tests/test_ollama_provider.py) with
+    check_availability patched, so test_connection() runs for real. No
+    network."""
 
-    def test_prompt_config_loads(self):
-        """IntentParser() initialises without error when both config files exist."""
-        with patch("workmain.ai.intent_parser.get_provider_manager"):
+    def _real_ollama_provider(self):
+        from workmain.ai.providers.ollama import OllamaProvider
+        return OllamaProvider({"host": "test-host", "port": 11434, "model": "mistral:latest", "timeout": 5})
+
+    def test_is_available_true_when_check_availability_available(self):
+        from workmain.ai.base_provider import ProviderStatus
+        provider = self._real_ollama_provider()
+        manager = MagicMock()
+        manager.get_provider.return_value = provider
+        with patch.object(provider, "check_availability", return_value=ProviderStatus.AVAILABLE):
+            with patch("workmain.ai.intent_parser.get_provider_manager", return_value=manager):
+                parser = IntentParser()
+            assert parser.is_available() is True
+
+    def test_is_available_false_when_check_availability_unavailable(self):
+        from workmain.ai.base_provider import ProviderStatus
+        provider = self._real_ollama_provider()
+        manager = MagicMock()
+        manager.get_provider.return_value = provider
+        with patch.object(provider, "check_availability", return_value=ProviderStatus.UNAVAILABLE):
+            with patch("workmain.ai.intent_parser.get_provider_manager", return_value=manager):
+                parser = IntentParser()
+            assert parser.is_available() is False
+
+    def test_is_available_false_when_provider_unavailable_error(self):
+        manager = MagicMock()
+        manager.get_provider.side_effect = ProviderUnavailableError("disabled")
+        with patch("workmain.ai.intent_parser.get_provider_manager", return_value=manager):
             parser = IntentParser()
-        assert parser._prompt_config is not None
-        assert parser._system_prompt is not None
+        assert parser.is_available() is False
 
-    def test_prompt_config_missing_raises(self):
-        """Config JSON absent → FileNotFoundError on IntentParser()."""
-        missing = Path("/nonexistent/intent_parse_prompt.json")
-        with patch("workmain.ai.intent_parser.PROMPT_CONFIG_PATH", missing):
-            with pytest.raises(FileNotFoundError):
-                IntentParser()
-
-    def test_system_prompt_missing_raises(self):
-        """Config JSON present but system_prompt_file path absent → FileNotFoundError."""
-        # Write a minimal config JSON that points to a non-existent txt file
-        config = {
-            "system_prompt_file": "/nonexistent/intent_parse_system_prompt.txt",
-            "max_tokens": 256,
-        }
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False, encoding="utf-8"
-        ) as f:
-            json.dump(config, f)
-            tmp_path = Path(f.name)
-
-        try:
-            with patch("workmain.ai.intent_parser.PROMPT_CONFIG_PATH", tmp_path):
-                with pytest.raises(FileNotFoundError):
-                    IntentParser()
-        finally:
-            os.unlink(tmp_path)
+    def test_is_available_propagates_configuration_error(self):
+        from workmain.ai.base_provider import ConfigurationError
+        manager = MagicMock()
+        manager.get_provider.side_effect = ConfigurationError("bad policy")
+        with patch("workmain.ai.intent_parser.get_provider_manager", return_value=manager):
+            parser = IntentParser()
+        with pytest.raises(ConfigurationError):
+            parser.is_available()
 
 
 # ---------------------------------------------------------------------------

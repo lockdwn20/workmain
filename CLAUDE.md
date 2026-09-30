@@ -166,16 +166,13 @@ Input 24-hour preferred (`1430` or `14:30`); AM/PM accepted. Stored as PostgreSQ
 | T5 | EOD session (conversational review) |
 | T6 | Inline correction re-presentation |
 
-### Intent Parser Config - Source of Truth
+### Local Model Definitions - Source of Truth
 
-Two files govern IntentParser. They own different things and must never duplicate each other:
+- `config/providers/<provider>/models/<model>/` holds the build source for a model this project defines, in that provider's own format. workmain never reads it; the build runs from the IaC repo.
+- `config/providers/ollama/models/workmain-intent/Modelfile` is the intent model's only source: its SYSTEM prompt, its PARAMETER values, and a `# version:` line that is Ray's build record.
+- The application references the model only as `workmain-intent:latest`, in `config/ai_settings.json` `providers.ollama.model`. A version tag is never application configuration.
 
-- `config/intent_parse_system_prompt.txt` - system prompt content AND version metadata (`config_version`, `config_updated`, `model_built`). The ONLY place version state lives.
-  - The model is always referenced as `model_built: workmain-intent:latest`.
-- `config/intent_parse_prompt.json` - runtime generation parameters ONLY (`ollama_model`, `ollama_host`, `generation_options`). No version fields - do not add them.
-- All model rebuilds happen outside this repository through a separate process.
-
-**Version bump workflow:** edit the system prompt → Ray syncs the SYSTEM block to the Modelfile in the IaC repo → Ray runs `build_workmain_intent.sh` on the Proxmox LXC → update `config_version` / `config_updated` / `model_built` in the system prompt header ONLY → update `ollama_model` in `ai_settings.json` only if the model name or tag changed.
+**Model change workflow:** edit the Modelfile and its `# version:` line → Ray runs the IaC build, which creates `workmain-intent:latest` and tags the version. Nothing else in workmain changes.
 
 ### OLLAMA_KEEP_ALIVE
 

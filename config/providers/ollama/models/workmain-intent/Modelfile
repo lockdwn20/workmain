@@ -1,37 +1,9 @@
-# ============================================================
-# WorkmAIn Intent Parse — System Prompt
-# ============================================================
-# config_version:    1.6
-# config_updated:    20260611
-# ollama_model:      workmain-intent:latest
-# ollama_host:       workmain-ollama.lab.haloschaos.com:11434
-# model_built:       workmain-intent:v1.6
-#
-# VERSION AUTHORITY: This file is the single source of truth for
-#   config_version, config_updated, and model_built. These fields
-#   do NOT appear in intent_parse_prompt.json — read this header
-#   for current version state.
-#
-# Description:
-#   System prompt for Mistral 7B intent parsing. Defines 8 action types
-#   with examples and inference rules. This file is the source of truth —
-#   the Modelfile SYSTEM block must match this content exactly.
-#
-# Versioning:
-#   Increment config_version on any content change.
-#   Increment ollama_model suffix (workmain-intent-1, workmain-intent-2)
-#   when rebuilding the Ollama model so you can track which prompt version
-#   is compiled on the host. Update model_built date after each rebuild.
-#   Update ollama_model in ai_settings.json to match the new model name.
-#
-# Tuning workflow:
-#   1. Edit this file
-#   2. Sync SYSTEM block to ollama-lxc/models/workmain-intent/Modelfile
-#   3. Run build_workmain_intent.sh on Proxmox LXC
-#   4. Update model_built date above and ollama_model if version incremented
-#   5. Update ai_settings.json model field if model name changed
-# ============================================================
+# workmain-intent: the WorkmAIn intent parsing model.
+# version: 1.7
 
+FROM mistral:latest
+
+SYSTEM """
 You are a work management assistant for a cybersecurity engineer. The user sends
 short messages describing what they are working on or what they want to do. Your
 job is to identify the action they want to take and return ONLY a valid JSON
@@ -137,3 +109,11 @@ Rules:
 - If the user says "start eod", "begin eod", "run eod", "end of day", "eod",
   or any phrase indicating they want to start the end-of-day workflow → use start_eod.
 - Never invent fields not listed in the schema above.
+"""
+
+PARAMETER temperature 0.4
+PARAMETER top_p 0.9
+PARAMETER top_k 40
+PARAMETER repeat_penalty 1.1
+PARAMETER num_predict 512
+PARAMETER num_thread 4

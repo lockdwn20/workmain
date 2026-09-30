@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.35.0] - 2026-09-29
+
+Ollama was configured and constructed differently from Claude and Gemini: its model build sources sat loose in `config/`, and three sites built an `OllamaProvider` from hardcoded values, two of them inside a handler that hid configuration faults (issue #122).
+
+### Changed
+
+- Each provider's request payload policy moves to `config/providers/<name>/settings.json`. `config/providers/_template/` shows the layout for a new provider
+- The intent model's only build source is `config/providers/ollama/models/workmain-intent/Modelfile`, which matches the deployed `workmain-intent:latest`. `config/intent_parse_prompt.json` and `config/intent_parse_system_prompt.txt` are deleted, and `IntentParser` no longer loads either
+- The daemon no longer pre-loads the Ollama model at start; loading it after a model-server restart is the model server's job
+- Daemon start loads the provider manager, so a broken provider configuration fails the start instead of the first Slack message
+- `CLAUDE.md` § Local Model Definitions replaces § Intent Parser Config, and `docs/AI_SETTINGS_GUIDE.md` documents the layout. The stale Phase 13-1 Ollama activation checklist is deleted
+
+### Fixed
+
+- The EOD task-match and note-dedup steps obtain Ollama through `IntentParser.is_available()` instead of building a provider from literals, so a configuration fault is reported by the step instead of silently falling back to keyword matching
+- `OllamaProvider.check_availability()` requires the configured model's exact tag, so a server holding only another tag of the model is no longer reported available
+
 ## [1.34.2] - 2026-09-28
 
 Request temperature and token caps came from Python defaults and call-site literals that no configuration could change, and Gemini's temperature was read off each request through a `"from_request"` sentinel that resolved to an unchosen 0.7 (issue #127).

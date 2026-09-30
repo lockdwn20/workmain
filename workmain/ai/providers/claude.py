@@ -53,7 +53,7 @@ class ClaudeProvider(BaseProvider):
 
         Args:
             config: Provider config section from ai_settings.json
-            policy: Request payload policy from config/providers/claude_settings.json
+            policy: Request payload policy from config/providers/claude/settings.json
 
         Raises:
             ConfigurationError: If API key is missing or invalid
