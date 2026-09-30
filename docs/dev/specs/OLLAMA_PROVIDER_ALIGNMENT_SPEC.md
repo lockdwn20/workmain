@@ -38,6 +38,8 @@
 | 20260929 | Caliper | **F7** — `BaseProvider.test_connection()` already turns `check_availability()` into a bool; the spec does not say whether `is_available()` uses it. | **Accepted.** `is_available()` returns `get_provider('ollama').test_connection()`; `ProviderUnavailableError` is caught around `get_provider` only. `test_connection()` swallows only what `check_availability()` raises, which is network failure, not configuration. |
 | 20260929 | Caliper | **F8** — existing EOD tests patch `workmain.ai.intent_parser.IntentParser`, which works only because `eod_workflow.py` imports it inside the step; a module-level import would bypass every mock. | **Accepted.** Step 3 keeps the import inside each step function. |
 | 20260929 | Caliper | **F9** — two entries dated 20260930. | **Accepted.** The `/api/show` `modified_at` is UTC; locally it is 20260929. |
+| 20260929 | Caliper | **R2-1** — with `is_available()` calling `test_connection()`, a `MagicMock` returned by `get_provider` makes `test_connection()` return a truthy mock: the `True` case tests nothing and the `UNAVAILABLE` case fails, inviting a call to `check_availability()` that undoes F7. | **Accepted.** §6: `get_provider` returns a real `OllamaProvider` with `check_availability` patched. |
+| 20260929 | Caliper | **R2-2** — §5.1 checks only that each Modelfile `PARAMETER` exists live, so a Modelfile missing `num_thread 4` passes and a rebuild from it brings back 1–2 tokens/s. | **Accepted.** §5.1 also checks that every live parameter except `stop` has a `PARAMETER` line; `stop` comes from the base model's template, which DR3 does not set. |
 
 ---
 
@@ -167,7 +169,7 @@ None. Every step edits the working tree. The live-model checks in §5 are read-o
 | AC1.1 | Every provider is configured through the same structure, so a reader finds any provider's policy at the same relative path. | `ls config/providers/*/settings.json` lists `_template`, `claude`, `gemini`, `ollama`, and `ls config/providers/` lists nothing else |
 | AC1.2 | The policies still load from their new paths, and a policy fault still names its file. | `pytest tests/test_provider_foundation.py` passes, including the updated `:272` assertion |
 | AC2.1 | No reference to a moved or deleted file points at its old path. | `git grep -nE "intent_parse_prompt|intent_parse_system_prompt|providers/[a-z<>]+_settings|(claude|gemini|ollama)_settings\.json" -- '*.py' '*.md' '*.json' ':!docs/archive' ':!CHANGELOG.md' ':!docs/dev/*/*OLLAMA_PROVIDER_ALIGNMENT*'` returns zero hits. The excluded set is this issue's own record of the old paths |
-| AC3.1 | The Modelfile is the same model that is deployed, so moving the source changed nothing workmain receives. | The §5.1 command exits 0: the live `system` equals, exactly, the Modelfile text between `SYSTEM """` and the closing `"""`; each `PARAMETER <name> <value>` line has `<value>` among the live `parameters` values for `<name>` |
+| AC3.1 | The Modelfile is the same model that is deployed, so moving the source changed nothing workmain receives. | The §5.1 command exits 0: the live `system` equals, exactly, the Modelfile text between `SYSTEM """` and the closing `"""`; each `PARAMETER <name> <value>` line has `<value>` among the live `parameters` values for `<name>`; and every live parameter name except `stop`, which the base model's template supplies, has a `PARAMETER` line |
 | AC3.2 | Version state lives in one place in the repository. | `git grep -nE "config_version|model_built|workmain-intent:v[0-9]|# version: [0-9]" -- ':!docs/archive' ':!CHANGELOG.md' ':!docs/dev/*/*OLLAMA_PROVIDER_ALIGNMENT*'` returns only the Modelfile's `# version:` line |
 | AC3.3 | No Modelfile value is also held in runtime configuration, and the application reads nothing from a model directory. Property of documents — Ray's stated reading of the Modelfile, `config/providers/ollama/settings.json`, `ai_settings.json` `providers.ollama` and `application_functions`, and `CLAUDE.md` § Local Model Definitions, for any value in two places. | Stated reading by Ray; and `grep -rn "models/" workmain/ --include='*.py'` returns zero hits |
 | AC4.1 | Intent parsing works end to end against the live model after the move. | `python -c "from workmain.ai.intent_parser import IntentParser; p=IntentParser(); assert p.is_available(); r=p.parse('note: alignment check'); assert r['action'] == 'create_note', r"` exits 0 |
@@ -197,6 +199,8 @@ for line in live["parameters"].splitlines():
     params.setdefault(name, []).append(value.strip())
 for name, value in re.findall(r"^PARAMETER (\S+) (.+)$", mf, re.M):
     assert value.strip() in params.get(name, []), (name, value, params.get(name))
+declared = set(re.findall(r"^PARAMETER (\S+) ", mf, re.M))
+assert set(params) - {"stop"} <= declared, set(params) - {"stop"} - declared
 EOF
 ```
 
@@ -205,7 +209,7 @@ EOF
 - **Baseline:** `pytest` run on this branch before Step 1 — its code is `dev`'s — with `ANTHROPIC_API_KEY` and `GOOGLE_API_KEY` set, recorded in the results artifact. `tests/test_ai_clients.py` makes live vendor calls and can flake; a live failure is re-run once and recorded, not skipped.
 - **Expected after:** baseline, minus the three `TestIntentParserConfig` tests Step 2 deletes, plus the tests below.
 - `tests/test_ollama_provider.py` — AC5.5's two new cases, using the existing `_tags_response` helper.
-- `tests/test_intent_parser.py` — AC5.2's four cases. The manager is a `MagicMock` whose `get_provider` returns an object with a patched `check_availability`, or raises; no network.
+- `tests/test_intent_parser.py` — AC5.2's four cases. The manager is a `MagicMock`. For the `True` and `False` cases its `get_provider` returns a real `OllamaProvider` built from a `_CONFIG`-style dict (as in `tests/test_ollama_provider.py`), with `OllamaProvider.check_availability` patched to `AVAILABLE` or `UNAVAILABLE`, so `test_connection()` runs for real. For the other two, `get_provider` raises `ProviderUnavailableError` or `ConfigurationError`. No network.
 - `tests/test_eod_workflow.py` — AC5.3, one test per step, patching `workmain.ai.intent_parser.get_provider_manager` to raise. Uses the existing `db_session` and sentinel-date fixtures. `_keyword_score_match` / `_keyword_note_dedup_match` are spied with a patch so "never called" is asserted, not inferred.
 - `tests/test_orchestration.py`, which holds the daemon tests — AC5.4. Patch `build_scheduler`, `_check_not_root`, `_ensure_daemon_dirs`, `_configure_logging` and the three `auth` reads; patch `get_provider_manager` in `workmain.daemon.daemon` to raise; assert `pytest.raises` and that `_resolve_dm_channel` was not called.
 - Existing EOD tests keep patching `OllamaProvider.check_availability`; with `IntentParser` real, the probe now reaches that method through the manager's instance.
