@@ -20,7 +20,7 @@
 | 20260929 | Ray | Q3: delete the daemon warm-up; the guide states that pre-loading a model is the model server's concern. | Taken — DR7, Steps 4 and 5. |
 | 20260929 | Ray | Q4: daemon start loads the provider manager in line, not in a separate thread or process, so a configuration fault fails the start. | Taken — DR7, Step 4. |
 | 20260929 | Spanner | The issue's AC3 names a two-file boundary (version metadata in one file, runtime generation parameters in another) that Q2 replaces with one build source and no runtime generation parameters at all. Its purpose — no value lives in two places, and version state lives in one — is kept. | Restated as AC3.1–AC3.3. The issue's AC3 text is edited at close-out. |
-| 20260929 | Spanner | The Modelfile drops `PARAMETER num_predict 256`. Every workmain call sends `num_predict` per request (#127's per-call cap), which overrides the Modelfile value for that key, so the line never governs workmain and restates `application_functions.intent_parse.max_tokens` — an edit to it would change nothing. | Taken — DR3, DR8. The deployed model keeps its baked value until Ray's next rebuild; that value is overridden on every workmain call, so AC3.1 compares only the `PARAMETER` lines the Modelfile carries. |
+| 20260930 | Ray | The model was rebuilt as `v1.7` with `PARAMETER num_predict 512` and `PARAMETER num_thread 4`. `num_thread 4` restores usable speed: without it the LXC sizes its thread pool from the Proxmox host's threads rather than the four the LXC is allotted, and generation runs at 1–2 tokens/s. The thread-detection cause is outside this issue. | Taken — DR3 carries both, at `# version: 1.7`. `num_predict 512` governs only a request that sends no `num_predict`; every workmain call sends its per-call cap (#127), so it duplicates no workmain value (DR8). Supersedes Spanner's 20260929 entry that dropped `num_predict`. |
 | 20260929 | Spanner | The Modelfile carries `# version:` only. `config_updated` and `model_built` do not carry over: the date is in git, and the built tag is derived from the version by the build. | Taken — DR3. |
 
 ---
@@ -62,7 +62,7 @@ Verified on this branch at `e0f8b8c`, which includes the #127 merge.
 | Three tests cover those loads. | `tests/test_intent_parser.py` `TestIntentParserConfig` (`:161-195`) |
 | `config/intent_parse_prompt.json` `max_tokens` is Modelfile build input only since #127. | its `_doc.description` |
 | The system prompt body follows the header's last `# ===` line (line 33) and contains no `"""`. | `config/intent_parse_system_prompt.txt` |
-| The live model's SYSTEM block equals that body, and it bakes `temperature 0.4`, `top_p 0.9`, `top_k 40`, `repeat_penalty 1.1`, `num_predict 256`. | `POST /api/show`, 20260928 |
+| The live model is `workmain-intent:v1.7` (also `:latest`). Its SYSTEM block equals that body, and it bakes `temperature 0.4`, `top_p 0.9`, `top_k 40`, `repeat_penalty 1.1`, `num_predict 512`, `num_thread 4`. The repo's system prompt header still records `config_version 1.6`. | `POST /api/show`, `GET /api/tags`, 20260930 |
 | `sync_modelfile.sh` v1.0 builds `FROM mistral:latest`, `SYSTEM """<body>"""` and those five `PARAMETER` lines from the two files. | Ray-supplied script |
 | Both EOD probes build `OllamaProvider` from a literal dict with `OLLAMA_HOST` / `OLLAMA_PORT` fallbacks, then construct `IntentParser()`, all inside `except Exception: pass`. | `eod_workflow.py:464-481`, `:706-723` |
 | Each step's outer handler prints `⚠ <step> failed (<e>) — continuing` and returns `COMPLETED`. | `eod_workflow.py` `_run_task_match_step`, `_run_note_dedup_step` |
@@ -80,7 +80,7 @@ Verified on this branch at `e0f8b8c`, which includes the #127 merge.
 
   ```text
   # workmain-intent: the WorkmAIn intent parsing model.
-  # version: 1.6
+  # version: 1.7
 
   FROM mistral:latest
 
@@ -92,9 +92,11 @@ Verified on this branch at `e0f8b8c`, which includes the #127 merge.
   PARAMETER top_p 0.9
   PARAMETER top_k 40
   PARAMETER repeat_penalty 1.1
+  PARAMETER num_predict 512
+  PARAMETER num_thread 4
   ```
 
-  The `# version: <v>` line is Ray's build record and the only version state in the repository. There is no `PARAMETER num_predict`: every workmain request sends `num_predict` from `application_functions` (#127), and a request option overrides the Modelfile's value for that key, so a baked value would never take effect for workmain and would restate the `intent_parse` cap (DR8).
+  The `# version: <v>` line is Ray's build record and the only version state in the repository. `num_predict` is the default for a request that sends none; every workmain request sends its own from `application_functions` (#127), which overrides it. `num_thread` is sized to the LXC's allotted cores.
 - **DR4 — The application names the model once.** `workmain-intent:latest` appears only in `config/ai_settings.json` `providers.ollama.model`. The Modelfile does not name the model; the build does.
 - **DR5 — Ollama comes from `ProviderManager`.** No module outside `workmain/ai/providers/` constructs `OllamaProvider`, and nothing reads `OLLAMA_HOST` or `OLLAMA_PORT`.
 - **DR6 — A configuration fault is not an availability result.** `IntentParser.is_available()` returns `False` only for `ProviderUnavailableError`. Every other exception — including `ConfigurationError` from `get_provider_manager()` and anything from `IntentParser()` — reaches the caller. No new code catches `ProviderError` or `Exception` around the probe.
