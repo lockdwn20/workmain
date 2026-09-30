@@ -1,6 +1,6 @@
 # Ollama Provider Alignment — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20260929
 **Branch:** `feature/issue-122-ollama-provider-alignment` (from `dev`)

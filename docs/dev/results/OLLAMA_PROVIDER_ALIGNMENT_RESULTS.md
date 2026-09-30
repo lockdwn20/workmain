@@ -4,7 +4,7 @@
 **Author:** Anvil (Role 3)
 **Date:** 20260929
 **Spec:** `../specs/OLLAMA_PROVIDER_ALIGNMENT_SPEC.md`
-**Released as:** n/a — not yet merged; version/tag computed at close-out.
+**Released as:** v1.35.0 (tag v1.35.0)
 
 ---
 
@@ -33,7 +33,7 @@ Net: 1021 → 1027 (−3, +9).
 | AC2.1 | Met | `git grep -nE "intent_parse_prompt\|intent_parse_system_prompt\|providers/[a-z<>]+_settings\|(claude\|gemini\|ollama)_settings\.json" -- '*.py' '*.md' '*.json' ':!docs/archive' ':!CHANGELOG.md' ':!docs/dev/*/*OLLAMA_PROVIDER_ALIGNMENT*'` — zero hits |
 | AC3.1 | Met | §5.1 command run live against `workmain-ollama.lab.haloschaos.com:11434` — exits 0. SYSTEM block matches exactly; all live PARAMETER values matched; every live parameter except `stop` has a `PARAMETER` line |
 | AC3.2 | Met | `git grep -nE "config_version\|model_built\|workmain-intent:v[0-9]\|# version: [0-9]" -- ':!docs/archive' ':!CHANGELOG.md' ':!docs/dev/*/*OLLAMA_PROVIDER_ALIGNMENT*'` — only `config/providers/ollama/models/workmain-intent/Modelfile:2:# version: 1.7` |
-| AC3.3 | Met | Property of documents: the Modelfile, `config/providers/ollama/settings.json`, `ai_settings.json` `providers.ollama`, `application_functions`, and `CLAUDE.md` § Local Model Definitions hold no value in two places, by my reading. `grep -rn "models/" workmain/ --include='*.py'` — zero hits |
+| AC3.3 | Met | Property of documents: the Modelfile, `config/providers/ollama/settings.json`, `ai_settings.json` `providers.ollama`, `application_functions`, and `CLAUDE.md` § Local Model Definitions hold no value in two places — Anvil's reading, confirmed by Ray's stated reading 20260929 (`4aa8959`). `grep -rn "models/" workmain/ --include='*.py'` — zero hits |
 | AC4.1 | Met | Live: `IntentParser().is_available()` → `True`; `.parse('note: alignment check')` → `{'action': 'create_note', 'content': 'alignment check'}`; `ai_costs` row count for `interaction_type='intent_parse'` went 2116 → 2117 |
 | AC5.1 | Met | `grep -rnE "OllamaProvider\(\{\|workmain-intent:latest\|workmain-ollama\|OLLAMA_(HOST\|PORT)\|_warmup_ollama" workmain/` — zero hits; `git grep -n "OllamaProvider(" -- workmain ':!workmain/ai/providers'` — zero hits |
 | AC5.2 | Met | `tests/test_intent_parser.py::TestIntentParserIsAvailable` — 4 cases (True/AVAILABLE, False/UNAVAILABLE, False/`ProviderUnavailableError`, propagates `ConfigurationError`), real `OllamaProvider` with `check_availability` patched, no network |
@@ -41,7 +41,7 @@ Net: 1021 → 1027 (−3, +9).
 | AC5.4 | Met | `tests/test_orchestration.py::TestDaemonStartConfigurationFault` — `start()` raises the patched `ConfigurationError`; `_resolve_dm_channel` never called |
 | AC5.5 | Met | `tests/test_ollama_provider.py` — different-tag case UNAVAILABLE, exact-tag case AVAILABLE (placeholder tag, see Deviations), `test_model_prefix_matching` still passes |
 | AC6.1 | Met | `pytest` — 1027 passed, 0 failed, 0 skipped (baseline 1021) |
-| AC6.2 | Met | Property of documents: `config/providers/_template/`, `CLAUDE.md` § Local Model Definitions, and `docs/AI_SETTINGS_GUIDE.md`'s Overview, § Ollama Fields, § The request payload policy and § How to add a new provider describe the layout as built, by my reading |
+| AC6.2 | Met | Property of documents: `config/providers/_template/`, `CLAUDE.md` § Local Model Definitions, and `docs/AI_SETTINGS_GUIDE.md`'s Overview, § Ollama Fields, § The request payload policy and § How to add a new provider describe the layout as built — Anvil's reading, confirmed by Ray's stated reading 20260929 (`4aa8959`) |
 
 ## 4. Deviations from spec
 
