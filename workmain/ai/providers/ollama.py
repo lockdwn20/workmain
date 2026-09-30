@@ -28,14 +28,20 @@ class OllamaProvider(BaseProvider):
         self._timeout = config.get("timeout", 30)
 
     def check_availability(self) -> ProviderStatus:
-        """GET /api/tags and confirm configured model is listed."""
+        """GET /api/tags and confirm the configured model is listed exactly.
+
+        An untagged configured name is compared as ``<name>:latest`` — how
+        Ollama itself resolves it. A different tag of the same model does
+        not count (DR10): a server holding only an older tag of the
+        configured model is not available for it.
+        """
         try:
             url = f"http://{self._host}:{self._port}/api/tags"
             resp = urllib.request.urlopen(url, timeout=self._timeout)
             data = json.loads(resp.read())
             available = [m["name"] for m in data.get("models", [])]
-            model_base = self._model.split(":")[0]
-            if any(m.split(":")[0] == model_base for m in available):
+            configured = self._model if ":" in self._model else f"{self._model}:latest"
+            if configured in available:
                 return ProviderStatus.AVAILABLE
             return ProviderStatus.UNAVAILABLE
         except Exception:

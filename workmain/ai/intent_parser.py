@@ -35,6 +35,21 @@ class IntentParser:
     def __init__(self):
         self._provider_manager = get_provider_manager()
 
+    def is_available(self) -> bool:
+        """Return whether the configured Ollama model is reachable.
+
+        Catches ProviderUnavailableError around get_provider() only — a
+        provider disabled in ai_settings.json, or one ProviderManager
+        marked disabled because its constructor raised (theoretical for
+        Ollama: OllamaProvider.__init__ only reads dict keys). Any other
+        exception, including ConfigurationError, propagates (DR6).
+        """
+        try:
+            provider = self._provider_manager.get_provider('ollama')
+        except ProviderUnavailableError:
+            return False
+        return provider.test_connection()
+
     def parse(self, user_message: str) -> dict:
         """
         Parse a natural language message into a structured action dict.
