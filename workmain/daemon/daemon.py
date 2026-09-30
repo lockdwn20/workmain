@@ -25,6 +25,7 @@ from workmain.daemon.delivery import deliver
 from workmain.daemon.inspection_engine import InspectionEngine
 from workmain.daemon.narration import narrate
 from workmain.daemon import state_io
+from workmain.ai.provider_manager import get_provider_manager
 from workmain.daemon.conversation_state import ConversationStore
 from workmain.database.connection import get_db
 from workmain.database.repositories.notification_repository import NotificationConfigRepository
@@ -239,38 +240,6 @@ def _schedule_meeting_reminders(target_date: date, scheduler: BlockingScheduler,
 
 
 # ---------------------------------------------------------------------------
-# Ollama warm-up
-# ---------------------------------------------------------------------------
-
-def _warmup_ollama() -> None:
-    """Pre-warm workmain-intent:latest to eliminate cold-start latency.
-
-    Module-level function. Sends a single minimal generate request.
-    The response is discarded. Failure is logged but never raises —
-    warm-up is best-effort; daemon startup must not block on Ollama.
-    """
-    try:
-        from workmain.ai.providers.ollama import OllamaProvider
-        from workmain.ai.base_provider import GenerationRequest
-
-        host = os.environ.get("OLLAMA_HOST", "workmain-ollama.lab.haloschaos.com")
-        port_str = os.environ.get("OLLAMA_PORT", "11434")
-        provider = OllamaProvider({
-            "model": "workmain-intent:latest",
-            "host": host,
-            "port": int(port_str),
-            "timeout": 120,
-        })
-        provider.generate(GenerationRequest(
-            prompt="ping",
-            max_tokens=1,
-        ))
-        logging.info("Ollama warm-up complete.")
-    except Exception as e:
-        logging.warning("Ollama warm-up failed (non-fatal): %s", e)
-
-
-# ---------------------------------------------------------------------------
 # Morning briefing helpers
 # ---------------------------------------------------------------------------
 
@@ -342,7 +311,7 @@ class WorkmAInDaemon:
         operator_user_id = auth.get_operator_user_id()
         self._operator_user_id = operator_user_id
 
-        _warmup_ollama()
+        get_provider_manager()
 
         self._dm_channel = self._resolve_dm_channel(bot_token, operator_user_id)
 

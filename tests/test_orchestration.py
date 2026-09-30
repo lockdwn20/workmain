@@ -224,6 +224,30 @@ class TestDaemonSocketDispatch(unittest.TestCase):
         self.assertNotIn(ts, client._seen_ts_times)
 
 
+class TestDaemonStartConfigurationFault(unittest.TestCase):
+    """AC5.4: a configuration fault fails daemon start (DR7) — start()
+    loads the provider manager in line, before _resolve_dm_channel."""
+
+    def test_configuration_error_fails_start(self):
+        from workmain.daemon.daemon import WorkmAInDaemon
+        from workmain.ai.base_provider import ConfigurationError
+
+        daemon = WorkmAInDaemon.__new__(WorkmAInDaemon)
+        with patch('workmain.daemon.daemon.build_scheduler'), \
+             patch('workmain.daemon.daemon._check_not_root'), \
+             patch('workmain.daemon.daemon._ensure_daemon_dirs'), \
+             patch('workmain.daemon.daemon._configure_logging'), \
+             patch('workmain.daemon.daemon.auth.get_token', return_value='xoxb-bot'), \
+             patch('workmain.daemon.daemon.auth.get_socket_token', return_value='xapp-app'), \
+             patch('workmain.daemon.daemon.auth.get_operator_user_id', return_value='U_OPERATOR'), \
+             patch('workmain.daemon.daemon.get_provider_manager',
+                   side_effect=ConfigurationError("sentinel")), \
+             patch.object(daemon, '_resolve_dm_channel') as mock_resolve:
+            with self.assertRaises(ConfigurationError):
+                daemon.start()
+        mock_resolve.assert_not_called()
+
+
 # ---------------------------------------------------------------------------
 # Group 2 — Block Kit payload (ConfirmationGate)
 # ---------------------------------------------------------------------------
