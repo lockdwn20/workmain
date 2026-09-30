@@ -50,7 +50,7 @@ class GenerationRequest:
     generation_options: Optional[Dict[str, Any]] = None
     # Passed through to OllamaProvider options dict when set.
     # Claude/Gemini providers ignore this field.
-    # For workmain-intent:latest, leave None — Modelfile owns all generation params.
+    # For the Ollama model, leave None — its Modelfile owns all generation params.
     # Only set if you need to override a specific parameter per-request.
 
 

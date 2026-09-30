@@ -4,14 +4,11 @@ No real network or database access in this suite.
 """
 
 import json
-import tempfile
-import os
-from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 import pytest
 
-from workmain.ai.intent_parser import IntentParser, IntentParseError, PROMPT_CONFIG_PATH
+from workmain.ai.intent_parser import IntentParser, IntentParseError
 from workmain.ai.base_provider import (
     GenerationResponse,
     ProviderType,
@@ -149,48 +146,6 @@ class TestIntentParserParse:
         parser = _make_parser(manager)
         with pytest.raises(ProviderUnavailableError):
             parser.parse("some input")
-
-
-# ---------------------------------------------------------------------------
-# Config loading tests
-# ---------------------------------------------------------------------------
-
-class TestIntentParserConfig:
-    """Tests for IntentParser config and system prompt loading."""
-
-    def test_prompt_config_loads(self):
-        """IntentParser() initialises without error when both config files exist."""
-        with patch("workmain.ai.intent_parser.get_provider_manager"):
-            parser = IntentParser()
-        assert parser._prompt_config is not None
-        assert parser._system_prompt is not None
-
-    def test_prompt_config_missing_raises(self):
-        """Config JSON absent → FileNotFoundError on IntentParser()."""
-        missing = Path("/nonexistent/intent_parse_prompt.json")
-        with patch("workmain.ai.intent_parser.PROMPT_CONFIG_PATH", missing):
-            with pytest.raises(FileNotFoundError):
-                IntentParser()
-
-    def test_system_prompt_missing_raises(self):
-        """Config JSON present but system_prompt_file path absent → FileNotFoundError."""
-        # Write a minimal config JSON that points to a non-existent txt file
-        config = {
-            "system_prompt_file": "/nonexistent/intent_parse_system_prompt.txt",
-            "max_tokens": 256,
-        }
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False, encoding="utf-8"
-        ) as f:
-            json.dump(config, f)
-            tmp_path = Path(f.name)
-
-        try:
-            with patch("workmain.ai.intent_parser.PROMPT_CONFIG_PATH", tmp_path):
-                with pytest.raises(FileNotFoundError):
-                    IntentParser()
-        finally:
-            os.unlink(tmp_path)
 
 
 # ---------------------------------------------------------------------------

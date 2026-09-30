@@ -48,7 +48,7 @@ class OllamaProvider(BaseProvider):
                 f"Ollama ({self._model}) unreachable at {self._host}:{self._port}"
             )
 
-        # The workmain-intent Modelfile owns temperature, top_p, top_k, repeat_penalty.
+        # The Ollama model's Modelfile owns temperature, top_p, top_k, repeat_penalty.
         # Only num_predict (max_tokens) is sent per-request — it is the caller's
         # per-call-type cap from ProviderManager.get_max_tokens(), required, no
         # fallback. generation_options is reserved for explicit per-request overrides.
