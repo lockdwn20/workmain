@@ -79,6 +79,10 @@ Verified on this branch at `e0f8b8c`, which includes the #127 merge.
 | The unit restarts on failure every 30 s. | `workmain-notify.service` `Restart=on-failure`, `RestartSec=30` |
 | `ConfigurationError` subclasses `ProviderError`; `ProviderUnavailableError` is what `get_provider()` raises for a disabled or unregistered provider. | `base_provider.py`; `provider_manager.py` `get_provider` |
 | `OLLAMA_HOST` / `OLLAMA_PORT` are set nowhere. | `.env`; unit `EnvironmentFile` |
+| `check_availability()` compares only the part of each name before the colon, so any tag of the configured model counts as available. `test_model_prefix_matching` covers an untagged configured name (`mistral`) matching `mistral:latest`. | `ollama.py` `check_availability`; `tests/test_ollama_provider.py` |
+| `daemon.py` does not import `get_provider_manager` at module level. | `daemon.py:11-37` imports |
+| The daemon runs EOD steps in its own process, through `eod_workflow.run_step`, not as a child `workmain` process. | `integrations/slack/slack_eod.py:221`, `:362`, `:399` |
+| `ProviderManager._load_config` marks a provider disabled when its constructor raises. | `provider_manager.py` `_load_config` |
 
 ## 3. Design rules
 
