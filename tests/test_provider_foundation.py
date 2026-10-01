@@ -513,16 +513,11 @@ def test_set_default_preserves_other_fields():
         settings = _make_full_settings()
         _write_settings(settings_path, settings)
 
-        mock_manager = MagicMock()
-        mock_manager.get_registered_provider_names.return_value = ['claude', 'gemini', 'ollama']
-
-        with patch('workmain.cli.commands.providers.get_provider_manager',
-                   return_value=mock_manager):
-            with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
-                result = runner.invoke(
-                    providers,
-                    ['set', 'default', 'daily_internal', 'claude', '--force']
-                )
+        with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
+            result = runner.invoke(
+                providers,
+                ['set', 'default', 'daily_internal', 'claude', '--force']
+            )
 
         assert result.exit_code == 0
 
@@ -547,16 +542,11 @@ def test_set_default_updates_last_updated():
         settings = _make_full_settings()
         _write_settings(settings_path, settings)
 
-        mock_manager = MagicMock()
-        mock_manager.get_registered_provider_names.return_value = ['claude', 'gemini', 'ollama']
-
-        with patch('workmain.cli.commands.providers.get_provider_manager',
-                   return_value=mock_manager):
-            with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
-                result = runner.invoke(
-                    providers,
-                    ['set', 'default', 'daily_internal', 'claude', '--force']
-                )
+        with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
+            result = runner.invoke(
+                providers,
+                ['set', 'default', 'daily_internal', 'claude', '--force']
+            )
 
         assert result.exit_code == 0
 
@@ -574,16 +564,11 @@ def test_set_default_unknown_report_type_bad_parameter():
         settings_path = Path(tmpdir) / 'ai_settings.json'
         _write_settings(settings_path, _make_full_settings())
 
-        mock_manager = MagicMock()
-        mock_manager.get_registered_provider_names.return_value = ['claude', 'gemini', 'ollama']
-
-        with patch('workmain.cli.commands.providers.get_provider_manager',
-                   return_value=mock_manager):
-            with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
-                result = runner.invoke(
-                    providers,
-                    ['set', 'default', 'bad_report_type', 'claude', '--force']
-                )
+        with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
+            result = runner.invoke(
+                providers,
+                ['set', 'default', 'bad_report_type', 'claude', '--force']
+            )
 
     assert result.exit_code != 0
     assert 'bad_report_type' in result.output
@@ -596,16 +581,11 @@ def test_set_default_unknown_provider_bad_parameter():
         settings_path = Path(tmpdir) / 'ai_settings.json'
         _write_settings(settings_path, _make_full_settings())
 
-        mock_manager = MagicMock()
-        mock_manager.get_registered_provider_names.return_value = ['claude', 'gemini', 'ollama']
-
-        with patch('workmain.cli.commands.providers.get_provider_manager',
-                   return_value=mock_manager):
-            with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
-                result = runner.invoke(
-                    providers,
-                    ['set', 'default', 'daily_internal', 'bad_provider', '--force']
-                )
+        with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
+            result = runner.invoke(
+                providers,
+                ['set', 'default', 'daily_internal', 'bad_provider', '--force']
+            )
 
     assert result.exit_code != 0
     assert 'bad_provider' in result.output
@@ -618,16 +598,11 @@ def test_set_default_force_skips_confirmation():
         settings_path = Path(tmpdir) / 'ai_settings.json'
         _write_settings(settings_path, _make_full_settings())
 
-        mock_manager = MagicMock()
-        mock_manager.get_registered_provider_names.return_value = ['claude', 'gemini', 'ollama']
-
-        with patch('workmain.cli.commands.providers.get_provider_manager',
-                   return_value=mock_manager):
-            with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
-                result = runner.invoke(
-                    providers,
-                    ['set', 'default', 'daily_internal', 'claude', '--force']
-                )
+        with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
+            result = runner.invoke(
+                providers,
+                ['set', 'default', 'daily_internal', 'claude', '--force']
+            )
 
     assert result.exit_code == 0
     # No "Proceed?" prompt in output
@@ -641,16 +616,11 @@ def test_set_default_output_includes_next_invocation_message():
         settings_path = Path(tmpdir) / 'ai_settings.json'
         _write_settings(settings_path, _make_full_settings())
 
-        mock_manager = MagicMock()
-        mock_manager.get_registered_provider_names.return_value = ['claude', 'gemini', 'ollama']
-
-        with patch('workmain.cli.commands.providers.get_provider_manager',
-                   return_value=mock_manager):
-            with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
-                result = runner.invoke(
-                    providers,
-                    ['set', 'default', 'daily_internal', 'claude', '--force']
-                )
+        with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
+            result = runner.invoke(
+                providers,
+                ['set', 'default', 'daily_internal', 'claude', '--force']
+            )
 
     assert result.exit_code == 0
     assert 'next CLI invocation' in result.output
@@ -847,3 +817,39 @@ def test_provider_disabled_by_construction_failure_reports_reason():
         manager.get_provider('claude')
     assert 'enabled: true' not in str(exc_info.value)
     assert 'ANTHROPIC_API_KEY' in str(exc_info.value)
+
+
+def test_providers_list_prints_every_configured_report_type():
+    """providers list prints each report type the manager holds, with its primary."""
+    settings = _make_temp_settings()
+    settings['report_types']['zz_sentinel_report'] = dict(
+        settings['report_types']['daily_internal']
+    )
+    manager = _manager_from_dict(settings)
+
+    with patch('workmain.cli.commands.providers.get_provider_manager', return_value=manager):
+        result = CliRunner().invoke(providers, ['list'])
+
+    assert result.exit_code == 0, result.output
+    assert 'zz_sentinel_report' in result.output
+    assert 'daily_internal' in result.output
+
+
+def test_set_default_repairs_entry_the_manager_would_refuse():
+    """set default writes without constructing a ProviderManager, so it can repair a bad entry."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        settings_path = Path(tmpdir) / 'ai_settings.json'
+        settings = _make_full_settings()
+        settings['report_types']['daily_internal']['primary_provider'] = 'nonesuch'
+        _write_settings(settings_path, settings)
+
+        with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path), \
+                patch('workmain.cli.commands.providers.get_provider_manager',
+                      side_effect=AssertionError("set default must not construct a manager")):
+            result = CliRunner().invoke(
+                providers, ['set', 'default', 'daily_internal', 'claude', '--force']
+            )
+
+        assert result.exit_code == 0, result.output
+        with open(settings_path) as f:
+            assert json.load(f)['report_types']['daily_internal']['primary_provider'] == 'claude'
