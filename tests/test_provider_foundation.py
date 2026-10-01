@@ -725,3 +725,125 @@ def test_call_type_in_both_blocks_raises_naming_it():
     settings['application_functions'] = {'daily_internal': {'max_tokens': 100}}
     with pytest.raises(ConfigurationError, match="daily_internal"):
         _manager_from_dict(settings)
+
+
+# ---------------------------------------------------------------------------
+# Routing has one source — Issue #150
+# ---------------------------------------------------------------------------
+
+def _routing_manager(settings=None):
+    """Manager from temp settings with MagicMock providers that are reachable.
+
+    _make_temp_settings disables claude and gemini, and get_provider checks
+    _disabled first, so the names are discarded from _disabled here.
+    """
+    manager = _manager_from_dict(settings or _make_temp_settings())
+    for name in ('claude', 'gemini'):
+        manager._providers[name] = MagicMock()
+        manager._disabled.discard(name)
+    return manager
+
+
+def _request():
+    from workmain.ai.base_provider import GenerationRequest
+    return GenerationRequest(prompt="p", max_tokens=100)
+
+
+def test_generate_unconfigured_report_type_raises_and_calls_no_provider():
+    """generate with a report type that has no entry raises, naming it, and calls no provider."""
+    manager = _routing_manager()
+    with pytest.raises(ConfigurationError, match="report_types.no_such_report"):
+        manager.generate(_request(), report_type='no_such_report')
+    manager._providers['claude'].generate.assert_not_called()
+    manager._providers['gemini'].generate.assert_not_called()
+
+
+def test_generate_without_report_type_or_override_raises():
+    """generate with no report_type and no override raises ConfigurationError."""
+    manager = _routing_manager()
+    with pytest.raises(ConfigurationError, match="report_type"):
+        manager.generate(_request())
+
+
+def test_primary_provider_absent_or_null_refuses_construction():
+    """An entry without a primary_provider, absent or null, refuses construction, naming the key."""
+    settings = _make_temp_settings()
+    del settings['report_types']['daily_internal']['primary_provider']
+    with pytest.raises(ConfigurationError, match="report_types.daily_internal.primary_provider"):
+        _manager_from_dict(settings)
+    settings['report_types']['daily_internal']['primary_provider'] = None
+    with pytest.raises(ConfigurationError, match="report_types.daily_internal.primary_provider"):
+        _manager_from_dict(settings)
+
+
+def test_unknown_primary_provider_refuses_construction():
+    """A primary_provider that is not a ProviderType value refuses construction, naming key and value."""
+    settings = _make_temp_settings()
+    settings['report_types']['daily_internal']['primary_provider'] = 'nonesuch'
+    with pytest.raises(ConfigurationError, match="report_types.daily_internal.primary_provider.*nonesuch"):
+        _manager_from_dict(settings)
+
+
+def test_unknown_fallback_provider_refuses_construction():
+    """A fallback_provider that is not a ProviderType value refuses construction, naming the key."""
+    settings = _make_temp_settings()
+    settings['report_types']['daily_internal']['fallback_provider'] = 'nonesuch'
+    with pytest.raises(ConfigurationError, match="report_types.daily_internal.fallback_provider"):
+        _manager_from_dict(settings)
+
+
+def test_fallback_provider_absent_or_null_means_no_fallback():
+    """An absent or null fallback_provider yields no fallback; a primary failure then raises."""
+    for mutate in (
+        lambda cfg: cfg.pop('fallback_provider'),
+        lambda cfg: cfg.__setitem__('fallback_provider', None),
+    ):
+        settings = _make_temp_settings()
+        mutate(settings['report_types']['daily_internal'])
+        manager = _routing_manager(settings)
+        assert manager.get_report_config('daily_internal').fallback_provider is None
+        manager._providers['gemini'].generate.side_effect = ProviderError("boom")
+        with pytest.raises(ProviderError, match="no fallback"):
+            manager.generate(_request(), report_type='daily_internal')
+
+
+def test_get_provider_for_report_unconfigured_raises():
+    """get_provider_for_report for a type without an entry raises ConfigurationError."""
+    manager = _manager_from_dict(_make_temp_settings())
+    with pytest.raises(ConfigurationError, match="report_types.no_such_report"):
+        manager.get_provider_for_report('no_such_report')
+
+
+def test_estimate_cost_with_override_prices_at_override():
+    """estimate_cost with provider_override prices at that provider, not the routed one."""
+    manager = _routing_manager()
+    manager._providers['claude'].estimate_cost.return_value = 1.5
+    manager._providers['gemini'].estimate_cost.return_value = 0.5
+    assert manager.estimate_cost('daily_internal', 10, 20) == 0.5
+    assert manager.estimate_cost(
+        'daily_internal', 10, 20, provider_override=ProviderType.CLAUDE
+    ) == 1.5
+    manager._providers['claude'].estimate_cost.assert_called_once_with(10, 20)
+
+
+def test_get_report_type_names_matches_config_keys():
+    """get_report_type_names returns the report_types keys in config order."""
+    settings = _make_temp_settings()
+    settings['report_types']['zz_second'] = dict(settings['report_types']['daily_internal'])
+    manager = _manager_from_dict(settings)
+    assert manager.get_report_type_names() == list(settings['report_types'].keys())
+
+
+def test_provider_disabled_by_construction_failure_reports_reason():
+    """A provider that failed to construct reports the failure, not 'enabled: true'."""
+    settings = _make_temp_settings()
+    settings['providers']['claude'] = {
+        "enabled": True, "model": "claude-test", "api_key_env": "ANTHROPIC_API_KEY",
+    }
+    env = {k: v for k, v in os.environ.items() if k != 'ANTHROPIC_API_KEY'}
+    with patch.dict(os.environ, env, clear=True):
+        manager = _manager_from_dict(settings)
+    with pytest.raises(ProviderUnavailableError) as exc_info:
+        manager.get_provider('claude')
+    assert 'enabled: true' not in str(exc_info.value)
+    assert 'ANTHROPIC_API_KEY' in str(exc_info.value)

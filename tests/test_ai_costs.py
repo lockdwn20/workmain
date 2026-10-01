@@ -309,27 +309,18 @@ class TestFormatDateWindowLabel:
 # ---------------------------------------------------------------------------
 
 class TestProviderManagerConfig:
-    def test_loads_all_three_report_types(self):
-        """ProviderManager reads ai_settings.json and populates all report types."""
+    def test_loads_every_configured_report_type(self):
+        """ProviderManager reads ai_settings.json and populates every report type."""
         manager = ProviderManager()
-        assert manager.get_report_config('daily_internal') is not None
-        assert manager.get_report_config('weekly_client') is not None
-        assert manager.get_report_config('note_condensation') is not None
-
-    def test_report_configs_have_valid_providers(self):
-        """Each report type config references valid ProviderType values."""
-        from workmain.ai.base_provider import ProviderType
-        manager = ProviderManager()
-        valid = {ProviderType.CLAUDE, ProviderType.GEMINI}
-        for rt in ('daily_internal', 'weekly_client', 'note_condensation'):
-            cfg = manager.get_report_config(rt)
-            assert cfg.primary_provider in valid, f"{rt}: invalid primary"
-            assert cfg.fallback_provider in valid, f"{rt}: invalid fallback"
+        names = manager.get_report_type_names()
+        assert names
+        for rt in names:
+            assert manager.get_report_config(rt) is not None, rt
 
     def test_primary_differs_from_fallback(self):
         """Primary and fallback providers must be different for each report type."""
         manager = ProviderManager()
-        for rt in ('daily_internal', 'weekly_client', 'note_condensation'):
+        for rt in manager.get_report_type_names():
             cfg = manager.get_report_config(rt)
             assert cfg.primary_provider != cfg.fallback_provider, (
                 f"{rt}: primary == fallback ({cfg.primary_provider})"

@@ -75,6 +75,7 @@ class ProviderManager:
         self.config_path = config_path
         self._providers: Dict[str, BaseProvider] = {}   # name → instantiated provider
         self._disabled: set = set()                      # names of disabled providers
+        self._disabled_reasons: Dict[str, str] = {}      # name → construction failure reason
         self._all_configs: Dict[str, dict] = {}          # name → config dict (all providers)
         self._settings: dict = {}                        # full ai_settings.json
         self._report_configs: Dict[str, ReportTypeConfig] = {}
@@ -96,6 +97,10 @@ class ProviderManager:
         Raises:
             ProviderUnavailableError: If provider is disabled or not registered
         """
+        if name in self._disabled_reasons:
+            raise ProviderUnavailableError(
+                f"Provider '{name}' is unavailable: {self._disabled_reasons[name]}"
+            )
         if name in self._disabled:
             raise ProviderUnavailableError(
                 f"Provider '{name}' is disabled. "
@@ -197,20 +202,22 @@ class ProviderManager:
 
         Raises:
             ProviderError: If generation fails with all providers
+            ConfigurationError: If neither a provider_override nor a configured
+                report_type is given. Raised before the fallback handling below.
         """
         if provider_override:
             primary = provider_override
             fallback = None
             fallback_mode = FallbackMode.MANUAL
-        elif report_type and report_type in self._report_configs:
-            config = self._report_configs[report_type]
+        elif report_type is None:
+            raise ConfigurationError(
+                "generate() requires a report_type or a provider_override."
+            )
+        else:
+            config = self._require_report_config(report_type)
             primary = config.primary_provider
             fallback = config.fallback_provider
             fallback_mode = config.fallback_mode
-        else:
-            primary = ProviderType.CLAUDE
-            fallback = ProviderType.GEMINI
-            fallback_mode = FallbackMode.AUTO
 
         try:
             provider = self.get_provider(primary.value)
@@ -258,10 +265,24 @@ class ProviderManager:
 
         Returns:
             Primary provider type
+
+        Raises:
+            ConfigurationError: If report_type has no report_types entry.
         """
-        if report_type in self._report_configs:
-            return self._report_configs[report_type].primary_provider
-        return ProviderType.CLAUDE
+        return self._require_report_config(report_type).primary_provider
+
+    def _require_report_config(self, report_type: str) -> ReportTypeConfig:
+        """Return the report_types entry for report_type, or raise (DR1)."""
+        if report_type not in self._report_configs:
+            raise ConfigurationError(
+                f"No routing configured for report type '{report_type}'. "
+                f"Add 'report_types.{report_type}' to config/ai_settings.json."
+            )
+        return self._report_configs[report_type]
+
+    def get_report_type_names(self) -> List[str]:
+        """Return the configured report-type names in config order."""
+        return list(self._report_configs.keys())
 
     def get_fallback_notifications(self) -> List[str]:
         """Get list of fallback notifications."""
@@ -298,7 +319,8 @@ class ProviderManager:
         self,
         report_type: str,
         prompt_tokens: int,
-        completion_tokens: int
+        completion_tokens: int,
+        provider_override: Optional[ProviderType] = None
     ) -> float:
         """
         Estimate cost for a report generation.
@@ -307,11 +329,13 @@ class ProviderManager:
             report_type: Type of report
             prompt_tokens: Estimated prompt tokens
             completion_tokens: Estimated completion tokens
+            provider_override: Price at this provider instead of the report
+                type's primary provider
 
         Returns:
             Estimated cost in USD
         """
-        provider_type = self.get_provider_for_report(report_type)
+        provider_type = provider_override or self.get_provider_for_report(report_type)
         provider = self.get_provider(provider_type.value)
         return provider.estimate_cost(prompt_tokens, completion_tokens)
 
@@ -390,18 +414,15 @@ class ProviderManager:
                 try:
                     instance = cls(provider_cfg, policy)
                     self._providers[name] = instance
-                except Exception:
+                except Exception as exc:
                     # Provider instantiation failed (e.g. missing API key in env).
                     # Mark as disabled so callers get a clear error rather than
-                    # an unhandled exception at import time.
+                    # an unhandled exception at import time; keep the reason so
+                    # get_provider can report it.
                     self._disabled.add(name)
+                    self._disabled_reasons[name] = str(exc)
 
         # Build report-type configs
-        provider_map = {
-            'claude': ProviderType.CLAUDE,
-            'gemini': ProviderType.GEMINI,
-            'ollama': ProviderType.OLLAMA,
-        }
         fallback_mode_map = {
             'auto':   FallbackMode.AUTO,
             'manual': FallbackMode.MANUAL,
@@ -419,8 +440,23 @@ class ProviderManager:
             )
 
         for report_type, cfg in report_types_cfg.items():
-            primary  = provider_map.get(cfg.get('primary_provider',  'claude'), ProviderType.CLAUDE)
-            fallback = provider_map.get(cfg.get('fallback_provider', 'gemini'), ProviderType.GEMINI)
+            key_prefix = f"report_types.{report_type}"
+            primary_name = cfg.get('primary_provider')
+            if primary_name is None:
+                raise ConfigurationError(
+                    f"'{key_prefix}.primary_provider' is required in "
+                    f"config/ai_settings.json."
+                )
+            primary = self._parse_provider_name(
+                primary_name, f"{key_prefix}.primary_provider"
+            )
+            fallback_name = cfg.get('fallback_provider')
+            fallback = (
+                None if fallback_name is None
+                else self._parse_provider_name(
+                    fallback_name, f"{key_prefix}.fallback_provider"
+                )
+            )
             fb_mode  = fallback_mode_map.get(cfg.get('fallback_mode', 'auto'), FallbackMode.AUTO)
             max_cost = cfg.get('max_cost_per_report', 1.0)
             max_tokens = self._require_positive_int(
@@ -441,6 +477,18 @@ class ProviderManager:
             self._application_functions[name] = self._require_positive_int(
                 entry_tokens, f"application_functions.{name}.max_tokens"
             )
+
+    @staticmethod
+    def _parse_provider_name(value, key_name: str) -> ProviderType:
+        """Return the ProviderType for value; else raise ConfigurationError naming key_name (DR2)."""
+        try:
+            return ProviderType(value)
+        except ValueError:
+            valid = ', '.join(p.value for p in ProviderType)
+            raise ConfigurationError(
+                f"'{key_name}' is '{value}', which is not a provider name "
+                f"({valid}) in config/ai_settings.json."
+            ) from None
 
     @staticmethod
     def _require_positive_int(value, key_name: str) -> int:
