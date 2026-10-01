@@ -78,3 +78,52 @@ class TestReportGeneratorCap:
             )
 
         assert recorded["request"].max_tokens == _SENTINEL_TOKENS
+
+
+class TestReportTypeRouting:
+    """Every template has a report_types entry; routing reads that entry (#150)."""
+
+    def test_every_template_has_report_types_entry(self):
+        pm = ProviderManager()
+        stems = sorted(p.stem for p in Path("templates/reports").glob("*.json"))
+        assert stems
+        for stem in stems:
+            assert pm.get_report_config(stem) is not None, stem
+            cap = pm.get_max_tokens(stem)
+            assert isinstance(cap, int) and cap > 0, stem
+
+    def test_monthly_executive_routes_through_its_own_entry(self, tmp_path, db_session):
+        with open("config/ai_settings.json") as f:
+            settings = json.load(f)
+        entry = settings["report_types"]["monthly_executive"]
+        entry["max_tokens"] = _SENTINEL_TOKENS
+        entry["primary_provider"] = "gemini"
+        entry["fallback_provider"] = "claude"
+        path = tmp_path / "ai_settings.json"
+        path.write_text(json.dumps(settings))
+
+        pm = ProviderManager(config_path=str(path))
+        asked = []
+        recorded = {}
+
+        class _Provider:
+            def generate(self, request):
+                recorded["request"] = request
+                raise _SentinelStop()
+
+        def _get_provider(name):
+            asked.append(name)
+            return _Provider()
+
+        pm.get_provider = _get_provider
+        generator = ReportGenerator(db_session, provider_manager=pm)
+
+        with pytest.raises(_SentinelStop):
+            generator.generate_report(
+                template_name="monthly_executive",
+                report_date=date.today(),
+                save_to_file=False,
+            )
+
+        assert asked == ["gemini"]
+        assert recorded["request"].max_tokens == _SENTINEL_TOKENS
