@@ -17,13 +17,6 @@ class ConfigValidator:
     
     # Define schemas for each config file
     SCHEMAS = {
-        "ai_settings": {
-            "default_provider": {"type": "string", "required": True, "values": ["claude", "gemini"]},
-            "providers": {"type": "dict", "required": True},
-            "per_report_override": {"type": "dict", "required": False},
-            "fallback": {"type": "dict", "required": False},
-            "cost_tracking": {"type": "dict", "required": False},
-        },
         "notifications": {
             "enabled": {"type": "boolean", "required": True},
             "timezone": {"type": "string", "required": True},

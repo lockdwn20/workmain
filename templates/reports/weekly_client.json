@@ -26,7 +26,6 @@
         ]
       },
       "format": "numbered_list",
-      "ai_provider": "gemini",
       "ai_instruction": "Summarize work completed and in progress this week in client-friendly language. Focus on business value and outcomes, not technical implementation details. Use sub-items (a., b., c.) for each major area of work. Avoid jargon. Be specific but concise. If minimal work this week, still provide meaningful summary."
     },
     {
@@ -48,7 +47,6 @@
         ]
       },
       "format": "numbered_list",
-      "ai_provider": "gemini",
       "ai_instruction": "Provide estimated completion timelines for ongoing work. Use sub-items (a., b., c.) for each task with its timeline. Be realistic and specific with dates when possible. If tasks are already complete, note that. Use business-friendly language. If no pending tasks, output: 'a. All current tasks completed.'"
     },
     {
@@ -70,7 +68,6 @@
         ]
       },
       "format": "numbered_list",
-      "ai_provider": "gemini",
       "ai_instruction": "Identify any risks or blockers that are CLIENT-APPROPRIATE to share. Focus on items that may impact delivery or require client action. Present professionally with proposed solutions when possible. Use sub-items (a., b., c.). Avoid sharing internal-only issues. If no client-facing risks or blockers, output: 'a. None at this time.'"
     },
     {
@@ -91,7 +88,6 @@
         ]
       },
       "format": "numbered_list",
-      "ai_provider": "gemini",
       "ai_instruction": "Analyze notes for any requests, requirements, or expectations that need clarification from the client. This could include ambiguous requirements, conflicting guidance, or areas needing more detail. Use sub-items (a., b., c.) for each item needing clarification. Be diplomatic and professional. If everything is clear, output: 'a. All requests and requirements are clear.'"
     },
     {
@@ -112,7 +108,6 @@
         ]
       },
       "format": "numbered_list",
-      "ai_provider": "gemini",
       "ai_instruction": "Identify locations of deliverables, documentation, or artifacts created this week. This could include repository links, shared documents, reports, or other outputs. Use sub-items (a., b., c.) for each artifact location. Be specific with paths or URLs when mentioned in notes. If no new artifacts this week, output: 'a. No new artifacts this week. Existing materials remain in previously shared locations.'"
     }
   ],
@@ -137,7 +132,6 @@
   },
   "metadata": {
     "frequency": "weekly",
-    "ai_provider_default": "gemini",
     "based_on_user_examples": true
   }
 }

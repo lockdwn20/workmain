@@ -2,10 +2,10 @@
 High-level orchestrator for AI report generation with database integration.
 
 Orchestrates the full report generation pipeline, combining prompt_builder,
-the AI clients and templates. Supports optional section-by-section
-generation, saves reports to files (markdown, text) and their metadata to
-the database for analytics, reports generation status and logs errors and
-retries, and tracks costs in the database rather than a JSON file.
+the AI clients and templates. Saves reports to files (markdown, text) and
+their metadata to the database for analytics, reports generation status and
+logs errors and retries, and tracks costs in the database rather than a JSON
+file.
 
 Generating a report loads and validates the template, builds prompts with
 prompt_builder, starts cost tracking, generates content with the AI client,
@@ -105,7 +105,7 @@ class ReportGenerator:
         Args:
             template_name: Name of template to use
             report_date: Date for the report
-            provider: AI provider to use (None = use template default)
+            provider: AI provider to use (None = the template's `report_types` routing)
             save_to_file: Whether to save report to file
             output_format: Output format
             filename: Custom filename (optional)

@@ -42,17 +42,6 @@ def test_config_loader():
     console.print(table)
     console.print("[green]✓ Database config loaded successfully[/green]")
     
-    # Test AI provider selection
-    console.print("\n[yellow]Testing AI provider selection...[/yellow]")
-    
-    # This will use defaults if ai_settings.json doesn't exist
-    daily_provider = loader.get_ai_provider_for_report("daily_internal")
-    weekly_provider = loader.get_ai_provider_for_report("weekly_client")
-    
-    console.print(f"Daily Internal Report: [cyan]{daily_provider}[/cyan]")
-    console.print(f"Weekly Client Report: [cyan]{weekly_provider}[/cyan]")
-    console.print("[green]✓ AI provider selection working[/green]")
-    
     return True
 
 
@@ -62,39 +51,6 @@ def test_config_validator():
     console.print("=" * 60)
     
     validator = get_validator()
-    
-    # Test valid config
-    console.print("\n[yellow]Testing valid configuration...[/yellow]")
-    valid_config = {
-        "default_provider": "claude",
-        "providers": {
-            "claude": {"enabled": True},
-            "gemini": {"enabled": True}
-        }
-    }
-    
-    errors = validator.validate_config("ai_settings", valid_config)
-    if errors:
-        console.print(f"[red]✗ Validation failed: {errors}[/red]")
-        return False
-    else:
-        console.print("[green]✓ Valid configuration passed[/green]")
-    
-    # Test invalid config
-    console.print("\n[yellow]Testing invalid configuration...[/yellow]")
-    invalid_config = {
-        "default_provider": "invalid_provider",
-        # Missing required "providers" field
-    }
-    
-    errors = validator.validate_config("ai_settings", invalid_config)
-    if errors:
-        console.print(f"[green]✓ Correctly caught {len(errors)} validation error(s):[/green]")
-        for error in errors:
-            console.print(f"  - {error}")
-    else:
-        console.print("[red]✗ Failed to catch validation errors[/red]")
-        return False
     
     # Test email validation
     console.print("\n[yellow]Testing email validation...[/yellow]")
