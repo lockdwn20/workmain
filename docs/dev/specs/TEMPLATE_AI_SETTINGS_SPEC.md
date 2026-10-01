@@ -24,7 +24,7 @@
 | 20261001 | Caliper M3 | After DR2, `providers set default` constructs `ProviderManager` first, so it fails on the bad entry it exists to repair | Accepted, but not as proposed: `set default` validates against `ProviderType` (DR2's single definition), not `PROVIDER_REGISTRY`, and the ten `set default` tests drop their now-inert manager mock. |
 | 20261001 | Caliper M4 | "Unknown provider" had three definitions (`ProviderType`, guide's "key under `providers`", `PROVIDER_REGISTRY`); `null` fallback unstated | Accepted. DR2 makes `ProviderType` the definition and treats `null` as absent; Step 6 carries the wording. |
 | 20261001 | Caliper M5 | Step 1's "no `generate` called" assertion could never fail; Step 5 test did not say how its manager is supplied | Accepted. Both made explicit. |
-| 20261001 | Caliper L1 | Claude and Gemini carry built-in default rates (`claude.py:66-67`, `gemini.py:69-70`), a second home for pricing | Accepted as out of scope: requiring the keys changes every provider's construction contract, and pricing values are Ray's. To be opened as its own issue on Ray's word. |
+| 20261001 | Caliper L1 | Claude and Gemini carry built-in default rates (`claude.py:66-67`, `gemini.py:69-70`), a second home for pricing | Accepted as out of scope: requiring the keys changes every provider's construction contract, and pricing values are Ray's. Opened as #155. |
 | 20261001 | Caliper L2 | Stale "template default" text at `report_generator.py:107`, `:135-136`; a provider disabled by a missing API key is reported as "set `enabled: true`", which AC4.3's message would repeat | Accepted in part. `:107` is stale and Step 4 fixes it; the comment at `:135-136` already says routing resolves from `ai_settings.json`, so it is **not taken**. The disabled-reason message is in scope: Step 1 keeps the construction failure reason so `get_provider` reports it. |
 
 ---
@@ -48,7 +48,7 @@
 - **What `templates create`/`validate` do about a `report_types` entry.** That is #151.
 - **How `providers set default` sets a fallback.** That is #132. This spec changes only which names `set default` accepts.
 - **`fallback_mode`'s silent default to `auto`.** It controls whether fallback happens, not which provider runs, and neither the issue nor the study raised it.
-- **The provider's built-in default rates** (`claude.py:66-67`, `gemini.py:69-70`). Caliper L1, held for its own issue.
+- **The provider's built-in default rates** (`claude.py:66-67`, `gemini.py:69-70`). That is #155.
 - **Name validation in `providers test` and `providers costs`,** which use `get_registered_provider_names`. They validate a provider to run or filter by, not a routing entry.
 - **The `ai_provider` key `ReportGenerator` writes into `report_metadata`** (`report_generator.py:197`). It records which provider actually ran.
 
