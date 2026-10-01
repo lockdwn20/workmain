@@ -1,6 +1,6 @@
 # Report Template AI Settings — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261001
 **Branch:** `feature/issue-150-template-ai-settings` (from `dev`)
@@ -21,7 +21,7 @@
 | 20261001 | Caliper H3 | `ConfigValidator.SCHEMAS["ai_settings"]` requires `default_provider` from `["claude","gemini"]` and declares `per_report_override`; AC3.1's grep missed it | Accepted. Step 4 deletes the schema entry and the test blocks that use it; AC3.1 gains a second check. |
 | 20261001 | Caliper M1 | `test_ai_foundation.py:348-365` and `test_ai_costs.py` `test_report_configs_have_valid_providers` hand-list report types and providers and require a fallback | Accepted. Both are deleted; DR2's refusal at construction covers what they checked. |
 | 20261001 | Caliper M2 | AC2.1's routing assertion passed under the deleted Claude default | Accepted. The config copy routes `monthly_executive` to Gemini. |
-| 20261001 | Caliper M3 | After DR2, `providers set default` constructs `ProviderManager` first, so it fails on the bad entry it exists to repair | Accepted, but not as proposed: `set default` validates against `ProviderType` (DR2's single definition), not `PROVIDER_REGISTRY`, and the ten `set default` tests drop their now-inert manager mock. |
+| 20261001 | Caliper M3 | After DR2, `providers set default` constructs `ProviderManager` first, so it fails on the bad entry it exists to repair | Accepted, but not as proposed: `set default` validates against `ProviderType` (DR2's single definition), not `PROVIDER_REGISTRY`, and the six `set default` tests drop their now-inert manager mock. |
 | 20261001 | Caliper M4 | "Unknown provider" had three definitions (`ProviderType`, guide's "key under `providers`", `PROVIDER_REGISTRY`); `null` fallback unstated | Accepted. DR2 makes `ProviderType` the definition and treats `null` as absent; Step 6 carries the wording. |
 | 20261001 | Caliper M5 | Step 1's "no `generate` called" assertion could never fail; Step 5 test did not say how its manager is supplied | Accepted. Both made explicit. |
 | 20261001 | Caliper N1 | Step 5 test 2 passed with `set default` still building a manager, because the manager loads the valid live config | Accepted. The test patches `get_provider_manager` to raise. |
