@@ -131,7 +131,7 @@ class TestPreviewReportFilterParity:
         mock_pb.build_prompt.return_value = ("system prompt", "user prompt")
         mock_pb.estimate_tokens.return_value = 500
         mock_tl = MagicMock()
-        mock_tl.load.return_value = {"metadata": {"ai_provider": "claude"}}
+        mock_tl.load.return_value = {"metadata": {}}
 
         generator = ReportGenerator(
             session=MagicMock(),
