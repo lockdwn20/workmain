@@ -24,6 +24,10 @@
 | 20261001 | Caliper M3 | After DR2, `providers set default` constructs `ProviderManager` first, so it fails on the bad entry it exists to repair | Accepted, but not as proposed: `set default` validates against `ProviderType` (DR2's single definition), not `PROVIDER_REGISTRY`, and the ten `set default` tests drop their now-inert manager mock. |
 | 20261001 | Caliper M4 | "Unknown provider" had three definitions (`ProviderType`, guide's "key under `providers`", `PROVIDER_REGISTRY`); `null` fallback unstated | Accepted. DR2 makes `ProviderType` the definition and treats `null` as absent; Step 6 carries the wording. |
 | 20261001 | Caliper M5 | Step 1's "no `generate` called" assertion could never fail; Step 5 test did not say how its manager is supplied | Accepted. Both made explicit. |
+| 20261001 | Caliper N1 | Step 5 test 2 passed with `set default` still building a manager, because the manager loads the valid live config | Accepted. The test patches `get_provider_manager` to raise. |
+| 20261001 | Caliper N2 | Six `set default` tests exist, not ten; the other four mocks belong to `providers test`/`costs`, and removing them makes a live API call | Accepted. §2 and Step 5 corrected; those four keep their mocks. |
+| 20261001 | Caliper N3 | M5 not fixed: `_make_temp_settings` disables both providers and `get_provider` checks `_disabled` first, so injected mocks were never reached in Step 1 tests 1 and 6 | Accepted. Both tests discard the names from `_disabled`. |
+| 20261001 | Caliper N4 | The `null` cases' count depended on parametrisation | Accepted. Each runs in the same test function; net stays +16. |
 | 20261001 | Caliper L1 | Claude and Gemini carry built-in default rates (`claude.py:66-67`, `gemini.py:69-70`), a second home for pricing | Accepted as out of scope: requiring the keys changes every provider's construction contract, and pricing values are Ray's. Opened as #155. |
 | 20261001 | Caliper L2 | Stale "template default" text at `report_generator.py:107`, `:135-136`; a provider disabled by a missing API key is reported as "set `enabled: true`", which AC4.3's message would repeat | Accepted in part. `:107` is stale and Step 4 fixes it; the comment at `:135-136` already says routing resolves from `ai_settings.json`, so it is **not taken**. The disabled-reason message is in scope: Step 1 keeps the construction failure reason so `get_provider` reports it. |
 
@@ -59,12 +63,12 @@ The design study §3 holds findings F1–F14 with their evidence. The claims bel
 | Claim | Evidence |
 | --- | --- |
 | `ConfigurationError` subclasses `ProviderError`, so one raised inside `generate()`'s `try` is caught by its fallback `except` | `workmain/ai/base_provider.py:250`; `provider_manager.py:215-250` |
-| `get_provider` raises `ProviderUnavailableError` for a disabled provider, with the message "Set 'enabled: true'", even when the provider was disabled because its construction failed | `provider_manager.py:86-109`; `:392-397` (`except Exception: self._disabled.add(name)`) |
+| `get_provider` checks `_disabled` before `_providers`, and raises `ProviderUnavailableError` for a disabled provider, with the message "Set 'enabled: true'", even when the provider was disabled because its construction failed | `provider_manager.py:86-109`; `:392-397` (`except Exception: self._disabled.add(name)`) |
 | `ProviderType` values are `claude`, `gemini`, `ollama`; `_load_config` maps names through its own dict | `base_provider.py` `ProviderType`; `provider_manager.py:400-404` |
 | Providers read `cost_per_1k_prompt_tokens` and `cost_per_1k_completion_tokens`, defaulting to built-in rates when absent: Claude 0.003 / 0.015, Gemini 0.00015 / 0.0006 | `claude.py:66-67`; `gemini.py:69-70` |
 | `ConfigValidator.SCHEMAS["ai_settings"]` requires `default_provider` in `["claude","gemini"]` and declares `per_report_override`; its only user is `tests/test_config_system.py` | `workmain/config_manager/validator.py:20-26`; `tests/test_config_system.py:58-95` |
 | `providers list` prints routing from `report_type_labels`, three (label, key) pairs | `workmain/cli/commands/providers.py:85-99` |
-| `providers set default` constructs `ProviderManager` only to call `get_registered_provider_names()`; ten tests mock that manager | `providers.py:344-345`; `tests/test_provider_foundation.py:403-645` |
+| `providers set default` constructs `ProviderManager` only to call `get_registered_provider_names()`; its six tests mock that manager. The four `providers test`/`costs` tests above them mock it too, for commands that keep using it | `providers.py:344-345`; `set default` tests `tests/test_provider_foundation.py:508-655`; `test`/`costs` tests `:397-460` |
 | `generate_report_impl` maps `--provider` to a `ProviderType` only in the non-preview branch | `reports.py:182-184` |
 | The existing cap tests copy the live config and stub `pm.generate`, so they never exercise routing | `tests/test_report_generator.py:29-50` |
 | The preview filter test builds the generator with a `MagicMock` provider manager and a template whose metadata carries `ai_provider` | `tests/test_prompt_builder_data_sources.py:127-150` |
@@ -123,12 +127,12 @@ Each step ends with a commit.
 
 **Tests in `test_provider_foundation.py`.** Each is built through `_make_temp_settings` and `_manager_from_dict`.
 
-1. `generate` with an unconfigured `report_type` raises `ConfigurationError` naming it. A `MagicMock` provider placed in `_providers['claude']` and `_providers['gemini']` (as `test_ai_foundation.py:177-178` does) has `generate.assert_not_called()`.
+1. `generate` with an unconfigured `report_type` raises `ConfigurationError` naming it. Place a `MagicMock` provider in `_providers['claude']` and `_providers['gemini']` and discard both names from `_disabled` — `_make_temp_settings` disables them, and `get_provider` checks `_disabled` first — then assert `generate.assert_not_called()` on both.
 2. `generate` with neither a `report_type` nor an override raises `ConfigurationError`.
-3. `primary_provider` absent refuses construction, naming the key. A second case does the same with `null`.
+3. `primary_provider` absent refuses construction, naming the key; within the same test function, `null` does the same.
 4. An unknown `primary_provider` refuses construction, naming the key.
 5. An unknown `fallback_provider` refuses construction, naming the key.
-6. `fallback_provider` absent and `null` each yield `fallback_provider is None`. With a mock primary whose `generate` raises `ProviderError`, `generate` then raises `ProviderError` saying no fallback is configured.
+6. `fallback_provider` absent and `null` each yield `fallback_provider is None`, both within one test function. With a mock primary in `_providers` whose `generate` raises `ProviderError`, and its name discarded from `_disabled` as in test 1, `generate` then raises `ProviderError` saying no fallback is configured.
 7. `get_provider_for_report` with an unconfigured type raises `ConfigurationError`.
 8. `estimate_cost` with an override prices at the override's rates.
 9. `get_report_type_names()` equals the config's `report_types` keys.
@@ -237,12 +241,12 @@ In `test_prompt_builder_data_sources.py`, drop `metadata.ai_provider` from the m
 **`set default`:**
 
 - Replace `get_provider_manager().get_registered_provider_names()` at `:344-345` with `[p.value for p in ProviderType]` (DR2). The command then reads and writes the JSON without constructing a manager.
-- Remove the now-unused `get_provider_manager` patch and mock from the ten `set default` tests (§2).
+- Remove the now-unused `get_provider_manager` patch and mock from the six `set default` tests (`:508-655`). The four `providers test`/`costs` tests at `:397-460` keep theirs: those commands still use the manager, and without the mock `providers test claude` makes a live API call.
 
 **Tests in `test_provider_foundation.py`:**
 
 1. **AC4.4:** a `CliRunner` run of `providers list`, with `workmain.cli.commands.providers.get_provider_manager` patched to return a `_manager_from_dict` manager whose settings hold a report type named `zz_sentinel_report`. The output lists that name with its primary.
-2. **`set default` repairs an entry DR2 would refuse:** with `_SETTINGS_PATH` patched to a temp config whose `daily_internal.primary_provider` is `"nonesuch"`, `set default daily_internal claude --force` exits 0 and writes `claude`.
+2. **`set default` repairs an entry DR2 would refuse:** with `_SETTINGS_PATH` patched to a temp config whose `daily_internal.primary_provider` is `"nonesuch"`, and `workmain.cli.commands.providers.get_provider_manager` patched with `side_effect=AssertionError("set default must not construct a manager")`, `set default daily_internal claude --force` exits 0 and writes `claude`. The `side_effect` is what fails the test if the command still builds a manager: the live config is valid, so building one would otherwise succeed.
 
 ### Step 6 — `docs/AI_SETTINGS_GUIDE.md`
 
