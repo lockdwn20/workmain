@@ -1,6 +1,6 @@
 # Call Routing and Provider Eligibility — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261002
 **Branch:** `feature/issue-163-provider-eligibility` (from `dev`)
@@ -27,6 +27,7 @@
 | 20261002 | Caliper R2-F1 | AC1.5 compared against `dev` output that has no rows for the four calls routed in code, and the intent calls' fallback mode differs (`manual` from the override branch, `auto` from the new entries) with no effect | Accepted. AC1.5 states each expected row against the output taken before Step 1's edits on this branch, and does not compare mode where there is no fallback. |
 | 20261002 | Caliper F5 | A route naming a `ProviderType` with no `providers` entry loads today and would be refused under DR4 with a misleading "does not accept" message | Accepted. DR4's first check, with its own message; AC1.2 gains a row. |
 
+| 20261002 | Ray | Spec approved for implementation after Caliper rounds 1 and 2 | Approved. |
 ---
 
 ## 1. Scope
