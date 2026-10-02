@@ -163,30 +163,6 @@
     "format_list": ["bullets", "bulleted_list", "numbered_list", "paragraphs", "time_summary", "meeting_list"]
   },
   
-  "ai_providers": {
-    "description": "Available AI providers for report generation",
-    "providers": {
-      "claude": {
-        "display_name": "Claude (Anthropic)",
-        "description": "Best for: Internal reports, note summarization, technical content",
-        "model": "claude-sonnet-4-5-20250929",
-        "api_key_env": "ANTHROPIC_API_KEY",
-        "recommended_for": ["daily_internal", "note_summarization"],
-        "strengths": ["Technical accuracy", "Professional tone", "Concise summaries"]
-      },
-      "gemini": {
-        "display_name": "Gemini (Google)",
-        "description": "Best for: Client reports, business-friendly language",
-        "model": "gemini-2.5-flash",
-        "api_key_env": "GOOGLE_API_KEY",
-        "recommended_for": ["weekly_client", "client_communication"],
-        "strengths": ["Business language", "Client-friendly tone", "Accessible style"]
-      }
-    },
-    "provider_list": ["claude", "gemini"],
-    "default_provider": "claude"
-  },
-  
   "recipient_types": {
     "description": "Valid recipient types for reports",
     "types": {
@@ -244,7 +220,6 @@
       "exclude_tags",
       "format",
       "max_items",
-      "ai_provider",
       "group_by",
       "show_total",
       "time_format"
@@ -266,11 +241,6 @@
         "time_summary": "time_entries",
         "meeting_list": "meetings"
       }
-    },
-    "ai_provider_validation": {
-      "must_be_in_provider_list": true,
-      "can_be_null": true,
-      "defaults_to_template_preference": true
     }
   },
   
@@ -287,7 +257,7 @@
     ],
     "section_structure": {
       "required": ["name", "title", "required"],
-      "recommended": ["ai_instruction", "data_sources", "format", "ai_provider"],
+      "recommended": ["ai_instruction", "data_sources", "format"],
       "optional": ["include_tags", "exclude_tags", "max_items", "group_by", "show_total"]
     }
   },
@@ -305,8 +275,7 @@
           "ai_instruction": "Summarize the day's work",
           "data_sources": ["notes"],
           "include_tags": ["both", "internal-only"],
-          "format": "paragraphs",
-          "ai_provider": "claude"
+          "format": "paragraphs"
         }
       ]
     },
@@ -319,8 +288,7 @@
       "include_tags": ["both", "internal-only"],
       "exclude_tags": ["client-report", "info-only"],
       "format": "bulleted_list",
-      "max_items": 10,
-      "ai_provider": "claude"
+      "max_items": 10
     }
   }
 }

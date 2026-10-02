@@ -147,6 +147,10 @@ def generate_report_impl(
             )
             return
 
+        provider_type = None
+        if provider:
+            provider_type = ProviderType.CLAUDE if provider.lower() == 'claude' else ProviderType.GEMINI
+
         if preview_only:
             console.print(f"\n[cyan]Previewing {template_name} report for {report_date}...[/cyan]\n")
 
@@ -155,14 +159,21 @@ def generate_report_impl(
                 report_date=report_date,
                 filter_client=filter_client,
                 client_id=client_id_filter,
+                provider=provider_type,
             )
 
             console.print("[bold]Report Preview:[/bold]")
             console.print(f"  Template: {preview['template_name']}")
             console.print(f"  Date: {preview['report_date']}")
             console.print(f"  Provider: {preview['provider']}")
-            console.print(f"  Estimated tokens: ~{preview['estimated_tokens']:,}")
-            console.print(f"  Estimated cost: ~${preview['estimated_cost']:.6f}")
+            console.print(f"  Estimated prompt tokens: ~{preview['estimated_tokens']:,}")
+            if preview['estimated_cost'] is None:
+                console.print(f"  Estimated cost: unavailable — {preview['cost_unavailable_reason']}")
+            else:
+                console.print(
+                    f"  Estimated cost: up to ~${preview['estimated_cost']:.6f} "
+                    f"(completion at the {preview['max_completion_tokens']:,}-token cap)"
+                )
             console.print()
 
             console.print("[bold]System Prompt (first 500 chars):[/bold]")
@@ -178,10 +189,6 @@ def generate_report_impl(
 
         else:
             console.print(f"\n[cyan]Generating {template_name} report for {report_date}...[/cyan]")
-
-            provider_type = None
-            if provider:
-                provider_type = ProviderType.CLAUDE if provider.lower() == 'claude' else ProviderType.GEMINI
 
             result = generator.generate_report(
                 template_name=template_name,

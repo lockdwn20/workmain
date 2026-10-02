@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.36.0] - 2026-10-01
+
+A report template's AI settings lived in several places that disagreed: provider fields in every template file, a provider list in the template field definitions, a second routing reader in the config loader, and hardcoded defaults inside `ProviderManager`. Only `config/ai_settings.json` `report_types` decided anything, and `monthly_executive` had no entry there at all (issue #150).
+
+### Added
+
+- `monthly_executive` has a `report_types` entry, so it can be generated
+- `workmain reports preview` honours `--provider`, and prices the preview at the routed provider's configured rates, up to the template's `max_tokens` cap
+- A provider disabled because it could not be constructed, such as one with no API key, says why instead of suggesting `enabled: true`
+
+### Changed
+
+- A report type routes only through its own `report_types` entry. An unconfigured report type raises `ConfigurationError` naming the entry, instead of falling back to Claude then Gemini
+- `primary_provider` is required and must be a `ProviderType` name; `fallback_provider` is optional, and absent or `null` means no fallback
+- `workmain providers list` shows every configured report type, read from the configuration
+- `workmain providers set default` validates provider names without loading the provider configuration, so it can repair an entry that no longer loads
+
+### Removed
+
+- Provider fields from the report templates, `templates/fields/field_definitions.json`, the template validator, `templates show` and `templates create`
+- `ConfigLoader.get_ai_provider_for_report`, `TemplateLoader.get_template_info` and the `ai_settings` schema in `ConfigValidator`, all of which read keys that do not exist
+- The unread `tags_include` and `tags_exclude` keys from every `report_types` entry
+
+Suite: 1043 passed (baseline 1027 passed).
+
 ## [1.35.1] - 2026-10-01
 
 Four tests searched a command's rendered terminal output for what the command decided, so their results depended on the terminal width and on how wide live database ids had grown. One failed on every run once the `notes` id sequence passed 100,000 (issue #156).

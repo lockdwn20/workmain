@@ -79,13 +79,14 @@ workmain never pre-loads a model. Keep-alive (`CLAUDE.md` § OLLAMA_KEEP_ALIVE) 
 
 ## `report_types` Section
 
-Each key is a report type name used throughout the codebase
-(`daily_internal`, `weekly_client`, `note_condensation`).
+Each key is the name of a report template in `templates/reports/`, or of a whole-report call such as `note_condensation`.
+A report template's AI settings (provider, fallback, `max_tokens`) live in its entry and nowhere in the template file.
+A template without an entry cannot be generated.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `primary_provider` | string | Provider name to use first. Must match a key under `providers`. |
-| `fallback_provider` | string | Provider to use if primary fails. Set via `providers set default --fallback`. |
+| `primary_provider` | string | Required. Provider name to use first: a name defined by `ProviderType` in `workmain/ai/base_provider.py`. Anything else refuses to load. |
+| `fallback_provider` | string | Optional, from the same names. Absent or `null` means no fallback. Provider to use if primary fails. Set via `providers set default --fallback`. |
 | `fallback_mode` | `"auto"` \| `"manual"` | `auto` = silently fall back; `manual` = raise error and ask user to retry with `--provider` |
 | `max_cost_per_report` | float | Soft cost ceiling (informational — not enforced in current version) |
 | `max_tokens` | int | Required, no default. The total output ceiling for this report type — thinking plus answer, on every provider. Each provider maps it to its own vendor parameter (Claude `max_tokens`, Gemini `max_output_tokens`, Ollama `num_predict`). Absent or non-positive → `ConfigurationError` naming the entry. |
