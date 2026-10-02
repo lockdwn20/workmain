@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Complete, except AC7.1, which is a stated reading by Ray and has not been given. A provider's name is written once, in its class's `provider_type`. Every `providers` key is checked at load. Every provider and report-type argument in the five command files is checked against `config/ai_settings.json` through `workmain/utils/ai_arguments.py`. No spec discrepancy was found before Step 1 and none arose during implementation.
+Complete. AC7.1, a stated reading by Ray, is Met. A provider's name is written once, in its class's `provider_type`. Every `providers` key is checked at load. Every provider and report-type argument in the five command files is checked against `config/ai_settings.json` through `workmain/utils/ai_arguments.py`. No spec discrepancy was found before Step 1 and none arose during implementation.
 
 ## 2. What shipped, by step
 
@@ -33,7 +33,7 @@ Complete, except AC7.1, which is a stated reading by Ray and has not been given.
 | AC5.1 | Met | `pytest tests/test_provider_foundation.py::test_every_provider_type_has_its_class`: passed; `grep -rnE "'(claude\|gemini\|ollama)'\s*:" workmain/ai/providers/` and `grep -rn 'provider="ollama"' workmain/`: zero hits |
 | AC5.2 | Met | `pytest tests/test_provider_foundation.py::test_unknown_providers_key_refuses_construction ::test_providers_key_without_class_refuses_construction`: both passed |
 | AC6.1 | Met | `grep -nE "provider_override\|provider: Optional" workmain/daemon/narration.py` and `grep -rn "def get_api_key" workmain/config_manager/`: zero hits |
-| AC7.1 | Pending Ray's reading | `docs/AI_SETTINGS_GUIDE.md` § `providers` Section (opening paragraph) and § How to add a new provider (five steps, closing paragraph) |
+| AC7.1 | Met | `docs/AI_SETTINGS_GUIDE.md` § `providers` Section (opening paragraph) and § How to add a new provider (five steps, closing paragraph) |
 | AC8.1 | Met | `pytest`: 1075 passed, 0 failed (v1.36.0 baseline 1043 plus 32) |
 
 ## 4. Deviations from spec
