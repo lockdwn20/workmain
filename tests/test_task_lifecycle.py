@@ -21,9 +21,11 @@ import unittest
 import uuid
 from datetime import date, datetime
 from typing import Optional
+from unittest.mock import patch
 
 import pytest
 from click.testing import CliRunner
+from rich.table import Table
 
 from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.task_status_repo import TaskStatusRepository
@@ -361,24 +363,30 @@ class TestTasksListCapAndCarryoverRetirement(unittest.TestCase):
         self.session.commit()
         return note.id
 
+    def _list_rows(self, args):
+        """Invoke ``tasks list`` and return the result and the cells of each row it passed to the table."""
+        with patch.object(Table, 'add_row', autospec=True, side_effect=Table.add_row) as add_row:
+            result = self.runner.invoke(tasks, ['list', *args])
+        return result, [call.args[1:] for call in add_row.call_args_list]
+
     def test_list_all_removes_cap(self):
         """tasks list --all returns all rows; default --limit still caps at 20."""
         markers = []
         for i in range(25):
-            # Zero-padded index: an unpadded "_2" would be a substring of
-            # "_20".."_24" and inflate the hit count below.
             marker = f"gate1allcap_{self.run_id}_{i:02d}"
             markers.append(marker)
             self._seed_task(marker, 'active', datetime(2099, 7, 1, 9, i))
 
-        default_result = self.runner.invoke(tasks, ['list'])
+        default_result, default_rows = self._list_rows([])
         self.assertEqual(default_result.exit_code, 0, default_result.output)
-        default_hits = sum(1 for m in markers if m in default_result.output)
+        default_contents = [row[4] for row in default_rows]
+        default_hits = sum(1 for m in markers if f"Sentinel {m} 2099" in default_contents)
         self.assertEqual(default_hits, 20, default_result.output)
 
-        all_result = self.runner.invoke(tasks, ['list', '--all'])
+        all_result, all_rows = self._list_rows(['--all'])
         self.assertEqual(all_result.exit_code, 0, all_result.output)
-        all_hits = sum(1 for m in markers if m in all_result.output)
+        all_contents = [row[4] for row in all_rows]
+        all_hits = sum(1 for m in markers if f"Sentinel {m} 2099" in all_contents)
         self.assertEqual(all_hits, 25, all_result.output)
 
     def test_list_status_all_value(self):
@@ -390,11 +398,12 @@ class TestTasksListCapAndCarryoverRetirement(unittest.TestCase):
         self._seed_task(completed_marker, 'completed', datetime(2099, 8, 1, 9, 1))
         self._seed_task(dismissed_marker, 'dismissed', datetime(2099, 8, 1, 9, 2))
 
-        result = self.runner.invoke(tasks, ['list', '--status', 'all'])
+        result, rows = self._list_rows(['--status', 'all'])
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn(active_marker, result.output)
-        self.assertIn(completed_marker, result.output)
-        self.assertIn(dismissed_marker, result.output)
+        contents = [row[4] for row in rows]
+        self.assertIn(f"Sentinel {active_marker} 2099", contents)
+        self.assertIn(f"Sentinel {completed_marker} 2099", contents)
+        self.assertIn(f"Sentinel {dismissed_marker} 2099", contents)
 
     def test_list_header_truncation_honest(self):
         """Header reads 'N of M found' when truncated, 'N found' (no 'of') when not."""

@@ -428,10 +428,12 @@ class TestSlackPostWeeklySharedRunner(unittest.TestCase):
         offers no post — matches prior default-to-no-post behavior."""
         d = date(2098, 10, 2)
         self._seed(d, status='unconfirmed', content='Unconfirmed weekly content.')
-        result, mock_client, mock_runner = self._invoke('20981002')
+        with patch('click.prompt') as prompt:
+            result, mock_client, mock_runner = self._invoke('20981002')
         self.assertEqual(result.exit_code, 0, result.output)
         mock_client.post_message.assert_not_called()
-        self.assertIn('no message posted', result.output.lower())
+        prompt.assert_not_called()
+        self.assertIn('no message posted', ' '.join(result.output.lower().split()))
 
     def test_declining_the_post_prompt_sends_nothing(self):
         d = date(2098, 10, 3)
