@@ -1,6 +1,6 @@
 # Provider and Report-Type Names — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261002
 **Branch:** `feature/issue-154-reports-live-arguments` (from `dev`)
@@ -41,6 +41,7 @@
 | 20261002 | Caliper n2 | With `valid=['nonesuch']`, the M1 error would print `Valid providers: nonesuch` | Accepted. DR4 lists only names that pass both checks; Step 2 test 3 asserts `nonesuch` is absent after `Valid providers:`. |
 | 20261002 | Caliper n3 | Narrowing AC4.1 to touched files also narrowed the issue's own patterns, which must cover all of `workmain/` | Accepted. AC4.1 runs two greps: the issue's patterns over `workmain/`, the docstring patterns over the touched files. |
 | 20261002 | Caliper | `base_provider.py:52` "Claude/Gemini providers ignore this field" is a two-name list the grep misses; AC5.1 overstates while `intent_parser.py:48` keeps `get_provider('ollama')` | Accepted. Step 1 rewords the comment; AC5.1 names the #163 exception. |
+| 20261002 | Ray | Spec approved for implementation after Caliper rounds 1 and 2 | Approved. |
 
 ---
 
