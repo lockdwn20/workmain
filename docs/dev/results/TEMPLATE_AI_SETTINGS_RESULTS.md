@@ -50,7 +50,7 @@ Complete. All six steps are implemented, one commit each, on `feature/issue-150-
 - **Baseline:** `pytest --collect-only -q` before Step 1: 1027 tests collected.
 - **After Step 6:** `pytest`: 1042 passed, 1 failed, 0 skipped (1043 collected). The failure was `tests/test_task_lifecycle.py::TestTasksListCapAndCarryoverRetirement::test_list_status_all_value`, which also failed on the base commit `678357c`, so this branch did not cause it. Hotfix #156 (test render width) fixed it.
 - **After merging `dev` (with #156) into the branch:** `pytest`: **1043 passed, 0 failed, 0 skipped**.
-- **Live verification:** `ProviderManager()` constructed against the live `config/ai_settings.json` after Step 2; `get_report_type_names()` returns the four configured types. No CLI preview was run against live providers.
+- **Live verification:** `ProviderManager()` constructed against the live `config/ai_settings.json` after Step 2; `get_report_type_names()` returns the four configured types. At close-out, against the live config: `workmain reports preview monthly_executive` reported `claude` and `up to ~$0.167128` (3,564 prompt tokens × 0.002/1k + the 16,000 cap × 0.01/1k); `workmain reports preview daily_internal --provider gemini` reported `gemini` and `up to ~$0.061821` (2,428 × 0.00075/1k + 16,000 × 0.00375/1k), both exactly the configured rates; `workmain providers list` listed all four configured report types, `monthly_executive` included.
 - **Daemon restart:** not performed; `/closeout` owns it after the merge to `dev`.
 
 ## 6. Follow-ups

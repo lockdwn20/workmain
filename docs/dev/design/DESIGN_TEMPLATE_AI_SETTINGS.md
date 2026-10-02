@@ -1,6 +1,6 @@
 # Report Template AI Settings — Design Study
 
-**Status:** Active
+**Status:** Shipped
 **Kind:** Design study
 **Author:** Spanner (Role 1)
 **Date:** 20260930

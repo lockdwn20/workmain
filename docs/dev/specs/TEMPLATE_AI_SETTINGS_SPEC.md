@@ -1,6 +1,6 @@
 # Report Template AI Settings — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261001
 **Branch:** `feature/issue-150-template-ai-settings` (from `dev`)
