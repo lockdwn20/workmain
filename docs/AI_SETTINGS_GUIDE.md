@@ -8,7 +8,7 @@ Annotated schema reference for `config/ai_settings.json`.
 
 AI provider configuration lives in two files with a strict ownership boundary — no key appears in both:
 
-- `config/ai_settings.json` owns **which provider and how it is orchestrated**: `enabled`, `model`, `api_key_env`, costs, rate limits, retry, `report_types` routing, fallback, cost tracking, and each call type's `max_tokens` — a report type's own `report_types` entry, and every other call type in `application_functions`.
+- `config/ai_settings.json` owns **which provider and how it is orchestrated**: `enabled`, `model`, `api_key_env`, costs, rate limits, retry, fallback, cost tracking, and each call type's routing and `max_tokens` — a report type's own `report_types` entry, and every other call type in `application_functions`.
 - `config/providers/<name>/settings.json` owns **how we talk to that provider**: the request payload policy — what parameters every request carries. This file declares what we *send*, never what a model *supports*. See § The request payload policy below.
 
 Both files are directly user-editable — the CLI commands are convenience wrappers, not gatekeepers. For `ai_settings.json`, direct edit and `workmain providers set default` are equally valid.
@@ -23,8 +23,8 @@ Both files are directly user-editable — the CLI commands are convenience wrapp
 | `description` | string | Human label |
 | `last_updated` | string | YYYYMMDD — updated by `providers set default` on every write |
 | `providers` | object | One section per provider (see below) |
-| `report_types` | object | Provider assignments and `max_tokens` cap per report type |
-| `application_functions` | object | `max_tokens` cap for every non-report-type call (see § `application_functions` below) |
+| `report_types` | object | Provider assignments, `instructions` and `max_tokens` cap per report type |
+| `application_functions` | object | The same routing keys for every non-report-type call (see § `application_functions` below) |
 | `fallback_settings` | object | Global fallback behaviour defaults |
 | `cost_tracking` | object | Cost alerting thresholds |
 | `advanced` | object | Context window and caching settings |
@@ -43,6 +43,7 @@ Each key under `providers` is a `ProviderType` value (`workmain/ai/base_provider
 | `model` | string | Model name read at provider instantiation. Change here to switch models — no code edits needed. Takes effect on next CLI invocation (singleton caches the old value). |
 | `api_key_env` | string | Name of the environment variable that holds the API key. **Never store the key itself here.** The provider reads `os.getenv(api_key_env)` at startup. |
 | `cost_structure` | string | Human-readable pricing label displayed by `providers list`. Update here if pricing changes — purely informational. |
+| `accepts` | list | Required on every provider, enabled or not. The `instructions` values this provider can serve. Absent, empty, or holding an unknown value refuses to load. See § Which providers can serve a call. |
 
 ### Claude-Specific Fields
 
@@ -84,7 +85,8 @@ A template without an entry cannot be generated.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `primary_provider` | string | Required. Provider name to use first: a name defined by `ProviderType` in `workmain/ai/base_provider.py`. Anything else refuses to load. |
+| `instructions` | string | Required. How this call's instructions reach the model. Absent or unknown refuses to load. See § Which providers can serve a call. |
+| `primary_provider` | string | Required. Provider name to use first: a name defined by `ProviderType` in `workmain/ai/base_provider.py`. Anything else refuses to load, as does a provider that does not accept this entry's `instructions`. |
 | `fallback_provider` | string | Optional, from the same names. Absent or `null` means no fallback. Provider to use if primary fails. Set via `providers set default --fallback`. |
 | `fallback_mode` | `"auto"` \| `"manual"` | `auto` = silently fall back; `manual` = raise error and ask user to retry with `--provider` |
 | `max_cost_per_report` | float | Soft cost ceiling (informational — not enforced in current version) |
@@ -109,6 +111,8 @@ workmain providers set default daily_internal claude --fallback gemini
 Uses read-modify-write — only targeted fields are changed, all others preserved.
 Takes effect on next CLI invocation (running process caches the old config).
 
+Both options are refused for a provider that cannot serve the report type; see § Which providers can serve a call.
+
 ### Fallback behaviour
 
 When `primary_provider` fails (API error, rate limit), `ProviderManager.generate()` automatically
@@ -122,16 +126,37 @@ using `--provider <fallback>`.
 
 ## `application_functions` Section
 
-`max_tokens` for every AI call that is not a `report_types` entry. A name may appear in only one of the two blocks — `ProviderManager` refuses construction if the same call type is declared in both.
+Routing and `max_tokens` for every AI call that is not a `report_types` entry. A name may appear in only one of the two blocks — `ProviderManager` refuses construction if the same call type is declared in both.
 
 | Key | Description |
 |-----|-------------|
-| `daemon_narration` | The daemon's pre-flight check narration (`workmain/daemon/narration.py`). Routes as `daily_internal` for provider selection; this key only sets its cap. |
-| `intent_parse` | `IntentParser.parse()` — free-text Slack intent parsing via Ollama. |
-| `task_match` | `IntentParser.parse_task_match()` — carry-forward task/note matching via Ollama. |
-| `note_dedup` | `IntentParser.parse_note_duplicate()` — note-to-note dedup via Ollama. |
+| `daemon_narration` | The daemon's pre-flight check narration (`workmain/daemon/narration.py`). |
+| `intent_parse` | `IntentParser.parse()` — free-text Slack intent parsing. |
+| `task_match` | `IntentParser.parse_task_match()` — carry-forward task/note matching. |
+| `note_dedup` | `IntentParser.parse_note_duplicate()` — note-to-note dedup. |
 
-Each entry is `{"max_tokens": <positive int>}`. Same rule as `report_types.max_tokens`: required, no default, `ConfigurationError` naming the entry if absent or non-positive. Read via `ProviderManager.get_max_tokens(call_type)`, which checks `report_types` first, then `application_functions`, then raises naming the key.
+Each entry takes the same keys as a `report_types` entry: `instructions` and `primary_provider` are required; `fallback_provider`, `fallback_mode`, `max_cost_per_report` and `max_tokens` are read exactly as there. `max_tokens` is required with no default; `ConfigurationError` names the entry if it is absent or non-positive. Read via `ProviderManager.get_max_tokens(call_type)`.
+
+---
+
+## Which providers can serve a call
+
+A call's `instructions` says where its instructions live; a provider's `accepts` lists the values it can serve. A route is valid only when the provider's `accepts` contains the call's `instructions`.
+
+| `instructions` | Where the instructions are | Call types |
+| --- | --- | --- |
+| `system_prompt` | the request's own system prompt, which the model must follow | `daily_internal`, `weekly_client`, `monthly_executive`, `note_condensation`, `daemon_narration` |
+| `modelfile` | built into the model; the prompt is the bare user message | `intent_parse` |
+| `raw_prompt` | the prompt alone, sent in Ollama raw mode with JSON format so the model's template is skipped | `task_match`, `note_dedup` |
+
+The rule is enforced in four places, all by the same check:
+
+- A `primary_provider` or `fallback_provider` that does not accept the entry's `instructions` refuses to load, naming the key. A route to a provider with no `providers` entry refuses to load too.
+- `--provider` on `reports preview` and `reports save` exits 1 for a provider that cannot serve the report type.
+- `providers set default` exits 1 for a primary or `--fallback` that cannot serve the report type, and leaves the file untouched.
+- `ProviderManager.generate()` raises `ConfigurationError` for a `provider_override` that cannot serve the call type.
+
+Declare `instructions` by what the caller's code builds, not by which provider you want to use. A wrong value passes the check.
 
 ---
 
@@ -192,11 +217,13 @@ Adding a provider requires five steps — no other code changes needed:
      "<name>": {
        "enabled": true,
        "model": "<model-id>",
+       "accepts": ["<instructions value>"],
        "api_key_env": "<API_KEY_ENV_VAR>",
        "cost_structure": "$X/MTok prompt, $Y/MTok completion"
      }
    }
    ```
+   `accepts` is required; see § Which providers can serve a call.
 
 5. **Copy `config/providers/_template/`** to `config/providers/<name>/` and edit its
    `settings.json` `description` and every key the provider reads (vendor-native
