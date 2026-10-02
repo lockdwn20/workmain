@@ -19,6 +19,7 @@
 | 20261001 | Caliper 1 | AC2.2's `COLUMNS` grep and DR3 miss fixing the width by replacing the module `console` or setting a `Console` width, which is the rejected option by another route | Accepted. DR3 bans every means; AC2.2 also checks the lines the branch adds under `tests/`, restricted to added lines so a removed line cannot match. |
 | 20261001 | Caliper 2 | The mutation table names no expected failing assertion, so a mutation failing for an unrelated reason (a bad edit's import error) reads as a pass; M5 fails at the exit code, not at `assert_not_called` | Accepted. The table gains an Expected failure column. |
 | 20261001 | Caliper 3 | Step 2's replacement range is eight assertion lines and a comment, not six | Accepted. Step 2 cites `tests/test_report_history.py:73-85`. |
+| 20261001 | Caliper 5 | AC2.2's command, written in a table cell with `\|`, passes for any diff when run from the raw text | Accepted. The commands move to a fenced block under §5. |
 | 20261001 | Caliper 4 | §2 cites `tests/test_slack.py:426` for the `assert_not_called` assertion, which is at 433 | Accepted. |
 
 ---
@@ -168,13 +169,20 @@ None. This spec runs no migration, deletes no GitHub object, merges nothing and 
 | --- | --- | --- |
 | AC1.1 | `test_list_status_all_value` passes while the seeded rows carry six-digit ids, so id width no longer decides its result | `pytest tests/test_task_lifecycle.py::TestTasksListCapAndCarryoverRetirement::test_list_status_all_value` passes against the live database, whose `notes` id sequence is above 100,000 |
 | AC2.1 | No test's result depends on terminal width | `COLUMNS=60 pytest --ignore=tests/test_ai_clients.py` passes with the same counts as `pytest --ignore=tests/test_ai_clients.py` |
-| AC2.2 | The four tests are width-independent because of what they assert, not because they control the width | `grep -rn "COLUMNS" tests/` returns no hits, and `git diff main...hotfix/issue-156-test-render-width -- tests/ \| grep -nE '^\+.*(COLUMNS\|width\|Console\()'` returns nothing |
+| AC2.2 | The four tests are width-independent because of what they assert, not because they control the width | Both commands under the table return nothing |
 | AC3.1 | `test_list_status_all_value` fails when `--status all` drops a status | M1, recorded in the results artifact |
 | AC3.2 | `test_list_all_removes_cap` fails when `--all` no longer removes the cap | M2, recorded in the results artifact |
 | AC3.3 | `test_history_desc_order` fails when `reports history` stops returning newest first | M3, recorded in the results artifact |
 | AC3.4 | `test_no_post_offered_when_unconfirmed` fails when the user is not told nothing was posted, and when the command goes on to offer a post | M4 and M5, recorded in the results artifact |
 | AC4.1 | Command output is unchanged | `git diff --stat main...hotfix/issue-156-test-render-width -- workmain/` returns nothing |
 | AC5.1 | The full suite passes with no net test loss | `pytest` passes, with the same collected count as the baseline |
+
+AC2.2's commands:
+
+```bash
+grep -rn "COLUMNS" tests/
+git diff main...hotfix/issue-156-test-render-width -- tests/ | grep -nE '^\+.*(COLUMNS|width|Console\()'
+```
 
 ## 6. Test plan
 
