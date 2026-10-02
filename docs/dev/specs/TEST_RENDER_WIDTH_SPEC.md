@@ -1,6 +1,6 @@
 # Test Render Width — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261001
 **Branch:** `hotfix/issue-156-test-render-width` (from `main`)
