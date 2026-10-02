@@ -220,6 +220,39 @@ class TestProviderArguments:
         assert self._run_override(routed='claude', override='gemini') == ['gemini']
 
 
+class TestEligibleProviderArguments:
+
+    @pytest.mark.parametrize('args', [
+        ['set', 'default', 'daily_internal', 'ollama', '--force'],
+        ['set', 'default', 'daily_internal', 'claude', '--fallback', 'ollama', '--force'],
+    ])
+    def test_set_default_refuses_ineligible(self, tmp_path, args):
+        settings = _settings_file(tmp_path, {'daily_internal': _ENTRY})
+        before = settings.read_bytes()
+        with patch('workmain.cli.commands.providers._SETTINGS_PATH', Path(settings)):
+            result = CliRunner().invoke(providers, args)
+        assert result.exit_code == 1, result.output
+        assert 'daily_internal' in result.output
+        assert 'system_prompt' in result.output
+        assert settings.read_bytes() == before
+
+    @pytest.mark.parametrize('args', [
+        ['save', 'daily_internal', '--provider', 'ollama'],
+        ['preview', 'daily_internal', '--provider', 'ollama'],
+    ])
+    def test_override_ineligible_rejected(self, args):
+        manager = _manager(
+            providers=('claude', 'ollama'), report_types={'daily_internal': _ENTRY}
+        )
+        asked = []
+        manager.get_provider = lambda name: asked.append(name)
+        with patch(_PATCH_TARGET, return_value=manager):
+            result = CliRunner().invoke(reports, args)
+        assert result.exit_code == 1, result.output
+        assert 'cannot serve' in result.output
+        assert asked == []
+
+
 class TestReportTypeArguments:
 
     @pytest.mark.parametrize('group, args', [
