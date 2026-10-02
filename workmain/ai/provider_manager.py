@@ -118,11 +118,6 @@ class ProviderManager:
         Used by providers list to display complete provider table."""
         return self._all_configs
 
-    def get_registered_provider_names(self) -> List[str]:
-        """Returns list of all provider names in registry.
-        Used for dynamic CLI validation."""
-        return list(PROVIDER_REGISTRY.keys())
-
     def is_disabled(self, name: str) -> bool:
         """Returns True if the named provider is disabled in config."""
         return name in self._disabled

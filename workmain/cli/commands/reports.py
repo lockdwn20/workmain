@@ -25,6 +25,7 @@ from workmain.database.models import Report
 from workmain.database.repositories.system_state_repository import SystemStateRepository
 from workmain.database.repositories.reports_repo import get_reports_repository
 from workmain.ai import get_report_generator, ReportFormat, ProviderType
+from workmain.utils.ai_arguments import require_provider
 from workmain.utils.date_utils import resolve_date_window, format_date_window_label
 from workmain.utils.editor import edit_in_editor
 from workmain.utils.self_invoke import TIMEOUT_NETWORK, run_workmain
@@ -109,16 +110,16 @@ def get_client_filter(
 def generate_report_impl(
     template_name: str,
     preview_only: bool = False,
-    provider: Optional[str] = None,
+    provider: Optional[ProviderType] = None,
     report_date: Optional[date] = None,
 ):
     """
     Implementation for report generation.
 
     Args:
-        template_name: Template name (daily_internal, weekly_client)
+        template_name: Template name
         preview_only: If True, preview without generating
-        provider: AI provider override (claude/gemini)
+        provider: AI provider override
         report_date: Date to generate report for (default: today)
     """
     db = get_db()
@@ -147,10 +148,6 @@ def generate_report_impl(
             )
             return
 
-        provider_type = None
-        if provider:
-            provider_type = ProviderType.CLAUDE if provider.lower() == 'claude' else ProviderType.GEMINI
-
         if preview_only:
             console.print(f"\n[cyan]Previewing {template_name} report for {report_date}...[/cyan]\n")
 
@@ -159,7 +156,7 @@ def generate_report_impl(
                 report_date=report_date,
                 filter_client=filter_client,
                 client_id=client_id_filter,
-                provider=provider_type,
+                provider=provider,
             )
 
             console.print("[bold]Report Preview:[/bold]")
@@ -193,7 +190,7 @@ def generate_report_impl(
             result = generator.generate_report(
                 template_name=template_name,
                 report_date=report_date,
-                provider=provider_type,
+                provider=provider,
                 save_to_file=True,
                 output_format=ReportFormat.MARKDOWN,
                 client_id=active_client_id,
@@ -238,8 +235,7 @@ def reports():
 
 @reports.command('preview')
 @click.argument('template')
-@click.option('--provider', type=click.Choice(['claude', 'gemini'], case_sensitive=False),
-              help='Override AI provider')
+@click.option('--provider', help='Override AI provider')
 def report_preview(template: str, provider: Optional[str]):
     """
     Preview report prompts without generating (no AI cost).
@@ -249,13 +245,12 @@ def report_preview(template: str, provider: Optional[str]):
       workmain reports preview daily_internal
       workmain reports preview weekly_client --provider claude
     """
-    generate_report_impl(template, preview_only=True, provider=provider)
+    generate_report_impl(template, preview_only=True, provider=require_provider(provider))
 
 
 @reports.command('save')
 @click.argument('template')
-@click.option('--provider', type=click.Choice(['claude', 'gemini'], case_sensitive=False),
-              help='Override AI provider')
+@click.option('--provider', help='Override AI provider')
 @click.option('-d', '--date', 'report_date_str', default=None, metavar='YYYY-MM-DD',
               help='Generate report for this date instead of today')
 def report_save(template: str, provider: Optional[str], report_date_str: Optional[str]):
@@ -268,6 +263,7 @@ def report_save(template: str, provider: Optional[str], report_date_str: Optiona
       workmain reports save weekly_client --provider gemini
       workmain reports save daily_internal --date 2026-03-30
     """
+    provider_type = require_provider(provider)
     target_date = None
     if report_date_str:
         try:
@@ -275,7 +271,7 @@ def report_save(template: str, provider: Optional[str], report_date_str: Optiona
         except ValueError:
             console.print(f"[red]✗ Invalid date: '{report_date_str}' — expected YYYY-MM-DD[/red]")
             return
-    generate_report_impl(template, preview_only=False, provider=provider, report_date=target_date)
+    generate_report_impl(template, preview_only=False, provider=provider_type, report_date=target_date)
 
 
 @reports.command('send')
@@ -761,8 +757,7 @@ def report_resend(id: int):
 
 
 @reports.command('costs')
-@click.option('--provider', '-P', type=click.Choice(['claude', 'gemini'], case_sensitive=False),
-              help='Filter by AI provider')
+@click.option('--provider', '-P', help='Filter by AI provider')
 @click.option('--type', 'report_type', '-R',
               type=click.Choice(['daily_internal', 'weekly_client'], case_sensitive=False),
               help='Filter by report type')
@@ -803,6 +798,8 @@ def report_costs(
       workmain reports costs -b 2026-05-01 -e 2026-05-15
       workmain reports costs --all -n 50
     """
+    provider_type = require_provider(provider)
+
     try:
         start_date, end_date = resolve_date_window(date_str, start_str, end_str, month_str, show_all)
     except click.UsageError as e:
@@ -832,9 +829,9 @@ def report_costs(
                 continue
             if end_date and report.report_date > end_date:
                 continue
-            if provider:
+            if provider_type:
                 rp = (report.report_metadata or {}).get('ai_provider', '').lower()
-                if rp != provider.lower():
+                if rp != provider_type.value:
                     continue
             if report_type and report.report_type != report_type:
                 continue

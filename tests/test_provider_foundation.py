@@ -373,14 +373,6 @@ def test_get_all_provider_configs_includes_disabled():
     assert 'ollama' in configs
 
 
-def test_get_registered_provider_names():
-    """get_registered_provider_names() returns ['claude', 'gemini', 'ollama']."""
-    settings = _make_temp_settings()
-    manager = _manager_from_dict(settings)
-    names = manager.get_registered_provider_names()
-    assert set(names) == {'claude', 'gemini', 'ollama'}
-
-
 def test_get_configured_provider_names_includes_disabled():
     """get_configured_provider_names() returns every providers key, in config order."""
     settings = _make_temp_settings()
@@ -433,10 +425,11 @@ def test_providers_test_known_provider_no_bad_parameter():
     # claude is in registry — should pass validation and reach the actual test logic
     # We mock the manager to avoid real API calls
     mock_manager = MagicMock()
-    mock_manager.get_registered_provider_names.return_value = ['claude', 'gemini', 'ollama']
+    mock_manager.get_configured_provider_names.return_value = ['claude', 'gemini', 'ollama']
     mock_manager.is_disabled.return_value = True  # short-circuit to disabled message
 
-    with patch('workmain.cli.commands.providers.get_provider_manager', return_value=mock_manager):
+    with patch('workmain.cli.commands.providers.get_provider_manager', return_value=mock_manager), \
+            patch('workmain.utils.ai_arguments.get_provider_manager', return_value=mock_manager):
         result = runner.invoke(providers, ['test', 'claude'])
 
     # BadParameter would produce exit code 2; disabled message is exit code 0
@@ -448,9 +441,10 @@ def test_providers_test_unknown_provider_bad_parameter():
     """providers test unknown_provider → BadParameter with valid list in message."""
     runner = CliRunner()
     mock_manager = MagicMock()
-    mock_manager.get_registered_provider_names.return_value = ['claude', 'gemini', 'ollama']
+    mock_manager.get_configured_provider_names.return_value = ['claude', 'gemini', 'ollama']
 
-    with patch('workmain.cli.commands.providers.get_provider_manager', return_value=mock_manager):
+    with patch('workmain.cli.commands.providers.get_provider_manager', return_value=mock_manager), \
+            patch('workmain.utils.ai_arguments.get_provider_manager', return_value=mock_manager):
         result = runner.invoke(providers, ['test', 'unknown_provider'])
 
     assert result.exit_code != 0
@@ -462,9 +456,10 @@ def test_providers_costs_unknown_provider_bad_parameter():
     """providers costs --provider unknown → BadParameter."""
     runner = CliRunner()
     mock_manager = MagicMock()
-    mock_manager.get_registered_provider_names.return_value = ['claude', 'gemini', 'ollama']
+    mock_manager.get_configured_provider_names.return_value = ['claude', 'gemini', 'ollama']
 
-    with patch('workmain.cli.commands.providers.get_provider_manager', return_value=mock_manager):
+    with patch('workmain.cli.commands.providers.get_provider_manager', return_value=mock_manager), \
+            patch('workmain.utils.ai_arguments.get_provider_manager', return_value=mock_manager):
         result = runner.invoke(providers, ['costs', '--provider', 'unknown'])
 
     assert result.exit_code != 0
@@ -475,9 +470,10 @@ def test_providers_costs_known_provider_no_bad_parameter():
     """providers costs --provider gemini → validation passes (no BadParameter)."""
     runner = CliRunner()
     mock_manager = MagicMock()
-    mock_manager.get_registered_provider_names.return_value = ['claude', 'gemini', 'ollama']
+    mock_manager.get_configured_provider_names.return_value = ['claude', 'gemini', 'ollama']
 
-    with patch('workmain.cli.commands.providers.get_provider_manager', return_value=mock_manager):
+    with patch('workmain.cli.commands.providers.get_provider_manager', return_value=mock_manager), \
+            patch('workmain.utils.ai_arguments.get_provider_manager', return_value=mock_manager):
         # Patch DB calls to avoid test DB dependency
         with patch('workmain.cli.commands.providers.get_db') as mock_db:
             mock_session = MagicMock()
@@ -490,8 +486,8 @@ def test_providers_costs_known_provider_no_bad_parameter():
                 result = runner.invoke(providers, ['costs', '--provider', 'gemini',
                                                    '--all'])
 
-    # Should not be a BadParameter error
-    assert 'Invalid value' not in result.output
+    assert result.exit_code == 0
+    assert 'Unknown provider' not in result.output
 
 
 # ---------------------------------------------------------------------------
@@ -878,7 +874,9 @@ def test_set_default_repairs_entry_the_manager_would_refuse():
 
         with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path), \
                 patch('workmain.cli.commands.providers.get_provider_manager',
-                      side_effect=AssertionError("set default must not construct a manager")):
+                      side_effect=AssertionError("set default must not construct a manager")), \
+                patch('workmain.utils.ai_arguments.get_provider_manager',
+                      side_effect=AssertionError("set default must pass valid=, not read the manager")):
             result = CliRunner().invoke(
                 providers, ['set', 'default', 'daily_internal', 'claude', '--force']
             )
