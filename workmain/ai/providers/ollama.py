@@ -20,6 +20,8 @@ from workmain.ai.base_provider import (
 class OllamaProvider(BaseProvider):
     """Ollama local inference provider — wraps POST /api/generate."""
 
+    provider_type = ProviderType.OLLAMA
+
     def __init__(self, config: dict, policy: Optional[dict] = None):
         super().__init__(config, policy)
         self._host = config.get("host", "localhost")
@@ -92,7 +94,7 @@ class OllamaProvider(BaseProvider):
 
             return GenerationResponse(
                 content=response_text,
-                provider=ProviderType.OLLAMA,
+                provider=self.provider_type,
                 model=self._model,
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
@@ -123,15 +125,3 @@ class OllamaProvider(BaseProvider):
     def count_tokens(self, text: str) -> int:
         """Approximate token count (word-based heuristic)."""
         return len(text.split())
-
-    @property
-    def name(self) -> str:
-        return "ollama"
-
-    @property
-    def display_name(self) -> str:
-        return "Ollama"
-
-    @property
-    def cost_structure(self) -> str:
-        return "Local — no API cost"

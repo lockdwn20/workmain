@@ -31,6 +31,7 @@ from rich import box
 
 from workmain.database.connection import get_db
 from workmain.database.repositories.email_repository import get_email_repository
+from workmain.utils.ai_arguments import require_report_type
 
 console = Console()
 
@@ -635,6 +636,7 @@ def email_assign(recipient_id: int, template: str, role: str):
       workmain email assign 1 daily_internal to
       workmain email assign 2 weekly_client cc
     """
+    require_report_type(template)
     from workmain.database.repositories.system_state_repository import SystemStateRepository
     db = get_db()
     session = db.get_session()
@@ -670,6 +672,7 @@ def email_unassign(recipient_id: int, template: str):
       workmain email unassign 1 daily_internal
       workmain email unassign 2 weekly_client
     """
+    require_report_type(template)
     from workmain.database.repositories.system_state_repository import SystemStateRepository
     db = get_db()
     session = db.get_session()
