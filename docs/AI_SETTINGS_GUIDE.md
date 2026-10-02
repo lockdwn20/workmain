@@ -33,8 +33,7 @@ Both files are directly user-editable — the CLI commands are convenience wrapp
 
 ## `providers` Section
 
-Each key under `providers` is a provider name string matching PROVIDER_REGISTRY
-in `workmain/ai/providers/__init__.py`.
+Each key under `providers` is a `ProviderType` value (`workmain/ai/base_provider.py`) with a provider class in `PROVIDER_REGISTRY` (`workmain/ai/providers/__init__.py`). A key that is not a `ProviderType` value, or has no class, refuses to load whether or not it is enabled.
 
 ### Common Fields
 
@@ -162,31 +161,32 @@ Shipped directories:
 
 ## How to add a new provider
 
-Adding a provider requires four steps — no other code changes needed:
+Adding a provider requires five steps — no other code changes needed:
 
-1. **Create the implementation file:**
+1. **Add a `ProviderType` member** in `workmain/ai/base_provider.py`. Its value is the provider's name everywhere: the `providers` key, the registry key and the CLI argument.
+
+2. **Create the implementation file:**
    ```
    workmain/ai/providers/<name>.py
    ```
    Implement all five abstract methods from `BaseProvider` (generate, estimate_cost,
    validate_config, count_tokens, check_availability). See `providers/claude.py` for
-   a complete example. If `generate()` or `check_availability()` reads any policy key,
+   a complete example. Set `provider_type = ProviderType.<NAME>` on the class and use
+   `self.provider_type` wherever the class names itself. If `generate()` or `check_availability()` reads any policy key,
    declare those keys in a `REQUIRED_POLICY_KEYS` class attribute so an incomplete
    policy is refused at construction rather than failing at request time.
 
-2. **Register it in PROVIDER_REGISTRY:**
+3. **Add the class to the tuple in `providers/__init__.py`.** `PROVIDER_REGISTRY` is built from each class's `provider_type`:
    ```python
    # workmain/ai/providers/__init__.py
    from .<name> import <Name>Provider
    PROVIDER_REGISTRY = {
-       'claude': ClaudeProvider,
-       'gemini': GeminiProvider,
-       'ollama': OllamaProvider,
-       '<name>': <Name>Provider,   # add this line
+       cls.provider_type.value: cls
+       for cls in (ClaudeProvider, GeminiProvider, OllamaProvider, <Name>Provider)
    }
    ```
 
-3. **Add a config section** to `config/ai_settings.json`:
+4. **Add a config section** to `config/ai_settings.json`:
    ```json
    "providers": {
      "<name>": {
@@ -198,12 +198,13 @@ Adding a provider requires four steps — no other code changes needed:
    }
    ```
 
-4. **Copy `config/providers/_template/`** to `config/providers/<name>/` and edit its
+5. **Copy `config/providers/_template/`** to `config/providers/<name>/` and edit its
    `settings.json` `description` and every key the provider reads (vendor-native
    values — see § The request payload policy). An enabled provider with no policy
    file fails to construct. If the provider reads no payload parameters, keep the
    template's `description` alone. Delete `models/` unless this provider has a
    model this project builds (DR2).
 
-That is all. `providers list`, `providers test`, `providers costs --provider`, and
-`providers set default` all update automatically via `get_registered_provider_names()`.
+That is all. Every command that takes a provider accepts the providers configured in
+`ai_settings.json`, so `providers list`, `providers test`, `providers costs --provider`,
+and `providers set default` pick the new one up from step 4.

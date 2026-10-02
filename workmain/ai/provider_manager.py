@@ -41,7 +41,7 @@ class ReportTypeConfig:
     Configuration for a specific report type.
 
     Attributes:
-        report_type: Type of report (daily_internal, weekly_client)
+        report_type: Report type name
         primary_provider: Primary provider to use
         max_tokens: Total output ceiling (thinking plus answer) for this call type
         fallback_provider: Fallback provider if primary fails
