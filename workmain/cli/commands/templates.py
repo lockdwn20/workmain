@@ -204,9 +204,6 @@ def show(template_name: str):
                 
                 if 'format' in section:
                     click.echo(f"   Format: {section['format']}")
-                
-                if 'ai_provider' in section:
-                    click.echo(f"   AI Provider: {section['ai_provider']}")
         
         click.echo("\n" + "=" * 60)
         
@@ -348,11 +345,6 @@ def create(name: str, type: str):
         
         # Gather template details
         description = click.prompt("Description", default="")
-        ai_provider = click.prompt(
-            "AI Provider",
-            type=click.Choice(['claude', 'gemini']),
-            default='claude'
-        )
         output_format = click.prompt(
             "Output Format",
             type=click.Choice(['markdown', 'text', 'html']),
@@ -379,7 +371,6 @@ def create(name: str, type: str):
             "recipient_type": recipient_type,
             "output_format": output_format,
             "metadata": {
-                "ai_provider": ai_provider,
                 "date_range": "day" if 'daily' in name.lower() else "week",
                 "created_at": dt.now().isoformat(),
                 "updated_at": dt.now().isoformat()

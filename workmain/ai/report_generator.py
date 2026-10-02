@@ -2,10 +2,10 @@
 High-level orchestrator for AI report generation with database integration.
 
 Orchestrates the full report generation pipeline, combining prompt_builder,
-the AI clients and templates. Supports optional section-by-section
-generation, saves reports to files (markdown, text) and their metadata to
-the database for analytics, reports generation status and logs errors and
-retries, and tracks costs in the database rather than a JSON file.
+the AI clients and templates. Saves reports to files (markdown, text) and
+their metadata to the database for analytics, reports generation status and
+logs errors and retries, and tracks costs in the database rather than a JSON
+file.
 
 Generating a report loads and validates the template, builds prompts with
 prompt_builder, starts cost tracking, generates content with the AI client,
@@ -32,6 +32,7 @@ from workmain.ai import (
     GenerationResponse,
     ProviderType
 )
+from workmain.ai.base_provider import ProviderUnavailableError
 from workmain.templates_engine import get_template_loader, TemplateLoader
 from workmain.database.repositories.reports_repo import get_reports_repository, ReportsRepository
 
@@ -104,7 +105,7 @@ class ReportGenerator:
         Args:
             template_name: Name of template to use
             report_date: Date for the report
-            provider: AI provider to use (None = use template default)
+            provider: AI provider to use (None = the template's `report_types` routing)
             save_to_file: Whether to save report to file
             output_format: Output format
             filename: Custom filename (optional)
@@ -249,20 +250,28 @@ class ReportGenerator:
         report_date: date,
         filter_client: bool = False,
         client_id: Optional[int] = None,
+        provider: Optional[ProviderType] = None,
     ) -> Dict[str, Any]:
         """
         Preview a report without generating AI content.
 
-        Shows the prompts that would be sent to AI and estimated costs.
+        Shows the prompts that would be sent to AI and an upper-bound cost
+        estimate: the prompt at its estimated size, the completion at the
+        report type's max_tokens cap.
 
         Args:
             template_name: Name of template
             report_date: Date for the report
             filter_client: When True, restrict data to records for client_id
             client_id: Client ID for data filtering
+            provider: Provider to price at (None = the template's report_types routing)
 
         Returns:
-            Dictionary with prompts and estimates
+            Dictionary with prompts and estimates. estimated_cost is None, with
+            cost_unavailable_reason set, when the provider is unavailable.
+
+        Raises:
+            ConfigurationError: If template_name has no report_types entry.
         """
         # Build prompts
         system_prompt, user_prompt = self.prompt_builder.build_prompt(
@@ -275,29 +284,30 @@ class ReportGenerator:
         # Estimate tokens
         estimated_tokens = self.prompt_builder.estimate_tokens(system_prompt, user_prompt)
         
-        # Load template for provider info
-        template = self.template_loader.load(template_name)
-        metadata = template.get("metadata", {})
-        provider_name = metadata.get("ai_provider", "claude")
-        
-        # Estimate cost (rough)
-        if provider_name == "claude":
-            # Assume 50/50 split for completion
-            estimated_cost = (estimated_tokens * 0.003 / 1000) + (estimated_tokens * 0.015 / 1000)
-        else:
-            # Gemini free tier
-            estimated_cost = 0.0
-        
-        return {
+        provider_type = provider or self.provider_manager.get_provider_for_report(template_name)
+        max_completion_tokens = self.provider_manager.get_max_tokens(template_name)
+
+        result = {
             "template_name": template_name,
             "report_date": report_date.isoformat(),
-            "provider": provider_name,
+            "provider": provider_type.value,
             "system_prompt": system_prompt,
             "user_prompt": user_prompt,
             "estimated_tokens": estimated_tokens,
-            "estimated_cost": estimated_cost
+            "max_completion_tokens": max_completion_tokens,
         }
-    
+        try:
+            result["estimated_cost"] = self.provider_manager.estimate_cost(
+                template_name,
+                estimated_tokens,
+                max_completion_tokens,
+                provider_override=provider,
+            )
+        except ProviderUnavailableError as e:
+            result["estimated_cost"] = None
+            result["cost_unavailable_reason"] = str(e)
+        return result
+
     def _get_user_full_name(self) -> str:
         """
         Get user's full name from configuration.

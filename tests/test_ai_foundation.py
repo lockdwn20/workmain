@@ -345,23 +345,4 @@ def test_config_structure():
     # Ollama enabled state depends on deployment — just confirm key present
     assert 'enabled' in config['providers']['ollama']
 
-    assert 'daily_internal' in config['report_types']
-    assert 'weekly_client' in config['report_types']
-
-    valid_providers = {'claude', 'gemini'}
-    daily = config['report_types']['daily_internal']
-    assert 'primary_provider' in daily
-    assert 'fallback_provider' in daily
-    assert daily['primary_provider'] in valid_providers
-    assert daily['fallback_provider'] in valid_providers
-    assert daily['primary_provider'] != daily['fallback_provider']
-    assert daily['fallback_mode'] == 'auto'
-
-    weekly = config['report_types']['weekly_client']
-    assert 'primary_provider' in weekly
-    assert 'fallback_provider' in weekly
-    assert weekly['primary_provider'] in valid_providers
-    assert weekly['fallback_provider'] in valid_providers
-    assert weekly['primary_provider'] != weekly['fallback_provider']
-
     print("✓ Configuration structure valid")

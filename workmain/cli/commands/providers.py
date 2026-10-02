@@ -82,20 +82,12 @@ def list_providers():
     console.print(table)
     console.print()
 
-    report_type_labels = [
-        ('Daily Internal Report', 'daily_internal'),
-        ('Weekly Client Report',  'weekly_client'),
-        ('Note Condensation',     'note_condensation'),
-    ]
     console.print("[bold]Provider Assignments (ai_settings.json):[/bold]")
-    for label, rt in report_type_labels:
+    for rt in manager.get_report_type_names():
         cfg = manager.get_report_config(rt)
-        if cfg:
-            primary = cfg.primary_provider.value.title()
-            fallback = cfg.fallback_provider.value.title() if cfg.fallback_provider else "none"
-            console.print(f"  {label:<26} → {primary} (fallback: {fallback})")
-        else:
-            console.print(f"  {label:<26} → [dim]not configured[/dim]")
+        primary = cfg.primary_provider.value.title()
+        fallback = cfg.fallback_provider.value.title() if cfg.fallback_provider else "none"
+        console.print(f"  {rt:<26} → {primary} (fallback: {fallback})")
     console.print()
 
     console.print("[dim]Use 'workmain providers test <provider>' to verify API connection[/dim]")
@@ -341,8 +333,7 @@ def set_default_provider(report_type: str, provider: str, fallback: Optional[str
       workmain providers set default daily_internal claude --fallback gemini
       workmain providers set default daily_internal gemini --force
     """
-    pm = get_provider_manager()
-    valid_providers = pm.get_registered_provider_names()
+    valid_providers = [p.value for p in ProviderType]
 
     if not _SETTINGS_PATH.exists():
         console.print(f"[red]✗ Config file not found: {_SETTINGS_PATH}[/red]")

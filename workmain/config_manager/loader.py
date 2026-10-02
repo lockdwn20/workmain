@@ -230,26 +230,6 @@ class ConfigLoader:
             ),
         }
     
-    def get_ai_provider_for_report(self, report_type: str) -> str:
-        """
-        Get AI provider for a specific report type
-        
-        Args:
-            report_type: Type of report (daily_internal, weekly_client, etc.)
-            
-        Returns:
-            Provider name (claude, gemini)
-        """
-        ai_config = self.get("ai_settings", default={})
-        
-        # Check per-report override
-        overrides = ai_config.get("per_report_override", {})
-        if report_type in overrides:
-            return overrides[report_type]
-        
-        # Return default provider
-        return ai_config.get("default_provider", "claude")
-    
     def get_api_key(self, provider: str) -> Optional[str]:
         """
         Get API key for a provider (with environment variable support)

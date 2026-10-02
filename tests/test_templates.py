@@ -108,27 +108,6 @@ def test_template_validation():
     return True
 
 
-def test_template_info():
-    """Test getting template info."""
-    print_header("Testing Template Info")
-    
-    loader = get_template_loader()
-    
-    # Get daily info
-    daily_info = loader.get_template_info('daily_internal')
-    print("\nDaily Internal Report Info:")
-    for key, value in daily_info.items():
-        print(f"  {key}: {value}")
-    
-    # Get weekly info
-    weekly_info = loader.get_template_info('weekly_client')
-    print("\nWeekly Client Report Info:")
-    for key, value in weekly_info.items():
-        print(f"  {key}: {value}")
-    
-    return True
-
-
 def test_variable_substitution():
     """Test variable substitution."""
     print_header("Testing Variable Substitution")

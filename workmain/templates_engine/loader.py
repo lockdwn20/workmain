@@ -136,29 +136,6 @@ class TemplateLoader:
         template_files = list(self.templates_dir.glob("*.json"))
         return sorted([f.stem for f in template_files])
     
-    def get_template_info(self, template_name: str) -> Dict[str, Any]:
-        """
-        Get metadata about a template without loading full structure.
-        
-        Args:
-            template_name: Name of template
-            
-        Returns:
-            Dictionary with template metadata (name, description, version, etc.)
-        """
-        template = self.load(template_name)
-        
-        return {
-            'name': template.get('name'),
-            'template_type': template.get('template_type'),
-            'description': template.get('description'),
-            'version': template.get('version', '1.0'),
-            'recipient_type': template.get('recipient_type'),
-            'sections_count': len(template.get('sections', [])),
-            'output_format': template.get('output_format'),
-            'ai_provider_default': template.get('ai_provider_default'),
-        }
-    
     def reload(self, template_name: str) -> Dict[str, Any]:
         """
         Reload a specific template from disk.

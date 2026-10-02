@@ -137,11 +137,6 @@ class TemplateValidator:
             if "format" in section:
                 format_errors = self.validate_format(section["format"])
                 errors.extend(format_errors)
-            
-            # Validate AI provider
-            if "ai_provider" in section:
-                provider_errors = self.validate_ai_provider(section["ai_provider"])
-                errors.extend(provider_errors)
         
         return errors
     
@@ -221,31 +216,6 @@ class TemplateValidator:
         
         return errors
     
-    def validate_ai_provider(self, provider: str) -> List[str]:
-        """
-        Validate AI provider against configured providers.
-        
-        Args:
-            provider: Provider name to validate
-            
-        Returns:
-            List of error messages
-        """
-        if not self.field_definitions:
-            return []
-        
-        errors = []
-        providers_data = self.field_definitions.get("ai_providers", {})
-        valid_providers = set(providers_data.get("provider_list", []))
-        
-        if provider not in valid_providers:
-            errors.append(
-                f"Invalid AI provider '{provider}'. "
-                f"Valid providers: {', '.join(sorted(valid_providers))}"
-            )
-        
-        return errors
-    
     def get_valid_data_sources(self) -> List[str]:
         """
         Get list of valid data sources.
@@ -283,19 +253,6 @@ class TemplateValidator:
         
         formats = self.field_definitions.get("formats", {})
         return formats.get("format_list", [])
-    
-    def get_valid_ai_providers(self) -> List[str]:
-        """
-        Get list of valid AI providers.
-        
-        Returns:
-            List of provider names
-        """
-        if not self.field_definitions:
-            self.load_field_definitions()
-        
-        providers = self.field_definitions.get("ai_providers", {})
-        return providers.get("provider_list", [])
     
     def get_data_source_info(self, source_name: str) -> Optional[Dict[str, Any]]:
         """
