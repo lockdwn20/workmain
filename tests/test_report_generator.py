@@ -157,12 +157,15 @@ def _preview_settings(gemini_enabled=True):
         }
     claude = provider("claude-test", _CLAUDE_RATES)
     claude["api_key_env"] = "ANTHROPIC_API_KEY"
+    claude["accepts"] = ["system_prompt"]
     gemini = provider("gemini-test", _GEMINI_RATES, gemini_enabled)
     gemini["api_key_env"] = "GOOGLE_API_KEY"
+    gemini["accepts"] = ["system_prompt"]
     return {
         "providers": {"claude": claude, "gemini": gemini},
         "report_types": {
             "zz_preview": {
+                "instructions": "system_prompt",
                 "primary_provider": "gemini",
                 "fallback_provider": "claude",
                 "fallback_mode": "auto",
