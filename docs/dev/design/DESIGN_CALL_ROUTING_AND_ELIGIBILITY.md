@@ -81,9 +81,9 @@ One method on `ProviderManager` decides eligibility from the loaded config; ever
 | Q1 | D2: adopt matching on both sides? | Answered 20261002: yes. The register alternatives were never options. |
 | Q2 | F9 is #74's defect, not a new issue. Add the well-formed-but-keyless failure and the raw-mode cause to #74 as a comment, so its spec fixes both and not only the malformed-response rate? | Answered 20261002: yes. Posted as a comment on #74. |
 | Q3 | F13: when #163 lands, reword #132's second criterion from "registered provider names" to the providers eligible for the report type, and add `instructions` to #151's Direction, so neither spec is written against the rule this one replaces? | Answered 20261002: yes, at #163 close-out. |
-| Q4 | Key and value names: `instructions` on the call type, `accepts` on the provider, values `system_prompt`, `modelfile`, `raw_prompt` (replacing the first draft's `contract`, `serves`, `prompted`, `raw_json`)? | |
+| Q4 | Key and value names: `instructions` on the call type, `accepts` on the provider, values `system_prompt`, `modelfile`, `raw_prompt` (replacing the first draft's `contract`, `serves`, `prompted`, `raw_json`)? | Answered 20261002: yes. |
 
 ## 6. Disposition
 
-- Promoted to: —
+- Promoted to: `../specs/CALL_ROUTING_AND_ELIGIBILITY_SPEC.md`
 - Superseded by: —
