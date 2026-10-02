@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.35.1] - 2026-10-01
+
+Four tests searched a command's rendered terminal output for what the command decided, so their results depended on the terminal width and on how wide live database ids had grown. One failed on every run once the `notes` id sequence passed 100,000 (issue #156).
+
+### Fixed
+
+- The `tasks list` and `reports history` tests check the rows each command passes to its table, not the rendered table text
+- The `slack post weekly` test checks that no post prompt is offered for an unconfirmed report, and matches its message regardless of line wrapping
+
+Suite: 1027 passed (baseline 1026 passed, 1 failed).
+
 ## [1.35.0] - 2026-09-29
 
 Ollama was configured and constructed differently from Claude and Gemini: its model build sources sat loose in `config/`, and three sites built an `OllamaProvider` from hardcoded values, two of them inside a handler that hid configuration faults (issue #122).
