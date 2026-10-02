@@ -7,6 +7,7 @@ Covers workmain/utils/ai_arguments.py and every command argument that uses it.
 import json
 import os
 import tempfile
+import unittest
 from datetime import date
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -17,6 +18,8 @@ from click.testing import CliRunner
 from workmain.ai.base_provider import ProviderType
 from workmain.ai.provider_manager import ProviderManager
 from workmain.ai.report_generator import ReportGenerator
+from workmain.database.models import Report
+from workmain.cli.commands.email import email
 from workmain.cli.commands.meetings import meetings
 from workmain.cli.commands.notes import notes
 from workmain.cli.commands.providers import providers
@@ -204,3 +207,87 @@ class TestProviderArguments:
 
     def test_override_reverse(self):
         assert self._run_override(routed='claude', override='gemini') == ['gemini']
+
+
+class TestReportTypeArguments:
+
+    @pytest.mark.parametrize('group, args', [
+        (reports, ['list', '--type', 'daily_internal']),
+        (reports, ['history', '--type', 'daily_internal']),
+        (reports, ['corrections', '--type', 'daily_internal']),
+        (reports, ['costs', '--type', 'daily_internal']),
+        (email, ['assign', '1', 'daily_internal', 'to']),
+        (email, ['unassign', '1', 'daily_internal']),
+        (providers, ['set', 'default', 'daily_internal', 'claude', '--force']),
+    ])
+    def test_type_without_entry_is_rejected(self, tmp_path, group, args):
+        report_types = {'zz_issue154_type': _ENTRY}
+        settings = _settings_file(tmp_path, report_types)
+        with patch(_PATCH_TARGET, return_value=_manager(report_types=report_types)), \
+                patch('workmain.cli.commands.providers._SETTINGS_PATH', Path(settings)):
+            result = CliRunner().invoke(group, args)
+        assert result.exit_code == 1, result.output
+        assert "Unknown report type 'daily_internal'" in result.output
+        assert 'zz_issue154_type' in result.output
+
+    def test_email_assign_accepts_configured_type(self):
+        repo = MagicMock()
+        manager = _manager(report_types={'zz_issue154_type': _ENTRY})
+        with patch(_PATCH_TARGET, return_value=manager), \
+                patch('workmain.cli.commands.email.get_db'), \
+                patch('workmain.cli.commands.email.get_email_repository', return_value=repo), \
+                patch('workmain.database.repositories.system_state_repository.'
+                      'SystemStateRepository'):
+            result = CliRunner().invoke(email, ['assign', '1', 'zz_issue154_type', 'to'])
+        assert result.exit_code == 0, result.output
+        assert repo.assign_recipient.call_args.args[1] == 'zz_issue154_type'
+
+
+class TestReportTypeFiltersRows(unittest.TestCase):
+    """A configured report type absent from the old list filters stored rows.
+
+    Committed-session pattern (tests/test_reports_corrections.py); parametrize
+    does not run on TestCase methods, so this test has its own class.
+    """
+
+    def setUp(self):
+        from dotenv import load_dotenv
+        load_dotenv()
+        from workmain.database.connection import get_db
+        self.session = get_db().get_session()
+        manager = _manager(report_types={'zz_issue154_type': _ENTRY})
+        patcher = patch(_PATCH_TARGET, return_value=manager)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        report = Report(
+            report_type='zz_issue154_type', report_date=date(2099, 1, 1),
+            content='zz154 content', status='corrected',
+            correction_note='zz154 marker',
+        )
+        self.session.add(report)
+        self.session.commit()
+        self.session.refresh(report)
+        self.report_id = report.id
+
+    def tearDown(self):
+        self.session.query(Report).filter(Report.id == self.report_id).delete()
+        self.session.commit()
+        self.session.close()
+
+    def test_configured_type_filters_reports(self):
+        runner = CliRunner()
+
+        listed = runner.invoke(reports, ['list', '--type', 'zz_issue154_type'])
+        self.assertEqual(listed.exit_code, 0, listed.output)
+        self.assertIn(str(self.report_id), listed.output)
+
+        corrections = runner.invoke(
+            reports, ['corrections', '--type', 'zz_issue154_type', '--date', '2099-01-01'])
+        self.assertEqual(corrections.exit_code, 0, corrections.output)
+        self.assertIn('zz154 marker', corrections.output)
+
+        costs = runner.invoke(
+            reports, ['costs', '--type', 'zz_issue154_type', '--date', '2099-01-01'])
+        self.assertEqual(costs.exit_code, 0, costs.output)
+        self.assertIn('zz_issue154_type', costs.output)
+        self.assertNotIn('No reports found matching filters', costs.output)

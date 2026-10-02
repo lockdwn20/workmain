@@ -25,12 +25,11 @@ from workmain.database.models import Report
 from workmain.database.repositories.system_state_repository import SystemStateRepository
 from workmain.database.repositories.reports_repo import get_reports_repository
 from workmain.ai import get_report_generator, ReportFormat, ProviderType
-from workmain.utils.ai_arguments import require_provider
+from workmain.utils.ai_arguments import require_provider, require_report_type
 from workmain.utils.date_utils import resolve_date_window, format_date_window_label
 from workmain.utils.editor import edit_in_editor
 from workmain.utils.self_invoke import TIMEOUT_NETWORK, run_workmain
 
-VALID_REPORT_TYPES = ['daily_internal', 'weekly_client']
 VALID_REPORT_STATUSES = ('unconfirmed', 'confirmed', 'corrected', 'all')
 
 console = Console()
@@ -291,25 +290,13 @@ def report_send(template: str):
     )
 
 
-def _validate_report_type(report_type: Optional[str]) -> None:
-    """Validate report_type against VALID_REPORT_TYPES; exit(1) on an unknown value.
-
-    Extracted from _report_list_impl's inline check (Hotfix Item #56 Gate 2,
-    Design Rule 10) — same message and exit behavior, shared by reports
-    list/history and reports corrections. No-op when report_type is falsy.
-    """
-    if report_type and report_type not in VALID_REPORT_TYPES:
-        console.print(f"[red]Error: Unknown report type '{report_type}'. Valid types: {', '.join(VALID_REPORT_TYPES)}[/red]")
-        raise SystemExit(1)
-
-
 def _report_list_impl(
     limit: int,
     report_type: Optional[str],
     status_filter: Optional[str] = None,
 ) -> None:
     """Shared implementation for 'list' and 'history' commands."""
-    _validate_report_type(report_type)
+    require_report_type(report_type)
 
     if status_filter and status_filter not in VALID_REPORT_STATUSES:
         console.print(
@@ -395,7 +382,7 @@ def _report_list_impl(
 @reports.command('list')
 @click.option('--limit', '-n', type=int, default=10, help='Number of reports to show')
 @click.option('--type', '-R', 'report_type', default=None,
-              help='Filter by report type (daily_internal, weekly_client)')
+              help='Filter by report type')
 @click.option('--status', 'status_filter', default=None,
               help='Filter by status: unconfirmed, confirmed, corrected, all [default: all]')
 def report_list(limit: int, report_type: Optional[str], status_filter: Optional[str]):
@@ -416,7 +403,7 @@ def report_list(limit: int, report_type: Optional[str], status_filter: Optional[
 @reports.command('history')
 @click.option('--limit', '-n', type=int, default=10, help='Number of rows to show')
 @click.option('--type', '-R', 'report_type', default=None,
-              help='Filter by report type (daily_internal, weekly_client)')
+              help='Filter by report type')
 @click.option('--status', 'status_filter', default=None,
               help='Filter by status: unconfirmed, confirmed, corrected, all [default: all]')
 def report_history(limit: int, report_type: Optional[str], status_filter: Optional[str]):
@@ -552,7 +539,7 @@ def report_corrections(date_str: Optional[str], search: Optional[str], limit_opt
       workmain reports corrections --limit 50
       workmain reports corrections --all
     """
-    _validate_report_type(report_type)
+    require_report_type(report_type)
 
     db = get_db()
     session = db.get_session()
@@ -758,9 +745,7 @@ def report_resend(id: int):
 
 @reports.command('costs')
 @click.option('--provider', '-P', help='Filter by AI provider')
-@click.option('--type', 'report_type', '-R',
-              type=click.Choice(['daily_internal', 'weekly_client'], case_sensitive=False),
-              help='Filter by report type')
+@click.option('--type', 'report_type', '-R', help='Filter by report type')
 @click.option('--limit', '-n', type=int, default=20, help='Max rows to display')
 @click.option('--date', '-d', 'date_str', metavar='YYYY-MM-DD', default=None,
               help='Show costs for a single day')
@@ -799,6 +784,7 @@ def report_costs(
       workmain reports costs --all -n 50
     """
     provider_type = require_provider(provider)
+    require_report_type(report_type)
 
     try:
         start_date, end_date = resolve_date_window(date_str, start_str, end_str, month_str, show_all)
