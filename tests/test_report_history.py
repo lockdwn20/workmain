@@ -11,6 +11,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from click.testing import CliRunner
+from rich.table import Table
 
 from workmain.cli.commands.reports import reports
 from workmain.database.models import Report
@@ -70,19 +71,13 @@ class TestReportHistory(unittest.TestCase):
         self._seed('daily_internal', date(2099, 11, 3), 'Nov 3 content')
         self._seed('daily_internal', date(2099, 11, 2), 'Nov 2 content')
 
-        result = self.runner.invoke(reports, ['history', '--type', 'daily_internal',
-                                              '--limit', '3'])
+        with patch.object(Table, 'add_row', autospec=True, side_effect=Table.add_row) as add_row:
+            result = self.runner.invoke(reports, ['history', '--type', 'daily_internal',
+                                                  '--limit', '3'])
         self.assertEqual(result.exit_code, 0, result.output)
-
-        pos_nov3 = result.output.find('2099-11-03')
-        pos_nov2 = result.output.find('2099-11-02')
-        pos_nov1 = result.output.find('2099-11-01')
-        self.assertGreater(pos_nov3, -1, "2099-11-03 not found in output")
-        self.assertGreater(pos_nov2, -1, "2099-11-02 not found in output")
-        self.assertGreater(pos_nov1, -1, "2099-11-01 not found in output")
-        # Newer dates appear higher (earlier position) in output
-        self.assertLess(pos_nov3, pos_nov2)
-        self.assertLess(pos_nov2, pos_nov1)
+        # args[0] is the table; Date is the third cell.
+        dates = [call.args[3] for call in add_row.call_args_list]
+        self.assertEqual(dates, ['2099-11-03', '2099-11-02', '2099-11-01'])
 
     def test_history_limit(self):
         """--limit 2 returns at most 2 rows in the table."""
