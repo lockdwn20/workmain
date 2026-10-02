@@ -1,6 +1,6 @@
 # Provider and Report-Type Names — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261002
 **Branch:** `feature/issue-154-reports-live-arguments` (from `dev`)

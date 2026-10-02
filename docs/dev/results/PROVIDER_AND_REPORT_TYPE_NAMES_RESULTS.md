@@ -53,8 +53,19 @@ None.
   | 5 | 1075 | 0 | 0 |
 
 - **Unedited tests named in spec §6:** `tests/test_report_generator.py`, `test_report_history.py`, `test_reports_corrections.py` and `test_narration.py` pass: 40 passed.
-- **Live verification:** none run against the daemon.
-- **Daemon restart:** pending; `/closeout` does it after the merge to `dev`.
+- **Live verification:** at close-out, 20261002, the installed `workmain` binary on the branch, against the live config and database. Read-only commands only.
+
+  | Command | Result |
+  | --- | --- |
+  | `reports list --type monthly_executive -n 3` | exit 0, "No reports found." (accepted; rejected before this work) |
+  | `reports list --type bogus_type` | exit 1, `Error: Unknown report type 'bogus_type'. Valid report types: daily_internal, weekly_client, monthly_executive, note_condensation` |
+  | `reports costs -P ollama --all -n 3` | exit 0, filter accepted (rejected before this work) |
+  | `reports costs -P nosuch` | exit 1, `Error: Unknown provider 'nosuch'. Valid providers: claude, gemini, ollama` |
+  | `notes costs -P ollama -M 2026-09` | exit 0, filter accepted (rejected before this work) |
+  | `meetings costs -P gemini -M 2026-09` | exit 0, two September Gemini condensation rows listed |
+  | `providers test nosuch` | exit 1, same provider error, no API call |
+  | `email assign 1 not_a_type to` | exit 1, report-type error before any database write |
+- **Daemon restart:** performed by `/closeout` after the merge to `dev`; its `ActiveEnterTimestamp` is in the issue's closing comment.
 
 ## 6. Follow-ups
 
