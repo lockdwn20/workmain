@@ -4,7 +4,7 @@
 **Author:** Anvil (Role 3)
 **Date:** 20261001
 **Spec:** `../specs/TEST_RENDER_WIDTH_SPEC.md`
-**Released as:** v1.35.1
+**Released as:** v1.35.1 (tag v1.35.1)
 
 ---
 
