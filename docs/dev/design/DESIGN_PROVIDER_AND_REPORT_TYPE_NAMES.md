@@ -112,10 +112,10 @@ No change. #150's reason stands, and their path is #147's.
 
 | Q | Question | Answer |
 | --- | --- | --- |
-| Q1 | D3: history filters accept the same configured sets as every other argument (Option A)? | |
+| Q1 | D3: history filters accept the same configured sets as every other argument (Option A)? | Answered 20261002: yes, Option A. |
 | Q2 | D4: which provider runs a non-report call goes to a separate issue, not #154? | |
-| Q3 | D1: `ProviderType` is the only provider name list, the registry is derived from each class's declared type, and an unknown or class-less `providers` key refuses construction (Option A)? | |
-| Q4 | Extent: #154 widened covers D1, D2, D3, D5 and the F7 tests as one issue? | |
+| Q3 | D1: `ProviderType` is the only provider name list, the registry is derived from each class's declared type, and an unknown or class-less `providers` key refuses construction (Option A)? | Answered 20261002: yes, Option A. `ProviderType` owns which providers the code can run; `config/` owns which this installation uses; commands accept the configured set through `ProviderManager`. |
+| Q4 | Extent: #154 widened covers D1, D2, D3, D5 and the F7 tests as one issue? | Answered 20261002: yes. |
 
 ## 6. Disposition
 
