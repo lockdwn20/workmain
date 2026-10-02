@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.37.0] - 2026-10-02
+
+Each command decided for itself which provider and report-type names it accepted: hand-written lists in `reports`, `notes` and `meetings`, the provider registry in `providers test` and `costs`, the `ProviderType` enum in `providers set default`, and nothing at all in `email assign`. So `monthly_executive` and `ollama` were rejected by commands that should have taken them, and a provider's name was written by hand in several places in code (issue #154).
+
+### Changed
+
+- Every provider argument accepts exactly the providers configured under `providers` in `config/ai_settings.json`, and every report-type argument exactly the keys under `report_types`. This covers `reports`, `notes costs`, `meetings costs`, `providers test`, `costs` and `set default`, and `email assign`/`unassign`
+- `--provider` on `reports preview` and `save` runs on the provider it names; any name other than `claude` no longer falls through to Gemini
+- An unknown provider or report type prints one `Error:` listing the valid names and exits 1, in place of Click's exit 2 on `providers test`, `costs` and `set default`
+- A provider's name is written once, in its class's `provider_type`; `PROVIDER_REGISTRY` is built from those declarations
+- A key under `providers` that is not a provider name, or has no provider class, refuses to load whether or not it is enabled, and malformed `ai_settings.json` raises a configuration error naming the file
+- `reports costs --type` is case-sensitive, like every other report-type argument
+- `providers set default` writes the provider name lowercased
+- `docs/AI_SETTINGS_GUIDE.md` describes adding a provider with its `ProviderType` member
+
+### Removed
+
+- `ProviderManager.get_registered_provider_names()`
+- `narrate()`'s unused provider override
+- `ConfigLoader.get_api_key`, which had no caller
+- `OllamaProvider.name`, `display_name` and `cost_structure`, which had no reader
+
+Suite: 1075 passed (baseline 1043 passed).
+
 ## [1.36.0] - 2026-10-01
 
 A report template's AI settings lived in several places that disagreed: provider fields in every template file, a provider list in the template field definitions, a second routing reader in the config loader, and hardcoded defaults inside `ProviderManager`. Only `config/ai_settings.json` `report_types` decided anything, and `monthly_executive` had no entry there at all (issue #150).
