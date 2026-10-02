@@ -1,6 +1,6 @@
 """
 Abstract base class for AI provider implementations.
-Defines standard interface for Claude, Gemini, Ollama, and future providers.
+Defines the standard interface every provider implements.
 
 All providers must implement generate() for text generation, estimate_cost()
 for cost calculation, validate_config() for configuration validation,
@@ -49,7 +49,7 @@ class GenerationRequest:
     context: Optional[Dict[str, Any]] = None
     generation_options: Optional[Dict[str, Any]] = None
     # Passed through to OllamaProvider options dict when set.
-    # Claude/Gemini providers ignore this field.
+    # Providers other than Ollama ignore this field.
     # For the Ollama model, leave None — its Modelfile owns all generation params.
     # Only set if you need to override a specific parameter per-request.
 
@@ -83,7 +83,7 @@ class BaseProvider(ABC):
     """
     Abstract base class for AI providers.
 
-    All provider implementations (Claude, Gemini, Ollama) must inherit from
+    All provider implementations must inherit from
     this class and implement the required abstract methods.
 
     Accepts a plain dict from ai_settings.json rather than a ProviderConfig
@@ -96,6 +96,9 @@ class BaseProvider(ABC):
     # also checks it before construction so a policy fault raises there
     # instead of landing in _disabled (DR3).
     REQUIRED_POLICY_KEYS: set = set()
+
+    # The ProviderType naming this provider; every subclass sets it.
+    provider_type: ProviderType
 
     @classmethod
     def missing_policy_keys(cls, policy: dict) -> list[str]:

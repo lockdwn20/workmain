@@ -7,11 +7,11 @@ exist — if the inspection engine returns an empty list, narration is
 skipped and the notification body is a standard "nothing flagged" message.
 
 Uses the existing provider abstraction (workmain/ai/). Uses the default
-provider configured for daily_internal reports unless overridden.
+provider configured for daily_internal reports.
 """
 
 import logging
-from typing import List, Optional
+from typing import List
 
 from workmain.daemon.models import Observation
 
@@ -27,8 +27,7 @@ Do not add observations not in the provided list.
 """
 
 
-def narrate(observations: List[Observation],
-            provider: Optional[str] = None) -> str:
+def narrate(observations: List[Observation]) -> str:
     """Convert a list of Observation objects into a natural-language summary.
 
     Returns a plain-text string for use in the notification body.
@@ -37,8 +36,6 @@ def narrate(observations: List[Observation],
 
     Args:
         observations: Output of InspectionEngine.run()
-        provider: Override the default provider name. If None, uses the
-                  daily_internal default from provider config.
 
     Returns:
         Plain-text notification body string.
@@ -56,7 +53,7 @@ def narrate(observations: List[Observation],
     )
 
     try:
-        return _call_provider(prompt, provider)
+        return _call_provider(prompt)
     except Exception as e:
         logger.warning("Narration cap or generation failure: %s", e)
         fallback = "Pre-flight check found the following:\n"
@@ -64,28 +61,17 @@ def narrate(observations: List[Observation],
         return fallback
 
 
-def _call_provider(prompt: str, provider: Optional[str]) -> str:
+def _call_provider(prompt: str) -> str:
     """Call the AI provider using the existing abstraction.
-
-    Registers Claude and Gemini clients on the shared provider manager
-    singleton following the same pattern as ReportGenerator.__init__.
 
     Args:
         prompt: The user prompt to send.
-        provider: Optional provider name override ('claude', 'gemini').
 
     Returns:
         Generated text content from the provider.
     """
-    from workmain.ai.base_provider import GenerationRequest, ProviderType
+    from workmain.ai.base_provider import GenerationRequest
     from workmain.ai.provider_manager import get_provider_manager
-
-    provider_override = None
-    if provider:
-        try:
-            provider_override = ProviderType(provider.lower())
-        except ValueError:
-            pass
 
     manager = get_provider_manager()
 
@@ -97,6 +83,5 @@ def _call_provider(prompt: str, provider: Optional[str]) -> str:
     response, _ = manager.generate(
         request,
         report_type='daily_internal',
-        provider_override=provider_override,
     )
     return response.content

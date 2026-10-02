@@ -48,6 +48,7 @@ class GeminiProvider(BaseProvider):
     Google Generative AI SDK. Model is read from config dict at instantiation.
     """
 
+    provider_type = ProviderType.GEMINI
     REQUIRED_POLICY_KEYS = {'sampling', 'thinking_config'}
 
     def __init__(self, config: dict, policy: dict = None):
@@ -162,7 +163,7 @@ class GeminiProvider(BaseProvider):
 
                 return GenerationResponse(
                     content=content,
-                    provider=ProviderType.GEMINI,
+                    provider=self.provider_type,
                     model=self.model,
                     tokens_used=total_tokens,
                     prompt_tokens=prompt_tokens,

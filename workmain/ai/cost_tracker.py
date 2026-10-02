@@ -28,7 +28,7 @@ class SectionCost:
     
     Attributes:
         section_name: Name of the section
-        provider: Provider used (claude/gemini)
+        provider: Provider used
         model: Model name
         prompt_tokens: Tokens in prompt
         completion_tokens: Tokens in completion
@@ -65,7 +65,7 @@ class ReportCost:
     Cost tracking for a complete report.
     
     Attributes:
-        report_type: Type of report (daily_internal/weekly_client)
+        report_type: Type of report
         report_date: Date of the report
         sections: List of section costs
         total_cost: Total cost for all sections
@@ -119,7 +119,7 @@ class CostTracker:
     Tracks costs at multiple levels:
     - Per section (detailed breakdown)
     - Per report (aggregated)
-    - Per provider (claude vs gemini)
+    - Per provider
     - Over time (daily, weekly, monthly)
     """
     
@@ -147,7 +147,7 @@ class CostTracker:
         Start tracking a new report.
         
         Args:
-            report_type: Type of report (daily_internal/weekly_client)
+            report_type: Type of report
             report_date: Date of report (defaults to today)
             
         Returns:
@@ -177,7 +177,7 @@ class CostTracker:
         
         Args:
             section_name: Name of the section
-            provider: Provider used (claude/gemini)
+            provider: Provider used
             model: Model name
             prompt_tokens: Tokens in prompt
             completion_tokens: Tokens in completion

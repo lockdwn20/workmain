@@ -106,7 +106,7 @@ class IntentParser:
             session = db.get_session()
             AiCostRepository(session).create(
                 interaction_type="intent_parse",
-                provider="ollama",
+                provider=response.provider.value,
                 model=response.model,
                 prompt_tokens=response.prompt_tokens,
                 completion_tokens=response.completion_tokens,

@@ -229,30 +229,6 @@ class ConfigLoader:
                 "database", "password", "DB_PASSWORD", "workmain_dev_pass"
             ),
         }
-    
-    def get_api_key(self, provider: str) -> Optional[str]:
-        """
-        Get API key for a provider (with environment variable support)
-        
-        Args:
-            provider: Provider name (claude, gemini)
-            
-        Returns:
-            API key or None
-        """
-        ai_config = self.get("ai_settings", default={})
-        providers = ai_config.get("providers", {})
-        
-        if provider not in providers:
-            return None
-        
-        # Get environment variable name for API key
-        env_var = providers[provider].get("api_key_env")
-        
-        if env_var:
-            return os.getenv(env_var)
-        
-        return None
 
 
 # Global config loader instance

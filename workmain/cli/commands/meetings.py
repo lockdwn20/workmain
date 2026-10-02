@@ -17,6 +17,7 @@ from workmain.database.repositories.meetings_repo import MeetingsRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
 from workmain.database.repositories.ai_costs_repo import get_ai_cost_repository
 from workmain.ai.note_condenser import get_note_condenser
+from workmain.utils.ai_arguments import require_provider
 from workmain.utils.date_utils import resolve_date_window, format_date_window_label
 
 
@@ -1708,8 +1709,7 @@ def meetings_template_use(name: str, start_str: Optional[str], end_str: Optional
 
 
 @meetings.command('costs')
-@click.option('--provider', '-P', type=click.Choice(['claude', 'gemini'], case_sensitive=False),
-              help='Filter by AI provider')
+@click.option('--provider', '-P', help='Filter by AI provider')
 @click.option('--limit', '-n', type=int, default=20, help='Max rows to display')
 @click.option('--date', '-d', 'date_str', metavar='YYYY-MM-DD', default=None,
               help='Show costs for a single day')
@@ -1744,6 +1744,8 @@ def meetings_costs(
       workmain meetings costs -b 2026-05-01 -e 2026-05-15
       workmain meetings costs --all
     """
+    provider_type = require_provider(provider)
+
     try:
         start_date, end_date = resolve_date_window(date_str, start_str, end_str, month_str, show_all)
     except click.UsageError as e:
@@ -1758,13 +1760,13 @@ def meetings_costs(
         repo = get_ai_cost_repository(session)
         summary = repo.get_summary(
             interaction_type='condensation',
-            provider=provider.lower() if provider else None,
+            provider=provider_type.value if provider_type else None,
             start_date=start_date,
             end_date=end_date,
         )
         rows = repo.get_filtered(
             interaction_type='condensation',
-            provider=provider.lower() if provider else None,
+            provider=provider_type.value if provider_type else None,
             start_date=start_date,
             end_date=end_date,
             limit=limit,

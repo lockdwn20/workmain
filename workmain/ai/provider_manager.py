@@ -1,7 +1,7 @@
 """
 Manages AI providers with intelligent fallback and selection.
 
-Provides an N-provider extensible registry (claude, gemini, ollama, ...),
+Provides an N-provider extensible registry,
 per-report-type provider selection from ai_settings.json, configurable
 manual or automatic fallback, provider health monitoring, notification on
 fallback, and disabled provider tracking (no connectivity check runs for a
@@ -41,7 +41,7 @@ class ReportTypeConfig:
     Configuration for a specific report type.
 
     Attributes:
-        report_type: Type of report (daily_internal, weekly_client)
+        report_type: Report type name
         primary_provider: Primary provider to use
         max_tokens: Total output ceiling (thinking plus answer) for this call type
         fallback_provider: Fallback provider if primary fails
@@ -89,7 +89,7 @@ class ProviderManager:
         Get provider instance by name.
 
         Args:
-            name: Provider name string (e.g. 'claude', 'gemini')
+            name: Provider name (e.g. 'claude')
 
         Returns:
             Provider instance
@@ -108,8 +108,8 @@ class ProviderManager:
             )
         if name not in self._providers:
             raise ProviderUnavailableError(
-                f"Provider '{name}' is not registered. "
-                f"Add it to PROVIDER_REGISTRY and config/ai_settings.json."
+                f"Provider '{name}' is not configured. "
+                f"Add it under 'providers' in config/ai_settings.json."
             )
         return self._providers[name]
 
@@ -117,11 +117,6 @@ class ProviderManager:
         """Returns config dict for ALL providers including disabled.
         Used by providers list to display complete provider table."""
         return self._all_configs
-
-    def get_registered_provider_names(self) -> List[str]:
-        """Returns list of all provider names in registry.
-        Used for dynamic CLI validation."""
-        return list(PROVIDER_REGISTRY.keys())
 
     def is_disabled(self, name: str) -> bool:
         """Returns True if the named provider is disabled in config."""
@@ -280,9 +275,13 @@ class ProviderManager:
             )
         return self._report_configs[report_type]
 
+    def get_configured_provider_names(self) -> List[str]:
+        """Return every name under 'providers', enabled or not, in config order."""
+        return configured_provider_names(self._settings)
+
     def get_report_type_names(self) -> List[str]:
         """Return the configured report-type names in config order."""
-        return list(self._report_configs.keys())
+        return report_type_names(self._settings)
 
     def get_fallback_notifications(self) -> List[str]:
         """Get list of fallback notifications."""
@@ -396,31 +395,40 @@ class ProviderManager:
         if not Path(config_file).exists():
             return
 
-        with open(config_file, 'r') as f:
-            self._settings = json.load(f)
+        try:
+            with open(config_file, 'r') as f:
+                self._settings = json.load(f)
+        except json.JSONDecodeError as e:
+            raise ConfigurationError(
+                f"config/ai_settings.json is not valid JSON: {config_file} ({e})"
+            ) from e
 
         # Instantiate providers from registry
         for name, provider_cfg in self._settings.get('providers', {}).items():
+            self._parse_provider_name(name, f"providers.{name}")
+            cls = PROVIDER_REGISTRY.get(name)
+            if cls is None:
+                raise ConfigurationError(
+                    f"'providers.{name}' has no provider class in workmain/ai/providers/."
+                )
             self._all_configs[name] = provider_cfg
             if not provider_cfg.get('enabled', True):
                 self._disabled.add(name)
                 continue
-            cls = PROVIDER_REGISTRY.get(name)
-            if cls:
-                # Load the payload policy BEFORE construction, so an unusable
-                # policy raises out of here rather than being absorbed into
-                # _disabled by the blanket except below.
-                policy = self._load_provider_policy(name, cls)
-                try:
-                    instance = cls(provider_cfg, policy)
-                    self._providers[name] = instance
-                except Exception as exc:
-                    # Provider instantiation failed (e.g. missing API key in env).
-                    # Mark as disabled so callers get a clear error rather than
-                    # an unhandled exception at import time; keep the reason so
-                    # get_provider can report it.
-                    self._disabled.add(name)
-                    self._disabled_reasons[name] = str(exc)
+            # Load the payload policy BEFORE construction, so an unusable
+            # policy raises out of here rather than being absorbed into
+            # _disabled by the blanket except below.
+            policy = self._load_provider_policy(name, cls)
+            try:
+                instance = cls(provider_cfg, policy)
+                self._providers[name] = instance
+            except Exception as exc:
+                # Provider instantiation failed (e.g. missing API key in env).
+                # Mark as disabled so callers get a clear error rather than
+                # an unhandled exception at import time; keep the reason so
+                # get_provider can report it.
+                self._disabled.add(name)
+                self._disabled_reasons[name] = str(exc)
 
         # Build report-type configs
         fallback_mode_map = {
@@ -506,6 +514,16 @@ class ProviderManager:
 
 # Singleton instance
 _provider_manager_instance: Optional[ProviderManager] = None
+
+
+def configured_provider_names(settings: dict) -> List[str]:
+    """Return the keys under 'providers' in settings, enabled or not, in config order."""
+    return list(settings.get('providers', {}))
+
+
+def report_type_names(settings: dict) -> List[str]:
+    """Return the keys under 'report_types' in settings, in config order."""
+    return list(settings.get('report_types', {}))
 
 
 def get_provider_manager(config_path: Optional[str] = None) -> ProviderManager:

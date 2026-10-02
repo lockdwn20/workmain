@@ -19,8 +19,9 @@ from rich import box
 
 from workmain.database.connection import get_db
 from workmain.database.repositories.ai_costs_repo import get_ai_cost_repository
-from workmain.ai.provider_manager import get_provider_manager
-from workmain.ai.base_provider import ProviderType, ProviderStatus, ProviderUnavailableError, GenerationRequest
+from workmain.ai.provider_manager import configured_provider_names, get_provider_manager, report_type_names
+from workmain.ai.base_provider import ProviderStatus, ProviderUnavailableError, GenerationRequest
+from workmain.utils.ai_arguments import require_provider, require_report_type
 from workmain.utils.date_utils import resolve_date_window, format_date_window_label
 
 
@@ -31,7 +32,7 @@ _SETTINGS_PATH = Path(__file__).parent.parent.parent.parent / 'config' / 'ai_set
 
 @click.group()
 def providers():
-    """Manage AI providers (Claude, Gemini, Ollama, ...)."""
+    """Manage AI providers."""
     pass
 
 
@@ -105,15 +106,8 @@ def test_provider(provider: str):
       workmain providers test claude
       workmain providers test gemini
     """
+    provider_lower = require_provider(provider).value
     pm = get_provider_manager()
-    valid = pm.get_registered_provider_names()
-    provider_lower = provider.lower()
-
-    if provider_lower not in valid:
-        raise click.BadParameter(
-            f"Unknown provider '{provider}'. Valid providers: {', '.join(valid)}",
-            param_hint="'provider'"
-        )
 
     console.print()
     console.print(f"[bold]Testing {provider_lower.title()} API connection...[/bold]")
@@ -206,14 +200,7 @@ def show_costs(
       workmain providers costs -b 2026-05-01 -e 2026-05-15
       workmain providers costs --all
     """
-    if provider:
-        pm = get_provider_manager()
-        valid = pm.get_registered_provider_names()
-        if provider.lower() not in valid:
-            raise click.BadParameter(
-                f"Unknown provider '{provider}'. Valid providers: {', '.join(valid)}",
-                param_hint="'--provider'"
-            )
+    provider_type = require_provider(provider)
 
     try:
         start_date, end_date = resolve_date_window(date_str, start_str, end_str, month_str, show_all)
@@ -228,7 +215,7 @@ def show_costs(
     try:
         repo = get_ai_cost_repository(session)
         summary = repo.get_summary(
-            provider=provider.lower() if provider else None,
+            provider=provider_type.value if provider_type else None,
             start_date=start_date,
             end_date=end_date,
         )
@@ -323,8 +310,8 @@ def set_default_provider(report_type: str, provider: str, fallback: Optional[str
     """
     Set the default AI provider for a report type.
 
-    REPORT_TYPE: e.g. daily_internal, weekly_client, note_condensation
-    PROVIDER: e.g. claude, gemini
+    REPORT_TYPE: a report type configured in config/ai_settings.json
+    PROVIDER: a provider configured in config/ai_settings.json
 
     \b
     Examples:
@@ -333,8 +320,6 @@ def set_default_provider(report_type: str, provider: str, fallback: Optional[str
       workmain providers set default daily_internal claude --fallback gemini
       workmain providers set default daily_internal gemini --force
     """
-    valid_providers = [p.value for p in ProviderType]
-
     if not _SETTINGS_PATH.exists():
         console.print(f"[red]✗ Config file not found: {_SETTINGS_PATH}[/red]")
         console.print()
@@ -343,26 +328,12 @@ def set_default_provider(report_type: str, provider: str, fallback: Optional[str
     with open(_SETTINGS_PATH, 'r') as f:
         data = json.load(f)
 
-    valid_report_types = list(data.get('report_types', {}).keys())
-
-    if report_type not in valid_report_types:
-        raise click.BadParameter(
-            f"Unknown report type '{report_type}'. "
-            f"Valid: {', '.join(valid_report_types)}",
-            param_hint="'REPORT_TYPE'"
-        )
-    if provider not in valid_providers:
-        raise click.BadParameter(
-            f"Unknown provider '{provider}'. "
-            f"Valid: {', '.join(valid_providers)}",
-            param_hint="'PROVIDER'"
-        )
-    if fallback and fallback not in valid_providers:
-        raise click.BadParameter(
-            f"Unknown fallback provider '{fallback}'. "
-            f"Valid: {', '.join(valid_providers)}",
-            param_hint="'--fallback'"
-        )
+    require_report_type(report_type, valid=report_type_names(data))
+    valid_providers = configured_provider_names(data)
+    provider_type = require_provider(provider, valid=valid_providers)
+    fallback_type = require_provider(fallback, valid=valid_providers)
+    provider = provider_type.value
+    fallback = fallback_type.value if fallback_type else None
 
     rt_cfg = data['report_types'][report_type]
     current_primary = rt_cfg.get('primary_provider', '—')
