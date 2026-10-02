@@ -45,6 +45,7 @@ class ClaudeProvider(BaseProvider):
     supplied by ProviderManager.
     """
 
+    provider_type = ProviderType.CLAUDE
     REQUIRED_POLICY_KEYS = {'thinking', 'sampling'}
 
     def __init__(self, config: dict, policy: dict = None):
@@ -140,7 +141,7 @@ class ClaudeProvider(BaseProvider):
 
                 return GenerationResponse(
                     content=content,
-                    provider=ProviderType.CLAUDE,
+                    provider=self.provider_type,
                     model=self.model,
                     tokens_used=total_tokens,
                     prompt_tokens=prompt_tokens,

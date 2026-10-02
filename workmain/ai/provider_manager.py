@@ -1,7 +1,7 @@
 """
 Manages AI providers with intelligent fallback and selection.
 
-Provides an N-provider extensible registry (claude, gemini, ollama, ...),
+Provides an N-provider extensible registry,
 per-report-type provider selection from ai_settings.json, configurable
 manual or automatic fallback, provider health monitoring, notification on
 fallback, and disabled provider tracking (no connectivity check runs for a
@@ -89,7 +89,7 @@ class ProviderManager:
         Get provider instance by name.
 
         Args:
-            name: Provider name string (e.g. 'claude', 'gemini')
+            name: Provider name (e.g. 'claude')
 
         Returns:
             Provider instance
@@ -108,8 +108,8 @@ class ProviderManager:
             )
         if name not in self._providers:
             raise ProviderUnavailableError(
-                f"Provider '{name}' is not registered. "
-                f"Add it to PROVIDER_REGISTRY and config/ai_settings.json."
+                f"Provider '{name}' is not configured. "
+                f"Add it under 'providers' in config/ai_settings.json."
             )
         return self._providers[name]
 
@@ -396,31 +396,40 @@ class ProviderManager:
         if not Path(config_file).exists():
             return
 
-        with open(config_file, 'r') as f:
-            self._settings = json.load(f)
+        try:
+            with open(config_file, 'r') as f:
+                self._settings = json.load(f)
+        except json.JSONDecodeError as e:
+            raise ConfigurationError(
+                f"config/ai_settings.json is not valid JSON: {config_file} ({e})"
+            ) from e
 
         # Instantiate providers from registry
         for name, provider_cfg in self._settings.get('providers', {}).items():
+            self._parse_provider_name(name, f"providers.{name}")
+            cls = PROVIDER_REGISTRY.get(name)
+            if cls is None:
+                raise ConfigurationError(
+                    f"'providers.{name}' has no provider class in workmain/ai/providers/."
+                )
             self._all_configs[name] = provider_cfg
             if not provider_cfg.get('enabled', True):
                 self._disabled.add(name)
                 continue
-            cls = PROVIDER_REGISTRY.get(name)
-            if cls:
-                # Load the payload policy BEFORE construction, so an unusable
-                # policy raises out of here rather than being absorbed into
-                # _disabled by the blanket except below.
-                policy = self._load_provider_policy(name, cls)
-                try:
-                    instance = cls(provider_cfg, policy)
-                    self._providers[name] = instance
-                except Exception as exc:
-                    # Provider instantiation failed (e.g. missing API key in env).
-                    # Mark as disabled so callers get a clear error rather than
-                    # an unhandled exception at import time; keep the reason so
-                    # get_provider can report it.
-                    self._disabled.add(name)
-                    self._disabled_reasons[name] = str(exc)
+            # Load the payload policy BEFORE construction, so an unusable
+            # policy raises out of here rather than being absorbed into
+            # _disabled by the blanket except below.
+            policy = self._load_provider_policy(name, cls)
+            try:
+                instance = cls(provider_cfg, policy)
+                self._providers[name] = instance
+            except Exception as exc:
+                # Provider instantiation failed (e.g. missing API key in env).
+                # Mark as disabled so callers get a clear error rather than
+                # an unhandled exception at import time; keep the reason so
+                # get_provider can report it.
+                self._disabled.add(name)
+                self._disabled_reasons[name] = str(exc)
 
         # Build report-type configs
         fallback_mode_map = {

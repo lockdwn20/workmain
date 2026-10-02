@@ -34,9 +34,10 @@ from workmain.cli.commands.providers import providers
 # Registry tests
 # ---------------------------------------------------------------------------
 
-def test_registry_has_three_entries():
-    """PROVIDER_REGISTRY has keys: claude, gemini, ollama."""
-    assert set(PROVIDER_REGISTRY.keys()) == {'claude', 'gemini', 'ollama'}
+def test_every_provider_type_has_its_class():
+    """Each ProviderType value is a registry key whose class declares that type."""
+    for p in ProviderType:
+        assert PROVIDER_REGISTRY[p.value].provider_type is p
 
 
 def test_registry_values_are_classes():
@@ -311,6 +312,24 @@ def _manager_from_dict(settings_dict):
         return ProviderManager(config_path=path)
     finally:
         os.unlink(path)
+
+
+def test_unknown_providers_key_refuses_construction():
+    """A providers key that is not a ProviderType value refuses load, even disabled."""
+    settings = _make_temp_settings()
+    settings['providers']['nonesuch'] = {'enabled': False, 'model': 'x'}
+    with pytest.raises(ConfigurationError) as exc:
+        _manager_from_dict(settings)
+    assert 'providers.nonesuch' in str(exc.value)
+
+
+def test_providers_key_without_class_refuses_construction():
+    """A ProviderType key with no registered class refuses load."""
+    with patch.dict('workmain.ai.provider_manager.PROVIDER_REGISTRY'):
+        del PROVIDER_REGISTRY['ollama']
+        with pytest.raises(ConfigurationError) as exc:
+            _manager_from_dict(_make_temp_settings())
+    assert 'providers.ollama' in str(exc.value)
 
 
 def test_disabled_provider_not_in_providers_but_in_disabled():
