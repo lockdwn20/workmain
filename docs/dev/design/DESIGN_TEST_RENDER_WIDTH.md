@@ -10,7 +10,7 @@
 
 ## 1. Purpose
 
-Four tests assert on text in a command's rendered output without fixing the width that output renders at. Issue #156 states the defect and its acceptance criteria. This study verifies the issue's claims against source and the live database, then settles how a test fixes its render width and where that width is defined.
+Four tests fail at some terminal widths and, since the `notes` id sequence passed 100,000, one fails at every width. Issue #156 states the defect and its acceptance criteria. This study verifies the issue's claims against source and the live database, and settles what the four tests should observe so their results depend on neither.
 
 ## 2. Scope of the read
 
@@ -25,44 +25,36 @@ Four tests assert on text in a command's rendered output without fixing the widt
 | # | Finding | Evidence (file:line, symbol) | Severity |
 | --- | --- | --- | --- |
 | F1 | `test_list_status_all_value` fails on every run at the default width. The completed and dismissed markers render as `gate1statusall_completed_e745de…` beside ids `101901`/`101902`. | Run on `hotfix/issue-156-test-render-width` (at `main`), 20261001: `1 failed, 5 passed` | Critical |
-| F2 | At `COLUMNS=60` all four tests fail. At `COLUMNS=200` all six tests in the three groups run pass. | Same run on the same branch with `COLUMNS=60`: `4 failed, 2 passed`; with `COLUMNS=200`: `6 passed` | High |
-| F3 | Rich reads `COLUMNS` from `os.environ` each time it measures, and `COLUMNS` overrides any terminal size. A test can therefore fix the width through `CliRunner(env={"COLUMNS": ...})`, which sets `os.environ` for the duration of `invoke`, without touching the module-level `console`. | `rich/console.py` `Console.size`: `columns = self._environ.get("COLUMNS")` after the `os.get_terminal_size` loop; `self._environ` defaults to `os.environ` | — |
-| F4 | The issue says an unattached console is 80 columns wide. That is only true when none of stdin, stdout or stderr is a terminal: `Console.size` tries `os.get_terminal_size` on each of them first, so under an interactive `pytest` the width is the width of the terminal stdin is attached to. This is why the same suite gives different results in a terminal and in a pipe. | `rich/console.py` `Console.size`, the `for file_descriptor in _STD_STREAMS` loop | Low |
-| F5 | Ids are `integer`, so no id renders wider than 10 characters (`2147483647`). | `information_schema.columns` `data_type` for `notes.id` and `reports.id`: `integer`; `workmain/database/models.py:41` `Column(Integer, primary_key=True)`. Sequences at 101,955 and 49,351 on 20261001 | — |
-| F6 | Every cell `tasks list` renders has a bounded width: Content is capped at 81 characters (`content[:80] + "…"`), and the longest Tags value is all six short names, 22 characters. The widest row it can render therefore needs 148 columns. | `workmain/cli/commands/tasks.py:231` `preview`; Rich `Measurement.get` on a table built from `tasks.py:216-226` with id `2147483647` and those caps: maximum 148 | — |
-| F7 | Every cell `reports history` renders has a bounded width: Preview is capped at 50 characters, and the longest report type, `monthly_executive`, is 17. The widest row it can render therefore needs 132 columns. | `workmain/cli/commands/reports.py:367` `preview`; same measurement on `reports.py:343-356`: maximum 132 | — |
-| F8 | `slack post weekly`'s message is one sentence of fixed shape whose only variable part is a date string, so it does not wrap at 200 columns. | `workmain/cli/commands/slack.py:613-617` | — |
-| F9 | Each of the three test classes builds one `CliRunner()` in `setUp` and every test in the class uses it. | `tests/test_task_lifecycle.py:337`, `tests/test_report_history.py:50`, `tests/test_slack.py:362` | — |
-| F10 | §6.3 of the standards gives no home to a helper module that tests share. The suite has none; `tests/test_report_history.py:41` imports from `tests.conftest`. | `docs/DEVELOPMENT_STANDARDS.md` §6.3; `ls tests/` | Low |
-
-**What F5–F8 establish.** At 200 columns all three commands render every possible row at its natural width, with nothing truncated or wrapped, for any id the schema can hold. 200 is not tuned to today's data: it holds until a column type or a display cap changes, and either change would be made in `workmain/`, not in a test.
+| F2 | At `COLUMNS=60` all four tests fail. | Same run on the same branch with `COLUMNS=60`: `4 failed, 2 passed` | High |
+| F3 | The tests are what is wrong, not the commands. Each checks what a command decided (which rows it selected, their order, whether it posted) by searching for text in the rendered terminal output. Rendered output is laid out for a reader: Rich shortens a cell with `…` or wraps it to fit the width, and that is the command behaving correctly. Text appearing whole in rendered output is not something any of these commands promises. | `tests/test_task_lifecycle.py:364` and `:384` (`assertIn(marker, result.output)`); `tests/test_report_history.py:63` (`result.output.find('2099-11-03')`); `tests/test_slack.py:426` (`assertIn('no message posted', result.output.lower())`) | High |
+| F4 | Rich reads `COLUMNS` from `os.environ` each time it measures, after trying `os.get_terminal_size` on stdin, stdout and stderr. The issue says an unattached console is 80 columns wide; that holds only when none of the three is a terminal. Under an interactive `pytest` the width is the width of the terminal stdin is attached to, which is why results differ between a terminal and a pipe. | `rich/console.py` `Console.size`: the `for file_descriptor in _STD_STREAMS` loop, then `columns = self._environ.get("COLUMNS")` | Low |
+| F5 | `tasks list` and `reports history` each build one Rich `Table` and pass every selected row to `Table.add_row` as plain cell values before anything is laid out: the whole `preview` string and the `report_date` as a string. These calls are the point where a command's decision is complete and its layout has not begun. | `workmain/cli/commands/tasks.py:241` `table.add_row(str(note.id), status_style, date_display, tags_display, preview)`; `workmain/cli/commands/reports.py:370-378` `table.add_row(str(r.id), r.report_type or "—", str(r.report_date) ...)` | — |
+| F6 | `patch.object(Table, "add_row", autospec=True, side_effect=Table.add_row)` records every call, with the table as the first argument, and still lets the command render. A prototype seeding three tasks and three reports, run through `CliRunner(env={"COLUMNS": "40"})`, found every seeded content cell and the three dates in the expected order. At that width the current tests fail. | Prototype run 20261001, `1 passed`, deleted afterwards | — |
+| F7 | `slack post weekly`'s message for an unconfirmed report is one sentence, `No confirmed/corrected weekly report for <date> — no message posted.`, printed through Rich, which wraps only at whitespace. With whitespace runs collapsed to single spaces, the phrase is found at any width wide enough to hold its longest word. The test's other assertion, `mock_client.post_message.assert_not_called()`, already proves nothing was posted. | `workmain/cli/commands/slack.py:613-617`; `tests/test_slack.py:426` | — |
+| F8 | Ids are `integer`, and the `notes` and `reports` sequences stood at 101,955 and 49,351 on 20261001. Ids enter the failing output only because the seeded rows render alongside live rows whose ids set the ID column's width. | `information_schema.columns` `data_type` for `notes.id` and `reports.id`: `integer` | — |
+| F9 | `reports history` builds its query and ordering inline rather than through `ReportsRepository`, so its ordering has no seam a repository test can reach. That is a defect in application code, out of this issue's scope (its AC4 forbids changes under `workmain/`). Opened as #157, under #158, which covers every such site. | `workmain/cli/commands/reports.py:322-330` `_report_list_impl` | — |
 
 ## 4. Options
 
-The question is where the fixed width is applied. Fixing the width is the only approach that makes a table assertion independent of width. Asserting on ids instead of markers only moves the threshold, because Rich still shrinks a `no_wrap` column once the table cannot fit. Normalising whitespace fixes the plain-text case but not truncation with `…`.
+Two approaches to fixing the render width were set aside, because both keep the flaw F3 names and only make it stable:
 
-### Option A — The three test classes' runners render at a fixed width (recommended)
+- **Each affected test fixes its own width,** by giving its `CliRunner` a `COLUMNS` value wide enough for any row. Rejected by Ray, 20261001: it meets the criterion by changing the conditions a test runs under rather than what it checks.
+- **The whole suite runs at a fixed width,** through an autouse fixture. Rejected by Ray, 20261001: it makes the `COLUMNS=60` check unable to fail.
 
-- **Approach:** `tests/conftest.py` defines one constant, the environment a CLI test renders in, `{"COLUMNS": "200"}`, with a comment that cites F5–F7. Each of the three classes builds its runner as `CliRunner(env=<that constant>)` in `setUp`.
-- **Pros:** It does what the issue's Direction says: each affected test fixes its own render width. Every other test still renders at whatever the environment gives it, so AC2's `COLUMNS=60` run stays a working probe for any width-dependent test written later. The width and the reason for it are in one place.
-- **Cons:** A future width-dependent test is caught only if someone runs the `COLUMNS=60` probe. Nothing runs it automatically.
+### Option — Observe the decision, not the layout
 
-### Option B — An autouse fixture pins the width for the whole suite
+- **Approach:** the table tests record the cells each command passes to `Table.add_row` (F5, F6) and assert on those: which rows were selected, and in what order. The Slack test compares its message after collapsing whitespace (F7). No test sets `COLUMNS`, and nothing under `workmain/` changes.
+- **Pros:** Each test checks the property it is named for, with nothing about the terminal in the way. Breaking the selection, the ordering or the message still fails the test. The `COLUMNS=60` run stays a working probe for any width-dependent test written later.
+- **Cons:** The table tests depend on the command rendering through `Table.add_row`. If a command stopped using it, the recorded rows would be empty and the test would fail loudly, never pass silently.
 
-- **Approach:** `tests/conftest.py` gains an autouse fixture that sets `COLUMNS=200` for every test.
-- **Pros:** No present or future test can depend on the terminal's width.
-- **Cons:** It changes the rendering environment of every test in the suite in order to fix four. It also makes AC2's check vacuous: `COLUMNS=60` would be overwritten, so the check passes whether or not any test depends on width. Width becomes an invisible precondition of every CLI test, and a future test written against it fails only when the pin changes. That is the same defect, moved.
-
-**Recommendation:** Option A. It fixes the four tests at their cause, keeps the change at the issue's size, and leaves AC2's check able to tell a width-dependent test from one that is not. Option B does make every test width-independent, but its cost is that the check proving it can no longer fail.
-
-**Where the constant lives (F10).** Option A recommends `tests/conftest.py`, the one module the suite already shares and already imports from. §6.3 should say so. Suggested wording, a row in its placement table: `| tests/conftest.py | Fixtures, and constants that more than one test file shares |`. That is a standards change on `chore/*`, not part of this hotfix.
+**Recommendation:** this is the only option left after the two above were set aside. It removes F3's flaw at its source instead of controlling the conditions that expose it.
 
 ## 5. Open questions
 
 | Q | Question | Answer |
 | --- | --- | --- |
-| Q1 | Option A or Option B (§4)? | |
+| Q1 | Which approach? | Answered 20261001 by Ray: observe the decision, not the layout (§4). The two width-fixing approaches are rejected. |
 
 ## 6. Disposition
 
-Pending Q1.
+Specified in `../specs/TEST_RENDER_WIDTH_SPEC.md`. F9 is carried by #157 and #158.
