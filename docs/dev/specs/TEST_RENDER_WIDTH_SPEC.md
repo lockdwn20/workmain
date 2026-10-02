@@ -1,6 +1,6 @@
 # Test Render Width — Spec
 
-**Status:** Approved
+**Status:** Draft
 **Author:** Spanner (Role 1)
 **Date:** 20261001
 **Branch:** `hotfix/issue-156-test-render-width` (from `main`)
@@ -20,6 +20,7 @@
 | 20261001 | Caliper 2 | The mutation table names no expected failing assertion, so a mutation failing for an unrelated reason (a bad edit's import error) reads as a pass; M5 fails at the exit code, not at `assert_not_called` | Accepted. The table gains an Expected failure column. |
 | 20261001 | Caliper 3 | Step 2's replacement range is eight assertion lines and a comment, not six | Accepted. Step 2 cites `tests/test_report_history.py:73-85`. |
 | 20261001 | Caliper 5 | AC2.2's command, written in a table cell with `\|`, passes for any diff when run from the raw text | Accepted. The commands move to a fenced block under §5. |
+| 20261001 | Anvil | M5 does not fail. With the `return` removed the command shows the post prompt, which takes its default `n` on empty input, prints `Cancelled. No message posted.` and exits 0, so every assertion in the test still holds. The spec's expected failure, `Aborted!`, was asserted, not run | Accepted, and confirmed by running M5. The test is named for no post being offered, and nothing in it observed the offer. Step 3 adds `prompt.assert_not_called()` on a patched `click.prompt`; AC3.4 stands as written. |
 | 20261001 | Caliper 4 | §2 cites `tests/test_slack.py:426` for the `assert_not_called` assertion, which is at 433 | Accepted. |
 
 ---
@@ -49,6 +50,7 @@
 | `patch.object(Table, "add_row", autospec=True, side_effect=Table.add_row)` records each call as `(table, *cells)` and still renders. | Design study F6 |
 | The unconfirmed-report message is `No confirmed/corrected weekly report for <date> — no message posted.` | `workmain/cli/commands/slack.py:613-617` `slack_post` |
 | `test_no_post_offered_when_unconfirmed` already asserts `mock_client.post_message.assert_not_called()`; its last line is the message assertion Step 3 replaces. | `tests/test_slack.py:433`, `:434` |
+| `slack_post` offers the post through `click.prompt`, after the unconfirmed-report check. Under `CliRunner` with no input the prompt returns its default `n`, and the command prints `Cancelled. No message posted.` and exits 0, so neither the exit code nor `no message posted` tells the two paths apart. | `workmain/cli/commands/slack.py:630`; M5 run 20261001 |
 | `_seed_task` seeds content `f"Sentinel {marker} 2099"`. | `tests/test_task_lifecycle.py:348` |
 | `tests/test_task_lifecycle.py` imports neither `patch` nor `Table`. `tests/test_report_history.py` imports `patch` but not `Table`. | `tests/test_task_lifecycle.py:19-31`; `tests/test_report_history.py:7-17` |
 
@@ -67,7 +69,7 @@ Anything this spec does not cover stops at `CLAUDE.md` Role 3.
 | --- | --- | --- |
 | 1 | `tasks list` tests assert on recorded rows | `tests/test_task_lifecycle.py` |
 | 2 | `reports history` test asserts on recorded rows | `tests/test_report_history.py` |
-| 3 | Slack message test compares collapsed whitespace | `tests/test_slack.py` |
+| 3 | Slack message test compares collapsed whitespace and checks no post prompt is offered | `tests/test_slack.py` |
 | 4 | Verification run and results artifact | `docs/dev/results/TEST_RENDER_WIDTH_RESULTS.md` |
 
 ### Step 1 — `tasks list` tests
@@ -143,6 +145,19 @@ In `test_no_post_offered_when_unconfirmed`, replace the last line, `tests/test_s
 
 Commit: `test(slack): match the no-post message regardless of line wrapping`.
 
+Then record whether the post was offered: patch `click.prompt` around the `_invoke` call and assert it was never called. `patch` is already imported. The test body after the `_seed` call becomes:
+
+```python
+        with patch('click.prompt') as prompt:
+            result, mock_client, mock_runner = self._invoke('20981002')
+        self.assertEqual(result.exit_code, 0, result.output)
+        mock_client.post_message.assert_not_called()
+        prompt.assert_not_called()
+        self.assertIn('no message posted', ' '.join(result.output.lower().split()))
+```
+
+Commit: `test(slack): check no post prompt is offered for an unconfirmed report`.
+
 ### Step 4 — Verification and results
 
 Write `docs/dev/results/TEST_RENDER_WIDTH_RESULTS.md` from `docs/dev/results/_TEMPLATE_RESULTS.md`, recording each check in §5 below with its command and output.
@@ -155,7 +170,7 @@ For AC3, apply each mutation below to the working tree, run its test and record 
 | M2 | `workmain/cli/commands/tasks.py` | `effective_limit = 0 if show_all else limit` becomes `effective_limit = limit` | `test_list_all_removes_cap` | `all_hits` is 20, not 25 |
 | M3 | `workmain/cli/commands/reports.py` | `Report.report_date.desc()` in `_report_list_impl` becomes `Report.report_date.asc()` | `test_history_desc_order` | `assertEqual` on `dates` |
 | M4 | `workmain/cli/commands/slack.py` | `— no message posted.` in the unconfirmed-report message becomes `— nothing sent.` | `test_no_post_offered_when_unconfirmed` | `assertIn('no message posted', …)` |
-| M5 | `workmain/cli/commands/slack.py` | Remove the `return` after the unconfirmed-report message | `test_no_post_offered_when_unconfirmed` | `assertEqual` on the exit code: 1, with `Aborted!` in the output, because the command reaches the post prompt with no input |
+| M5 | `workmain/cli/commands/slack.py` | Remove the `return` after the unconfirmed-report message | `test_no_post_offered_when_unconfirmed` | `prompt.assert_not_called()`: `Expected 'prompt' to not have been called. Called 1 times.` |
 
 Commit: `docs(results): issue #156 test render width results`.
 
