@@ -47,6 +47,8 @@
 | F12 | Narration takes its cap from `application_functions.daemon_narration` but its provider from `daily_internal`'s routing. Changing the daily report's provider changes narration's. | `narration.py:94-100` | Medium |
 | F13 | `intent_parse`, `task_match` and `note_dedup` are pinned to Ollama in code, three `provider_override=ProviderType.OLLAMA` literals plus `get_provider('ollama')`. Their requests carry Ollama-only options. The guide says `ai_settings.json` owns which provider runs. | `intent_parser.py:48`, `:76`, `:173-177`, `:223`; `AI_SETTINGS_GUIDE.md:11` | Medium |
 
+| F16 | Nothing states which calls a configured provider can serve. The `ollama` entry is the `workmain-intent:latest` model, whose Modelfile system prompt returns only intent JSON. `providers set default daily_internal ollama` is accepted, the config loads, and the report would come back as intent JSON rather than an error. The reverse is not a config switch either: intent requests send no system prompt because the instructions live in the Modelfile. Today reports stay off Ollama only because of the hand-written `['claude', 'gemini']` lists. | `config/ai_settings.json` `providers.ollama.model`; `config/providers/ollama/models/workmain-intent/Modelfile`; `intent_parser.py:63-73`; `providers.py:336` | High |
+
 ### Other readers of `ai_settings.json`
 
 | # | Finding | Evidence | Severity |
@@ -98,7 +100,11 @@ Every provider or report-type argument reads these: `reports` (all), `notes cost
 
 This is a different property from D1–D3: not which names exist, but who decides which provider runs. Narration borrowing `daily_internal`'s routing is a defect. The intent family's pin to Ollama may be right, since its requests are Ollama-specific and its model is fixed, but the pin is stated four times in code and contradicts the guide's ownership statement.
 
-**Recommendation:** a separate issue, "Every AI call's provider is decided in one place". It is the same pattern on a different property, and folding it in would put routing design into a naming spec.
+F16 belongs here too: which calls a provider can serve is a routing property, and its absence is why routing a report to Ollama is accepted.
+
+**Recommendation:** #163, covering F12, F13 and F16, blocked by #154. It needs #154's single provider vocabulary and published sets to declare eligibility against, and folding it in would put routing design into a naming spec.
+
+**Consequence for #154's tests.** Once #154 accepts every configured provider, `--provider ollama` on a report is accepted until the new issue lands. #154's tests must not pin that: the override test uses Claude and Gemini against a config routed the other way, and name resolution is tested on `ProviderManager`. History filters (`costs --provider ollama`) are not routing and stay valid under both issues.
 
 ### D5 — Dead code (F6, F15)
 
@@ -113,7 +119,7 @@ No change. #150's reason stands, and their path is #147's.
 | Q | Question | Answer |
 | --- | --- | --- |
 | Q1 | D3: history filters accept the same configured sets as every other argument (Option A)? | Answered 20261002: yes, Option A. |
-| Q2 | D4: which provider runs a non-report call goes to a separate issue, not #154? | |
+| Q2 | D4: which provider runs a non-report call goes to a separate issue, not #154? | Answered 20261002: yes — opened as #163, covering F12, F13 and F16, blocked by #154. No #154 test depends on a report routed to Ollama. |
 | Q3 | D1: `ProviderType` is the only provider name list, the registry is derived from each class's declared type, and an unknown or class-less `providers` key refuses construction (Option A)? | Answered 20261002: yes, Option A. `ProviderType` owns which providers the code can run; `config/` owns which this installation uses; commands accept the configured set through `ProviderManager`. |
 | Q4 | Extent: #154 widened covers D1, D2, D3, D5 and the F7 tests as one issue? | Answered 20261002: yes. |
 
@@ -132,6 +138,6 @@ No change. #150's reason stands, and their path is #147's.
 That is about twelve source files, under one property, in three separable steps (vocabulary, published sets, callers). It fits one issue and one spec. If the spec shows otherwise, the natural split is D1 as its own child.
 
 **Outside #154:**
-- D4 opens as a new issue.
+- D4 is #163.
 - #132's AC wording follows D2 ("configured", not "registered") when #132 is specced.
 - #147, #151 and #157 are unchanged.
