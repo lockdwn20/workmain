@@ -381,6 +381,20 @@ def test_get_registered_provider_names():
     assert set(names) == {'claude', 'gemini', 'ollama'}
 
 
+def test_get_configured_provider_names_includes_disabled():
+    """get_configured_provider_names() returns every providers key, in config order."""
+    settings = _make_temp_settings()
+    del settings['providers']['gemini']
+    settings['providers'] = {
+        'ollama': settings['providers']['ollama'],
+        'claude': settings['providers']['claude'],
+    }
+    settings['report_types']['daily_internal']['primary_provider'] = 'claude'
+    settings['report_types']['daily_internal']['fallback_provider'] = None
+    manager = _manager_from_dict(settings)
+    assert manager.get_configured_provider_names() == ['ollama', 'claude']
+
+
 def test_is_disabled_true_when_enabled_false():
     """is_disabled('ollama') returns True when enabled: false."""
     settings = _make_temp_settings(ollama_enabled=False)

@@ -280,9 +280,13 @@ class ProviderManager:
             )
         return self._report_configs[report_type]
 
+    def get_configured_provider_names(self) -> List[str]:
+        """Return every name under 'providers', enabled or not, in config order."""
+        return configured_provider_names(self._settings)
+
     def get_report_type_names(self) -> List[str]:
         """Return the configured report-type names in config order."""
-        return list(self._report_configs.keys())
+        return report_type_names(self._settings)
 
     def get_fallback_notifications(self) -> List[str]:
         """Get list of fallback notifications."""
@@ -515,6 +519,16 @@ class ProviderManager:
 
 # Singleton instance
 _provider_manager_instance: Optional[ProviderManager] = None
+
+
+def configured_provider_names(settings: dict) -> List[str]:
+    """Return the keys under 'providers' in settings, enabled or not, in config order."""
+    return list(settings.get('providers', {}))
+
+
+def report_type_names(settings: dict) -> List[str]:
+    """Return the keys under 'report_types' in settings, in config order."""
+    return list(settings.get('report_types', {}))
 
 
 def get_provider_manager(config_path: Optional[str] = None) -> ProviderManager:
