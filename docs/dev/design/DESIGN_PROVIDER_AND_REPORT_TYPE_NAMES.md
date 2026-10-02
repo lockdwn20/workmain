@@ -80,7 +80,7 @@
 - **Configured providers:** the keys under `providers`, enabled or not, in config order. This is a new method that replaces `get_registered_provider_names()`, which is deleted.
 - **Report types:** the keys under `report_types`, via the existing `get_report_type_names()`.
 
-It also owns turning a user-supplied name into a checked value, so no command re-implements the check or its error. A provider name resolves to a `ProviderType` only if it is configured; a report-type name is accepted only if it is a key under `report_types`. A failure names the value and lists the valid set.
+One shared check turns a user-supplied name into a checked value against those sets, so no command re-implements the check or its error. `ProviderManager` owns the sets; the check reads them and lives with the other CLI argument helpers in `workmain/utils/` (spec DR4). A provider name resolves to a `ProviderType` only if it is configured; a report-type name is accepted only if it is a key under `report_types`. A failure names the value and lists the valid set.
 
 Every provider or report-type argument reads these: `reports` (all), `notes costs`, `meetings costs`, `providers test`/`costs`, `email assign`/`unassign`. A disabled provider is still configured, so it is accepted, and `get_provider` reports why it cannot run. `providers set default` keeps reading the file (F14) but validates names against the same definitions.
 
