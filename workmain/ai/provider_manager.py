@@ -51,15 +51,15 @@ class ReportTypeConfig:
         report_type: Call type name
         primary_provider: Primary provider to use
         max_tokens: Total output ceiling (thinking plus answer) for this call type
+        instructions: How this call's instructions reach the model
         fallback_provider: Fallback provider if primary fails
         fallback_mode: AUTO or MANUAL fallback
         max_cost_per_report: Optional cost limit
-        instructions: How this call's instructions reach the model
     """
     report_type: str
     primary_provider: ProviderType
     max_tokens: int
-    instructions: InstructionSource = InstructionSource.SYSTEM_PROMPT
+    instructions: InstructionSource
     fallback_provider: Optional[ProviderType] = None
     fallback_mode: FallbackMode = FallbackMode.AUTO
     max_cost_per_report: Optional[float] = None
