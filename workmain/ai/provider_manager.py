@@ -460,10 +460,7 @@ class ProviderManager:
         )
 
         providers_cfg = self._settings.get('providers', {})
-        eligible = [
-            n for n, p in providers_cfg.items()
-            if instructions.value in p['accepts']
-        ]
+        eligible = eligible_provider_names(self._settings, call_type)
         for key, chosen in (
             ('primary_provider', primary),
             ('fallback_provider', fallback),
