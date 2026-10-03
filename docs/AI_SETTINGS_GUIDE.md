@@ -143,11 +143,11 @@ Each entry takes the same keys as a `report_types` entry: `instructions` and `pr
 
 A call's `instructions` says where its instructions live; a provider's `accepts` lists the values it can serve. A route is valid only when the provider's `accepts` contains the call's `instructions`.
 
-| `instructions` | Where the instructions are | Call types |
-| --- | --- | --- |
-| `system_prompt` | the request's own system prompt, which the model must follow | `daily_internal`, `weekly_client`, `monthly_executive`, `note_condensation`, `daemon_narration` |
-| `modelfile` | built into the model; the prompt is the bare user message | `intent_parse` |
-| `raw_prompt` | the prompt alone, sent in Ollama raw mode with JSON format so the model's template is skipped | `task_match`, `note_dedup` |
+| `instructions` | Where the instructions are |
+| --- | --- |
+| `system_prompt` | the request's own system prompt, which the model must follow |
+| `modelfile` | built into the model; the prompt is the bare user message |
+| `raw_prompt` | the prompt alone, sent in Ollama raw mode with JSON format so the model's template is skipped |
 
 The rule is enforced in four places, all by the same check:
 
