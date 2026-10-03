@@ -15,7 +15,7 @@ from rich.console import Console
 from rich.markup import escape
 
 from workmain.ai.base_provider import ConfigurationError, ProviderType
-from workmain.ai.provider_manager import get_provider_manager
+from workmain.ai.provider_manager import eligible_provider_names, get_provider_manager
 
 console = Console()
 
@@ -57,6 +57,49 @@ def require_provider(
     if lowered not in usable:
         _fail(f"Unknown provider '{name}'. Valid providers: {', '.join(usable)}")
     return ProviderType(lowered)
+
+
+def require_eligible_provider(
+    name: Optional[str], call_type: str, settings: Optional[dict] = None
+) -> Optional[ProviderType]:
+    """Return the ProviderType for a provider that can serve call_type; exit 1 otherwise.
+
+    Args:
+        name: Argument as typed. Falsy returns None before anything is loaded.
+            An unconfigured name fails as in require_provider.
+        call_type: A report_types or application_functions key.
+        settings: A parsed ai_settings.json to decide eligibility from. Defaults
+            to the provider manager's loaded configuration.
+
+    Returns:
+        The ProviderType, or None when name is falsy.
+    """
+    if not name:
+        return None
+    configured = (
+        list(settings.get('providers', {})) if settings is not None else None
+    )
+    provider = require_provider(name, valid=configured)
+    try:
+        if settings is not None:
+            eligible = eligible_provider_names(settings, call_type)
+        else:
+            eligible = _manager().get_eligible_provider_names(call_type)
+    except ConfigurationError as e:
+        _fail(str(e))
+    if provider.value not in eligible:
+        if settings is not None:
+            entry = settings.get('report_types', {}).get(call_type) \
+                or settings.get('application_functions', {}).get(call_type)
+            source = entry['instructions']
+        else:
+            source = _manager().get_report_config(call_type).instructions.value
+        _fail(
+            f"Provider '{provider.value}' cannot serve '{call_type}' "
+            f"({source} instructions). Providers that can: "
+            f"{', '.join(eligible) or 'none'}"
+        )
+    return provider
 
 
 def require_report_type(

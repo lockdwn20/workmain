@@ -1,8 +1,9 @@
 """
 Parses natural language input (Slack DM messages) into structured action JSON
-using Mistral 7B via OllamaProvider (the Ollama model's Modelfile).
+using the provider that each call's entry in config/ai_settings.json
+`application_functions` routes to (Ollama in the shipped config).
 
-The Ollama model's Modelfile owns the system prompt and generation parameters
+On Ollama, the model's Modelfile owns the system prompt and generation parameters
 (temperature, top_p, top_k, repeat_penalty). This module sends only the user
 message and max_tokens per request — keeping the context window clean.
 """
@@ -11,7 +12,7 @@ import json
 import logging
 
 from workmain.ai.provider_manager import get_provider_manager
-from workmain.ai.base_provider import GenerationRequest, ProviderUnavailableError, ProviderType
+from workmain.ai.base_provider import GenerationRequest, ProviderUnavailableError
 
 logger = logging.getLogger(__name__)
 
@@ -35,17 +36,21 @@ class IntentParser:
     def __init__(self):
         self._provider_manager = get_provider_manager()
 
-    def is_available(self) -> bool:
-        """Return whether the configured Ollama model is reachable.
+    def is_available(self, call_type: str) -> bool:
+        """Return whether the provider call_type routes to is reachable.
+
+        Args:
+            call_type: An application_functions or report_types key.
 
         Catches ProviderUnavailableError around get_provider() only — a
         provider disabled in ai_settings.json, or one ProviderManager
-        marked disabled because its constructor raised (theoretical for
-        Ollama: OllamaProvider.__init__ only reads dict keys). Any other
-        exception, including ConfigurationError, propagates (DR6).
+        marked disabled because its constructor raised. Any other
+        exception, including ConfigurationError, propagates.
         """
         try:
-            provider = self._provider_manager.get_provider('ollama')
+            provider = self._provider_manager.get_provider(
+                self._provider_manager.get_provider_for_report(call_type).value
+            )
         except ProviderUnavailableError:
             return False
         return provider.test_connection()
@@ -73,7 +78,7 @@ class IntentParser:
         )
 
         response, _fallback_used = self._provider_manager.generate(
-            request, provider_override=ProviderType.OLLAMA
+            request, report_type="intent_parse"
         )
         raw = response.content.strip()
 
@@ -174,7 +179,7 @@ class IntentParser:
         )
 
         response, _ = self._provider_manager.generate(
-            request, provider_override=ProviderType.OLLAMA
+            request, report_type="task_match"
         )
         raw = response.content.strip()
 
@@ -220,7 +225,7 @@ class IntentParser:
             generation_options={"raw": True, "format": "json"},
         )
         response, _ = self._provider_manager.generate(
-            request, provider_override=ProviderType.OLLAMA
+            request, report_type="note_dedup"
         )
         raw = response.content.strip()
 

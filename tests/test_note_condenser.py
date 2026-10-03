@@ -166,6 +166,7 @@ def _stubbed_manager(tmp_path):
 
     def _stub_generate(request, **kwargs):
         recorded["request"] = request
+        recorded["kwargs"] = kwargs
         raise _SentinelStop()
 
     pm.generate = _stub_generate
@@ -197,3 +198,30 @@ class TestNoteCondensationCap:
             condenser.condense_meeting(meeting)
 
         assert recorded["request"].max_tokens == _SENTINEL_TOKENS
+
+
+class TestNoteCondensationRouting:
+    def test_condense_meeting_passes_no_override(self, tmp_path, db_session):
+        meeting = Meeting(
+            title="Sentinel Override Meeting 2099",
+            start_time=_MEETING_START,
+            end_time=datetime(2099, 6, 5, 9, 30),
+            is_recurring=False,
+        )
+        db_session.add(meeting)
+        db_session.commit()
+        db_session.refresh(meeting)
+
+        NotesRepository(db_session).create(
+            content="Discussed the override test", tags=["client-report"],
+            meeting_id=meeting.id, source="meeting", created_at=_MEETING_START,
+        )
+
+        pm, recorded = _stubbed_manager(tmp_path)
+        condenser = NoteCondenser(db_session)
+        condenser.provider_manager = pm
+
+        with pytest.raises(_SentinelStop):
+            condenser.condense_meeting(meeting)
+
+        assert "provider_override" not in recorded["kwargs"]

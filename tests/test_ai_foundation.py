@@ -7,6 +7,8 @@ configuration structures.
 from datetime import date, datetime
 from typing import Dict, Any
 import json
+import os
+import tempfile
 
 from workmain.ai.base_provider import (
     BaseProvider,
@@ -28,6 +30,34 @@ from workmain.ai.provider_manager import (
     FallbackMode,
     ReportTypeConfig
 )
+
+
+def _manager_with_route(report_type, fallback_mode="auto", fallback=True):
+    """Manager from a temporary config routing report_type claude -> gemini."""
+    entry = {
+        "instructions": "system_prompt",
+        "primary_provider": "claude",
+        "max_tokens": 20,
+        "fallback_mode": fallback_mode,
+    }
+    if fallback:
+        entry["fallback_provider"] = "gemini"
+    settings = {
+        "providers": {
+            "claude": {"enabled": False, "model": "x", "accepts": ["system_prompt"]},
+            "gemini": {"enabled": False, "model": "x", "accepts": ["system_prompt"]},
+        },
+        "report_types": {report_type: entry},
+    }
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        json.dump(settings, f)
+        path = f.name
+    try:
+        manager = ProviderManager(config_path=path)
+    finally:
+        os.unlink(path)
+    manager._disabled.clear()
+    return manager
 
 
 class MockProvider(BaseProvider):
@@ -158,7 +188,7 @@ def test_provider_manager():
     """Test provider manager with fallback."""
     print("\nTesting provider manager...")
 
-    manager = ProviderManager()
+    manager = _manager_with_route("daily_internal")
 
     claude = MockProvider({
         'provider_type': ProviderType.CLAUDE,
@@ -176,14 +206,6 @@ def test_provider_manager():
     # Inject mocks directly (register_provider() removed in v1.2 provider_manager)
     manager._providers['claude'] = claude
     manager._providers['gemini'] = gemini
-
-    manager.configure_report_type(
-        report_type="daily_internal",
-        primary_provider=ProviderType.CLAUDE,
-        max_tokens=20,
-        fallback_provider=ProviderType.GEMINI,
-        fallback_mode=FallbackMode.AUTO
-    )
 
     request = GenerationRequest(prompt="Test prompt", max_tokens=20)
     response, fallback_used = manager.generate(request, report_type="daily_internal")
@@ -216,7 +238,7 @@ def test_fallback_modes():
     """Test manual vs automatic fallback modes."""
     print("\nTesting fallback modes...")
 
-    manager = ProviderManager()
+    manager = _manager_with_route("test_report", fallback_mode="manual")
 
     claude = MockProvider({
         'provider_type': ProviderType.CLAUDE,
@@ -234,14 +256,6 @@ def test_fallback_modes():
     manager._providers['gemini'] = gemini
 
     # Test MANUAL mode (should raise error, not fallback)
-    manager.configure_report_type(
-        report_type="test_report",
-        primary_provider=ProviderType.CLAUDE,
-        max_tokens=20,
-        fallback_provider=ProviderType.GEMINI,
-        fallback_mode=FallbackMode.MANUAL
-    )
-
     request = GenerationRequest(prompt="Test", max_tokens=50)
 
     try:
@@ -252,7 +266,9 @@ def test_fallback_modes():
         print("✓ Manual fallback mode working (raises error as expected)")
 
     # Test AUTO mode (should fallback)
-    manager.set_fallback_mode("test_report", FallbackMode.AUTO)
+    manager = _manager_with_route("test_report", fallback_mode="auto")
+    manager._providers['claude'] = claude
+    manager._providers['gemini'] = gemini
 
     response, fallback_used = manager.generate(request, report_type="test_report")
     assert fallback_used
@@ -265,7 +281,7 @@ def test_cost_estimation():
     """Test cost estimation."""
     print("\nTesting cost estimation...")
 
-    manager = ProviderManager()
+    manager = _manager_with_route("daily_internal", fallback=False)
 
     provider = MockProvider({
         'provider_type': ProviderType.CLAUDE,
@@ -275,11 +291,6 @@ def test_cost_estimation():
     })
 
     manager._providers['claude'] = provider
-    manager.configure_report_type(
-        report_type="daily_internal",
-        primary_provider=ProviderType.CLAUDE,
-        max_tokens=20
-    )
 
     cost = manager.estimate_cost(
         report_type="daily_internal",

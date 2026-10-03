@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.38.0] - 2026-10-03
+
+Nothing stopped an AI call being routed to a provider that could not serve it: `providers set default daily_internal ollama` was accepted and would have sent the daily report to the intent model. Narration took the daily report's provider, and the three intent calls were pinned to Ollama in code (issue #163).
+
+### Added
+
+- Every provider entry in `config/ai_settings.json` declares `accepts`, and every call type declares `instructions` (`system_prompt`, `modelfile` or `raw_prompt`). Both are required. A route, fallback, `--provider` override or `providers set default` naming a provider that does not accept the call's `instructions` is refused
+- `application_functions` entries take the same routing keys as `report_types` entries
+- `docs/AI_SETTINGS_GUIDE.md` § Which providers can serve a call
+
+### Changed
+
+- Narration routes by its own `application_functions.daemon_narration` entry instead of `daily_internal`'s
+- `intent_parse`, `task_match` and `note_dedup` route by their own entries; the EOD availability check before task matching and note dedup checks the provider that call routes to
+- A route naming a provider with no `providers` entry refuses to load instead of failing at the first call
+- `ProviderManager.generate()` always requires a call type, and refuses an override that cannot serve it
+
+### Removed
+
+- `ProviderManager.configure_report_type()` and `set_fallback_mode()`, which only tests called
+- `NoteCondenser.condense_meeting()`'s unused provider override
+
+Suite: 1105 passed (baseline 1075 passed).
+
 ## [1.37.0] - 2026-10-02
 
 Each command decided for itself which provider and report-type names it accepted: hand-written lists in `reports`, `notes` and `meetings`, the provider registry in `providers test` and `costs`, the `ProviderType` enum in `providers set default`, and nothing at all in `email assign`. So `monthly_executive` and `ollama` were rejected by commands that should have taken them, and a provider's name was written by hand in several places in code (issue #154).

@@ -171,7 +171,7 @@ class TestIntentParserIsAvailable:
         with patch.object(provider, "check_availability", return_value=ProviderStatus.AVAILABLE):
             with patch("workmain.ai.intent_parser.get_provider_manager", return_value=manager):
                 parser = IntentParser()
-            assert parser.is_available() is True
+            assert parser.is_available('task_match') is True
 
     def test_is_available_false_when_check_availability_unavailable(self):
         from workmain.ai.base_provider import ProviderStatus
@@ -181,14 +181,14 @@ class TestIntentParserIsAvailable:
         with patch.object(provider, "check_availability", return_value=ProviderStatus.UNAVAILABLE):
             with patch("workmain.ai.intent_parser.get_provider_manager", return_value=manager):
                 parser = IntentParser()
-            assert parser.is_available() is False
+            assert parser.is_available('task_match') is False
 
     def test_is_available_false_when_provider_unavailable_error(self):
         manager = MagicMock()
         manager.get_provider.side_effect = ProviderUnavailableError("disabled")
         with patch("workmain.ai.intent_parser.get_provider_manager", return_value=manager):
             parser = IntentParser()
-        assert parser.is_available() is False
+        assert parser.is_available('task_match') is False
 
     def test_is_available_propagates_configuration_error(self):
         from workmain.ai.base_provider import ConfigurationError
@@ -197,7 +197,7 @@ class TestIntentParserIsAvailable:
         with patch("workmain.ai.intent_parser.get_provider_manager", return_value=manager):
             parser = IntentParser()
         with pytest.raises(ConfigurationError):
-            parser.is_available()
+            parser.is_available('task_match')
 
 
 # ---------------------------------------------------------------------------
@@ -342,3 +342,80 @@ class TestIntentParserCallTypeCaps:
             parser.parse_note_duplicate("Note A text", "Note B text")
 
         assert recorded["request"].max_tokens == _SENTINEL_TOKENS
+
+
+# ---------------------------------------------------------------------------
+# Issue #163 Step 2 — intent calls follow config routing
+# ---------------------------------------------------------------------------
+
+_CALL_INSTRUCTIONS = {
+    "intent_parse": "modelfile",
+    "task_match": "raw_prompt",
+    "note_dedup": "raw_prompt",
+}
+
+
+class _RoutedStop(Exception):
+    """Raised by the recording provider once the call reaches it."""
+
+
+def _routed_manager(tmp_path, routed_to):
+    """Real ProviderManager from a fixed config; get_provider is a recorder.
+
+    claude accepts every instruction source here so each intent call can be
+    routed to it; every intent call type is routed to routed_to.
+    """
+    settings = {
+        "providers": {
+            "claude": {"enabled": False, "model": "x",
+                       "accepts": ["system_prompt", "modelfile", "raw_prompt"]},
+            "ollama": {"enabled": False, "model": "x",
+                       "accepts": ["modelfile", "raw_prompt"]},
+        },
+        "report_types": {},
+        "application_functions": {
+            call: {"instructions": instr, "primary_provider": routed_to, "max_tokens": 64}
+            for call, instr in _CALL_INSTRUCTIONS.items()
+        },
+    }
+    path = tmp_path / "ai_settings.json"
+    path.write_text(json.dumps(settings))
+    pm = ProviderManager(config_path=str(path))
+    asked = []
+
+    def _record(name):
+        asked.append(name)
+        provider = MagicMock()
+        provider.generate.side_effect = _RoutedStop()
+        provider.test_connection.return_value = True
+        return provider
+
+    pm.get_provider = _record
+    return pm, asked
+
+
+class TestIntentRouting:
+
+    @pytest.mark.parametrize("routed_to", ["ollama", "claude"])
+    @pytest.mark.parametrize("call", ["parse", "parse_task_match", "parse_note_duplicate"])
+    def test_intent_calls_follow_routing(self, tmp_path, monkeypatch, call, routed_to):
+        pm, asked = _routed_manager(tmp_path, routed_to)
+        monkeypatch.setattr(_provider_manager_module, "_provider_manager_instance", pm)
+        parser = IntentParser()
+        args = {
+            "parse": ("hey",),
+            "parse_task_match": (_make_task(), _make_notes()),
+            "parse_note_duplicate": ("Note A text", "Note B text"),
+        }[call]
+
+        with pytest.raises(_RoutedStop):
+            getattr(parser, call)(*args)
+
+        assert asked == [routed_to]
+
+    def test_is_available_checks_routed_provider(self, tmp_path, monkeypatch):
+        pm, asked = _routed_manager(tmp_path, "claude")
+        monkeypatch.setattr(_provider_manager_module, "_provider_manager_instance", pm)
+
+        assert IntentParser().is_available("task_match") is True
+        assert asked == ["claude"]

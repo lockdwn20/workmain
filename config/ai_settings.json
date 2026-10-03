@@ -5,6 +5,7 @@
   "providers": {
     "claude": {
       "enabled": true,
+      "accepts": ["system_prompt"],
       "model": "claude-sonnet-5",
       "api_key_env": "ANTHROPIC_API_KEY",
       "cost_per_1k_prompt_tokens": 0.002,
@@ -18,6 +19,7 @@
     },
     "gemini": {
       "enabled": true,
+      "accepts": ["system_prompt"],
       "model": "gemini-3.6-flash",
       "api_key_env": "GOOGLE_API_KEY",
       "cost_per_1k_prompt_tokens": 0.00075,
@@ -31,6 +33,7 @@
     },
     "ollama": {
       "enabled": true,
+      "accepts": ["modelfile", "raw_prompt"],
       "model": "workmain-intent:latest",
       "host": "workmain-ollama.lab.haloschaos.com",
       "port": 11434,
@@ -40,6 +43,7 @@
   },
   "report_types": {
     "daily_internal": {
+      "instructions": "system_prompt",
       "primary_provider": "claude",
       "fallback_provider": "gemini",
       "fallback_mode": "auto",
@@ -48,6 +52,7 @@
       "description": "Daily internal status report"
     },
     "weekly_client": {
+      "instructions": "system_prompt",
       "primary_provider": "claude",
       "fallback_provider": "gemini",
       "fallback_mode": "auto",
@@ -56,6 +61,7 @@
       "description": "Weekly client status report"
     },
     "monthly_executive": {
+      "instructions": "system_prompt",
       "primary_provider": "claude",
       "fallback_provider": "gemini",
       "fallback_mode": "auto",
@@ -64,6 +70,7 @@
       "description": "Monthly executive report"
     },
     "note_condensation": {
+      "instructions": "system_prompt",
       "primary_provider": "gemini",
       "fallback_provider": "claude",
       "fallback_mode": "auto",
@@ -73,10 +80,28 @@
     }
   },
   "application_functions": {
-    "daemon_narration": {"max_tokens": 2000},
-    "intent_parse": {"max_tokens": 256},
-    "task_match": {"max_tokens": 64},
-    "note_dedup": {"max_tokens": 64}
+    "daemon_narration": {
+      "instructions": "system_prompt",
+      "primary_provider": "claude",
+      "fallback_provider": "gemini",
+      "fallback_mode": "auto",
+      "max_tokens": 2000
+    },
+    "intent_parse": {
+      "instructions": "modelfile",
+      "primary_provider": "ollama",
+      "max_tokens": 256
+    },
+    "task_match": {
+      "instructions": "raw_prompt",
+      "primary_provider": "ollama",
+      "max_tokens": 64
+    },
+    "note_dedup": {
+      "instructions": "raw_prompt",
+      "primary_provider": "ollama",
+      "max_tokens": 64
+    }
   },
   "fallback_settings": {
     "default_mode": "auto",

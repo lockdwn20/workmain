@@ -6,8 +6,8 @@ This is a single, non-streaming call. It is called only when observations
 exist — if the inspection engine returns an empty list, narration is
 skipped and the notification body is a standard "nothing flagged" message.
 
-Uses the existing provider abstraction (workmain/ai/). Uses the default
-provider configured for daily_internal reports.
+Uses the existing provider abstraction (workmain/ai/). Routes by its own
+`application_functions.daemon_narration` entry in config/ai_settings.json.
 """
 
 import logging
@@ -82,6 +82,6 @@ def _call_provider(prompt: str) -> str:
     )
     response, _ = manager.generate(
         request,
-        report_type='daily_internal',
+        report_type='daemon_narration',
     )
     return response.content

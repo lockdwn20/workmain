@@ -26,7 +26,11 @@ from workmain.ai.base_provider import (
 )
 from workmain.ai.providers import PROVIDER_REGISTRY, ClaudeProvider, GeminiProvider, OllamaProvider
 from workmain.ai.providers.ollama import OllamaProvider as OllamaProviderDirect
-from workmain.ai.provider_manager import ProviderManager, get_provider_manager
+from workmain.ai.provider_manager import (
+    ProviderManager,
+    get_provider_manager,
+    eligible_provider_names,
+)
 from workmain.cli.commands.providers import providers
 
 
@@ -255,10 +259,13 @@ class TestProviderPolicyContract:
             'last_updated': '20260603',
             'providers': {
                 'claude': {'enabled': True, 'model': 'claude-test',
-                           'api_key_env': 'ANTHROPIC_API_KEY'},
-                'gemini': {'enabled': False, 'model': 'gemini-test'},
+                           'api_key_env': 'ANTHROPIC_API_KEY',
+                           'accepts': ['system_prompt']},
+                'gemini': {'enabled': False, 'model': 'gemini-test',
+                           'accepts': ['system_prompt']},
                 'ollama': {'enabled': False, 'model': 'mistral-7b',
-                           'host': 'localhost', 'port': 11434},
+                           'host': 'localhost', 'port': 11434,
+                           'accepts': ['modelfile', 'raw_prompt']},
             },
             'report_types': {},
             'fallback_settings': {},
@@ -283,13 +290,17 @@ def _make_temp_settings(*, ollama_enabled=False):
         "version": "1.1",
         "last_updated": "20260603",
         "providers": {
-            "claude":  {"enabled": False, "model": "claude-test"},
-            "gemini":  {"enabled": False, "model": "gemini-test"},
+            "claude":  {"enabled": False, "model": "claude-test",
+                        "accepts": ["system_prompt"]},
+            "gemini":  {"enabled": False, "model": "gemini-test",
+                        "accepts": ["system_prompt"]},
             "ollama":  {"enabled": ollama_enabled, "model": "mistral-7b",
-                        "host": "localhost", "port": 11434},
+                        "host": "localhost", "port": 11434,
+                        "accepts": ["modelfile", "raw_prompt"]},
         },
         "report_types": {
             "daily_internal": {
+                "instructions": "system_prompt",
                 "primary_provider": "gemini",
                 "fallback_provider": "claude",
                 "fallback_mode": "auto",
@@ -504,24 +515,30 @@ def _make_full_settings():
         "version": "1.1",
         "last_updated": "20260529",
         "providers": {
-            "claude": {"enabled": True, "model": "claude-sonnet-4-5-20250929"},
-            "gemini": {"enabled": True, "model": "gemini-2.5-flash"},
-            "ollama": {"enabled": False, "model": "mistral-7b"},
+            "claude": {"enabled": True, "model": "claude-sonnet-4-5-20250929",
+                       "accepts": ["system_prompt"]},
+            "gemini": {"enabled": True, "model": "gemini-2.5-flash",
+                       "accepts": ["system_prompt"]},
+            "ollama": {"enabled": False, "model": "mistral-7b",
+                       "accepts": ["modelfile", "raw_prompt"]},
         },
         "report_types": {
             "daily_internal": {
+                "instructions": "system_prompt",
                 "primary_provider": "gemini",
                 "fallback_provider": "claude",
                 "fallback_mode": "auto",
                 "max_cost_per_report": 1.0,
             },
             "weekly_client": {
+                "instructions": "system_prompt",
                 "primary_provider": "gemini",
                 "fallback_provider": "claude",
                 "fallback_mode": "auto",
                 "max_cost_per_report": 2.0,
             },
             "note_condensation": {
+                "instructions": "system_prompt",
                 "primary_provider": "gemini",
                 "fallback_provider": "claude",
                 "fallback_mode": "auto",
@@ -685,7 +702,7 @@ def test_get_max_tokens_returns_report_types_value():
 def test_get_max_tokens_returns_application_functions_value():
     """get_max_tokens() returns an application_functions entry's configured cap."""
     settings = _make_temp_settings()
-    settings['application_functions'] = {'daemon_narration': {'max_tokens': 2000}}
+    settings['application_functions'] = {'daemon_narration': {'instructions': 'system_prompt', 'primary_provider': 'claude', 'max_tokens': 2000}}
     manager = _manager_from_dict(settings)
     assert manager.get_max_tokens('daemon_narration') == 2000
 
@@ -710,7 +727,7 @@ def test_application_functions_entry_non_positive_int_raises_naming_it():
     """An application_functions entry whose max_tokens is not a positive integer refuses
     construction, naming it."""
     settings = _make_temp_settings()
-    settings['application_functions'] = {'daemon_narration': {'max_tokens': 0}}
+    settings['application_functions'] = {'daemon_narration': {'instructions': 'system_prompt', 'primary_provider': 'claude', 'max_tokens': 0}}
     with pytest.raises(
         ConfigurationError, match="application_functions.daemon_narration.max_tokens"
     ):
@@ -721,7 +738,7 @@ def test_call_type_in_both_blocks_raises_naming_it():
     """A name declared in both report_types and application_functions refuses
     construction, naming the overlapping name."""
     settings = _make_temp_settings()
-    settings['application_functions'] = {'daily_internal': {'max_tokens': 100}}
+    settings['application_functions'] = {'daily_internal': {'instructions': 'system_prompt', 'primary_provider': 'claude', 'max_tokens': 100}}
     with pytest.raises(ConfigurationError, match="daily_internal"):
         _manager_from_dict(settings)
 
@@ -838,6 +855,7 @@ def test_provider_disabled_by_construction_failure_reports_reason():
     settings = _make_temp_settings()
     settings['providers']['claude'] = {
         "enabled": True, "model": "claude-test", "api_key_env": "ANTHROPIC_API_KEY",
+        "accepts": ["system_prompt"],
     }
     env = {k: v for k, v in os.environ.items() if k != 'ANTHROPIC_API_KEY'}
     with patch.dict(os.environ, env, clear=True):
@@ -884,3 +902,97 @@ def test_set_default_repairs_entry_the_manager_would_refuse():
         assert result.exit_code == 0, result.output
         with open(settings_path) as f:
             assert json.load(f)['report_types']['daily_internal']['primary_provider'] == 'claude'
+
+
+# ---------------------------------------------------------------------------
+# Provider eligibility — Issue #163 Step 1
+# ---------------------------------------------------------------------------
+
+def _settings_with_intent_route():
+    settings = _make_temp_settings()
+    settings['application_functions'] = {
+        'intent_parse': {
+            'instructions': 'modelfile',
+            'primary_provider': 'ollama',
+            'max_tokens': 256,
+        },
+    }
+    return settings
+
+
+@pytest.mark.parametrize('key, value, extra_match', [
+    ('report_types.daily_internal.primary_provider', 'ollama', None),
+    ('report_types.daily_internal.fallback_provider', 'ollama', None),
+    ('application_functions.intent_parse.primary_provider', 'claude', None),
+    ('report_types.daily_internal.primary_provider', 'gemini', 'providers.gemini'),
+])
+def test_ineligible_route_refuses_construction(key, value, extra_match):
+    """A route to a provider that cannot serve the call, or has no entry, does not load."""
+    settings = _settings_with_intent_route()
+    block, name, field = key.split('.')
+    if extra_match:
+        del settings['providers']['gemini']
+        settings['report_types']['daily_internal']['fallback_provider'] = 'claude'
+    settings[block][name][field] = value
+    with pytest.raises(ConfigurationError, match=key.replace('.', r'\.')) as exc:
+        _manager_from_dict(settings)
+    if extra_match:
+        assert extra_match in str(exc.value)
+
+
+@pytest.mark.parametrize('bad', ['absent', [], ['nonesuch'], 'system_prompt'])
+def test_accepts_invalid_refuses_construction(bad):
+    """A provider without a valid accepts list does not load."""
+    settings = _make_temp_settings()
+    if bad == 'absent':
+        del settings['providers']['claude']['accepts']
+    else:
+        settings['providers']['claude']['accepts'] = bad
+    with pytest.raises(ConfigurationError, match=r'providers\.claude\.accepts'):
+        _manager_from_dict(settings)
+
+
+@pytest.mark.parametrize('bad', ['absent', 'nonesuch', ['system_prompt']])
+@pytest.mark.parametrize('block, name', [
+    ('report_types', 'daily_internal'),
+    ('application_functions', 'intent_parse'),
+])
+def test_instructions_invalid_refuses_construction(block, name, bad):
+    """A call type without a valid instructions value does not load."""
+    settings = _settings_with_intent_route()
+    if bad == 'absent':
+        del settings[block][name]['instructions']
+    else:
+        settings[block][name]['instructions'] = bad
+    with pytest.raises(ConfigurationError, match=f'{block}\\.{name}\\.instructions'):
+        _manager_from_dict(settings)
+
+
+def test_shipped_config_loads():
+    """The shipped config meets the schema it ships with."""
+    config = Path(__file__).parent.parent / 'config' / 'ai_settings.json'
+    ProviderManager(config_path=str(config))
+
+
+def test_generate_ineligible_override_raises():
+    """An override that cannot serve the call type raises before any provider is called."""
+    manager = _routing_manager()
+    manager._providers['ollama'] = MagicMock()
+    manager._disabled.discard('ollama')
+    with pytest.raises(ConfigurationError, match='cannot serve'):
+        manager.generate(
+            _request(), report_type='daily_internal', provider_override=ProviderType.OLLAMA
+        )
+    for name in ('claude', 'gemini', 'ollama'):
+        manager._providers[name].generate.assert_not_called()
+
+
+def test_eligible_provider_names_follows_accepts():
+    """eligible_provider_names returns the accepting providers, in config order."""
+    settings = _settings_with_intent_route()
+    assert eligible_provider_names(settings, 'intent_parse') == ['ollama']
+    settings['providers']['claude']['accepts'].append('modelfile')
+    assert eligible_provider_names(settings, 'intent_parse') == ['claude', 'ollama']
+    assert _manager_from_dict(settings).get_eligible_provider_names('intent_parse') == [
+        'claude', 'ollama'
+    ]

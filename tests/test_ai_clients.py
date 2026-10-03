@@ -247,24 +247,31 @@ def test_integrated_generation():
         return
 
     # ProviderManager auto-instantiates providers from registry + ai_settings.json
-    manager = ProviderManager()
-
-    # Configure report types for this test
-    manager.configure_report_type(
-        report_type="test_daily",
-        primary_provider=ProviderType.CLAUDE,
-        max_tokens=20,
-        fallback_provider=ProviderType.GEMINI,
-        fallback_mode=FallbackMode.AUTO
-    )
-
-    manager.configure_report_type(
-        report_type="test_weekly",
-        primary_provider=ProviderType.GEMINI,
-        max_tokens=20,
-        fallback_provider=ProviderType.CLAUDE,
-        fallback_mode=FallbackMode.AUTO
-    )
+    import json
+    import tempfile
+    with open('config/ai_settings.json', 'r') as f:
+        settings = json.load(f)
+    settings['report_types'] = {
+        name: {
+            'instructions': 'system_prompt',
+            'primary_provider': primary,
+            'fallback_provider': fallback,
+            'fallback_mode': 'auto',
+            'max_tokens': 20,
+        }
+        for name, primary, fallback in (
+            ('test_daily', 'claude', 'gemini'),
+            ('test_weekly', 'gemini', 'claude'),
+        )
+    }
+    settings['application_functions'] = {}
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        json.dump(settings, f)
+        path = f.name
+    try:
+        manager = ProviderManager(config_path=path)
+    finally:
+        os.unlink(path)
 
     # Test daily report (should use Claude, falls back to Gemini on failure —
     # 512 so a fallback isn't truncated by thinking_level high either)
@@ -519,6 +526,7 @@ def _temp_ai_settings(tmp_path):
                 "api_key_env": "ANTHROPIC_API_KEY",
                 "retry_attempts": 1,
                 "retry_delay_seconds": 0,
+                "accepts": ["system_prompt"],
             }
         },
         "report_types": {},
