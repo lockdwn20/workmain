@@ -46,9 +46,7 @@ Complete. Every provider declares `accepts`, every call type in `report_types` a
 
 | # | Deviation | Reason | Approved by |
 | --- | --- | --- | --- |
-| 1 | `ReportTypeConfig.instructions` has the dataclass default `InstructionSource.SYSTEM_PROMPT`. | The field sits among defaulted fields and the spec does not say where it goes. The loader always passes the parsed value, so no config reaches the default; DR2/DR3 ("no default") govern the config. | Not approved — flagged for Ray |
-| 2 | Between the Step 1 and Step 2 commits, `IntentParser` calls `generate()` with an override and no `report_type`, which DR6 refuses. | The spec splits DR6 and DR7 across steps. Tests mock the manager there, so the suite stayed green. The branch is not usable at the Step 1 commit. | Spec-ordained |
-| 3 | The guide's new section lists call types per instruction source. | Step 4 says "study D2 table, without the 'today' column", which keeps the Call types column. It is a hand-kept copy of what the config already states. | Spec-ordained — flagged for Ray |
+| 1 | Between the Step 1 and Step 2 commits, `IntentParser` calls `generate()` with an override and no `report_type`, which DR6 refuses. | The spec splits DR6 and DR7 across steps. Tests mock the manager there, so the suite stayed green. The branch is not usable at the Step 1 commit. | Spec-ordained |
 
 ## 5. Verification
 
