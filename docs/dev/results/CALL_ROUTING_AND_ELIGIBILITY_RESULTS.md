@@ -4,7 +4,7 @@
 **Author:** Anvil (Role 3)
 **Date:** 20261002
 **Spec:** `../specs/CALL_ROUTING_AND_ELIGIBILITY_SPEC.md`
-**Released as:** v1.38.0 (PR #N, tag v1.38.0)
+**Released as:** v1.38.0 (tag v1.38.0)
 
 ---
 
@@ -76,8 +76,12 @@ Complete. Every provider declares `accepts`, every call type in `report_types` a
   ```
 
   Comparison: the four report-type rows are identical. `daemon_narration` equals `daily_internal`'s row before (`claude gemini auto`). The three intent rows have primary `ollama` and fallback `None`; mode not compared.
-- **Live verification:** not run. The daemon restart and live check belong to `/closeout`; the daemon will not start on a config without the new keys, and the shipped config carries them.
-- **Daemon restart:** `/closeout`.
+- **Live verification** (at close-out, 20261003, against the live config and services, before the merge):
+  - `workmain providers list` loads the shipped config; Claude, Gemini and Ollama report `available`.
+  - `workmain reports preview daily_internal --provider ollama` exits 1: `Error: Provider 'ollama' cannot serve 'daily_internal' (system_prompt instructions). Providers that can: claude, gemini`.
+  - `IntentParser().is_available('task_match')` and `('note_dedup')` both return `True` against the live Ollama server.
+  - A live `parse_task_match()` routed through `application_functions.task_match` to Ollama returned `{'matched': True, 'confidence': 0.95, 'note_id': 42}` for a matching note.
+- **Daemon restart:** `/closeout` step 5, after the merge to `dev`; confirmed in the issue's closing comment.
 
 ## 6. Follow-ups
 

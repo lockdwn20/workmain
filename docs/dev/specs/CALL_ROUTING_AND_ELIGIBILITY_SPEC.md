@@ -1,6 +1,6 @@
 # Call Routing and Provider Eligibility — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261002
 **Branch:** `feature/issue-163-provider-eligibility` (from `dev`)
