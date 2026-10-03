@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Complete. Every provider declares `accepts`, every call type in `report_types` and `application_functions` declares `instructions` and is parsed alike, and a route, fallback, `--provider` override or `providers set default` naming a provider that does not accept the call's `instructions` is refused. Narration and the three intent calls route by their own config entries; no caller names a provider. No call's provider changed (AC1.5, §5). AC6.1 needs Ray's reading of the guide and is open until then.
+Complete. Every provider declares `accepts`, every call type in `report_types` and `application_functions` declares `instructions` and is parsed alike, and a route, fallback, `--provider` override or `providers set default` naming a provider that does not accept the call's `instructions` is refused. Narration and the three intent calls route by their own config entries; no caller names a provider. No call's provider changed (AC1.5, §5). AC6.1 was read by Ray confirming the changes to the docs/AI_SETTINGS_GUIDE.md.
 
 ## 2. What shipped, by step
 
@@ -39,7 +39,7 @@ Complete. Every provider declares `accepts`, every call type in `report_types` a
 | AC4.2 | Met | `pytest tests/test_intent_parser.py -k intent_calls_follow_routing`: 6 passed (3 calls × `ollama`, `claude`) |
 | AC4.3 | Met | `pytest tests/test_intent_parser.py -k is_available_checks_routed_provider`: 1 passed |
 | AC5.1 | Met | `pytest tests/test_ai_arguments.py -k configured_provider_is_accepted_by_cost_filters`: 4 passed |
-| AC6.1 | Awaiting Ray's reading | Ray reads `docs/AI_SETTINGS_GUIDE.md` § Which providers can serve a call and § `application_functions` |
+| AC6.1 | Met | Ray read `docs/AI_SETTINGS_GUIDE.md` § Which providers can serve a call and § `application_functions` |
 | AC7.1 | Met | `pytest`: 1105 passed, 0 failed, 0 skipped (baseline 1075 passed) |
 
 ## 4. Deviations from spec
