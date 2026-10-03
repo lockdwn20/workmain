@@ -35,15 +35,23 @@ class FallbackMode(Enum):
     MANUAL = "manual"
 
 
+class InstructionSource(Enum):
+    """How a call type's instructions reach the model; meanings are in docs/AI_SETTINGS_GUIDE.md."""
+    SYSTEM_PROMPT = "system_prompt"
+    MODELFILE = "modelfile"
+    RAW_PROMPT = "raw_prompt"
+
+
 @dataclass
 class ReportTypeConfig:
     """
-    Configuration for a specific report type.
+    Configuration for a specific call type (a report_types or application_functions entry).
 
     Attributes:
-        report_type: Report type name
+        report_type: Call type name
         primary_provider: Primary provider to use
         max_tokens: Total output ceiling (thinking plus answer) for this call type
+        instructions: How this call's instructions reach the model
         fallback_provider: Fallback provider if primary fails
         fallback_mode: AUTO or MANUAL fallback
         max_cost_per_report: Optional cost limit
@@ -51,6 +59,7 @@ class ReportTypeConfig:
     report_type: str
     primary_provider: ProviderType
     max_tokens: int
+    instructions: InstructionSource
     fallback_provider: Optional[ProviderType] = None
     fallback_mode: FallbackMode = FallbackMode.AUTO
     max_cost_per_report: Optional[float] = None
@@ -78,8 +87,7 @@ class ProviderManager:
         self._disabled_reasons: Dict[str, str] = {}      # name → construction failure reason
         self._all_configs: Dict[str, dict] = {}          # name → config dict (all providers)
         self._settings: dict = {}                        # full ai_settings.json
-        self._report_configs: Dict[str, ReportTypeConfig] = {}
-        self._application_functions: Dict[str, int] = {}
+        self._call_configs: Dict[str, ReportTypeConfig] = {}
         self._fallback_notifications: List[str] = []
 
         self._load_config()
@@ -122,42 +130,12 @@ class ProviderManager:
         """Returns True if the named provider is disabled in config."""
         return name in self._disabled
 
-    def configure_report_type(
-        self,
-        report_type: str,
-        primary_provider: ProviderType,
-        max_tokens: int,
-        fallback_provider: Optional[ProviderType] = None,
-        fallback_mode: FallbackMode = FallbackMode.AUTO,
-        max_cost: Optional[float] = None
-    ):
-        """
-        Configure provider selection for a report type.
-
-        Args:
-            report_type: Report type name
-            primary_provider: Primary provider to use
-            max_tokens: Total output ceiling (thinking plus answer) for this call type
-            fallback_provider: Optional fallback provider
-            fallback_mode: Fallback behavior (AUTO/MANUAL)
-            max_cost: Optional max cost per report
-        """
-        config = ReportTypeConfig(
-            report_type=report_type,
-            primary_provider=primary_provider,
-            max_tokens=max_tokens,
-            fallback_provider=fallback_provider,
-            fallback_mode=fallback_mode,
-            max_cost_per_report=max_cost
-        )
-        self._report_configs[report_type] = config
-
     def get_max_tokens(self, call_type: str) -> int:
         """
         Return the configured max_tokens cap for a call type.
 
-        Checks report_types first, then application_functions. DR3: no
-        default, no fallback — a call type absent from both raises.
+        Reads the call type's entry in report_types or application_functions.
+        No default, no fallback — a call type absent from both raises.
 
         Args:
             call_type: A report_types key or an application_functions key.
@@ -168,10 +146,8 @@ class ProviderManager:
         Raises:
             ConfigurationError: If call_type is not configured in either block.
         """
-        if call_type in self._report_configs:
-            return self._report_configs[call_type].max_tokens
-        if call_type in self._application_functions:
-            return self._application_functions[call_type]
+        if call_type in self._call_configs:
+            return self._call_configs[call_type].max_tokens
         raise ConfigurationError(
             f"No max_tokens configured for call type '{call_type}'. "
             f"Add it to 'report_types' or 'application_functions' in "
@@ -189,27 +165,33 @@ class ProviderManager:
 
         Args:
             request: Generation request
-            report_type: Report type (for provider selection)
-            provider_override: Optional provider override
+            report_type: Call type (for provider selection); always required
+            provider_override: Optional provider override; must accept the
+                call type's instructions
 
         Returns:
             Tuple of (GenerationResponse, fallback_used)
 
         Raises:
             ProviderError: If generation fails with all providers
-            ConfigurationError: If neither a provider_override nor a configured
-                report_type is given. Raised before the fallback handling below.
+            ConfigurationError: If report_type is missing or not configured, or
+                provider_override cannot serve it. Raised before any provider
+                is called.
         """
+        if report_type is None:
+            raise ConfigurationError("generate() requires a report_type.")
+        config = self._require_report_config(report_type)
         if provider_override:
+            if provider_override.value not in self.get_eligible_provider_names(report_type):
+                raise ConfigurationError(
+                    f"Provider '{provider_override.value}' cannot serve call type "
+                    f"'{report_type}' ({config.instructions.value}); providers that can: "
+                    f"{', '.join(self.get_eligible_provider_names(report_type)) or 'none'}."
+                )
             primary = provider_override
             fallback = None
             fallback_mode = FallbackMode.MANUAL
-        elif report_type is None:
-            raise ConfigurationError(
-                "generate() requires a report_type or a provider_override."
-            )
         else:
-            config = self._require_report_config(report_type)
             primary = config.primary_provider
             fallback = config.fallback_provider
             fallback_mode = config.fallback_mode
@@ -267,13 +249,10 @@ class ProviderManager:
         return self._require_report_config(report_type).primary_provider
 
     def _require_report_config(self, report_type: str) -> ReportTypeConfig:
-        """Return the report_types entry for report_type, or raise (DR1)."""
-        if report_type not in self._report_configs:
-            raise ConfigurationError(
-                f"No routing configured for report type '{report_type}'. "
-                f"Add 'report_types.{report_type}' to config/ai_settings.json."
-            )
-        return self._report_configs[report_type]
+        """Return the entry for call type report_type, or raise."""
+        if report_type not in self._call_configs:
+            raise ConfigurationError(_no_routing_message(report_type))
+        return self._call_configs[report_type]
 
     def get_configured_provider_names(self) -> List[str]:
         """Return every name under 'providers', enabled or not, in config order."""
@@ -283,6 +262,10 @@ class ProviderManager:
         """Return the configured report-type names in config order."""
         return report_type_names(self._settings)
 
+    def get_eligible_provider_names(self, call_type: str) -> List[str]:
+        """Return the providers that accept call_type's instructions, in config order."""
+        return eligible_provider_names(self._settings, call_type)
+
     def get_fallback_notifications(self) -> List[str]:
         """Get list of fallback notifications."""
         return self._fallback_notifications.copy()
@@ -290,17 +273,6 @@ class ProviderManager:
     def clear_fallback_notifications(self):
         """Clear fallback notification history."""
         self._fallback_notifications.clear()
-
-    def set_fallback_mode(self, report_type: str, mode: FallbackMode):
-        """
-        Update fallback mode for a report type.
-
-        Args:
-            report_type: Report type to update
-            mode: New fallback mode
-        """
-        if report_type in self._report_configs:
-            self._report_configs[report_type].fallback_mode = mode
 
     def get_report_config(self, report_type: str) -> Optional[ReportTypeConfig]:
         """
@@ -312,7 +284,7 @@ class ProviderManager:
         Returns:
             Report type configuration or None
         """
-        return self._report_configs.get(report_type)
+        return self._call_configs.get(report_type)
 
     def estimate_cost(
         self,
@@ -430,12 +402,6 @@ class ProviderManager:
                 self._disabled.add(name)
                 self._disabled_reasons[name] = str(exc)
 
-        # Build report-type configs
-        fallback_mode_map = {
-            'auto':   FallbackMode.AUTO,
-            'manual': FallbackMode.MANUAL,
-        }
-
         report_types_cfg = self._settings.get('report_types', {})
         application_functions_cfg = self._settings.get('application_functions', {})
 
@@ -447,43 +413,107 @@ class ProviderManager:
                 f"may be declared in only one block."
             )
 
-        for report_type, cfg in report_types_cfg.items():
-            key_prefix = f"report_types.{report_type}"
-            primary_name = cfg.get('primary_provider')
-            if primary_name is None:
+        for name, provider_cfg in self._settings.get('providers', {}).items():
+            self._require_accepts(provider_cfg, f"providers.{name}.accepts")
+
+        for block, entries in (
+            ('report_types', report_types_cfg),
+            ('application_functions', application_functions_cfg),
+        ):
+            for call_type, cfg in entries.items():
+                self._call_configs[call_type] = self._parse_call_config(
+                    block, call_type, cfg
+                )
+
+    def _parse_call_config(self, block: str, call_type: str, cfg) -> ReportTypeConfig:
+        """Parse one report_types or application_functions entry; refuse an ineligible route."""
+        key_prefix = f"{block}.{call_type}"
+        if not isinstance(cfg, dict):
+            raise ConfigurationError(
+                f"'{key_prefix}' must be an object in config/ai_settings.json."
+            )
+        instructions = self._parse_instructions(
+            cfg.get('instructions'), f"{key_prefix}.instructions"
+        )
+        primary_name = cfg.get('primary_provider')
+        if primary_name is None:
+            raise ConfigurationError(
+                f"'{key_prefix}.primary_provider' is required in "
+                f"config/ai_settings.json."
+            )
+        primary = self._parse_provider_name(
+            primary_name, f"{key_prefix}.primary_provider"
+        )
+        fallback_name = cfg.get('fallback_provider')
+        fallback = (
+            None if fallback_name is None
+            else self._parse_provider_name(
+                fallback_name, f"{key_prefix}.fallback_provider"
+            )
+        )
+        fb_mode = {
+            'auto': FallbackMode.AUTO,
+            'manual': FallbackMode.MANUAL,
+        }.get(cfg.get('fallback_mode', 'auto'), FallbackMode.AUTO)
+        max_tokens = self._require_positive_int(
+            cfg.get('max_tokens'), f"{key_prefix}.max_tokens"
+        )
+
+        providers_cfg = self._settings.get('providers', {})
+        eligible = eligible_provider_names(self._settings, call_type)
+        for key, chosen in (
+            ('primary_provider', primary),
+            ('fallback_provider', fallback),
+        ):
+            if chosen is None:
+                continue
+            if chosen.value not in providers_cfg:
                 raise ConfigurationError(
-                    f"'{key_prefix}.primary_provider' is required in "
-                    f"config/ai_settings.json."
+                    f"'{key_prefix}.{key}' names provider '{chosen.value}', which has "
+                    f"no 'providers.{chosen.value}' entry in config/ai_settings.json."
                 )
-            primary = self._parse_provider_name(
-                primary_name, f"{key_prefix}.primary_provider"
-            )
-            fallback_name = cfg.get('fallback_provider')
-            fallback = (
-                None if fallback_name is None
-                else self._parse_provider_name(
-                    fallback_name, f"{key_prefix}.fallback_provider"
+            if chosen.value not in eligible:
+                raise ConfigurationError(
+                    f"'{key_prefix}.{key}' is '{chosen.value}', which does not accept "
+                    f"'{instructions.value}' instructions; providers that do: "
+                    f"{', '.join(eligible) or 'none'}."
                 )
-            )
-            fb_mode  = fallback_mode_map.get(cfg.get('fallback_mode', 'auto'), FallbackMode.AUTO)
-            max_cost = cfg.get('max_cost_per_report', 1.0)
-            max_tokens = self._require_positive_int(
-                cfg.get('max_tokens'), f"report_types.{report_type}.max_tokens"
-            )
 
-            self.configure_report_type(
-                report_type=report_type,
-                primary_provider=primary,
-                max_tokens=max_tokens,
-                fallback_provider=fallback,
-                fallback_mode=fb_mode,
-                max_cost=max_cost,
-            )
+        return ReportTypeConfig(
+            report_type=call_type,
+            primary_provider=primary,
+            max_tokens=max_tokens,
+            instructions=instructions,
+            fallback_provider=fallback,
+            fallback_mode=fb_mode,
+            max_cost_per_report=cfg.get('max_cost_per_report', 1.0),
+        )
 
-        for name, entry in application_functions_cfg.items():
-            entry_tokens = entry.get('max_tokens') if isinstance(entry, dict) else None
-            self._application_functions[name] = self._require_positive_int(
-                entry_tokens, f"application_functions.{name}.max_tokens"
+    @staticmethod
+    def _parse_instructions(value, key_name: str) -> InstructionSource:
+        """Return the InstructionSource for value; else raise ConfigurationError naming key_name."""
+        try:
+            return InstructionSource(value)
+        except ValueError:
+            valid = ', '.join(i.value for i in InstructionSource)
+            raise ConfigurationError(
+                f"'{key_name}' is {value!r}; it is required and must be one of "
+                f"({valid}) in config/ai_settings.json."
+            ) from None
+
+    @staticmethod
+    def _require_accepts(provider_cfg, key_name: str) -> None:
+        """Raise ConfigurationError unless provider_cfg['accepts'] is a non-empty list of InstructionSource values."""
+        valid = [i.value for i in InstructionSource]
+        accepts = provider_cfg.get('accepts') if isinstance(provider_cfg, dict) else None
+        if (
+            not isinstance(accepts, list)
+            or not accepts
+            or any(a not in valid for a in accepts)
+        ):
+            raise ConfigurationError(
+                f"'{key_name}' is required and must be a non-empty list of "
+                f"({', '.join(valid)}) in config/ai_settings.json."
             )
 
     @staticmethod
@@ -524,6 +554,36 @@ def configured_provider_names(settings: dict) -> List[str]:
 def report_type_names(settings: dict) -> List[str]:
     """Return the keys under 'report_types' in settings, in config order."""
     return list(settings.get('report_types', {}))
+
+
+def _no_routing_message(call_type: str) -> str:
+    return (
+        f"No routing configured for call type '{call_type}'. "
+        f"Add 'report_types.{call_type}' or 'application_functions.{call_type}' "
+        f"to config/ai_settings.json."
+    )
+
+
+def eligible_provider_names(settings: dict, call_type: str) -> List[str]:
+    """Return, in config order, the providers whose 'accepts' holds call_type's 'instructions'.
+
+    Raises:
+        ConfigurationError: If call_type is in neither block, or its entry has no 'instructions'.
+    """
+    for block in ('report_types', 'application_functions'):
+        entry = settings.get(block, {}).get(call_type)
+        if entry is not None:
+            instructions = entry.get('instructions') if isinstance(entry, dict) else None
+            if instructions is None:
+                raise ConfigurationError(
+                    f"'{block}.{call_type}.instructions' is required in "
+                    f"config/ai_settings.json."
+                )
+            return [
+                name for name, cfg in settings.get('providers', {}).items()
+                if isinstance(cfg.get('accepts'), list) and instructions in cfg['accepts']
+            ]
+    raise ConfigurationError(_no_routing_message(call_type))
 
 
 def get_provider_manager(config_path: Optional[str] = None) -> ProviderManager:

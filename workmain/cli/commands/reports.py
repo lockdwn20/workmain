@@ -25,7 +25,7 @@ from workmain.database.models import Report
 from workmain.database.repositories.system_state_repository import SystemStateRepository
 from workmain.database.repositories.reports_repo import get_reports_repository
 from workmain.ai import get_report_generator, ReportFormat, ProviderType
-from workmain.utils.ai_arguments import require_provider, require_report_type
+from workmain.utils.ai_arguments import require_eligible_provider, require_provider, require_report_type
 from workmain.utils.date_utils import resolve_date_window, format_date_window_label
 from workmain.utils.editor import edit_in_editor
 from workmain.utils.self_invoke import TIMEOUT_NETWORK, run_workmain
@@ -244,7 +244,7 @@ def report_preview(template: str, provider: Optional[str]):
       workmain reports preview daily_internal
       workmain reports preview weekly_client --provider claude
     """
-    generate_report_impl(template, preview_only=True, provider=require_provider(provider))
+    generate_report_impl(template, preview_only=True, provider=require_eligible_provider(provider, template))
 
 
 @reports.command('save')
@@ -262,7 +262,7 @@ def report_save(template: str, provider: Optional[str], report_date_str: Optiona
       workmain reports save weekly_client --provider gemini
       workmain reports save daily_internal --date 2026-03-30
     """
-    provider_type = require_provider(provider)
+    provider_type = require_eligible_provider(provider, template)
     target_date = None
     if report_date_str:
         try:

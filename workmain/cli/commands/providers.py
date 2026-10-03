@@ -19,9 +19,9 @@ from rich import box
 
 from workmain.database.connection import get_db
 from workmain.database.repositories.ai_costs_repo import get_ai_cost_repository
-from workmain.ai.provider_manager import configured_provider_names, get_provider_manager, report_type_names
+from workmain.ai.provider_manager import get_provider_manager, report_type_names
 from workmain.ai.base_provider import ProviderStatus, ProviderUnavailableError, GenerationRequest
-from workmain.utils.ai_arguments import require_provider, require_report_type
+from workmain.utils.ai_arguments import require_eligible_provider, require_provider, require_report_type
 from workmain.utils.date_utils import resolve_date_window, format_date_window_label
 
 
@@ -329,9 +329,8 @@ def set_default_provider(report_type: str, provider: str, fallback: Optional[str
         data = json.load(f)
 
     require_report_type(report_type, valid=report_type_names(data))
-    valid_providers = configured_provider_names(data)
-    provider_type = require_provider(provider, valid=valid_providers)
-    fallback_type = require_provider(fallback, valid=valid_providers)
+    provider_type = require_eligible_provider(provider, report_type, settings=data)
+    fallback_type = require_eligible_provider(fallback, report_type, settings=data)
     provider = provider_type.value
     fallback = fallback_type.value if fallback_type else None
 

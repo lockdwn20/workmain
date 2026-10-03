@@ -11,7 +11,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from workmain.database.models import Meeting, Note
-from workmain.ai.base_provider import GenerationRequest, ProviderType
+from workmain.ai.base_provider import GenerationRequest
 from workmain.ai.cost_tracker import get_cost_tracker
 from workmain.ai.provider_manager import get_provider_manager
 from workmain.database.repositories.ai_costs_repo import AiCostRepository
@@ -87,14 +87,12 @@ class NoteCondenser:
     def condense_meeting(
         self,
         meeting: Meeting,
-        provider: Optional[ProviderType] = None
     ) -> Tuple[str, List[str]]:
         """
         Condense all notes from a meeting into a single summary.
 
         Args:
             meeting: Meeting object with notes to condense
-            provider: AI provider to use (defaults to Claude)
 
         Returns:
             (condensed one-line summary, resolved tags for the summary note)
@@ -150,7 +148,6 @@ class NoteCondenser:
             response, _ = self.provider_manager.generate(
                 request,
                 report_type='note_condensation',
-                provider_override=provider if provider else None,
             )
 
             # Track cost

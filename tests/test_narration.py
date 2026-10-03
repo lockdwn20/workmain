@@ -78,3 +78,42 @@ class TestNarrationCapFailureLogged:
         warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
         assert warnings, "Expected a warning record"
         assert any("daemon_narration" in r.getMessage() for r in warnings)
+
+
+class TestNarrationRouting:
+    """Narration routes by its own entry, independent of daily_internal."""
+
+    def test_narration_uses_own_routing(self, tmp_path, monkeypatch):
+        settings = {
+            "providers": {
+                "claude": {"enabled": False, "model": "x", "accepts": ["system_prompt"]},
+                "gemini": {"enabled": False, "model": "x", "accepts": ["system_prompt"]},
+            },
+            "report_types": {
+                "daily_internal": {
+                    "instructions": "system_prompt",
+                    "primary_provider": "gemini",
+                    "max_tokens": 100,
+                },
+            },
+            "application_functions": {
+                "daemon_narration": {
+                    "instructions": "system_prompt",
+                    "primary_provider": "claude",
+                    "max_tokens": 100,
+                },
+            },
+        }
+        pm = ProviderManager(config_path=str(_write_settings(tmp_path, settings)))
+        asked = []
+
+        def _record(name):
+            asked.append(name)
+            raise RuntimeError("recorded")
+
+        pm.get_provider = _record
+        monkeypatch.setattr(provider_manager_module, "_provider_manager_instance", pm)
+
+        narration.narrate(_one_observation())
+
+        assert asked == ["claude"]

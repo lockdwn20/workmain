@@ -460,10 +460,10 @@ def _run_task_match_step(dry_run: bool, target_date: date, non_interactive: bool
 
         notes_by_id = {n.id: n for n in notes_today}
 
-        # Check Ollama availability — semantic matching when available, keyword fallback otherwise
+        # Check the provider task_match routes to — semantic matching when available, keyword fallback otherwise
         from workmain.ai.intent_parser import IntentParser
         intent_parser = IntentParser()
-        ollama_available = intent_parser.is_available()
+        ollama_available = intent_parser.is_available('task_match')
 
         from workmain.ai.base_provider import ProviderError
 
@@ -687,10 +687,10 @@ def _run_note_dedup_step(dry_run: bool, target_date: date, non_interactive: bool
             print("  No candidate pairs to compare — skipping note dedup")
             return EodStepResult(status=EodStepStatus.COMPLETED)
 
-        # Check Ollama availability — semantic matching when available, keyword fallback otherwise
+        # Check the provider note_dedup routes to — semantic matching when available, keyword fallback otherwise
         from workmain.ai.intent_parser import IntentParser
         intent_parser = IntentParser()
-        ollama_available = intent_parser.is_available()
+        ollama_available = intent_parser.is_available('note_dedup')
 
         from workmain.ai.base_provider import ProviderError
 

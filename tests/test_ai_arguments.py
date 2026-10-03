@@ -27,13 +27,24 @@ from workmain.cli.commands.reports import reports
 from workmain.utils.ai_arguments import require_provider, require_report_type
 
 _PATCH_TARGET = 'workmain.utils.ai_arguments.get_provider_manager'
-_ENTRY = {'primary_provider': 'claude', 'max_tokens': 100}
+_ENTRY = {'instructions': 'system_prompt', 'primary_provider': 'claude', 'max_tokens': 100}
+
+
+def _providers_block(names):
+    """Disabled provider entries declaring what each accepts: ollama's pair, else system_prompt."""
+    return {
+        name: {
+            'enabled': False, 'model': 'x',
+            'accepts': ['modelfile', 'raw_prompt'] if name == 'ollama' else ['system_prompt'],
+        }
+        for name in names
+    }
 
 
 def _manager(providers=('claude', 'ollama'), report_types=None):
     """Build a ProviderManager from a temporary config with nothing enabled."""
     settings = {
-        'providers': {name: {'enabled': False, 'model': 'x'} for name in providers},
+        'providers': _providers_block(providers),
         'report_types': report_types or {},
     }
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
@@ -120,7 +131,7 @@ def _settings_file(tmp_path, report_types):
     path = tmp_path / 'ai_settings.json'
     path.write_text(json.dumps({
         'last_updated': '20260101',
-        'providers': {n: {'enabled': False, 'model': 'x'} for n in ('claude', 'ollama')},
+        'providers': _providers_block(('claude', 'ollama')),
         'report_types': report_types,
     }))
     return path
@@ -207,6 +218,39 @@ class TestProviderArguments:
 
     def test_override_reverse(self):
         assert self._run_override(routed='claude', override='gemini') == ['gemini']
+
+
+class TestEligibleProviderArguments:
+
+    @pytest.mark.parametrize('args', [
+        ['set', 'default', 'daily_internal', 'ollama', '--force'],
+        ['set', 'default', 'daily_internal', 'claude', '--fallback', 'ollama', '--force'],
+    ])
+    def test_set_default_refuses_ineligible(self, tmp_path, args):
+        settings = _settings_file(tmp_path, {'daily_internal': _ENTRY})
+        before = settings.read_bytes()
+        with patch('workmain.cli.commands.providers._SETTINGS_PATH', Path(settings)):
+            result = CliRunner().invoke(providers, args)
+        assert result.exit_code == 1, result.output
+        assert 'daily_internal' in result.output
+        assert 'system_prompt' in result.output
+        assert settings.read_bytes() == before
+
+    @pytest.mark.parametrize('args', [
+        ['save', 'daily_internal', '--provider', 'ollama'],
+        ['preview', 'daily_internal', '--provider', 'ollama'],
+    ])
+    def test_override_ineligible_rejected(self, args):
+        manager = _manager(
+            providers=('claude', 'ollama'), report_types={'daily_internal': _ENTRY}
+        )
+        asked = []
+        manager.get_provider = lambda name: asked.append(name)
+        with patch(_PATCH_TARGET, return_value=manager):
+            result = CliRunner().invoke(reports, args)
+        assert result.exit_code == 1, result.output
+        assert 'cannot serve' in result.output
+        assert asked == []
 
 
 class TestReportTypeArguments:
