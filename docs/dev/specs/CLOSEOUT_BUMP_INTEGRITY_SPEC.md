@@ -1,6 +1,6 @@
 # /closeout version-bump integrity — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261005
 **Branch:** `chore/issue-172-closeout-bump-integrity` (from `main`)
