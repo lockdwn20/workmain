@@ -86,7 +86,7 @@ These writes are not reads, and #157 covers reads only. The repository methods f
 | Q | Question | Answer |
 | --- | --- | --- |
 | Q1 | D1: Option A or B? | |
-| Q2 | D6: open the Report-writes child of #158 and amend #158's AC1? | |
+| Q2 | D6: open the Report-writes child of #158 and amend #158's AC1? | Answered 20261005 by Ray: yes. Opened #167 (child of #158, blocked by #96, on the board); #158's direction and AC1 amended. |
 
 ## 6. Disposition
 
