@@ -148,6 +148,96 @@ class ReportsRepository:
 
         return query.all()
 
+    def get_latest_for_date(
+        self,
+        report_date: date,
+        report_type: Optional[str] = None,
+    ) -> Optional[Report]:
+        """
+        Get the newest report for a report date.
+
+        Args:
+            report_date: The report's report_date
+            report_type: Filter by report type. None means any type.
+
+        Returns:
+            The report with the highest ID on that date, or None
+        """
+        query = self.session.query(Report).filter(Report.report_date == report_date)
+
+        if report_type:
+            query = query.filter(Report.report_type == report_type)
+
+        return query.order_by(Report.id.desc()).first()
+
+    def list_by_report_date(
+        self,
+        report_type: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 10,
+    ) -> List[Report]:
+        """
+        List reports newest report date first, ties broken by newest ID.
+
+        Unlike list_reports, which orders by creation time, this orders by
+        report_date.
+
+        Args:
+            report_type: Filter by report type. None means any type.
+            status: Filter by report status. None means any status.
+            limit: Maximum number of reports
+
+        Returns:
+            List of Report objects
+        """
+        query = self.session.query(Report)
+
+        if report_type:
+            query = query.filter(Report.report_type == report_type)
+
+        if status:
+            query = query.filter(Report.status == status)
+
+        return (
+            query.order_by(Report.report_date.desc(), Report.id.desc())
+            .limit(limit)
+            .all()
+        )
+
+    def list_slack_posted(
+        self,
+        report_type: Optional[str] = None,
+        report_date: Optional[date] = None,
+        limit: Optional[int] = None,
+    ) -> List[Report]:
+        """
+        List reports that have been posted to Slack.
+
+        Ordered by report_date DESC, id DESC.
+
+        Args:
+            report_type: Filter by report type. None means any type.
+            report_date: Filter by report date. None means any date.
+            limit: Maximum number of reports. None means unbounded.
+
+        Returns:
+            List of Report objects with slack_message_ts set
+        """
+        query = self.session.query(Report).filter(Report.slack_message_ts.isnot(None))
+
+        if report_type:
+            query = query.filter(Report.report_type == report_type)
+
+        if report_date:
+            query = query.filter(Report.report_date == report_date)
+
+        query = query.order_by(Report.report_date.desc(), Report.id.desc())
+
+        if limit is not None:
+            query = query.limit(limit)
+
+        return query.all()
+
     def apply_correction(
         self,
         report_id: int,

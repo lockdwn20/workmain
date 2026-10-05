@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.39.0] - 2026-10-05
+
+Nine reads of the `Report` model outside the repositories built their own queries, so how reports were selected and ordered could only be tested through a command's printed output. That is the dependency that broke `test_history_desc_order` in #156 (issue #157).
+
+### Added
+
+- `ReportsRepository.get_latest_for_date`, `list_by_report_date` and `list_slack_posted`
+- `session_for_command` in `tests/conftest.py`, which hands the `db_session` session to code that opens its own session through `get_db()`, so a command's real query runs against seeded rows that are rolled back
+
+### Changed
+
+- `reports confirm`, `correct`, `list`, `history`, `show` and `resend`, `slack status`, `slack post weekly` and the Slack intent actions read reports through `ReportsRepository`. What each selects is unchanged
+- `slack status` breaks ties between reports on the same date by newest id; their order was undefined
+
+### Removed
+
+- `already_posted` from `workmain/integrations/slack/client.py`; `slack post weekly` checks through `list_slack_posted`
+- Two `reports list --status` tests whose assertions matched the table title and could not fail
+
+Suite: 1123 passed (baseline 1105 passed).
+
 ## [1.38.0] - 2026-10-03
 
 Nothing stopped an AI call being routed to a provider that could not serve it: `providers set default daily_internal ollama` was accepted and would have sent the daily report to the intent model. Narration took the daily report's provider, and the three intent calls were pinned to Ollama in code (issue #163).
