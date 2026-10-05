@@ -24,8 +24,8 @@ Complete. Both bump steps now name both version fields and are not done until `c
 
 | AC | Status | Evidence |
 | --- | --- | --- |
-| AC1.1 | Met | Awaiting Ray's reading of `feature.md` step 4 |
-| AC2.1 | Met | Awaiting Ray's reading of `hotfix.md` step 1 |
+| AC1.1 | Met | Stated reading by Ray, 20261005: `feature.md` step 4 read and found Met |
+| AC2.1 | Met | Stated reading by Ray, 20261005: `hotfix.md` step 1 read and found Met |
 | AC3.1 | Met | Run recorded in §5: exit 1, `__version__ is 1.39.0 but __version_info__ is (1, 38, 0)` |
 | AC3.2 | Met | `git worktree list` showed only the main checkout after removal |
 
