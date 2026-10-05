@@ -33,6 +33,7 @@ Issue #157: nine reads of the `Report` model outside `workmain/database/reposito
 | F7 | `already_posted` is the only database read in `integrations/slack/client.py`. The rest of the module is the Slack API client (`SlackClient`, `get_slack_client`, token loading). Its only caller is `slack post weekly`, and four tests in `tests/test_slack.py` call it directly with `db_session`. | `integrations/slack/client.py` module docstring line 4, `already_posted`; caller `slack.py:622`; `tests/test_slack.py:49-125` | Low |
 | F8 | Every caller already holds a session and passes it in, so moving the queries adds no session or transaction boundary. CLI sites use the `get_db()` / `db.get_session()` session they opened. `ActionExecutor` uses `self.session`, and already constructs `ReportsRepository(self.session)` for `set_correction_note`. | `reports.py`, `slack.py` (`db.get_session()`); `action_executor.py:314-324` | — |
 | F9 | Once the queries move, `from workmain.database.models import Report` has no remaining use in `reports.py` or `slack.py`. `action_executor.py` and `integrations/slack/client.py` import `Report` locally, inside the functions being changed. | `reports.py:24`, `slack.py:23`; `action_executor.py:357`, `client.py:204` | — |
+| F11 | Three `weekly_client` reports leaked by an interrupted run sit in the live `reports` table on `2099-01-18`, none posted to Slack, and the newest real `report_date` is in 2026. `db_session` tests see live rows, so a test that seeds on `2099-01-18`, or that reads without a date filter and seeds earlier than that date, has those rows in its result. #136 deletes them. | live query 20261005: `select report_date, report_type, slack_message_ts is not null, count(*) from reports where report_date >= '2099-01-01' group by 1,2,3` → `(2099-01-18, weekly_client, False, 3)`; issue #136 last AC | Medium |
 | F10 | **Outside #157's scope, and not caught by #158's check.** Report rows are also *written* outside the repository by setting attributes and calling `session.commit()`. `status`/`updated_at` are set by `reports confirm`, `_execute_confirm_report`, `_execute_correct_report` and the EOD confirm step. The `slack_*` columns are set by `slack post weekly`. #158's AC grep looks for `session.(query\|add\|delete)(` and does not see attribute writes. #158 says repository writes should follow the transaction rule that #96 sets. | `reports.py:447-449`; `action_executor.py:227-228`, `278-279`; `eod_workflow.py:1019-1020`; `slack.py:649-652`; issue #158 AC1; issue #96 | Medium |
 
 ## 4. Decisions
@@ -77,6 +78,17 @@ Rules already settle each of these:
 - The unused `Report` imports go (F9).
 - The CLI tests in `tests/test_report_history.py` and `tests/test_report_correction.py` stay. They test rendering and command wiring, which this issue does not change.
 
+### D7 — #157's tests stay clear of the open test-suite issues
+
+Applies Ray's caveat on Q1. The test-suite defects are #136 (`unittest.TestCase` classes that cannot take `db_session` and commit live rows by hand), #137 (tests with no assertions) and #131 (`tests/test_ai_clients.py`). #157 neither works around them nor does their work:
+
+- Every new test is a plain pytest function or class that takes `db_session` (`docs/DEVELOPMENT_STANDARDS.md` §6.1). None is a `unittest.TestCase`, opens its own session or commits. `_resolve_report` takes a session argument, so its tests need no `CliRunner` and no committed-session fallback.
+- The existing `TestCase` classes in `tests/test_report_history.py` and `tests/test_report_correction.py` are not converted, moved or deleted, and no new test is added to them. Converting them is #136.
+- The four `already_posted` tests in `tests/test_slack.py` already take `db_session` (F7), so moving them to `list_slack_posted` does not touch #136's files.
+- Each test asserts on the rows a method returns, never on a return value standing in for a result (#137).
+- Sentinel dates are after `2099-01-18` and never equal to it (F11). The cleanup of the leaked rows stays with #136.
+- No new test pins an inline write that #167 removes (F10). The tests are reads only.
+
 ### D6 — Report writes outside the repository (F10)
 
 These writes are not reads, and #157 covers reads only. The repository methods for them need the transaction rule from #96, which is still open (#158 says the same of the `Meeting` writes). **Recommendation:** open a child of #158 for the Report writes in F10, blocked by #96 through the `blocked_by` endpoint and added to the board. Also amend #158's AC1 so its check covers attribute writes, not only `query`/`add`/`delete` calls. Both changes are on GitHub, so they wait for Ray's approval.
@@ -85,8 +97,8 @@ These writes are not reads, and #157 covers reads only. The repository methods f
 
 | Q | Question | Answer |
 | --- | --- | --- |
-| Q1 | D1: Option A or B? | |
-| Q2 | D6: open the Report-writes child of #158 and amend #158's AC1? | Answered 20261005 by Ray: yes. Opened #167 (child of #158, blocked by #96, on the board); #158's direction and AC1 amended. |
+| Q1 | D1: Option A or B? | Answered 20261005 by Ray: Option A, provided it does not work around the open test-suite issues. D7 states how. |
+| Q2 | D6: open the Report-writes child of #158 and amend #158's AC1? | Answered 20261005 by Ray: yes. Opened #167 (child of #158, blocked by #96, on the board); #158's direction and AC1 amended. The same census found column writes on other models. #159's table and AC1 now cover the Meeting writes. #168 (TimeEntry writes) and #169 (TaskStatus deferral) were opened under #158, blocked by #96, so #160 stays reads-only and unblocked. |
 
 ## 6. Disposition
 
