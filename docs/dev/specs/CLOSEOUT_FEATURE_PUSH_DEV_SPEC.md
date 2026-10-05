@@ -1,6 +1,6 @@
 # /closeout feature variant pushes dev after the bump — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261005
 **Branch:** `chore/closeout-feature-push-dev` (from `main`)
