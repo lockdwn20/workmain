@@ -102,5 +102,5 @@ These writes are not reads, and #157 covers reads only. The repository methods f
 
 ## 6. Disposition
 
-- Promoted to:
+- Promoted to: `../specs/REPORT_READS_THROUGH_REPOSITORY_SPEC.md`
 - Superseded by:
