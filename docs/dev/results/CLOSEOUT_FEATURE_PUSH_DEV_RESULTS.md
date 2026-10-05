@@ -22,7 +22,7 @@ Complete. Feature step 4 now pushes `dev` once the integrity check passes, and i
 
 | AC | Status | Evidence |
 | --- | --- | --- |
-| AC1.1 | Met | Stated reading by Ray, 20261005: awaiting |
+| AC1.1 | Met | Stated reading by Ray, 20261005: `feature.md` step 4 read and found Met |
 
 ## 4. Deviations from spec
 
