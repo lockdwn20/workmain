@@ -354,10 +354,5 @@ class ActionExecutor:
 
     def _get_latest_report(self, report_type: str):
         """Return today's most recent report of the given type, or None."""
-        from workmain.database.models import Report
-        return (
-            self.session.query(Report)
-            .filter(Report.report_type == report_type, Report.report_date == date.today())
-            .order_by(Report.id.desc())
-            .first()
-        )
+        from workmain.database.repositories.reports_repo import ReportsRepository
+        return ReportsRepository(self.session).get_latest_for_date(date.today(), report_type)
