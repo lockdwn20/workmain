@@ -19,7 +19,9 @@ updated_after floor/search/limit and sort order (Item 56 Gate 1);
 ReportsRepository.apply_correction()'s corrected_content/status write and
 its note delegation to set_correction_note() (Item 61 Gate 2); and reports
 correct (CLI) now routed through edit_in_editor() and apply_correction() —
-same observable behavior, new write path (Item 61 Gate 2).
+same observable behavior, new write path (Item 61 Gate 2);
+_resolve_report's id, daily-first and any-type resolution; and reports list
+reading through list_by_report_date, against seeded rows (Issue 157).
 
 Uses db_session fixture for repo/model tests.
 Uses unittest.TestCase with real sessions for CLI command tests that need
@@ -30,7 +32,7 @@ import os
 import unittest
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import ANY, patch, MagicMock
 
 import pytest
 from click.testing import CliRunner
@@ -41,7 +43,7 @@ from workmain.database.repositories.reports_repo import (
     ReportsRepository,
     get_reports_repository,
 )
-from workmain.cli.commands.reports import reports
+from workmain.cli.commands.reports import _report_list_impl, _resolve_report, reports
 
 # Sentinel Mon–Fri week for weekly_client prompt generation tests (first Monday of June 2099)
 _d = date(2099, 6, 1)
@@ -323,6 +325,85 @@ class TestGetFiltered:
 
 
 # ---------------------------------------------------------------------------
+# _resolve_report and reports list — read through ReportsRepository (Issue 157)
+# ---------------------------------------------------------------------------
+
+class TestResolveReport:
+    """_resolve_report's id, daily_internal-first and any-type resolution."""
+
+    def test_id_identifier_returns_that_report(self, db_session):
+        row = _seed_report(db_session, report_type='zz_issue157',
+                           report_date=date(2100, 7, 30))
+        assert _resolve_report(db_session, str(row.id)).id == row.id
+
+    def test_date_prefers_daily_internal_over_newer_report(self, db_session):
+        d = date(2100, 7, 31)
+        daily = _seed_report(db_session, report_type='daily_internal', report_date=d)
+        _seed_report(db_session, report_type='weekly_client', report_date=d)
+        assert _resolve_report(db_session, '2100-07-31').id == daily.id
+
+    def test_date_falls_back_to_newest_of_any_type(self, db_session):
+        d = date(2100, 8, 1)
+        _seed_report(db_session, report_type='weekly_client', report_date=d)
+        second = _seed_report(db_session, report_type='weekly_client', report_date=d)
+        assert _resolve_report(db_session, '2100-08-01').id == second.id
+
+    def test_date_with_no_report_exits(self, db_session):
+        with pytest.raises(SystemExit) as exc:
+            _resolve_report(db_session, '2100-08-02')
+        assert exc.value.code == 1
+
+
+def _spy_on(method: str, recorded: list):
+    """Patch ReportsRepository.<method> with a spy that runs the real method and records its result."""
+    real = getattr(ReportsRepository, method)
+
+    def _record(self, *args, **kwargs):
+        result = real(self, *args, **kwargs)
+        recorded.append(result)
+        return result
+
+    return patch.object(ReportsRepository, method, autospec=True, side_effect=_record)
+
+
+class TestReportListCommandPath:
+    """reports list runs its real query on the db_session session against seeded rows."""
+
+    def test_status_all_lists_every_status(self, db_session, session_for_command):
+        session_for_command('workmain.cli.commands.reports')
+        unconfirmed = _seed_report(db_session, 'zz_issue157', date(2100, 8, 10))
+        confirmed = _seed_report(db_session, 'zz_issue157', date(2100, 8, 11),
+                                 status='confirmed')
+        recorded = []
+        with _spy_on('list_by_report_date', recorded) as spy:
+            _report_list_impl(2, None, 'all')
+        spy.assert_called_once_with(ANY, report_type=None, status=None, limit=2)
+        assert [r.id for r in recorded[0]] == [confirmed.id, unconfirmed.id]
+
+    def test_no_status_lists_every_status(self, db_session, session_for_command):
+        session_for_command('workmain.cli.commands.reports')
+        unconfirmed = _seed_report(db_session, 'zz_issue157', date(2100, 8, 12))
+        confirmed = _seed_report(db_session, 'zz_issue157', date(2100, 8, 13),
+                                 status='confirmed')
+        recorded = []
+        with _spy_on('list_by_report_date', recorded) as spy:
+            _report_list_impl(2, None, None)
+        spy.assert_called_once_with(ANY, report_type=None, status=None, limit=2)
+        assert [r.id for r in recorded[0]] == [confirmed.id, unconfirmed.id]
+
+    def test_status_filters_rows(self, db_session, session_for_command):
+        session_for_command('workmain.cli.commands.reports')
+        confirmed = _seed_report(db_session, 'zz_issue157', date(2100, 8, 14),
+                                 status='confirmed')
+        _seed_report(db_session, 'zz_issue157', date(2100, 8, 15))
+        recorded = []
+        with _spy_on('list_by_report_date', recorded) as spy:
+            _report_list_impl(1, None, 'confirmed')
+        spy.assert_called_once_with(ANY, report_type=None, status='confirmed', limit=1)
+        assert [r.id for r in recorded[0]] == [confirmed.id]
+
+
+# ---------------------------------------------------------------------------
 # CLI — reports list --status (error path validation)
 # ---------------------------------------------------------------------------
 
@@ -423,22 +504,6 @@ class TestReportConfirmCLI(unittest.TestCase):
 
         self.session.refresh(r)
         assert r.status == 'confirmed'
-
-    def test_reports_list_status_unconfirmed_shows_unconfirmed(self):
-        """reports list --status unconfirmed shows the unconfirmed report."""
-        r = self._seed(report_date=date(2099, 11, 3))
-
-        result = self.runner.invoke(reports, ['list', '--status', 'unconfirmed', '-n', '50'])
-        assert result.exit_code == 0
-        assert str(r.id) in result.output or 'unconfirmed' in result.output.lower()
-
-    def test_reports_list_status_confirmed_shows_confirmed(self):
-        """reports list --status confirmed shows a confirmed report."""
-        r = self._seed(report_date=date(2099, 11, 4), status='confirmed')
-
-        result = self.runner.invoke(reports, ['list', '--status', 'confirmed', '-n', '50'])
-        assert result.exit_code == 0
-        assert str(r.id) in result.output or 'confirmed' in result.output.lower()
 
     def test_reports_list_no_flag_shows_all(self):
         """reports list with no --status flag shows all statuses (existing behavior)."""

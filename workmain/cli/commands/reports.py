@@ -21,7 +21,6 @@ from rich.panel import Panel
 from rich import box
 
 from workmain.database.connection import get_db
-from workmain.database.models import Report
 from workmain.database.repositories.system_state_repository import SystemStateRepository
 from workmain.database.repositories.reports_repo import get_reports_repository
 from workmain.ai import get_report_generator, ReportFormat, ProviderType
@@ -45,8 +44,10 @@ def _resolve_report(session, identifier: str):
     Returns:
         Report object.
     """
+    repo = get_reports_repository(session)
+
     if identifier.isdigit():
-        report = session.query(Report).filter(Report.id == int(identifier)).first()
+        report = repo.get_by_id(int(identifier))
         if not report:
             console.print(f"[red]✗ No report found with ID {identifier}[/red]")
             raise SystemExit(1)
@@ -67,19 +68,9 @@ def _resolve_report(session, identifier: str):
             raise SystemExit(1)
 
     report = (
-        session.query(Report)
-        .filter(Report.report_date == target_date)
-        .filter(Report.report_type == 'daily_internal')
-        .order_by(Report.id.desc())
-        .first()
+        repo.get_latest_for_date(target_date, 'daily_internal')
+        or repo.get_latest_for_date(target_date)
     )
-    if not report:
-        report = (
-            session.query(Report)
-            .filter(Report.report_date == target_date)
-            .order_by(Report.id.desc())
-            .first()
-        )
     if not report:
         console.print(f"[red]✗ No report found for {target_date}[/red]")
         raise SystemExit(1)
@@ -309,15 +300,11 @@ def _report_list_impl(
     session = db.get_session()
 
     try:
-        q = session.query(Report)
-
-        if report_type:
-            q = q.filter(Report.report_type == report_type)
-
-        if status_filter and status_filter != 'all':
-            q = q.filter(Report.status == status_filter)
-
-        rows = q.order_by(Report.report_date.desc(), Report.id.desc()).limit(limit).all()
+        rows = get_reports_repository(session).list_by_report_date(
+            report_type=report_type,
+            status=status_filter if status_filter and status_filter != 'all' else None,
+            limit=limit,
+        )
 
         if not rows:
             console.print("\n[yellow]No reports found.[/yellow]")
@@ -627,7 +614,7 @@ def report_show(target: str):
         try:
             report_id = int(target)
             # ID path — fetch from database
-            report = session.query(Report).filter(Report.id == report_id).first()
+            report = get_reports_repository(session).get_by_id(report_id)
 
             if not report:
                 console.print(f"[red]Error: No report found with ID {report_id}.[/red]")
@@ -697,7 +684,7 @@ def report_resend(id: int):
     session = db.get_session()
 
     try:
-        report = session.query(Report).filter(Report.id == id).first()
+        report = get_reports_repository(session).get_by_id(id)
 
         if not report:
             console.print(f"[red]Error: No report found with ID {id}.[/red]")

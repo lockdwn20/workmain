@@ -2,6 +2,8 @@
 Pytest fixtures shared across all test files.
 """
 
+import types
+
 import pytest
 from dotenv import load_dotenv
 
@@ -36,3 +38,26 @@ def db_session():
     finally:
         session.rollback()   # undo every flushed-but-uncommitted change
         session.close()
+
+
+@pytest.fixture
+def session_for_command(db_session, monkeypatch):
+    """
+    Hand the db_session session to code that opens its own through get_db().
+
+    Returns a function taking a module path. It points that module's get_db at
+    an object whose get_session() returns the db_session session, and makes
+    the session's close() a no-op for the test, so the command reads seeded
+    rows inside the rolled-back transaction.
+
+    #95 replaces the per-module patch with one hook through session_scope().
+    """
+    def _hand(module: str):
+        monkeypatch.setattr(
+            f'{module}.get_db',
+            lambda: types.SimpleNamespace(get_session=lambda: db_session),
+        )
+        monkeypatch.setattr(db_session, 'close', lambda: None)
+        return db_session
+
+    return _hand

@@ -20,7 +20,7 @@ from rich.rule import Rule
 from rich.table import Table
 
 from workmain.database.connection import get_db
-from workmain.database.models import Report
+from workmain.database.repositories.reports_repo import get_reports_repository
 from workmain.integrations.slack.auth import (
     SlackAuthError,
     get_token,
@@ -32,7 +32,6 @@ from workmain.integrations.slack.auth import (
 from workmain.integrations.slack.client import (
     SlackClient,
     SlackClientError,
-    already_posted,
     format_for_slack,
     get_slack_client,
 )
@@ -231,13 +230,7 @@ def slack_status():
 
         console.print()
 
-        rows = (
-            session.query(Report)
-            .filter(Report.slack_message_ts.isnot(None))
-            .order_by(Report.report_date.desc())
-            .limit(5)
-            .all()
-        )
+        rows = get_reports_repository(session).list_slack_posted(limit=5)
 
         if not rows:
             console.print("  [dim]No reports have been posted to Slack.[/dim]")
@@ -599,7 +592,6 @@ def slack_post(
     db = get_db()
     session = db.get_session()
     try:
-        from workmain.database.repositories.reports_repo import get_reports_repository
         repo = get_reports_repository(session)
         reports = repo.list_reports(
             report_type='weekly_client',
@@ -619,7 +611,7 @@ def slack_post(
         cfg = load_slack_config()
         workspace_name = cfg.get("workspace_name", "")
 
-        if already_posted(session, anchor) and not force:
+        if repo.list_slack_posted('weekly_client', anchor, limit=1) and not force:
             console.print(
                 f"\n[yellow]⚠ Weekly draft for {end_str} was already posted "
                 f"to {target_channel}.[/yellow]"
