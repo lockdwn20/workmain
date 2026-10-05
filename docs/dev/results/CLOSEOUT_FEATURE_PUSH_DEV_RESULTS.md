@@ -1,6 +1,6 @@
 # /closeout feature variant pushes dev after the bump — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261005
 **Spec:** `../specs/CLOSEOUT_FEATURE_PUSH_DEV_SPEC.md`
@@ -31,7 +31,7 @@ Complete. Feature step 4 now pushes `dev` once the integrity check passes, and i
 
 ## 5. Verification
 
-- **Test suite:** no file under `tests/`, `automation/`, `workmain/`, `config/` or `templates/` changed.
+- **Test suite:** 1123 passed, 0 failed. No file under `tests/`, `automation/`, `workmain/`, `config/` or `templates/` changed.
 - **Daemon restart:** n/a — `chore/*` requires none, per `docs/DEVELOPMENT_STANDARDS.md` §2.6.
 
 ## 6. Follow-ups
