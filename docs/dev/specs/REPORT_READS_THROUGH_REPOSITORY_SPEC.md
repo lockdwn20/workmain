@@ -1,6 +1,6 @@
 # Report Reads Through ReportsRepository — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261005
 **Branch:** `feature/issue-157-reports-repository` (from `dev`)
@@ -27,6 +27,7 @@
 | 20261005 | Caliper r3 3 | §2's `slack_status` row backed the removed mocked tests; Step 3's read-only claim had no §2 row | Accepted. The row now states the read-only claim and its evidence. |
 | 20261005 | Ray | Capture the two limits of command-path tests (§7) in the issues that close them, not only in this spec | #95 gets an AC for one session hook in `tests/conftest.py`, through `session_scope()`, in place of patching `get_db` per module. #136 gets an AC for `CliRunner` tests of these commands' options, plus a note on handing commands the `db_session` session as an option for its design. |
 | 20261005 | Spanner | The issue's AC1 grep, `query(Report`, also reads green if a call site renames the model on import or uses `select(Report)` | AC1.1 adds a second check: no module outside `workmain/database/` imports the `Report` model at all. |
+| 20261005 | Ray | Spec approved for implementation after Caliper rounds 1–3 | Approved. |
 
 ---
 
