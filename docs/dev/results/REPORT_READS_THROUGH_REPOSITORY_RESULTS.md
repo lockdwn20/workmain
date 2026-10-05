@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Complete. All nine `Report` reads outside `workmain/database/` go through `ReportsRepository`, which gained `get_latest_for_date`, `list_by_report_date` and `list_slack_posted`. `already_posted` is deleted. One AC check command (AC1.2) does not return zero as written; the property it names holds (§4).
+Complete. All nine `Report` reads outside `workmain/database/` go through `ReportsRepository`, which gained `get_latest_for_date`, `list_by_report_date` and `list_slack_posted`. `already_posted` is deleted. AC1.2's check command was wrong as first written and has been corrected in the spec (§4).
 
 ## 2. What shipped, by step
 
@@ -26,7 +26,7 @@ Complete. All nine `Report` reads outside `workmain/database/` go through `Repor
 | AC | Status | Evidence |
 | --- | --- | --- |
 | AC1.1 | Met | Both greps return zero hits: `query(Report` outside `workmain/database/repositories/`, and `import .*\bReport\b\|models\.Report\b` outside `workmain/database/` |
-| AC1.2 | Met | No call or import of `already_posted` remains. The grep as written returns one hit, `tests/test_slack.py:533`, the name of `test_force_reposts_when_already_posted(self)`, which AC5.2 requires unrenamed (§4) |
+| AC1.2 | Met | No call, import or definition of `already_posted` remains: `grep -rnw "already_posted" workmain/ tests/ --include=*.py` returns zero hits. The check as first written returned one hit, a test name (§4) |
 | AC2.1 | Met | `pytest tests/test_reports_repo.py::TestListByReportDate tests/test_report_correction.py::TestReportListCommandPath`: passed |
 | AC3.1 | Met | `pytest tests/test_report_correction.py::TestResolveReport tests/test_reports_repo.py::TestGetLatestForDate`: passed |
 | AC4.1 | Met | `pytest tests/test_reports_repo.py::TestListSlackPosted tests/test_slack.py::TestSlackStatusCommandPath`: passed |
@@ -38,7 +38,7 @@ Complete. All nine `Report` reads outside `workmain/database/` go through `Repor
 
 | # | Deviation | Reason | Approved by |
 | --- | --- | --- | --- |
-| 1 | AC1.2's grep `already_posted[,(]` matches `test_force_reposts_when_already_posted(self)` at `tests/test_slack.py:533`. Nothing was changed | The test name is required by AC5.2. The criterion's property, that nothing calls or imports the function, holds. The check needs a wording fix | Pending: Ray / Spanner |
+| 1 | AC1.2's grep `already_posted[,(]` matches `test_force_reposts_when_already_posted(self)` at `tests/test_slack.py:533`. Nothing was changed | The test name is required by AC5.2. The criterion's property, that nothing calls or imports the function, holds. The check needs a wording fix | Spanner, 20261005: the spec's AC1.2 check is now `grep -rnw "already_posted"`, which returns zero hits |
 
 ## 5. Verification
 
@@ -48,6 +48,4 @@ Complete. All nine `Report` reads outside `workmain/database/` go through `Repor
 
 ## 6. Follow-ups
 
-| Item | Description | Why deferred |
-| --- | --- | --- |
-| AC1.2 wording | Reword the grep to exclude test names, e.g. `already_posted(db_session\|import.*already_posted`, at close-out | Spec change belongs to Spanner |
+None.
