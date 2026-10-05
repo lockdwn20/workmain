@@ -20,6 +20,7 @@
 | 20261005 | Caliper 1 | `TestReportConfirmCLI`'s status-filter tests (`tests/test_report_correction.py:427-441`) assert `'confirmed' in output.lower()`, which also matches `unconfirmed`, so they can't fail | Ray asked whether this issue makes them redundant. It does. Both assertions end `or '<status>' in result.output.lower()`, and `_report_list_impl` writes `status=<status>` into the table title whenever a status is given and a row is listed, so each test passes on any run that lists a row, whatever the command filters on. It fails only when nothing is listed. What they are named for, that `--status X` shows only X, is what `TestListByReportDate::test_status_filter` and `TestReportListWiring` now prove. Step 2 deletes `test_reports_list_status_unconfirmed_shows_unconfirmed` and `test_reports_list_status_confirmed_shows_confirmed`. `test_reports_list_no_flag_shows_all` stays: it asserts both seeded ids, so it can fail. |
 | 20261005 | Caliper 2 | Step 4 named `_execute_correct_report` as the local-import precedent at `:314`; it is `_execute_write_correction_note` | Accepted. |
 | 20261005 | Caliper 3 | §2 said three `TestSlackReportsIntegration` tests call `already_posted`; all four do | Accepted. |
+| 20261005 | Caliper r2 | DR6 said every new test takes `db_session` and asserts on rows, which contradicts its own wiring-test bullet. `DEVELOPMENT_STANDARDS.md` §6.2 rule 1 ("Always use `db_session`") has the same gap against §6.1, which requires the fixture only for tests that touch the database | Accepted. DR6's two bullets now apply to tests that read the database. Standards gap, not a blocker: §6.2 rule 1 should read "Every test that touches the database takes `db_session`; a test that patches `get_db` and asserts a repository call does not." Its home is #136, whose AC4 already has §6.1 state which isolation applies to which kind of test. Raised with Ray. |
 | 20261005 | Spanner | The issue's AC1 grep, `query(Report`, also reads green if a call site renames the model on import or uses `select(Report)` | AC1.1 adds a second check: no module outside `workmain/database/` imports the `Report` model at all. |
 
 ---
@@ -79,9 +80,9 @@ The design study §3 holds findings F1–F11 with evidence. The claims below are
 - **DR4 — One method per query shape.** `get_latest_for_date` serves `_resolve_report`'s two date queries and `_get_latest_report`. `list_slack_posted` serves `slack_status` and the already-posted check. `get_by_id` serves the three id lookups.
 - **DR5 — `already_posted` is deleted, not wrapped** (study D4).
 - **DR6 — Tests stay clear of the open test-suite issues** (study D7):
-  - Every new test is a plain pytest test taking `db_session`. No `unittest.TestCase`, no session of its own, no `CliRunner`.
+  - Every new test is a plain pytest test: no `unittest.TestCase`, no session of its own, no `CliRunner`. Every new test that reads the database takes `db_session`.
   - No existing `TestCase` class is converted or added to. The one edit to a `TestCase` class is Step 2's deletion of two tests this spec makes redundant.
-  - Every test asserts on returned rows.
+  - Every test that reads the database asserts on the rows returned. Wiring tests, below, are the stated exception: they touch no database and assert on the repository call.
   - Seeded rows use a `report_date` in `2099-07` and the report type `zz_issue157`, except where the test is of `report_type=None`, which uses `2099-07` dates alone.
   - No test seeds on `2099-01-18`, the date of the leaked rows.
   - In each ordering test the seeding order differs from the expected result order, so a method ordering by `id` or `created_at` alone fails.
