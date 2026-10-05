@@ -1,6 +1,6 @@
 # /closeout version-bump integrity — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261005
 **Spec:** `../specs/CLOSEOUT_BUMP_INTEGRITY_SPEC.md`
@@ -37,9 +37,9 @@ Complete. Both bump steps now name both version fields and are not done until `c
 
 ## 5. Verification
 
-- **Test suite:** no file under `tests/`, `automation/`, `workmain/`, `config/` or `templates/` changed.
+- **Test suite:** 1123 passed, 0 failed. No file under `tests/`, `automation/`, `workmain/`, `config/` or `templates/` changed.
 - **Step 3 run** (worktree of `origin/main` `3454fc9`, `__version_info__` set to `(1, 38, 0)`, `__version__` `1.39.0`): `python3 automation/check_release_integrity.py --no-remote` printed `FAIL — 1 problem(s)` and `- __version__.py disagrees with itself: __version__ is 1.39.0 but __version_info__ is (1, 38, 0)`, exit 1.
-- **Daemon restart:** n/a — `chore/*`, `docs/DEVELOPMENT_STANDARDS.md` §2.6.
+- **Daemon restart:** n/a — `chore/*` requires none, per `docs/DEVELOPMENT_STANDARDS.md` §2.6.
 
 ## 6. Follow-ups
 
