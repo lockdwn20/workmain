@@ -1,6 +1,6 @@
 # Report Reads Through ReportsRepository — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261005
 **Branch:** `feature/issue-157-reports-repository` (from `dev`)

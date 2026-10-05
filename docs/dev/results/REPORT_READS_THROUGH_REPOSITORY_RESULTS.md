@@ -4,7 +4,7 @@
 **Author:** Anvil (Role 3)
 **Date:** 20261005
 **Spec:** `../specs/REPORT_READS_THROUGH_REPOSITORY_SPEC.md`
-**Released as:** v1.39.0
+**Released as:** v1.39.0 (tag v1.39.0)
 
 ---
 
@@ -43,8 +43,8 @@ Complete. All nine `Report` reads outside `workmain/database/` go through `Repor
 ## 5. Verification
 
 - **Test suite:** 1123 passed, 0 failed, 0 skipped (baseline 1105, from the v1.38.0 entry in `CHANGELOG.md` and confirmed by a run before Step 1). Each step was green: 1117, 1122, 1123, 1123.
-- **Live verification:** none beyond the suite.
-- **Daemon restart:** `/closeout` restarts after the merge to `dev`.
+- **Live verification:** 20261005 14:34 PDT, on the branch, against the live database, read-only. `workmain reports list -n 3`, `reports history --status confirmed -n 2` and `reports list --status all -n 2` ran cleanly. `reports list -n 3` listed ids 33, 32, 28, matching `select id from reports order by report_date desc, id desc limit 3`. `workmain slack status` listed 2026-10-01, 09-24, 09-18, 09-10 and 09-03, matching the same query over rows with `slack_message_ts` set. The three leaked `2099-01-18` rows head `reports list`; #136 deletes them.
+- **Daemon restart:** `/closeout` restarts `workmain-notify.service` after the merge to `dev`. The confirmed `ActiveEnterTimestamp` is recorded in the issue's closing comment, which is composed after the restart.
 
 ## 6. Follow-ups
 
