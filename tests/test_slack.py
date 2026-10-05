@@ -2,6 +2,7 @@
 Integration tests for Phase 8 Slack integration.
 
 Test classes: TestSlackReportsIntegration (real DB, reports table),
+TestSlackStatusCommandPath (slack status against seeded reports),
 TestSlackAuth (token loading), TestFormatForSlack (markdown conversion),
 TestDraftDateRange (date range calculation), TestSlackClient (mocked Slack
 API), TestDraftLabel (DRAFT label prepend behaviour), and
@@ -18,7 +19,7 @@ by conftest.py.
 import os
 import unittest
 from datetime import date
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 from click.testing import CliRunner
@@ -27,6 +28,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from workmain.database.models import Report
+from workmain.database.repositories.reports_repo import ReportsRepository
 from workmain.integrations.slack.auth import (
     SlackAuthError,
     get_token,
@@ -35,10 +37,16 @@ from workmain.integrations.slack.auth import (
 from workmain.integrations.slack.client import (
     SlackClient,
     SlackClientError,
-    already_posted,
     format_for_slack,
 )
-from workmain.cli.commands.slack import get_draft_date_range, slack
+from workmain.cli.commands.slack import get_draft_date_range, slack, slack_status
+
+
+def _weekly_posted(session, report_date) -> bool:
+    """True if a weekly_client report for report_date has a Slack post."""
+    return bool(
+        ReportsRepository(session).list_slack_posted('weekly_client', report_date, limit=1)
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -46,12 +54,12 @@ from workmain.cli.commands.slack import get_draft_date_range, slack
 # ---------------------------------------------------------------------------
 
 class TestSlackReportsIntegration:
-    """Tests that query the real reports table to verify already_posted() logic."""
+    """Tests that query the real reports table to verify the already-posted check (ReportsRepository.list_slack_posted)."""
 
     def test_01_already_posted_false(self, db_session):
-        """No report row for date → already_posted returns False."""
+        """No report row for date → not posted."""
         test_date = date(2099, 1, 1)  # Far future — guaranteed no row
-        assert already_posted(db_session, test_date) is False
+        assert _weekly_posted(db_session, test_date) is False
 
     def test_02_already_posted_true(self, db_session):
         """Report row with slack_message_ts set → returns True."""
@@ -67,7 +75,7 @@ class TestSlackReportsIntegration:
         db_session.add(row)
         db_session.commit()
 
-        assert already_posted(db_session, test_date) is True
+        assert _weekly_posted(db_session, test_date) is True
 
         # Cleanup
         db_session.delete(row)
@@ -85,7 +93,7 @@ class TestSlackReportsIntegration:
         db_session.add(row)
         db_session.commit()
 
-        assert already_posted(db_session, test_date) is False
+        assert _weekly_posted(db_session, test_date) is False
 
         # Cleanup
         db_session.delete(row)
@@ -122,11 +130,57 @@ class TestSlackReportsIntegration:
         assert updated.slack_message_ts == "test-ts-004"
         assert updated.slack_channel == "#int-gmf-csirt"
         assert updated.slack_workspace_name == "slower-midwest"
-        assert already_posted(db_session, test_date) is True
+        assert _weekly_posted(db_session, test_date) is True
 
         # Cleanup
         db_session.delete(updated)
         db_session.commit()
+
+
+# ---------------------------------------------------------------------------
+# TestSlackStatusCommandPath — slack status against seeded reports
+# ---------------------------------------------------------------------------
+
+class TestSlackStatusCommandPath:
+    """slack status runs its real query on the db_session session against seeded rows."""
+
+    def test_status_lists_five_newest_posted_of_any_type(self, db_session, session_for_command):
+        session_for_command('workmain.cli.commands.slack')
+        posted = {}
+        for n, day in enumerate([21, 25, 20, 24, 22, 23]):
+            report_type = 'daily_internal' if n % 2 == 0 else 'weekly_client'
+            row = Report(
+                report_type=report_type,
+                report_date=date(2100, 8, day),
+                content='test content',
+                slack_message_ts=f'test-ts-157-{n}',
+            )
+            db_session.add(row)
+            db_session.commit()
+            db_session.refresh(row)
+            posted[day] = row
+        db_session.add(Report(
+            report_type='weekly_client',
+            report_date=date(2100, 8, 26),
+            content='test content',
+        ))
+        db_session.commit()
+
+        real = ReportsRepository.list_slack_posted
+        recorded = []
+
+        def _record(self, *args, **kwargs):
+            result = real(self, *args, **kwargs)
+            recorded.append(result)
+            return result
+
+        with patch.object(ReportsRepository, 'list_slack_posted',
+                          autospec=True, side_effect=_record) as spy:
+            slack_status.callback()
+
+        spy.assert_called_once_with(ANY, limit=5)
+        assert [r.id for r in recorded[0]] == [posted[d].id for d in (25, 24, 23, 22, 21)]
+        assert {r.report_type for r in recorded[0]} == {'daily_internal', 'weekly_client'}
 
 
 # ---------------------------------------------------------------------------

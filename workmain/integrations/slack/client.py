@@ -1,11 +1,9 @@
 """
 SlackClient wraps slack_sdk.WebClient for message posting and auth validation.
 format_for_slack() converts Markdown to Slack mrkdwn.
-already_posted() queries the reports table for existing Slack posts.
 """
 
 import re
-from datetime import date
 from typing import Optional
 
 from slack_sdk import WebClient
@@ -183,28 +181,3 @@ def get_slack_client() -> SlackClient:
         token = get_token()
         _slack_client_instance = SlackClient(token)
     return _slack_client_instance
-
-
-def already_posted(session, report_date: date) -> bool:
-    """
-    Return True if a weekly_client report for report_date has been posted to Slack.
-
-    Checks the reports table for a row with:
-      - report_type = 'weekly_client'
-      - report_date = report_date
-      - slack_message_ts IS NOT NULL
-
-    Args:
-        session:     SQLAlchemy session.
-        report_date: The anchor date (end of the draft range, typically Thursday).
-
-    Returns:
-        True if already posted, False otherwise.
-    """
-    from workmain.database.models import Report
-    result = session.query(Report).filter(
-        Report.report_type == "weekly_client",
-        Report.report_date == report_date,
-        Report.slack_message_ts.isnot(None),
-    ).first()
-    return result is not None
