@@ -16,6 +16,10 @@
 | --- | --- | --- | --- |
 | 20261005 | Ray | Study Q1: Option A, provided it does not work around the open test-suite issues | DR2 and DR6. The command composes the date fallback from one repository method, and its tests call `_resolve_report` with `db_session`. AC3.1 restates the issue's AC3 and the issue is edited at close-out. DR6 carries the study's D7 test constraints. |
 | 20261005 | Ray | Study Q2: open the Report-writes child and amend #158 | Done before this spec: #167 (Report writes), #168 (TimeEntry writes) and #169 (TaskStatus deferral), all under #158 and blocked by #96. This spec writes nothing. |
+| 20261005 | Caliper 1 | AC2.1 and AC4.1 rely on unedited CLI tests that can't catch wrong arguments: `slack status` sending a type filter or the wrong limit, `reports list` dropping the status filter, `--status all` passed through as a status. Recommended rewording the ACs to what the repository tests prove and adding the gaps to #136 and #137 | Finding accepted; remedy **not taken**. DR6 doesn't block a direct test: `_report_list_impl` is a plain function and `slack_status.callback()` can be called directly. With `get_db` and `get_reports_repository` patched in the command module, a test asserts the exact repository call without `CliRunner`, a session or the database (DR6, wiring tests). Step 2 adds `TestReportListWiring` and Step 3 adds `TestSlackStatusWiring`, and AC2.1 and AC4.1 cite them. Moving the check to #136 or #137 would leave #157's own wiring unverified at close-out, and neither issue is about it. |
+| 20261005 | Caliper 1 | `TestReportConfirmCLI`'s status-filter tests (`tests/test_report_correction.py:427-441`) assert `'confirmed' in output.lower()`, which also matches `unconfirmed`, so they can't fail | Out of scope: an existing test this spec does not edit, and AC2.1 no longer relies on it. Raised with Ray for its own issue. |
+| 20261005 | Caliper 2 | Step 4 named `_execute_correct_report` as the local-import precedent at `:314`; it is `_execute_write_correction_note` | Accepted. |
+| 20261005 | Caliper 3 | §2 said three `TestSlackReportsIntegration` tests call `already_posted`; all four do | Accepted. |
 | 20261005 | Spanner | The issue's AC1 grep, `query(Report`, also reads green if a call site renames the model on import or uses `select(Report)` | AC1.1 adds a second check: no module outside `workmain/database/` imports the `Report` model at all. |
 
 ---
@@ -30,7 +34,7 @@
   - `workmain/cli/commands/slack.py`: `slack_status`, `slack_post`
   - `workmain/orchestration/action_executor.py`: `_get_latest_report`
   - `workmain/integrations/slack/client.py`: `already_posted`, deleted
-- **Tests:** `tests/test_reports_repo.py` (new), `tests/test_report_correction.py` (one new pytest class), `tests/test_slack.py` (`TestSlackReportsIntegration` and imports).
+- **Tests:** `tests/test_reports_repo.py` (new), `tests/test_report_correction.py` (two new pytest classes), `tests/test_slack.py` (`TestSlackReportsIntegration`, imports, and one new pytest class).
 
 **Out of scope:**
 
@@ -57,7 +61,9 @@ The design study §3 holds findings F1–F11 with evidence. The claims below are
 | `db_session` redirects `commit()` to `flush()` and rolls back at teardown | `tests/conftest.py:10-37` |
 | `Report.report_type` is `String(50)` with no constraint, so a sentinel type isolates seeded rows | `models.py:356` |
 | `Report` requires `report_type`, `report_date` and `content`; `status` defaults to `unconfirmed` | `models.py:356-358`, `:381` |
-| `TestSlackReportsIntegration` is a plain pytest class whose four tests take `db_session` and seed on `2099-01-01` to `2099-01-04`; three call `already_posted` | `tests/test_slack.py:48-129` |
+| `TestSlackReportsIntegration` is a plain pytest class whose four tests take `db_session` and seed on `2099-01-01` to `2099-01-04`; all four call `already_posted` | `tests/test_slack.py:48-129` (calls at `:54`, `:70`, `:88`, `:125`) |
+| `reports.py` imports `require_report_type` by name and `_report_list_impl` calls it with `report_type`; it returns `None` for a falsy name without loading the AI config | `reports.py:28`, `:299`; `utils/ai_arguments.py:105-124` |
+| `slack_status` calls `load_slack_config`, `is_authenticated` and `get_db` from the module, `_get_display_channel(session)`, then imports `SystemStateRepository` locally from `workmain.database.repositories.system_state_repository` | `slack.py:198-221` |
 | CLI tests that cover the moved reads and stay unedited: `TestReportHistory`, `TestReportView`, `TestReportResend` (`tests/test_report_history.py`), `TestReportConfirmCLI` (`tests/test_report_correction.py`), `test_already_posted_blocks_without_force` and `test_force_reposts_when_already_posted` (`tests/test_slack.py`), `TestSlackStatusDisplay` (`tests/test_slack_channel_config.py`), `TestActionExecutorConfirmReport` (`tests/test_action_executor.py`) | each file, by class |
 
 ## 3. Design rules
@@ -79,6 +85,7 @@ The design study §3 holds findings F1–F11 with evidence. The claims below are
   - Seeded rows use a `report_date` in `2099-07` and the report type `zz_issue157`, except where the test is of `report_type=None`, which uses `2099-07` dates alone.
   - No test seeds on `2099-01-18`, the date of the leaked rows.
   - In each ordering test the seeding order differs from the expected result order, so a method ordering by `id` or `created_at` alone fails.
+  - **Wiring tests** prove a command sends the right arguments to the repository. Each one patches `get_db` and `get_reports_repository` in the command module with mocks, calls the command's function directly, and asserts the repository call with `assert_called_once_with`. It opens no session, touches no database, and uses no `CliRunner` and no rendered output.
 
 Anything this spec does not cover stops at the current step per `CLAUDE.md` Role 3.
 
@@ -145,7 +152,11 @@ Add to `ReportsRepository`, after `list_reports`, with Google docstrings (`docs/
   2. `test_date_prefers_daily_internal_over_newer_report`: on 2099-07-31, seed `daily_internal`, then `weekly_client`. `_resolve_report(db_session, '2099-07-31')` returns the `daily_internal` row. A newest-of-any-type resolution fails.
   3. `test_date_falls_back_to_newest_of_any_type`: on 2099-08-01, seed two `weekly_client` rows and no `daily_internal`. Returns the second.
   4. `test_date_with_no_report_exits`: `_resolve_report(db_session, '2099-08-02')` raises `SystemExit` with code 1.
-  - Add one clause to the module docstring's coverage list: `_resolve_report`'s id, daily-first and any-type resolution.
+  - Add `class TestReportListWiring`, a plain pytest class, per DR6's wiring tests. Each test patches `workmain.cli.commands.reports.get_db` and `workmain.cli.commands.reports.get_reports_repository`, the latter returning a `MagicMock` repo whose `list_by_report_date.return_value` is `[]`, and calls `_report_list_impl` directly.
+    1. `test_status_all_sends_no_status_filter`: `_report_list_impl(7, None, 'all')`, then `repo.list_by_report_date.assert_called_once_with(report_type=None, status=None, limit=7)`.
+    2. `test_no_status_sends_no_status_filter`: `_report_list_impl(10, None, None)`, then the same assertion with `limit=10`.
+    3. `test_type_and_status_pass_through`: also patch `workmain.cli.commands.reports.require_report_type` with `return_value='daily_internal'`. `_report_list_impl(3, 'daily_internal', 'confirmed')`, then `assert_called_once_with(report_type='daily_internal', status='confirmed', limit=3)`.
+  - Add two clauses to the module docstring's coverage list: `_resolve_report`'s id, daily-first and any-type resolution; and the arguments `reports list` sends to `list_by_report_date`.
 
 ### Step 3 — Slack
 
@@ -162,10 +173,12 @@ Add to `ReportsRepository`, after `list_reports`, with Google docstrings (`docs/
   - Add module-level `_weekly_posted(session, report_date) -> bool` returning `bool(ReportsRepository(session).list_slack_posted('weekly_client', report_date, limit=1))`. Replace each `already_posted(db_session, test_date)` call with `_weekly_posted(db_session, test_date)`.
   - The class docstring reads `Tests that query the real reports table to verify the already-posted check (ReportsRepository.list_slack_posted).` The `test_01` docstring reads `No report row for date → not posted.`
   - Test names, dates and seeded rows are unchanged.
+  - Add `class TestSlackStatusWiring`, a plain pytest class, per DR6's wiring tests, with one test, `test_status_lists_five_posted_of_any_type`. It patches, in `workmain.cli.commands.slack`, `load_slack_config` (`return_value={}`), `is_authenticated` (`return_value=False`), `get_db`, `_get_display_channel` (`return_value=None`) and `get_reports_repository` (a `MagicMock` repo whose `list_slack_posted.return_value` is `[]`). It also patches `workmain.database.repositories.system_state_repository.SystemStateRepository` so `get_int` returns `None`. It imports `slack_status` from `workmain.cli.commands.slack`, calls `slack_status.callback()`, then `repo.list_slack_posted.assert_called_once_with(limit=5)`. The test fails if the command adds a type or date filter or changes the limit.
+  - Add `TestSlackStatusWiring` to the module docstring's list of test classes.
 
 ### Step 4 — action executor
 
-- `_get_latest_report` drops its local import and returns `ReportsRepository(self.session).get_latest_for_date(date.today(), report_type)`, importing `ReportsRepository` locally as `_execute_correct_report` does at `:314`. The docstring is unchanged.
+- `_get_latest_report` drops its local import and returns `ReportsRepository(self.session).get_latest_for_date(date.today(), report_type)`, importing `ReportsRepository` locally as `_execute_write_correction_note` does at `:314`. The docstring is unchanged.
 
 ### Authorization points
 
@@ -177,23 +190,23 @@ None. No migration, no GitHub deletion, no merge to `main`, no force-push and no
 | --- | --- | --- |
 | AC1.1 | No module outside `workmain/database/` reads the `Report` model except through `ReportsRepository`: none queries it, and none imports it | `grep -rn "query(Report" workmain/ --include=*.py \| grep -v workmain/database/repositories/` and `grep -rnE "import .*\bReport\b\|models\.Report\b" workmain/ --include=*.py \| grep -v workmain/database/` both return zero hits |
 | AC1.2 | The Slack API client holds no database read: `already_posted` is gone from the application and nothing calls or imports it | `grep -rnE "already_posted[,(]" workmain/ tests/` returns zero hits |
-| AC2.1 | `reports list` and `reports history` select newest `report_date` first, ties broken by newest id, and honour type, status and limit | `pytest tests/test_reports_repo.py::TestListByReportDate`, and `pytest tests/test_report_history.py::TestReportHistory tests/test_report_correction.py::TestReportConfirmCLI` passing unedited as evidence the commands call it |
+| AC2.1 | `reports list` and `reports history` select newest `report_date` first, ties broken by newest id, and honour type, status and limit | `pytest tests/test_reports_repo.py::TestListByReportDate tests/test_report_correction.py::TestReportListWiring`, the first proving the query and the second the arguments the command sends, including `--status all` as no filter |
 | AC3.1 | `reports confirm` and `reports correct` resolve an identifier as an id, else the newest `daily_internal` report for that date, else the newest report of any type for that date. This restates issue AC3 under study D1: the precedence is tested where it lives, against the database, without rendered output | `pytest tests/test_report_correction.py::TestResolveReport tests/test_reports_repo.py::TestGetLatestForDate` |
-| AC4.1 | `slack status` lists the five most recent Slack-posted reports by `report_date`, with ties by newest id | `pytest tests/test_reports_repo.py::TestListSlackPosted`, and `pytest tests/test_slack_channel_config.py::TestSlackStatusDisplay` passing unedited |
+| AC4.1 | `slack status` lists the five most recent Slack-posted reports by `report_date`, with ties by newest id | `pytest tests/test_reports_repo.py::TestListSlackPosted tests/test_slack.py::TestSlackStatusWiring`, the first proving the query and the second that the command asks for five rows of any type |
 | AC5.1 | The Slack intent actions find today's newest report of a type | `pytest tests/test_reports_repo.py::TestGetLatestForDate tests/test_action_executor.py::TestActionExecutorConfirmReport`, the latter unedited |
 | AC5.2 | `slack post weekly` refuses to repost a week already posted unless forced, using the repository's check | `pytest tests/test_slack.py::TestSlackReportsIntegration tests/test_slack.py::TestSlackPostWeeklySharedRunner::test_already_posted_blocks_without_force tests/test_slack.py::TestSlackPostWeeklySharedRunner::test_force_reposts_when_already_posted` |
-| AC6.1 | Full suite passes with no net test loss from the baseline | `pytest` reports zero failures and baseline + 16 passed, with skipped stated |
+| AC6.1 | Full suite passes with no net test loss from the baseline | `pytest` reports zero failures and baseline + 20 passed, with skipped stated |
 
 ## 6. Test plan
 
 - **Baseline before this work:** the v1.38.0 entry in `CHANGELOG.md`.
-- **Expected after:** baseline + 16 passed.
+- **Expected after:** baseline + 20 passed.
 
   | Step | Change | Net |
   | --- | --- | --- |
   | 1 | `tests/test_reports_repo.py`: three classes of four | +12 |
-  | 2 | `TestResolveReport` | +4 |
-  | 3 | Four `TestSlackReportsIntegration` tests change their call; none added or removed | 0 |
+  | 2 | `TestResolveReport` (4), `TestReportListWiring` (3) | +7 |
+  | 3 | Four `TestSlackReportsIntegration` tests change their call; `TestSlackStatusWiring` (1) | +1 |
   | 4 | None; covered by Step 1 and `TestActionExecutorConfirmReport` | 0 |
 
 - **Existing tests that must stay green unedited:** every class in §2's last row.
