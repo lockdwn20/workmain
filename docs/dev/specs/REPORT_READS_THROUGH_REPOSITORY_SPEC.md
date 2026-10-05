@@ -16,11 +16,13 @@
 | --- | --- | --- | --- |
 | 20261005 | Ray | Study Q1: Option A, provided it does not work around the open test-suite issues | DR2 and DR6. The command composes the date fallback from one repository method, and its tests call `_resolve_report` with `db_session`. AC3.1 restates the issue's AC3 and the issue is edited at close-out. DR6 carries the study's D7 test constraints. |
 | 20261005 | Ray | Study Q2: open the Report-writes child and amend #158 | Done before this spec: #167 (Report writes), #168 (TimeEntry writes) and #169 (TaskStatus deferral), all under #158 and blocked by #96. This spec writes nothing. |
-| 20261005 | Caliper 1 | AC2.1 and AC4.1 rely on unedited CLI tests that can't catch wrong arguments: `slack status` sending a type filter or the wrong limit, `reports list` dropping the status filter, `--status all` passed through as a status. Recommended rewording the ACs to what the repository tests prove and adding the gaps to #136 and #137 | Finding accepted; remedy **not taken**. DR6 doesn't block a direct test: `_report_list_impl` is a plain function and `slack_status.callback()` can be called directly. With `get_db` and `get_reports_repository` patched in the command module, a test asserts the exact repository call without `CliRunner`, a session or the database (DR6, wiring tests). Step 2 adds `TestReportListWiring` and Step 3 adds `TestSlackStatusWiring`, and AC2.1 and AC4.1 cite them. Moving the check to #136 or #137 would leave #157's own wiring unverified at close-out, and neither issue is about it. |
-| 20261005 | Caliper 1 | `TestReportConfirmCLI`'s status-filter tests (`tests/test_report_correction.py:427-441`) assert `'confirmed' in output.lower()`, which also matches `unconfirmed`, so they can't fail | Ray asked whether this issue makes them redundant. It does. Both assertions end `or '<status>' in result.output.lower()`, and `_report_list_impl` writes `status=<status>` into the table title whenever a status is given and a row is listed, so each test passes on any run that lists a row, whatever the command filters on. It fails only when nothing is listed. What they are named for, that `--status X` shows only X, is what `TestListByReportDate::test_status_filter` and `TestReportListWiring` now prove. Step 2 deletes `test_reports_list_status_unconfirmed_shows_unconfirmed` and `test_reports_list_status_confirmed_shows_confirmed`. `test_reports_list_no_flag_shows_all` stays: it asserts both seeded ids, so it can fail. |
+| 20261005 | Caliper 1 | AC2.1 and AC4.1 rely on unedited CLI tests that can't catch wrong arguments: `slack status` sending a type filter or the wrong limit, `reports list` dropping the status filter, `--status all` passed through as a status. Recommended rewording the ACs to what the repository tests prove and adding the gaps to #136 and #137 | Finding accepted; remedy **not taken**. Each command is tested directly by a command-path test (DR6): the command runs its real query on the `db_session` session against seeded rows, and the test checks both the repository call and the rows it returned. Step 2 adds `TestReportListCommandPath` and Step 3 adds `TestSlackStatusCommandPath`, and AC2.1 and AC4.1 cite them. Moving the check to #136 or #137 would leave #157's own wiring unverified at close-out. |
+| 20261005 | Caliper 1 | `TestReportConfirmCLI`'s status-filter tests (`tests/test_report_correction.py:427-441`) assert `'confirmed' in output.lower()`, which also matches `unconfirmed`, so they can't fail | Ray asked whether this issue makes them redundant. It does. Both assertions end `or '<status>' in result.output.lower()`, and `_report_list_impl` writes `status=<status>` into the table title whenever a status is given and a row is listed, so each test passes on any run that lists a row, whatever the command filters on. It fails only when nothing is listed. What they are named for, that `--status X` shows only X, is what `TestListByReportDate::test_status_filter` and `TestReportListCommandPath` now prove. Step 2 deletes `test_reports_list_status_unconfirmed_shows_unconfirmed` and `test_reports_list_status_confirmed_shows_confirmed`. `test_reports_list_no_flag_shows_all` stays: it asserts both seeded ids, so it can fail. |
 | 20261005 | Caliper 2 | Step 4 named `_execute_correct_report` as the local-import precedent at `:314`; it is `_execute_write_correction_note` | Accepted. |
 | 20261005 | Caliper 3 | §2 said three `TestSlackReportsIntegration` tests call `already_posted`; all four do | Accepted. |
-| 20261005 | Caliper r2 | DR6 said every new test takes `db_session` and asserts on rows, which contradicts its own wiring-test bullet. `DEVELOPMENT_STANDARDS.md` §6.2 rule 1 ("Always use `db_session`") has the same gap against §6.1, which requires the fixture only for tests that touch the database | Accepted. DR6's two bullets now apply to tests that read the database. Standards gap, not a blocker: §6.2 rule 1 should read "Every test that touches the database takes `db_session`; a test that patches `get_db` and asserts a repository call does not." Its home is #136, whose AC4 already has §6.1 state which isolation applies to which kind of test. Raised with Ray. |
+| 20261005 | Caliper r2 | DR6 said every new test takes `db_session` and asserts on rows, which contradicted its wiring-test bullet. `DEVELOPMENT_STANDARDS.md` §6.2 rule 1 ("Always use `db_session`") had the same gap against §6.1 | Superseded by the next row. The wiring tests are replaced by command-path tests, which take `db_session` and assert on rows, so DR6 has no exception and §6.2 rule 1 holds as written. |
+| 20261005 | Ray | Replace the mocked wiring tests with tests that run the command against real seeded data: no fake rows or values anywhere | DR6 command-path tests. Only two things are substituted: the session source the command calls (`get_db`) returns the `db_session` session, and the command's `session.close()` is a no-op so the fixture keeps the session. The repository is real and wrapped in a spy that records each call and its return. |
+| 20261005 | Ray | Capture the two limits of command-path tests (§7) in the issues that close them, not only in this spec | #95 gets an AC for one session hook in `tests/conftest.py`, through `session_scope()`, in place of patching `get_db` per module. #136 gets an AC for `CliRunner` tests of these commands' options, plus a note on handing commands the `db_session` session as an option for its design. |
 | 20261005 | Spanner | The issue's AC1 grep, `query(Report`, also reads green if a call site renames the model on import or uses `select(Report)` | AC1.1 adds a second check: no module outside `workmain/database/` imports the `Report` model at all. |
 
 ---
@@ -35,7 +37,7 @@
   - `workmain/cli/commands/slack.py`: `slack_status`, `slack_post`
   - `workmain/orchestration/action_executor.py`: `_get_latest_report`
   - `workmain/integrations/slack/client.py`: `already_posted`, deleted
-- **Tests:** `tests/test_reports_repo.py` (new), `tests/test_report_correction.py` (two new pytest classes; two redundant tests deleted), `tests/test_slack.py` (`TestSlackReportsIntegration`, imports, and one new pytest class).
+- **Tests:** `tests/conftest.py` (`session_for_command`), `tests/test_reports_repo.py` (new), `tests/test_report_correction.py` (two new pytest classes; two redundant tests deleted), `tests/test_slack.py` (`TestSlackReportsIntegration`, imports, and one new pytest class).
 
 **Out of scope:**
 
@@ -80,13 +82,13 @@ The design study §3 holds findings F1–F11 with evidence. The claims below are
 - **DR4 — One method per query shape.** `get_latest_for_date` serves `_resolve_report`'s two date queries and `_get_latest_report`. `list_slack_posted` serves `slack_status` and the already-posted check. `get_by_id` serves the three id lookups.
 - **DR5 — `already_posted` is deleted, not wrapped** (study D4).
 - **DR6 — Tests stay clear of the open test-suite issues** (study D7):
-  - Every new test is a plain pytest test: no `unittest.TestCase`, no session of its own, no `CliRunner`. Every new test that reads the database takes `db_session`.
+  - Every new test is a plain pytest test that takes `db_session`: no `unittest.TestCase`, no session of its own, no `CliRunner`.
   - No existing `TestCase` class is converted or added to. The one edit to a `TestCase` class is Step 2's deletion of two tests this spec makes redundant.
-  - Every test that reads the database asserts on the rows returned. Wiring tests, below, are the stated exception: they touch no database and assert on the repository call.
-  - Seeded rows use a `report_date` in `2099-07` and the report type `zz_issue157`, except where the test is of `report_type=None`, which uses `2099-07` dates alone.
+  - Every test asserts on rows the database returned. No test substitutes fake rows or values.
+  - Seeded rows use a `report_date` in `2099-07` or `2099-08` and the report type `zz_issue157`, except where the test reads with no type filter, which uses those dates alone.
   - No test seeds on `2099-01-18`, the date of the leaked rows.
   - In each ordering test the seeding order differs from the expected result order, so a method ordering by `id` or `created_at` alone fails.
-  - **Wiring tests** prove a command sends the right arguments to the repository. Each one patches `get_db` and `get_reports_repository` in the command module with mocks, calls the command's function directly, and asserts the repository call with `assert_called_once_with`. It opens no session, touches no database, and uses no `CliRunner` and no rendered output.
+  - **Command-path tests** cover a command that opens its own session. The fixture `session_for_command` (Step 1) points that module's `get_db` at an object whose `get_session()` returns the `db_session` session, and makes the session's `close()` a no-op for the test. The command then runs its real query against seeded rows, inside the transaction that rolls back. The test wraps the repository method in a spy: `patch.object(ReportsRepository, '<method>', autospec=True, side_effect=_record)`, where `_record` calls the real method, appends its result to a list and returns it. The test asserts the call with `spy.assert_called_once_with(ANY, ...)` and asserts the recorded rows. It never reads rendered output. `ANY` comes from `unittest.mock`, and `conftest.py` imports `types` for the fixture.
 
 Anything this spec does not cover stops at the current step per `CLAUDE.md` Role 3.
 
@@ -96,7 +98,7 @@ Each step ends with a commit, and the suite is green at each.
 
 | Step | Deliverable | Files |
 | --- | --- | --- |
-| 1 | Three repository methods and their tests | `reports_repo.py`, `tests/test_reports_repo.py` |
+| 1 | Three repository methods and their tests; `session_for_command` fixture | `reports_repo.py`, `tests/test_reports_repo.py`, `tests/conftest.py` |
 | 2 | `reports` command reads through the repository | `cli/commands/reports.py`, `tests/test_report_correction.py` |
 | 3 | Slack reads through the repository; `already_posted` deleted | `cli/commands/slack.py`, `integrations/slack/client.py`, `tests/test_slack.py` |
 | 4 | Action executor reads through the repository | `orchestration/action_executor.py` |
@@ -138,6 +140,12 @@ Add to `ReportsRepository`, after `list_reports`, with Google docstrings (`docs/
 
 `slack_message_ts` values start with `test-ts-`, matching `tests/test_slack.py`'s convention.
 
+**Fixture, `tests/conftest.py`.** Add `session_for_command(db_session, monkeypatch)`, which returns a function `_hand(module: str)`:
+
+- `_hand` runs `monkeypatch.setattr(f'{module}.get_db', lambda: types.SimpleNamespace(get_session=lambda: db_session))` and `monkeypatch.setattr(db_session, 'close', lambda: None)`, then returns `db_session`.
+- The fixture's docstring says it hands the `db_session` session to code that opens its own session through `get_db()`, so that code reads seeded rows inside the rolled-back transaction. It also says #95 replaces the per-module patch with one hook through `session_scope()`.
+- `monkeypatch` is requested after `db_session`, so its undo runs first at teardown and `db_session`'s own `close()` is the real one.
+
 ### Step 2 — `reports` command
 
 - **`_resolve_report`:**
@@ -153,12 +161,12 @@ Add to `ReportsRepository`, after `list_reports`, with Google docstrings (`docs/
   2. `test_date_prefers_daily_internal_over_newer_report`: on 2099-07-31, seed `daily_internal`, then `weekly_client`. `_resolve_report(db_session, '2099-07-31')` returns the `daily_internal` row. A newest-of-any-type resolution fails.
   3. `test_date_falls_back_to_newest_of_any_type`: on 2099-08-01, seed two `weekly_client` rows and no `daily_internal`. Returns the second.
   4. `test_date_with_no_report_exits`: `_resolve_report(db_session, '2099-08-02')` raises `SystemExit` with code 1.
-  - Add `class TestReportListWiring`, a plain pytest class, per DR6's wiring tests. Each test patches `workmain.cli.commands.reports.get_db` and `workmain.cli.commands.reports.get_reports_repository`, the latter returning a `MagicMock` repo whose `list_by_report_date.return_value` is `[]`, and calls `_report_list_impl` directly.
-    1. `test_status_all_sends_no_status_filter`: `_report_list_impl(7, None, 'all')`, then `repo.list_by_report_date.assert_called_once_with(report_type=None, status=None, limit=7)`.
-    2. `test_no_status_sends_no_status_filter`: `_report_list_impl(10, None, None)`, then the same assertion with `limit=10`.
-    3. `test_type_and_status_pass_through`: also patch `workmain.cli.commands.reports.require_report_type` with `return_value='daily_internal'`. `_report_list_impl(3, 'daily_internal', 'confirmed')`, then `assert_called_once_with(report_type='daily_internal', status='confirmed', limit=3)`.
+  - Add `class TestReportListCommandPath`, a plain pytest class, per DR6's command-path tests. Each test calls `session_for_command('workmain.cli.commands.reports')`, seeds through `db_session` with `report_type='zz_issue157'` on the dates given, spies on `list_by_report_date`, and calls `_report_list_impl` directly with `report_type=None`. The seeded rows are the newest in the table, because the live reports are dated 2026 and the leaked rows 2099-01-18.
+    1. `test_status_all_lists_every_status`: seed an unconfirmed row on 2099-08-10, then a confirmed row on 2099-08-11. `_report_list_impl(2, None, 'all')`. `spy.assert_called_once_with(ANY, report_type=None, status=None, limit=2)`, and the recorded rows are `[confirmed, unconfirmed]`.
+    2. `test_no_status_lists_every_status`: the same seeds on 2099-08-12 and 2099-08-13, and `_report_list_impl(2, None, None)`. Same assertions.
+    3. `test_status_filters_rows`: seed a confirmed row on 2099-08-14, then an unconfirmed row on 2099-08-15. `_report_list_impl(1, None, 'confirmed')`. `spy.assert_called_once_with(ANY, report_type=None, status='confirmed', limit=1)`, and the recorded rows are `[confirmed]`. A command that dropped the status filter would get the newer unconfirmed row instead.
   - **Delete** `TestReportConfirmCLI.test_reports_list_status_unconfirmed_shows_unconfirmed` and `test_reports_list_status_confirmed_shows_confirmed`. Their assertions pass on any run that lists a row, because the table title contains the status (Decision Log, Caliper 1). `test_reports_list_no_flag_shows_all` stays.
-  - Add two clauses to the module docstring's coverage list: `_resolve_report`'s id, daily-first and any-type resolution; and the arguments `reports list` sends to `list_by_report_date`.
+  - Add two clauses to the module docstring's coverage list: `_resolve_report`'s id, daily-first and any-type resolution; and `reports list` reading through `list_by_report_date`, against seeded rows.
 
 ### Step 3 — Slack
 
@@ -175,8 +183,8 @@ Add to `ReportsRepository`, after `list_reports`, with Google docstrings (`docs/
   - Add module-level `_weekly_posted(session, report_date) -> bool` returning `bool(ReportsRepository(session).list_slack_posted('weekly_client', report_date, limit=1))`. Replace each `already_posted(db_session, test_date)` call with `_weekly_posted(db_session, test_date)`.
   - The class docstring reads `Tests that query the real reports table to verify the already-posted check (ReportsRepository.list_slack_posted).` The `test_01` docstring reads `No report row for date → not posted.`
   - Test names, dates and seeded rows are unchanged.
-  - Add `class TestSlackStatusWiring`, a plain pytest class, per DR6's wiring tests, with one test, `test_status_lists_five_posted_of_any_type`. It patches, in `workmain.cli.commands.slack`, `load_slack_config` (`return_value={}`), `is_authenticated` (`return_value=False`), `get_db`, `_get_display_channel` (`return_value=None`) and `get_reports_repository` (a `MagicMock` repo whose `list_slack_posted.return_value` is `[]`). It also patches `workmain.database.repositories.system_state_repository.SystemStateRepository` so `get_int` returns `None`. It imports `slack_status` from `workmain.cli.commands.slack`, calls `slack_status.callback()`, then `repo.list_slack_posted.assert_called_once_with(limit=5)`. The test fails if the command adds a type or date filter or changes the limit.
-  - Add `TestSlackStatusWiring` to the module docstring's list of test classes.
+  - Add `class TestSlackStatusCommandPath`, a plain pytest class, per DR6's command-path tests, with one test, `test_status_lists_five_newest_posted_of_any_type`. It calls `session_for_command('workmain.cli.commands.slack')`. It seeds six posted rows (`slack_message_ts='test-ts-157-<n>'`), alternating `daily_internal` and `weekly_client`, in this order: 2099-08-21, 2099-08-25, 2099-08-20, 2099-08-24, 2099-08-22, 2099-08-23. Then it seeds an unposted `weekly_client` row on 2099-08-26. It spies on `list_slack_posted`, imports `slack_status` from `workmain.cli.commands.slack`, and calls `slack_status.callback()`. Nothing else is patched: the command's config, environment and channel reads are read-only. `spy.assert_called_once_with(ANY, limit=5)`, and the recorded rows are the posted rows dated 08-25, 08-24, 08-23, 08-22 and 08-21, in that order, covering both types. A type filter, a different limit or the unposted row each changes that list.
+  - Add `TestSlackStatusCommandPath` to the module docstring's list of test classes.
 
 ### Step 4 — action executor
 
@@ -192,9 +200,9 @@ None. No migration, no GitHub deletion, no merge to `main`, no force-push and no
 | --- | --- | --- |
 | AC1.1 | No module outside `workmain/database/` reads the `Report` model except through `ReportsRepository`: none queries it, and none imports it | `grep -rn "query(Report" workmain/ --include=*.py \| grep -v workmain/database/repositories/` and `grep -rnE "import .*\bReport\b\|models\.Report\b" workmain/ --include=*.py \| grep -v workmain/database/` both return zero hits |
 | AC1.2 | The Slack API client holds no database read: `already_posted` is gone from the application and nothing calls or imports it | `grep -rnE "already_posted[,(]" workmain/ tests/` returns zero hits |
-| AC2.1 | `reports list` and `reports history` select newest `report_date` first, ties broken by newest id, and honour type, status and limit | `pytest tests/test_reports_repo.py::TestListByReportDate tests/test_report_correction.py::TestReportListWiring`, the first proving the query and the second the arguments the command sends, including `--status all` as no filter |
+| AC2.1 | `reports list` and `reports history` select newest `report_date` first, ties broken by newest id, and honour type, status and limit | `pytest tests/test_reports_repo.py::TestListByReportDate tests/test_report_correction.py::TestReportListCommandPath`, the first proving the query and the second the command's call and the rows it gets, including `--status all` as no filter |
 | AC3.1 | `reports confirm` and `reports correct` resolve an identifier as an id, else the newest `daily_internal` report for that date, else the newest report of any type for that date. This restates issue AC3 under study D1: the precedence is tested where it lives, against the database, without rendered output | `pytest tests/test_report_correction.py::TestResolveReport tests/test_reports_repo.py::TestGetLatestForDate` |
-| AC4.1 | `slack status` lists the five most recent Slack-posted reports by `report_date`, with ties by newest id | `pytest tests/test_reports_repo.py::TestListSlackPosted tests/test_slack.py::TestSlackStatusWiring`, the first proving the query and the second that the command asks for five rows of any type |
+| AC4.1 | `slack status` lists the five most recent Slack-posted reports by `report_date`, with ties by newest id | `pytest tests/test_reports_repo.py::TestListSlackPosted tests/test_slack.py::TestSlackStatusCommandPath`, the first proving the query and the second the command's call and the five rows of any type it gets |
 | AC5.1 | The Slack intent actions find today's newest report of a type | `pytest tests/test_reports_repo.py::TestGetLatestForDate tests/test_action_executor.py::TestActionExecutorConfirmReport`, the latter unedited |
 | AC5.2 | `slack post weekly` refuses to repost a week already posted unless forced, using the repository's check | `pytest tests/test_slack.py::TestSlackReportsIntegration tests/test_slack.py::TestSlackPostWeeklySharedRunner::test_already_posted_blocks_without_force tests/test_slack.py::TestSlackPostWeeklySharedRunner::test_force_reposts_when_already_posted` |
 | AC6.1 | Full suite passes with no net test loss from the baseline | `pytest` reports zero failures and baseline + 18 passed, with skipped stated |
@@ -207,8 +215,8 @@ None. No migration, no GitHub deletion, no merge to `main`, no force-push and no
   | Step | Change | Net |
   | --- | --- | --- |
   | 1 | `tests/test_reports_repo.py`: three classes of four | +12 |
-  | 2 | `TestResolveReport` (4), `TestReportListWiring` (3); two redundant `TestReportConfirmCLI` tests deleted | +5 |
-  | 3 | Four `TestSlackReportsIntegration` tests change their call; `TestSlackStatusWiring` (1) | +1 |
+  | 2 | `TestResolveReport` (4), `TestReportListCommandPath` (3); two redundant `TestReportConfirmCLI` tests deleted | +5 |
+  | 3 | Four `TestSlackReportsIntegration` tests change their call; `TestSlackStatusCommandPath` (1) | +1 |
   | 4 | None; covered by Step 1 and `TestActionExecutorConfirmReport` | 0 |
 
 - **Existing tests that must stay green unedited:** every class in §2's last row.
@@ -218,4 +226,7 @@ None. No migration, no GitHub deletion, no merge to `main`, no force-push and no
 - **`slack status` order on a shared date.** Two posted reports on one date now list newest id first, where today the order is undefined. Nothing else in any output changes.
 - **A missed `Report` import breaks a command at call time, not at import time.** `already_posted` and `Report` are deleted from modules that `slack.py` and `reports.py` load. The first is caught at import, the second only when the command runs. AC1.1's grep and the CLI tests in §2 cover both.
 - **Inline writes stay beside repository reads** (#167). `reports confirm`, `slack post weekly` and the Slack intent handlers now get their report from the repository, then set columns and commit on the same session. The object is attached to that session, so the writes persist as before (`docs/DEVELOPMENT_STANDARDS.md` §4.2).
+- **Known limits of the command-path tests**, each now an acceptance criterion on the issue that closes it:
+  - **They patch `get_db` where each command module imports it,** so a command that changes how it gets its session breaks its test, loudly. #95 moves every call site to `session_scope()` and replaces the per-module patch with one hook in `tests/conftest.py`.
+  - **They call the command's function directly, so Click's option parsing (`--status`, `--type`, `--limit`) is not exercised.** #136 adds `CliRunner` tests of these commands' options against seeded data.
 - **Rollback:** each step is one commit and reverts alone, in reverse order. Step 1 has no caller until Step 2.
