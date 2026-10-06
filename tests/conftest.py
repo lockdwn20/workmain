@@ -2,7 +2,9 @@
 Pytest fixtures shared across all test files.
 """
 
+import os
 import types
+from unittest.mock import patch
 
 import pytest
 from dotenv import load_dotenv
@@ -61,3 +63,16 @@ def session_for_command(db_session, monkeypatch):
         return db_session
 
     return _hand
+
+
+@pytest.fixture
+def offline_provider_env():
+    """Fake keys for both vendors with both vendor clients patched out."""
+    env = {
+        "ANTHROPIC_API_KEY": "sk-ant-test000000000000000000000000000000000000",
+        "GOOGLE_API_KEY": "A" * 39,
+    }
+    with patch.dict(os.environ, env), \
+         patch("workmain.ai.providers.claude.Anthropic"), \
+         patch("workmain.ai.providers.gemini.genai.Client"):
+        yield
