@@ -44,7 +44,7 @@ Step 1 also deleted the two stale tests (`test_report_filtering`, `test_section_
 
 | # | Deviation | Reason | Approved by |
 | --- | --- | --- | --- |
-| 1 | M20's old text was run with its following line, `report.corrected_content = edited_body`, as context. | `if report is None:` / `return` occurs twice in `reports_repo.py` (`:263` in `apply_correction`, `:285` in the correction-note method), so the two-line literal does not occur exactly once. | Not asked; the mutation is the spec's, applied inside `apply_correction` as it states. |
+| 1 | M20's old text was run with its following line, `report.corrected_content = edited_body`, as context. | `if report is None:` / `return` occurs twice in `reports_repo.py` (`:263` in `apply_correction`, `:285` in the correction-note method), so the two-line literal does not occur exactly once. | Spanner, 20261006, recorded in the spec's Decision Log. |
 
 ## 5. Verification
 
