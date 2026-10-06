@@ -28,6 +28,7 @@
 | 20261006 | Caliper F-6 | The split step's item 2 leaves imports unused. | Accepted. |
 | 20261006 | Caliper F-7 | The split step's items 3 and 5 would each copy the fake-key setup. | Accepted. One fixture in `tests/conftest.py` serves both. The offline file's existing `_build_claude` and `_build_gemini` builders are left as they are; refactoring them isn't in this issue. |
 | 20261006 | Caliper F-8 | AC2.3 checks only one direction and states no counts. | Accepted, with both directions stated as counts in AC2.3. The counts are asymmetric because the integrated and cost-tracking tests both need Claude. |
+| 20261006 | Caliper F-9 | The unused-import list misses `ProviderType`. | Accepted. I checked every other import against the code that stays in the offline file, and all of them are still used. |
 | 20261006 | Spanner | `test_token_counting` passes on the `len(text) // 4` fallback. | Not carried into the live file. A test shouldn't pin a path the next queued issue removes. #124 owns tokenizer coverage. |
 
 ---
@@ -88,7 +89,7 @@ Each step ends with a commit. There is no approval stop between steps, and a bar
 2. In the offline file:
    - Delete the module-level `load_dotenv()` and its import (DR5).
    - Delete `SKIP_API_TESTS` (current lines 31–32) and the nine legacy `test_*` functions (current lines 55–346).
-   - Remove the imports nothing left in the file uses: `date`, `CostTracker`, `FallbackMode` and `get_provider_manager`. The live file imports what it needs itself.
+   - Remove the imports nothing left in the file uses: `date`, `ProviderType`, `CostTracker`, `FallbackMode` and `get_provider_manager`. The live file imports what it needs itself.
    - Keep `_load_ai_settings` and `_make_gemini_config`, because `TestGeminiPolicySampling` uses the latter.
    - Rewrite the module docstring to say what the file covers: provider payload contracts, retry and rate-limit translation, policy loading, and the provider tests below. Say that it runs with vendor clients patched and fake keys, and makes no network calls (DR6).
    - Reduce the banner comment above the offline section to a section heading that doesn't mention `SKIP_API_TESTS`.
