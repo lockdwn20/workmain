@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.40.0] - 2026-10-06
+
+`tests/test_ai_clients.py` held two kinds of test under one name. One kind made real, billed API calls; the other was offline payload-contract tests. The live tests returned early when a key or a flag was missing, and pytest reports an early return as a pass, so a run that skipped them looked identical to one that ran them (issue #131).
+
+### Added
+
+- `tests/test_ai_providers_live.py`, which holds the six tests that call the Anthropic and Google APIs. Each is a pytest skip when the key it needs is absent, and each asserts on one provider
+- `offline_provider_env` fixture in `tests/conftest.py`: fake keys for both vendors, with both vendor clients patched
+- `docs/DEVELOPMENT_STANDARDS.md` §6: the application suite is a bare `pytest` from the repository root, and no other invocation stands in for it unless a spec says so. Recorded test evidence states passed, failed and skipped, writing each count even when it is zero
+
+### Changed
+
+- `tests/test_ai_clients.py` renamed to `tests/test_ai_providers_offline.py`. Provider initialization and cost-estimation checks moved there from the live tests and run under fake keys
+- `tests/test_ai_foundation.py::test_provider_status` no longer needs real credentials
+- The results and spec templates record the suite as `<passed> passed, <failed> failed, <skipped> skipped`
+
+### Removed
+
+- `SKIP_API_TESTS` and every early-return gate in the suite
+- `test_token_counting`, which passed on the `len(text) // 4` fallback. Tokenizer coverage belongs to issue #124
+
+Suite: 1124 passed, 0 failed, 0 skipped (baseline 1123 passed, 0 failed, 0 skipped). With both keys empty: 1118 passed, 0 failed, 6 skipped.
+
 ## [1.39.0] - 2026-10-05
 
 Nine reads of the `Report` model outside the repositories built their own queries, so how reports were selected and ordered could only be tested through a command's printed output. That is the dependency that broke `test_history_desc_order` in #156 (issue #157).

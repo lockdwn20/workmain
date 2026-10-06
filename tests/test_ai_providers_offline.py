@@ -1,20 +1,13 @@
 """
-Tests for AI provider implementations: ClaudeProvider (Anthropic) and
-GeminiProvider (Google AI), covering real API generation, token counting,
-cost estimation and error handling.
-
-Note: These tests make real API calls and will consume tokens.
+Tests for AI provider implementations that run with vendor clients patched and
+fake keys, and make no network calls: provider payload contracts, retry and
+rate-limit translation, policy loading, and ProviderManager construction from
+config.
 """
 
 import os
-from datetime import date
-from dotenv import load_dotenv
-
-# Load environment variables from .env file
-load_dotenv()
 
 from workmain.ai.base_provider import (
-    ProviderType,
     ProviderStatus,
     GenerationRequest,
     ConfigurationError,
@@ -24,12 +17,6 @@ from workmain.ai.base_provider import (
 )
 from workmain.ai.providers.claude import ClaudeProvider
 from workmain.ai.providers.gemini import GeminiProvider, _is_rate_limit_error
-from workmain.ai.provider_manager import ProviderManager, FallbackMode, get_provider_manager
-from workmain.ai.cost_tracker import CostTracker
-
-
-# Check if we should skip API tests
-SKIP_API_TESTS = os.getenv('SKIP_API_TESTS', '0') == '1'
 
 
 def _load_ai_settings() -> dict:
@@ -52,307 +39,9 @@ def _make_gemini_config():
     }
 
 
-def test_claude_client_initialization():
-    """Test Claude provider initialization."""
-    print("Testing Claude provider initialization...")
-
-    api_key = os.getenv('ANTHROPIC_API_KEY')
-    if not api_key:
-        print("  ⚠ ANTHROPIC_API_KEY not set, skipping")
-        return
-
-    client = ProviderManager().get_provider('claude')
-
-    assert client.model == _load_ai_settings()['claude']['model']
-
-    print("✓ Claude provider initialization working")
-
-
-def test_gemini_client_initialization():
-    """Test Gemini provider initialization."""
-    print("\nTesting Gemini provider initialization...")
-
-    api_key = os.getenv('GOOGLE_API_KEY')
-    if not api_key:
-        print("  ⚠ GOOGLE_API_KEY not set, skipping")
-        return
-
-    client = ProviderManager().get_provider('gemini')
-
-    expected_model = _load_ai_settings()['gemini']['model']
-    assert client.model == expected_model
-
-    print("✓ Gemini provider initialization working")
-
-
-def test_claude_generation():
-    """Test Claude text generation."""
-    if SKIP_API_TESTS:
-        print("\nSkipping Claude generation test (SKIP_API_TESTS=1)")
-        return
-
-    print("\nTesting Claude text generation...")
-
-    api_key = os.getenv('ANTHROPIC_API_KEY')
-    if not api_key:
-        print("  ⚠ ANTHROPIC_API_KEY not set, skipping")
-        return
-
-    client = ProviderManager().get_provider('claude')
-
-    request = GenerationRequest(
-        prompt="Say 'Hello from Claude!' and nothing else.",
-        max_tokens=20,
-    )
-
-    response = client.generate(request)
-
-    assert response.provider == ProviderType.CLAUDE
-    assert response.content
-    assert "claude" in response.content.lower() or "hello" in response.content.lower()
-    assert response.tokens_used > 0
-    assert response.prompt_tokens > 0
-    assert response.completion_tokens > 0
-    assert response.cost > 0
-
-    print(f"✓ Claude generation working")
-    print(f"  Response: {response.content[:50]}...")
-    print(f"  Tokens: {response.tokens_used} (prompt: {response.prompt_tokens}, completion: {response.completion_tokens})")
-    print(f"  Cost: ${response.cost:.6f}")
-
-
-def test_gemini_generation():
-    """Test Gemini text generation."""
-    if SKIP_API_TESTS:
-        print("\nSkipping Gemini generation test (SKIP_API_TESTS=1)")
-        return
-
-    print("\nTesting Gemini text generation...")
-
-    api_key = os.getenv('GOOGLE_API_KEY')
-    if not api_key:
-        print("  ⚠ GOOGLE_API_KEY not set, skipping")
-        return
-
-    client = ProviderManager().get_provider('gemini')
-
-    # 512, sized from the measured 73-136 thinking + 2-3 answer tokens at
-    # thinking_level high (DR5) — 100 lets the model spend it all on thinking
-    # and return empty text with finish_reason MAX_TOKENS (Issue #127).
-    request = GenerationRequest(
-        prompt="Say 'Hello from Gemini!' and nothing else.",
-        max_tokens=512,
-    )
-
-    response = client.generate(request)
-
-    assert response.provider == ProviderType.GEMINI
-    assert response.content
-    assert "gemini" in response.content.lower() or "hello" in response.content.lower()
-    assert response.tokens_used > 0
-    assert response.prompt_tokens > 0
-    assert response.completion_tokens > 0
-    assert response.cost <= 0.001, f"Expected small cost but got ${response.cost}"
-
-    print(f"✓ Gemini generation working")
-    print(f"  Response: {response.content[:50]}...")
-    print(f"  Tokens: {response.tokens_used} (prompt: {response.prompt_tokens}, completion: {response.completion_tokens})")
-    print(f"  Cost: ${response.cost:.6f}")
-
-
-def test_token_counting():
-    """Test token counting for both providers."""
-    print("\nTesting token counting...")
-
-    test_text = "This is a test message for token counting."
-
-    claude_key = os.getenv('ANTHROPIC_API_KEY')
-    if claude_key:
-        claude = ProviderManager().get_provider('claude')
-        claude_tokens = claude.count_tokens(test_text)
-        assert claude_tokens > 0
-        print(f"✓ Claude token counting: {claude_tokens} tokens")
-
-    gemini_key = os.getenv('GOOGLE_API_KEY')
-    if gemini_key:
-        gemini = ProviderManager().get_provider('gemini')
-        gemini_tokens = gemini.count_tokens(test_text)
-        assert gemini_tokens > 0
-        print(f"✓ Gemini token counting: {gemini_tokens} tokens")
-
-
-def test_cost_estimation():
-    """Test cost estimation."""
-    print("\nTesting cost estimation...")
-
-    claude_key = os.getenv('ANTHROPIC_API_KEY')
-    if claude_key:
-        claude = ProviderManager().get_provider('claude')
-
-        cost = claude.estimate_cost(1000, 500)
-        claude_cfg = _load_ai_settings()['claude']
-        expected = (1000 / 1000 * claude_cfg['cost_per_1k_prompt_tokens']) + \
-                   (500 / 1000 * claude_cfg['cost_per_1k_completion_tokens'])
-        assert abs(cost - expected) < 0.0001
-        print(f"✓ Claude cost estimation: 1000 prompt + 500 completion = ${cost:.6f}")
-
-    gemini_key = os.getenv('GOOGLE_API_KEY')
-    if gemini_key:
-        gemini = ProviderManager().get_provider('gemini')
-
-        cost = gemini.estimate_cost(1000, 500)
-        gemini_cfg = _load_ai_settings()['gemini']
-        expected_gemini = (1000 / 1000 * gemini_cfg['cost_per_1k_prompt_tokens']) + \
-                          (500 / 1000 * gemini_cfg['cost_per_1k_completion_tokens'])
-        assert abs(cost - expected_gemini) < 0.0001, f"Expected ${expected_gemini:.6f} but got ${cost}"
-        print(f"✓ Gemini cost estimation: 1000 prompt + 500 completion = ${cost:.6f}")
-
-
-def test_provider_status():
-    """Test provider status checking."""
-    if SKIP_API_TESTS:
-        print("\nSkipping provider status test (SKIP_API_TESTS=1)")
-        return
-
-    print("\nTesting provider status...")
-
-    claude_key = os.getenv('ANTHROPIC_API_KEY')
-    if claude_key:
-        claude = ProviderManager().get_provider('claude')
-        status = claude.check_availability()
-        assert status == ProviderStatus.AVAILABLE
-        print(f"✓ Claude status: {status.value}")
-
-    gemini_key = os.getenv('GOOGLE_API_KEY')
-    if gemini_key:
-        gemini = ProviderManager().get_provider('gemini')
-        status = gemini.check_availability()
-        assert status == ProviderStatus.AVAILABLE
-        print(f"✓ Gemini status: {status.value}")
-
-
-def test_integrated_generation():
-    """Test integrated generation with provider manager."""
-    if SKIP_API_TESTS:
-        print("\nSkipping integrated generation test (SKIP_API_TESTS=1)")
-        return
-
-    print("\nTesting integrated generation with provider manager...")
-
-    claude_key = os.getenv('ANTHROPIC_API_KEY')
-    gemini_key = os.getenv('GOOGLE_API_KEY')
-
-    if not (claude_key and gemini_key):
-        print("  ⚠ Both API keys required, skipping")
-        return
-
-    # ProviderManager auto-instantiates providers from registry + ai_settings.json
-    import json
-    import tempfile
-    with open('config/ai_settings.json', 'r') as f:
-        settings = json.load(f)
-    settings['report_types'] = {
-        name: {
-            'instructions': 'system_prompt',
-            'primary_provider': primary,
-            'fallback_provider': fallback,
-            'fallback_mode': 'auto',
-            'max_tokens': 20,
-        }
-        for name, primary, fallback in (
-            ('test_daily', 'claude', 'gemini'),
-            ('test_weekly', 'gemini', 'claude'),
-        )
-    }
-    settings['application_functions'] = {}
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-        json.dump(settings, f)
-        path = f.name
-    try:
-        manager = ProviderManager(config_path=path)
-    finally:
-        os.unlink(path)
-
-    # Test daily report (should use Claude, falls back to Gemini on failure —
-    # 512 so a fallback isn't truncated by thinking_level high either)
-    request = GenerationRequest(
-        prompt="Say 'Daily report test' and nothing else.",
-        max_tokens=512,
-    )
-
-    response, fallback_used = manager.generate(request, report_type="test_daily")
-    assert response.provider == ProviderType.CLAUDE
-    assert not fallback_used
-    print(f"✓ Daily report used Claude: {response.content[:40]}...")
-
-    # Test weekly report (should use Gemini). 512, sized from the measured
-    # 73-136 thinking + 2-3 answer tokens at thinking_level high (DR5) — 20
-    # lets the model spend it all on thinking and return empty text with
-    # finish_reason MAX_TOKENS (Issue #127).
-    request = GenerationRequest(
-        prompt="Say 'Weekly report test' and nothing else.",
-        max_tokens=512,
-    )
-
-    response, fallback_used = manager.generate(request, report_type="test_weekly")
-    assert response.provider == ProviderType.GEMINI
-    assert not fallback_used
-    print(f"✓ Weekly report used Gemini: {response.content[:40]}...")
-
-
-def test_cost_tracking_integration():
-    """Test cost tracking with real generation."""
-    if SKIP_API_TESTS:
-        print("\nSkipping cost tracking integration test (SKIP_API_TESTS=1)")
-        return
-
-    print("\nTesting cost tracking with real generation...")
-
-    claude_key = os.getenv('ANTHROPIC_API_KEY')
-    if not claude_key:
-        print("  ⚠ ANTHROPIC_API_KEY not set, skipping")
-        return
-
-    tracker = CostTracker()
-    tracker.start_report("test_report", date.today())
-
-    claude = ProviderManager().get_provider('claude')
-
-    request = GenerationRequest(
-        prompt="Write a one-sentence summary of AI.",
-        max_tokens=50,
-    )
-
-    response = claude.generate(request)
-
-    tracker.track_section(
-        section_name="Test Section",
-        provider="claude",
-        model=response.model,
-        prompt_tokens=response.prompt_tokens,
-        completion_tokens=response.completion_tokens,
-        cost=response.cost
-    )
-
-    completed = tracker.end_report(generation_time=1.5)
-
-    assert len(completed.sections) == 1
-    assert completed.total_cost > 0
-    assert completed.total_tokens > 0
-
-    print(f"✓ Cost tracking integration working")
-    print(f"  Total cost: ${completed.total_cost:.6f}")
-    print(f"  Total tokens: {completed.total_tokens}")
-
-
-# ===========================================================================
-# Offline payload-contract and policy-loading tests (issue #79 / v1.32.0).
-#
-# These patch the vendor clients and never touch the network, so they run
-# under SKIP_API_TESTS=1 and without any API key. They are unit tests of the
-# request payload contract, not API tests — they must not sit behind the
-# SKIP_API_TESTS gate.
-# ===========================================================================
+# ---------------------------------------------------------------------------
+# Payload-contract and policy-loading tests
+# ---------------------------------------------------------------------------
 
 import json as _json
 from unittest.mock import MagicMock, patch
@@ -741,3 +430,29 @@ class TestGeminiRateLimitTranslation:
         assert provider.check_availability() == ProviderStatus.RATE_LIMITED
         client.models.generate_content.side_effect = _FakeGeminiAPIError(500)
         assert provider.check_availability() == ProviderStatus.UNAVAILABLE
+
+
+class TestProviderManagerBuildsFromConfig:
+    """ProviderManager builds each provider from config/ai_settings.json."""
+
+    def test_claude_model_from_config(self, offline_provider_env):
+        provider = ProviderManager().get_provider('claude')
+        assert provider.model == _load_ai_settings()['claude']['model']
+
+    def test_gemini_model_from_config(self, offline_provider_env):
+        provider = ProviderManager().get_provider('gemini')
+        assert provider.model == _load_ai_settings()['gemini']['model']
+
+    def test_claude_cost_estimation(self, offline_provider_env):
+        provider = ProviderManager().get_provider('claude')
+        cfg = _load_ai_settings()['claude']
+        expected = (cfg['cost_per_1k_prompt_tokens']
+                    + 0.5 * cfg['cost_per_1k_completion_tokens'])
+        assert abs(provider.estimate_cost(1000, 500) - expected) < 1e-4
+
+    def test_gemini_cost_estimation(self, offline_provider_env):
+        provider = ProviderManager().get_provider('gemini')
+        cfg = _load_ai_settings()['gemini']
+        expected = (cfg['cost_per_1k_prompt_tokens']
+                    + 0.5 * cfg['cost_per_1k_completion_tokens'])
+        assert abs(provider.estimate_cost(1000, 500) - expected) < 1e-4
