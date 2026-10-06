@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Complete pending Ray's readings. Steps 1–4 are applied verbatim from the spec. The four rows awaiting a stated reading (AC1.1, AC2.1, AC3.1, AC8.1) are recorded as **Not met** until Ray reads them; every mechanical check passes.
+Complete. Steps 1–4 are applied verbatim from the spec, every mechanical check passes, and Ray accepted the four stated readings (AC1.1, AC2.1, AC3.1, AC8.1) on 20261006.
 
 ## 2. What shipped, by step
 
@@ -26,14 +26,14 @@ Complete pending Ray's readings. Steps 1–4 are applied verbatim from the spec.
 
 | AC | Status | Evidence |
 | --- | --- | --- |
-| AC1.1 | **Not met** | Awaiting Ray's reading of §1.2 *A contract change enumerates its call sites*. |
-| AC2.1 | **Not met** | Awaiting Ray's reading of §1.2 *A criterion that verifies changed behaviour names the entry path it exercises*. |
-| AC3.1 | **Not met** | Grep half passes (§5): three hits, `CLAUDE.md:233` citing §1.2 for the spec-time rules, `_TEMPLATE_SPEC.md:48` the example row, `:87` citing §1.2; nothing in `.claude/`. Awaiting Ray's reading against `CLAUDE.md`'s opening single-home rule. |
+| AC1.1 | Met | Ray read §1.2 *A contract change enumerates its call sites*. |
+| AC2.1 | Met | Ray read §1.2 *A criterion that verifies changed behaviour names the entry path it exercises*. |
+| AC3.1 | Met | Grep passes (§5): three hits, `CLAUDE.md:233` citing §1.2 for the spec-time rules, `_TEMPLATE_SPEC.md:48` the example row, `:87` citing §1.2; nothing in `.claude/`. Ray read the step 2 and step 3 text against `CLAUDE.md`'s opening single-home rule. |
 | AC4.1 | Met | `docs/dev/specs/_TEMPLATE_SPEC.md:48` and `:52` (§2), `:87` (§5) carry the step 2 text. |
 | AC5.1 | Met | The rules live at the §1.2 bullets named in AC1.1 and AC2.1. The grep (§5) returns two hits, both in this spec: §1 names the artifact as origin and read-only history, §5 is the check itself. Neither treats it as authoritative. |
 | AC6.1 | Met | No `gh issue` write command was run by this work (§5). |
 | AC7.1 | Met | Both suites identical to baseline (§5). |
-| AC8.1 | **Not met** | `grep -rn 'pytest.skip(' tests/ automation/` returns zero hits. Awaiting Ray's reading of the §6 bullet. |
+| AC8.1 | Met | `grep -rn 'pytest.skip(' tests/ automation/` returns zero hits. Ray read the §6 bullet. |
 
 ## 4. Deviations from spec
 
