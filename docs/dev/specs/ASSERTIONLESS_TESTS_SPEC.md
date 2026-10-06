@@ -1,6 +1,6 @@
 # Assertionless Tests — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261006
 **Branch:** `feature/issue-137-assertionless-tests` (from `dev`)

@@ -4,7 +4,7 @@
 **Author:** Anvil (Role 3)
 **Date:** 20261006
 **Spec:** `../specs/ASSERTIONLESS_TESTS_SPEC.md`
-**Released as:** v1.42.0
+**Released as:** v1.42.0 (tag v1.42.0)
 
 ---
 
