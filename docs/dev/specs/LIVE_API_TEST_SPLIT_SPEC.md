@@ -14,6 +14,7 @@
 
 | Date | Source | Decision or finding | Resolution |
 | --- | --- | --- | --- |
+| 20261007 | Ray | Step 2's text as approved was defective. It wrote the counts three different ways: `<n> passed, 0 failed, 0 skipped` in §6 and different letters in each template, and the literal `0` read as if failed and skipped must be zero. It also stated the bare-`pytest` rule twice and the separate-suite rule twice. | Replaced with the text Ray approved on 20261007. One placeholder form, `<passed> passed, <failed> failed, <skipped> skipped`, is defined in §6, and both templates use it and cite §6. Each rule is stated once. Spanner applied the text directly, because the defect was in the spec's own wording. |
 | 20261006 | Ray | Is the spec approved for implementation? | Approved after Caliper's re-review, with F-9 applied. |
 | 20261006 | Ray | Should `SKIP_API_TESTS` survive (design study Q1)? | Removed entirely (Option A). A live test skips only when its credential is absent. |
 | 20261006 | Ray | Should the `ClaudeProvider.count_tokens` defect be fixed here (design study F5, Q2)? | Ray first answered "fix here". That answer was superseded by Q3 below, once it emerged that issue #124 already owns this defect. |
@@ -115,17 +116,21 @@ Each step ends with a commit. There is no approval stop between steps, and a bar
 
 ### Step 2 — §6 and templates
 
-In `docs/DEVELOPMENT_STANDARDS.md` §6, after the bullet
+In `docs/DEVELOPMENT_STANDARDS.md` §6, replace the bullets
 
 ```markdown
+- pytest is the exclusive runner.
 - `testpaths` in `pyproject.toml` resolves a bare `pytest` to the application suite.
+- Non-application suites exist and are reached by explicit path — §6.3 is the owner of test placement.
 ```
 
-insert:
+with
 
 ```markdown
-- **The application suite is a bare `pytest` from the repository root.** No other invocation stands in for it unless a spec names the alternative and states why. That covers a path subset, a `-k` or `-m` filter, and an environment variable that changes what runs. A suite reached by its own path under §6.3, such as `pytest automation/`, is a separate suite, not an alternative to this one.
-- **Recorded test evidence states passed, failed and skipped, including a skipped count of zero**, in the form `<n> passed, 0 failed, 0 skipped`. pytest counts a skipped test separately from a passed one. A record without the skipped count can't show whether a run did less than the full suite.
+- pytest is the exclusive runner.
+- **The application suite is a bare `pytest` from the repository root.** `testpaths` in `pyproject.toml` is what resolves it to `tests/`. No other invocation stands in for it unless a spec names the alternative and states why. That covers a path subset, a `-k` or `-m` filter, and an environment variable that changes what runs.
+- Non-application suites, such as `pytest automation/`, are reached by their own path. Each is a separate suite, not an alternative to this one. §6.3 owns test placement.
+- **Recorded test evidence states all three counts, in the form `<passed> passed, <failed> failed, <skipped> skipped`, and writes each one even when it is zero.** pytest counts a skipped test separately from a passed one, so a record without the skipped count can't show whether a run did less than the full suite.
 ```
 
 In `docs/dev/results/_TEMPLATE_RESULTS.md`, replace
@@ -137,7 +142,7 @@ In `docs/dev/results/_TEMPLATE_RESULTS.md`, replace
 with
 
 ```markdown
-- **Test suite:** N passed, 0 failed, K skipped (baseline was M passed, 0 failed, J skipped) — form per `docs/DEVELOPMENT_STANDARDS.md` §6.
+- **Test suite:** <passed> passed, <failed> failed, <skipped> skipped (baseline: <passed> passed, <failed> failed, <skipped> skipped) — form per `docs/DEVELOPMENT_STANDARDS.md` §6.
 ```
 
 In `docs/dev/specs/_TEMPLATE_SPEC.md`, replace
@@ -149,7 +154,7 @@ In `docs/dev/specs/_TEMPLATE_SPEC.md`, replace
 with
 
 ```markdown
-- **Expected after:** N + M passed, 0 failed, K skipped — form per `docs/DEVELOPMENT_STANDARDS.md` §6.
+- **Expected after:** <passed> passed, <failed> failed, <skipped> skipped — form per `docs/DEVELOPMENT_STANDARDS.md` §6.
 ```
 
 ### Authorization points

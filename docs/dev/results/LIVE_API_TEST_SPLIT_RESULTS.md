@@ -17,7 +17,7 @@ Complete. `tests/test_ai_clients.py` is split into `tests/test_ai_providers_offl
 | Step | Delivered | Files changed | Tests |
 | --- | --- | --- | --- |
 | 1 | Split, gates removed, `offline_provider_env` fixture, `TestProviderManagerBuildsFromConfig` | `tests/test_ai_providers_offline.py` (renamed), `tests/test_ai_providers_live.py`, `tests/test_ai_foundation.py`, `tests/conftest.py` | +1 (−9 legacy, +4 offline, +6 live) |
-| 2 | §6 suite and evidence rules; template suite lines | `docs/DEVELOPMENT_STANDARDS.md`, `docs/dev/results/_TEMPLATE_RESULTS.md`, `docs/dev/specs/_TEMPLATE_SPEC.md` | 0 |
+| 2 | §6 suite and evidence rules; template suite lines. Spanner then replaced the text with Ray's 20261007 revision (spec Decision Log). | `docs/DEVELOPMENT_STANDARDS.md`, `docs/dev/results/_TEMPLATE_RESULTS.md`, `docs/dev/specs/_TEMPLATE_SPEC.md` | 0 |
 
 ## 3. Acceptance criteria
 
@@ -30,9 +30,9 @@ Complete. `tests/test_ai_clients.py` is split into `tests/test_ai_providers_offl
 | AC2.2 | Met | Keys empty, `pytest -q -rs`: six `SKIPPED` lines, all in the live file, each naming the missing variable. |
 | AC2.3 | Met | `GOOGLE_API_KEY=` live file: 3 passed, 0 failed, 3 skipped. `ANTHROPIC_API_KEY=` live file: 2 passed, 0 failed, 4 skipped. |
 | AC2.4 | Met | `grep -rn 'SKIP_API_TESTS' tests/ workmain/` returns no hits. |
-| AC3.1 | Met | Rule is at `docs/DEVELOPMENT_STANDARDS.md` §6 (line 634), with the `pytest automation/` carve-out. The check is Ray's reading. |
-| AC4.1 | Met | Rule is at `docs/DEVELOPMENT_STANDARDS.md` §6 (line 635). The check is Ray's reading. |
-| AC4.2 | Met | Both template lines replaced as specified and cite §6. The check is Ray's reading. |
+| AC3.1 | Met | Rule is at `docs/DEVELOPMENT_STANDARDS.md` §6 (line 633), with the `pytest automation/` separate-suite bullet at line 634. The check is Ray's reading. |
+| AC4.1 | Met | Rule is at `docs/DEVELOPMENT_STANDARDS.md` §6 (line 635), in the form `<passed> passed, <failed> failed, <skipped> skipped`. The check is Ray's reading. |
+| AC4.2 | Met | Both template lines use the §6 placeholder form and cite §6. The check is Ray's reading. |
 | AC5.1 | Met | Keys present, bare `pytest -q -rs`: 1124 passed, 0 failed, 0 skipped. |
 
 ## 4. Deviations from spec
