@@ -1,5 +1,5 @@
 {
-  "description": "Gemini (Google AI) request payload policy. Declares what we SEND, never what a model SUPPORTS. Required keys read by GeminiProvider: sampling, thinking_config. sampling.temperature is a literal value sent on every request. thinking_config.thinking_level is fixed for every Gemini call type, so notes and reports are produced at the same depth.",
+  "description": "Gemini (Google AI) request payload policy: what every request to this provider sends, never what a model supports. What each key does and why it holds its value: docs/AI_SETTINGS_GUIDE.md, section \"The request payload policy\".",
   "sampling": {"temperature": 0.3},
   "thinking_config": {"thinking_level": "high"},
   "automatic_function_calling": {"disable": true}
