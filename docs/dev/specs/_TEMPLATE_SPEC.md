@@ -45,8 +45,11 @@ What exists today, verified against source at authoring time. Cite file and symb
 
 | Claim | Evidence (file:line, symbol) |
 | --- | --- |
+| Call sites of `<symbol>`, found by `grep -rn '<pattern>' --include='*.py' .` | every `file:line` the search returns |
 
 Anything not verified here is a guess, and an implementer will treat it as fact. If a claim was carried in from an earlier document rather than re-checked, say so.
+
+The call-sites row is required where this spec changes a signature, a required input or an invariant of something already called elsewhere — `docs/DEVELOPMENT_STANDARDS.md` §1.2.
 
 ## 3. Design rules
 
@@ -80,6 +83,8 @@ Sub-ACs are mapped to the originating issue's ACs via the number scheme, `ACn.m`
 | AC1.2 | | ex. `grep -rn "..." workmain/` returns zero hits |
 
 Semantic criteria is only applicable to document changes per `docs/DEVELOPMENT_STANDARDS.md` §1.2.
+
+A criterion that verifies changed behaviour names the entry path it exercises — `docs/DEVELOPMENT_STANDARDS.md` §1.2 states what it owes where there is more than one.
 
 ## 6. Test plan
 

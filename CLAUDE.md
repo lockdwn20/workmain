@@ -230,4 +230,4 @@ Made and closed. Do not re-open or work around these without Ray's explicit dire
 
 - **Master Logs are reference only** — target output format for AI, NOT input data sources.
 - **Phase scope creep** is resolved through Spanner and Ray.
-- **Component-verified ≠ integration-verified** — trace handle and session provenance at every call site, diff drafted code against any claimed reference verbatim (not just shape), and never accept an elided "unchanged" block without checking it against the recon's own quote.
+- **Component-verified ≠ integration-verified** — the spec-time rules (call sites, entry paths) are `docs/DEVELOPMENT_STANDARDS.md` §1.2. At implementation, trace handle and session provenance at every call site, diff drafted code against any claimed reference verbatim (not just shape), and never accept an elided "unchanged" block without checking it against the recon's own quote.
