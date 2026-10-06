@@ -22,6 +22,10 @@
 | 20261006 | Spanner | Should the `cryptography==41.0.7` pin in `requirements.txt` go with the module? | No. `google-auth` requires `cryptography` (`pip show cryptography`, Required-by), so the pin still fixes the version that installs. Removing it would be a dependency-policy change, not dead-code removal. |
 | 20261006 | Spanner | `load_dotenv()` at module level in `workmain/config_manager/loader.py` served only `get_with_env_override`. | Kept. Its effect is process-wide, and `workmain/ai/provider_manager.py` imports this module at top level. Whether to delete it is #176's review. Only `import os` goes, because it becomes unused. |
 | 20261006 | Spanner | A one-time scan proves AC1 and AC2 on the day they are checked. It does not stop the next test that returns a value. | Step 5 sets `filterwarnings = ["error::pytest.PytestReturnNotNoneWarning"]` in `pyproject.toml`, so such a test fails the suite. This guards the property AC2 names at its source, it is one line, and it adds no register. |
+| 20261006 | Caliper 1 | M14 fails `test_get_active_none` only because the live database happens to hold a client. On an empty database the mutation would pass. | Accepted. The test creates `_NAME_A` before `clear_active()`, so a non-active row always exists. M14 was re-run and observed failing. |
+| 20261006 | Caliper 2 | `test_clear_active_no_active` never establishes that nothing was active before the call its name is about. Its new assertions would hold even if that call did nothing. M15 also fails the original test, so it can't tell the strengthened test from the unstrengthened one. | Accepted. The test seeds `create` → `set_active` → `clear_active` and asserts nothing is active before the call under test. M15 is now "the `is_active` update in `clear_active` removed": the original test passes under it and the strengthened one fails. Both were observed. |
+| 20261006 | Caliper 3 | The replacement §3.7 text says "`.env` is `chmod 600`". The live `.env` is `700`. It also restates the "All secrets are stored as KV pairs in the .env" bullet above it. | Accepted. The bullet is written as a rule, "Nothing encrypts secrets at rest; `.env` must be `chmod 600`." Ray was told the live file is `700`. |
+| 20261006 | Caliper 4 | `test_shipped_config_loads` reads the private `_all_configs`. The public `get_all_provider_configs()` (`workmain/ai/provider_manager.py:124`) returns the same dict. | Accepted. M19 was re-run against the public accessor and still fails. |
 | 20261006 | Spanner | When mutations were run during drafting, two of them (M2 and M11a) ran against stale bytecode. Each was applied within a second of the previous mutation and left the file the same byte size, so Python reused the previous mutation's `.pyc`. | DR5. Every mutation run sets `PYTHONPYCACHEPREFIX` to a fresh directory. |
 
 ---
@@ -136,7 +140,7 @@ Anything this spec does not cover stops at `CLAUDE.md` Role 3.
       with
 
       ```text
-      - Nothing encrypts secrets at rest. `.env` is the store, and its file permissions are the protection: `.env` is `chmod 600`.
+      - Nothing encrypts secrets at rest; `.env` must be `chmod 600`.
       ```
 
 ### Step 2 — `tests/test_tag_system.py`
@@ -358,17 +362,22 @@ Each test keeps its name, its class and its position. The replacements are below
     def test_get_active_none(self, db_session):
         """get_active() returns None when no client has is_active=True."""
         repo = ClientRepository(db_session)
+        repo.create(_NAME_A)
         repo.clear_active()
         assert repo.get_active() is None
 
     def test_clear_active_no_active(self, db_session):
         """clear_active() does not raise when nothing is active, and leaves nothing active."""
         repo = ClientRepository(db_session)
-        repo.create(_NAME_A)
-        repo.clear_active()
+        state_repo = SystemStateRepository(db_session)
+        client = repo.create(_NAME_A)
+        repo.set_active(client.id)
         repo.clear_active()
         assert repo.get_active() is None
-        assert SystemStateRepository(db_session).get('active_client_id') is None
+        assert state_repo.get('active_client_id') is None
+        repo.clear_active()
+        assert repo.get_active() is None
+        assert state_repo.get('active_client_id') is None
 ```
 
 `tests/test_delivery.py` `TestDeliverWslNotify`:
@@ -409,7 +418,7 @@ def test_shipped_config_loads():
     """The shipped config meets the schema it ships with."""
     config = Path(__file__).parent.parent / 'config' / 'ai_settings.json'
     manager = ProviderManager(config_path=str(config))
-    assert set(manager._all_configs) == set(json.loads(config.read_text())['providers'])
+    assert set(manager.get_all_provider_configs()) == set(json.loads(config.read_text())['providers'])
 ```
 
 `tests/test_report_correction.py` `TestApplyCorrection`:
@@ -432,7 +441,7 @@ filterwarnings = ["error::pytest.PytestReturnNotNoneWarning"]
 
 ### Step 6 — Mutation runs, verification and results artifact
 
-Run every mutation under DR5. Leading spaces inside a code span are part of the text to match, and each old text occurs exactly once in its file. Each expected failure was observed on 20261006, with the tests drafted exactly as in Steps 2–4. The original test passed under every mutation except M15.
+Run every mutation under DR5. Leading spaces inside a code span are part of the text to match, and each old text occurs exactly once in its file. Each expected failure was observed on 20261006, with the tests drafted exactly as in Steps 2–4. The original test passed under every mutation.
 
 | M | File | Change (old → new) | Test that must fail | Expected failure |
 | --- | --- | --- | --- | --- |
@@ -454,7 +463,7 @@ Run every mutation under DR5. Leading spaces inside a code span are part of the 
 | M13a | same | `subject = subject.replace(f"{{{var_name}}}", str(var_value))` → `pass` | `test_substitute_variables_replaces_every_placeholder_in_subject_line` | `'{day_name}, ...' == 'Wednesday, ...'` |
 | M13b | same | `template_copy = copy.deepcopy(template)` → `template_copy = template` | `test_substitute_variables_replaces_every_placeholder_in_subject_line` | the input template's `subject_line` was substituted |
 | M14 | `workmain/database/repositories/client_repository.py` | `return self.session.query(Client).filter(Client.is_active == True).first()` → `return self.session.query(Client).first()` | `test_get_active_none` | `assert <Client …> is None` |
-| M15 | same | after `clear_active`'s `self.session.commit()`, add `if not self.session.query(Client).filter(Client.is_active == True).count(): raise RuntimeError('nothing active')` | `test_clear_active_no_active` | `RuntimeError: nothing active` |
+| M15 | same | in `clear_active`, delete the `self.session.query(Client).filter(Client.is_active == True).update(...)` statement, keeping the `delete` and `commit` that follow | `test_clear_active_no_active` | `assert <Client …> is None` on the first precondition assertion |
 | M16 | `workmain/daemon/delivery.py` | `    if NOTIFY_CMD is None:` → `    if True:` | `test_subprocess_failure_does_not_raise` | `Expected 'run' to have been called once. Called 0 times.` |
 | M17 | same | `        logger.warning("Slack delivery requested but no daemon handle provided")` → `        pass` | `test_no_daemon_logs_warning_no_crash` | `assert 'no daemon handle' in ''` |
 | M18 | same | `    daemon.post_message(text)` → `    pass` | `test_daemon_post_message_failure_does_not_raise` | `Expected 'post_message' to have been called once. Called 0 times.` |
