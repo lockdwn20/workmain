@@ -1,6 +1,6 @@
 # Gemini Automatic Function Calling Disabled by Policy — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261006
 **Branch:** `feature/issue-129-gemini-afc-disable` (from `dev`)
@@ -20,6 +20,7 @@
 | 20261006 | Caliper | F1: the shipped-policy test read the file with `json` and a cwd-relative path, which is a second loading path beside `ProviderManager._load_provider_policy`. | Accepted. The test builds the provider through `ProviderManager().get_provider('gemini')` under `offline_provider_env` and lives in `TestProviderManagerBuildsFromConfig`. Observed passing with pytest run from `/`. |
 | 20261006 | Caliper | F2: the AC1.2 test asserted `True` only, so a `check_availability()` that hardcoded the value would still pass. | Accepted. The test loops over `(True, False)`. The new mutation that hardcodes the value in `check_availability()` was observed failing it. |
 | 20261006 | Caliper | F3: Step 1 excluded a fixture (`:320`) that §2 never listed. | Accepted. The exclusion clause is gone. §2 now names the two missing-key fixtures that stay unchanged, and says why. |
+| 20261006 | Ray | Caliper accepts the revised spec. | Approved for implementation. |
 
 ---
 
