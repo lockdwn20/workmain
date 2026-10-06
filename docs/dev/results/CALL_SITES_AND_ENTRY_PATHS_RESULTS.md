@@ -29,7 +29,7 @@ Complete pending Ray's readings. Steps 1–4 are applied verbatim from the spec.
 | AC1.1 | **Not met** | Awaiting Ray's reading of §1.2 *A contract change enumerates its call sites*. |
 | AC2.1 | **Not met** | Awaiting Ray's reading of §1.2 *A criterion that verifies changed behaviour names the entry path it exercises*. |
 | AC3.1 | **Not met** | Grep half passes (§5): three hits, `CLAUDE.md:233` citing §1.2 for the spec-time rules, `_TEMPLATE_SPEC.md:48` the example row, `:87` citing §1.2; nothing in `.claude/`. Awaiting Ray's reading against `CLAUDE.md`'s opening single-home rule. |
-| AC4.1 | Met | `docs/dev/specs/_TEMPLATE_SPEC.md:48` and `:51` (§2), `:87` (§5) carry the step 2 text. |
+| AC4.1 | Met | `docs/dev/specs/_TEMPLATE_SPEC.md:48` and `:52` (§2), `:87` (§5) carry the step 2 text. |
 | AC5.1 | Met | The rules live at the §1.2 bullets named in AC1.1 and AC2.1. The grep (§5) returns two hits, both in this spec: §1 names the artifact as origin and read-only history, §5 is the check itself. Neither treats it as authoritative. |
 | AC6.1 | Met | No `gh issue` write command was run by this work (§5). |
 | AC7.1 | Met | Both suites identical to baseline (§5). |
