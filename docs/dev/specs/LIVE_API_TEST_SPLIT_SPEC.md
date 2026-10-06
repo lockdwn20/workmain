@@ -1,6 +1,6 @@
 # Live API Test Split — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261006
 **Branch:** `feature/issue-131-live-api-test-split` (from `dev`)
@@ -14,6 +14,7 @@
 
 | Date | Source | Decision or finding | Resolution |
 | --- | --- | --- | --- |
+| 20261006 | Ray | Is the spec approved for implementation? | Approved after Caliper's re-review, with F-9 applied. |
 | 20261006 | Ray | Should `SKIP_API_TESTS` survive (design study Q1)? | Removed entirely (Option A). A live test skips only when its credential is absent. |
 | 20261006 | Ray | Should the `ClaudeProvider.count_tokens` defect be fixed here (design study F5, Q2)? | Ray first answered "fix here". That answer was superseded by Q3 below, once it emerged that issue #124 already owns this defect. |
 | 20261006 | Ray | What should the offline file be called? | `tests/test_ai_providers_offline.py`, paired with `tests/test_ai_providers_live.py`. |
