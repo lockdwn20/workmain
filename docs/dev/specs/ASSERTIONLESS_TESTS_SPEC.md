@@ -1,6 +1,6 @@
 # Assertionless Tests — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261006
 **Branch:** `feature/issue-137-assertionless-tests` (from `dev`)
@@ -22,6 +22,7 @@
 | 20261006 | Spanner | Should the `cryptography==41.0.7` pin in `requirements.txt` go with the module? | No. `google-auth` requires `cryptography` (`pip show cryptography`, Required-by), so the pin still fixes the version that installs. Removing it would be a dependency-policy change, not dead-code removal. |
 | 20261006 | Spanner | `load_dotenv()` at module level in `workmain/config_manager/loader.py` served only `get_with_env_override`. | Kept. Its effect is process-wide, and `workmain/ai/provider_manager.py` imports this module at top level. Whether to delete it is #176's review. Only `import os` goes, because it becomes unused. |
 | 20261006 | Spanner | A one-time scan proves AC1 and AC2 on the day they are checked. It does not stop the next test that returns a value. | Step 5 sets `filterwarnings = ["error::pytest.PytestReturnNotNoneWarning"]` in `pyproject.toml`, so such a test fails the suite. This guards the property AC2 names at its source, it is one line, and it adds no register. |
+| 20261006 | Ray | Is the spec approved for implementation? | Approved, after Caliper's re-review and the M15 literal correction. |
 | 20261006 | Caliper 1 | M14 fails `test_get_active_none` only because the live database happens to hold a client. On an empty database the mutation would pass. | Accepted. The test creates `_NAME_A` before `clear_active()`, so a non-active row always exists. M14 was re-run and observed failing. |
 | 20261006 | Caliper 2 | `test_clear_active_no_active` never establishes that nothing was active before the call its name is about. Its new assertions would hold even if that call did nothing. M15 also fails the original test, so it can't tell the strengthened test from the unstrengthened one. | Accepted. The test seeds `create` → `set_active` → `clear_active` and asserts nothing is active before the call under test. M15 is now "the `is_active` update in `clear_active` removed": the original test passes under it and the strengthened one fails. Both were observed. |
 | 20261006 | Caliper 3 | The replacement §3.7 text says "`.env` is `chmod 600`". The live `.env` is `700`. It also restates the "All secrets are stored as KV pairs in the .env" bullet above it. | Accepted. The bullet is written as a rule, "Nothing encrypts secrets at rest; `.env` must be `chmod 600`." Ray was told the live file was `700`, and has since set it to `600`. |
