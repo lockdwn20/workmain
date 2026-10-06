@@ -20,6 +20,14 @@
 | 20261006 | Ray | `scripts/setup/ai_dependencies.sh` is out of date in more ways than its test path (design study F9). | Not changed here. Issue #173 owns it and is blocked by this one. |
 | 20261006 | Spanner | Issue AC1's check, "`grep -c 'API_KEY'` hits only in the live file", fails on a correct split, because the offline tests have to name the key variables in order to patch fake values in (design study F6). | AC1 is checked here by running each file with both keys empty (AC1.1, AC1.2). The issue's AC1 wording is updated at close-out. |
 | 20261006 | Spanner | `tests/test_ai_foundation.py::test_provider_status` needs real credentials without meaning to (design study F14). | In scope, because it is a test outside the live file that needs credentials, which is the property AC1 names. It is fixed in Step 2 and adds no new test. |
+| 20261006 | Caliper F-1 | `count_tokens` has no caller anywhere in `workmain/`. The only callers are tests and the abstract declaration on `BaseProvider`. | Confirmed. Put back to Ray as design study Q3 (re-answer Q2: fix or remove). **Open.** |
+| 20261006 | Caliper F-2 | §7's billed-call ceiling ignores the Anthropic SDK's own retries (issue #125). | Accepted. The ceiling is now up to 9 requests per Claude call on a 5xx, and 3 per Gemini call: google-genai doesn't retry unless `retry_options` is set, and `GeminiProvider` doesn't set it. Corrected in §7 and in design study §4.1. |
+| 20261006 | Caliper F-3 | DR7's recorder would count a call that raised, so the fallback would pass. | Accepted. The recorder counts only returns. |
+| 20261006 | Caliper F-4 | AC2.1's scan doesn't catch a test whose assertions are all under an `if`, and it isn't written down. | Accepted. The criterion is cut back to what the scan proves, and the command is in the check column. DR3 and AC2.3 cover the assertions-under-`if` pattern. |
+| 20261006 | Caliper F-5 | Step 2.2's line range covers the two helpers it says to keep. | Accepted. |
+| 20261006 | Caliper F-6 | Step 2.2 leaves imports unused. | Accepted. |
+| 20261006 | Caliper F-7 | Step 2.3 and Step 2.5 would each copy the fake-key setup. | Accepted. One fixture in `tests/conftest.py` serves both. The offline file's existing `_build_claude` and `_build_gemini` builders are left as they are; refactoring them isn't in this issue. |
+| 20261006 | Caliper F-8 | AC2.3 checks only one direction and states no counts. | Accepted, with corrected counts. With `ANTHROPIC_API_KEY=` it's 3 passed and 5 skipped, not 4 and 4, because the integrated and cost-tracking tests both need Claude. |
 
 ---
 
@@ -64,7 +72,7 @@
 - **DR4 — No environment variable changes which tests run** other than the presence of a credential. `SKIP_API_TESTS` is removed.
 - **DR5 — `load_dotenv()` is called at the top of the live file, before any gate is evaluated**, so the gates read `.env` whatever the import order (F7). The offline file doesn't call it.
 - **DR6 — Nothing in either file's text tells the reader what to do.** Docstrings say what the tests do and what they need, never which command to run or which variable to set (`docs/DEVELOPMENT_STANDARDS.md` §1.5, "A process rule never travels with the code").
-- **DR7 — The live token-count test checks which code path ran, not the count.** It wraps the vendor method in a recorder and asserts that the method was called exactly once, without raising. That fails whenever the `len(text) // 4` fallback is taken, which an assertion on the count can't detect (design study F5).
+- **DR7 — The live token-count test checks which code path ran, not the count.** It wraps the vendor method in a recorder that appends to a list only after the vendor call returns. A call that raises is never recorded. The test asserts the list has exactly one entry. That fails whenever the `len(text) // 4` fallback is taken, which an assertion on the count can't detect (design study F5).
 
 For anything not covered here, follow the escalation procedure in `CLAUDE.md` Role 3.
 
@@ -75,7 +83,7 @@ Each step ends with a commit. There is no approval stop between steps, and a bar
 | Step | Deliverable | Files |
 | --- | --- | --- |
 | 1 | `ClaudeProvider.count_tokens` calls the vendor tokenizer, with an offline test | `workmain/ai/providers/claude.py`, `tests/test_ai_clients.py` |
-| 2 | Split the file and remove every early-return gate | `tests/test_ai_clients.py` → `tests/test_ai_providers_offline.py`, `tests/test_ai_providers_live.py`, `tests/test_ai_foundation.py` |
+| 2 | Split the file and remove every early-return gate | `tests/test_ai_clients.py` → `tests/test_ai_providers_offline.py`, `tests/test_ai_providers_live.py`, `tests/test_ai_foundation.py`, `tests/conftest.py` |
 | 3 | §6 suite and evidence rules; template suite lines | `docs/DEVELOPMENT_STANDARDS.md`, `docs/dev/results/_TEMPLATE_RESULTS.md`, `docs/dev/specs/_TEMPLATE_SPEC.md` |
 
 ### Step 1 — `count_tokens`
@@ -106,11 +114,12 @@ Against the current code this test fails with `assert <MagicMock name='Anthropic
 1. `git mv tests/test_ai_clients.py tests/test_ai_providers_offline.py`, so history follows the file.
 2. In the offline file:
    - Delete the module-level `load_dotenv()` and its import (DR5).
-   - Delete `SKIP_API_TESTS` and all nine legacy test functions (current lines 31–347).
+   - Delete `SKIP_API_TESTS` (current lines 31–32) and the nine legacy `test_*` functions (current lines 55–346).
+   - Remove the imports nothing left in the file uses: `date`, `CostTracker`, `FallbackMode` and `get_provider_manager`. The live file imports what it needs itself.
    - Keep `_load_ai_settings` and `_make_gemini_config`, because `TestGeminiPolicySampling` uses the latter.
    - Rewrite the module docstring to say what the file covers: provider payload contracts, retry and rate-limit translation, policy loading, and the provider tests below. Say that it runs with vendor clients patched and fake keys, and makes no network calls (DR6).
    - Reduce the banner comment above the offline section to a section heading that doesn't mention `SKIP_API_TESTS`.
-3. Add these offline tests to the offline file, in a `class TestProviderManagerBuildsFromConfig`. Each builds `ProviderManager()` with `patch.dict(os.environ, ...)` holding fake keys for both vendors (the existing `_FAKE_ANTHROPIC_ENV` value plus `"GOOGLE_API_KEY": "A" * 39`), with `workmain.ai.providers.claude.Anthropic` and `workmain.ai.providers.gemini.genai.Client` patched:
+3. Add a fixture `offline_provider_env` to `tests/conftest.py`. For the duration of the test it sets fake keys for both vendors with `patch.dict(os.environ, ...)`: `ANTHROPIC_API_KEY` gets the value `_FAKE_ANTHROPIC_ENV` uses, and `GOOGLE_API_KEY` gets `"A" * 39`. It also patches `workmain.ai.providers.claude.Anthropic` and `workmain.ai.providers.gemini.genai.Client`. Then add these offline tests to the offline file, in a `class TestProviderManagerBuildsFromConfig`. Each takes `offline_provider_env` and builds `ProviderManager()` inside it:
    - `test_claude_model_from_config` and `test_gemini_model_from_config`: each provider's `.model` equals its `config/ai_settings.json` `providers.<name>.model`.
    - `test_claude_cost_estimation` and `test_gemini_cost_estimation`: `estimate_cost(1000, 500)` equals `cost_per_1k_prompt_tokens + 0.5 * cost_per_1k_completion_tokens` from the same config, within `1e-4`.
 4. Create `tests/test_ai_providers_live.py`:
@@ -128,7 +137,7 @@ Against the current code this test fails with `assert <MagicMock name='Anthropic
    | `test_cost_tracking_integration` | `ANTHROPIC_API_KEY` | `test_cost_tracking_integration`, body unchanged after its gates |
 
    Every `print` in the carried bodies is dropped. pytest captures them, and they reported nothing an assertion doesn't already cover.
-5. In `tests/test_ai_foundation.py::test_provider_status`, build `manager = ProviderManager()` under the same fake-key `patch.dict` and vendor-client patches as item 3. Change nothing else in the test.
+5. `tests/test_ai_foundation.py::test_provider_status` takes the `offline_provider_env` fixture from item 3. Change nothing else in the test.
 
 If Step 1 is reverted, `test_count_tokens_reaches_vendor_tokenizer[claude]` fails with `assert 0 == 1`. I observed that with a prototype of this test while authoring the spec.
 
@@ -184,9 +193,9 @@ None. The spec runs no migration, deletes no GitHub object, and merges nothing t
 | AC1.1 | The offline provider tests need no credentials and none of them is gated: every test in the file runs whether or not keys are present. | Keys empty, `pytest tests/test_ai_providers_offline.py -q` reports 0 skipped and 0 failed. |
 | AC1.2 | Every test in the live file needs a real credential, and nothing else in `tests/` does. | Keys empty, `pytest tests/test_ai_providers_live.py -q` reports 0 passed and 8 skipped, and keys empty, a bare `pytest -q` reports 0 failed. |
 | AC1.3 | The two kinds can be told apart from the filename, and the old mixed file is gone. | `ls tests/test_ai_*.py` lists `test_ai_providers_live.py` and `test_ai_providers_offline.py` and no `test_ai_clients.py`. |
-| AC2.1 | No test returns early from inside a condition, so none can report a pass for work it didn't do. | The AST scan in design study §2 (an `if` whose body holds a bare `return`, inside a `test*` function, over `tests/**/*.py`) prints nothing. |
+| AC2.1 | No test function in `tests/` returns early from inside a condition. | `python3 -c "import ast,pathlib;[print(f'{p}:{n.lineno} {f.name}') for p in pathlib.Path('tests').rglob('*.py') for f in ast.walk(ast.parse(p.read_text())) if isinstance(f,(ast.FunctionDef,ast.AsyncFunctionDef)) and f.name.startswith('test') for n in ast.walk(f) if isinstance(n,ast.If) and any(isinstance(s,ast.Return) and s.value is None for s in n.body)]"` prints nothing. It prints 11 lines on `dev` `942a95a`. |
 | AC2.2 | A gated test that can't run is reported as skipped, not as passed. | Keys empty, a bare `pytest -q -rs` lists exactly the 8 live tests under `SKIPPED`, each with a reason naming the missing variable. |
-| AC2.3 | A missing key for one provider doesn't stop the other provider's live tests from running. | `GOOGLE_API_KEY= pytest tests/test_ai_providers_live.py -q -rs` reports the Claude tests passed and only the Gemini and integrated tests skipped. |
+| AC2.3 | A missing key for one provider doesn't stop the other provider's live tests from running. | `GOOGLE_API_KEY= pytest tests/test_ai_providers_live.py -q` reports 4 passed and 4 skipped. `ANTHROPIC_API_KEY= pytest tests/test_ai_providers_live.py -q` reports 3 passed and 5 skipped. |
 | AC2.4 | No environment flag besides a credential's presence changes which tests run. | `grep -rn 'SKIP_API_TESTS' tests/ workmain/` returns zero hits. |
 | AC3.1 | §6 says the application suite is a bare `pytest` from the repository root, and that no other invocation stands in for it unless a spec names the alternative and says why. | Ray reads §6 for that rule, and for whether `pytest automation/` is still clearly a separate suite. |
 | AC4.1 | §6 requires recorded test evidence to state passed, failed and skipped, including a skipped count of zero. | Ray reads §6 for that rule. |
@@ -210,6 +219,6 @@ The issue's AC6 is added to the issue, and its AC1 check reworded, at close-out 
 
 ## 7. Risks and rollback
 
-- **Live calls are billed.** Every full run with keys present makes them. The ceiling is fixed (design study §4.1): serial execution, fixed `max_tokens`, at most 3 retries per provider, one fallback, and free token counting. The count-token test adds two free calls.
+- **Live calls are billed.** Every full run with keys present makes them. The ceiling is fixed (design study §4.1): serial execution, fixed `max_tokens`, one fallback, and free token counting. On a 5xx, one Claude call can make up to 9 HTTP requests, because the provider's 3 attempts each sit on the Anthropic SDK's own 2 retries (issue #125). A Gemini call makes at most 3. The count-token test adds two free calls.
 - **Live tests depend on vendor availability.** An outage turns a bare `pytest` red. That was already true for the legacy tests whenever keys were present, so it isn't new.
 - **Rollback:** each step is one commit and reverts on its own. Reverting Step 1 alone turns AC6.2's `[claude]` case red, which is the intended signal. Step 2's rename is a single `git mv` and reverts cleanly.

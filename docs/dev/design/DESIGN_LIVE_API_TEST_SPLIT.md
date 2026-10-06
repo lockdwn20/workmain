@@ -70,7 +70,7 @@ Issue #131's own ACs settle most of this, and I've applied it without further di
 
 - pytest runs the tests one after another. `pytest-xdist` isn't installed (`requirements-dev.txt`), so tests don't run in parallel.
 - No live test loops. Each makes a fixed number of requests with a fixed `max_tokens`: 20 and 50 for Claude, 512 for Gemini.
-- A failing request retries at most `retry_attempts` times. That's 3 per provider in `config/ai_settings.json`.
+- A failing request is retried by both the provider and the SDK. `retry_attempts` is 3 per provider in `config/ai_settings.json`. For Claude, each attempt also gets the Anthropic SDK's default 2 retries, so one call can be up to 9 HTTP requests on a 5xx (issue #125). google-genai doesn't retry unless `retry_options` is set, and `GeminiProvider` doesn't set it, so a Gemini call stays at 3. Caliper F-2 corrected the earlier "at most 3" here.
 - `test_integrated_generation` can fall back once, to the other provider, under its own `max_tokens`.
 - Token counting is free on both vendors.
 
@@ -82,6 +82,7 @@ The worst case is that ceiling, not something that grows. The only way to raise 
 | --- | --- | --- |
 | Q1 | §4.1: remove `SKIP_API_TESTS` (A) or keep it as a pytest skip (B)? | 20261006 Ray: OK with A, leaning B. His concern was that a mistaken run could use an extreme number of tokens; the bounded worst case under §4.1 answers that. 20261006 Ray: **A**. |
 | Q2 | F5: fix here, or open its own issue? | 20261006 Ray: fix here. This issue exposes the defect and is already changing that file. |
+| Q3 | Caliper F-1: `count_tokens` has no caller in `workmain/`. Knowing that, fix it (Q2 as answered) or remove it from `BaseProvider` and all three providers? | |
 
 ## 6. Disposition
 
