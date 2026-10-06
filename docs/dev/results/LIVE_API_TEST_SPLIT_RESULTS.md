@@ -30,16 +30,16 @@ Complete. `tests/test_ai_clients.py` is split into `tests/test_ai_providers_offl
 | AC2.2 | Met | Keys empty, `pytest -q -rs`: six `SKIPPED` lines, all in the live file, each naming the missing variable. |
 | AC2.3 | Met | `GOOGLE_API_KEY=` live file: 3 passed, 0 failed, 3 skipped. `ANTHROPIC_API_KEY=` live file: 2 passed, 0 failed, 4 skipped. |
 | AC2.4 | Met | `grep -rn 'SKIP_API_TESTS' tests/ workmain/` returns no hits. |
-| AC3.1 | Met | Rule is at `docs/DEVELOPMENT_STANDARDS.md` §6 (line 633), with the `pytest automation/` separate-suite bullet at line 634. The check is Ray's reading. |
-| AC4.1 | Met | Rule is at `docs/DEVELOPMENT_STANDARDS.md` §6 (line 635), in the form `<passed> passed, <failed> failed, <skipped> skipped`. The check is Ray's reading. |
-| AC4.2 | Met | Both template lines use the §6 placeholder form and cite §6. The check is Ray's reading. |
+| AC3.1 | Met | Rule is at `docs/DEVELOPMENT_STANDARDS.md` §6 (line 633), with the `pytest automation/` separate-suite bullet at line 634. Ray read §6 and both templates on 20261007 and accepted them. |
+| AC4.1 | Met | Rule is at `docs/DEVELOPMENT_STANDARDS.md` §6 (line 635), in the form `<passed> passed, <failed> failed, <skipped> skipped`. Ray read §6 and both templates on 20261007 and accepted them. |
+| AC4.2 | Met | Both template lines use the §6 placeholder form and cite §6. Ray read §6 and both templates on 20261007 and accepted them. |
 | AC5.1 | Met | Keys present, bare `pytest -q -rs`: 1124 passed, 0 failed, 0 skipped. |
 
 ## 4. Deviations from spec
 
 | # | Deviation | Reason | Approved by |
 | --- | --- | --- | --- |
-| 1 | The top-level `ProviderManager` import in the offline file was also dropped. | The mid-file import of the same name redefines it (pyflakes F811), so the top one was dead. | None needed; not in the spec's removal list. Flag for Ray. |
+| 1 | The top-level `ProviderManager` import in the offline file was also dropped. | The mid-file import of the same name redefines it (pyflakes F811), so the top one was dead. | Ray, 20261007. Before approval, Spanner verified the import was dead: the mid-file `from workmain.ai.provider_manager import ProviderManager` (line 53) binds the same class and comes before every use, pyflakes reports nothing, and `pytest tests/test_ai_providers_offline.py tests/test_ai_foundation.py` passes. |
 
 ## 5. Verification
 
