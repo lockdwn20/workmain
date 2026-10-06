@@ -53,9 +53,9 @@ Consequences that follow from that option and need no decision:
 
 | Q | Question | Answer |
 | --- | --- | --- |
-| Q1 | The Claude policy `description` carries the same duplicated key list as Gemini's (F10). It is accurate, and this issue does not otherwise touch that file. Recommendation: open a separate issue for it, per `docs/DEVELOPMENT_STANDARDS.md` §1.2 (a defect found during verification becomes its own item, not this scope), labelled `defect` and `ai-llm`, added to Project #3. Alternative: fold the one-line edit into this spec, at the cost of scope #129 did not name. | |
+| Q1 | The Claude policy `description` carries the same duplicated key list as Gemini's (F10). It is accurate, and this issue does not otherwise touch that file. Recommendation: open a separate issue for it, per `docs/DEVELOPMENT_STANDARDS.md` §1.2 (a defect found during verification becomes its own item, not this scope), labelled `defect` and `ai-llm`, added to Project #3. Alternative: fold the one-line edit into this spec, at the cost of scope #129 did not name. | Answered 20261006 by Ray: fold it in. Both the Claude and Gemini `description` fields drop their key lists and point to `docs/AI_SETTINGS_GUIDE.md` instead, so the two providers match. Ollama is unchanged, because its parameters live in the Modelfile. |
 
 ## 6. Disposition
 
-- Promoted to: —
+- Promoted to: `../specs/GEMINI_AFC_DISABLE_SPEC.md`
 - Superseded by: —
