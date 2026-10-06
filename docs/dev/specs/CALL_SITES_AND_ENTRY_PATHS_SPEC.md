@@ -19,6 +19,7 @@
 | 20261006 | Spanner | §1.2's forward-only bullet names only the wording rule. Left alone, the entry-path rule would read as applying to every criterion already on the queue. It is extended to name the entry-path rule too. The call-site rule binds specs, and `docs/dev/specs/` holds no spec but the template, so it needs no carve-out. | Decided — step 1c |
 | 20261006 | Spanner | The template points at §1.2 with an example row and a one-line citation, not a copy of either rule. A spec-template column for the entry path was considered and not taken: `automation/closeout_acs.py` reads §5 rows by id only, so a column is safe, but a fourth column is a second statement of the rule in table form. | Decided — DR3 |
 | 20261006 | Ray | Issue #135 says #131 carries the close-out's *a test that does not run reports as skipped* proposal. It does not: `docs/DEVELOPMENT_STANDARDS.md` §6 has no such rule, and `PytestReturnNotNoneWarning` as an error catches only a test that returns a value, not a bare early `return`. #131 is closed, so the rule had no live home. | Folded in as step 4 and AC8.1 — a declared scope extension. No issue AC names it, and issue AC6 forbids editing #135 to add one. A search of `tests/` and `automation/` finds no test that skips by early `return`, so the rule lands unbroken |
+| 20261006 | Ray | The first wording of the step 4 bullet (*"a test that cannot run … calls `pytest.skip()`"*) reads as permission to skip a test that does not run successfully — the same misreading of `SKIP_API_TESTS` that §1.5 records | Reworded. The bullet governs reporting only and says so; the one mechanism is `@pytest.mark.skipif`, decided before the test body runs, so a skip cannot be a reaction to the outcome; a test that ran and failed is a failure. `pytest.skip()` is dropped because it can be called after the test has exercised the system. The suite's one existing skip, `tests/test_ai_providers_live.py:28`, is a `skipif` on absent credentials and complies |
 
 ---
 
@@ -125,7 +126,7 @@ Commit.
 **Step 4 — `docs/DEVELOPMENT_STANDARDS.md` §6.** Insert as a new bullet directly after the bullet beginning `- Non-application suites, such as \`pytest automation/\``:
 
 ```markdown
-- **A test that does not run reports as skipped.** A test that cannot run — a missing credential, an unreachable service — calls `pytest.skip()` or carries `@pytest.mark.skipif`; it never returns early. An early `return` reports as passed, so the skipped count stays at zero and a partial run reads as the full suite. Four live API tests in `tests/test_ai_clients.py` did this under `SKIP_API_TESTS=1`, and the failures they hid shipped to `main` (#130, #131).
+- **A test that did not run reports as skipped, never as passed.** This governs how an absent precondition is reported. It grants no permission to excuse a test. The precondition is a `@pytest.mark.skipif` on the test, decided before the test exercises anything — never an early `return`, which pytest counts as passed. A test that runs and then errors, times out or gets a wrong answer has failed and reports as failed; it is never converted to a skip, and a skip is never added to turn a red suite green. Four live API tests in `tests/test_ai_clients.py` returned early under `SKIP_API_TESTS=1`, counted as passed, and the failures they hid shipped to `main` (#130, #131).
 ```
 
 Commit.
@@ -147,7 +148,7 @@ None.
 | AC5.1 | Both rules have a live home in §1.2, and nothing live cites the archived artifact as their source | The results artifact's AC1.1 and AC2.1 rows name the §1.2 bullets; `grep -rn 'VENDOR_SDK_PINNING_RESULTS' docs/dev/ CLAUDE.md .claude/` returns no hit that treats the artifact as authoritative — this spec's own §1 and §5 mentions name it as origin and as the check |
 | AC6.1 | No existing issue is edited, reopened or restructured by this work | The results artifact lists every `gh issue` write command this work ran; the list contains no `edit`, `reopen` or `--body` invocation against an issue this work did not create |
 | AC7.1 | The test suites are unchanged by this work | `pytest` and `pytest automation/` report the same passed, failed and skipped counts as the baseline recorded before step 1, both recorded in the results artifact §5 |
-| AC8.1 | §6 requires a test that cannot run to report as skipped, never to return early | Stated reading by Ray of the step 4 bullet in §6, read for the required mechanism and the prohibition |
+| AC8.1 | §6 requires a test whose precondition is absent to report as skipped through `@pytest.mark.skipif`, never by early `return`, and grants no way to turn a test that ran and failed into a skip | Stated reading by Ray of the step 4 bullet in §6, read for the mechanism, the early-`return` prohibition, and the absence of any permission to skip a failing test; `grep -rn 'pytest.skip(' tests/ automation/` returns zero hits, so no test skips from inside its body |
 
 ## 6. Test plan
 
