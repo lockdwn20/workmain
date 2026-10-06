@@ -1,6 +1,6 @@
 # A contract change enumerates its call sites; a verification names its entry path — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261006
 **Branch:** `chore/issue-135-call-sites-entry-paths` (from `main`)

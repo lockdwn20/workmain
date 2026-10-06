@@ -1,6 +1,6 @@
 # A contract change enumerates its call sites; a verification names its entry path — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261006
 **Spec:** `../specs/CALL_SITES_AND_ENTRY_PATHS_SPEC.md`
@@ -48,6 +48,8 @@ None.
 - **AC5.1:** `grep -rn 'VENDOR_SDK_PINNING_RESULTS' docs/dev/ CLAUDE.md .claude/` → `docs/dev/specs/CALL_SITES_AND_ENTRY_PATHS_SPEC.md:42` (§1 out of scope) and `:149` (the AC5.1 row).
 - **AC8.1:** `grep -rn 'pytest.skip(' tests/ automation/` → no output.
 - **Live verification:** n/a — no application behaviour changes.
+- **Close-out preflight `P8`:** `pytest` — 1154 passed, 0 failed, 0 skipped.
+- **Daemon restart:** n/a — `chore/*` carries none (`docs/DEVELOPMENT_STANDARDS.md` §2.6).
 
 ## 6. Follow-ups
 
