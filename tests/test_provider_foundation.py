@@ -975,7 +975,8 @@ def test_instructions_invalid_refuses_construction(block, name, bad):
 def test_shipped_config_loads():
     """The shipped config meets the schema it ships with."""
     config = Path(__file__).parent.parent / 'config' / 'ai_settings.json'
-    ProviderManager(config_path=str(config))
+    manager = ProviderManager(config_path=str(config))
+    assert set(manager.get_all_provider_configs()) == set(json.loads(config.read_text())['providers'])
 
 
 def test_generate_ineligible_override_raises():

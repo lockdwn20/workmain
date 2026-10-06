@@ -601,7 +601,9 @@ class TestApplyCorrection:
 
     def test_unknown_report_id_is_a_no_op(self, db_session):
         repo = get_reports_repository(db_session)
-        repo.apply_correction(999999999, 'Edited body.')  # must not raise
+        with patch.object(db_session, 'commit') as commit:
+            repo.apply_correction(999999999, 'Edited body.')  # must not raise
+        commit.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

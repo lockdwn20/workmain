@@ -337,24 +337,6 @@ class TagSystem:
             print("Invalid choice. Cancelling.")
             return None
     
-    def get_tags_for_report(self, report_type: str) -> List[str]:
-        """
-        Get list of tag full names that should be included in a report type.
-        
-        Args:
-            report_type: Type of report (e.g., "daily_internal", "weekly_client")
-            
-        Returns:
-            List of full tag names to include
-        """
-        included_tags = []
-        
-        for tag_config in self.tag_mappings.values():
-            report_inclusion = tag_config.get("report_inclusion", {})
-            if report_inclusion.get(report_type, False):
-                included_tags.append(tag_config["full_name"])
-        
-        return included_tags
 
 
 # Singleton instance for easy import

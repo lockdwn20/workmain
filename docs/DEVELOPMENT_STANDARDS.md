@@ -341,7 +341,6 @@ Confirm the new `ActiveEnterTimestamp` postdates the merge commit before calling
 | `get_template_loader()` | `get_loader()` |
 | `get_template_validator()` | `get_validator()` |
 | `get_style_adapter()` | `get_adapter()` |
-| `get_encryption()` | `get_encryptor()` |
 
 ### 3.4 Package `__init__.py`
 
@@ -375,8 +374,7 @@ Confirm the new `ActiveEnterTimestamp` postdates the merge commit before calling
 
 - Never commit secrets.
 - All secrets are stored as KV pairs in the .env and utilized through python-dotenv
-- API keys come from the environment and are Fernet-encrypted at rest.
-- `.env` and `~/.workmain/encryption.key` are `chmod 600`.
+- Nothing encrypts secrets at rest; `.env` must be `chmod 600`.
 
 ---
 

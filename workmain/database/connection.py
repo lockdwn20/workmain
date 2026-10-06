@@ -3,7 +3,7 @@ Database connection management using SQLAlchemy
 """
 
 import os
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy.pool import NullPool
 from contextlib import contextmanager
@@ -80,59 +80,6 @@ class DatabaseConnection:
             raise
         finally:
             session.close()
-    
-    def test_connection(self):
-        """
-        Test database connection
-        
-        Returns:
-            dict: Connection test results
-        """
-        results = {
-            "connected": False,
-            "version": None,
-            "tables": [],
-            "error": None
-        }
-        
-        try:
-            engine = self.connect()
-            
-            # Test basic connection
-            with engine.connect() as conn:
-                # Get PostgreSQL version
-                version_result = conn.execute(text("SELECT version()"))
-                results["version"] = version_result.scalar()
-                
-                # Get table list
-                tables_result = conn.execute(text("""
-                    SELECT tablename 
-                    FROM pg_tables 
-                    WHERE schemaname='public'
-                    ORDER BY tablename
-                """))
-                results["tables"] = [row[0] for row in tables_result]
-                
-                results["connected"] = True
-                
-        except Exception as e:
-            results["error"] = str(e)
-        
-        return results
-    
-    def get_table_count(self, table_name):
-        """
-        Get row count for a table
-        
-        Args:
-            table_name: Name of the table
-            
-        Returns:
-            int: Number of rows
-        """
-        with self.session_scope() as session:
-            result = session.execute(text(f"SELECT COUNT(*) FROM {table_name}"))
-            return result.scalar()
     
     def close(self):
         """Close database connection"""
