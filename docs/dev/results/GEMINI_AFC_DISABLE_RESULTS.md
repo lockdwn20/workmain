@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Complete, except AC3.1, which the spec reserves for Ray and which needs the restarted daemon. Gemini's payload policy now declares `automatic_function_calling: {"disable": true}`, the provider requires the key and sends it untranslated from the one config builder, and both policy descriptions point to the guide, which gives the reason.
+Complete. Gemini's payload policy now declares `automatic_function_calling: {"disable": true}`, the provider requires the key and sends it untranslated from the one config builder, and both policy descriptions point to the guide, which gives the reason.
 
 ## 2. What shipped, by step
 
@@ -29,7 +29,7 @@ Complete, except AC3.1, which the spec reserves for Ray and which needs the rest
 | AC2.1 | Met | `grep -n automatic_function_calling config/providers/gemini/settings.json` returns line 5; `TestProviderManagerBuildsFromConfig::test_gemini_shipped_policy_takes_sdk_direct_path` passes |
 | AC2.2 | Met | `grep -n "Required keys" config/providers/*/settings.json` returns zero hits; Ray read both `description` values and confirmed the pointer to the guide |
 | AC2.3 | Met | Ray read the `gemini/` row in `docs/AI_SETTINGS_GUIDE.md` and confirmed it states the reason |
-| AC3.1 | Open (Ray) | Ray runs `workmain providers test gemini` after the restart; pending |
+| AC3.1 | Met | Ray ran `workmain providers test gemini` on 20261006 with this branch checked out (the CLI is an editable install, so no daemon restart is involved): availability check and test request both succeeded on `gemini-3.6-flash`, and no "Direct use of automatic function calling (AFC)" warning appeared on stderr |
 | AC4.1 | Met | Bare `pytest` from the repo root, keys present: 1128 passed, 0 failed, 0 skipped |
 
 ## 4. Deviations from spec
@@ -39,7 +39,7 @@ None.
 ## 5. Verification
 
 - **Test suite:** 1128 passed, 0 failed, 0 skipped (baseline: 1124 passed, 0 failed, 0 skipped) — form per `docs/DEVELOPMENT_STANDARDS.md` §6.
-- **Live verification:** none by Anvil. AC3.1 is Ray's, and needs the restarted daemon.
+- **Live verification:** Ray ran `workmain providers test gemini` on 20261006 against this branch (AC3.1). Both the availability check and the generation succeeded, with no AFC warning.
 - **Daemon restart** (`feature/*`, per `docs/DEVELOPMENT_STANDARDS.md` §2.6): required after the merge to `dev`, performed by `/closeout`. Until then the running daemon still sends requests without the new key.
 
 ## 6. Follow-ups
