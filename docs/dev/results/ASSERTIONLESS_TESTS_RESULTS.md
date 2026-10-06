@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Complete. The 17 assertionless tests are converted or deleted with the dead code they covered, seven other assertionless tests now assert the path their names describe, and `pyproject.toml` fails the suite on any test that returns a value. All 24 mutations (M1–M20) failed their listed test for the listed reason under DR5. AC3.3 and AC4.1 are Ray's readings and are not yet made.
+Complete. The 17 assertionless tests are converted or deleted with the dead code they covered, seven other assertionless tests now assert the path their names describe, and `pyproject.toml` fails the suite on any test that returns a value. All 24 mutations (M1–M20) failed their listed test for the listed reason under DR5.
 
 ## 2. What shipped, by step
 
@@ -35,8 +35,8 @@ Step 1 also deleted the two stale tests (`test_report_filtering`, `test_section_
 | AC2.2 | Met | Guard check reports `1 failed` (§5). |
 | AC3.1 | Met | M1–M13b each failed their test under DR5 (§5). |
 | AC3.2 | Met | Dead-code check returns no hits and lists no file (§5). |
-| AC3.3 | Awaiting Ray | Ray reads `docs/DEVELOPMENT_STANDARDS.md` §3.3 and §3.7. |
-| AC4.1 | Awaiting Ray | Ray reads `tests/test_tag_system.py` and `tests/test_templates.py`. |
+| AC3.3 | Met | Ray read `docs/DEVELOPMENT_STANDARDS.md` §3.3 and §3.7. |
+| AC4.1 | Met | Ray read `tests/test_tag_system.py` and `tests/test_templates.py`. |
 | AC5.1 | Met | Bare `pytest`: 1154 passed, 0 failed, 0 skipped; start was 1128 (+26). |
 | AC5.2 | Met | `pytest automation/`: 51 passed, 0 failed, 0 skipped; start was 51. |
 
