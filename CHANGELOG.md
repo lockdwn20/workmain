@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.41.0] - 2026-10-06
+
+`GeminiProvider` never set `automatic_function_calling`, so `google-genai` 2.x sent every Gemini request through its automatic function calling loop, which logged a warning once per process. The application passes no tools, so output was unaffected, but every request took a path the application never chose (issue #129).
+
+### Changed
+
+- `config/providers/gemini/settings.json` declares `"automatic_function_calling": {"disable": true}`, and `GeminiProvider` requires the key and sends it unchanged on both `generate()` and `check_availability()`. Gemini requests take the SDK's direct path, and the warning no longer appears
+- The Claude and Gemini policy `description` fields no longer list their keys. They point to `docs/AI_SETTINGS_GUIDE.md` § The request payload policy, which now also says why Gemini disables automatic function calling
+
 ## [1.40.0] - 2026-10-06
 
 `tests/test_ai_clients.py` held two kinds of test under one name. One kind made real, billed API calls; the other was offline payload-contract tests. The live tests returned early when a key or a flag was missing, and pytest reports an early return as a pass, so a run that skipped them looked identical to one that ran them (issue #131).

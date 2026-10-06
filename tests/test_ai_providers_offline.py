@@ -297,7 +297,7 @@ class TestGeminiPolicySampling:
     def test_gemini_sampling_literal_value(self):
         """AC1.1 — the temperature Gemini receives is the one in the policy."""
         provider, client = self._build_gemini(
-            {"sampling": {"temperature": 0.42}, "thinking_config": {"thinking_level": "high"}}
+            {"sampling": {"temperature": 0.42}, "thinking_config": {"thinking_level": "high"}, "automatic_function_calling": {"disable": True}}
         )
         client.models.generate_content.return_value = self._fake_gemini_response()
         provider.generate(GenerationRequest(prompt="hi", max_tokens=20))
@@ -307,7 +307,7 @@ class TestGeminiPolicySampling:
     def test_gemini_thinking_level_from_policy(self):
         """AC1.2 — the thinking level Gemini receives is the one in the policy."""
         provider, client = self._build_gemini(
-            {"sampling": {"temperature": 0.3}, "thinking_config": {"thinking_level": "low"}}
+            {"sampling": {"temperature": 0.3}, "thinking_config": {"thinking_level": "low"}, "automatic_function_calling": {"disable": True}}
         )
         client.models.generate_content.return_value = self._fake_gemini_response()
         provider.generate(GenerationRequest(prompt="hi", max_tokens=20))
@@ -323,7 +323,7 @@ class TestGeminiPolicySampling:
         """AC1.3 — check_availability() carries the policy's temperature and
         thinking_config, same as generate()."""
         provider, client = self._build_gemini(
-            {"sampling": {"temperature": 0.42}, "thinking_config": {"thinking_level": "high"}}
+            {"sampling": {"temperature": 0.42}, "thinking_config": {"thinking_level": "high"}, "automatic_function_calling": {"disable": True}}
         )
         client.models.generate_content.return_value = self._fake_gemini_response()
         provider.check_availability()
@@ -331,6 +331,37 @@ class TestGeminiPolicySampling:
         assert config.temperature == 0.42
         assert config.thinking_config.thinking_level.name == "HIGH"
         assert config.max_output_tokens == 100
+
+    def test_gemini_afc_value_from_policy(self):
+        """AC1.1 — generate() sends the policy's automatic_function_calling value."""
+        for disable in (True, False):
+            provider, client = self._build_gemini({
+                "sampling": {}, "thinking_config": {"thinking_level": "high"},
+                "automatic_function_calling": {"disable": disable},
+            })
+            client.models.generate_content.return_value = self._fake_gemini_response()
+            provider.generate(GenerationRequest(prompt="hi", max_tokens=20))
+            config = client.models.generate_content.call_args.kwargs["config"]
+            assert config.automatic_function_calling.disable is disable
+
+    def test_gemini_check_availability_carries_afc(self):
+        """AC1.2 — check_availability() sends the policy's AFC value, same as generate()."""
+        for disable in (True, False):
+            provider, client = self._build_gemini({
+                "sampling": {}, "thinking_config": {"thinking_level": "high"},
+                "automatic_function_calling": {"disable": disable},
+            })
+            client.models.generate_content.return_value = self._fake_gemini_response()
+            provider.check_availability()
+            config = client.models.generate_content.call_args.kwargs["config"]
+            assert config.automatic_function_calling.disable is disable
+
+    def test_gemini_missing_afc_refused(self):
+        """AC1.3 — a policy missing automatic_function_calling raises, naming it."""
+        with pytest.raises(ConfigurationError, match="automatic_function_calling"):
+            self._build_gemini(
+                {"sampling": {}, "thinking_config": {"thinking_level": "high"}}
+            )
 
 
 from google.genai import errors as genai_errors
@@ -377,7 +408,8 @@ def _build_gemini(config=None, policy=None):
         provider = GeminiProvider(
             config or _offline_gemini_config(),
             policy if policy is not None else {
-                "sampling": {}, "thinking_config": {"thinking_level": "high"}
+                "sampling": {}, "thinking_config": {"thinking_level": "high"},
+                "automatic_function_calling": {"disable": True},
             },
         )
     return provider, fake_client
@@ -449,6 +481,15 @@ class TestProviderManagerBuildsFromConfig:
         expected = (cfg['cost_per_1k_prompt_tokens']
                     + 0.5 * cfg['cost_per_1k_completion_tokens'])
         assert abs(provider.estimate_cost(1000, 500) - expected) < 1e-4
+
+    def test_gemini_shipped_policy_takes_sdk_direct_path(self, offline_provider_env):
+        """AC2.1 — the shipped Gemini policy makes the SDK skip its AFC loop."""
+        from google.genai._extra_utils import should_disable_afc
+        provider = ProviderManager().get_provider('gemini')
+        provider.client.models.generate_content.return_value = MagicMock()
+        provider.check_availability()
+        config = provider.client.models.generate_content.call_args.kwargs["config"]
+        assert should_disable_afc(config) is True
 
     def test_gemini_cost_estimation(self, offline_provider_env):
         provider = ProviderManager().get_provider('gemini')
