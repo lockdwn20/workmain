@@ -18,6 +18,7 @@
 | 20261006 | Spanner | The call-site rule requires the §2 row to carry the search that produced it. The issue says "found by search"; without the search recorded, a reviewer cannot tell an enumeration that is complete from one that stopped at the usual entry point, which is the #130 failure. | Decided — DR2 |
 | 20261006 | Spanner | §1.2's forward-only bullet names only the wording rule. Left alone, the entry-path rule would read as applying to every criterion already on the queue. It is extended to name the entry-path rule too. The call-site rule binds specs, and `docs/dev/specs/` holds no spec but the template, so it needs no carve-out. | Decided — step 1c |
 | 20261006 | Spanner | The template points at §1.2 with an example row and a one-line citation, not a copy of either rule. A spec-template column for the entry path was considered and not taken: `automation/closeout_acs.py` reads §5 rows by id only, so a column is safe, but a fourth column is a second statement of the rule in table form. | Decided — DR3 |
+| 20261006 | Ray | Issue #135 says #131 carries the close-out's *a test that does not run reports as skipped* proposal. It does not: `docs/DEVELOPMENT_STANDARDS.md` §6 has no such rule, and `PytestReturnNotNoneWarning` as an error catches only a test that returns a value, not a bare early `return`. #131 is closed, so the rule had no live home. | Folded in as step 4 and AC8.1 — a declared scope extension. No issue AC names it, and issue AC6 forbids editing #135 to add one. A search of `tests/` and `automation/` finds no test that skips by early `return`, so the rule lands unbroken |
 
 ---
 
@@ -28,10 +29,11 @@
 - `docs/DEVELOPMENT_STANDARDS.md` §1.2 — two new bullets and one edit to the forward-only bullet.
 - `docs/dev/specs/_TEMPLATE_SPEC.md` §2 and §5.
 - `CLAUDE.md` § Common Pitfalls, the *Component-verified ≠ integration-verified* line.
+- `docs/DEVELOPMENT_STANDARDS.md` §6 — one new bullet, a declared scope extension (Decision Log, Ray, 20261006).
 
 **Out of scope:**
 
-- **Proposals 2 and 3 of the #79 / #126 close-out** (the recorded command is the one run; a test that does not run reports as skipped). The issue assigns both to #131.
+- **Proposal 2 of the #79 / #126 close-out** (the recorded command is the one run). §6 already carries it, from #131.
 - **`CLAUDE.md` Role 2's review questions.** Questions 5 and 7 are adjacent to these rules but are review prompts, not copies of them; nothing in the issue asks for a Caliper question.
 - **`.claude/skills/closeout/`** and `automation/closeout_acs.py`. Neither states either rule, and close-out does not judge AC content.
 - **Every existing issue and its criteria.** Issue AC6.
@@ -120,7 +122,15 @@ with:
 
 Commit.
 
-**Step 4 — results artifact** `docs/dev/results/CALL_SITES_AND_ENTRY_PATHS_RESULTS.md`: the §3 AC table, the baseline and after counts for both suites, and every `gh issue` write command this work ran. Commit.
+**Step 4 — `docs/DEVELOPMENT_STANDARDS.md` §6.** Insert as a new bullet directly after the bullet beginning `- Non-application suites, such as \`pytest automation/\``:
+
+```markdown
+- **A test that does not run reports as skipped.** A test that cannot run — a missing credential, an unreachable service — calls `pytest.skip()` or carries `@pytest.mark.skipif`; it never returns early. An early `return` reports as passed, so the skipped count stays at zero and a partial run reads as the full suite. Four live API tests in `tests/test_ai_clients.py` did this under `SKIP_API_TESTS=1`, and the failures they hid shipped to `main` (#130, #131).
+```
+
+Commit.
+
+**Step 5 — results artifact** `docs/dev/results/CALL_SITES_AND_ENTRY_PATHS_RESULTS.md`: the §3 AC table, the baseline and after counts for both suites, and every `gh issue` write command this work ran. Commit.
 
 ### Authorization points
 
@@ -137,10 +147,11 @@ None.
 | AC5.1 | Both rules have a live home in §1.2, and nothing live cites the archived artifact as their source | The results artifact's AC1.1 and AC2.1 rows name the §1.2 bullets; `grep -rn 'VENDOR_SDK_PINNING_RESULTS' docs/dev/ CLAUDE.md .claude/` returns no hit that treats the artifact as authoritative — this spec's own §1 and §5 mentions name it as origin and as the check |
 | AC6.1 | No existing issue is edited, reopened or restructured by this work | The results artifact lists every `gh issue` write command this work ran; the list contains no `edit`, `reopen` or `--body` invocation against an issue this work did not create |
 | AC7.1 | The test suites are unchanged by this work | `pytest` and `pytest automation/` report the same passed, failed and skipped counts as the baseline recorded before step 1, both recorded in the results artifact §5 |
+| AC8.1 | §6 requires a test that cannot run to report as skipped, never to return early | Stated reading by Ray of the step 4 bullet in §6, read for the required mechanism and the prohibition |
 
 ## 6. Test plan
 
-No file under `tests/`, `automation/`, `workmain/`, `config/` or `templates/` changes. Both suites are run before step 1 and after step 3 for AC7.1; close-out runs them again regardless.
+No file under `tests/`, `automation/`, `workmain/`, `config/` or `templates/` changes. Both suites are run before step 1 and after step 4 for AC7.1; close-out runs them again regardless.
 
 ## 7. Risks and rollback
 
