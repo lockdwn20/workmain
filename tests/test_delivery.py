@@ -8,6 +8,7 @@ All subprocess and Slack calls mocked — no live network calls, no
 notification actually sent.
 """
 
+import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -87,12 +88,15 @@ class TestDeliverWslNotify:
         assert 'Title' in args
         assert 'Body' in args
 
-    def test_subprocess_failure_does_not_raise(self):
+    def test_subprocess_failure_does_not_raise(self, caplog):
         import subprocess as real_subprocess
         with patch.object(delivery, 'NOTIFY_CMD', '/usr/bin/wsl-notify-send'), \
              patch.object(delivery.subprocess, 'run',
-                           side_effect=real_subprocess.TimeoutExpired(cmd='x', timeout=5)):
+                           side_effect=real_subprocess.TimeoutExpired(cmd='x', timeout=5)) as mock_run, \
+             caplog.at_level(logging.ERROR, logger=delivery.logger.name):
             delivery._deliver_wsl_notify('Title', 'Body')  # must not raise
+        mock_run.assert_called_once()
+        assert 'OS notification failed' in caplog.text
 
     def test_em_dash_sanitized_before_subprocess(self):
         with patch.object(delivery, 'NOTIFY_CMD', '/usr/bin/wsl-notify-send'), \
@@ -124,8 +128,10 @@ class TestSanitizeForWindows:
 # ---------------------------------------------------------------------------
 
 class TestDeliverSlack:
-    def test_no_daemon_logs_warning_no_crash(self):
-        delivery._deliver_slack('Title', 'Body', None)  # must not raise
+    def test_no_daemon_logs_warning_no_crash(self, caplog):
+        with caplog.at_level(logging.WARNING, logger=delivery.logger.name):
+            delivery._deliver_slack('Title', 'Body', None)  # must not raise
+        assert 'no daemon handle' in caplog.text
 
     def test_daemon_provided_posts_message_with_bold_title(self):
         daemon = MagicMock()
@@ -143,3 +149,4 @@ class TestDeliverSlack:
         daemon = MagicMock()
         daemon.post_message.return_value = None  # simulates a failed/unreachable post
         delivery._deliver_slack('Title', 'Body', daemon)  # must not raise
+        daemon.post_message.assert_called_once()

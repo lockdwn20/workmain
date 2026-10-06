@@ -2,7 +2,6 @@
 Load and manage JSON configuration files with environment variable overrides
 """
 
-import os
 import json
 from pathlib import Path
 from typing import Dict, Any, Optional
@@ -136,40 +135,6 @@ class ConfigLoader:
         
         return value
     
-    def get_with_env_override(
-        self,
-        config_name: str,
-        key: str,
-        env_var: str,
-        default: Any = None
-    ) -> Any:
-        """
-        Get config value with environment variable override
-        
-        Priority: ENV VAR > Config File > Default
-        
-        Args:
-            config_name: Name of config file
-            key: Config key path
-            env_var: Environment variable name
-            default: Default value
-            
-        Returns:
-            Configuration value from highest priority source
-        """
-        # Check environment variable first
-        env_value = os.getenv(env_var)
-        if env_value is not None:
-            return env_value
-        
-        # Check config file
-        config_value = self.get(config_name, key)
-        if config_value is not None:
-            return config_value
-        
-        # Return default
-        return default
-    
     def save(self, config_name: str, config: Dict[str, Any]) -> None:
         """
         Save configuration to file
@@ -205,30 +170,6 @@ class ConfigLoader:
         
         return self.load(config_name)
     
-    def get_database_config(self) -> Dict[str, str]:
-        """
-        Get database configuration with environment variable overrides
-        
-        Returns:
-            Dict with database connection parameters
-        """
-        return {
-            "host": self.get_with_env_override(
-                "database", "host", "DB_HOST", "localhost"
-            ),
-            "port": self.get_with_env_override(
-                "database", "port", "DB_PORT", "5432"
-            ),
-            "name": self.get_with_env_override(
-                "database", "name", "DB_NAME", "workmain"
-            ),
-            "user": self.get_with_env_override(
-                "database", "user", "DB_USER", "workmain_user"
-            ),
-            "password": self.get_with_env_override(
-                "database", "password", "DB_PASSWORD", "workmain_dev_pass"
-            ),
-        }
 
 
 # Global config loader instance

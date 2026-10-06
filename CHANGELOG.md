@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.42.0] - 2026-10-06
+
+Seventeen test functions had no assertion. They reported a result by returning it, which pytest ignores, so they passed whatever the code did. Six of them covered code that nothing in the application called. That code is deleted along with them, and the rest now assert what their names state. Seven other tests with no assertion now check that the path their names describe was taken (issue #137).
+
+### Changed
+
+- `tests/test_tag_system.py` and `tests/test_templates.py` are rewritten. Each test names the behaviour it asserts, and template tests cover every template that `list_templates()` returns
+- Seven tests in `tests/test_client_repository.py`, `tests/test_delivery.py`, `tests/test_provider_foundation.py` and `tests/test_report_correction.py` now assert the path their names describe
+- `pyproject.toml` makes `PytestReturnNotNoneWarning` an error, so a test that returns a value fails the suite
+- `docs/DEVELOPMENT_STANDARDS.md` §3.7 no longer says secrets are encrypted at rest. Nothing encrypts them, and `.env` must be `chmod 600`
+
+### Removed
+
+- `workmain/utils/encryption.py` and `workmain/config_manager/validator.py`, which nothing imported
+- `ConfigLoader.get_database_config` and `get_with_env_override`, `DatabaseConnection.test_connection` and `get_table_count`, `TagSystem.get_tags_for_report`, and `TemplateLoader.get_sections`, none of which had a caller
+- `tests/test_config_system.py` and `tests/test_db_connection.py`
+- The unused `Fernet` and `Path` imports in `workmain/integrations/clockify/auth.py`
+
 ## [1.41.0] - 2026-10-06
 
 `GeminiProvider` never set `automatic_function_calling`, so `google-genai` 2.x sent every Gemini request through its automatic function calling loop, which logged a warning once per process. The application passes no tools, so output was unaffected, but every request took a path the application never chose (issue #129).

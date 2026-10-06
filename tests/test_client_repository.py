@@ -80,13 +80,9 @@ class TestClientRepositoryActiveContext:
     def test_get_active_none(self, db_session):
         """get_active() returns None when no client has is_active=True."""
         repo = ClientRepository(db_session)
-        # Ensure no test clients are active (production GMF may be active,
-        # but db_session rollback means any query only sees the current
-        # transaction — if production GMF row is visible, this test must
-        # skip; in isolation it works correctly)
-        active = repo.get_active()
-        # Not asserting None here since production data may be visible;
-        # the set_active tests below verify the state correctly.
+        repo.create(_NAME_A)
+        repo.clear_active()
+        assert repo.get_active() is None
 
     def test_set_active(self, db_session):
         """set_active() sets is_active=True on the target client."""
@@ -141,12 +137,17 @@ class TestClientRepositoryActiveContext:
         assert state_repo.get('active_client_id') is None
 
     def test_clear_active_no_active(self, db_session):
-        """clear_active() does not raise when nothing is active."""
+        """clear_active() does not raise when nothing is active, and leaves nothing active."""
         repo = ClientRepository(db_session)
-        # No active client in this transaction scope (fresh test clients)
-        repo.create(_NAME_A)
-        # Should not raise
+        state_repo = SystemStateRepository(db_session)
+        client = repo.create(_NAME_A)
+        repo.set_active(client.id)
         repo.clear_active()
+        assert repo.get_active() is None
+        assert state_repo.get('active_client_id') is None
+        repo.clear_active()
+        assert repo.get_active() is None
+        assert state_repo.get('active_client_id') is None
 
     def test_delete_active_client(self, db_session):
         """After deleting the active client, get_active returns None
