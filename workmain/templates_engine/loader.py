@@ -181,19 +181,6 @@ class TemplateLoader:
         
         return None
     
-    def get_sections(self, template_name: str) -> List[Dict[str, Any]]:
-        """
-        Get all sections from a template.
-        
-        Args:
-            template_name: Name of template
-            
-        Returns:
-            List of section dictionaries
-        """
-        template = self.load(template_name)
-        return template.get('sections', [])
-    
     def substitute_variables(
         self, 
         template: Dict[str, Any],

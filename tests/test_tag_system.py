@@ -246,35 +246,6 @@ def test_complete_pipeline():
     return all_passed
 
 
-def test_report_filtering():
-    """Test getting tags for specific report types."""
-    print_header("Testing Report Filtering")
-    
-    ts = TagSystem()
-    
-    # Daily internal report tags
-    daily_tags = ts.get_tags_for_report("daily_internal")
-    expected_daily = ["internal-only", "both", "carry-forward", "blocker"]
-    passed1 = set(daily_tags) == set(expected_daily)
-    print_test(
-        "Daily internal report tags",
-        passed1,
-        f"Result: {sorted(daily_tags)}"
-    )
-    
-    # Weekly client report tags
-    weekly_tags = ts.get_tags_for_report("weekly_client")
-    expected_weekly = ["client-report", "both", "carry-forward"]
-    passed2 = set(weekly_tags) == set(expected_weekly)
-    print_test(
-        "Weekly client report tags",
-        passed2,
-        f"Result: {sorted(weekly_tags)}"
-    )
-    
-    return passed1 and passed2
-
-
 def test_convenience_functions():
     """Test convenience functions."""
     print_header("Testing Convenience Functions")

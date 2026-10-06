@@ -4,8 +4,6 @@ Manages Clockify API key authentication and validation.
 
 import os
 from typing import Optional
-from cryptography.fernet import Fernet
-from pathlib import Path
 
 
 class ClockifyAuth:
@@ -13,7 +11,6 @@ class ClockifyAuth:
     Manages Clockify API key authentication.
     
     API keys are stored in .env file and validated on use.
-    Uses Fernet encryption for secure storage.
     """
     
     def __init__(self):
