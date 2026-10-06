@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.40.0] - 2026-10-07
+## [1.40.0] - 2026-10-06
 
 `tests/test_ai_clients.py` held two kinds of test under one name. One kind made real, billed API calls; the other was offline payload-contract tests. The live tests returned early when a key or a flag was missing, and pytest reports an early return as a pass, so a run that skipped them looked identical to one that ran them (issue #131).
 
