@@ -1,5 +1,5 @@
 {
-  "description": "Claude (Anthropic) request payload policy. Declares what we SEND, never what a model SUPPORTS. Required keys read by ClaudeProvider: thinking, sampling. Values are the vendor's own parameter shapes, passed through verbatim.",
+  "description": "Claude (Anthropic) request payload policy: what every request to this provider sends, never what a model supports. What each key does and why it holds its value: docs/AI_SETTINGS_GUIDE.md, section \"The request payload policy\".",
   "thinking": {"type": "disabled"},
   "sampling": {}
 }

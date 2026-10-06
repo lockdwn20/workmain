@@ -157,7 +157,11 @@ def test_ollama_provider_check_availability_returns_unavailable():
 _CLAUDE_ENV = {'ANTHROPIC_API_KEY': 'sk-ant-test1234567890123456789012345678901234567'}
 _GEMINI_ENV = {'GOOGLE_API_KEY': 'A' * 39}
 _VALID_CLAUDE_POLICY = {'thinking': {'type': 'disabled'}, 'sampling': {}}
-_VALID_GEMINI_POLICY = {'sampling': {}, 'thinking_config': {'thinking_level': 'high'}}
+_VALID_GEMINI_POLICY = {
+    'sampling': {},
+    'thinking_config': {'thinking_level': 'high'},
+    'automatic_function_calling': {'disable': True},
+}
 
 
 @patch.dict(os.environ, _CLAUDE_ENV)
