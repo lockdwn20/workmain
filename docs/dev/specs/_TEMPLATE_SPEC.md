@@ -84,7 +84,7 @@ Semantic criteria is only applicable to document changes per `docs/DEVELOPMENT_S
 ## 6. Test plan
 
 - **Baseline before this work:** Derived from last CHANGELOG.md entry per `docs/DEVELOPMENT_STANDARDS.md` §6.
-- **Expected after:** N + M passed.
+- **Expected after:** N + M passed, 0 failed, K skipped — form per `docs/DEVELOPMENT_STANDARDS.md` §6.
 - Recommended test files or test file additions and what each covers. All tests per `docs/DEVELOPMENT_STANDARDS.md` §6
 
 ## 7. Risks and rollback

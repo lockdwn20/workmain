@@ -631,6 +631,8 @@ Reserved across all commands — no flag may reuse these:
 
 - pytest is the exclusive runner.
 - `testpaths` in `pyproject.toml` resolves a bare `pytest` to the application suite.
+- **The application suite is a bare `pytest` from the repository root.** No other invocation stands in for it unless a spec names the alternative and states why. That covers a path subset, a `-k` or `-m` filter, and an environment variable that changes what runs. A suite reached by its own path under §6.3, such as `pytest automation/`, is a separate suite, not an alternative to this one.
+- **Recorded test evidence states passed, failed and skipped, including a skipped count of zero**, in the form `<n> passed, 0 failed, 0 skipped`. pytest counts a skipped test separately from a passed one. A record without the skipped count can't show whether a run did less than the full suite.
 - Non-application suites exist and are reached by explicit path — §6.3 is the owner of test placement.
 
   ```bash

@@ -48,7 +48,7 @@ Where the implementation differs from what was specified, and why. Includes anyt
 
 ## 5. Verification
 
-- **Test suite:** N passed, 0 failed (baseline was M).
+- **Test suite:** N passed, 0 failed, K skipped (baseline was M passed, 0 failed, J skipped) — form per `docs/DEVELOPMENT_STANDARDS.md` §6.
 - **Live verification:** what was exercised against the running system, and when.
 - **Daemon restart** (`feature/*` and `hotfix/*`, per `docs/DEVELOPMENT_STANDARDS.md` §2.6): confirm `ActiveEnterTimestamp` postdates the `dev` merge commit.
   - A merge is not a deployment.
