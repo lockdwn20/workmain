@@ -1,6 +1,6 @@
 # Gemini Automatic Function Calling Disabled by Policy — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261006
 **Branch:** `feature/issue-129-gemini-afc-disable` (from `dev`)

@@ -38,7 +38,7 @@ None.
 
 ## 5. Verification
 
-- **Test suite:** 1128 passed, 0 failed, 0 skipped (baseline: 1124 passed, 0 failed, 0 skipped) — form per `docs/DEVELOPMENT_STANDARDS.md` §6.
+- **Test suite:** 1128 passed, 0 failed, 0 skipped (baseline: 1124 passed, 0 failed, 0 skipped) — form per `docs/DEVELOPMENT_STANDARDS.md` §6. Close-out preflight run, 20261006: 1128 passed, 0 failed, 0 skipped.
 - **Live verification:** Ray ran `workmain providers test gemini` on 20261006 against this branch (AC3.1). Both the availability check and the generation succeeded, with no AFC warning.
 - **Daemon restart** (`feature/*`, per `docs/DEVELOPMENT_STANDARDS.md` §2.6): required after the merge to `dev`, performed by `/closeout`. Until then the running daemon still sends requests without the new key.
 
