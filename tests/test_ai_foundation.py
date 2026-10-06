@@ -304,7 +304,7 @@ def test_cost_estimation():
     print(f"✓ Cost estimation working (1000 prompt + 500 completion = ${cost:.4f})")
 
 
-def test_provider_status():
+def test_provider_status(offline_provider_env):
     """Test provider status checking via get_provider().check_availability()."""
     print("\nTesting provider status...")
 
