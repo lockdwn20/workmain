@@ -4,7 +4,7 @@
 **Author:** Anvil (Role 3)
 **Date:** 20261006
 **Spec:** `../specs/LIVE_API_TEST_SPLIT_SPEC.md`
-**Released as:** v1.40.0
+**Released as:** v1.40.0 (tag v1.40.0)
 
 ---
 
@@ -45,8 +45,8 @@ Complete. `tests/test_ai_clients.py` is split into `tests/test_ai_providers_offl
 
 - **Test suite:** keys present, 1124 passed, 0 failed, 0 skipped (baseline was 1123 passed, 0 failed, 0 skipped).
 - **Keys empty:** 1118 passed, 0 failed, 6 skipped.
-- **Live verification:** the keys-present run made the six live calls and all passed.
-- **Daemon restart:** `feature/*` branch, close-out restarts the daemon. Not yet done.
+- **Live verification:** the keys-present runs made the six live calls against the Anthropic and Google APIs, and all passed. These were Anvil's runs on 20261006 and the close-out preflight run on 20261007 (`1124 passed, 0 failed, 0 skipped`).
+- **Daemon restart:** performed by close-out after the `dev` merge, per `docs/DEVELOPMENT_STANDARDS.md` §2.6. The confirmed `ActiveEnterTimestamp` is in the issue's closing comment.
 
 ## 6. Follow-ups
 

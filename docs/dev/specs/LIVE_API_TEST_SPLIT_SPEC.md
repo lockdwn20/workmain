@@ -1,6 +1,6 @@
 # Live API Test Split — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261006
 **Branch:** `feature/issue-131-live-api-test-split` (from `dev`)
