@@ -1,6 +1,6 @@
 # A contract change enumerates its call sites; a verification names its entry path — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261006
 **Branch:** `chore/issue-135-call-sites-entry-paths` (from `main`)
@@ -20,6 +20,7 @@
 | 20261006 | Spanner | The template points at §1.2 with an example row and a one-line citation, not a copy of either rule. A spec-template column for the entry path was considered and not taken: `automation/closeout_acs.py` reads §5 rows by id only, so a column is safe, but a fourth column is a second statement of the rule in table form. | Decided — DR3 |
 | 20261006 | Ray | Issue #135 says #131 carries the close-out's *a test that does not run reports as skipped* proposal. It does not: `docs/DEVELOPMENT_STANDARDS.md` §6 has no such rule, and `PytestReturnNotNoneWarning` as an error catches only a test that returns a value, not a bare early `return`. #131 is closed, so the rule had no live home. | Folded in as step 4 and AC8.1 — a declared scope extension. No issue AC names it, and issue AC6 forbids editing #135 to add one. A search of `tests/` and `automation/` finds no test that skips by early `return`, so the rule lands unbroken |
 | 20261006 | Ray | The first wording of the step 4 bullet (*"a test that cannot run … calls `pytest.skip()`"*) reads as permission to skip a test that does not run successfully — the same misreading of `SKIP_API_TESTS` that §1.5 records | Reworded. The bullet governs reporting only and says so; the one mechanism is `@pytest.mark.skipif`, decided before the test body runs, so a skip cannot be a reaction to the outcome; a test that ran and failed is a failure. `pytest.skip()` is dropped because it can be called after the test has exercised the system. Ray then found the headline still described one situation rather than the general rule; it now states that a test reports what actually happened, and defines passed, failed and skipped, so the early-`return` case is one instance of the rule rather than the rule itself. The suite's one existing skip, `tests/test_ai_providers_live.py:28`, is a `skipif` on absent credentials and complies |
+| 20261006 | Ray | **Approved.** | `Status: Approved`. Implementation may begin at step 1 |
 
 ---
 
