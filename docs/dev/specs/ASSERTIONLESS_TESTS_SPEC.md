@@ -20,7 +20,7 @@
 | 20261006 | Spanner | Issue AC5 asks for no reduction in the passed count. Option B deletes six tests and converts the others into parametrised cases. | AC5.1 states the exact expected count instead. It is derived in §6, so a lost test shows up as a wrong number rather than hiding inside "not fewer". |
 | 20261006 | Spanner | `ClockifyAuth` imports `Fernet` and `Path` and uses neither. Its docstring says it uses Fernet for storage, and the key is read in plaintext from the environment. `docs/DEVELOPMENT_STANDARDS.md` §3.7 says API keys are Fernet-encrypted at rest, which is false. | In scope, in Step 1. With `workmain/utils/encryption.py` gone, these are the last claims that something encrypts at rest. |
 | 20261006 | Spanner | Should the `cryptography==41.0.7` pin in `requirements.txt` go with the module? | No. `google-auth` requires `cryptography` (`pip show cryptography`, Required-by), so the pin still fixes the version that installs. Removing it would be a dependency-policy change, not dead-code removal. |
-| 20261006 | Spanner | `load_dotenv()` at module level in `workmain/config_manager/loader.py` served only `get_with_env_override`. | Kept. Its effect is process-wide, and proving that nothing relies on it is outside this issue. Only `import os` goes, because it becomes unused. |
+| 20261006 | Spanner | `load_dotenv()` at module level in `workmain/config_manager/loader.py` served only `get_with_env_override`. | Kept. Its effect is process-wide, and `workmain/ai/provider_manager.py` imports this module at top level. Whether to delete it is #176's review. Only `import os` goes, because it becomes unused. |
 | 20261006 | Spanner | A one-time scan proves AC1 and AC2 on the day they are checked. It does not stop the next test that returns a value. | Step 5 sets `filterwarnings = ["error::pytest.PytestReturnNotNoneWarning"]` in `pyproject.toml`, so such a test fails the suite. This guards the property AC2 names at its source, it is one line, and it adds no register. |
 | 20261006 | Spanner | When mutations were run during drafting, two of them (M2 and M11a) ran against stale bytecode. Each was applied within a second of the previous mutation and left the file the same byte size, so Python reused the previous mutation's `.pyc`. | DR5. Every mutation run sets `PYTHONPYCACHEPREFIX` to a fresh directory. |
 
@@ -49,7 +49,7 @@
 **Out of scope:**
 
 - **`requirements.txt`.** The `cryptography` pin stays (Decision Log).
-- **`~/.workmain/encryption.key`.** It is outside the working tree. Removing it is Ray's call (§7).
+- **`~/.workmain/encryption.key` and `load_dotenv()` in `workmain/config_manager/loader.py`.** Both are reviewed for deletion by #176, which is blocked by this issue.
 - **The other repository filters that select report content by literal tag name** (`workmain/database/repositories/meetings_repo.py:396`, `:422`). They are live and are not touched.
 - **`monthly_executive.json` reusing the weekly subject line.** That is template content, not a test defect.
 - **#136.** The `unittest.TestCase` fixture problem is a separate issue.
@@ -544,5 +544,5 @@ ls workmain/utils/encryption.py workmain/config_manager/validator.py tests/test_
 
 - **A deleted function turns out to be used dynamically,** for example through `getattr` or a CLI string. The grep in design study F6 found no such use. If one appears, the import or attribute error names it at once. Revert the Step 1 commit.
 - **`filterwarnings` promotes only `PytestReturnNotNoneWarning`.** No other warning becomes an error, and the other warnings bare `pytest` emits today are unaffected. Revert by removing the line.
-- **`~/.workmain/encryption.key` stays on disk,** with nothing to read it. It is `chmod 600` and outside the repository. Deleting it is Ray's call. No step touches it.
+- **`~/.workmain/encryption.key` stays on disk,** with nothing to read it. It is `chmod 600` and outside the repository. No step touches it, and #176 decides what happens to it.
 - **Rollback:** each step is its own commit, and `git revert` of any one leaves the others standing. Step 1 is the only step that touches `workmain/`.
