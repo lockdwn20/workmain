@@ -272,9 +272,8 @@ class TestProviderManagerPolicyLoading:
         assert pm.get_provider("claude").policy == _CLAUDE_POLICY
 
 
-class TestGeminiPolicySampling:
-    """Issue #127 Step 3 — Gemini's temperature and thinking level come from
-    its policy file (AC1.1, AC1.2, AC1.3, AC3.1, AC8.1)."""
+class TestGeminiPolicyPayload:
+    """The payload GeminiProvider hands the SDK, built from its policy."""
 
     def _build_gemini(self, policy):
         env = {"GOOGLE_API_KEY": "A" * 39}
@@ -294,20 +293,27 @@ class TestGeminiPolicySampling:
         resp.candidates = []
         return resp
 
-    def test_gemini_sampling_literal_value(self):
-        """AC1.1 — the temperature Gemini receives is the one in the policy."""
-        provider, client = self._build_gemini(
-            {"sampling": {"temperature": 0.42}, "thinking_config": {"thinking_level": "high"}, "automatic_function_calling": {"disable": True}}
-        )
+    def test_gemini_policy_sampling_key_not_sent(self):
+        """A sampling value placed in the policy reaches neither request path."""
+        provider, client = self._build_gemini({
+            "sampling": {"temperature": 0.42, "top_p": 0.9, "top_k": 40},
+            "thinking_config": {"thinking_level": "high"},
+            "automatic_function_calling": {"disable": True},
+        })
         client.models.generate_content.return_value = self._fake_gemini_response()
         provider.generate(GenerationRequest(prompt="hi", max_tokens=20))
-        config = client.models.generate_content.call_args.kwargs["config"]
-        assert config.temperature == 0.42
+        provider.check_availability()
+        assert client.models.generate_content.call_count == 2
+        for call in client.models.generate_content.call_args_list:
+            config = call.kwargs["config"]
+            assert config.temperature is None
+            assert config.top_p is None
+            assert config.top_k is None
 
     def test_gemini_thinking_level_from_policy(self):
         """AC1.2 — the thinking level Gemini receives is the one in the policy."""
         provider, client = self._build_gemini(
-            {"sampling": {"temperature": 0.3}, "thinking_config": {"thinking_level": "low"}, "automatic_function_calling": {"disable": True}}
+            {"thinking_config": {"thinking_level": "low"}, "automatic_function_calling": {"disable": True}}
         )
         client.models.generate_content.return_value = self._fake_gemini_response()
         provider.generate(GenerationRequest(prompt="hi", max_tokens=20))
@@ -317,18 +323,17 @@ class TestGeminiPolicySampling:
     def test_gemini_missing_thinking_config_refused(self):
         """AC1.2 — a policy missing thinking_config raises, naming it."""
         with pytest.raises(ConfigurationError, match="thinking_config"):
-            self._build_gemini({"sampling": {"temperature": 0.3}})
+            self._build_gemini({"automatic_function_calling": {"disable": True}})
 
     def test_gemini_check_availability_carries_policy(self):
-        """AC1.3 — check_availability() carries the policy's temperature and
-        thinking_config, same as generate()."""
+        """AC1.3 — check_availability() carries the policy's thinking_config,
+        same as generate()."""
         provider, client = self._build_gemini(
-            {"sampling": {"temperature": 0.42}, "thinking_config": {"thinking_level": "high"}, "automatic_function_calling": {"disable": True}}
+            {"thinking_config": {"thinking_level": "high"}, "automatic_function_calling": {"disable": True}}
         )
         client.models.generate_content.return_value = self._fake_gemini_response()
         provider.check_availability()
         config = client.models.generate_content.call_args.kwargs["config"]
-        assert config.temperature == 0.42
         assert config.thinking_config.thinking_level.name == "HIGH"
         assert config.max_output_tokens == 100
 
@@ -336,7 +341,7 @@ class TestGeminiPolicySampling:
         """AC1.1 — generate() sends the policy's automatic_function_calling value."""
         for disable in (True, False):
             provider, client = self._build_gemini({
-                "sampling": {}, "thinking_config": {"thinking_level": "high"},
+                "thinking_config": {"thinking_level": "high"},
                 "automatic_function_calling": {"disable": disable},
             })
             client.models.generate_content.return_value = self._fake_gemini_response()
@@ -348,7 +353,7 @@ class TestGeminiPolicySampling:
         """AC1.2 — check_availability() sends the policy's AFC value, same as generate()."""
         for disable in (True, False):
             provider, client = self._build_gemini({
-                "sampling": {}, "thinking_config": {"thinking_level": "high"},
+                "thinking_config": {"thinking_level": "high"},
                 "automatic_function_calling": {"disable": disable},
             })
             client.models.generate_content.return_value = self._fake_gemini_response()
@@ -360,7 +365,7 @@ class TestGeminiPolicySampling:
         """AC1.3 — a policy missing automatic_function_calling raises, naming it."""
         with pytest.raises(ConfigurationError, match="automatic_function_calling"):
             self._build_gemini(
-                {"sampling": {}, "thinking_config": {"thinking_level": "high"}}
+                {"thinking_config": {"thinking_level": "high"}}
             )
 
 
@@ -408,7 +413,7 @@ def _build_gemini(config=None, policy=None):
         provider = GeminiProvider(
             config or _offline_gemini_config(),
             policy if policy is not None else {
-                "sampling": {}, "thinking_config": {"thinking_level": "high"},
+                "thinking_config": {"thinking_level": "high"},
                 "automatic_function_calling": {"disable": True},
             },
         )
@@ -474,6 +479,28 @@ class TestProviderManagerBuildsFromConfig:
     def test_gemini_model_from_config(self, offline_provider_env):
         provider = ProviderManager().get_provider('gemini')
         assert provider.model == _load_ai_settings()['gemini']['model']
+
+    def test_gemini_shipped_policy_sends_no_sampling(self, offline_provider_env):
+        """Both request paths built from the shipped policy carry no sampling
+        parameter and no thinking_budget, and do carry thinking_level."""
+        provider = ProviderManager().get_provider('gemini')
+        generate_content = provider.client.models.generate_content
+        response = generate_content.return_value
+        response.text = "ok"
+        response.usage_metadata.prompt_token_count = 4
+        response.usage_metadata.candidates_token_count = 2
+        response.usage_metadata.total_token_count = 6
+        response.candidates = []
+        provider.generate(GenerationRequest(prompt="hi", max_tokens=20))
+        provider.check_availability()
+        assert generate_content.call_count == 2
+        for call in generate_content.call_args_list:
+            config = call.kwargs["config"]
+            assert config.temperature is None
+            assert config.top_p is None
+            assert config.top_k is None
+            assert config.thinking_config.thinking_budget is None
+            assert config.thinking_config.thinking_level is not None
 
     def test_claude_cost_estimation(self, offline_provider_env):
         provider = ProviderManager().get_provider('claude')
