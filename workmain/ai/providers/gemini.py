@@ -90,11 +90,9 @@ class GeminiProvider(BaseProvider):
         Build the generation config shared by generate() and check_availability().
 
         Returns max_output_tokens and the policy's thinking_config and
-        automatic_function_calling — nothing else. No sampling parameter is
-        sent; why: docs/AI_SETTINGS_GUIDE.md, section "The request payload
-        policy". One builder so a payload-contract change cannot land in one
-        path and miss the other. Values are the vendor's own shapes, passed
-        through untranslated.
+        automatic_function_calling — nothing else. One builder so a
+        payload-contract change cannot land in one path and miss the other.
+        Values are the vendor's own shapes, passed through untranslated.
         """
         return {
             'max_output_tokens': max_tokens,
