@@ -58,4 +58,4 @@ None. The approach follows from F3, F5 and F6, and branch type from §2.2.
 
 ## 6. Disposition
 
-- Promoted to: pending
+- Promoted to: `../specs/GEMINI_SAMPLING_REMOVAL_SPEC.md`
