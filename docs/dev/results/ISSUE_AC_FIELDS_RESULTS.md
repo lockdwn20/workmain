@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Complete pending one reading. Steps 1–3 are applied from the spec, every mechanical check passes, and Ray read the step 3 issue on GitHub (AC3.1). AC5.1 is a stated reading by Ray of the step 2 sentence and is not yet recorded.
+Complete. Steps 1–3 are applied from the spec, every mechanical check passes, and Ray accepted both stated readings (AC3.1, AC5.1) and deviation 1 on 20261007.
 
 ## 2. What shipped, by step
 
@@ -30,14 +30,14 @@ Complete pending one reading. Steps 1–3 are applied from the spec, every mecha
 | AC2.1 | Met | `python3 automation/issue_validator.py automation/fixtures/criterion_only_code.json` exits 1 with `acs[0].criterion is only code — it names no property of the delivered system`; `test_structured_refusal_stops_the_create_path_before_gh_runs` passes (§5). |
 | AC3.1 | Met | Ray read issue #178's body on GitHub on 20261007: each criterion and its `Checked by:` line read as distinct. `test_structured_render_keeps_criterion_and_check_distinct` passes (§5). |
 | AC4.1 | Met | The only `gh issue` write command this work ran is the `gh issue create` for #178, an issue this work created (§5). No `edit`, `reopen` or `--body` invocation. |
-| AC5.1 | **Not met** | Awaiting Ray's stated reading of the §1.2 sentence (`docs/DEVELOPMENT_STANDARDS.md:67`) against `CLAUDE.md`'s opening single-home rule. |
+| AC5.1 | Met | Ray read the §1.2 sentence (`docs/DEVELOPMENT_STANDARDS.md:67`) against `CLAUDE.md`'s opening single-home rule on 20261007: it cites the schema and the validator and restates neither. |
 | AC6.1 | Met | `pytest` identical to baseline; `pytest automation/` at baseline + 7, 0 failed, 0 skipped (§5). |
 
 ## 4. Deviations from spec
 
 | # | Deviation | Reason | Approved by |
 | --- | --- | --- | --- |
-| 1 | Step 2's sentence reads "refuses a criterion that states only a command" in place of the approved "refuses a criterion it can see is only its check" | The approved text was written before Caliper F1 dropped the repeat rule and described a rule that no longer ships. Spec step 2 and its Decision Log were updated in the same commit, `316a2df` | Pending Ray |
+| 1 | Step 2's sentence reads "refuses a criterion that states only a command" in place of the approved "refuses a criterion it can see is only its check" | The approved text was written before Caliper F1 dropped the repeat rule and described a rule that no longer ships. Spec step 2 and its Decision Log were updated in the same commit, `316a2df` | Ray, 20261007 |
 | 2 | Step 3's `gh issue close 178 --reason "not planned"` was run by Ray, not by this work | Ray closed the issue after reading it | Ray, 20261007 |
 
 ## 5. Verification
