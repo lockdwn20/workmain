@@ -162,7 +162,7 @@ Declare `instructions` by what the caller's code builds, not by which provider y
 
 ## The request payload policy
 
-`config/providers/<name>/settings.json` declares the parameters every request to that provider carries. It exists so a payload change — Claude's thinking or sampling, Gemini's sampling — is a config edit, not a code edit.
+`config/providers/<name>/settings.json` declares the parameters every request to that provider carries. It exists so a payload change — Claude's thinking or sampling, Gemini's thinking level — is a config edit, not a code edit.
 
 **Values are the vendor's own shapes, passed through verbatim.** `claude/settings.json` holds `"thinking": {"type": "disabled"}` — the literal Anthropic parameter object — and the provider sends it untranslated. There is no string that a loader maps to an object; whatever the vendor's API accepts can be typed into the file.
 
@@ -175,7 +175,7 @@ Shipped directories:
 | Directory | Why |
 | --- | --- |
 | `claude/` | Thinking is off, so `max_tokens` is the total output ceiling, which on Claude is response text because there is no thinking to share the budget with. No sampling parameters are sent; the model's own defaults apply. |
-| `gemini/` | `sampling.temperature` is a literal value (`0.3`) sent on every request. `thinking_config.thinking_level` is fixed at `"high"` for every Gemini call type, so notes and reports are produced at the same depth; `max_tokens` is the total ceiling, thinking plus answer. `automatic_function_calling.disable` is `true`: no request passes tools, so there is nothing for the SDK to call automatically, and leaving the key unset makes `google-genai` run every request through its automatic function calling loop anyway. |
+| `gemini/` | No sampling parameter is sent, and the provider reads no `sampling` key: from Gemini 3.6 Flash on, a custom `temperature`, `top_p` or `top_k` is replaced by the model's default, and later Gemini models reject a request that carries one. `thinking_config.thinking_level` is fixed at `"high"` for every Gemini call type, so notes and reports are produced at the same depth; `max_tokens` is the total ceiling, thinking plus answer. `thinking_budget` is never set; later Gemini models reject it. `automatic_function_calling.disable` is `true`: no request passes tools, so there is nothing for the SDK to call automatically, and leaving the key unset makes `google-genai` run every request through its automatic function calling loop anyway. |
 | `ollama/` | `settings.json` carries no policy keys. Its `models/workmain-intent/Modelfile` is the model's only source — see `CLAUDE.md` § Local Model Definitions. |
 
 **An unusable policy is a configuration error, not a default.** A policy file that is absent, unparseable, or missing a key its provider requires raises `ConfigurationError`. The provider is never silently disabled and never falls back to a built-in default. The keys a provider requires are the ones its code reads, and they are declared in `REQUIRED_POLICY_KEYS` on the provider class, next to that code. The class is the only place that set is listed.
