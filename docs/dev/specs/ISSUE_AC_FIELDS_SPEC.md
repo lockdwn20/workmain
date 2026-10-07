@@ -1,6 +1,6 @@
 # Structured Issue Acceptance Criteria — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261007
 **Branch:** `chore/issue-120-structured-acs` (from `main`)
@@ -24,6 +24,7 @@
 | 20261007 | Caliper | F3 — step 4 told the implementer to fill the design study's §6 disposition, which is already filled | Accepted — instruction removed |
 | 20261007 | Caliper | F4 — AC2.1's check ran `--create` against live GitHub, so a regressed rule would create a real issue | Accepted — the check runs without `--create`; `test_structured_refusal_stops_the_create_path_before_gh_runs` covers `--create` with `subprocess.run` stubbed |
 | 20261007 | Spanner | No issue is edited at close-out to restate its ACs in the new shape — not #120, and not any other. Issue AC4 forbids it, and §1.2 makes the wording rule prospective | Decided |
+| 20261007 | Ray | **Approved.** | `Status: Approved`. Implementation may begin at step 1 |
 
 ---
 
