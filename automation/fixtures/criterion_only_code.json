@@ -1,0 +1,12 @@
+{
+  "title": "Criterion that is only a command",
+  "context": "Otherwise valid; acs[0].criterion is the command alone, with no property of the delivered system.",
+  "acs": [
+    {"criterion": "`grep -rn '^Version:' workmain/ --include='*.py'`", "check": "`grep -rn '^Version:' workmain/ --include='*.py'` returns zero hits"}
+  ],
+  "milestone": null,
+  "parent": null,
+  "labels": ["cli", "defect"],
+  "blocked_by": [],
+  "blocking": []
+}

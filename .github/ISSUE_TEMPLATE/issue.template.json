@@ -1,7 +1,12 @@
 {
   "title": "",
   "context": "",
-  "acs": [],
+  "acs": [
+    {
+      "criterion": "",
+      "check": ""
+    }
+  ],
   "milestone": null,
   "parent": null,
   "labels": [],

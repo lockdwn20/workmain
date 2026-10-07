@@ -1,7 +1,7 @@
 {
   "title": "Milestone that does not exist on GitHub",
   "context": "milestone names a title that isn't live.",
-  "acs": ["AC1: something is true"],
+  "acs": [{"criterion": "something is true", "check": "reading this fixture"}],
   "milestone": "Not A Real Milestone",
   "parent": null,
   "labels": ["cli"],
