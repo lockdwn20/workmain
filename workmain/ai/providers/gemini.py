@@ -49,7 +49,7 @@ class GeminiProvider(BaseProvider):
     """
 
     provider_type = ProviderType.GEMINI
-    REQUIRED_POLICY_KEYS = {'sampling', 'thinking_config', 'automatic_function_calling'}
+    REQUIRED_POLICY_KEYS = {'thinking_config', 'automatic_function_calling'}
 
     def __init__(self, config: dict, policy: dict = None):
         """
@@ -89,14 +89,13 @@ class GeminiProvider(BaseProvider):
         """
         Build the generation config shared by generate() and check_availability().
 
-        Returns max_output_tokens, the policy's sampling parameters, and the
-        policy's thinking_config and automatic_function_calling — nothing else. One builder so a
+        Returns max_output_tokens and the policy's thinking_config and
+        automatic_function_calling — nothing else. One builder so a
         payload-contract change cannot land in one path and miss the other.
         Values are the vendor's own shapes, passed through untranslated.
         """
         return {
             'max_output_tokens': max_tokens,
-            **self.policy["sampling"],
             'thinking_config': self.policy["thinking_config"],
             'automatic_function_calling': self.policy["automatic_function_calling"],
         }

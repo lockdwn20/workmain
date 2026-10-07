@@ -158,7 +158,6 @@ _CLAUDE_ENV = {'ANTHROPIC_API_KEY': 'sk-ant-test12345678901234567890123456789012
 _GEMINI_ENV = {'GOOGLE_API_KEY': 'A' * 39}
 _VALID_CLAUDE_POLICY = {'thinking': {'type': 'disabled'}, 'sampling': {}}
 _VALID_GEMINI_POLICY = {
-    'sampling': {},
     'thinking_config': {'thinking_level': 'high'},
     'automatic_function_calling': {'disable': True},
 }
@@ -238,7 +237,9 @@ class TestProviderPolicyContract:
         with patch('workmain.ai.providers.gemini.genai.Client') as fake_cls:
             with pytest.raises(ConfigurationError) as exc_info:
                 GeminiProvider({'model': 'test-model', 'api_key_env': 'GOOGLE_API_KEY'})
-        assert 'sampling' in str(exc_info.value)
+        assert 'thinking_config' in str(exc_info.value)
+        assert 'automatic_function_calling' in str(exc_info.value)
+        assert 'sampling' not in str(exc_info.value)
         fake_cls.assert_not_called()
 
     def test_ollama_constructs_with_no_policy(self):

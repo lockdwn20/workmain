@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.42.1] - 2026-10-07
+
+Every Gemini request carried `temperature: 0.3` from its payload policy. Since Gemini 3.6 Flash the value has no effect, and Google has announced that later Gemini models reject requests carrying `temperature`, `top_p` or `top_k`, so moving to a newer model would have made every Gemini request fail (issue #179).
+
+### Changed
+
+- `GeminiProvider` no longer requires a `sampling` key in its policy, and neither `generate()` nor `check_availability()` sends a sampling parameter. A `sampling` key left in the policy is ignored
+- `docs/AI_SETTINGS_GUIDE.md` § The request payload policy describes only the Gemini parameters that are sent
+
+### Removed
+
+- `"sampling": {"temperature": 0.3}` from `config/providers/gemini/settings.json`
+
+Suite: 1155 passed, 0 failed, 0 skipped (baseline 1154 passed, 0 failed, 0 skipped).
+
 ## [1.42.0] - 2026-10-06
 
 Seventeen test functions had no assertion. They reported a result by returning it, which pytest ignores, so they passed whatever the code did. Six of them covered code that nothing in the application called. That code is deleted along with them, and the rest now assert what their names state. Seven other tests with no assertion now check that the path their names describe was taken (issue #137).
