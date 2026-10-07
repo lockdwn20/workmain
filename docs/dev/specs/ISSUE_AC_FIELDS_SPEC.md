@@ -14,10 +14,15 @@
 
 | Date | Source | Decision or finding | Resolution |
 | --- | --- | --- | --- |
-| 20261007 | Ray | Design study Q1 — the validator rejects a missing field and two content forms of a criterion that is its check (D1-B) | Decided — DR2 |
+| 20261007 | Ray | Design study Q1 — the validator rejects a missing field and two content forms of a criterion that is its check (D1-B) | **Superseded** 20261007 by the only-code-rule row below |
 | 20261007 | Ray | Design study Q2 — a criterion renders as a bullet with its check as a `Checked by:` child bullet (D2-A) | Decided — DR3 |
 | 20261007 | Ray | Design study Q3 — AC3's issue is created through `--create`, read by Ray, and closed as not planned (D3-A). The live read is one-time evidence that GitHub renders the format distinctly; the format itself is held on every run by `test_structured_render_keeps_criterion_and_check_distinct` | Decided — step 3 |
-| 20261007 | Spanner | D1-B as written in the design study refused any code span shared by a criterion and its check. A dry run of the rule found that refuses §1.2's own good form whenever the check also names a path, e.g. `workmain/`. The repeat rule is narrowed to spans containing whitespace — a command has arguments, a path or symbol does not | Confirmed by Ray 20261007 — DR2's second rule. `test_structured_a_criterion_sharing_a_path_with_its_check_validates` fails when the narrowing is removed (observed, §6) |
+| 20261007 | Spanner | D1-B as written in the design study refused any code span shared by a criterion and its check. A dry run of the rule found that refuses §1.2's own good form whenever the check also names a path, e.g. `workmain/`. The repeat rule is narrowed to spans containing whitespace — a command has arguments, a path or symbol does not | Confirmed by Ray 20261007; **superseded** the same day by the only-code-rule row below |
+| 20261007 | Caliper | F1 — the narrowed repeat rule refuses criteria that meet §1.2. Run over every live issue's ACs, it refuses #138 (`` `meetings create` ``) and #176 (`` `workmain providers test` ``): in both the shared command is the subject of the property, not its evidence. Telling the two apart is a reading | Accepted |
+| 20261007 | Ray | The repeat rule is dropped. The validator keeps only the only-code rule, which is issue AC2's own wording — a criterion that states only a command. A criterion that names a command alongside prose is §1.2's and review's | Decided — DR2. Dry run in §2: 0 of 164 live pairs refused |
+| 20261007 | Caliper | F2 — §2 is missing; `validate_schema` gains `path` and `render_body`'s `acs` changes from strings to objects, so §1.2 requires the call-sites rows | Accepted — §2 added. The direct path omits §2 by default; a contract change brings its call-sites row back |
+| 20261007 | Caliper | F3 — step 4 told the implementer to fill the design study's §6 disposition, which is already filled | Accepted — instruction removed |
+| 20261007 | Caliper | F4 — AC2.1's check ran `--create` against live GitHub, so a regressed rule would create a real issue | Accepted — the check runs without `--create`; `test_structured_refusal_stops_the_create_path_before_gh_runs` covers `--create` with `subprocess.run` stubbed |
 | 20261007 | Spanner | No issue is edited at close-out to restate its ACs in the new shape — not #120, and not any other. Issue AC4 forbids it, and §1.2 makes the wording rule prospective | Decided |
 
 ---
@@ -29,7 +34,7 @@
 - `.github/ISSUE_TEMPLATE/issue.schema.json` — the `acs` entry type.
 - `.github/ISSUE_TEMPLATE/issue.template.json` — the `--new` skeleton.
 - `automation/issue_validator.py` — nested-object validation, the criterion rule, the body render.
-- `automation/issue_validator_test.py` and `automation/fixtures/` — 19 fixtures converted, one rewritten, four added; three existing tests updated, nine added.
+- `automation/issue_validator_test.py` and `automation/fixtures/` — 19 fixtures converted, one rewritten, two added; three existing tests updated, seven added.
 - `docs/DEVELOPMENT_STANDARDS.md` §1.2 — the one sentence that describes the issue schema's current shape.
 - One test issue, created and closed by step 3.
 
@@ -40,12 +45,21 @@
 - **`docs/dev/specs/_TEMPLATE_SPEC.md`.** Its §5 already separates the two halves.
 - **`automation/closeout_acs.py` and `.claude/skills/closeout/`.** Neither reads an issue body (design study F3).
 - **Recognising a command by name.** It needs a list of command names, a hand-maintained register (design study D1).
+- **Refusing a criterion that repeats a command from its check.** Whether the shared command is the property's subject or its evidence is a reading (Decision Log, Caliper F1).
 - **`gh issue create` run directly.** It bypasses the validator, so no schema can refuse what it is given; the supported path is `automation/issue_validator.py`, which is what issue AC2 names.
+
+## 2. Verified current state
+
+| Claim | Evidence (file:line, symbol) |
+| --- | --- |
+| Call sites of `validate_schema`, `render_body` and `validate_issue`, found by `grep -rn 'validate_schema(\|render_body(\|validate_issue(' --include='*.py' .` | `automation/issue_validator.py:291` (`validate_issue` → `validate_schema`), `:336` (`main` → `validate_issue`), `:346` (`main` → `render_body`); `automation/issue_validator_test.py:47` (`run_validate` → `validate_issue`), `:221` (`test_single_line_render_body_is_not_repaired` → `render_body`). No caller outside these two files. `validate_schema` gains an optional `path` and keeps its existing call; `render_body`'s `acs` changes from strings to objects at both of its call sites, and step 1 updates both |
+| No consumer reads an issue body's ACs back | Design study F3 |
+| Every live issue's existing ACs pass `validate_criterion_rule` as step 1 writes it | Each `- ` line under `**ACs**` in `gh issue list --state all --limit 300 --json number,body`, split at the first `checked by`, run through the step 1 function: 164 pairs, 0 refused. The same run against the repeat rule refused #138 and #176 |
 
 ## 3. Design rules
 
 - **DR1 —** An `acs` entry's schema is written in the same key-spec form as the top level, and `validate_schema` checks it by calling itself, so every existing per-key rule applies to the nested fields. No second validation mechanism.
-- **DR2 —** The schema refuses a missing, empty or multi-line `criterion` or `check`. `validate_criterion_rule` refuses a criterion with no word outside its code spans, and a criterion carrying a code span from its own check that contains whitespace. It refuses nothing else; what a criterion means is §1.2's and review's.
+- **DR2 —** The schema refuses a missing, empty or multi-line `criterion` or `check`. `validate_criterion_rule` refuses a criterion with no word outside its code spans. It refuses nothing else; what a criterion means is §1.2's and review's.
 - **DR3 —** The body renders each criterion as `- <criterion>` with a child line `  - Checked by: <check>`. Nothing is escaped.
 - **DR4 —** §1.2 owns how a criterion is worded; the schema owns the shape that carries it. §1.2 cites the schema and the validator and restates neither.
 
@@ -112,7 +126,7 @@ Before step 1, run `pytest` and `pytest automation/` from the repository root on
 -file cannot express: the §1.3 label-pair rule and existence checks
 -against live GitHub state (labels, milestones, referenced issues).
 +file cannot express: the §1.3 label-pair rule, the §1.2 rule that a criterion
-+is not its check, and existence checks against live GitHub state (labels,
++is not only a command, and existence checks against live GitHub state (labels,
 +milestones, referenced issues).
  
  Why this exists: GitHub carries no type-vs-area marking on a label
@@ -221,7 +235,7 @@ Before step 1, run `pytest` and `pytest automation/` from the repository root on
  
      return errors, normalized
  
-@@ -192,6 +203,44 @@
+@@ -192,6 +203,30 @@
      return []
  
  
@@ -231,13 +245,10 @@ Before step 1, run `pytest` and `pytest automation/` from the repository root on
 +def validate_criterion_rule(data: dict) -> list:
 +    """§1.2: a criterion names a property; its check is the evidence, not the criterion.
 +
-+    Two forms of a criterion that is really its check are visible without
-+    reading for meaning, and both are refused: a criterion with no words
-+    outside its code spans, and a criterion carrying a command from its own
-+    check. A command is told from a path or symbol by containing whitespace,
-+    so a criterion and its check may share `workmain/` but not
-+    `grep -rn x workmain/`. Nothing subtler is checked here. Shape errors are
-+    the schema's to report; an entry that is not a well-formed pair is
++    A criterion with no words outside its code spans states only a command,
++    and is refused. Whether a command a criterion does name is its subject or
++    its evidence is a reading, and is not checked here. Shape errors are the
++    schema's to report; an entry without a non-empty string criterion is
 +    skipped here.
 +    """
 +    errors = []
@@ -245,28 +256,17 @@ Before step 1, run `pytest` and `pytest automation/` from the repository root on
 +        if not isinstance(ac, dict):
 +            continue
 +        criterion = ac.get("criterion")
-+        check = ac.get("check")
-+        if not isinstance(criterion, str) or not isinstance(check, str) or not criterion.strip():
++        if not isinstance(criterion, str) or not criterion.strip():
 +            continue
-+
 +        if not re.search(r"\w", _CODE_SPAN_RE.sub("", criterion)):
 +            errors.append(f"acs[{i}].criterion is only code — it names no property of the delivered system")
-+            continue
-+
-+        commands = {span for span in _CODE_SPAN_RE.findall(check) if re.search(r"\s", span.strip())}
-+        repeated = sorted(span for span in _CODE_SPAN_RE.findall(criterion) if span in commands)
-+        if repeated:
-+            errors.append(
-+                f"acs[{i}].criterion repeats its check's command: "
-+                + ", ".join(f"`{span}`" for span in repeated)
-+            )
 +    return errors
 +
 +
  def _check_open_issue(field: str, number: int, get_issue_state) -> list:
      state = get_issue_state(number)
      if state is None:
-@@ -226,7 +275,9 @@
+@@ -226,7 +261,9 @@
  
  def render_body(context: str, acs: list) -> str:
      lines = [context.strip(), "", "**ACs**", ""]
@@ -277,7 +277,7 @@ Before step 1, run `pytest` and `pytest automation/` from the repository root on
      return "\n".join(lines) + "\n"
  
  
-@@ -290,6 +341,7 @@
+@@ -290,6 +327,7 @@
      """Run every check and return (errors, normalized_data). Total reporting — DR4."""
      errors, normalized = validate_schema(data, schema)
      errors += validate_label_pair_rule(normalized, label_pair)
@@ -305,7 +305,7 @@ Before step 1, run `pytest` and `pytest automation/` from the repository root on
          assert any("not-a-real-label" in e for e in errors)
          assert any("unknown key: extra_bogus_key" in e for e in errors)
  
-@@ -218,11 +218,88 @@
+@@ -218,11 +218,77 @@
  
      def test_single_line_render_body_is_not_repaired(self):
          """DR6 — the fix is refusal at validation, not repair at render."""
@@ -321,7 +321,7 @@ Before step 1, run `pytest` and `pytest automation/` from the repository root on
  
  
 +class TestStructuredCriteria:
-+    """A criterion and its check are separate fields, and a criterion that is its check is refused (#120)."""
++    """A criterion and its check are separate fields, and a criterion that is only a command is refused (#120)."""
 +
 +    def test_structured_skeleton_carries_the_criterion_and_check_fields(self):
 +        result = subprocess.run(
@@ -338,12 +338,6 @@ Before step 1, run `pytest` and `pytest automation/` from the repository root on
 +        errors, _ = run_validate(fixture("criterion_only_code.json"))
 +        assert errors == ["acs[0].criterion is only code — it names no property of the delivered system"]
 +
-+    def test_structured_criterion_repeating_its_checks_command_is_refused(self):
-+        errors, _ = run_validate(fixture("criterion_repeats_check.json"))
-+        assert errors == [
-+            "acs[0].criterion repeats its check's command: `grep -rn '^Version:' workmain/ --include='*.py'`"
-+        ]
-+
 +    def test_structured_one_string_criterion_is_refused(self):
 +        errors, _ = run_validate(fixture("criterion_legacy_string.json"))
 +        assert errors == ["key 'acs[0]' must be of type object"]
@@ -359,11 +353,6 @@ Before step 1, run `pytest` and `pytest automation/` from the repository root on
 +        data["acs"][0]["id"] = "AC1"
 +        errors, _ = run_validate(data)
 +        assert errors == ["unknown key: acs[0].id"]
-+
-+    def test_structured_a_criterion_sharing_a_path_with_its_check_validates(self):
-+        """A path or symbol is not a command; sharing `workmain/` is not restating the check."""
-+        errors, _ = run_validate(fixture("criterion_property_and_check.json"))
-+        assert errors == []
 +
 +    def test_structured_refusal_stops_the_create_path_before_gh_runs(self, tmp_path, monkeypatch):
 +        issue_file = tmp_path / "issue.json"
@@ -448,47 +437,13 @@ Run `sed -i 's|"acs": \["AC1: something is true"\],|"acs": [{"criterion": "somet
 }
 ```
 
-1e. Add `automation/fixtures/criterion_repeats_check.json`:
-
-```json
-{
-  "title": "Criterion that repeats its check's command",
-  "context": "Otherwise valid; acs[0].criterion is the check-as-criterion form docs/DEVELOPMENT_STANDARDS.md section 1.2 gives as its counter-example.",
-  "acs": [
-    {"criterion": "`grep -rn '^Version:' workmain/ --include='*.py'` returns zero hits", "check": "`grep -rn '^Version:' workmain/ --include='*.py'`"}
-  ],
-  "milestone": null,
-  "parent": null,
-  "labels": ["cli", "defect"],
-  "blocked_by": [],
-  "blocking": []
-}
-```
-
-1f. Add `automation/fixtures/criterion_legacy_string.json`:
+1e. Add `automation/fixtures/criterion_legacy_string.json`:
 
 ```json
 {
   "title": "Criterion in the retired one-string form",
   "context": "Otherwise valid; acs[0] is a plain string carrying both halves in one sentence.",
   "acs": ["no module under workmain/ carries a version header, checked by grep returning zero hits"],
-  "milestone": null,
-  "parent": null,
-  "labels": ["cli", "defect"],
-  "blocked_by": [],
-  "blocking": []
-}
-```
-
-1g. Add `automation/fixtures/criterion_property_and_check.json`:
-
-```json
-{
-  "title": "Criterion and check, written as section 1.2 asks",
-  "context": "Valid; the criterion and its check share the path span `workmain/`, which is not a command.",
-  "acs": [
-    {"criterion": "no Python module under `workmain/` carries a version header in its docstring", "check": "`grep -rn '^Version:' workmain/ --include='*.py'` run over `workmain/` returns zero hits"}
-  ],
   "milestone": null,
   "parent": null,
   "labels": ["cli", "defect"],
@@ -533,7 +488,7 @@ Commit.
 
 Run `python3 automation/issue_validator.py <payload> --create`. Ray reads the issue on GitHub. Then run `gh issue close <N> --reason "not planned"`. Record both commands and `<N>` in the results artifact. No commit — this step changes no file.
 
-**Step 4 — results artifact** `docs/dev/results/ISSUE_AC_FIELDS_RESULTS.md`: the §3 AC table, the baseline and after counts for both suites in §5, and every `gh issue` write command this work ran. Fill the design study's §6 disposition. Commit.
+**Step 4 — results artifact** `docs/dev/results/ISSUE_AC_FIELDS_RESULTS.md`: the §3 AC table, the baseline and after counts for both suites in §5, and every `gh issue` write command this work ran. Commit.
 
 ### Authorization points
 
@@ -545,27 +500,25 @@ None. Step 3 creates one issue and closes it; neither is on the §1.4 set, and t
 | --- | --- | --- |
 | AC1.1 | An issue's criterion carries the property and its check as two separate required fields, and an issue in the old one-string form is refused | Reading `issue.schema.json`'s `acs.items`; `pytest automation/issue_validator_test.py -k "one_string_criterion or without_a_check"` passes |
 | AC1.2 | `--new` prints a skeleton whose criterion has both fields | `python3 automation/issue_validator.py --new` shows `acs[0]` with `criterion` and `check`; `test_structured_skeleton_carries_the_criterion_and_check_fields` passes |
-| AC2.1 | An issue whose criterion is only a command is refused on the supported create path before `gh issue create` runs. The entry path is `automation/issue_validator.py <file> --create`; `gh issue create` run directly is omitted because it bypasses every validator (§1 Out of scope) | `python3 automation/issue_validator.py automation/fixtures/criterion_only_code.json --create` exits 1 naming `acs[0].criterion` and creates nothing; `test_structured_refusal_stops_the_create_path_before_gh_runs` passes |
-| AC2.2 | A criterion that repeats its check's command is refused, and a criterion that shares only a path with its check is not | `test_structured_criterion_repeating_its_checks_command_is_refused` and `test_structured_a_criterion_sharing_a_path_with_its_check_validates` pass |
+| AC2.1 | An issue whose criterion is only a command is refused on the supported create path before `gh issue create` runs. The entry path is `automation/issue_validator.py <file> --create`; `gh issue create` run directly is omitted because it bypasses every validator (§1 Out of scope) | `python3 automation/issue_validator.py automation/fixtures/criterion_only_code.json` exits 1 naming `acs[0].criterion`; `test_structured_refusal_stops_the_create_path_before_gh_runs` passes |
 | AC3.1 | An issue created through the validator shows each criterion and its check as visibly distinct lines on GitHub | Stated reading by Ray of the step 3 issue's body on GitHub; `test_structured_render_keeps_criterion_and_check_distinct` pins the rendered Markdown on every run |
 | AC4.1 | No existing issue is edited, reopened or restructured by this work | The results artifact lists every `gh issue` write command this work ran; the list contains no `edit`, `reopen` or `--body` invocation against an issue this work did not create |
 | AC5.1 | §1.2 owns the wording of a criterion and the schema owns its shape, each citing rather than restating the other | Stated reading by Ray of the step 2 sentence against `CLAUDE.md`'s opening single-home rule, read for any restatement of the schema's fields or the validator's rules |
-| AC6.1 | `pytest` is unchanged by this work, and `pytest automation/` gains exactly this spec's nine tests with nothing failing or skipped | Both suites' `passed, failed, skipped` counts, before step 1 and after step 4, in the results artifact §5: `pytest` identical; `pytest automation/` at baseline + 9 passed, 0 failed, 0 skipped |
+| AC6.1 | `pytest` is unchanged by this work, and `pytest automation/` gains exactly this spec's seven tests with nothing failing or skipped | Both suites' `passed, failed, skipped` counts, before step 1 and after step 4, in the results artifact §5: `pytest` identical; `pytest automation/` at baseline + 7 passed, 0 failed, 0 skipped |
 
 ## 6. Test plan
 
 - **Baseline before this work:** recorded in the results artifact §5 before step 1, per AC6.1.
-- **Expected after:** `pytest` — the baseline counts unchanged. `pytest automation/` — baseline + 9 passed, 0 failed, 0 skipped.
+- **Expected after:** `pytest` — the baseline counts unchanged. `pytest automation/` — baseline + 7 passed, 0 failed, 0 skipped.
 - **Updated:** `test_single_line_newline_in_an_ac_is_refused_naming_the_index` and `test_single_line_refusal_participates_in_total_reporting` name the path `acs[1].criterion`; `test_single_line_render_body_is_not_repaired` passes the new entry shape and counts top-level bullets only.
-- **Added:** class `TestStructuredCriteria`, nine tests, in `automation/issue_validator_test.py`.
+- **Added:** class `TestStructuredCriteria`, seven tests, in `automation/issue_validator_test.py`.
 - **Expected failures, observed at authoring** on a scratch copy of this branch's base:
-  - New tests and fixtures against the current validator and schema: 8 of 9 fail. `test_structured_refusal_stops_the_create_path_before_gh_runs` passes there, because the current schema refuses an object entry for its own reason.
-  - Against the step 1 code with the `validate_criterion_rule` call removed: the only-code, repeats-check and create-path tests fail — so the create-path test does exercise the criterion rule.
-  - Against the step 1 code with the whitespace filter removed from the repeat rule: `test_structured_a_criterion_sharing_a_path_with_its_check_validates` fails.
+  - New tests and fixtures against the current validator and schema: 6 of 7 fail. `test_structured_refusal_stops_the_create_path_before_gh_runs` passes there, because the current schema refuses an object entry for its own reason.
+  - Against the step 1 code with the `validate_criterion_rule` call removed: the only-code and create-path tests fail — so the create-path test does exercise the criterion rule.
 
 ## 7. Risks and rollback
 
 - **An issue drafted in the old shape is refused.** Intended; the error names `acs[i]` and `--new` shows the new shape.
-- **The criterion rule refuses a legitimate criterion.** It reads code spans only; prose is never refused. If one is found, step 1 reverts alone, or the rule is narrowed through a new spec.
+- **The criterion rule refuses a legitimate criterion.** It refuses only a criterion with no word outside its code spans, and refused none of the 164 live pairs (§2).
 - **The step 3 issue stays on the board, closed.** §1.6's `is:open` read never shows it.
 - Steps 1, 2 and 4 are one commit each and revert alone. Step 3 is undone only by deleting the issue, which is an authorization point and is not planned.
