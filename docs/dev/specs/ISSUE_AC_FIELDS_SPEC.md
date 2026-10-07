@@ -1,6 +1,6 @@
 # Structured Issue Acceptance Criteria — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261007
 **Branch:** `chore/issue-120-structured-acs` (from `main`)

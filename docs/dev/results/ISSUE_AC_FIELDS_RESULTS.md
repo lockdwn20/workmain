@@ -1,6 +1,6 @@
 # Structured Issue Acceptance Criteria — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261007
 **Spec:** `../specs/ISSUE_AC_FIELDS_SPEC.md`
@@ -50,6 +50,7 @@ Complete. Steps 1–3 are applied from the spec, every mechanical check passes, 
 - **AC2.1:** `python3 automation/issue_validator.py automation/fixtures/criterion_only_code.json` → `acs[0].criterion is only code — it names no property of the delivered system`, exit 1.
 - **Step 1 parity:** the applied tree is identical to the scratch copy the spec's expected failures were observed on (`diff -r` over `automation/` and `.github/ISSUE_TEMPLATE/`).
 - **Live verification:** issue #178, AC3.1.
+- **Close-out preflight `P8`:** `pytest` — 1154 passed, 0 failed, 0 skipped. **`P9`:** `pytest automation/` — 58 passed, 0 failed, 0 skipped.
 - **Daemon restart:** n/a — `chore/*` carries none (`docs/DEVELOPMENT_STANDARDS.md` §2.6).
 
 ## 6. Follow-ups
