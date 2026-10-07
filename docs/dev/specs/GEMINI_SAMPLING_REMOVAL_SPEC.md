@@ -1,6 +1,6 @@
 # Gemini Sampling Removal — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261007
 **Branch:** `hotfix/issue-179-gemini-sampling` (from `main`)
@@ -18,6 +18,7 @@
 | 20261007 | Spanner | A `sampling` key left in the Gemini policy is silently ignored, because nothing refuses a key a provider does not read (design F11). | Not fixed here. Refusing unread keys changes every provider's contract, and every shipped policy already carries an unread `description`. A test pins that a stale key reaches neither request path. |
 | 20261007 | Spanner | Branch type. | `hotfix/*`: one root cause, two application files (`docs/DEVELOPMENT_STANDARDS.md` §2.2). |
 | 20261007 | Caliper | F1: Step 1 said to replace the docstring's "first two sentences", which read literally deletes the PEP 257 summary line and leaves "one path … the other" without its antecedent. | Accepted. Step 1 names the one sentence replaced, beginning `Returns max_output_tokens`, and lists the sentences that stay. This matches the draft the mutations ran against. |
+| 20261007 | Ray | Caliper's review resolved. | Approved for implementation. |
 
 ---
 
