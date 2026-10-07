@@ -25,6 +25,7 @@
 | 20261007 | Caliper | F4 — AC2.1's check ran `--create` against live GitHub, so a regressed rule would create a real issue | Accepted — the check runs without `--create`; `test_structured_refusal_stops_the_create_path_before_gh_runs` covers `--create` with `subprocess.run` stubbed |
 | 20261007 | Spanner | No issue is edited at close-out to restate its ACs in the new shape — not #120, and not any other. Issue AC4 forbids it, and §1.2 makes the wording rule prospective | Decided |
 | 20261007 | Ray | **Approved.** | `Status: Approved`. Implementation may begin at step 1 |
+| 20261007 | Spanner | Step 2's sentence said the validator refuses a criterion "it can see is only its check" — written before the repeat rule was dropped, so it described a rule that no longer ships | Corrected in step 2 to "a criterion that states only a command", matching DR2 |
 
 ---
 
@@ -464,7 +465,7 @@ Run `pytest automation/`. Commit.
 with:
 
 ```markdown
-  - `docs/dev/specs/_TEMPLATE_SPEC.md` §5 carries the two as separate columns, `Criterion` and `How it is checked`. On an issue, `.github/ISSUE_TEMPLATE/issue.schema.json` carries them as separate fields, and `automation/issue_validator.py` refuses a criterion it can see is only its check. A criterion that passes the validator still has to meet this rule.
+  - `docs/dev/specs/_TEMPLATE_SPEC.md` §5 carries the two as separate columns, `Criterion` and `How it is checked`. On an issue, `.github/ISSUE_TEMPLATE/issue.schema.json` carries them as separate fields, and `automation/issue_validator.py` refuses a criterion that states only a command. A criterion that passes the validator still has to meet this rule.
 ```
 
 Commit.
