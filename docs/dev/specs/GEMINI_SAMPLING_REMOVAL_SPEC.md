@@ -19,6 +19,7 @@
 | 20261007 | Spanner | Branch type. | `hotfix/*`: one root cause, two application files (`docs/DEVELOPMENT_STANDARDS.md` §2.2). |
 | 20261007 | Caliper | F1: Step 1 said to replace the docstring's "first two sentences", which read literally deletes the PEP 257 summary line and leaves "one path … the other" without its antecedent. | Accepted. Step 1 names the one sentence replaced, beginning `Returns max_output_tokens`, and lists the sentences that stay. This matches the draft the mutations ran against. |
 | 20261007 | Ray | Caliper's review resolved. | Approved for implementation. |
+| 20261007 | Ray | At close-out: the guide's `gemini/` row named parameters that are no longer sent (`temperature`, `top_p`, `top_k`, `thinking_budget`), which invites the confusion it describes. | The row describes only what is sent. Step 2 deletes the sampling sentence and adds nothing. The docstring loses its pointer to the removed explanation (DR4). The reason sampling is not sent is recorded in issue #179 and the design study. |
 
 ---
 
@@ -57,7 +58,7 @@ The design study's findings, F1 through F11, are the verified record. This spec 
 - **DR1:** `_generation_config` returns `max_output_tokens`, `thinking_config` and `automatic_function_calling`, and nothing else. No Gemini code path reads a `sampling` key or sets `temperature`, `top_p` or `top_k`.
 - **DR2:** `GeminiProvider.REQUIRED_POLICY_KEYS` is `{'thinking_config', 'automatic_function_calling'}`.
 - **DR3:** The thinking object is still the policy's `thinking_config`, passed through untranslated. The shipped value sets only `thinking_level`.
-- **DR4:** Why sampling is not sent is stated once, in the guide's `gemini/` row. The docstring points there.
+- **DR4:** The guide's `gemini/` row and the `_generation_config` docstring describe only what is sent. Neither names a parameter that is not sent (Ray, Decision Log).
 
 For anything this spec does not cover, follow `CLAUDE.md` Role 3: stop, document, tell Ray.
 
@@ -72,9 +73,7 @@ Step 1 docstring text, exactly — the sentence beginning `Returns max_output_to
 
 ```text
 Returns max_output_tokens and the policy's thinking_config and
-automatic_function_calling — nothing else. No sampling parameter is
-sent; why: docs/AI_SETTINGS_GUIDE.md, section "The request payload
-policy".
+automatic_function_calling — nothing else.
 ```
 
 Every other sentence stays: the summary line ("Build the generation config shared by generate() and check_availability()."), "One builder so a payload-contract change…" and "Values are the vendor's own shapes…".
@@ -82,8 +81,7 @@ Every other sentence stays: the summary line ("Build the generation config share
 Step 2 text, exactly:
 
 - In the section's opening paragraph, replace `Claude's thinking or sampling, Gemini's sampling` with `Claude's thinking or sampling, Gemini's thinking level`.
-- In the `gemini/` row, replace the sentence `` `sampling.temperature` is a literal value (`0.3`) sent on every request. `` with: `` No sampling parameter is sent, and the provider reads no `sampling` key: from Gemini 3.6 Flash on, a custom `temperature`, `top_p` or `top_k` is replaced by the model's default, and later Gemini models reject a request that carries one. ``
-- In the same row, after the sentence ending `thinking plus answer.`, insert: `` `thinking_budget` is never set; later Gemini models reject it. ``
+- In the `gemini/` row, delete the sentence `` `sampling.temperature` is a literal value (`0.3`) sent on every request. `` The row then opens with `thinking_config.thinking_level`, and nothing else in it changes.
 
 ### Authorization points
 
