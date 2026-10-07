@@ -1,6 +1,6 @@
 # Gemini Sampling Removal — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261007
 **Branch:** `hotfix/issue-179-gemini-sampling` (from `main`)
