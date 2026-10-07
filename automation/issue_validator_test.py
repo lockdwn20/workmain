@@ -186,7 +186,7 @@ class TestSingleLine:
 
     def test_single_line_newline_in_an_ac_is_refused_naming_the_index(self):
         errors, _ = run_validate(fixture("single_line_newline_in_ac.json"))
-        assert "key 'acs[1]' must be a single line" in errors
+        assert "key 'acs[1].criterion' must be a single line" in errors
 
     def test_single_line_newline_in_the_title_is_refused(self):
         errors, _ = run_validate(fixture("single_line_newline_in_title.json"))
@@ -199,7 +199,7 @@ class TestSingleLine:
         data["extra_bogus_key"] = True
 
         errors, _ = run_validate(data)
-        assert "key 'acs[1]' must be a single line" in errors
+        assert "key 'acs[1].criterion' must be a single line" in errors
         assert any("not-a-real-label" in e for e in errors)
         assert any("unknown key: extra_bogus_key" in e for e in errors)
 
@@ -218,9 +218,75 @@ class TestSingleLine:
 
     def test_single_line_render_body_is_not_repaired(self):
         """DR6 — the fix is refusal at validation, not repair at render."""
-        rendered = issue_validator.render_body("Context line.", ["one", "two\nsplit"])
-        assert rendered.count("- ") == 2
+        acs = [
+            {"criterion": "one", "check": "first"},
+            {"criterion": "two\nsplit", "check": "second"},
+        ]
+        rendered = issue_validator.render_body("Context line.", acs)
+        assert len([line for line in rendered.splitlines() if line.startswith("- ")]) == 2
         assert "\nsplit" in rendered
+
+
+class TestStructuredCriteria:
+    """A criterion and its check are separate fields, and a criterion that is only a command is refused (#120)."""
+
+    def test_structured_skeleton_carries_the_criterion_and_check_fields(self):
+        result = subprocess.run(
+            [sys.executable, str(ROOT / "automation" / "issue_validator.py"), "--new"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        skeleton_acs = json.loads(result.stdout)["acs"]
+        assert len(skeleton_acs) == 1
+        assert sorted(skeleton_acs[0]) == sorted(SCHEMA["acs"]["items"]["keys"])
+
+    def test_structured_criterion_that_is_only_code_is_refused(self):
+        errors, _ = run_validate(fixture("criterion_only_code.json"))
+        assert errors == ["acs[0].criterion is only code — it names no property of the delivered system"]
+
+    def test_structured_one_string_criterion_is_refused(self):
+        errors, _ = run_validate(fixture("criterion_legacy_string.json"))
+        assert errors == ["key 'acs[0]' must be of type object"]
+
+    def test_structured_criterion_without_a_check_is_refused(self):
+        data = fixture("valid_minimal.json")
+        del data["acs"][0]["check"]
+        errors, _ = run_validate(data)
+        assert errors == ["missing required key: acs[0].check"]
+
+    def test_structured_unknown_key_in_a_criterion_is_named(self):
+        data = fixture("valid_minimal.json")
+        data["acs"][0]["id"] = "AC1"
+        errors, _ = run_validate(data)
+        assert errors == ["unknown key: acs[0].id"]
+
+    def test_structured_refusal_stops_the_create_path_before_gh_runs(self, tmp_path, monkeypatch):
+        issue_file = tmp_path / "issue.json"
+        issue_file.write_text(json.dumps(fixture("criterion_only_code.json")))
+
+        monkeypatch.setattr(issue_validator, "gh_live_labels", lambda: LIVE_LABELS)
+        monkeypatch.setattr(issue_validator, "gh_live_milestones", lambda: LIVE_MILESTONES)
+        monkeypatch.setattr(issue_validator, "gh_issue_state", fake_issue_state())
+        monkeypatch.setattr(
+            subprocess,
+            "run",
+            lambda *a, **k: pytest.fail("gh issue create must not run for a refused issue"),
+        )
+
+        assert issue_validator.main([str(issue_file), "--create"]) == 1
+
+    def test_structured_render_keeps_criterion_and_check_distinct(self):
+        acs = [{"criterion": "no module carries a header", "check": "`grep -rn x workmain/` returns zero hits"}]
+        rendered = issue_validator.render_body("Context line.", acs)
+        assert rendered == (
+            "Context line.\n"
+            "\n"
+            "**ACs**\n"
+            "\n"
+            "- no module carries a header\n"
+            "  - Checked by: `grep -rn x workmain/` returns zero hits\n"
+        )
 
 
 class TestAC3:

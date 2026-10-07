@@ -1,7 +1,7 @@
 {
   "title": "Unscheduled standalone issue",
   "context": "Context for an unscheduled standalone issue, carrying exactly one pair label.",
-  "acs": ["AC1: something is true"],
+  "acs": [{"criterion": "something is true", "check": "reading this fixture"}],
   "milestone": null,
   "parent": null,
   "labels": ["cli", "defect"],

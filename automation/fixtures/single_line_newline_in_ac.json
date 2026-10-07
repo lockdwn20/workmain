@@ -1,7 +1,11 @@
 {
   "title": "Newline inside an AC",
-  "context": "Otherwise valid; acs[1] carries an embedded newline.",
-  "acs": ["single line AC", "wrapped AC\nsecond physical line", "third AC"],
+  "context": "Otherwise valid; acs[1].criterion carries an embedded newline.",
+  "acs": [
+    {"criterion": "single line AC", "check": "reading this fixture"},
+    {"criterion": "wrapped AC\nsecond physical line", "check": "reading this fixture"},
+    {"criterion": "third AC", "check": "reading this fixture"}
+  ],
   "milestone": null,
   "parent": null,
   "labels": ["cli", "defect"],

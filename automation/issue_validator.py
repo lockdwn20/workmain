@@ -4,8 +4,9 @@ GitHub state, then create the issue through `gh issue create`.
 
 The schema (`.github/ISSUE_TEMPLATE/issue.schema.json`) declares the key set
 and each key's type and required-ness. This script owns the rules the schema
-file cannot express: the §1.3 label-pair rule and existence checks
-against live GitHub state (labels, milestones, referenced issues).
+file cannot express: the §1.3 label-pair rule, the §1.2 rule that a criterion
+is not only a command, and existence checks against live GitHub state (labels,
+milestones, referenced issues).
 
 Why this exists: GitHub carries no type-vs-area marking on a label
 (`Repository.issueTypes` is null for this repository), so the label
@@ -94,9 +95,9 @@ def load_schema(schema_path: Path) -> dict:
 def _has_line_break(value: str) -> bool:
     """A line break in a single-line field is refused, not repaired (#88).
 
-    `render_body()` emits one `- ` marker per `acs` item, so an embedded
-    newline renders as a bullet followed by a loose line belonging to no AC,
-    and the created issue silently misrepresents its own AC list.
+    `render_body()` emits one line per criterion and one per check, so an
+    embedded newline renders as a loose line belonging to no AC, and the
+    created issue silently misrepresents its own AC list.
     """
     return "\n" in value or "\r" in value
 
@@ -108,15 +109,19 @@ def _check_type(value, type_name: str) -> bool:
         return isinstance(value, str)
     if type_name == "array":
         return isinstance(value, list)
+    if type_name == "object":
+        return isinstance(value, dict)
     return False
 
 
-def validate_schema(data, schema: dict):
+def validate_schema(data, schema: dict, path: str = ""):
     """Check `data` against `schema`. Returns (errors, normalized_data).
 
     Every declared key is checked; unknown keys fail by name. Missing
     optional keys are filled with their default so downstream checks never
-    have to special-case absence.
+    have to special-case absence. An array whose `items` is itself a key
+    spec has each item checked by this same function, with `path` naming the
+    item in every error it reports (`acs[1].criterion`).
     """
     if not isinstance(data, dict):
         return (["issue data must be a JSON object"], {})
@@ -124,14 +129,15 @@ def validate_schema(data, schema: dict):
     errors = []
     for key in data:
         if key not in schema:
-            errors.append(f"unknown key: {key}")
+            errors.append(f"unknown key: {path}{key}")
 
     normalized = dict(data)
     for key, spec in schema.items():
+        name = f"{path}{key}"
         required = spec.get("required", False)
         if key not in data:
             if required:
-                errors.append(f"missing required key: {key}")
+                errors.append(f"missing required key: {name}")
             else:
                 normalized[key] = spec.get("default")
             continue
@@ -139,35 +145,40 @@ def validate_schema(data, schema: dict):
         value = data[key]
         if value is None:
             if not spec.get("nullable", False):
-                errors.append(f"key '{key}' must not be null")
+                errors.append(f"key '{name}' must not be null")
             continue
 
         expected = spec["type"]
         if not _check_type(value, expected):
-            errors.append(f"key '{key}' must be of type {expected}")
+            errors.append(f"key '{name}' must be of type {expected}")
             continue
 
         if expected == "string":
             if not value.strip():
-                errors.append(f"key '{key}' must be non-empty")
+                errors.append(f"key '{name}' must be non-empty")
             max_length = spec.get("max_length")
             if max_length is not None and len(value) > max_length:
-                errors.append(f"key '{key}' must be at most {max_length} characters")
+                errors.append(f"key '{name}' must be at most {max_length} characters")
             if spec.get("single_line") and _has_line_break(value):
-                errors.append(f"key '{key}' must be a single line")
+                errors.append(f"key '{name}' must be a single line")
 
         if expected == "array":
             min_items = spec.get("min_items")
             if min_items is not None and len(value) < min_items:
-                errors.append(f"key '{key}' must have at least {min_items} entry(ies)")
-            item_type = spec.get("items")
+                errors.append(f"key '{name}' must have at least {min_items} entry(ies)")
+            item_spec = spec.get("items")
+            item_type = item_spec.get("type") if isinstance(item_spec, dict) else item_spec
+            normalized[key] = list(value)
             for i, item in enumerate(value):
                 if item_type and not _check_type(item, item_type):
-                    errors.append(f"key '{key}[{i}]' must be of type {item_type}")
+                    errors.append(f"key '{name}[{i}]' must be of type {item_type}")
+                elif item_type == "object":
+                    item_errors, normalized[key][i] = validate_schema(item, item_spec["keys"], f"{name}[{i}].")
+                    errors.extend(item_errors)
                 elif item_type == "string" and not item.strip():
-                    errors.append(f"key '{key}[{i}]' must be non-empty")
+                    errors.append(f"key '{name}[{i}]' must be non-empty")
                 elif item_type == "string" and spec.get("single_line") and _has_line_break(item):
-                    errors.append(f"key '{key}[{i}]' must be a single line")
+                    errors.append(f"key '{name}[{i}]' must be a single line")
 
     return errors, normalized
 
@@ -190,6 +201,30 @@ def validate_label_pair_rule(data: dict, label_pair: list) -> list:
     if not present and data.get("milestone") is None:
         return [f"unscheduled issue carries none of {named}"]
     return []
+
+
+_CODE_SPAN_RE = re.compile(r"`([^`]+)`")
+
+
+def validate_criterion_rule(data: dict) -> list:
+    """§1.2: a criterion names a property; its check is the evidence, not the criterion.
+
+    A criterion with no words outside its code spans states only a command,
+    and is refused. Whether a command a criterion does name is its subject or
+    its evidence is a reading, and is not checked here. Shape errors are the
+    schema's to report; an entry without a non-empty string criterion is
+    skipped here.
+    """
+    errors = []
+    for i, ac in enumerate(data.get("acs") or []):
+        if not isinstance(ac, dict):
+            continue
+        criterion = ac.get("criterion")
+        if not isinstance(criterion, str) or not criterion.strip():
+            continue
+        if not re.search(r"\w", _CODE_SPAN_RE.sub("", criterion)):
+            errors.append(f"acs[{i}].criterion is only code — it names no property of the delivered system")
+    return errors
 
 
 def _check_open_issue(field: str, number: int, get_issue_state) -> list:
@@ -226,7 +261,9 @@ def validate_live_state(data: dict, live_labels: set, live_milestones: set, get_
 
 def render_body(context: str, acs: list) -> str:
     lines = [context.strip(), "", "**ACs**", ""]
-    lines.extend(f"- {ac.strip()}" for ac in acs)
+    for ac in acs:
+        lines.append(f"- {ac['criterion'].strip()}")
+        lines.append(f"  - Checked by: {ac['check'].strip()}")
     return "\n".join(lines) + "\n"
 
 
@@ -290,6 +327,7 @@ def validate_issue(data: dict, schema: dict, label_pair: list, live_labels: set,
     """Run every check and return (errors, normalized_data). Total reporting — DR4."""
     errors, normalized = validate_schema(data, schema)
     errors += validate_label_pair_rule(normalized, label_pair)
+    errors += validate_criterion_rule(normalized)
     errors += validate_live_state(normalized, live_labels, live_milestones, get_issue_state)
     return errors, normalized
 
