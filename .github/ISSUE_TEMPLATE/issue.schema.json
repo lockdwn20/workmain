@@ -11,10 +11,23 @@
   },
   "acs": {
     "type": "array",
-    "items": "string",
+    "items": {
+      "type": "object",
+      "keys": {
+        "criterion": {
+          "type": "string",
+          "required": true,
+          "single_line": true
+        },
+        "check": {
+          "type": "string",
+          "required": true,
+          "single_line": true
+        }
+      }
+    },
     "required": true,
-    "min_items": 1,
-    "single_line": true
+    "min_items": 1
   },
   "milestone": {
     "type": "string",

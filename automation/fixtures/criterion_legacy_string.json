@@ -1,0 +1,10 @@
+{
+  "title": "Criterion in the retired one-string form",
+  "context": "Otherwise valid; acs[0] is a plain string carrying both halves in one sentence.",
+  "acs": ["no module under workmain/ carries a version header, checked by grep returning zero hits"],
+  "milestone": null,
+  "parent": null,
+  "labels": ["cli", "defect"],
+  "blocked_by": [],
+  "blocking": []
+}
