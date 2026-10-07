@@ -101,7 +101,7 @@ AC3 is checked by reading an issue created from a test payload. That issue joins
 
 | Q | Question | Answer |
 | --- | --- | --- |
-| Q1 | D1: structure only, or structure plus the two content rules? | Answered 20261007: D1-B. Rule (2) as written here also refuses §1.2's own good form when a check names a path; the spec proposes narrowing it to spans containing whitespace, pending Ray |
+| Q1 | D1: structure only, or structure plus the two content rules? | Answered 20261007: D1-B. Rule (2) as written here also refuses §1.2's own good form when a check names a path; narrowed to spans containing whitespace, confirmed by Ray 20261007 |
 | Q2 | D2: nested bullet or table? | Answered 20261007: D2-A |
 | Q3 | D3: close the test issue as not planned, delete it, or render without creating? | Answered 20261007: D3-A, a one-time check |
 
