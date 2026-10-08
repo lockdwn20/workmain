@@ -26,6 +26,10 @@
 | 20261008 | Caliper | 1/7: AC4.1 and AC6.1 record outputs but state no pass condition, so any recorded output passes. The Anvil run also ended with a recommendation its reference does not allow. | Accepted. Both criteria carry a pass condition. `SKILL.md`'s run rules end every run at its reference's last emitted item (Step 3a). |
 | 20261008 | Caliper | 7/3: `SKILL.md` lists the role names, and AC10.1's grep cannot see them. | Resolved by the role move: `SKILL.md` is the home of the role set, so naming the roles there restates nothing. |
 
+| 20261008 | Caliper | 2/5: Spanner read 4 matches `Issue #<N>`, but both templates show the `**Originating item:**` placeholder as `Backlog Item #N`. | `Backlog Item` is the retired markdown-backlog term; every live artifact outside the templates uses `Issue #N`. The search stays. The template placeholders are carried to the correction issue, on Ray's direction 20261008. |
+| 20261008 | Caliper | 3: Spanner's "Next stage" cannot be derived from read 4, which finds only design studies and specs. | Ray's direction 20261008: cite `docs/DEVELOPMENT_STANDARDS.md` rather than write per-role definitions of done into the skill. Read 4 also finds the results artifact, and Next stage cites §1.1 and §1.5 for the stages and spec status. The standards state no done condition for Implementation, so that one condition cites `docs/dev/results/_TEMPLATE_RESULTS.md` §3. The missing §1.1 done conditions, and the undefined Spanner-to-Anvil handoff, are carried to the correction issue (Step 3d). |
+| 20261008 | Caliper | 7: AC1.1 requires `.claude/skills/` to hold `closeout` and `session-start` only, so an unrelated skill added later fails it without breaking its intent. | Accepted, on Ray's direction 20261008: AC1.1 checks that `session-start` exists with its files and makes no claim about other skills. |
+
 ---
 
 ## 1. Scope
@@ -56,7 +60,7 @@ Anything not covered: `.claude/skills/session-start/SKILL.md` § Role 3 — stop
 | --- | --- | --- |
 | 1 | Write `SKILL.md` with the exact text below. Commit `chore(skills): add the session-start skill entry point`. | `.claude/skills/session-start/SKILL.md` |
 | 2 | Write the three references with the exact text below. Commit `chore(skills): add the session-start role references`. | `.claude/skills/session-start/references/{spanner,caliper,anvil}.md` |
-| 3 | Move the role definitions into `SKILL.md` and repoint the references to them, with the exact text in § Step 3 below. Commit `chore(skills): make session-start the home of the role definitions`. | `.claude/skills/session-start/SKILL.md`, `.claude/skills/session-start/references/{spanner,caliper,anvil}.md` |
+| 3 | Move the role definitions into `SKILL.md`, repoint the references to them, and widen Spanner's artifact read, with the exact text in § Step 3 below. Commit `chore(skills): make session-start the home of the role definitions`. | `.claude/skills/session-start/SKILL.md`, `.claude/skills/session-start/references/{spanner,caliper,anvil}.md` |
 | 4 | Replace `CLAUDE.md` § THREE-ROLE MODEL with its pointer and repoint the three citations, with the exact text in § Step 4 below. Commit `docs(standards): point role citations at the session-start skill`. | `CLAUDE.md`, `docs/DEVELOPMENT_STANDARDS.md`, `docs/dev/specs/_TEMPLATE_SPEC.md` |
 | 5 | Write the results artifact from `docs/dev/results/_TEMPLATE_RESULTS.md`: this spec's §5 ACs as the results artifact's §3 table, the output of each Ray-invoked run named in AC4.1–AC6.1, the AC7.1 count comparison, and the suite counts. Commit `docs(results): record the session-start skill results for issue #85`. | `docs/dev/results/SESSION_START_RESULTS.md` |
 
@@ -273,6 +277,24 @@ If you encounter anything the spec doesn't cover, or that requires a design deci
 | `references/anvil.md` | 3 | `` **Role:** `CLAUDE.md` § Role 3. `` | `` **Role:** `SKILL.md` § Role 3. `` |
 | `references/anvil.md` | 22 | `` What happens next is `CLAUDE.md` § Role 3. `` | `` What happens next is `SKILL.md` § Role 3. `` |
 
+**3d — `references/spanner.md`, read 4 and Next stage.** Replace read 4:
+
+> 4. `grep -lE '^\*\*Originating item:\*\* .*Issue #<N>([^0-9]|$)' docs/dev/design/*.md docs/dev/specs/*.md`, and the `**Status:**` and `**Branch:**` lines of each file found.
+
+with:
+
+> 4. `grep -lE '^\*\*Originating item:\*\* .*Issue #<N>([^0-9]|$)' docs/dev/design/*.md docs/dev/specs/*.md`, and the `**Status:**` and `**Branch:**` lines of each file found. For each spec found, `grep -l '^\*\*Spec:\*\* .*<spec file name>' docs/dev/results/*.md` and the `**Status:**` line of each file found.
+
+Replace the Artifacts and Next stage bullets:
+
+> - **Artifacts** — each design study and spec found, with its `Status:`, or `none`.
+> - **Next stage** — the first stage of the `docs/DEVELOPMENT_STANDARDS.md` §1.1 path whose artifact read 4 did not find. The path is the branch type a found spec's `**Branch:**` field or the issue body states; where neither states one, say so and name the first stage of each path.
+
+with:
+
+> - **Artifacts** — each design study, spec and results artifact found, with its `Status:`, or `none`.
+> - **Next stage** — the first stage on the item's `docs/DEVELOPMENT_STANDARDS.md` §1.1 path that the artifacts found do not show done, judged by §1.1 for which artifact each stage produces, §1.2 for review before approval, §1.5 for the spec's `Status:`, and `docs/dev/results/_TEMPLATE_RESULTS.md` §3 for the results artifact as the last implementation step. The path is the branch type a found spec's `**Branch:**` field or the issue body states; where neither states one, say so and name the first stage of each path.
+
 ### Step 4 — `CLAUDE.md` and the citations that point at the roles
 
 **4a — `CLAUDE.md` § THREE-ROLE MODEL.** Lines 30–75, quoted in full at 3b, are replaced by:
@@ -315,7 +337,7 @@ None. The merge to `main` belongs to `/closeout`.
 
 | AC | Criterion | How it is checked |
 | --- | --- | --- |
-| AC1.1 | One skill exists, with exactly one reference per role and no separate per-role skill | `ls .claude/skills/ .claude/skills/session-start/ .claude/skills/session-start/references/` shows `closeout` and `session-start` only, `SKILL.md` and `references/`, and exactly `anvil.md caliper.md spanner.md` |
+| AC1.1 | The `session-start` skill exists with its entry point and exactly one reference per role | `ls .claude/skills/session-start/ .claude/skills/session-start/references/` shows `SKILL.md` and `references/`, and exactly `anvil.md caliper.md spanner.md` |
 | AC2.1 | The requirements common to all three roles — the read-only property, Step 0's refusal, the four run rules and the reference dispatch — are stated in `SKILL.md` and in no reference | Stated reading by Ray of `SKILL.md` and the three references, for any common rule appearing in a reference |
 | AC3.1 | Each reference names its target, the sources it reads in numbered order, and what the run emits | Stated reading by Ray of the three references, for whether each run's reads and output can be told without running it |
 | AC4.1 | A run emits state assembled only from its reference's named sources, with nothing a source carries reconstructed and nothing beyond its Emits list | Ray invokes `/session-start Spanner`, `/session-start Caliper docs/dev/specs/SESSION_START_SPEC.md` and `/session-start Anvil docs/dev/specs/SESSION_START_SPEC.md` against the live repository. The results artifact records each output beside the source reads it made. Passes when every fact in each output matches the source read it came from, and no output carries an item its reference's Emits list does not name |
