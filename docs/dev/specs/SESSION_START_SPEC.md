@@ -17,6 +17,7 @@
 | 20261007 | Spanner | The issue's premise that an unsupplied declared argument expands to an empty string, and so cannot fail on its own, was checked against the Claude Code skills reference (`https://code.claude.com/docs/en/skills`, § "When Arguments Are Not Supplied"): a named placeholder from `arguments` with no matching argument expands to an empty string; an indexed `$N` with no argument stays as literal text. | Holds. The skill declares `arguments: [role, target]` and refuses on an empty `role` as its own first step. |
 | 20261007 | Spanner | The issue's AC7 reads the `--limit` from "the command in the reference". `docs/DEVELOPMENT_STANDARDS.md` §1.6 already owns the board-read command, `--limit` included, and `CLAUDE.md`'s opening gives every rule one home. A copy in the reference is a second home that drifts the first time §1.6 changes. | The Spanner reference runs §1.6's command by citation. AC7.1 checks the limit in the command the reference cites. The issue's AC7 is reworded at close-out to match. |
 | 20261007 | Spanner | `disable-model-invocation: true`, as `closeout` carries. A role is declared by the person in the session; a skill the model can load on its own would let it declare one. | Applied. The verification runs in AC4.1–AC6.1 are therefore Ray's invocations; Spanner records their output. |
+| 20261007 | Ray | Board order puts #80 above its own child #85, so a no-target Spanner run that reports the first open item reports a parent, which is not workable. | Option A: a no-target run skips every item whose sub-issues are not all closed and reports the first that remains, naming each parent it passed over. A blocked item is not skipped; its blockers are reported, so board position still decides. |
 
 ---
 
@@ -108,7 +109,7 @@ Stop and surface to Ray.
 
 ## Reads, in order
 
-1. **The item.** With a target, the item is that issue; skip to read 2. Without one, run the board read in `docs/DEVELOPMENT_STANDARDS.md` §1.6 exactly as written there. Walk the result in board order: for each item, read `gh issue view <N> --json subIssuesSummary`; the item is the first whose `subIssuesSummary.total` equals `subIssuesSummary.completed`. Every item passed over is a parent with open children.
+1. **The item.** With a target, the item is that issue; skip to read 2. Without one, run the board read in `docs/DEVELOPMENT_STANDARDS.md` §1.6 exactly as written there. Walk the result in board order: for each item, read `gh issue view <N> --json subIssuesSummary`; the item is the first whose `subIssuesSummary.total` equals `subIssuesSummary.completed`. Every item passed over is a parent with open children. When no item qualifies, the item is `none` and reads 2–5 are skipped.
 2. `gh issue view <N> --json number,title,state,body,labels,milestone,parent,subIssuesSummary`
 3. `gh api repos/{owner}/{repo}/issues/<N>/dependencies/blocked_by --jq '.[] | "#\(.number) \(.state) \(.title)"'`
 4. `grep -lE '^\*\*Originating item:\*\* .*Issue #<N>([^0-9]|$)' docs/dev/design/*.md docs/dev/specs/*.md`, and the `**Status:**` and `**Branch:**` lines of each file found.
@@ -116,7 +117,7 @@ Stop and surface to Ray.
 
 ## Emits
 
-- **Item** — number, title, state, milestone, labels, parent. Without a target, also each parent passed over in read 1.
+- **Item** — number, title, state, milestone, labels, parent, or `none`. Without a target, also each parent passed over in read 1.
 - **Blocked by** — each blocker with its state, or `none`.
 - **Artifacts** — each design study and spec found, with its `Status:`, or `none`.
 - **Next stage** — the first stage of the `docs/DEVELOPMENT_STANDARDS.md` §1.1 path whose artifact read 4 did not find. The path is the branch type a found spec's `**Branch:**` field or the issue body states; where neither states one, say so and name the first stage of each path.
@@ -200,6 +201,6 @@ None. The merge to `main` belongs to `/closeout`.
 
 ## 7. Risks and rollback
 
-- **The board's top item is a parent.** Board order puts #80 above its own children today. Read 1's skip-parents rule is what keeps a no-target run from reporting a parent as the next work. If that rule is rejected, a no-target run reports #80.
+- **Every board item is a parent with open children.** Read 1 then finds no item. The run emits `none` for the item and lists the parents it passed over; it does not fall back to the first parent.
 - **Live `config/` edits fail Anvil's clean-tree read.** Ray's working-tree edits to `config/ai_settings.json` are listed as a discrepancy. The discrepancy is reported, not resolved; Role 3 decides from there.
 - **Rollback:** each step is one commit touching only new files; `git revert` of either removes it with no other effect.
