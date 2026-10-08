@@ -1,6 +1,6 @@
 # Session-Start Skill — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261007
 **Branch:** `chore/issue-85-session-start`
