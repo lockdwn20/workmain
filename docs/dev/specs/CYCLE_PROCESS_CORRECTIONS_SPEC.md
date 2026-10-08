@@ -1,6 +1,6 @@
 # Cycle Process Corrections — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261008
 **Branch:** `chore/issue-180-cycle-process-corrections`
@@ -17,6 +17,7 @@
 | 20261008 | Ray | Q1: a change the CLI writes to tracked files during live use is committed as one commit on the next branch to be completed, of any type. Neither a `chore/*` branch nor a commit to `dev` handles a change made while another branch is checked out. | DR1; Step 1. |
 | 20261008 | Ray | Q2: accept the stage done-condition table, including the `No findings.` Caliper row and `Active` in the results template header. | DR2; Steps 3–4. |
 | 20261008 | Ray | Q3: the handoff is the spec path and nothing more; the spec speaks for itself. | DR3; Step 5. |
+| 20261008 | Ray | Spec approved; no Role 2 pass, which the direct path leaves to Ray's discretion (`docs/DEVELOPMENT_STANDARDS.md` §1.2). | Status `Approved`. |
 | 20261008 | Spanner | Role 3 has to cite a rule that an AC whose check names Ray is Ray's sign-off, and no live document states one. It was the cause of the #179 close-out stop. It is added to §1.2, next to the stated-reading rule it completes, so Role 3 has something to cite. | DR3; Step 3. |
 
 ---
