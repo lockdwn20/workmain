@@ -89,10 +89,10 @@ This resolves F7 by naming the design study's §5 answers as Analysis's record, 
 
 | Q | Question | Answer |
 | --- | --- | --- |
-| Q1 | Item 1: which option governs an operational config change — A (`chore/*`), B (direct commit to `dev`), or C (move the state out of git)? Recommended B, with C opened as its own issue. | |
-| Q2 | Item 3: approve the done-condition table, including the `No findings.` Caliper row and the results template header change? | |
-| Q3 | Item 4: which option defines the handoff — A (the spec path, with Role 3 citing the existing obligations) or B (a composed block)? Recommended A. | |
+| Q1 | Item 1: which option governs an operational config change — A (`chore/*`), B (direct commit to `dev`), or C (move the state out of git)? Recommended B, with C opened as its own issue. | Answered 20261008 by Ray: neither A nor B. A commit to `dev` still loses track of a change made while a `feature/*` or `chore/*` branch is checked out. The standards as written have no good answer, so an exception is written instead: a change the CLI makes to tracked files during live use is committed as one commit on the branch being completed next, whatever its type. |
+| Q2 | Item 3: approve the done-condition table, including the `No findings.` Caliper row and the results template header change? | Answered 20261008 by Ray: accepted. |
+| Q3 | Item 4: which option defines the handoff — A (the spec path, with Role 3 citing the existing obligations) or B (a composed block)? Recommended A. | Answered 20261008 by Ray: A. The prompt carries as little as possible and the spec speaks for itself. Defects began only once composed handoffs replaced `Anvil implement <spec>`. |
 
 ## 6. Disposition
 
-- Promoted to: <spec, once Q1–Q3 are answered>
+- Promoted to: `../specs/CYCLE_PROCESS_CORRECTIONS_SPEC.md`
