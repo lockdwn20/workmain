@@ -30,6 +30,9 @@
 | 20261008 | Caliper | 3: Spanner's "Next stage" cannot be derived from read 4, which finds only design studies and specs. | Ray's direction 20261008: cite `docs/DEVELOPMENT_STANDARDS.md` rather than write per-role definitions of done into the skill. Read 4 also finds the results artifact, and Next stage cites §1.1 and §1.5 for the stages and spec status. The standards state no done condition for Implementation, so that one condition cites `docs/dev/results/_TEMPLATE_RESULTS.md` §3. The missing §1.1 done conditions, and the undefined Spanner-to-Anvil handoff, are carried to the correction issue (Step 3d). |
 | 20261008 | Caliper | 7: AC1.1 requires `.claude/skills/` to hold `closeout` and `session-start` only, so an unrelated skill added later fails it without breaking its intent. | Accepted, on Ray's direction 20261008: AC1.1 checks that `session-start` exists with its files and makes no claim about other skills. |
 
+| 20261008 | Caliper | 2/5: §6 says no file under `config/` changes, but `e5727c5` changes `config/ai_settings.json`, which six tests read directly (`tests/test_report_generator.py:36`, `tests/test_ai_providers_offline.py:25`, `tests/test_narration.py:27`, `tests/test_intent_parser.py:297`, `tests/test_note_condenser.py:158`, `tests/test_provider_foundation.py:978`); the baseline predates it. | Accepted. §6 names the commit and the reads, and records the suite at `a415051`, after the swap, matching the baseline. |
+| 20261008 | Caliper | 3/5: §7's rollback says every step touches only new files; Steps 3 and 4 edit existing files, and reverting Step 3 alone leaves the Step 4 citations pointing at a section that no longer exists. | Accepted. §7 states the revert order. |
+
 ---
 
 ## 1. Scope
@@ -352,10 +355,10 @@ None. The merge to `main` belongs to `/closeout`.
 ## 6. Test plan
 
 - **Baseline before this work**, recorded at `6a2781b` when the branch was cut: `pytest` 1155 passed, 0 failed, 0 skipped; `pytest automation/` 58 passed, 0 failed, 0 skipped.
-- **Expected after:** identical. No file under `tests/`, `automation/`, `workmain/`, `config/` or `templates/` changes, so no test is added.
+- **Expected after:** identical, and no test is added. No file under `tests/`, `automation/`, `workmain/` or `templates/` changes. `e5727c5` changes `config/ai_settings.json`, which six tests read directly (Decision Log, 20261008); the suites at `a415051`, after that commit, report the baseline counts, so the provider switch moves no count.
 
 ## 7. Risks and rollback
 
 - **Every board item is a parent with open children.** Read 1 then finds no item. The run emits `none` for the item and lists the parents it passed over; it does not fall back to the first parent.
 - **Live `config/` edits fail Anvil's clean-tree read.** Ray's working-tree edits to `config/ai_settings.json` are listed as a discrepancy. The discrepancy is reported, not resolved; Role 3 decides from there.
-- **Rollback:** each step is one commit touching only new files; `git revert` of either removes it with no other effect.
+- **Rollback:** one commit per step, reverted newest first. Revert Step 4 before Step 3: Step 4's citations point at `SKILL.md` § THREE-ROLE MODEL, which Step 3 created, so reverting Step 3 first leaves them pointing at nothing. Steps 1 and 2 add new files only and revert last.
