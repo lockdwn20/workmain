@@ -1,6 +1,6 @@
 # Session-Start Skill — Spec
 
-**Status:** Approved
+**Status:** Draft
 **Author:** Spanner (Role 1)
 **Date:** 20261007
 **Branch:** `chore/issue-85-session-start`
@@ -18,17 +18,20 @@
 | 20261007 | Spanner | The issue's AC7 reads the `--limit` from "the command in the reference". `docs/DEVELOPMENT_STANDARDS.md` §1.6 already owns the board-read command, `--limit` included, and `CLAUDE.md`'s opening gives every rule one home. A copy in the reference is a second home that drifts the first time §1.6 changes. | The Spanner reference runs §1.6's command by citation. AC7.1 checks the limit in the command the reference cites. The issue's AC7 is reworded at close-out to match. |
 | 20261007 | Spanner | `disable-model-invocation: true`, as `closeout` carries. A role is declared by the person in the session; a skill the model can load on its own would let it declare one. | Applied. The verification runs in AC4.1–AC6.1 are therefore Ray's invocations; Spanner records their output. |
 | 20261007 | Ray | Board order puts #80 above its own child #85, so a no-target Spanner run that reports the first open item reports a parent, which is not workable. | Option A: a no-target run skips every item whose sub-issues are not all closed and reports the first that remains, naming each parent it passed over. A blocked item is not skipped; its blockers are reported, so board position still decides. |
+| 20261008 | Ray | With the skill in place, the role definitions belong in it rather than in `CLAUDE.md` § THREE-ROLE MODEL: one home, so a change to one role or to all of them is one edit, and each role carries its next steps with it. This reverses the issue's premise that the skill cites `CLAUDE.md` for the roles. | Applied as Steps 3 and 4. The issue's ACs 8, 9 and 10 are reworded at close-out to match AC8.1–AC10.1. |
+| 20261008 | Spanner | Where the moved text can live. Per the Claude Code skills reference (`https://code.claude.com/docs/en/skills`, § "Skill content lifecycle"), an invoked `SKILL.md` stays in context and is re-attached after auto-compaction (first 5,000 tokens); a reference file is loaded by a read and can be summarised away. Rules that hold for the whole session must therefore be in `SKILL.md`. Inlining only the declared role's reference through `!`-command injection was considered: untested argument substitution order, and a failing command aborts the whole invocation. | Ray chose all three role definitions in `SKILL.md`, references holding only the session-open run. Carrying the other two roles is required, not a cost: a role has to know the others to hand a spec to Caliper or a handoff to Anvil. |
 
 ---
 
 ## 1. Scope
 
-**In scope:** four new files — `.claude/skills/session-start/SKILL.md` and `references/spanner.md`, `references/caliper.md`, `references/anvil.md` — plus this spec and its results artifact.
+**In scope:** four new files — `.claude/skills/session-start/SKILL.md` and `references/spanner.md`, `references/caliper.md`, `references/anvil.md` — plus this spec and its results artifact. The move of `CLAUDE.md` § THREE-ROLE MODEL into `SKILL.md`, and the three citations that point at it: `CLAUDE.md` § Critical Rules ("Stop and surface"), the `docs/DEVELOPMENT_STANDARDS.md` preamble, and `docs/dev/specs/_TEMPLATE_SPEC.md` §3.
 
 **Out of scope:**
 
 - Enforcing that a session is in a role — the issue's own exclusion.
-- Any edit to `CLAUDE.md`, `docs/DEVELOPMENT_STANDARDS.md` (including §2.7) or the `closeout` skill. The skill cites them; it changes none of them.
+- Any other edit to `CLAUDE.md` or `docs/DEVELOPMENT_STANDARDS.md` (including §2.7), and any edit to the `closeout` skill.
+- `Role 1`, `Role 2` and `Role 3` used as names in `docs/DEVELOPMENT_STANDARDS.md` §1.1–§1.5 and in the template `**Author:**` fields. They name a role and cite no section, so they resolve against wherever the definitions live.
 - Session close. `/closeout` covers an issue's close; a per-session close summary is not in #85.
 - Any write by the skill. Every source it names is read-only; it creates no branch, file, commit or GitHub object.
 
@@ -36,11 +39,11 @@
 
 - **DR1 — Refuse before reading.** The first thing a run does is validate its arguments. No tool call precedes it.
 - **DR2 — Named sources only.** A run reads the sources its reference names, in the order named, and emits only what they carry. A source that cannot be read is reported unreadable; nothing is reconstructed in its place.
-- **DR3 — Cite, never copy.** Every role definition, rule and command another document owns is cited by its section. No file in the skill enumerates or counts a set `CLAUDE.md` or `docs/DEVELOPMENT_STANDARDS.md` owns.
+- **DR3 — One home for the roles; cite everything else.** `SKILL.md` § THREE-ROLE MODEL is the only statement of what each role is, does and hands to the others; nothing else states it. Every other rule and command another document owns is cited by its section, never copied.
 - **DR4 — Common once.** What holds for all three roles lives in `SKILL.md`; a reference carries only its role's target, reads and emits.
 - **DR5 — Same inputs, same run.** Identical arguments against identical repository and GitHub state produce identical output. No editorial commentary and no closing summary.
 
-Anything not covered: `CLAUDE.md` § Role 3 — stop and surface to Ray.
+Anything not covered: `.claude/skills/session-start/SKILL.md` § Role 3 — stop and surface to Ray.
 
 ## 4. Steps
 
@@ -48,7 +51,9 @@ Anything not covered: `CLAUDE.md` § Role 3 — stop and surface to Ray.
 | --- | --- | --- |
 | 1 | Write `SKILL.md` with the exact text below. Commit `chore(skills): add the session-start skill entry point`. | `.claude/skills/session-start/SKILL.md` |
 | 2 | Write the three references with the exact text below. Commit `chore(skills): add the session-start role references`. | `.claude/skills/session-start/references/{spanner,caliper,anvil}.md` |
-| 3 | Write the results artifact from `docs/dev/results/_TEMPLATE_RESULTS.md`: the §5 AC table, the output of each Ray-invoked run named in AC4.1–AC6.1, the AC7.1 count comparison, and the suite counts. Commit `docs(results): record the session-start skill results for issue #85`. | `docs/dev/results/SESSION_START_RESULTS.md` |
+| 3 | Move the role definitions into `SKILL.md` and repoint the references to them, with the exact text in § Step 3 below. Commit `chore(skills): make session-start the home of the role definitions`. | `.claude/skills/session-start/SKILL.md`, `.claude/skills/session-start/references/{spanner,caliper,anvil}.md` |
+| 4 | Replace `CLAUDE.md` § THREE-ROLE MODEL with its pointer and repoint the three citations, with the exact text in § Step 4 below. Commit `docs(standards): point role citations at the session-start skill`. | `CLAUDE.md`, `docs/DEVELOPMENT_STANDARDS.md`, `docs/dev/specs/_TEMPLATE_SPEC.md` |
+| 5 | Write the results artifact from `docs/dev/results/_TEMPLATE_RESULTS.md`: the §5 AC table, the output of each Ray-invoked run named in AC4.1–AC6.1, the AC7.1 count comparison, and the suite counts. Commit `docs(results): record the session-start skill results for issue #85`. | `docs/dev/results/SESSION_START_RESULTS.md` |
 
 ### Step 1 — `.claude/skills/session-start/SKILL.md`
 
@@ -178,6 +183,117 @@ With no finding, the run emits `No findings.` and nothing else. No other comment
 Every read runs and every discrepancy is reported; the run does not stop at the first. What happens next is `CLAUDE.md` § Role 3.
 ````
 
+### Step 3 — the role definitions move into `SKILL.md`
+
+**3a — `SKILL.md`, the paragraph under the title.** Replace:
+
+> This skill **reads**. It writes no file, creates no branch or commit, and makes no GitHub change. It assembles the state a role needs before it acts, from the sources that role's reference names, in the order named. What each role is and does is `CLAUDE.md` § THREE-ROLE MODEL; this skill restates none of it.
+
+with:
+
+````markdown
+The session-open run **reads**. It writes no file, creates no branch or commit, and makes no GitHub change. It assembles the state a role needs before it acts, from the sources that role's reference names, in the order named.
+
+§ THREE-ROLE MODEL below is the only statement of what each role is, does and hands to the others. It holds for the whole session, not only for the run.
+````
+
+**3b — `SKILL.md`, appended after `## Anything not covered here` and its line.** A `---` rule, then `CLAUDE.md` lines 30–75 moved word for word, with one sentence changed. The section's second line reads `Each chat session begins with the role clearly stated.` today; it becomes `` Each chat session begins with `/session-start <role>`. `` — invoking the skill is now how the role is stated. The full appended text:
+
+````markdown
+---
+
+## THREE-ROLE MODEL ⭐
+
+Operating outside this model causes architecture drift. Each chat session begins with `/session-start <role>`.
+
+**Model changes happen between chats, not during chats.**
+
+### Role 1 - Claude Code (VS Code UI) / Opus - Codename: Spanner - Spec Planner & Keeper
+
+All design authority lives here:
+
+- Writes all specs; makes all architecture decisions.
+- Maintains the implementation plan and workflow.
+- Identifies any workflow, phasing or sprint issues immediately to Ray.
+- Resolves conflicts in design and project documentation during planning, so they never reach implementation. Ray is the final authority on all documentation changes.
+
+**Role 1 Critical Rule.** The easiest way is not always the correct way:
+
+- All designs follow the established application services, orchestration and workflows.
+- Do not consider a parallel design path because it is easier than planning against the existing one.
+
+### Role 2 - Claude Code (CLI) / Opus - Codename: Caliper - Spec Reviewer
+
+Reviews every spec before implementation begins, against these criteria:
+
+1. Which acceptance criteria are not mechanically testable?
+2. Which claims about existing behavior were asserted rather than verified against code?
+3. Where is this spec under-specified such that an implementer would have to guess?
+4. What here is scope that wasn't in the originating item?
+5. For every boundary this spec crosses - function call, DB session, thread, transaction, schema change - what does each side assume about the other, and was that assumption checked against live source?
+6. Does this spec introduce a new path where an existing service, orchestrator, or workflow already covers the case?
+7. Which acceptance criteria could be satisfied by a change that does not achieve what the criterion is for? — how a criterion is worded so that difference is visible: `docs/DEVELOPMENT_STANDARDS.md` §1.2.
+
+Findings go BACK to Role 1, never forward. You do not implement.
+
+### Role 3 - Claude Code / Sonnet - Codename: Anvil - Implementer
+
+Works from approved specs only. Read the full spec end to end, cross-check and validate all references, and report discrepancies before touching step 1.
+
+If you encounter anything the spec doesn't cover, or that requires a design decision:
+
+1. **STOP at the current step** - do not proceed
+2. **Document the issue clearly** in chat
+3. **Tell Ray** - he will bring it to Spanner
+4. **Do NOT self-resolve** - no scope adjustments, no in-flow architecture calls
+
+**Choosing the cheapest way to turn an acceptance criterion green is a design decision.** Where the least-effort way to satisfy a criterion and the way that achieves what it is for come apart, that is not an implementer's call — it is the case above, and it stops at 1 through 4. How a criterion is worded so the two are distinguishable: `docs/DEVELOPMENT_STANDARDS.md` §1.2.
+````
+
+**3c — the references.** `CLAUDE.md` becomes `SKILL.md` in each role citation, and nothing else on the line changes:
+
+| File | Line | Before | After |
+| --- | --- | --- | --- |
+| `references/spanner.md` | 3 | `` **Role:** `CLAUDE.md` § Role 1. `` | `` **Role:** `SKILL.md` § Role 1. `` |
+| `references/caliper.md` | 3 | `` **Role:** `CLAUDE.md` § Role 2. `` | `` **Role:** `SKILL.md` § Role 2. `` |
+| `references/caliper.md` | 14 | `` the review criteria `CLAUDE.md` § Role 2 carries `` | `` the review criteria `SKILL.md` § Role 2 carries `` |
+| `references/anvil.md` | 3 | `` **Role:** `CLAUDE.md` § Role 3. `` | `` **Role:** `SKILL.md` § Role 3. `` |
+| `references/anvil.md` | 22 | `` What happens next is `CLAUDE.md` § Role 3. `` | `` What happens next is `SKILL.md` § Role 3. `` |
+
+### Step 4 — `CLAUDE.md` and the citations that point at the roles
+
+**4a — `CLAUDE.md` § THREE-ROLE MODEL.** Lines 30–75, quoted in full at 3b, are replaced by:
+
+````markdown
+## THREE-ROLE MODEL ⭐
+
+A session opens in its declared role with `/session-start <role>`. What each role is, does and hands to the others is `.claude/skills/session-start/SKILL.md` § THREE-ROLE MODEL, and is stated nowhere else.
+````
+
+**4b — `CLAUDE.md` § Critical Rules, "Stop and surface", its last sub-bullet.** Ray-approved reword, 20261008. Replace:
+
+> This entry is the full statement of the global rule; Role 3 below holds the implementation-specific form.
+
+with:
+
+> This entry is the full statement of the global rule; `.claude/skills/session-start/SKILL.md` § Role 3 holds the implementation-specific form.
+
+**4c — `docs/DEVELOPMENT_STANDARDS.md`, preamble, line 3.** Replace:
+
+> How work gets built. `CLAUDE.md` owns who does what (the three-role model), what this project is (stack, architecture), and domain decisions (tag system, time format, trigger terminology, write-path map). This document owns everything else — process, git workflow, code patterns, database, CLI structure, and testing.
+
+with:
+
+> How work gets built. `.claude/skills/session-start/SKILL.md` owns who does what (the three-role model). `CLAUDE.md` owns what this project is (stack, architecture) and domain decisions (tag system, time format, trigger terminology, write-path map). This document owns everything else — process, git workflow, code patterns, database, CLI structure, and testing.
+
+**4d — `docs/dev/specs/_TEMPLATE_SPEC.md` §3, last line.** Replace:
+
+> State explicitly what an implementer should do when they hit something not covered: see `CLAUDE.md` Role 3 for the escalation  procedure.
+
+with:
+
+> State explicitly what an implementer should do when they hit something not covered: see `.claude/skills/session-start/SKILL.md` § Role 3 for the escalation procedure.
+
 ### Authorization points
 
 None. The merge to `main` belongs to `/closeout`.
@@ -193,9 +309,9 @@ None. The merge to `main` belongs to `/closeout`.
 | AC5.1 | The skill stops before reading any source when the role is absent or unknown, or when Caliper or Anvil has no spec path | Ray invokes `/session-start`, `/session-start Hammer` and `/session-start Caliper`; the results artifact records for each that the output is the usage line and that no tool call preceded it |
 | AC6.1 | `Spanner` with no target reports the next open item from the board; with an issue number it opens on that item | Ray invokes `/session-start Spanner` and `/session-start Spanner 85`; both outputs are recorded in the results artifact |
 | AC7.1 | The queue read the Spanner reference cites passes an explicit `--limit` above the current open-issue count, so the default of 30 cannot truncate the board | Read the `--limit` in the `docs/DEVELOPMENT_STANDARDS.md` §1.6 command that `references/spanner.md` cites, and compare it against `gh issue list --state open --limit 300 --json number --jq length`; both values are recorded in the results artifact |
-| AC8.1 | Each reference cites its own role's section of `CLAUDE.md` — Role 1 from Spanner, Role 2 from Caliper, Role 3 from Anvil | `grep -n 'CLAUDE.md. § Role' .claude/skills/session-start/references/*.md` shows `Role 1` in `spanner.md`, `Role 2` in `caliper.md` and `Role 3` in `anvil.md` |
-| AC9.1 | No file in the skill restates the three-role model, a role's duties, the review criteria, or any rule `CLAUDE.md` or `docs/DEVELOPMENT_STANDARDS.md` owns; each is cited by section | Stated reading by Ray of the four files against `CLAUDE.md`'s opening single-home rule |
-| AC10.1 | No file in the skill enumerates or counts a set `CLAUDE.md` owns | `grep -rniE 'criteri\|role model\|Role [123]\|duties' .claude/skills/session-start/` and a stated reading by Ray that every hit is a citation, not a list or a count |
+| AC8.1 | Each reference cites its own role's section of `SKILL.md` — Role 1 from Spanner, Role 2 from Caliper, Role 3 from Anvil — so a reader of any one is sent to the role definition rather than given a copy | `grep -n 'SKILL.md. § Role' .claude/skills/session-start/references/*.md` shows `Role 1` in `spanner.md`, `Role 2` in `caliper.md` and `Role 3` in `anvil.md`, and no reference line cites `CLAUDE.md` for a role |
+| AC9.1 | The role definitions have one home, `SKILL.md` § THREE-ROLE MODEL: no live document outside the skill states a role's duties, the review criteria or the stop procedure, and `CLAUDE.md` § THREE-ROLE MODEL is the Step 4a pointer | `grep -rnE 'Codename:\|Reviews every spec\|STOP at the current step\|Role 1 Critical Rule' --include='*.md' .`, excluding `docs/archive/` and this spec, hits only `.claude/skills/session-start/SKILL.md`; and a stated reading by Ray of `CLAUDE.md` § THREE-ROLE MODEL against Step 4a |
+| AC10.1 | No live document sends a reader to `CLAUDE.md` for a role, so every role citation resolves to the one home | `grep -rnE 'CLAUDE\.md`?( §)? Role [123]\|Role [123] below\|CLAUDE\.md` owns who does what' --include='*.md' .`, excluding `docs/archive/` and this spec, returns zero hits |
 | AC11.1 | `pytest` and `pytest automation/` report the same passed, failed and skipped counts as at the start of the branch, since no application code changes | Both suites run at close-out and compared against the baseline in §6 |
 
 ## 6. Test plan
