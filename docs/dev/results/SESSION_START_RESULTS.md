@@ -1,6 +1,6 @@
 # Session-Start Skill — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261008
 **Spec:** `../specs/SESSION_START_SPEC.md`
@@ -131,6 +131,7 @@ The `docs/DEVELOPMENT_STANDARDS.md` §1.6 read, then `gh issue view <N> --json s
 | --- | --- | --- |
 | `6a2781b` (branch cut) | 1155 passed, 0 failed, 0 skipped | 58 passed, 0 failed, 0 skipped |
 | `a415051` (after Step 4, includes `e5727c5`) | 1155 passed, 0 failed, 0 skipped | 58 passed, 0 failed, 0 skipped |
+| `1af9033` (close-out preflight P8; P9 n/a, no `automation/` change) | 1155 passed, 0 failed, 0 skipped | — |
 
 ## 6. Follow-ups
 
