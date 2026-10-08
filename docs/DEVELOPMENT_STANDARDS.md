@@ -1,6 +1,6 @@
 # WorkmAIn Development Standards
 
-How work gets built. `CLAUDE.md` owns who does what (the three-role model), what this project is (stack, architecture), and domain decisions (tag system, time format, trigger terminology, write-path map). This document owns everything else — process, git workflow, code patterns, database, CLI structure, and testing.
+How work gets built. `.claude/skills/session-start/SKILL.md` owns who does what (the three-role model). `CLAUDE.md` owns what this project is (stack, architecture) and domain decisions (tag system, time format, trigger terminology, write-path map). This document owns everything else — process, git workflow, code patterns, database, CLI structure, and testing.
 
 Read the relevant section before writing code. The only text here also stated in `CLAUDE.md` is its § Critical Rules subset; nothing else appears in both.
 
