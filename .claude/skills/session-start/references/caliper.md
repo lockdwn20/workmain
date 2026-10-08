@@ -1,6 +1,6 @@
 # Caliper session open
 
-**Role:** `CLAUDE.md` § Role 2. **Target:** a spec path, required.
+**Role:** `SKILL.md` § Role 2. **Target:** a spec path, required.
 
 ## Reads, in order
 
@@ -11,7 +11,7 @@
 
 ## Emits
 
-Findings against the review criteria `CLAUDE.md` § Role 2 carries, as a table with the spec's Decision Log header and one row per finding. Resolution is left empty — it is filled when the finding is resolved:
+Findings against the review criteria `SKILL.md` § Role 2 carries, as a table with the spec's Decision Log header and one row per finding. Resolution is left empty — it is filled when the finding is resolved:
 
 ```markdown
 | Date | Source | Decision or finding | Resolution |

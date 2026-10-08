@@ -1,6 +1,6 @@
 # Anvil session open
 
-**Role:** `CLAUDE.md` § Role 3. **Target:** a spec path, required.
+**Role:** `SKILL.md` § Role 3. **Target:** a spec path, required.
 
 ## Reads, in order
 
@@ -19,4 +19,4 @@
   - the current branch is not the spec's `**Branch:**`
   - a reference that does not resolve, or resolves to something other than what the spec says is there
 
-Every read runs and every discrepancy is reported; the run does not stop at the first. What happens next is `CLAUDE.md` § Role 3.
+Every read runs and every discrepancy is reported; the run does not stop at the first. What happens next is `SKILL.md` § Role 3.
