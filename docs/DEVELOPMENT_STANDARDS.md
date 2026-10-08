@@ -196,6 +196,14 @@ chore/*    — documentation/process/tooling only. From main, merges to main AND
 - **No version bump, no `CHANGELOG.md` entry, no tag, no Release.** A doc-only change is not an application release.
 - Scope: One tightly-related set of files edited for a single reason.
 
+**Operational changes from live use.**
+
+- WorkmAIn is in daily use while it is developed, and some `workmain` commands write tracked files as part of normal operation — `workmain providers set default`, for example, writes `config/ai_settings.json`. The change appears uncommitted on whichever branch is checked out, and is not part of that branch's work.
+- It is committed on the next branch to be completed, of any type, before `/closeout` runs: one commit, separate from the branch's own work, typed `chore(config)` or `chore(templates)`, whose body states that it is an operational change made through the CLI.
+- It needs no spec and no acceptance criterion, is not scope of the issue the branch serves, and does not count toward the `hotfix/*` file limit.
+- It does not change whether the merge is a release: a `chore/*` merge carrying it is still not one, and a `feature/*` or `hotfix/*` merge is released as it would be without it.
+- It covers only a file a `workmain` command wrote. A hand edit to `config/` or `templates/` is development, and takes the branch its change requires.
+
 **hotfix/* → feature/* exception.**
 
 - When a hotfix is a direct prerequisite for a feature branch and has no standalone value
@@ -284,7 +292,7 @@ Confirm the new `ActiveEnterTimestamp` postdates the merge commit before calling
 - Combine hotfix and feature work on one branch.
 - Write code before creating the branch.
 - Leave a merged branch alive, or let `dev` sit ahead of `main`.
-- Use `chore/*` for application code, `config/*`, `templates/*`, `tests/**`, or `CHANGELOG.md` — except under the `chore/*` exception in §2.2.
+- Use `chore/*` for application code, `config/*`, `templates/*`, `tests/**`, or `CHANGELOG.md` — except under the `chore/*` exception or the operational-change exception in §2.2.
 - Report a `dev` merge as deployed without a confirmed post-merge restart.
 - Use `git commit --no-verify`.
 
