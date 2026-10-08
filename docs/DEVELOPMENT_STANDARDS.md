@@ -50,6 +50,18 @@ SPEC  →  APPROVAL  →  IMPLEMENTATION  →  CLOSE-OUT
 
 **What the direct path trades.** With no recon, no Role 2 pass and no separate implementer, **Ray's approval is the only review between the spec and the edit**, and scope that no acceptance criterion named is caught *after* implementation, by the results artifact's deviations table, rather than *before* it by recon and review. On a document that is recoverable — the text is there to read and the fix is another edit. On application code it is not, which is why the path is keyed on the branch type and not on how small the change looks.
 
+**What shows each stage done.** Each stage is done when its artifact or field shows it, and not before. A stage on both paths has the same condition on each.
+
+| Stage | Done when |
+| --- | --- |
+| Recon | A `docs/dev/design/` artifact names the issue in its `**Originating item:**` field. |
+| Analysis | Every row of that artifact's §5 Open questions carries an answer. |
+| Spec | A `docs/dev/specs/` artifact names the issue in its `**Originating item:**` field. |
+| Review | The spec's Decision Log carries at least one `Caliper` row, and every `Caliper` row has a resolution. A clean pass is the `No findings.` row `/session-start Caliper` emits for one. |
+| Approval | The spec's `**Status:**` is `Approved`. |
+| Implementation | A results artifact in the `results/` directory beside the spec names it in its `**Spec:**` field. The implementing role writes it as its last implementation step. |
+| Close-out | The spec's `**Status:**` is `Shipped`, and the artifact set is in `docs/archive/`. |
+
 ### 1.2 Spec authoring rules
 
 - Every claim about existing behaviour is verified against source at authoring time — cite file and symbol. Assertions that were not verified are the most common spec defect. This principle is the same on both paths; only its form differs.
@@ -67,6 +79,7 @@ SPEC  →  APPROVAL  →  IMPLEMENTATION  →  CLOSE-OUT
   - `docs/dev/specs/_TEMPLATE_SPEC.md` §5 carries the two as separate columns, `Criterion` and `How it is checked`. On an issue, `.github/ISSUE_TEMPLATE/issue.schema.json` carries them as separate fields, and `automation/issue_validator.py` refuses a criterion that states only a command. A criterion that passes the validator still has to meet this rule.
 - **A criterion that verifies changed behaviour names the entry path it exercises.** Where more than one entry path reaches the change, the criteria cover the set, or state which paths are omitted and why. A green check through the one path that works is not coverage: #79's live check ran `workmain providers test claude`, which goes through `ProviderManager` — the one path the #130 defect could not reach.
 - **Where a criterion is a property of a document rather than of running code, the check may be a stated reading by Ray.** It is still a check, and it still names what is being read: the section, and what the reader is reading it for. `docs/dev/specs/_TEMPLATE_SPEC.md` §5 states the same and cites here.
+  - **A check that names Ray is Ray's sign-off.** The implementer records its results row as `Not met`, with `Awaiting Ray` as its evidence, never `Met` on its own reading or run. Ray changes the row once he has checked it.
 - **The wording rule and the entry-path rule apply to criteria authored from here forward.** Criteria already written are not rewritten and no issue is reopened to reword one; there is no retrospective sweep of the queue.
 - A spec may map sub-ACs to the ACs on the originating issue using the numbering `ACn.m`, which is what lets close-out read the set mechanically. An unmapped sub-AC verifies nothing the issue asked for.
 - At least one Role 2 review pass before a spec is approved — on the full path. On the direct path a Role 2 pass is optional and at Ray's discretion.
