@@ -21,6 +21,11 @@
 | 20261008 | Ray | With the skill in place, the role definitions belong in it rather than in `CLAUDE.md` § THREE-ROLE MODEL: one home, so a change to one role or to all of them is one edit, and each role carries its next steps with it. This reverses the issue's premise that the skill cites `CLAUDE.md` for the roles. | Applied as Steps 3 and 4. The issue's ACs 8, 9 and 10 are reworded at close-out to match AC8.1–AC10.1. |
 | 20261008 | Spanner | Where the moved text can live. Per the Claude Code skills reference (`https://code.claude.com/docs/en/skills`, § "Skill content lifecycle"), an invoked `SKILL.md` stays in context and is re-attached after auto-compaction (first 5,000 tokens); a reference file is loaded by a read and can be summarised away. Rules that hold for the whole session must therefore be in `SKILL.md`. Inlining only the declared role's reference through `!`-command injection was considered: untested argument substitution order, and a failing command aborts the whole invocation. | Ray chose all three role definitions in `SKILL.md`, references holding only the session-open run. Carrying the other two roles is required, not a cost: a role has to know the others to hand a spec to Caliper or a handoff to Anvil. |
 
+| 20261008 | Caliper | 4: `e5727c5` changes `config/ai_settings.json` on this branch, outside §1's scope; `docs/DEVELOPMENT_STANDARDS.md` §2.8 keeps `config/*` off `chore/*`, so close-out would ship a config change to `main` with no release. | Accepted as a deviation on Ray's direction, 20261008: the commit is an operational provider switch made through the CLI during live use, not development. The missing rule for operational changes is carried to the correction issue opened at the end of this work. |
+| 20261008 | Caliper | 3: the results step names "the §5 AC table"; `docs/dev/results/_TEMPLATE_RESULTS.md` carries the AC table in §3, which `/closeout` reads. | Accepted. Step 5 names the spec's §5 ACs as the results artifact's §3 table. |
+| 20261008 | Caliper | 1/7: AC4.1 and AC6.1 record outputs but state no pass condition, so any recorded output passes. The Anvil run also ended with a recommendation its reference does not allow. | Accepted. Both criteria carry a pass condition. `SKILL.md`'s run rules end every run at its reference's last emitted item (Step 3a). |
+| 20261008 | Caliper | 7/3: `SKILL.md` lists the role names, and AC10.1's grep cannot see them. | Resolved by the role move: `SKILL.md` is the home of the role set, so naming the roles there restates nothing. |
+
 ---
 
 ## 1. Scope
@@ -53,7 +58,7 @@ Anything not covered: `.claude/skills/session-start/SKILL.md` § Role 3 — stop
 | 2 | Write the three references with the exact text below. Commit `chore(skills): add the session-start role references`. | `.claude/skills/session-start/references/{spanner,caliper,anvil}.md` |
 | 3 | Move the role definitions into `SKILL.md` and repoint the references to them, with the exact text in § Step 3 below. Commit `chore(skills): make session-start the home of the role definitions`. | `.claude/skills/session-start/SKILL.md`, `.claude/skills/session-start/references/{spanner,caliper,anvil}.md` |
 | 4 | Replace `CLAUDE.md` § THREE-ROLE MODEL with its pointer and repoint the three citations, with the exact text in § Step 4 below. Commit `docs(standards): point role citations at the session-start skill`. | `CLAUDE.md`, `docs/DEVELOPMENT_STANDARDS.md`, `docs/dev/specs/_TEMPLATE_SPEC.md` |
-| 5 | Write the results artifact from `docs/dev/results/_TEMPLATE_RESULTS.md`: the §5 AC table, the output of each Ray-invoked run named in AC4.1–AC6.1, the AC7.1 count comparison, and the suite counts. Commit `docs(results): record the session-start skill results for issue #85`. | `docs/dev/results/SESSION_START_RESULTS.md` |
+| 5 | Write the results artifact from `docs/dev/results/_TEMPLATE_RESULTS.md`: this spec's §5 ACs as the results artifact's §3 table, the output of each Ray-invoked run named in AC4.1–AC6.1, the AC7.1 count comparison, and the suite counts. Commit `docs(results): record the session-start skill results for issue #85`. | `docs/dev/results/SESSION_START_RESULTS.md` |
 
 ### Step 1 — `.claude/skills/session-start/SKILL.md`
 
@@ -185,7 +190,7 @@ Every read runs and every discrepancy is reported; the run does not stop at the 
 
 ### Step 3 — the role definitions move into `SKILL.md`
 
-**3a — `SKILL.md`, the paragraph under the title.** Replace:
+**3a — `SKILL.md`, the paragraph under the title and one run rule.** Replace:
 
 > This skill **reads**. It writes no file, creates no branch or commit, and makes no GitHub change. It assembles the state a role needs before it acts, from the sources that role's reference names, in the order named. What each role is and does is `CLAUDE.md` § THREE-ROLE MODEL; this skill restates none of it.
 
@@ -196,6 +201,14 @@ The session-open run **reads**. It writes no file, creates no branch or commit, 
 
 § THREE-ROLE MODEL below is the only statement of what each role is, does and hands to the others. It holds for the whole session, not only for the run.
 ````
+
+and, in `## Rules every run holds`, replace the second bullet:
+
+> Emit only what those sources carry, in the shape the reference states. No commentary, no recommendation the reference does not name, no closing summary.
+
+with:
+
+> Emit only what those sources carry, in the shape the reference states, and end at the last item its Emits list names. No commentary, no recommendation the reference does not name, no closing summary.
 
 **3b — `SKILL.md`, appended after `## Anything not covered here` and its line.** A `---` rule, then `CLAUDE.md` lines 30–75 moved word for word, with one sentence changed. The section's second line reads `Each chat session begins with the role clearly stated.` today; it becomes `` Each chat session begins with `/session-start <role>`. `` — invoking the skill is now how the role is stated. The full appended text:
 
@@ -305,9 +318,9 @@ None. The merge to `main` belongs to `/closeout`.
 | AC1.1 | One skill exists, with exactly one reference per role and no separate per-role skill | `ls .claude/skills/ .claude/skills/session-start/ .claude/skills/session-start/references/` shows `closeout` and `session-start` only, `SKILL.md` and `references/`, and exactly `anvil.md caliper.md spanner.md` |
 | AC2.1 | The requirements common to all three roles — the read-only property, Step 0's refusal, the four run rules and the reference dispatch — are stated in `SKILL.md` and in no reference | Stated reading by Ray of `SKILL.md` and the three references, for any common rule appearing in a reference |
 | AC3.1 | Each reference names its target, the sources it reads in numbered order, and what the run emits | Stated reading by Ray of the three references, for whether each run's reads and output can be told without running it |
-| AC4.1 | A run emits state assembled only from its reference's named sources, with nothing a source carries reconstructed | Ray invokes `/session-start Spanner`, `/session-start Caliper docs/dev/specs/SESSION_START_SPEC.md` and `/session-start Anvil docs/dev/specs/SESSION_START_SPEC.md` against the live repository; each output is recorded in the results artifact with the reads the run made |
+| AC4.1 | A run emits state assembled only from its reference's named sources, with nothing a source carries reconstructed and nothing beyond its Emits list | Ray invokes `/session-start Spanner`, `/session-start Caliper docs/dev/specs/SESSION_START_SPEC.md` and `/session-start Anvil docs/dev/specs/SESSION_START_SPEC.md` against the live repository. The results artifact records each output beside the source reads it made. Passes when every fact in each output matches the source read it came from, and no output carries an item its reference's Emits list does not name |
 | AC5.1 | The skill stops before reading any source when the role is absent or unknown, or when Caliper or Anvil has no spec path | Ray invokes `/session-start`, `/session-start Hammer` and `/session-start Caliper`; the results artifact records for each that the output is the usage line and that no tool call preceded it |
-| AC6.1 | `Spanner` with no target reports the next open item from the board; with an issue number it opens on that item | Ray invokes `/session-start Spanner` and `/session-start Spanner 85`; both outputs are recorded in the results artifact |
+| AC6.1 | `Spanner` with no target reports the next open item from the board; with an issue number it opens on that item | Ray invokes `/session-start Spanner` and `/session-start Spanner 85`. Passes when the first run's item equals the item derived independently — the `docs/DEVELOPMENT_STANDARDS.md` §1.6 read, skipping each item whose sub-issues are not all closed, recorded in the results artifact — and the second run's item is #85 |
 | AC7.1 | The queue read the Spanner reference cites passes an explicit `--limit` above the current open-issue count, so the default of 30 cannot truncate the board | Read the `--limit` in the `docs/DEVELOPMENT_STANDARDS.md` §1.6 command that `references/spanner.md` cites, and compare it against `gh issue list --state open --limit 300 --json number --jq length`; both values are recorded in the results artifact |
 | AC8.1 | Each reference cites its own role's section of `SKILL.md` — Role 1 from Spanner, Role 2 from Caliper, Role 3 from Anvil — so a reader of any one is sent to the role definition rather than given a copy | `grep -n 'SKILL.md. § Role' .claude/skills/session-start/references/*.md` shows `Role 1` in `spanner.md`, `Role 2` in `caliper.md` and `Role 3` in `anvil.md`, and no reference line cites `CLAUDE.md` for a role |
 | AC9.1 | The role definitions have one home, `SKILL.md` § THREE-ROLE MODEL: no live document outside the skill states a role's duties, the review criteria or the stop procedure, and `CLAUDE.md` § THREE-ROLE MODEL is the Step 4a pointer | `grep -rnE 'Codename:\|Reviews every spec\|STOP at the current step\|Role 1 Critical Rule' --include='*.md' .`, excluding `docs/archive/` and this spec, hits only `.claude/skills/session-start/SKILL.md`; and a stated reading by Ray of `CLAUDE.md` § THREE-ROLE MODEL against Step 4a |
