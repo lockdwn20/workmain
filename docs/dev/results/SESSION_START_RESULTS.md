@@ -42,7 +42,7 @@ Complete. `/session-start <role> [target]` exists at `.claude/skills/session-sta
 
 | # | Deviation | Reason | Approved by |
 | --- | --- | --- | --- |
-| 1 | `e5727c5` commits `config/ai_settings.json` on this `chore/*` branch | Operational provider switch made through the CLI during live use, carried forward from `dev`; not development. Recorded in the spec's Decision Log; the missing rule is carried to the correction issue (§6) | Ray, 20261008 |
+| 1 | `e5727c5` commits `config/ai_settings.json` on this `chore/*` branch | Operational provider switch made through the CLI during live use, carried forward from `dev`; not development. Recorded in the spec's Decision Log; the missing rule is carried to #180 (§6) | Ray, 20261008 |
 | 2 | The spec was revised after Steps 1 and 2 shipped: the role-definition move (Steps 3 and 4) and nine Caliper findings, C1–C9, from the verification runs | The Caliper run against this spec surfaced the findings; the move was Ray's direction once the skill existed. Each revision is in the spec's Decision Log | Ray, 20261008 |
 
 ## 5. Verification
@@ -136,5 +136,5 @@ The `docs/DEVELOPMENT_STANDARDS.md` §1.6 read, then `gh issue view <N> --json s
 
 | Item | Description | Why deferred |
 | --- | --- | --- |
-| Correction issue | One issue, one AC per entry: (1) a `CLAUDE.md` rule for CLI operations during live use that are not development; (2) the `**Originating item:**` placeholder in `docs/dev/specs/_TEMPLATE_SPEC.md` and `docs/dev/design/_TEMPLATE_DESIGN.md` still reads `Backlog Item #N`; (3) `docs/DEVELOPMENT_STANDARDS.md` §1.1 states no done condition for each stage, so `references/spanner.md` cites `_TEMPLATE_RESULTS.md` §3 for Implementation; (4) the Spanner-to-Anvil handoff is defined nowhere | Outside the skill's scope; one issue on Ray's direction, 20261008 |
+| #180 | One issue, one AC per entry: (1) a `CLAUDE.md` rule for CLI operations during live use that are not development; (2) the `**Originating item:**` placeholder in `docs/dev/specs/_TEMPLATE_SPEC.md` and `docs/dev/design/_TEMPLATE_DESIGN.md` still reads `Backlog Item #N`; (3) `docs/DEVELOPMENT_STANDARDS.md` §1.1 states no done condition for each stage, so `references/spanner.md` cites `_TEMPLATE_RESULTS.md` §3 for Implementation; (4) the Spanner-to-Anvil handoff is defined nowhere | Outside the skill's scope; one issue on Ray's direction, 20261008 |
 | Issue #85 AC wording | ACs 1, 4, 6, 7, 8, 9 and 10 on the issue are reworded to match AC1.1, AC4.1, AC6.1, AC7.1 and AC8.1–AC10.1 | The issue edit is a GitHub write, made at close-out |
