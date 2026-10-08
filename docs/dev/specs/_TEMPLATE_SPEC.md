@@ -58,7 +58,7 @@ Numbered invariants the implementation must hold to. These are what an implement
 - **DR1 —**
 - **DR2 —**
 
-State explicitly what an implementer should do when they hit something not covered: see `CLAUDE.md` Role 3 for the escalation  procedure.
+State explicitly what an implementer should do when they hit something not covered: see `.claude/skills/session-start/SKILL.md` § Role 3 for the escalation procedure.
 
 ## 4. Steps
 
