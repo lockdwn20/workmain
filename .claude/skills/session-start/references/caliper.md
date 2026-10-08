@@ -19,4 +19,4 @@ Findings against the review criteria `SKILL.md` § Role 2 carries, as a table wi
 | <YYYYMMDD> | Caliper | <criterion number>: <finding, with the evidence that grounds it> | |
 ```
 
-With no finding, the run emits `No findings.` and nothing else. No other commentary.
+With no finding, the run emits the same table with one row, `| <YYYYMMDD> | Caliper | No findings. | n/a |`, and nothing else. No other commentary.
