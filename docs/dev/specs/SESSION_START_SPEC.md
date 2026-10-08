@@ -140,11 +140,15 @@ Stop and surface to Ray.
 
 ## Emits
 
-Findings against the review criteria `CLAUDE.md` § Role 2 carries, one row per finding, shaped as a row of the spec's Decision Log:
+Findings against the review criteria `CLAUDE.md` § Role 2 carries, as a table with the spec's Decision Log header and one row per finding. Resolution is left empty — it is filled when the finding is resolved:
 
-`| <YYYYMMDD> | Caliper | <criterion number>: <finding, with the evidence that grounds it> | |`
+```markdown
+| Date | Source | Decision or finding | Resolution |
+| --- | --- | --- | --- |
+| <YYYYMMDD> | Caliper | <criterion number>: <finding, with the evidence that grounds it> | |
+```
 
-The Resolution column is left empty. With no finding, the run emits `No findings.` and nothing else. No other commentary.
+With no finding, the run emits `No findings.` and nothing else. No other commentary.
 ````
 
 ### Step 2 — `.claude/skills/session-start/references/anvil.md`
