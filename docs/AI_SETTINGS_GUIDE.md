@@ -58,9 +58,7 @@ Each key under `providers` is a `ProviderType` value (`workmain/ai/base_provider
 
 ### Gemini-Specific Fields
 
-Same fields as Claude. Gemini 2.5 Flash paid-tier pricing:
-- Prompt: `$0.15/MTok` → `cost_per_1k_prompt_tokens: 0.00015`
-- Completion: `$0.60/MTok` → `cost_per_1k_completion_tokens: 0.0006`
+Same fields as Claude.
 
 ### Ollama Fields
 

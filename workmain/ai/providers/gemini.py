@@ -121,14 +121,10 @@ class GeminiProvider(BaseProvider):
             try:
                 config_dict = self._generation_config(request.max_tokens)
 
-                # New google-genai API does not support system_instruction —
-                # prepend system prompt to user message instead
                 if request.system_prompt:
-                    full_prompt = f"{request.system_prompt}\n\n{request.prompt}"
-                else:
-                    full_prompt = request.prompt
+                    config_dict['system_instruction'] = request.system_prompt
 
-                contents = [full_prompt]
+                contents = [request.prompt]
 
                 response = self.client.models.generate_content(
                     model=self.model,
