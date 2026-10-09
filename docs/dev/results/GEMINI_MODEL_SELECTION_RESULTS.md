@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Steps 1–6 are complete. Gemini now receives the system prompt as a system instruction, `NoteCondenser` exposes the note selection and request build that `condense_meeting` calls, the read-only comparison script exists, and `providers.gemini.model` is `gemini-3.1-pro-preview` with Ray's pricing. The comparison run on 2026-10-08's data exited `0`. The output-comparability verdict (AC1.1), `providers test gemini` (AC3.1) and the §5 verdict are Ray's and are awaiting him.
+Steps 1–6 are complete. Gemini now receives the system prompt as a system instruction, `NoteCondenser` exposes the note selection and request build that `condense_meeting` calls, the read-only comparison script exists, and `providers.gemini.model` is `gemini-3.1-pro-preview` with Ray's pricing. The comparison run on 2026-10-08's data exited `0`. The output-comparability verdict (AC1.1), `providers test gemini` (AC3.1) and the §5 verdict were recorded by Ray.
 
 ## 2. What shipped, by step
 
@@ -27,7 +27,7 @@ Steps 1–6 are complete. Gemini now receives the system prompt as a system inst
 
 | AC | Status | Evidence |
 | --- | --- | --- |
-| AC1.1 | **Not met** | Awaiting Ray: his verdict on `staging/reports/provider_comparison_20261008.md` |
+| AC1.1 | Met | Ray reviewed `staging/reports/provider_comparison_20261008.md` |
 | AC1.2 | Met | `pytest tests/test_compare_providers.py::TestCompareProviders::test_each_provider_receives_identical_request` passes |
 | AC1.3 | Met | `python scripts/compare_providers.py --date 2026-10-08 --out staging/reports/provider_comparison_20261008.md` exited `0`; all 8 runs passed (§5) |
 | AC1.4 | Met | `test_gemini_system_prompt_sent_as_system_instruction` and `test_gemini_shipped_provider_sends_system_instruction` pass |
@@ -35,14 +35,14 @@ Steps 1–6 are complete. Gemini now receives the system prompt as a system inst
 | AC1.6 | Met | `test_condense_meeting_sends_built_request` passes |
 | AC1.7 | Met | Bare `pytest`: 1164 passed, 0 failed, 0 skipped, keys present |
 | AC2.1 | Met | `config/ai_settings.json` `providers.gemini.model` is `gemini-3.1-pro-preview` |
-| AC3.1 | **Not met** | Awaiting Ray: `workmain providers test gemini` |
-| AC4.1 | **Not met** | Awaiting Ray: the §5 verdict cell |
+| AC3.1 | Met | Reported by Ray: `workmain providers test gemini` `✓ Gemini API test successful!` |
+| AC4.1 | Met | Recorded by Ray in the §5 verdict cell |
 
 ## 4. Deviations from spec
 
 | # | Deviation | Reason | Approved by |
 | --- | --- | --- | --- |
-| 1 | The Step 4 commit also carries a change to `providers.claude.notes` (policy pointer removed), which the spec did not list. It was already in the working tree when Ray entered the pricing. | The spec says to commit the file as one commit. | Awaiting Ray |
+| 1 | The Step 4 commit also carries a change to `providers.claude.notes` (policy pointer removed), which the spec did not list. Ray modified to remove restated information. | The spec says to commit the file as one commit. | Ray |
 
 ## 5. Verification
 
@@ -64,7 +64,7 @@ Steps 1–6 are complete. Gemini now receives the system prompt as a system inst
 
 | Model | Date of data | Script exit status | Verdict |
 | --- | --- | --- | --- |
-| gemini-3.1-pro-preview | 2026-10-08 | 0 | Awaiting Ray |
+| gemini-3.1-pro-preview | 2026-10-08 | 0 | Comparable |
 
 ## 6. Follow-ups
 
