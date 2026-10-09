@@ -4,7 +4,7 @@
 **Kind:** Design study | Recon
 **Author:** Spanner (Role 1)
 **Date:** YYYYMMDD
-**Originating item:** Backlog Item #N | Ray request, YYYYMMDD
+**Originating item:** Issue #N | Ray request, YYYYMMDD
 
 > Delete this block before use.
 >

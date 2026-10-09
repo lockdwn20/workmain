@@ -5,7 +5,7 @@
 **Date:** YYYYMMDD
 **Branch:** `feature/<name>` (from `dev`) | `hotfix/<name>` (from `main`) | `chore/<name>`
 **Target release:** vX.Y.Z
-**Originating item:** Backlog Item #N | Ray request, YYYYMMDD
+**Originating item:** Issue #N | Ray request, YYYYMMDD
 **Design study:** `../design/<file>.md` | `n/a` — direct path, no recon was run
 
 > Delete this block before use.
