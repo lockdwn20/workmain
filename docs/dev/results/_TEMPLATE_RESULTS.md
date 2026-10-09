@@ -37,7 +37,7 @@ Every AC on the **approved spec**, by identifier, checked against **delivered co
 | --- | --- | --- |
 | AC1.1 | Met / **Not met** / Carried | `pytest ...` output, file:line, or command result |
 
-Anything not met is listed here and carried to the backlog with an item number. Do not quietly drop an unmet AC.
+Anything not met is listed here and carried to an issue, cited by its number — an open issue that already covers it where one exists, `docs/DEVELOPMENT_STANDARDS.md` §1.3. Do not quietly drop an unmet AC.
 
 ## 4. Deviations from spec
 
@@ -55,7 +55,7 @@ Where the implementation differs from what was specified, and why. Includes anyt
 
 ## 6. Follow-ups
 
-Additional issues created by this work, and any item deliberately left for later.
+Additional issues created by this work, or the open issue an item was added to where one already covered it (`docs/DEVELOPMENT_STANDARDS.md` §1.3), and any item deliberately left for later.
 
 | Item | Description | Why deferred |
 | --- | --- | --- |
