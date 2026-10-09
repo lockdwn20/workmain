@@ -1,6 +1,6 @@
 # Gemini Model Selection — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261009
 **Branch:** `hotfix/issue-181-gemini-model-selection` (from `main`)
@@ -29,6 +29,7 @@
 | 20261009 | Caliper | F6: AC1.2's test only checks that candidate equals baseline for `daily_internal`, so a script with its own prompt text passes. | Accepted. The test also asserts that the `daily_internal` request equals `preview_report`'s prompts and `get_max_tokens('daily_internal')` for the sentinel date. |
 | 20261009 | Caliper | F7: `needs_condensation` has no callers. §2 and DR2 assumed it did without checking. | Accepted. Step 2 deletes it. |
 | 20261009 | Caliper | Second pass: no test scores a skipped call type, so a `compare`/`exit_status` pair that records a skip as a pass meets every §6 test, and Step 6 could exit `0` with `weekly_client` missing. | Accepted. `test_run_outcome_sets_exit_status` adds a skip produced by `compare` itself: `types=['weekly_client']` with `SystemStateRepository.get_int` patched to return `None`. It asserts the run is recorded as skipped and `exit_status` returns `1`. |
+| 20261009 | Ray | Caliper's review resolved. | Approved for implementation. |
 
 ---
 
