@@ -1,6 +1,6 @@
 # Duplicate Issue Search and Issue Splits — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261009
 **Spec:** `../specs/DUPLICATE_ISSUE_SEARCH_SPEC.md`
@@ -41,6 +41,8 @@ None.
 
 - **Test suite:** `pytest` 1164 passed, 0 failed, 0 skipped. `pytest automation/` 58 passed, 0 failed, 0 skipped. Baseline is the same counts: the change touches no file under `tests/` or `automation/`.
 - **Live verification:** n/a. The change is to documents only.
+- **Daemon restart:** n/a. `chore/*` carries no restart, `docs/DEVELOPMENT_STANDARDS.md` §2.6.
+- **Close-out preflight:** `pytest` 1164 passed, 0 failed, 0 skipped, re-run at close-out. `pytest automation/` was not required (`P9` n/a), since no path under `automation/` changed.
 
 ## 6. Follow-ups
 

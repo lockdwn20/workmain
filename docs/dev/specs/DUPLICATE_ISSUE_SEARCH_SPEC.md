@@ -1,6 +1,6 @@
 # Duplicate Issue Search and Issue Splits — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261009
 **Branch:** `chore/issue-183-duplicate-issue-search`
