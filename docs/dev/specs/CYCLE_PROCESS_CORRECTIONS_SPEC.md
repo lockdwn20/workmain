@@ -1,6 +1,6 @@
 # Cycle Process Corrections — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261008
 **Branch:** `chore/issue-180-cycle-process-corrections`
