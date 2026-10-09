@@ -310,6 +310,30 @@ class TestGeminiPolicyPayload:
             assert config.top_p is None
             assert config.top_k is None
 
+    def test_gemini_system_prompt_sent_as_system_instruction(self):
+        """The system prompt is a system instruction; the prompt is the only content."""
+        provider, client = self._build_gemini({
+            "thinking_config": {"thinking_level": "high"},
+            "automatic_function_calling": {"disable": True},
+        })
+        client.models.generate_content.return_value = self._fake_gemini_response()
+        provider.generate(GenerationRequest(prompt="USER", system_prompt="SYS", max_tokens=20))
+        call = client.models.generate_content.call_args
+        assert call.kwargs["config"].system_instruction == "SYS"
+        assert call.kwargs["contents"] == ["USER"]
+
+    def test_gemini_no_system_prompt_sends_no_system_instruction(self):
+        """A request with no system prompt sends no system instruction."""
+        provider, client = self._build_gemini({
+            "thinking_config": {"thinking_level": "high"},
+            "automatic_function_calling": {"disable": True},
+        })
+        client.models.generate_content.return_value = self._fake_gemini_response()
+        provider.generate(GenerationRequest(prompt="USER", max_tokens=20))
+        call = client.models.generate_content.call_args
+        assert call.kwargs["config"].system_instruction is None
+        assert call.kwargs["contents"] == ["USER"]
+
     def test_gemini_thinking_level_from_policy(self):
         """AC1.2 — the thinking level Gemini receives is the one in the policy."""
         provider, client = self._build_gemini(
@@ -501,6 +525,21 @@ class TestProviderManagerBuildsFromConfig:
             assert config.top_k is None
             assert config.thinking_config.thinking_budget is None
             assert config.thinking_config.thinking_level is not None
+
+    def test_gemini_shipped_provider_sends_system_instruction(self, offline_provider_env):
+        """The provider ProviderManager builds sends the system prompt as a system instruction."""
+        provider = ProviderManager().get_provider('gemini')
+        generate_content = provider.client.models.generate_content
+        response = generate_content.return_value
+        response.text = "ok"
+        response.usage_metadata.prompt_token_count = 4
+        response.usage_metadata.candidates_token_count = 2
+        response.usage_metadata.total_token_count = 6
+        response.candidates = []
+        provider.generate(GenerationRequest(prompt="USER", system_prompt="SYS", max_tokens=20))
+        call = generate_content.call_args
+        assert call.kwargs["config"].system_instruction == "SYS"
+        assert call.kwargs["contents"] == ["USER"]
 
     def test_claude_cost_estimation(self, offline_provider_env):
         provider = ProviderManager().get_provider('claude')
