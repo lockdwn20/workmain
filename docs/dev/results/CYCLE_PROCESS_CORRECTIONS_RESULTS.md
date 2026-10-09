@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-All four #180 items are delivered as the spec's quoted replacement text: the operational-change exception, the template placeholders, the stage done conditions with the Ray-owned check rule, and the Spanner→Anvil handoff. The work is complete. Five criteria are checks that name Ray, and they wait on his reading.
+All four #180 items are delivered as the spec's quoted replacement text: the operational-change exception, the template placeholders, the stage done conditions with the Ray-owned check rule, and the Spanner→Anvil handoff. The work is complete. Six criteria are checks that name Ray, and they wait on his reading.
 
 ## 2. What shipped, by step
 
@@ -19,7 +19,7 @@ All four #180 items are delivered as the spec's quoted replacement text: the ope
 | 1 | §2.2 operational-change exception; §2.8 cites it (`e8b094a`) | `docs/DEVELOPMENT_STANDARDS.md` | +0 |
 | 2 | `Issue #N` in both `Originating item` placeholders (`6cbd57e`) | `docs/dev/specs/_TEMPLATE_SPEC.md`, `docs/dev/design/_TEMPLATE_DESIGN.md` | +0 |
 | 3 | §1.1 done-condition table; §1.2 Ray-owned check rule; results template `Active` (`bb0ac0f`) | `docs/DEVELOPMENT_STANDARDS.md`, `docs/dev/results/_TEMPLATE_RESULTS.md` | +0 |
-| 4 | Spanner read 4 and Next stage; Caliper clean-pass row (`fcb1e38`) | `.claude/skills/session-start/references/spanner.md`, `.claude/skills/session-start/references/caliper.md` | +0 |
+| 4 | Spanner read 4 and Next stage; Caliper clean-pass row (`fcb1e38`); branch-type recommendation, as amended (`0d1bb1c`) | `.claude/skills/session-start/references/spanner.md`, `.claude/skills/session-start/references/caliper.md` | +0 |
 | 5 | § Spanner → Anvil handoff; Role 1 and Role 3 citations (`a1aa571`) | `.claude/skills/session-start/SKILL.md` | +0 |
 
 ## 3. Acceptance criteria
@@ -32,6 +32,7 @@ All four #180 items are delivered as the spec's quoted replacement text: the ope
 | AC3.1 | Not met | Awaiting Ray — stated reading of `docs/DEVELOPMENT_STANDARDS.md` §1.1 § What shows each stage done |
 | AC3.2 | Met | `grep -nE '_TEMPLATE_RESULTS\|§1\.[25]' .claude/skills/session-start/references/spanner.md` returns zero hits (exit 1) |
 | AC3.3 | Not met | Awaiting Ray — stated reading of `spanner.md` read 4 against the §1.1 table |
+| AC3.6 | Not met | Awaiting Ray — stated reading of `spanner.md` § Emits, Next stage |
 | AC3.4 | Met | `caliper.md:22` emits the one-row table `\| <YYYYMMDD> \| Caliper \| No findings. \| n/a \|` |
 | AC3.5 | Met | `_TEMPLATE_RESULTS.md:3` reads `**Status:** Active \| Shipped \| Superseded` |
 | AC4.1 | Not met | Awaiting Ray — stated reading of `SKILL.md` § Spanner → Anvil handoff, § Role 1 and § Role 3 |
