@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.42.2] - 2026-10-09
+
+Gemini 3.6 Flash produced daily, weekly and condensation output well below what `claude-sonnet-5` produces from the same data. Gemini now runs `gemini-3.1-pro-preview`, which Ray judged comparable in a side-by-side on 2026-10-08's data. Gemini had also never received a system prompt, because `GeminiProvider` pasted it into the user message (issue #181).
+
+### Added
+
+- `scripts/compare_providers.py`: sends one date's production prompts to a candidate and a baseline provider and writes their output side by side. It writes nothing to the database, and it exits `1` if any run fails, is truncated, returns empty content or is skipped
+
+### Changed
+
+- `GeminiProvider.generate()` sends the system prompt as `system_instruction` and the prompt unaltered
+- `NoteCondenser.condense_meeting()` gets its notes from `select_condensation_notes()` and its request from `build_condensation_request()`, so the comparison script builds the same request
+- `config/ai_settings.json` `providers.gemini.model` is `gemini-3.1-pro-preview`, at its published price
+- `docs/AI_SETTINGS_GUIDE.md` § Gemini-Specific Fields no longer quotes prices; `config/ai_settings.json` holds them
+
+### Removed
+
+- `NoteCondenser.needs_condensation()`, which had no caller
+
+Suite: 1164 passed, 0 failed, 0 skipped (baseline 1155 passed, 0 failed, 0 skipped).
+
 ## [1.42.1] - 2026-10-07
 
 Every Gemini request carried `temperature: 0.3` from its payload policy. Since Gemini 3.6 Flash the value has no effect, and Google has announced that later Gemini models reject requests carrying `temperature`, `top_p` or `top_k`, so moving to a newer model would have made every Gemini request fail (issue #179).
