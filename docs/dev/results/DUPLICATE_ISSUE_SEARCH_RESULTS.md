@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Complete. `docs/DEVELOPMENT_STANDARDS.md` §1.3 adds two rules. Before any issue is opened, the open issues are searched for one that already covers it. An issue that its own design study splits carries the study's findings into the new issues, and the study is then narrowed or deleted. §1.2 and the results template cite the search rule rather than restating it, and the retired term "backlog" is gone from both templates. AC1.1, AC2.1 and AC3.1 are Ray's readings and await him.
+Complete. `docs/DEVELOPMENT_STANDARDS.md` §1.3 adds two rules. Before any issue is opened, the open issues are searched for one that already covers it. An issue that its own design study splits carries the study's findings into the new issues, and the study is then narrowed or deleted. §1.2 and the results template cite the search rule rather than restating it, and the retired term "backlog" is gone from both templates. AC1.1, AC2.1 and AC3.1 have been read by Ray and marked as Met.
 
 ## 2. What shipped, by step
 
@@ -24,11 +24,11 @@ Complete. `docs/DEVELOPMENT_STANDARDS.md` §1.3 adds two rules. Before any issue
 
 | AC | Status | Evidence |
 | --- | --- | --- |
-| AC1.1 | Not met | Awaiting Ray |
-| AC2.1 | Not met | Awaiting Ray |
+| AC1.1 | Met | Read by Ray |
+| AC2.1 | Met | Read by Ray |
 | AC2.2 | Met | `grep -rn 'state open --search' docs/DEVELOPMENT_STANDARDS.md CLAUDE.md .claude/ docs/dev/*/_TEMPLATE_*.md` returns one line, `docs/DEVELOPMENT_STANDARDS.md:97`, which is inside §1.3 |
 | AC2.3 | Met | `grep -rni 'backlog' docs/dev/*/_TEMPLATE_*.md` returns zero hits, exit 1 |
-| AC3.1 | Not met | Awaiting Ray |
+| AC3.1 | Met | Read by Ray |
 
 ## 4. Deviations from spec
 
