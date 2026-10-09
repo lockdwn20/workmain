@@ -1,6 +1,6 @@
 # Cycle Process Corrections — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261008
 **Spec:** `../specs/CYCLE_PROCESS_CORRECTIONS_SPEC.md`
@@ -44,7 +44,7 @@ None.
 
 ## 5. Verification
 
-- **Test suite:** not run during implementation. The branch touches no file under `tests/`, `automation/`, `workmain/`, `config/` or `templates/`, and close-out's P8 and P9 run the suites.
+- **Test suite:** 1155 passed, 0 failed, 0 skipped (baseline: 1155 passed, 0 failed, 0 skipped — the branch changes no file under `tests/`, `automation/`, `workmain/`, `config/` or `templates/`). Run at close-out preflight P8; P9 `n/a`, no path under `automation/` changed.
 - **Live verification:** none. Documents and skill references only.
 - **Lint:** `markdownlint-cli2` over the changed files reports four errors, all in lines this branch did not touch: `docs/DEVELOPMENT_STANDARDS.md:18` and `:34` (MD036) and `:130` (MD038).
 - **Daemon restart:** none. `chore/*` carries none (`docs/DEVELOPMENT_STANDARDS.md` §2.6).
