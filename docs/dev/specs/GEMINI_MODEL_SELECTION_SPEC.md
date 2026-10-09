@@ -28,6 +28,7 @@
 | 20261009 | Caliper | F5: AC1.6's equality test passes with `condense_meeting` unchanged, so it doesn't prove production calls the two new methods. | Accepted. The test patches both methods to return sentinels and asserts that `condense_meeting` sends the sentinel request built from the sentinel notes. |
 | 20261009 | Caliper | F6: AC1.2's test only checks that candidate equals baseline for `daily_internal`, so a script with its own prompt text passes. | Accepted. The test also asserts that the `daily_internal` request equals `preview_report`'s prompts and `get_max_tokens('daily_internal')` for the sentinel date. |
 | 20261009 | Caliper | F7: `needs_condensation` has no callers. §2 and DR2 assumed it did without checking. | Accepted. Step 2 deletes it. |
+| 20261009 | Caliper | Second pass: no test scores a skipped call type, so a `compare`/`exit_status` pair that records a skip as a pass meets every §6 test, and Step 6 could exit `0` with `weekly_client` missing. | Accepted. `test_run_outcome_sets_exit_status` adds a skip produced by `compare` itself: `types=['weekly_client']` with `SystemStateRepository.get_int` patched to return `None`. It asserts the run is recorded as skipped and `exit_status` returns `1`. |
 
 ---
 
@@ -160,7 +161,7 @@ If Ray's AC1.1 verdict is "not comparable", AC2.1 cannot be met as worded. Close
 
 - `test_each_provider_receives_identical_request`: `types=['daily_internal', 'note_condensation']`. For each request, the candidate's call and the baseline's call carry equal `prompt`, `system_prompt` and `max_tokens`, and `provider_override` names candidate then baseline. The `daily_internal` request's `system_prompt` and `prompt` equal `ReportGenerator(db_session, provider_manager=pm).preview_report('daily_internal', <sentinel date>)`'s `system_prompt` and `user_prompt`, and its `max_tokens` equals `pm.get_max_tokens('daily_internal')`. The `note_condensation` request equals `build_condensation_request` for the seeded meeting.
 - `test_comparison_writes_nothing`: patch `db_session.commit` with a mock. After `compare`, assert the mock was not called and that `db_session.new`, `.dirty` and `.deleted` are empty.
-- `test_run_outcome_sets_exit_status`: `exit_status(runs)` is `0` when every response has content and `FinishReason.STOP` or `end_turn`. It is `1` for each of these: `FinishReason.MAX_TOKENS` with content, `FinishReason.SAFETY` with empty content, `FinishReason.STOP` with empty content, no reason in `metadata`, and a recorder that raises.
+- `test_run_outcome_sets_exit_status`: `exit_status(runs)` is `0` when every response has content and `FinishReason.STOP` or `end_turn`. It is `1` for each of these: `FinishReason.MAX_TOKENS` with content, `FinishReason.SAFETY` with empty content, `FinishReason.STOP` with empty content, no reason in `metadata`, a recorder that raises, and a skipped call type. The skip comes from `compare(..., types=['weekly_client'])` with `SystemStateRepository.get_int` patched to return `None`, so the recorder is never called and the run is recorded as skipped.
 - `test_default_types_follow_routing`: with `types=None`, the call types in the returned runs, skipped ones included, are exactly the `report_types` entries whose `primary_provider` is the candidate. Changing one entry's primary in the copy changes the set.
 
 ## 7. Risks and rollback
