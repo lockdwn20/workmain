@@ -15,5 +15,5 @@
 - **Item** — number, title, state, milestone, labels, parent, or `none`. Without a target, also each parent passed over in read 1.
 - **Blocked by** — each blocker with its state, or `none`.
 - **Artifacts** — each design study, spec and results artifact found, with its `Status:`, or `none`.
-- **Next stage** — the first stage on the item's `docs/DEVELOPMENT_STANDARDS.md` §1.1 path that §1.1's done conditions, applied to the artifacts found, do not show done. The path is the branch type a found spec's `**Branch:**` field or the issue body states; where neither states one, say so and name the first stage of each path.
+- **Next stage** — the first stage on the item's `docs/DEVELOPMENT_STANDARDS.md` §1.1 path that §1.1's done conditions, applied to the artifacts found, do not show done. The path is the branch type a found spec's `**Branch:**` field or the issue body states. Where neither states one, name the recommended branch type by `docs/DEVELOPMENT_STANDARDS.md` §2.2 — `chore/*` where the issue names only what §2.2's `chore/*` block covers; otherwise `hotfix/*` over `feature/*` unless the issue shows an escalation trigger §2.2 names, and which one — and the first stage of that path. The recommendation is Ray's to confirm before any branch is cut.
 - **Branch** — the branch read 5 found, or `none exists`.
