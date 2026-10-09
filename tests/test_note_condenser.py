@@ -25,7 +25,7 @@ from unittest.mock import patch
 
 import pytest
 
-from workmain.ai.base_provider import GenerationResponse, ProviderType
+from workmain.ai.base_provider import GenerationRequest, GenerationResponse, ProviderType
 from workmain.ai.note_condenser import NoteCondenser, _compute_condensed_tags
 from workmain.ai.provider_manager import ProviderManager
 from workmain.database.models import Meeting, Note
@@ -225,3 +225,67 @@ class TestNoteCondensationRouting:
             condenser.condense_meeting(meeting)
 
         assert "provider_override" not in recorded["kwargs"]
+
+
+class TestCondensationRequest:
+    """select_condensation_notes / build_condensation_request are the one
+    definition condense_meeting itself calls."""
+
+    def _meeting(self, db_session, title):
+        meeting = Meeting(
+            title=title,
+            start_time=_MEETING_START,
+            end_time=datetime(2099, 6, 5, 9, 30),
+            is_recurring=False,
+        )
+        db_session.add(meeting)
+        db_session.commit()
+        db_session.refresh(meeting)
+        return meeting
+
+    def test_select_condensation_notes_filters(self, db_session):
+        meeting = self._meeting(db_session, "Sentinel Select Meeting 2099")
+        repo = NotesRepository(db_session)
+        keep = repo.create(
+            content="Qualifying", tags=["client-report"],
+            meeting_id=meeting.id, source="meeting", created_at=_MEETING_START,
+        )
+        repo.create(
+            content="FYI only", tags=["info-only"],
+            meeting_id=meeting.id, source="meeting", created_at=_MEETING_START,
+        )
+        repo.create(
+            content="Earlier summary", tags=["client-report"],
+            meeting_id=meeting.id, source="condensed", created_at=_MEETING_START,
+        )
+        repo.create(
+            content="Other day", tags=["client-report"],
+            meeting_id=meeting.id, source="meeting",
+            created_at=datetime(2099, 6, 4, 9, 0),
+        )
+
+        notes = NoteCondenser(db_session).select_condensation_notes(meeting)
+
+        assert [n.id for n in notes] == [keep.id]
+
+    def test_condense_meeting_sends_built_request(self, tmp_path, db_session):
+        meeting = self._meeting(db_session, "Sentinel Built Request Meeting 2099")
+        pm, recorded = _stubbed_manager(tmp_path)
+        condenser = NoteCondenser(db_session)
+        condenser.provider_manager = pm
+
+        sentinel_notes = [SimpleNamespace(tags=["client-report"], content="x")]
+        sentinel_request = GenerationRequest(prompt="SENTINEL", max_tokens=1)
+
+        with patch.object(
+            condenser, "select_condensation_notes", return_value=sentinel_notes
+        ), patch.object(
+            condenser, "build_condensation_request", return_value=sentinel_request
+        ) as build, pytest.raises(_SentinelStop):
+            condenser.condense_meeting(meeting)
+
+        build.assert_called_once()
+        called_meeting, called_notes = build.call_args.args
+        assert called_meeting.id == meeting.id
+        assert called_notes is sentinel_notes
+        assert recorded["request"] is sentinel_request

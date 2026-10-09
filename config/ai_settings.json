@@ -17,23 +17,23 @@
       "timeout_seconds": 60,
       "retry_attempts": 3,
       "retry_delay_seconds": 1.0,
-      "notes": "Claude Sonnet 5 - fallback provider for all report types and note condensation. Request payload policy (thinking disabled, no sampling) lives in config/providers/claude/settings.json."
+      "notes": "Claude Sonnet 5 - fallback provider for all report types and note condensation."
     },
     "gemini": {
       "enabled": true,
       "accepts": [
         "system_prompt"
       ],
-      "model": "gemini-3.6-flash",
+      "model": "gemini-3.1-pro-preview",
       "api_key_env": "GOOGLE_API_KEY",
-      "cost_per_1k_prompt_tokens": 0.00075,
-      "cost_per_1k_completion_tokens": 0.00375,
-      "cost_structure": "$.75/MTok prompt, $3.75/MTok completion",
+      "cost_per_1k_prompt_tokens": 0.002,
+      "cost_per_1k_completion_tokens": 0.012,
+      "cost_structure": "$2.00/MTok prompt, $12.00/MTok completion (prompts ≤ 200k tokens)",
       "rate_limit_rpm": 60,
       "timeout_seconds": 60,
       "retry_attempts": 3,
       "retry_delay_seconds": 1.0,
-      "notes": "Gemini 3.6 Flash - $0.75/MTok input, $3.75/MTok output"
+      "notes": "Gemini 3.1 Pro Preview - $2.00/MTok input, $12.00/MTok output at ≤ 200k-token prompts; $4.00/$18.00 above, not modelled"
     },
     "ollama": {
       "enabled": true,

@@ -84,6 +84,50 @@ class NoteCondenser:
         self.style_adapter = get_style_adapter()
         self.provider_manager = get_provider_manager()
     
+    def select_condensation_notes(self, meeting: Meeting) -> List[Note]:
+        """
+        Return the notes a condensation of this meeting occurrence reads.
+
+        Scoped to the occurrence's own date, excluding info-only (#ifo) notes
+        and condensed summary notes. Date scoping prevents notes from previous
+        recurring occurrences that share the same meeting_id from polluting
+        the condensation input. Read-only.
+
+        Args:
+            meeting: Meeting object
+
+        Returns:
+            Notes ordered by created_at
+        """
+        meeting_date = meeting.start_time.date()
+        return self.session.query(Note).filter(
+            Note.meeting_id == meeting.id,
+            Note.created_date == meeting_date,
+            ~Note.tags.op('@>')(['info-only']),
+            Note.source != 'condensed'
+        ).order_by(Note.created_at).all()
+
+    def build_condensation_request(
+        self,
+        meeting: Meeting,
+        notes: List[Note],
+    ) -> GenerationRequest:
+        """
+        Build the generation request for condensing a meeting's notes.
+
+        Args:
+            meeting: Meeting object
+            notes: Notes from select_condensation_notes()
+
+        Returns:
+            GenerationRequest with the condensation prompts and token cap
+        """
+        return GenerationRequest(
+            prompt=self._build_condensation_prompt(meeting, notes),
+            max_tokens=self.provider_manager.get_max_tokens('note_condensation'),
+            system_prompt=self._get_system_prompt()
+        )
+
     def condense_meeting(
         self,
         meeting: Meeting,
@@ -108,17 +152,7 @@ class NoteCondenser:
         if not db_meeting:
             raise ValueError(f"Meeting with ID {meeting.id} not found in database")
         
-        # Get notes for this meeting occurrence only (scoped to meeting date),
-        # excluding info-only (#ifo) notes and condensed summary notes.
-        # Date scoping prevents notes from previous recurring occurrences that share
-        # the same meeting_id from polluting the condensation input.
-        meeting_date = db_meeting.start_time.date()
-        notes = self.session.query(Note).filter(
-            Note.meeting_id == db_meeting.id,
-            Note.created_date == meeting_date,
-            ~Note.tags.op('@>')(['info-only']),
-            Note.source != 'condensed'
-        ).order_by(Note.created_at).all()
+        notes = self.select_condensation_notes(db_meeting)
 
         resolved_tags = _compute_condensed_tags(notes)
 
@@ -130,16 +164,8 @@ class NoteCondenser:
             self.session.commit()
             return default_summary, resolved_tags
         
-        # Build condensation prompt (now includes writing style)
-        prompt = self._build_condensation_prompt(db_meeting, notes)
-        
-        # Generate condensed summary
-        request = GenerationRequest(
-            prompt=prompt,
-            max_tokens=self.provider_manager.get_max_tokens('note_condensation'),
-            system_prompt=self._get_system_prompt()
-        )
-        
+        request = self.build_condensation_request(db_meeting, notes)
+
         # Track cost
         self.cost_tracker.start_report(f"condense_{db_meeting.title}", datetime.now().date())
         
@@ -274,41 +300,6 @@ Do not include pleasantries or unnecessary words. Be direct and informative."""
             Condensed summary if exists, None otherwise
         """
         return meeting.condensed_summary
-    
-    def needs_condensation(self, meeting: Meeting) -> bool:
-        """
-        Check if meeting needs condensation.
-        
-        A meeting needs condensation if:
-        - It has notes
-        - It has not been condensed yet, OR
-        - Notes have been updated since last condensation
-        
-        Args:
-            meeting: Meeting object
-            
-        Returns:
-            True if condensation needed
-        """
-        # Scope to meeting date — same rationale as condense_meeting
-        meeting_date = meeting.start_time.date()
-        notes = self.session.query(Note).filter(
-            Note.meeting_id == meeting.id,
-            Note.created_date == meeting_date,
-            ~Note.tags.op('@>')(['info-only']),
-            Note.source != 'condensed'
-        ).all()
-        
-        if not notes:
-            return False
-        
-        # Never condensed
-        if not meeting.condensed_at:
-            return True
-        
-        # Check if any notes updated after condensation
-        latest_note_update = max(note.updated_at for note in notes)
-        return latest_note_update > meeting.condensed_at
 
 
 # Singleton instance
