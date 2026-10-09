@@ -1,10 +1,10 @@
 # Gemini Model Selection — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Anvil (Role 3)
 **Date:** 20261009
 **Spec:** `../specs/GEMINI_MODEL_SELECTION_SPEC.md`
-**Released as:** v1.42.2
+**Released as:** v1.42.2 (tag v1.42.2)
 
 ---
 
@@ -46,7 +46,8 @@ Steps 1–6 are complete. Gemini now receives the system prompt as a system inst
 
 ## 5. Verification
 
-- **Test suite:** 1164 passed, 0 failed, 0 skipped, keys present (baseline: 1155 passed, 0 failed, 0 skipped).
+- **Test suite:** 1164 passed, 0 failed, 0 skipped (baseline: 1155 passed, 0 failed, 0 skipped) — bare `pytest` at the repository root, `ANTHROPIC_API_KEY` and `GOOGLE_API_KEY` set in `.env`. Re-run at close-out after `b116175`: 1164 passed, 0 failed, 0 skipped.
+- **Live verification:** Ray's run of `workmain providers test gemini` on the branch against `gemini-3.1-pro-preview` (AC3.1), and the Step 6 comparison run below, which made live calls to both providers.
 - **Comparison run:** exit status `0`.
 
 | Call type | Request | Provider | Model | Reason | Result |

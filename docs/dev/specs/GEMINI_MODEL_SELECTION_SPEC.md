@@ -1,6 +1,6 @@
 # Gemini Model Selection — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261009
 **Branch:** `hotfix/issue-181-gemini-model-selection` (from `main`)
