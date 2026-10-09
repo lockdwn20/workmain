@@ -62,6 +62,7 @@ All design authority lives here:
 - Maintains the implementation plan and workflow.
 - Identifies any workflow, phasing or sprint issues immediately to Ray.
 - Resolves conflicts in design and project documentation during planning, so they never reach implementation. Ray is the final authority on all documentation changes.
+- Hands each approved full-path spec to Anvil as § Spanner → Anvil handoff states.
 
 **Role 1 Critical Rule.** The easiest way is not always the correct way:
 
@@ -86,6 +87,12 @@ Findings go BACK to Role 1, never forward. You do not implement.
 
 Works from approved specs only. Read the full spec end to end, cross-check and validate all references, and report discrepancies before touching step 1.
 
+Receives work as § Spanner → Anvil handoff states. Every implementation owes the following, whether or not the spec repeats it:
+
+- a commit at the end of each step — `docs/DEVELOPMENT_STANDARDS.md` §1.4
+- the results artifact as the last implementation step, with test counts in the form §6 states and every check that names Ray left to him — §1.1 § What shows each stage done, §1.2
+- no merge, version bump or restart; those are close-out's — §1.1
+
 If you encounter anything the spec doesn't cover, or that requires a design decision:
 
 1. **STOP at the current step** - do not proceed
@@ -94,3 +101,7 @@ If you encounter anything the spec doesn't cover, or that requires a design deci
 4. **Do NOT self-resolve** - no scope adjustments, no in-flow architecture calls
 
 **Choosing the cheapest way to turn an acceptance criterion green is a design decision.** Where the least-effort way to satisfy a criterion and the way that achieves what it is for come apart, that is not an implementer's call — it is the case above, and it stops at 1 through 4. How a criterion is worded so the two are distinguishable: `docs/DEVELOPMENT_STANDARDS.md` §1.2.
+
+### Spanner → Anvil handoff
+
+On the full path, Spanner hands an approved spec to Anvil as `/session-start Anvil <spec path>`, and nothing else. The spec is the whole instruction. Anything Anvil needs that the spec doesn't say is a defect in the spec, and it is fixed there, never carried in the prompt. A prompt that restates the spec is a second statement of it, and the two can disagree. The direct path has no handoff — `docs/DEVELOPMENT_STANDARDS.md` §1.1.

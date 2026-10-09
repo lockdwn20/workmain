@@ -1,6 +1,6 @@
 # <Title> — Implementation Results
 
-**Status:** Shipped | Superseded
+**Status:** Active | Shipped | Superseded
 **Author:** Anvil (Role 3) | Spanner (Role 1)
 **Date:** YYYYMMDD
 **Spec:** `../specs/<file>_SPEC.md`
