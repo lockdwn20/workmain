@@ -1,0 +1,115 @@
+# Duplicate Issue Search — Spec
+
+**Status:** Draft
+**Author:** Spanner (Role 1)
+**Date:** 20261009
+**Branch:** `chore/issue-183-duplicate-issue-search`
+**Target release:** n/a — `chore/*`, `docs/DEVELOPMENT_STANDARDS.md` §2.2
+**Originating item:** Issue #183, child of #80
+**Design study:** n/a — direct path, no recon was run
+
+---
+
+## Decision Log
+
+| Date | Source | Decision or finding | Resolution |
+| --- | --- | --- | --- |
+| 20261009 | Ray | #183 first asked how `/closeout` should handle a design study cited by several specs. That situation came from one cause: #182 was opened without searching for #148, #149 and #155. #183 is rewritten in place to fix that cause instead. | Issue #183 retitled and rewritten. The `#155 blocked by #183` link was removed, since #155 no longer waits on it. |
+| 20261009 | Ray | #182's design study is split into the write-ups of #148, #149 and #155, and each of them gets a design study of its own covering only its own items. No spec cites a study shared with another. | Out of scope here. It is done on GitHub and on each child's branch, not by this spec. |
+| 20261009 | Spanner | The rule lives in `docs/DEVELOPMENT_STANDARDS.md` §1.3, which is where issue discipline lives. The places that open issues cite it. | Steps 1 and 2. |
+| 20261009 | Spanner | `automation/issue_validator.py` gets no duplicate check. A keyword match can only list candidates for someone to read. The rule is the search plus the reading, and the validator cannot do the reading. | Out of scope. |
+
+---
+
+## 1. Scope
+
+**In scope:**
+
+- A new bullet in `docs/DEVELOPMENT_STANDARDS.md` §1.3 stating the search-before-opening rule.
+- A citation of it from each place that tells a role to open an issue or carry work to one. The places are found by the search in AC2.1: `docs/DEVELOPMENT_STANDARDS.md` §1.2's verification-defect bullet, and `docs/dev/results/_TEMPLATE_RESULTS.md` §3's carried-AC sentence and §6's Follow-ups sentence.
+
+**Out of scope:**
+
+- Any change to `automation/issue_validator.py` (Decision Log, 20261009).
+- What to do with a duplicate found after both issues are open. The rule prevents the duplicate. #182, the one existing case, is already restructured.
+- A sweep of the open queue for existing duplicates. §1.2 applies new rules forward only.
+- Splitting #182's design study (Decision Log, 20261009).
+
+## 3. Design rules
+
+- **DR1 —** The rule is stated once, in §1.3. Every other place cites §1.3 and restates none of it (`CLAUDE.md` opening).
+- **DR2 —** The rule names the search and what happens to a match. It does not name who runs it, because it applies to every role and every place an issue is opened.
+
+## 4. Steps
+
+| Step | Deliverable | Files |
+| --- | --- | --- |
+| 1 | Add the §1.3 bullet and cite it from §1.2, with the exact text in § Step 1. Commit `docs(standards): search the open issues before opening one, issue #183`. | `docs/DEVELOPMENT_STANDARDS.md` |
+| 2 | Cite §1.3 from the results template, with the exact text in § Step 2. Commit `docs(templates): cite the duplicate search from the results template, issue #183`. | `docs/dev/results/_TEMPLATE_RESULTS.md` |
+| 3 | Write the results artifact from `docs/dev/results/_TEMPLATE_RESULTS.md`. Its §3 table carries this spec's §5 ACs, with AC1.1 and AC2.1 at `Not met` / `Awaiting Ray`, AC2.2's command output, and the suite counts. Commit `docs(results): record the duplicate issue search results for issue #183`. | `docs/dev/results/DUPLICATE_ISSUE_SEARCH_RESULTS.md` |
+
+### Step 1 — `docs/DEVELOPMENT_STANDARDS.md`
+
+In §1.3, insert after the bullet that begins `- An issue must be independently verifiable on its own:`:
+
+```markdown
+- **An issue is opened only for what no open issue already covers.** Before any issue is opened — while planning, at close-out, or to carry a finding or an unmet acceptance criterion forward — the open issues are searched for one covering the same defect or gap: `gh issue list --state open --search "<term>"` once for each symbol, file and behaviour the new issue would name, and every result read. A finding an open issue already covers is added to that issue's context or acceptance criteria, and a new issue carries only the rest. #182 was opened for four defects found at #181's close-out. Three were already open as #148, #149 and #155, and a design study had been written across all four before the overlap was found.
+```
+
+In §1.2, replace:
+
+```markdown
+- Defects found during verification become their own hotfix, not sprint scope.
+```
+
+with:
+
+```markdown
+- Defects found during verification become their own hotfix, not sprint scope — on an open issue that already covers them where one exists, §1.3.
+```
+
+### Step 2 — `docs/dev/results/_TEMPLATE_RESULTS.md`
+
+In §3, replace:
+
+```markdown
+Anything not met is listed here and carried to the backlog with an item number. Do not quietly drop an unmet AC.
+```
+
+with:
+
+```markdown
+Anything not met is listed here and carried to the backlog with an item number — an open issue that already covers it where one exists, `docs/DEVELOPMENT_STANDARDS.md` §1.3. Do not quietly drop an unmet AC.
+```
+
+In §6, replace:
+
+```markdown
+Additional issues created by this work, and any item deliberately left for later.
+```
+
+with:
+
+```markdown
+Additional issues created by this work, or the open issue an item was added to where one already covered it (`docs/DEVELOPMENT_STANDARDS.md` §1.3), and any item deliberately left for later.
+```
+
+### Authorization points
+
+None. A `chore/*` branch's only authorization point is the merge to `main`, which belongs to `/closeout`.
+
+## 5. Acceptance criteria
+
+| AC | Criterion | How it is checked |
+| --- | --- | --- |
+| AC1.1 | The standards require the open issues to be searched for one covering the same defect or gap before any issue is opened, and state what is done when a match is found | Ray reads `docs/DEVELOPMENT_STANDARDS.md` §1.3 and walks #182's opening against it. Following the rule as written would have found #148, #149 and #155 before #182 was opened, and would have put their findings on those issues |
+| AC2.1 | Every place that tells a role to open an issue or carry work to one cites the §1.3 rule and restates none of it | Ray reads each line returned by `grep -rnE 'gh issue create\|issue_validator\|own hotfix\|carried to the backlog\|issues created by' docs/DEVELOPMENT_STANDARDS.md CLAUDE.md .claude/ docs/dev/*/_TEMPLATE_*.md` and confirms that each line that opens an issue cites §1.3 |
+| AC2.2 | The rule's search command is stated once, in §1.3, and nowhere else outside this artifact set and the archive | `grep -rn 'state open --search' docs/DEVELOPMENT_STANDARDS.md CLAUDE.md .claude/ docs/dev/*/_TEMPLATE_*.md` returns exactly one line, and it is in `docs/DEVELOPMENT_STANDARDS.md` §1.3 |
+
+## 6. Test plan
+
+Omitted. The change touches no file under `tests/`, `automation/`, `workmain/`, `config/` or `templates/` (`docs/dev/specs/_TEMPLATE_SPEC.md`, direct path). Close-out runs the suites regardless.
+
+## 7. Risks and rollback
+
+The change is three edited sentences and one added bullet, in two documents. Rollback is `git revert` of the Step 1 and Step 2 commits.
