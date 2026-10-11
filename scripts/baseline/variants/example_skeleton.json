@@ -1,0 +1,16 @@
+{
+  "name": "example_skeleton",
+  "apply_to": [
+    "daily_internal",
+    "weekly_client"
+  ],
+  "per_call_type": {
+    "daily_internal": {
+      "system_prompt_append": "# Required Output Structure\nDo not write a title line; the application adds the title, subject and date.\nStart directly with the first section. Use exactly these level-2 headings, in this order, with no others:\n## Deliverables\n## Accomplishments\n## In-Progress Items\n## Blockers\n## Risks\n## Need Help?\n## Tomorrow's Plan\nUnder each heading write '-' bullets only."
+    },
+    "weekly_client": {
+      "system_prompt_append": "# Required Output Structure\nDo not write a title line; the application adds the title, subject and date.\nStart directly with the first section. Use exactly these level-2 headings, in this order, with no others:\n## 1. What are you working on?\n## 2. When do you plan to complete these tasks?\n## 3. Do you have any Risks or Blockers?\n## 4. Did you receive any requests you are unsure of?\n## 5. Location of Artifacts\nUnder each heading write sub-items a., b., c. only."
+    }
+  },
+  "format_output": "proposed"
+}
