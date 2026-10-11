@@ -14,7 +14,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from workmain.ai.base_provider import FinishStatus, GenerationResponse, ProviderType
+from workmain.ai.base_provider import (
+    FinishStatus, GenerationResponse, IncompleteResponseError, ProviderType,
+)
 from workmain.ai.note_condenser import NoteCondenser
 from workmain.ai.provider_manager import ProviderManager
 from workmain.ai.report_generator import ReportGenerator
@@ -31,15 +33,13 @@ _DATE = date(2099, 6, 5)
 _START = datetime(2099, 6, 5, 9, 0)
 
 
-def _response(provider, content="ok", reason=None):
+def _response(provider, content="ok", reason=None, finish=FinishStatus.COMPLETE):
     if reason is None:
-        reason = "FinishReason.STOP" if provider == ProviderType.GEMINI else "end_turn"
-    key = "finish_reason" if provider == ProviderType.GEMINI else "stop_reason"
-    metadata = {key: reason} if reason != "" else {}
+        reason = "STOP" if provider == ProviderType.GEMINI else "end_turn"
     return GenerationResponse(
         content=content, provider=provider, model="m", tokens_used=10,
-        prompt_tokens=4, completion_tokens=4, cost=0.0, metadata=metadata,
-        finish=FinishStatus.COMPLETE, finish_reason=reason,
+        prompt_tokens=4, completion_tokens=4, cost=0.0,
+        finish=finish, finish_reason=reason,
     )
 
 
@@ -138,14 +138,14 @@ class TestCompareProviders:
 
         assert compare_providers.exit_status(run_with(_response)) == 0
 
-        bad = {
-            "max_tokens": lambda p: _response(p, reason="FinishReason.MAX_TOKENS"),
-            "safety_empty": lambda p: _response(p, content="", reason="FinishReason.SAFETY"),
-            "stop_empty": lambda p: _response(p, content="  "),
-            "no_reason": lambda p: _response(p, reason=""),
-        }
-        for name, respond in bad.items():
-            assert compare_providers.exit_status(run_with(respond)) == 1, name
+        # The manager refuses an incomplete reply, so it reaches the script as an error.
+        def refused(provider):
+            raise IncompleteResponseError(
+                "note_condensation reply was cut off", "note_condensation", 100,
+                provider.value, "MAX_TOKENS",
+            )
+
+        assert compare_providers.exit_status(run_with(refused)) == 1
 
         def boom(provider):
             raise RuntimeError("down")
@@ -183,3 +183,16 @@ class TestCompareProviders:
 
         changed = _manager(tmp_path, routing={"daily_internal": "claude"})
         assert types_for(changed) == expected - {"daily_internal"}
+
+
+def test_script_has_no_finish_definition_of_its_own():
+    """AC6.5: the run's reason is the response's own finish_reason."""
+    source = _SCRIPT.read_text()
+    assert "SUCCESS_REASONS" not in source
+    assert "FinishReason.STOP" not in source
+    run = compare_providers.Run(
+        call_type="x", label="l", provider="claude",
+        response=_response(ProviderType.CLAUDE),
+    )
+    assert run.reason == "end_turn"
+    assert run.passed

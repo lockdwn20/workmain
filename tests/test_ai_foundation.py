@@ -229,10 +229,10 @@ def test_provider_manager():
     assert fallback_used
     assert gemini.call_count == 1
 
-    notifications = manager.get_fallback_notifications()
-    assert len(notifications) == 1
-    assert "claude" in notifications[0].lower()
-    assert "gemini" in notifications[0].lower()
+    assert fallback_used.primary == ProviderType.CLAUDE
+    assert fallback_used.fallback == ProviderType.GEMINI
+    assert "claude" in fallback_used.message.lower()
+    assert "gemini" in fallback_used.message.lower()
 
     print("✓ Automatic fallback working")
 

@@ -159,7 +159,6 @@ class ClaudeProvider(BaseProvider):
                     finish=finish,
                     finish_reason=str(stop_reason),
                     metadata={
-                        'stop_reason': response.stop_reason,
                         'model': response.model,
                         'id': response.id
                     }

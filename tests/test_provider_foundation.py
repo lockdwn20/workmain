@@ -1070,3 +1070,138 @@ class TestRequireComplete:
 
     def test_complete_passes(self):
         require_complete(_finish_response(FinishStatus.COMPLETE, "STOP"), "x", 10, None)
+
+
+# ---------------------------------------------------------------------------
+# The manager refuses an incomplete reply and returns its fallback (issue #148)
+# ---------------------------------------------------------------------------
+
+class _StubProvider:
+    """Returns one scripted reply, or raises one scripted exception."""
+
+    def __init__(self, provider_type, finish=FinishStatus.COMPLETE,
+                 reason="STOP", content="text", error=None):
+        self.provider_type = provider_type
+        self._args = (finish, reason, content)
+        self._error = error
+        self.calls = 0
+
+    def generate(self, request):
+        self.calls += 1
+        if self._error:
+            raise self._error
+        finish, reason, content = self._args
+        return GenerationResponse(
+            content=content, provider=self.provider_type, model="m",
+            tokens_used=1, prompt_tokens=1, completion_tokens=0, cost=0.0,
+            finish=finish, finish_reason=reason,
+        )
+
+
+def _route_manager(primary, fallback=None, fallback_mode="auto"):
+    """A manager routing daily_internal claude -> gemini, with stubs injected."""
+    from workmain.ai.base_provider import GenerationRequest
+    entry = {
+        "instructions": "system_prompt",
+        "primary_provider": "claude",
+        "max_tokens": 16000,
+        "fallback_mode": fallback_mode,
+    }
+    if fallback:
+        entry["fallback_provider"] = "gemini"
+    settings = {
+        "providers": {
+            "claude": {"enabled": False, "model": "x", "accepts": ["system_prompt"]},
+            "gemini": {"enabled": False, "model": "x", "accepts": ["system_prompt"]},
+        },
+        "report_types": {"daily_internal": entry},
+    }
+    manager = _manager_from_dict(settings)
+    manager._disabled.clear()
+    manager._providers["claude"] = primary
+    if fallback:
+        manager._providers["gemini"] = fallback
+    return manager, GenerationRequest(prompt="p", max_tokens=16000)
+
+
+_CAP = "report_types.daily_internal.max_tokens"
+
+
+class TestManagerRefusal:
+    def test_both_cut_off_names_both_refusals(self):
+        """AC2.6: a fallback's cut-off is refused too."""
+        manager, request = _route_manager(
+            _StubProvider(ProviderType.CLAUDE, FinishStatus.CUT_OFF, "max_tokens"),
+            _StubProvider(ProviderType.GEMINI, FinishStatus.CUT_OFF, "MAX_TOKENS"),
+        )
+        with pytest.raises(ProviderError) as exc:
+            manager.generate(request, report_type="daily_internal")
+        text = str(exc.value)
+        assert "Both providers failed" in text
+        assert "from claude was cut off" in text
+        assert "from gemini was cut off" in text
+
+    def test_no_fallback_keeps_call_type_and_cap(self):
+        """AC3.2: no fallback configured."""
+        manager, request = _route_manager(
+            _StubProvider(ProviderType.CLAUDE, FinishStatus.CUT_OFF, "max_tokens"),
+        )
+        with pytest.raises(ProviderError) as exc:
+            manager.generate(request, report_type="daily_internal")
+        assert "daily_internal" in str(exc.value)
+        assert "16000" in str(exc.value)
+        assert _CAP in str(exc.value)
+
+    def test_manual_mode_keeps_call_type_and_cap(self):
+        """AC3.2: manual fallback mode."""
+        manager, request = _route_manager(
+            _StubProvider(ProviderType.CLAUDE, FinishStatus.CUT_OFF, "max_tokens"),
+            _StubProvider(ProviderType.GEMINI),
+            fallback_mode="manual",
+        )
+        with pytest.raises(ProviderError) as exc:
+            manager.generate(request, report_type="daily_internal")
+        assert "daily_internal" in str(exc.value)
+        assert "16000" in str(exc.value)
+        assert "--provider gemini" in str(exc.value)
+
+    def test_cut_off_primary_falls_back_with_notice(self):
+        manager, request = _route_manager(
+            _StubProvider(ProviderType.CLAUDE, FinishStatus.CUT_OFF, "max_tokens"),
+            _StubProvider(ProviderType.GEMINI),
+        )
+        response, notice = manager.generate(request, report_type="daily_internal")
+        assert response.provider == ProviderType.GEMINI
+        assert notice.primary == ProviderType.CLAUDE
+        assert notice.fallback == ProviderType.GEMINI
+        assert "cut off" in notice.reason
+        assert "gemini answered daily_internal because claude failed" in notice.message
+
+    def test_primary_complete_returns_no_notice(self):
+        manager, request = _route_manager(
+            _StubProvider(ProviderType.CLAUDE, reason="end_turn"),
+            _StubProvider(ProviderType.GEMINI),
+        )
+        response, notice = manager.generate(request, report_type="daily_internal")
+        assert response.provider == ProviderType.CLAUDE
+        assert notice is None
+
+    def test_any_primary_failure_is_returned_and_logged(self, caplog):
+        """AC6.3: every automatic fallback, whatever its cause."""
+        from workmain.ai.base_provider import GenerationError
+        manager, request = _route_manager(
+            _StubProvider(ProviderType.CLAUDE, error=GenerationError("boom")),
+            _StubProvider(ProviderType.GEMINI),
+        )
+        with caplog.at_level("WARNING", logger="workmain.ai.provider_manager"):
+            _, notice = manager.generate(request, report_type="daily_internal")
+        assert notice.reason == "boom"
+        assert any(
+            "daily_internal" in r.getMessage() and "claude" in r.getMessage()
+            for r in caplog.records if r.levelname == "WARNING"
+        )
+
+    def test_manager_keeps_no_fallback_record(self):
+        """AC6.4: the returned notice is the only record of a fallback."""
+        manager, _ = _route_manager(_StubProvider(ProviderType.CLAUDE))
+        assert not [name for name in dir(manager) if "notif" in name]

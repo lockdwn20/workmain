@@ -165,8 +165,6 @@ class GeminiProvider(BaseProvider):
                 metadata = {}
                 if response.candidates and len(response.candidates) > 0:
                     candidate = response.candidates[0]
-                    if hasattr(candidate, 'finish_reason') and candidate.finish_reason:
-                        metadata['finish_reason'] = str(candidate.finish_reason)
                     if hasattr(candidate, 'safety_ratings') and candidate.safety_ratings:
                         metadata['safety_ratings'] = [
                             {
