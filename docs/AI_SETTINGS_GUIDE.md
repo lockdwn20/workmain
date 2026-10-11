@@ -88,7 +88,7 @@ A template without an entry cannot be generated.
 | `fallback_provider` | string | Optional, from the same names. Absent or `null` means no fallback. Provider to use if primary fails. Set via `providers set default --fallback`. |
 | `fallback_mode` | `"auto"` \| `"manual"` | `auto` = silently fall back; `manual` = raise error and ask user to retry with `--provider` |
 | `max_cost_per_report` | float | Soft cost ceiling (informational — not enforced in current version) |
-| `max_tokens` | int | Required, no default. The total output ceiling for this report type — thinking plus answer, on every provider. Each provider maps it to its own vendor parameter (Claude `max_tokens`, Gemini `max_output_tokens`, Ollama `num_predict`). Absent or non-positive → `ConfigurationError` naming the entry. |
+| `max_tokens` | int | Required, no default. The total output ceiling for this report type — thinking plus answer, on every provider. Each provider maps it to its own vendor parameter (Claude `max_tokens`, Gemini `max_output_tokens`, Ollama `num_predict`). Absent or non-positive → `ConfigurationError` naming the entry. A reply that reaches the cap is refused, and the error names this setting. |
 
 ### How to change provider assignments
 
@@ -113,12 +113,15 @@ Both options are refused for a provider that cannot serve the report type; see �
 
 ### Fallback behaviour
 
-When `primary_provider` fails (API error, rate limit), `ProviderManager.generate()` automatically
-tries `fallback_provider` if `fallback_mode = "auto"`. A notification is appended to
-`_fallback_notifications` and printed at the end of the generation run.
+When `primary_provider` fails (API error, rate limit, or a reply that is cut off, stopped early or empty),
+`ProviderManager.generate()` logs a `warning` naming the call type and the primary, then
+tries `fallback_provider` if `fallback_mode = "auto"`. The fallback's reply is refused on the same
+terms. When the fallback answers, `generate()` returns a `FallbackNotice` (`call_type`, `primary`,
+`fallback`, `reason`) beside the response, and `None` when the primary answered. The reason is
+the primary's own failure text, whatever the cause. Nothing else records a fallback.
 
-If `fallback_mode = "manual"`, generation raises `ProviderError` with a hint to retry
-using `--provider <fallback>`.
+If `fallback_mode = "manual"`, generation raises `ProviderError` carrying the primary's failure text and a hint to retry
+using `--provider <fallback>`. With no fallback configured, the `ProviderError` carries the same text.
 
 ---
 

@@ -13,6 +13,7 @@ from workmain.ai.base_provider import (
     ProviderStatus,
     GenerationRequest,
     GenerationResponse,
+    FinishStatus,
     ProviderType,
 )
 
@@ -92,6 +93,14 @@ class OllamaProvider(BaseProvider):
             prompt_tokens = result.get("prompt_eval_count", 0)
             completion_tokens = result.get("eval_count", 0)
 
+            done_reason = result.get("done_reason")
+            if done_reason == "stop":
+                finish = FinishStatus.COMPLETE
+            elif done_reason == "length":
+                finish = FinishStatus.CUT_OFF
+            else:
+                finish = FinishStatus.STOPPED
+
             return GenerationResponse(
                 content=response_text,
                 provider=self.provider_type,
@@ -100,6 +109,8 @@ class OllamaProvider(BaseProvider):
                 completion_tokens=completion_tokens,
                 tokens_used=prompt_tokens + completion_tokens,
                 cost=0.0,
+                finish=finish,
+                finish_reason=done_reason or "MISSING",
             )
         except urllib.error.URLError as e:
             raise ProviderUnavailableError(f"Ollama request failed: {e}") from e

@@ -12,6 +12,7 @@ from unittest.mock import patch, MagicMock
 from workmain.ai.providers.ollama import OllamaProvider
 from workmain.ai.base_provider import (
     GenerationRequest,
+    FinishStatus,
     GenerationResponse,
     ProviderStatus,
     ProviderType,
@@ -33,13 +34,17 @@ def _tags_response(models):
     return resp
 
 
-def _generate_response(response_text, prompt_tokens=10, completion_tokens=20):
+def _generate_response(response_text, prompt_tokens=10, completion_tokens=20,
+                       done_reason="stop"):
     """Return a mock urllib response for POST /api/generate."""
-    body = json.dumps({
+    fields = {
         "response": response_text,
         "prompt_eval_count": prompt_tokens,
         "eval_count": completion_tokens,
-    }).encode()
+    }
+    if done_reason is not None:
+        fields["done_reason"] = done_reason
+    body = json.dumps(fields).encode()
     resp = MagicMock()
     resp.read.return_value = body
     return resp
@@ -116,6 +121,21 @@ class TestGenerate:
         assert response.prompt_tokens == 15
         assert response.completion_tokens == 25
         assert response.tokens_used == 40
+
+    def test_generate_finish_mapping(self):
+        """AC1.3: done_reason stop/length/absent → COMPLETE/CUT_OFF/STOPPED."""
+        for done_reason, finish, reason in (
+            ("stop", FinishStatus.COMPLETE, "stop"),
+            ("length", FinishStatus.CUT_OFF, "length"),
+            (None, FinishStatus.STOPPED, "MISSING"),
+        ):
+            gen_resp = _generate_response("text", done_reason=done_reason)
+            with patch("urllib.request.urlopen",
+                       side_effect=[_tags_response(["mistral:latest"]), gen_resp]):
+                response = _make_provider().generate(
+                    GenerationRequest(prompt="x", max_tokens=64))
+            assert response.finish is finish
+            assert response.finish_reason == reason
 
     def test_generate_provider_unavailable(self):
         """check_availability returns UNAVAILABLE → generate raises ProviderUnavailableError."""

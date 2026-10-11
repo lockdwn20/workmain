@@ -624,8 +624,8 @@ Reserved across all commands — no flag may reuse these:
 | Single record | `rich.Panel`, title `"<Resource> #<id> — <descriptor>"` |
 | Collection | `rich.Table`, consistent column ordering |
 | Success | `console.print("[green]✓[/green] <past-tense action>")` |
-| Warning | `console.print("[yellow]⚠[/yellow] <message>")` |
-| Error | `console.print("[red]Error:[/red] <message>")` then `sys.exit(1)` |
+| Warning | `console.print("[yellow]⚠[/yellow] <message>")`. A warning that a calling process must receive, such as how a result was produced, goes through the stderr `err_console` from the Error row instead. |
+| Error | `err_console.print("[red]Error:[/red] <message>")` on a `Console(stderr=True, soft_wrap=True)`, then `sys.exit()` with the code the exit-code list below gives. Written to stderr, unwrapped, so a caller capturing the command's output, such as the EOD workflow, receives the cause as one line. |
 | Dry run | Prefix `[dim][DRY RUN][/dim]`; no side effects |
 | Prompt | `click.confirm()` / `click.prompt()` — never `input()` |
 

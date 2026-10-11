@@ -10,12 +10,15 @@ stored report; reports corrections to list reports with status 'corrected';
 and reports costs.
 """
 
+import sys
+
 import click
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 from rich.panel import Panel
 from rich import box
@@ -24,7 +27,7 @@ from workmain.database.connection import get_db
 from workmain.database.repositories.system_state_repository import SystemStateRepository
 from workmain.database.repositories.reports_repo import get_reports_repository
 from workmain.ai import get_report_generator, ReportFormat, ProviderType
-from workmain.utils.ai_arguments import require_eligible_provider, require_provider, require_report_type
+from workmain.utils.ai_arguments import failure_exit_code, require_eligible_provider, require_provider, require_report_type
 from workmain.utils.date_utils import resolve_date_window, format_date_window_label
 from workmain.utils.editor import edit_in_editor
 from workmain.utils.self_invoke import TIMEOUT_NETWORK, run_workmain
@@ -32,6 +35,7 @@ from workmain.utils.self_invoke import TIMEOUT_NETWORK, run_workmain
 VALID_REPORT_STATUSES = ('unconfirmed', 'confirmed', 'corrected', 'all')
 
 console = Console()
+err_console = Console(stderr=True, soft_wrap=True)
 
 
 def _resolve_report(session, identifier: str):
@@ -205,13 +209,17 @@ def generate_report_impl(
             if result['file_path']:
                 console.print(f"  [green]✓ Saved to: {result['file_path']}[/green]")
 
+            if result['fallback_reason']:
+                console.print(f"[yellow]⚠[/yellow] {escape(result['fallback_reason'])}")
+
             console.print()
 
     except Exception as e:
-        console.print(f"[red]✗ Operation failed: {e}[/red]")
+        err_console.print(f"[red]Error:[/red] {escape(str(e))}")
         import traceback
         if '--debug' in click.get_current_context().args:
             traceback.print_exc()
+        sys.exit(failure_exit_code(e))
 
     finally:
         session.close()

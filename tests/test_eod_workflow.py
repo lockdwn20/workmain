@@ -1225,7 +1225,8 @@ class TestReportReviewStepEditBranch(unittest.TestCase):
 
 class TestSubprocessHardening(unittest.TestCase):
     """EOD subprocess hardening (Issue #94) — a timeout always fails the step
-    (DR7); a non-zero exit keeps each site's existing policy.
+    (DR7); a non-zero exit keeps each site's existing policy, except step 1
+    (condense), which fails the step (issue #148, DR14).
     """
 
     def _run_condense(self, run_result):
@@ -1277,9 +1278,10 @@ class TestSubprocessHardening(unittest.TestCase):
 
     # --- AC4.2: a non-zero exit changes no site's existing policy ---
 
-    def test_condense_nonzero_policy_unchanged_continues(self):
+    def test_condense_nonzero_returns_failed(self):
         result, _ = self._run_condense(WorkmainRun(returncode=1, stderr='boom'))
-        self.assertEqual(result.status, EodStepStatus.COMPLETED)
+        self.assertEqual(result.status, EodStepStatus.FAILED)
+        self.assertIn('boom', result.error)
 
     def test_review_nonzero_policy_unchanged_continues(self):
         with patch('workmain.workflows.eod_workflow.run_workmain',
@@ -1310,3 +1312,220 @@ class TestSubprocessHardening(unittest.TestCase):
             result = _run_email_step(dry_run=False, target_date=date(2099, 1, 1))
         self.assertEqual(result.status, EodStepStatus.COMPLETED)
         self.assertIn('SMTP down', buf.getvalue())
+
+
+# ---------------------------------------------------------------------------
+# Issue #148 Step 4 — the report and condense steps report what happened
+# ---------------------------------------------------------------------------
+
+class TestReportStepOutcome(unittest.TestCase):
+    """DR9 (EOD message), DR11 — AC3.4, AC3.5, AC6.1 (c), AC6.7."""
+
+    def setUp(self):
+        from dotenv import load_dotenv
+        load_dotenv()
+        from workmain.database.connection import get_db
+        from workmain.database.models import Report
+        self._Report = Report
+        self.session = get_db().get_session()
+        self._seeded_ids = []
+        self._tmp = tempfile.TemporaryDirectory()
+
+    def tearDown(self):
+        for rid in self._seeded_ids:
+            self.session.query(self._Report).filter(self._Report.id == rid).delete()
+        self.session.commit()
+        self.session.close()
+        self._tmp.cleanup()
+
+    def _seed(self, metadata):
+        r = self._Report(
+            report_type='daily_internal', report_date=GATE1_SENTINEL_DATE,
+            content='Sentinel body', status='unconfirmed', report_metadata=metadata,
+        )
+        self.session.add(r)
+        self.session.commit()
+        self.session.refresh(r)
+        self._seeded_ids.append(r.id)
+
+    def _reports_save_run(self):
+        """The WorkmainRun that 'reports save daily_internal' really produces
+        when the only provider's reply is cut off (§6 fixture rule)."""
+        from click.testing import CliRunner
+        from workmain.ai import provider_manager as pm_module
+        from workmain.ai.base_provider import ProviderType
+        from workmain.cli.commands.reports import reports
+        from tests.mocks.stub_providers import cut_off, drop_fallback, stubbed_manager
+
+        manager = stubbed_manager(
+            Path(self._tmp.name), {'gemini': cut_off(ProviderType.GEMINI)},
+            edit=drop_fallback('daily_internal'),
+        )
+        with patch.object(pm_module, '_provider_manager_instance', manager):
+            result = CliRunner(mix_stderr=False).invoke(
+                reports, ['save', 'daily_internal', '--date', GATE1_SENTINEL_DATE.isoformat()])
+        return WorkmainRun(returncode=result.exit_code, stderr=result.stderr)
+
+    def test_non_interactive_failure_carries_cli_refusal_on_one_line(self):
+        """AC3.4."""
+        run = self._reports_save_run()
+        self.assertNotEqual(run.returncode, 0)
+        with patch('workmain.workflows.eod_workflow._is_interactive', return_value=False), \
+             patch('workmain.workflows.eod_workflow.run_workmain', return_value=run):
+            result = _run_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
+        self.assertEqual(result.status, EodStepStatus.FAILED)
+        self.assertIn('daily_internal', result.error)
+        self.assertIn('16000', result.error)
+        self.assertIn('report_types.daily_internal.max_tokens', result.error)
+        self.assertEqual(len(result.error.splitlines()), 1)
+
+    def test_interactive_skip_after_failure_returns_failed(self):
+        """AC3.5."""
+        run = WorkmainRun(returncode=2, stderr='Error: cut off at 16000')
+        with patch('workmain.workflows.eod_workflow._is_interactive', return_value=True), \
+             patch('workmain.workflows.eod_workflow.run_workmain', return_value=run), \
+             patch('workmain.workflows.eod_workflow._prompt_choice', return_value='s'), \
+             patch('builtins.print') as printed:
+            result = _run_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
+        self.assertEqual(result.status, EodStepStatus.FAILED)
+        self.assertIn('cut off at 16000', result.error)
+        self.assertNotIn('unconfirmed', ' '.join(str(c) for c in printed.call_args_list))
+
+    def test_interactive_failed_retry_returns_failed_with_cause(self):
+        """AC3.5."""
+        run = WorkmainRun(returncode=2, stderr='Error: first')
+        retry = WorkmainRun(returncode=2, stderr='Error: retry cut off at 16000')
+        with patch('workmain.workflows.eod_workflow._is_interactive', return_value=True), \
+             patch('workmain.workflows.eod_workflow.run_workmain', side_effect=[run, retry]), \
+             patch('workmain.workflows.eod_workflow._prompt_choice', return_value='r'), \
+             patch('builtins.print') as printed:
+            result = _run_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
+        self.assertEqual(result.status, EodStepStatus.FAILED)
+        self.assertIn('retry cut off at 16000', result.error)
+        self.assertNotIn('unconfirmed', ' '.join(str(c) for c in printed.call_args_list))
+
+    def test_non_interactive_message_names_provider_and_fallback_reason(self):
+        """AC6.1 (c)."""
+        self._seed({
+            'ai_provider': 'claude',
+            'fallback_reason': 'claude answered daily_internal because gemini failed: cut off',
+        })
+        with patch('workmain.workflows.eod_workflow._is_interactive', return_value=False), \
+             patch('workmain.workflows.eod_workflow.run_workmain',
+                   return_value=WorkmainRun(returncode=0)):
+            result = _run_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
+        self.assertEqual(result.status, EodStepStatus.COMPLETED)
+        self.assertIn('generated by claude', result.message)
+        self.assertIn('because gemini failed', result.message)
+
+    def test_non_interactive_zero_exit_with_no_row_fails(self):
+        """AC6.7."""
+        with patch('workmain.workflows.eod_workflow._is_interactive', return_value=False), \
+             patch('workmain.workflows.eod_workflow.run_workmain',
+                   return_value=WorkmainRun(returncode=0)):
+            result = _run_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
+        self.assertEqual(result.status, EodStepStatus.FAILED)
+        self.assertIn('Daily', result.error)
+        self.assertIn(GATE1_SENTINEL_DATE.isoformat(), result.error)
+
+
+class TestCondenseStepOutcome(unittest.TestCase):
+    """DR9 (EOD condense), DR14 — AC3.8, AC6.8, through the real command."""
+
+    def setUp(self):
+        from dotenv import load_dotenv
+        load_dotenv()
+        from workmain.database.connection import get_db
+        self.session = get_db().get_session()
+        self._tmp = tempfile.TemporaryDirectory()
+        self._meeting_ids = []
+
+    def tearDown(self):
+        from workmain.database.models import Meeting, Note, TimeEntry
+        for mid in self._meeting_ids:
+            note_ids = [n.id for n in self.session.query(Note).filter(Note.meeting_id == mid)]
+            if note_ids:
+                self.session.query(TimeEntry).filter(
+                    TimeEntry.note_id.in_(note_ids)
+                ).delete(synchronize_session=False)
+                self.session.query(Note).filter(
+                    Note.id.in_(note_ids)
+                ).delete(synchronize_session=False)
+            self.session.query(Meeting).filter(Meeting.id == mid).delete()
+        self.session.commit()
+        self.session.close()
+        self._tmp.cleanup()
+
+    def _condense_run(self, stubs):
+        """The WorkmainRun 'meetings condense' really produces for these stubs."""
+        from click.testing import CliRunner
+        from workmain.ai import provider_manager as pm_module
+        from workmain.cli.commands.meetings import meetings
+        from workmain.database.models import Meeting
+        from tests.mocks.stub_providers import stubbed_manager
+
+        meeting = Meeting(
+            title='Sentinel Eod Condense 2099', start_time=datetime(2099, 6, 4, 9, 0),
+            end_time=datetime(2099, 6, 4, 9, 30), is_recurring=False,
+        )
+        self.session.add(meeting)
+        self.session.commit()
+        self.session.refresh(meeting)
+        self._meeting_ids.append(meeting.id)
+        NotesRepository(self.session).create(
+            content='Discussed', tags=['client-report'], meeting_id=meeting.id,
+            source='meeting', created_at=datetime(2099, 6, 4, 9, 0),
+        )
+        manager = stubbed_manager(Path(self._tmp.name), stubs)
+        with patch.object(pm_module, '_provider_manager_instance', manager):
+            result = CliRunner(mix_stderr=False).invoke(meetings, ['condense', str(meeting.id)])
+        return WorkmainRun(returncode=result.exit_code, stderr=result.stderr)
+
+    def _step(self, titles, runs):
+        fakes = [
+            MagicMock(id=i, title=t, condensed_summary=None,
+                      start_time=datetime(2099, 1, 1, 10, 0))
+            for i, t in enumerate(titles, 1)
+        ]
+        repo = MagicMock()
+        repo.get_by_date.return_value = fakes
+        repo.get_note_count.return_value = 3
+        with patch('workmain.workflows.eod_workflow.get_db'), \
+             patch('workmain.workflows.eod_workflow.MeetingsRepository', return_value=repo), \
+             patch('workmain.workflows.eod_workflow._confirm', return_value=True), \
+             patch('workmain.workflows.eod_workflow._is_interactive', return_value=False), \
+             patch('workmain.workflows.eod_workflow.run_workmain',
+                   side_effect=runs) as run_workmain:
+            result = _run_condense_step(dry_run=False, target_date=date(2099, 1, 1))
+        return result, run_workmain
+
+    def test_refused_condensation_fails_step_and_still_condenses_the_rest(self):
+        """AC3.8."""
+        from workmain.ai.base_provider import ProviderType
+        from tests.mocks.stub_providers import cut_off
+        refused = self._condense_run({
+            'gemini': cut_off(ProviderType.GEMINI), 'claude': cut_off(ProviderType.CLAUDE),
+        })
+        result, run_workmain = self._step(
+            ['First Meeting', 'Second Meeting'], [refused, WorkmainRun(returncode=0)])
+        self.assertEqual(run_workmain.call_count, 2)
+        self.assertEqual(result.status, EodStepStatus.FAILED)
+        self.assertIn('First Meeting', result.error)
+        self.assertIn('note_condensation', result.error)
+        self.assertIn('4000', result.error)
+        self.assertNotIn('Second Meeting', result.error)
+
+    def test_recovered_fallback_is_reported_in_the_step_message(self):
+        """AC6.8."""
+        from workmain.ai.base_provider import ProviderType
+        from tests.mocks.stub_providers import complete, cut_off
+        recovered = self._condense_run({
+            'gemini': cut_off(ProviderType.GEMINI),
+            'claude': complete(ProviderType.CLAUDE, content='Recovered summary'),
+        })
+        self.assertEqual(recovered.returncode, 0)
+        result, _ = self._step(['Only Meeting'], [recovered])
+        self.assertEqual(result.status, EodStepStatus.COMPLETED)
+        self.assertIn("'Only Meeting'", result.message)
+        self.assertIn('claude answered note_condensation because gemini failed', result.message)
+        self.assertEqual(len(result.message.splitlines()), 1)

@@ -14,6 +14,7 @@ from workmain.ai.base_provider import (
     ProviderError,
     RateLimitError,
     GenerationError,
+    FinishStatus,
 )
 from workmain.ai.providers.claude import ClaudeProvider
 from workmain.ai.providers.gemini import GeminiProvider, _is_rate_limit_error
@@ -83,6 +84,15 @@ def _fake_message(text="ok"):
     resp.model = "claude-sonnet-5"
     resp.id = "msg_test"
     return resp
+
+
+def _gemini_candidates(finish_reason_name="STOP"):
+    """One candidate carrying a real google-genai FinishReason member."""
+    from google.genai import types
+    candidate = MagicMock()
+    candidate.finish_reason = types.FinishReason[finish_reason_name]
+    candidate.safety_ratings = None
+    return [candidate]
 
 
 def _status_error(code):
@@ -290,7 +300,7 @@ class TestGeminiPolicyPayload:
         resp.usage_metadata.prompt_token_count = 4
         resp.usage_metadata.candidates_token_count = 2
         resp.usage_metadata.total_token_count = 6
-        resp.candidates = []
+        resp.candidates = _gemini_candidates()
         return resp
 
     def test_gemini_policy_sampling_key_not_sent(self):
@@ -514,7 +524,7 @@ class TestProviderManagerBuildsFromConfig:
         response.usage_metadata.prompt_token_count = 4
         response.usage_metadata.candidates_token_count = 2
         response.usage_metadata.total_token_count = 6
-        response.candidates = []
+        response.candidates = _gemini_candidates()
         provider.generate(GenerationRequest(prompt="hi", max_tokens=20))
         provider.check_availability()
         assert generate_content.call_count == 2
@@ -535,7 +545,7 @@ class TestProviderManagerBuildsFromConfig:
         response.usage_metadata.prompt_token_count = 4
         response.usage_metadata.candidates_token_count = 2
         response.usage_metadata.total_token_count = 6
-        response.candidates = []
+        response.candidates = _gemini_candidates()
         provider.generate(GenerationRequest(prompt="USER", system_prompt="SYS", max_tokens=20))
         call = generate_content.call_args
         assert call.kwargs["config"].system_instruction == "SYS"
@@ -563,3 +573,70 @@ class TestProviderManagerBuildsFromConfig:
         expected = (cfg['cost_per_1k_prompt_tokens']
                     + 0.5 * cfg['cost_per_1k_completion_tokens'])
         assert abs(provider.estimate_cost(1000, 500) - expected) < 1e-4
+
+
+class TestFinishStatusMapping:
+    """AC1.1, AC1.2: each provider maps its vendor's finish value (DR2)."""
+
+    @pytest.mark.parametrize("stop_reason,finish", [
+        ("end_turn", FinishStatus.COMPLETE),
+        ("stop_sequence", FinishStatus.COMPLETE),
+        ("max_tokens", FinishStatus.CUT_OFF),
+        ("model_context_window_exceeded", FinishStatus.CUT_OFF),
+        ("refusal", FinishStatus.STOPPED),
+        (None, FinishStatus.STOPPED),
+    ])
+    def test_claude_mapping(self, stop_reason, finish):
+        provider, client = _build_claude()
+        message = _fake_message()
+        message.stop_reason = stop_reason
+        client.messages.create.return_value = message
+        response = provider.generate(GenerationRequest(prompt="hi", max_tokens=20))
+        assert response.finish is finish
+        assert response.finish_reason == str(stop_reason)
+
+    @pytest.mark.parametrize("name,finish", [
+        ("MAX_TOKENS", FinishStatus.CUT_OFF),
+        ("STOP", FinishStatus.COMPLETE),
+        ("SAFETY", FinishStatus.STOPPED),
+        ("FINISH_REASON_UNSPECIFIED", FinishStatus.STOPPED),
+    ])
+    def test_gemini_mapping(self, name, finish):
+        provider, client = _build_gemini()
+        resp = MagicMock()
+        resp.text = "ok"
+        resp.usage_metadata.prompt_token_count = 4
+        resp.usage_metadata.candidates_token_count = 2
+        resp.usage_metadata.total_token_count = 6
+        resp.candidates = _gemini_candidates(name)
+        client.models.generate_content.return_value = resp
+        response = provider.generate(GenerationRequest(prompt="hi", max_tokens=20))
+        assert response.finish is finish
+        assert response.finish_reason == name
+
+    def test_gemini_cut_off_is_not_retried(self):
+        """A MAX_TOKENS reply is returned, so no retry loop resends it."""
+        provider, client = _build_gemini()
+        resp = MagicMock()
+        resp.text = "partial"
+        resp.usage_metadata.prompt_token_count = 4
+        resp.usage_metadata.candidates_token_count = 2
+        resp.usage_metadata.total_token_count = 6
+        resp.candidates = _gemini_candidates("MAX_TOKENS")
+        client.models.generate_content.return_value = resp
+        provider.generate(GenerationRequest(prompt="hi", max_tokens=20))
+        assert client.models.generate_content.call_count == 1
+
+    def test_gemini_no_candidate_is_stopped(self):
+        provider, client = _build_gemini()
+        resp = MagicMock()
+        resp.text = ""
+        resp.usage_metadata.prompt_token_count = 4
+        resp.usage_metadata.candidates_token_count = 0
+        resp.usage_metadata.total_token_count = 4
+        resp.candidates = []
+        resp.prompt_feedback = None
+        client.models.generate_content.return_value = resp
+        response = provider.generate(GenerationRequest(prompt="hi", max_tokens=20))
+        assert response.finish is FinishStatus.STOPPED
+        assert response.finish_reason == "NO_CANDIDATE"

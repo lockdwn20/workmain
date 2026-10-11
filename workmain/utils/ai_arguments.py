@@ -6,6 +6,10 @@ entry in config/ai_settings.json. The sets come from ProviderManager, so no
 command keeps a list of its own. A rejected name prints one error listing the
 valid names and exits 1; a configuration that will not load exits 1 with the
 load error.
+
+failure_exit_code is the one owner of the exit code a failed command takes:
+2 for an integration error (a ProviderError that is not a ConfigurationError),
+1 otherwise (docs/DEVELOPMENT_STANDARDS.md §5.6).
 """
 
 import sys
@@ -14,10 +18,21 @@ from typing import List, Optional
 from rich.console import Console
 from rich.markup import escape
 
-from workmain.ai.base_provider import ConfigurationError, ProviderType
+from workmain.ai.base_provider import ConfigurationError, ProviderError, ProviderType
 from workmain.ai.provider_manager import eligible_provider_names, get_provider_manager
 
 console = Console()
+
+
+def failure_exit_code(exc: BaseException) -> int:
+    """Return the exit code for a failed command: 2 for an integration error, else 1.
+
+    An integration error is a ProviderError that is not a ConfigurationError
+    (docs/DEVELOPMENT_STANDARDS.md §5.6).
+    """
+    if isinstance(exc, ProviderError) and not isinstance(exc, ConfigurationError):
+        return 2
+    return 1
 
 
 def _fail(message: str) -> None:

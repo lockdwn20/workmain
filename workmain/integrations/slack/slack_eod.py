@@ -9,10 +9,13 @@ import logging
 import threading
 from datetime import date
 
+from workmain.ai.base_provider import ProviderError
 from workmain.daemon.conversation_state import ConversationStore, SlackEodSession
 from workmain.utils.date_format import format_date_display
 
 logger = logging.getLogger(__name__)
+
+_FAILED_FOOTER = "Reply 'continue' to retry this step, 'skip' to skip it, or 'stop' to abort EOD."
 
 __all__ = ['SlackEodSession', 'SlackEodManager', 'build_morning_briefing']
 
@@ -237,7 +240,7 @@ class SlackEodManager:
             except Exception as e:
                 logger.error("EOD step '%s' raised unexpectedly: %s", step['key'], e)
                 header = f"⚠ Step {step['num']} ({step['desc']}) failed: {e}"
-                footer = "Reply 'continue' to skip this step or 'stop' to abort EOD."
+                footer = _FAILED_FOOTER
                 self._send_blocks(
                     session.channel_id,
                     blocks=[
@@ -311,7 +314,7 @@ class SlackEodManager:
             session.paused = True
             error_detail = result.error or "Unknown error."
             header = f"⚠ Step {step['num']} ({step['desc']}) failed: {error_detail}"
-            footer = "Reply 'continue' to skip this step or 'stop' to abort EOD."
+            footer = _FAILED_FOOTER
             self._send_blocks(
                 session.channel_id,
                 blocks=[
@@ -375,7 +378,7 @@ class SlackEodManager:
                 return
             logger.error("EOD step '%s' raised unexpectedly: %s", step['key'], e)
             header = f"⚠ Step {step['num']} ({step['desc']}) failed: {e}"
-            footer = "Reply 'continue' to skip this step or 'stop' to abort EOD."
+            footer = _FAILED_FOOTER
             self._send_blocks(
                 session.channel_id,
                 blocks=[
@@ -432,6 +435,10 @@ class SlackEodManager:
             return
         try:
             action = parser.parse(text)
+        except ProviderError as e:
+            logger.warning("EOD inline correction provider failure: %s", e)
+            self._send(session.channel_id, f"Sorry, I couldn't process that: {e}")
+            return
         except Exception as e:
             logger.warning("EOD inline correction parse error: %s", e)
             self._send(session.channel_id, "Sorry, I couldn't understand that. Try rephrasing.")

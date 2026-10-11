@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from workmain.database.models import Meeting, Note
 from workmain.ai.base_provider import GenerationRequest
 from workmain.ai.cost_tracker import get_cost_tracker
-from workmain.ai.provider_manager import get_provider_manager
+from workmain.ai.provider_manager import FallbackNotice, get_provider_manager
 from workmain.database.repositories.ai_costs_repo import AiCostRepository
 from workmain.templates_engine import get_style_adapter
 
@@ -131,7 +131,7 @@ class NoteCondenser:
     def condense_meeting(
         self,
         meeting: Meeting,
-    ) -> Tuple[str, List[str]]:
+    ) -> Tuple[str, List[str], Optional[FallbackNotice]]:
         """
         Condense all notes from a meeting into a single summary.
 
@@ -139,7 +139,8 @@ class NoteCondenser:
             meeting: Meeting object with notes to condense
 
         Returns:
-            (condensed one-line summary, resolved tags for the summary note)
+            (condensed one-line summary, resolved tags for the summary note,
+            FallbackNotice when the fallback provider answered, else None)
 
         Raises:
             ValueError: If meeting has no notes to condense
@@ -162,7 +163,7 @@ class NoteCondenser:
             db_meeting.condensed_summary = default_summary
             db_meeting.condensed_at = datetime.now()
             self.session.commit()
-            return default_summary, resolved_tags
+            return default_summary, resolved_tags, None
         
         request = self.build_condensation_request(db_meeting, notes)
 
@@ -171,7 +172,7 @@ class NoteCondenser:
         
         try:
             # Generate using config-driven provider ('note_condensation' entry in ai_settings.json)
-            response, _ = self.provider_manager.generate(
+            response, notice = self.provider_manager.generate(
                 request,
                 report_type='note_condensation',
             )
@@ -203,7 +204,7 @@ class NoteCondenser:
                 context_label=db_meeting.title,
             )
 
-            return db_meeting.condensed_summary, resolved_tags
+            return db_meeting.condensed_summary, resolved_tags, notice
 
         finally:
             self.cost_tracker.end_report(0.0)  # No generation time tracking needed
