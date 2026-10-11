@@ -6,6 +6,10 @@ entry in config/ai_settings.json. The sets come from ProviderManager, so no
 command keeps a list of its own. A rejected name prints one error listing the
 valid names and exits 1; a configuration that will not load exits 1 with the
 load error.
+
+failure_exit_code is the one owner of the exit code a failed command takes:
+2 for an integration error (a ProviderError that is not a ConfigurationError),
+1 otherwise (docs/DEVELOPMENT_STANDARDS.md §5.6).
 """
 
 import sys
