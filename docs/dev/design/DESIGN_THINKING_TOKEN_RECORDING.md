@@ -64,11 +64,18 @@ Issue #149: Gemini's thinking tokens are billed as output but are neither priced
 | F13 | **The Gemini fixtures don't set a thinking count.** They build `usage_metadata` on a `MagicMock` and set prompt, candidates and total. An unset `thoughts_token_count` comes back as a truthy `MagicMock`, not an `int`. | `tests/test_ai_providers_offline.py:300-302`, `:524-526`, `:545-547`, `:608-610`, `:622-624`, `:634-636` | Low |
 | F14 | **The guide's rate rows don't say whether thinking counts as completion.** `cost_per_1k_completion_tokens` reads "USD cost per 1,000 completion tokens". | `docs/AI_SETTINGS_GUIDE.md:53` | Low |
 
+### Second read, 20261011: Claude's thinking rules and the shape of pricing config
+
+| # | Finding | Evidence (file:line, symbol) | Severity |
+| --- | --- | --- | --- |
+| F16 | **Claude thinking isn't deprecated. Fixed thinking budgets are.** `thinking: {type: "enabled", budget_tokens}` is rejected on every current Claude model, and adaptive thinking replaces it. Its depth is set by `output_config.effort` (`low` to `max`), which "controls thinking depth and overall token spend" and defaults to `high` on `claude-sonnet-5`. Our policy's `{type: "disabled"}` is #79's choice, which keeps `max_tokens` meaning answer tokens. `claude-sonnet-5` accepts it (live probe, F3). **The current Claude models don't:** `claude-sonnet-5-5`, the current Sonnet at the same price as `claude-sonnet-5`, returns a 400 on `disabled`. Its only thinking-off form is `{type: "between_tools"}`. Thinking cannot be turned off at all on `claude-opus-5-5` or `claude-fable-5`/`-5-1`. Switching `providers.claude.model` to any of them fails every Claude request until the policy changes, and after the change Claude bills thinking. The policy sends no `effort`, and `docs/AI_SETTINGS_GUIDE.md`'s `claude/` row doesn't record this limit. | bundled `claude-api` skill, Thinking & Effort table (cached 2026-09-25); `config/providers/claude/settings.json`; `docs/AI_SETTINGS_GUIDE.md:178` | High |
+| F17 | **Pricing config is two rates per provider.** `cost_per_1k_prompt_tokens` and `cost_per_1k_completion_tokens` are read by each paid provider. `cost_structure` is a free-text label that `providers list` displays. Claude's and Gemini's `estimate_cost` bodies are identical. No request sends `cache_control`, so Claude prompt caching is never used. Gemini's implicit cache came back `None` on the one probe (F2). Both vendors price thinking at the output rate today. The billing variations that would need a third rate are cached input and long-prompt tiers. The second is already noted in Gemini's `cost_structure` label ("prompts ≤ 200k tokens"). | `claude.py:68-69`, `:207-220`; `gemini.py:70-71`, `:246-259`; `config/ai_settings.json` `cost_structure`; `docs/AI_SETTINGS_GUIDE.md:45`; `git grep cache_control -- workmain` no match | Medium |
+
 ### Outside #149
 
 | # | Finding | Evidence (file:line, symbol) | Severity |
 | --- | --- | --- | --- |
-| F15 | **Test runs write rows into the live `ai_costs` table.** 1,135 of 4,448 rows carry `test-model` or `stub-model`, or a `Sentinel … 2099` label. The latest were written 2026-10-11 16:15, during a suite run. Every costs summary counts their tokens. No open issue covers this: `gh issue list --search "test-model OR ai_costs OR stub-model"` returned #191, #136 and others, and none of them names it. | `ai_costs` query 20261011; `tests/mocks/stub_providers.py:33`; `test_meetings_condense.py:44`; `test_notes_log.py:109` | Medium |
+| F15 | **Test runs write rows into the live `ai_costs` table, on every passing run.** About 3,967 of 4,448 rows are test rows. 1,135 carry `test-model` or `stub-model`, or a `Sentinel … 2099` label. 2,832 are `intent_parse` rows with the test fixture's exact 15 prompt and 5 completion tokens; real intent parses use about 1,850 prompt tokens. Two causes. Condensation tests' `tearDown` deletes the meeting, and `ai_costs.meeting_id` is `ON DELETE SET NULL`, so the cost row survives. `test_intent_parser.py` mocks only the provider manager, while `IntentParser.parse` opens its own session through `get_db()` and commits a row. #136 covers the test structure, but as written it misses these: its session grep covers `tests/` only, its killed-run check doesn't count `ai_costs`, and its cleanup deletes only three `reports` rows. | `ai_costs` queries 20261011; `test_meetings_condense.py:81-94`; `017_ai_costs.sql` `meeting_id`; `test_intent_parser.py:24-36`, `:52`; `intent_parser.py:107-119`; issue #136 | Medium |
 
 **Not verified:**
 
@@ -105,14 +112,24 @@ Settled in #182's study, Q3, answered 20261009 (Ray): **a separate nullable coun
 
 **Recommendation: A.** The defect is that the record drops thinking, and D2 fixes the record. A display column is a separate want, and nothing in #149 calls for it.
 
+### D4 — Whether token counting and pricing are code or config (F3, F16, F17)
+
+With F3 and F16, thinking is not Gemini-only. Ray asked whether each provider's counting rules belong in tracked settings instead of code. "Counting" covers two things that change for different reasons.
+
+- **Reading the vendor's usage report** means knowing which response field holds thinking, and whether it is inside the output count or separate. That is the vendor's response contract, the same kind of fact as the finish-reason mapping #148 put in each provider. It changes only when the vendor's API or SDK changes, and that is a code change anyway. A config key could express it only as a field-path language over SDK objects. `docs/AI_SETTINGS_GUIDE.md` § The request payload policy also bars config from stating facts about a vendor. **This belongs in code:** each provider maps its usage into the vendor-neutral fields of D1 and D2.
+- **What each count costs** is pricing. Pricing changes without code, so it belongs in config and is Ray's (F17). Today both vendors price thinking at the output rate, so the completion rate already covers it. A `cost_per_1k_thinking_tokens` key would be a value Ray maintains that equals the completion rate every time.
+
+**Recommendation:** code reads the counts and config prices them, with no new config key in #149. The pricing changes that would need a key are cached input and long-prompt tiers (F17). Neither is live: no request uses caching, and prompts are far below the 200k tier. The issue that already reworks how rates are read is #155, which makes the rate keys required config. #155 decides the rate schema (one rate per token category, read in one place instead of two identical `estimate_cost` bodies), and #149 supplies the categories it prices.
+
 ## 5. Open questions
 
 | Q | Question | Answer |
 | --- | --- | --- |
 | Q1 | D1: `completion_tokens` is all billed output on every provider, with `thinking_tokens` as the part of it that was thinking, `None` where unreported. `estimate_cost` is unchanged (Option B)? | |
 | Q2 | D2 with F3: Claude rows record the vendor's thinking count (`0` while disabled) instead of `NULL`, as #182's answer assumed? | |
-| Q3 | D3: no change to the cost displays (Option A)? | |
-| Q4 | F15, test rows in the live `ai_costs` table: carry it to #149's single correction issue at close-out? Recommendation: yes. It is outside #149's criteria, and #149's own new tests use the `db_session` fixture, so they add no rows. | |
+| Q3 | D3: no change to the cost displays (Option A)? | Answered 20261011 (Ray): store it and make sure it is tabulated. A better breakdown in `workmain providers costs` and `workmain reports costs` comes later, and goes to #149's correction issue at close-out. |
+| Q4 | F15, test rows in the live `ai_costs` table: where does the fix go? Recommendation: add it to #136 as context plus criteria: `ai_costs` in the killed-run row count, an unchanged `ai_costs` row count across a full passing run, and a delete of the existing test rows, which is an authorization point at execution. #136 already owns isolating the suite from the live database. | |
+| Q5 | D4: token counts are read in code, pricing stays in config, and #149 adds no config key. #155 decides the rate schema, and #149's categories feed it? | |
 
 ## 6. Disposition
 
