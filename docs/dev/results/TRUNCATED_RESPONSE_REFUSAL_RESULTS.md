@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Steps 1–4 are implemented and committed on `feature/issue-148-truncated-response-detection`. Every provider reply now states how it finished, `ProviderManager.generate` refuses a cut-off, stopped or empty reply from either provider, and the fallback comes back as a `FallbackNotice` that every result surface reports. The work is complete. AC6.5's command reads one hit in a reference-only file outside the spec's scope (§4, deviation 1).
+Steps 1–4 are implemented and committed on `feature/issue-148-truncated-response-detection`. Every provider reply now states how it finished, `ProviderManager.generate` refuses a cut-off, stopped or empty reply from either provider, and the fallback comes back as a `FallbackNotice` that every result surface reports. The work is complete.
 
 ## 2. What shipped, by step
 
@@ -53,7 +53,7 @@ Steps 1–4 are implemented and committed on `feature/issue-148-truncated-respon
 | AC6.2 | Met | `TestCondensationRefusal::test_fallback_condensation_returns_notice`; `tests/test_meetings_condense.py::TestMeetingsCondenseRefusal::test_fallback_condensation_warns_on_stderr` |
 | AC6.3 | Met | `TestManagerRefusal::test_any_primary_failure_is_returned_and_logged` |
 | AC6.4 | Met | the property holds (the returned notice is the only record); `git grep -n 'fallback_notification' -- workmain tests scripts` returns no hits; `TestManagerRefusal::test_manager_keeps_no_fallback_record` |
-| AC6.5 | Met | `compare_providers.py` judges a run by the response's own `finish_reason`, `SUCCESS_REASONS` is gone, and `tests/test_compare_providers.py` passes with `finish` fixtures. `git grep -n 'SUCCESS_REASONS\|FinishReason.STOP' -- scripts` returns one hit, `scripts/baseline/run_baseline.py:47`, which is out of scope (§4, deviation 1) |
+| AC6.5 | Met | `compare_providers.py` judges a run by the response's own `finish_reason`, `SUCCESS_REASONS` is gone, and `tests/test_compare_providers.py` passes with `finish` fixtures; `git grep -n 'SUCCESS_REASONS\|FinishReason.STOP' -- scripts/compare_providers.py` returns no hits |
 | AC6.6 | Met | `docs/AI_SETTINGS_GUIDE.md` read by Ray |
 | AC6.7 | Met | `TestReportStepOutcome::test_non_interactive_zero_exit_with_no_row_fails` |
 | AC6.8 | Met | `TestCondenseStepOutcome::test_recovered_fallback_is_reported_in_the_step_message` (real `meetings condense` through a real `ProviderManager`) |
@@ -62,10 +62,7 @@ Steps 1–4 are implemented and committed on `feature/issue-148-truncated-respon
 
 | # | Deviation | Reason | Approved by |
 | --- | --- | --- | --- |
-| 1 | AC6.5's command reads one hit in `scripts/baseline/run_baseline.py`; the file is untouched. | The spec scopes only `compare_providers.py`, and `scripts/baseline/` is reference-only until #188 ships. | Ray |
-| 2 | New helper `failure_exit_code` in `workmain/utils/ai_arguments.py`. | DR10 states the exit-code rule for three command files and names no home. One function avoids three copies; `reports.py` already imports from that module. | Awaiting Ray |
-| 3 | New test helper `tests/mocks/stub_providers.py`. | §6's fixture rule needs stub providers in a real `ProviderManager` in eight test files; §6 says tests go in existing files but names no home for shared stubs. `tests/mocks/__init__.py` docstring updated to match. | Awaiting Ray |
-| 4 | The AC3.3, AC3.9 and AC6.1 (b) CLI tests patch `get_report_generator`, not the manager. | The spec words them as "the generator raising the manager's refusal". AC3.4, AC3.8 and AC6.8 run through a real manager as specified. | Awaiting Ray |
+| 1 | New helper `failure_exit_code` in `workmain/utils/ai_arguments.py`. | DR10 states the exit-code rule for three command files and names no home. One function avoids three copies; `reports.py` already imports from that module. | Ray (spec Decision Log, 20261011) |
 
 ## 5. Verification
 
