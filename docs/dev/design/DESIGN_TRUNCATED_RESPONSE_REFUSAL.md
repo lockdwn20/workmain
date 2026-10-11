@@ -145,10 +145,10 @@ Nothing else calls `reports save`, and weekly takes the same branch as daily (F2
 | Q | Question | Answer |
 | --- | --- | --- |
 | Q1 | D3: the manager's no-fallback and manual-mode messages include the cause's text (Option A)? | Answered 20261011 (Ray): agreed, Option A. |
-| Q2 | D4: the fallback's reason travels with the result, and every surface that reports it states it: report row metadata, the `reports save` and condensation output, and the EOD completion message. Narration logs only. It covers every automatic fallback, not only cut-offs, and the unread notification list is removed (Option B)? | |
-| Q3 | D5: `reports save` exits non-zero on failure, writes the error to stderr, names the cap setting to change on a cut-off, and an interactive skip returns `FAILED`. All four parts, in this work? | |
+| Q2 | D4: the fallback's reason travels with the result, and every surface that reports it states it: report row metadata, the `reports save` and condensation output, and the EOD completion message. Narration logs only. It covers every automatic fallback, not only cut-offs, and the unread notification list is removed (Option B)? | Answered 20261011 (Ray): Option B. |
+| Q3 | D5: `reports save` exits non-zero on failure, writes the error to stderr, names the cap setting to change on a cut-off, and an interactive skip returns `FAILED`. All four parts, in this work? | Answered 20261011 (Ray): agreed, all four, in this work. This is what #148 is meant to correct. |
 | Q4 | Out of scope: email draft date selection (F15) and unrecorded billed replies (F22). | Answered 20261011 (Ray): separate issues. Opened as #192 (email, bottom of the queue) and #191 (cost recording, blocked by #148, to be moved up by Ray). F23 is corrected when #148's body is edited at close-out. |
 
 ## 6. Disposition
 
-- Promoted to: (pending Analysis)
+- Promoted to: `../specs/TRUNCATED_RESPONSE_REFUSAL_SPEC.md`
