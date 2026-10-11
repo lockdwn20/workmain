@@ -1,6 +1,6 @@
 # Truncated Response Refusal — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261011
 **Branch:** `feature/issue-148-truncated-response-detection` (from `dev`)
@@ -41,6 +41,7 @@
 | 20261011 | Ray | A condensation the fallback recovers in Slack EOD step 1 is reported in Slack. `meetings condense` writes the fallback warning to stderr and step 1 carries it into its result (Option A), rather than a new `meetings` column (B, a migration) or log only (C). §5.6's Warning row gains the stderr case. | Taken — DR9, DR10, DR14, AC3.7, AC6.8. |
 | 20261011 | Caliper | 5: DR8's `logger.warning` reaches a CLI child's stderr through Python's last-resort handler, ahead of the command's own line. DR14 and `failure_message` would carry two lines and repeat the reason. AC3.4, AC3.8 and AC6.8 cannot see it because they mock below the manager. | Accepted. Verified: only `daemon.py:77` configures logging, and the CLI configures none. Fixed at the source, DR16: the CLI routes logging to stdout, as the daemon does, so stderr is only the command's line and the record still reaches the journal via the captured stdout. Not by filtering stderr in the steps, which would parse output. AC3.4, AC3.8 and AC6.8 now run through a real `ProviderManager`. AC3.11 proves the routing in a fresh process. |
 | 20261011 | Spanner | The CLI logs to stdout (DR16) rather than discarding records or lowering DR8 to `info`. Discarding loses the existing CLI-child warnings that reach the journal today. Lowering the level changes the `warning` that Ray's D4 answer set and leaves every other CLI-child warning on stderr. The daemon's stdout choice is the precedent. | DR16. Flagged for Ray at hand-off. |
+| 20261011 | Ray | Spec approved, DR16 included. The subprocess-boundary code (DR11's and DR14's stderr hand-off) is recorded on #115, whose fix removes it. | Status `Approved`. |
 
 ---
 
