@@ -9,10 +9,12 @@ full ai_settings.json detail view.
 """
 
 import json
+import sys
 from pathlib import Path
 from typing import Optional
 import click
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 from rich.panel import Panel
 from rich import box
@@ -20,12 +22,19 @@ from rich import box
 from workmain.database.connection import get_db
 from workmain.database.repositories.ai_costs_repo import get_ai_cost_repository
 from workmain.ai.provider_manager import get_provider_manager, report_type_names
-from workmain.ai.base_provider import ProviderStatus, ProviderUnavailableError, GenerationRequest
+from workmain.ai.base_provider import (
+    GenerationRequest,
+    IncompleteResponseError,
+    ProviderStatus,
+    ProviderUnavailableError,
+    require_complete,
+)
 from workmain.utils.ai_arguments import require_eligible_provider, require_provider, require_report_type
 from workmain.utils.date_utils import resolve_date_window, format_date_window_label
 
 
 console = Console()
+err_console = Console(stderr=True, soft_wrap=True)
 
 _SETTINGS_PATH = Path(__file__).parent.parent.parent.parent / 'config' / 'ai_settings.json'
 
@@ -128,19 +137,20 @@ def test_provider(provider: str):
         status = client.check_availability()
 
         if status != ProviderStatus.AVAILABLE:
-            console.print(f"[red]✗ Provider status: {status.value}[/red]")
-            console.print()
-            return
+            err_console.print(f"[red]✗ Provider status: {status.value}[/red]")
+            sys.exit(2)
 
         console.print(f"[green]✓ Provider available[/green]")
         console.print("[dim]Sending test request...[/dim]")
 
+        probe_max_tokens = 512
         request = GenerationRequest(
             prompt="Respond with exactly: 'API connection successful'",
-            max_tokens=512,
+            max_tokens=probe_max_tokens,
         )
 
         response = client.generate(request)
+        require_complete(response, "providers test", probe_max_tokens, None)
 
         console.print()
         console.print(f"[green]✓ {provider_lower.title()} API test successful![/green]")
@@ -153,15 +163,17 @@ def test_provider(provider: str):
         console.print(f"  Cost: ${response.cost:.6f}")
         console.print()
 
+    except IncompleteResponseError as e:
+        err_console.print(f"[red]✗ Test failed:[/red] {escape(str(e))}")
+        sys.exit(2)
     except Exception as e:
-        console.print(f"[red]✗ Test failed: {e}[/red]")
-        console.print()
+        err_console.print(f"[red]✗ Test failed:[/red] {escape(str(e))}")
         cfg = pm.get_all_provider_configs().get(provider_lower, {})
         api_key_env = cfg.get('api_key_env')
         if api_key_env:
-            console.print("[dim]Check your API key in .env file:[/dim]")
-            console.print(f"  {api_key_env}=...")
-        console.print()
+            err_console.print("[dim]Check your API key in .env file:[/dim]")
+            err_console.print(f"  {api_key_env}=...")
+        sys.exit(2)
 
 
 @providers.command('costs')

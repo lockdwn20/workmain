@@ -2,6 +2,9 @@
 Main CLI interface using the Click framework.
 """
 
+import logging
+import sys
+
 import click
 from rich.console import Console
 from rich.table import Table
@@ -82,6 +85,19 @@ class WorkmAInGroup(click.Group):
             raise _StubCommandError(str(e)) from e
 
 
+def _configure_cli_logging() -> None:
+    """Route log records to stdout, so stderr carries only a command's own lines.
+
+    The daemon does the same for the systemd journal. In an EOD child, stdout
+    is captured and echoed to the daemon's journal.
+    """
+    logging.basicConfig(
+        level=logging.WARNING,
+        format='%(name)s %(levelname)s %(message)s',
+        handlers=[logging.StreamHandler(sys.stdout)],
+    )
+
+
 @click.group(cls=WorkmAInGroup)
 @click.version_option(version=__version__, prog_name="workmain")
 @click.pass_context
@@ -94,6 +110,7 @@ def cli(ctx):
     
     Use 'workmain COMMAND --help' for more information on a specific command.
     """
+    _configure_cli_logging()
     ctx.ensure_object(dict)
 
 

@@ -45,6 +45,7 @@ class ReportsRepository:
         generation_time: float,
         file_path: Optional[str] = None,
         client_id: Optional[int] = None,
+        fallback_reason: Optional[str] = None,
     ) -> Report:
         """
         Create a new report record.
@@ -62,6 +63,7 @@ class ReportsRepository:
             generation_time: Time taken to generate (seconds)
             file_path: Optional path to saved file
             client_id: Optional client ID for attribution (None = internal mode)
+            fallback_reason: Why the fallback provider answered, when it did
 
         Returns:
             Created Report object
@@ -79,6 +81,9 @@ class ReportsRepository:
         
         if file_path:
             metadata["file_path"] = file_path
+
+        if fallback_reason is not None:
+            metadata["fallback_reason"] = fallback_reason
         
         # Create report
         report = Report(

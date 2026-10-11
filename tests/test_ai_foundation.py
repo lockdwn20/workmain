@@ -16,6 +16,7 @@ from workmain.ai.base_provider import (
     ProviderStatus,
     GenerationRequest,
     GenerationResponse,
+    FinishStatus,
     ProviderError
 )
 
@@ -92,7 +93,9 @@ class MockProvider(BaseProvider):
             tokens_used=total_tokens,
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
-            cost=cost
+            cost=cost,
+            finish=FinishStatus.COMPLETE,
+            finish_reason="end_turn",
         )
 
     def estimate_cost(self, prompt_tokens: int, completion_tokens: int) -> float:
@@ -226,10 +229,10 @@ def test_provider_manager():
     assert fallback_used
     assert gemini.call_count == 1
 
-    notifications = manager.get_fallback_notifications()
-    assert len(notifications) == 1
-    assert "claude" in notifications[0].lower()
-    assert "gemini" in notifications[0].lower()
+    assert fallback_used.primary == ProviderType.CLAUDE
+    assert fallback_used.fallback == ProviderType.GEMINI
+    assert "claude" in fallback_used.message.lower()
+    assert "gemini" in fallback_used.message.lower()
 
     print("✓ Automatic fallback working")
 

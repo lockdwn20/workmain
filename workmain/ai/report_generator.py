@@ -152,7 +152,7 @@ class ReportGenerator:
             )
             
             # Generate with AI
-            response, fallback_used = self.provider_manager.generate(
+            response, notice = self.provider_manager.generate(
                 request=request,
                 report_type=template_name,
                 provider_override=provider
@@ -204,6 +204,7 @@ class ReportGenerator:
                 generation_time=generation_time,
                 file_path=str(file_path) if file_path else None,
                 client_id=client_id,
+                fallback_reason=notice.message if notice else None,
             )
             
             # End cost tracking with generation time
@@ -236,6 +237,7 @@ class ReportGenerator:
                 "cost": response.cost,
                 "file_path": str(file_path) if file_path else None,
                 "report_id": db_report.id,
+                "fallback_reason": notice.message if notice else None,
                 "generated_at": datetime.now().isoformat()
             }
         

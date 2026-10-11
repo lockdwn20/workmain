@@ -25,6 +25,7 @@ from workmain.daemon.delivery import deliver
 from workmain.daemon.inspection_engine import InspectionEngine
 from workmain.daemon.narration import narrate
 from workmain.daemon import state_io
+from workmain.ai.base_provider import ProviderError
 from workmain.ai.provider_manager import get_provider_manager
 from workmain.daemon.conversation_state import ConversationStore
 from workmain.database.connection import get_db
@@ -454,6 +455,10 @@ class WorkmAInDaemon:
 
         try:
             action = parser.parse(text)
+        except ProviderError as e:
+            logger.warning("Intent parse provider failure: %s", e)
+            self.post_message(f"Sorry, I couldn't process that: {e}")
+            return
         except Exception as e:
             logger.warning("Intent parse error: %s", e)
             self.post_message("Sorry, I couldn't understand that. Try rephrasing.")

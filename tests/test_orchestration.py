@@ -1487,3 +1487,80 @@ class TestEodStateThroughStore(unittest.TestCase):
             manager._run_step_async(session, {'key': 'task_match', 'num': 1, 'desc': 'Task match'})
 
         self.assertEqual(order, ['save', 'start'])
+
+
+class TestProviderFailureReplies(unittest.TestCase):
+    """Issue #148 DR12, DR15 — a provider failure in Slack is reported as one,
+    and the failure footer says what 'continue' and 'skip' do."""
+
+    _CAUSE = "intent_parse reply from ollama was cut off at its cap of 256 tokens (length)."
+
+    def _eod_manager(self):
+        from workmain.integrations.slack.slack_eod import SlackEodManager
+        store = _make_store()
+        manager = SlackEodManager(MagicMock(), MagicMock(), store)
+        return manager, store
+
+    def test_dispatch_message_reports_provider_failure(self):
+        from workmain.ai.base_provider import ProviderError
+        daemon = _make_daemon()
+        daemon._intent_parser = MagicMock()
+        daemon._intent_parser.parse.side_effect = ProviderError(self._CAUSE)
+        with patch.object(daemon, 'post_message') as post:
+            daemon._dispatch_message('U_OP', 'hello')
+        text = post.call_args.args[0]
+        self.assertIn('intent_parse', text)
+        self.assertIn('256', text)
+
+    def test_dispatch_message_keeps_understand_reply_for_parse_error(self):
+        from workmain.ai.intent_parser import IntentParseError
+        daemon = _make_daemon()
+        daemon._intent_parser = MagicMock()
+        daemon._intent_parser.parse.side_effect = IntentParseError('bad json')
+        with patch.object(daemon, 'post_message') as post:
+            daemon._dispatch_message('U_OP', 'hello')
+        self.assertIn("couldn't understand", post.call_args.args[0])
+
+    def test_inline_correction_reports_provider_failure(self):
+        from workmain.ai.base_provider import ProviderError
+        manager, _ = self._eod_manager()
+        manager._intent_parser = MagicMock()
+        manager._intent_parser.parse.side_effect = ProviderError(self._CAUSE)
+        with patch.object(manager, '_send') as send:
+            manager._handle_inline_correction(_eod_session(paused=True), 'fix it')
+        text = send.call_args.args[1]
+        self.assertIn('intent_parse', text)
+        self.assertIn('256', text)
+
+    def test_inline_correction_keeps_understand_reply_for_parse_error(self):
+        from workmain.ai.intent_parser import IntentParseError
+        manager, _ = self._eod_manager()
+        manager._intent_parser = MagicMock()
+        manager._intent_parser.parse.side_effect = IntentParseError('bad json')
+        with patch.object(manager, '_send') as send:
+            manager._handle_inline_correction(_eod_session(paused=True), 'fix it')
+        self.assertIn("couldn't understand", send.call_args.args[1])
+
+    def test_failed_step_footer_states_continue_retries(self):
+        """AC3.10."""
+        from workmain.integrations.slack.slack_eod import _FAILED_FOOTER
+        from workmain.workflows.eod_workflow import EodStepResult, EodStepStatus
+        manager, store = self._eod_manager()
+        session = _eod_session(step_idx=2)
+        store.save_session(session)
+        failed = EodStepResult(status=EodStepStatus.FAILED, error='boom')
+        with patch('workmain.workflows.eod_workflow.run_step', return_value=failed), \
+                patch.object(manager, '_send_blocks') as send_blocks:
+            manager._advance_step(session)
+        blocks = send_blocks.call_args.kwargs.get('blocks') or send_blocks.call_args.args[1]
+        footer = blocks[1]['elements'][0]['text']
+        self.assertEqual(footer, _FAILED_FOOTER)
+        self.assertIn("'continue' to retry", footer)
+
+    def test_no_footer_still_says_continue_skips(self):
+        import subprocess
+        out = subprocess.run(
+            ['git', 'grep', '-n', "'continue' to skip", '--', 'workmain'],
+            capture_output=True, text=True,
+        )
+        self.assertEqual(out.stdout, '')

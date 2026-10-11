@@ -5,9 +5,11 @@ CLI commands for meeting management.
 import click
 from datetime import datetime, date, time, timedelta
 from typing import Optional
+import sys
 import uuid
 
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 from rich import box
 
@@ -17,11 +19,12 @@ from workmain.database.repositories.meetings_repo import MeetingsRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
 from workmain.database.repositories.ai_costs_repo import get_ai_cost_repository
 from workmain.ai.note_condenser import get_note_condenser
-from workmain.utils.ai_arguments import require_provider
+from workmain.utils.ai_arguments import failure_exit_code, require_provider
 from workmain.utils.date_utils import resolve_date_window, format_date_window_label
 
 
 console = Console()
+err_console = Console(stderr=True, soft_wrap=True)
 
 
 def format_meeting_display(meeting, meetings_repo: MeetingsRepository, show_notes: bool = True) -> str:
@@ -866,7 +869,7 @@ def meetings_condense(meeting_title: str):
         condenser = get_note_condenser(session)
 
         try:
-            summary, resolved_tags = condenser.condense_meeting(meeting)
+            summary, resolved_tags, notice = condenser.condense_meeting(meeting)
 
             # Get cost from last condensation.
             # end_report() clears _current_report, so read from _last_completed.
@@ -883,6 +886,8 @@ def meetings_condense(meeting_title: str):
             console.print(f"  \"{summary}\"")
             console.print()
             console.print(f"[dim]Cost: ${total_cost:.6f} ({total_tokens} tokens)[/dim]")
+            if notice:
+                err_console.print(f"[yellow]⚠[/yellow] {escape(notice.message)}")
 
             # Create a note from the condensed summary
             from workmain.services import notes_service, time_entry_service
@@ -928,12 +933,12 @@ def meetings_condense(meeting_title: str):
             console.print()
 
         except ValueError as e:
-            console.print(f"[red]✗ Condensation failed: {e}[/red]")
-            console.print()
+            err_console.print(f"[red]✗ Condensation failed:[/red] {escape(str(e))}")
+            sys.exit(failure_exit_code(e))
 
     except Exception as e:
-        console.print(f"[red]✗ Error: {e}[/red]")
-        console.print()
+        err_console.print(f"[red]✗ Error:[/red] {escape(str(e))}")
+        sys.exit(failure_exit_code(e))
 
     finally:
         session.close()

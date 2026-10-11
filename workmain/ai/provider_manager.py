@@ -3,12 +3,13 @@ Manages AI providers with intelligent fallback and selection.
 
 Provides an N-provider extensible registry,
 per-report-type provider selection from ai_settings.json, configurable
-manual or automatic fallback, provider health monitoring, notification on
-fallback, and disabled provider tracking (no connectivity check runs for a
+manual or automatic fallback, provider health monitoring, a returned notice
+on fallback, refusal of a cut-off or empty reply, and disabled provider tracking (no connectivity check runs for a
 disabled provider).
 """
 
 import json
+import logging
 import os
 from typing import Dict, Optional, List, Tuple
 from enum import Enum
@@ -24,9 +25,12 @@ from workmain.ai.base_provider import (
     ProviderError,
     RateLimitError,
     ConfigurationError,
+    require_complete,
 )
 from workmain.ai.providers import PROVIDER_REGISTRY
 from workmain.config_manager.loader import ConfigLoader
+
+logger = logging.getLogger(__name__)
 
 
 class FallbackMode(Enum):
@@ -52,6 +56,7 @@ class ReportTypeConfig:
         primary_provider: Primary provider to use
         max_tokens: Total output ceiling (thinking plus answer) for this call type
         instructions: How this call's instructions reach the model
+        max_tokens_key: Config path of this call type's cap, for error messages
         fallback_provider: Fallback provider if primary fails
         fallback_mode: AUTO or MANUAL fallback
         max_cost_per_report: Optional cost limit
@@ -60,9 +65,26 @@ class ReportTypeConfig:
     primary_provider: ProviderType
     max_tokens: int
     instructions: InstructionSource
+    max_tokens_key: str
     fallback_provider: Optional[ProviderType] = None
     fallback_mode: FallbackMode = FallbackMode.AUTO
     max_cost_per_report: Optional[float] = None
+
+
+@dataclass
+class FallbackNotice:
+    """The record that a fallback provider answered, and why the primary did not."""
+    call_type: str
+    primary: ProviderType
+    fallback: ProviderType
+    reason: str
+
+    @property
+    def message(self) -> str:
+        return (
+            f"{self.fallback.value} answered {self.call_type} because "
+            f"{self.primary.value} failed: {self.reason}"
+        )
 
 
 class ProviderManager:
@@ -88,7 +110,6 @@ class ProviderManager:
         self._all_configs: Dict[str, dict] = {}          # name → config dict (all providers)
         self._settings: dict = {}                        # full ai_settings.json
         self._call_configs: Dict[str, ReportTypeConfig] = {}
-        self._fallback_notifications: List[str] = []
 
         self._load_config()
 
@@ -159,7 +180,7 @@ class ProviderManager:
         request: GenerationRequest,
         report_type: Optional[str] = None,
         provider_override: Optional[ProviderType] = None
-    ) -> Tuple[GenerationResponse, bool]:
+    ) -> Tuple[GenerationResponse, Optional[FallbackNotice]]:
         """
         Generate content using appropriate provider.
 
@@ -170,7 +191,8 @@ class ProviderManager:
                 call type's instructions
 
         Returns:
-            Tuple of (GenerationResponse, fallback_used)
+            Tuple of (GenerationResponse, FallbackNotice or None). The notice is
+            set when the fallback provider answered, and states why.
 
         Raises:
             ProviderError: If generation fails with all providers
@@ -199,32 +221,37 @@ class ProviderManager:
         try:
             provider = self.get_provider(primary.value)
             response = provider.generate(request)
-            return response, False
+            require_complete(response, report_type, request.max_tokens, config.max_tokens_key)
+            return response, None
 
         except (ProviderError, RateLimitError) as e:
+            logger.warning(
+                "%s: primary provider %s failed: %s", report_type, primary.value, e
+            )
             if not fallback:
                 raise ProviderError(
-                    f"Primary provider {primary.value} failed and no fallback configured"
+                    f"Primary provider {primary.value} failed and no fallback configured: {e}"
                 ) from e
 
             if fallback_mode == FallbackMode.MANUAL:
                 raise ProviderError(
-                    f"Primary provider {primary.value} failed. "
+                    f"Primary provider {primary.value} failed: {e}. "
                     f"Fallback to {fallback.value} available but manual mode enabled. "
                     f"Use --provider {fallback.value} to retry."
                 ) from e
 
             try:
                 fallback_provider = self.get_provider(fallback.value)
-                notification = (
-                    f"⚠️  Primary provider {primary.value} failed. "
-                    f"Automatically falling back to {fallback.value}. "
-                    f"Reason: {str(e)}"
-                )
-                self._fallback_notifications.append(notification)
-
                 response = fallback_provider.generate(request)
-                return response, True
+                require_complete(
+                    response, report_type, request.max_tokens, config.max_tokens_key
+                )
+                return response, FallbackNotice(
+                    call_type=report_type,
+                    primary=primary,
+                    fallback=fallback,
+                    reason=str(e),
+                )
 
             except (ProviderError, RateLimitError) as fallback_error:
                 raise ProviderError(
@@ -265,14 +292,6 @@ class ProviderManager:
     def get_eligible_provider_names(self, call_type: str) -> List[str]:
         """Return the providers that accept call_type's instructions, in config order."""
         return eligible_provider_names(self._settings, call_type)
-
-    def get_fallback_notifications(self) -> List[str]:
-        """Get list of fallback notifications."""
-        return self._fallback_notifications.copy()
-
-    def clear_fallback_notifications(self):
-        """Clear fallback notification history."""
-        self._fallback_notifications.clear()
 
     def get_report_config(self, report_type: str) -> Optional[ReportTypeConfig]:
         """
@@ -484,6 +503,7 @@ class ProviderManager:
             primary_provider=primary,
             max_tokens=max_tokens,
             instructions=instructions,
+            max_tokens_key=f"{key_prefix}.max_tokens",
             fallback_provider=fallback,
             fallback_mode=fb_mode,
             max_cost_per_report=cfg.get('max_cost_per_report', 1.0),

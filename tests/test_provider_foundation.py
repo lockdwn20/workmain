@@ -23,6 +23,10 @@ from workmain.ai.base_provider import (
     ProviderError,
     ProviderUnavailableError,
     ConfigurationError,
+    FinishStatus,
+    GenerationResponse,
+    IncompleteResponseError,
+    require_complete,
 )
 from workmain.ai.providers import PROVIDER_REGISTRY, ClaudeProvider, GeminiProvider, OllamaProvider
 from workmain.ai.providers.ollama import OllamaProvider as OllamaProviderDirect
@@ -1002,3 +1006,245 @@ def test_eligible_provider_names_follows_accepts():
     assert _manager_from_dict(settings).get_eligible_provider_names('intent_parse') == [
         'claude', 'ollama'
     ]
+
+
+# ---------------------------------------------------------------------------
+# Finish status and the refusal (issue #148)
+# ---------------------------------------------------------------------------
+
+def _finish_response(finish, reason, content="text"):
+    return GenerationResponse(
+        content=content, provider=ProviderType.GEMINI, model="m",
+        tokens_used=1, prompt_tokens=1, completion_tokens=0, cost=0.0,
+        finish=finish, finish_reason=reason,
+    )
+
+
+class TestRequireComplete:
+    def test_construction_without_finish_raises(self):
+        """AC1.4: a provider that forgets to report how it finished fails construction."""
+        with pytest.raises(TypeError):
+            GenerationResponse(
+                content="x", provider=ProviderType.CLAUDE, model="m",
+                tokens_used=1, prompt_tokens=1, completion_tokens=0, cost=0.0,
+            )
+
+    def test_cut_off_message_names_everything(self):
+        """AC3.1: DR3's first form, exactly."""
+        response = _finish_response(FinishStatus.CUT_OFF, "MAX_TOKENS")
+        with pytest.raises(IncompleteResponseError) as exc:
+            require_complete(
+                response, "daily_internal", 16000,
+                "report_types.daily_internal.max_tokens",
+            )
+        assert str(exc.value) == (
+            "daily_internal reply from gemini was cut off at its cap of 16000 "
+            "tokens (MAX_TOKENS). Raise report_types.daily_internal.max_tokens "
+            "in config/ai_settings.json."
+        )
+        assert exc.value.call_type == "daily_internal"
+        assert exc.value.max_tokens == 16000
+        assert exc.value.provider == "gemini"
+        assert exc.value.finish_reason == "MAX_TOKENS"
+
+    def test_cut_off_without_setting_omits_raise_sentence(self):
+        response = _finish_response(FinishStatus.CUT_OFF, "length")
+        with pytest.raises(IncompleteResponseError) as exc:
+            require_complete(response, "providers test", 512, None)
+        assert str(exc.value) == (
+            "providers test reply from gemini was cut off at its cap of 512 "
+            "tokens (length)."
+        )
+
+    def test_stopped_message(self):
+        response = _finish_response(FinishStatus.STOPPED, "SAFETY")
+        with pytest.raises(IncompleteResponseError) as exc:
+            require_complete(response, "x", 10, None)
+        assert str(exc.value) == "x reply from gemini stopped before completing (SAFETY)."
+
+    def test_empty_complete_message(self):
+        response = _finish_response(FinishStatus.COMPLETE, "STOP", content="  ")
+        with pytest.raises(IncompleteResponseError) as exc:
+            require_complete(response, "x", 10, None)
+        assert str(exc.value) == "x reply from gemini was empty (STOP)."
+
+    def test_complete_passes(self):
+        require_complete(_finish_response(FinishStatus.COMPLETE, "STOP"), "x", 10, None)
+
+
+# ---------------------------------------------------------------------------
+# The manager refuses an incomplete reply and returns its fallback (issue #148)
+# ---------------------------------------------------------------------------
+
+class _StubProvider:
+    """Returns one scripted reply, or raises one scripted exception."""
+
+    def __init__(self, provider_type, finish=FinishStatus.COMPLETE,
+                 reason="STOP", content="text", error=None):
+        self.provider_type = provider_type
+        self._args = (finish, reason, content)
+        self._error = error
+        self.calls = 0
+
+    def generate(self, request):
+        self.calls += 1
+        if self._error:
+            raise self._error
+        finish, reason, content = self._args
+        return GenerationResponse(
+            content=content, provider=self.provider_type, model="m",
+            tokens_used=1, prompt_tokens=1, completion_tokens=0, cost=0.0,
+            finish=finish, finish_reason=reason,
+        )
+
+
+def _route_manager(primary, fallback=None, fallback_mode="auto"):
+    """A manager routing daily_internal claude -> gemini, with stubs injected."""
+    from workmain.ai.base_provider import GenerationRequest
+    entry = {
+        "instructions": "system_prompt",
+        "primary_provider": "claude",
+        "max_tokens": 16000,
+        "fallback_mode": fallback_mode,
+    }
+    if fallback:
+        entry["fallback_provider"] = "gemini"
+    settings = {
+        "providers": {
+            "claude": {"enabled": False, "model": "x", "accepts": ["system_prompt"]},
+            "gemini": {"enabled": False, "model": "x", "accepts": ["system_prompt"]},
+        },
+        "report_types": {"daily_internal": entry},
+    }
+    manager = _manager_from_dict(settings)
+    manager._disabled.clear()
+    manager._providers["claude"] = primary
+    if fallback:
+        manager._providers["gemini"] = fallback
+    return manager, GenerationRequest(prompt="p", max_tokens=16000)
+
+
+_CAP = "report_types.daily_internal.max_tokens"
+
+
+class TestManagerRefusal:
+    def test_both_cut_off_names_both_refusals(self):
+        """AC2.6: a fallback's cut-off is refused too."""
+        manager, request = _route_manager(
+            _StubProvider(ProviderType.CLAUDE, FinishStatus.CUT_OFF, "max_tokens"),
+            _StubProvider(ProviderType.GEMINI, FinishStatus.CUT_OFF, "MAX_TOKENS"),
+        )
+        with pytest.raises(ProviderError) as exc:
+            manager.generate(request, report_type="daily_internal")
+        text = str(exc.value)
+        assert "Both providers failed" in text
+        assert "from claude was cut off" in text
+        assert "from gemini was cut off" in text
+
+    def test_no_fallback_keeps_call_type_and_cap(self):
+        """AC3.2: no fallback configured."""
+        manager, request = _route_manager(
+            _StubProvider(ProviderType.CLAUDE, FinishStatus.CUT_OFF, "max_tokens"),
+        )
+        with pytest.raises(ProviderError) as exc:
+            manager.generate(request, report_type="daily_internal")
+        assert "daily_internal" in str(exc.value)
+        assert "16000" in str(exc.value)
+        assert _CAP in str(exc.value)
+
+    def test_manual_mode_keeps_call_type_and_cap(self):
+        """AC3.2: manual fallback mode."""
+        manager, request = _route_manager(
+            _StubProvider(ProviderType.CLAUDE, FinishStatus.CUT_OFF, "max_tokens"),
+            _StubProvider(ProviderType.GEMINI),
+            fallback_mode="manual",
+        )
+        with pytest.raises(ProviderError) as exc:
+            manager.generate(request, report_type="daily_internal")
+        assert "daily_internal" in str(exc.value)
+        assert "16000" in str(exc.value)
+        assert "--provider gemini" in str(exc.value)
+
+    def test_cut_off_primary_falls_back_with_notice(self):
+        manager, request = _route_manager(
+            _StubProvider(ProviderType.CLAUDE, FinishStatus.CUT_OFF, "max_tokens"),
+            _StubProvider(ProviderType.GEMINI),
+        )
+        response, notice = manager.generate(request, report_type="daily_internal")
+        assert response.provider == ProviderType.GEMINI
+        assert notice.primary == ProviderType.CLAUDE
+        assert notice.fallback == ProviderType.GEMINI
+        assert "cut off" in notice.reason
+        assert "gemini answered daily_internal because claude failed" in notice.message
+
+    def test_primary_complete_returns_no_notice(self):
+        manager, request = _route_manager(
+            _StubProvider(ProviderType.CLAUDE, reason="end_turn"),
+            _StubProvider(ProviderType.GEMINI),
+        )
+        response, notice = manager.generate(request, report_type="daily_internal")
+        assert response.provider == ProviderType.CLAUDE
+        assert notice is None
+
+    def test_any_primary_failure_is_returned_and_logged(self, caplog):
+        """AC6.3: every automatic fallback, whatever its cause."""
+        from workmain.ai.base_provider import GenerationError
+        manager, request = _route_manager(
+            _StubProvider(ProviderType.CLAUDE, error=GenerationError("boom")),
+            _StubProvider(ProviderType.GEMINI),
+        )
+        with caplog.at_level("WARNING", logger="workmain.ai.provider_manager"):
+            _, notice = manager.generate(request, report_type="daily_internal")
+        assert notice.reason == "boom"
+        assert any(
+            "daily_internal" in r.getMessage() and "claude" in r.getMessage()
+            for r in caplog.records if r.levelname == "WARNING"
+        )
+
+    def test_manager_keeps_no_fallback_record(self):
+        """AC6.4: the returned notice is the only record of a fallback."""
+        manager, _ = _route_manager(_StubProvider(ProviderType.CLAUDE))
+        assert not [name for name in dir(manager) if "notif" in name]
+
+
+def _invoke_providers_test(finish, reason, content):
+    """Run 'providers test gemini' with the provider's generate returning one reply."""
+    provider = MagicMock()
+    provider.check_availability.return_value = ProviderStatus.AVAILABLE
+    provider.generate.return_value = GenerationResponse(
+        content=content, provider=ProviderType.GEMINI, model="m", tokens_used=5,
+        prompt_tokens=3, completion_tokens=2, cost=0.0,
+        finish=finish, finish_reason=reason,
+    )
+    manager = MagicMock()
+    manager.get_configured_provider_names.return_value = ['claude', 'gemini', 'ollama']
+    manager.is_disabled.return_value = False
+    manager.get_provider.return_value = provider
+    manager.get_all_provider_configs.return_value = {'gemini': {'api_key_env': 'GOOGLE_API_KEY'}}
+    with patch('workmain.cli.commands.providers.get_provider_manager', return_value=manager), \
+            patch('workmain.utils.ai_arguments.get_provider_manager', return_value=manager):
+        return CliRunner(mix_stderr=False).invoke(providers, ['test', 'gemini'])
+
+
+def test_providers_test_fails_on_cut_off_reply():
+    """AC4.1."""
+    result = _invoke_providers_test(FinishStatus.CUT_OFF, "MAX_TOKENS", "partial")
+    assert result.exit_code == 2
+    assert "API test successful" not in result.output
+    assert "providers test" in result.stderr
+    assert "512" in result.stderr
+    assert "GOOGLE_API_KEY" not in result.stderr
+
+
+def test_providers_test_fails_on_empty_reply():
+    """AC4.2."""
+    result = _invoke_providers_test(FinishStatus.COMPLETE, "STOP", "")
+    assert result.exit_code == 2
+    assert "API test successful" not in result.output
+    assert "was empty" in result.stderr
+
+
+def test_providers_test_succeeds_on_complete_reply():
+    result = _invoke_providers_test(FinishStatus.COMPLETE, "STOP", "API connection successful")
+    assert result.exit_code == 0
+    assert "API test successful" in result.output

@@ -21,6 +21,13 @@ class ProviderType(Enum):
     OLLAMA = "ollama"
 
 
+class FinishStatus(Enum):
+    """How a provider's reply ended."""
+    COMPLETE = "complete"
+    CUT_OFF = "cut_off"
+    STOPPED = "stopped"
+
+
 class ProviderStatus(Enum):
     """Provider availability status."""
     AVAILABLE = "available"
@@ -67,6 +74,8 @@ class GenerationResponse:
         prompt_tokens: Tokens in prompt
         completion_tokens: Tokens in completion
         cost: Estimated cost in USD
+        finish: How the reply ended, as the provider mapped its vendor signal
+        finish_reason: The vendor's own finish value as a plain string
         metadata: Additional provider-specific data
     """
     content: str
@@ -76,6 +85,8 @@ class GenerationResponse:
     prompt_tokens: int
     completion_tokens: int
     cost: float
+    finish: FinishStatus
+    finish_reason: str
     metadata: Optional[Dict[str, Any]] = None
 
 
@@ -258,3 +269,57 @@ class ConfigurationError(ProviderError):
 class GenerationError(ProviderError):
     """Exception raised when generation fails."""
     pass
+
+
+class IncompleteResponseError(GenerationError):
+    """Raised when a reply is cut off, stopped early, or empty.
+
+    Attributes:
+        call_type: The call type (or command) the reply was for
+        max_tokens: The cap the request carried
+        provider: The ProviderType value of the provider that replied
+        finish_reason: The vendor's own finish value
+    """
+
+    def __init__(self, message: str, call_type: str, max_tokens: int,
+                 provider: str, finish_reason: str):
+        super().__init__(message)
+        self.call_type = call_type
+        self.max_tokens = max_tokens
+        self.provider = provider
+        self.finish_reason = finish_reason
+
+
+def require_complete(
+    response: GenerationResponse,
+    call_type: str,
+    max_tokens: int,
+    setting: Optional[str],
+) -> None:
+    """Raise IncompleteResponseError unless the reply is complete and non-empty.
+
+    Args:
+        response: The reply to check
+        call_type: Call type or command name, for the message
+        max_tokens: The cap the request carried
+        setting: Config path of the cap to raise, or None when there is none
+
+    Raises:
+        IncompleteResponseError: If the reply did not finish COMPLETE or is empty
+    """
+    provider = response.provider.value
+    reason = response.finish_reason
+    if response.finish is FinishStatus.CUT_OFF:
+        message = (
+            f"{call_type} reply from {provider} was cut off at its cap of "
+            f"{max_tokens} tokens ({reason})."
+        )
+        if setting:
+            message += f" Raise {setting} in config/ai_settings.json."
+    elif response.finish is FinishStatus.STOPPED:
+        message = f"{call_type} reply from {provider} stopped before completing ({reason})."
+    elif not response.content.strip():
+        message = f"{call_type} reply from {provider} was empty ({reason})."
+    else:
+        return
+    raise IncompleteResponseError(message, call_type, max_tokens, provider, reason)

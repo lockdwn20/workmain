@@ -14,8 +14,8 @@ Usage:
     python scripts/compare_providers.py --date 2026-10-08 \
         --out staging/reports/provider_comparison_20261008.md
 
-Exit status is 0 when every run returned non-empty content and stopped on its
-provider's normal stop reason, 1 otherwise.
+Exit status is 0 when every run returned a complete, non-empty reply, 1 otherwise.
+The provider manager refuses an incomplete reply, so it is recorded as an error.
 """
 
 import argparse
@@ -35,7 +35,6 @@ from workmain.database.repositories.system_state_repository import SystemStateRe
 from workmain.templates_engine import get_template_loader
 
 CONDENSATION_TYPE = 'note_condensation'
-SUCCESS_REASONS = {'FinishReason.STOP', 'end_turn'}
 
 
 @dataclass
@@ -51,20 +50,19 @@ class Run:
 
     @property
     def reason(self) -> Optional[str]:
-        """The provider's finish or stop reason, or None when absent."""
+        """The provider's own finish reason, or None when there is no response."""
         if self.response is None:
             return None
-        metadata = self.response.metadata or {}
-        key = 'finish_reason' if self.response.provider == ProviderType.GEMINI else 'stop_reason'
-        value = metadata.get(key)
-        return str(value) if value else None
+        return self.response.finish_reason
 
     @property
     def passed(self) -> bool:
-        """True only for non-empty content with a normal stop reason (DR6)."""
-        if self.error or self.skipped or self.response is None:
-            return False
-        return bool(self.response.content.strip()) and self.reason in SUCCESS_REASONS
+        """True when there is no error, no skip, and a response is present.
+
+        The manager refuses a cut-off, stopped or empty reply, so one never
+        reaches ``response``.
+        """
+        return not (self.error or self.skipped) and self.response is not None
 
 
 def exit_status(runs: List[Run]) -> int:
