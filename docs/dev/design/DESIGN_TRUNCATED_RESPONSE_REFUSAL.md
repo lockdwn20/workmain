@@ -72,6 +72,17 @@ Issue #148: a reply cut off at its token cap is used as complete on every provid
 | F22 | **A refused reply's billed tokens are not recorded.** Every `ai_costs` write follows a successful return. The same holds today for every failed or retried call (#125). | `report_generator.py:194-224`; `note_condenser.py:195-204`; `intent_parser.py:106-122` | Low |
 | F23 | **The issue body's condensation evidence is stale.** It cites "the comment on `max_tokens`" in `note_condenser.py`. #127 removed that comment; the cap now comes from `get_max_tokens('note_condensation')`. | `note_condenser.py:127` | Low |
 
+### Second read, 20261011: what a recovered fallback and a failed `reports save` look like
+
+| # | Finding | Evidence (file:line, symbol) | Severity |
+| --- | --- | --- | --- |
+| F24 | **After an automatic fallback, only one surface names the provider that answered.** `reports save` prints `Provider: <name>` under Generation Details, and `workmain eod` echoes it. The Slack and daemon EOD message is "Daily report generated — review with: workmain reports history", with no provider. Both condensation commands print "Sending to Gemini…" from the routing config *before* the call and never name the provider that answered. Narration shows nothing. `reports costs` lists the provider after the fact. No surface says *why* the fallback happened. | `reports.py:200`; `eod_workflow.py:942-948`; `slack_eod.py:280`; `meetings.py:859-862`; `notes.py:664-666`; `reports.py:837-846` | High |
+| F25 | **A failed step's Slack message carries stderr only.** `failure_message` names the cause from stderr. `reports save` prints its error to stdout through the Rich console. A non-zero exit alone therefore reaches Slack as "Daily report generation failed (exit code 1)" with no cause. `workmain eod` echoes stdout, so the cause shows there. | `utils/self_invoke.py:77-88`; `reports.py:211`; `eod_workflow.py:903-918` | High |
+| F26 | **Choosing skip after a non-zero exit falls through to the review load.** The load finds no row, prints "Could not load daily report for review — report saved as unconfirmed" and returns `COMPLETED`. Nothing was saved. | `eod_workflow.py:919-969` | Medium |
+| F27 | **Retry runs a fresh `workmain` process, which reads `config/ai_settings.json` again.** A cap raised between the failure and `[r]etry` takes effect on the retry. Retrying a cut-off without changing the cap usually repeats it, since Claude has already been tried as the fallback. | `eod_workflow.py:920-921`, `run_workmain`; `docs/AI_SETTINGS_GUIDE.md:110` | Medium |
+| F28 | **`docs/DEVELOPMENT_STANDARDS.md` §5.6 already requires a non-zero exit on error:** `1` for a user-facing error, `2` for an integration error (API, auth). `reports save` exiting 0 breaks that rule. The swallow dates from the first `report` command (2025-12-29, `edc1d57`, `5c8c666`), six months before the EOD workflow (`881a0a3`, 2026-06-11), whose report step was written to branch on the exit code. It was never an EOD safeguard. | `reports.py:210-214`; `git blame` | Medium |
+| F29 | **The only code caller of `reports save` is the EOD report step, for daily (4a) and weekly (7).** Both take the same non-zero branch. No test asserts exit 0 on a failed generation. | `git grep -n "reports save" -- workmain tests`; `eod_workflow.py:858`, `:1048-1056`, `:1253-1261`; `tests/test_ai_arguments.py:184-214` | Low |
+
 **Not verified:**
 
 - A Claude reply ending `max_tokens`, `refusal` or `model_context_window_exceeded`. The values come from the installed SDK's type; none were produced live.
@@ -100,33 +111,43 @@ Without a change here, #148's third AC fails for every Ollama call type and ever
 
 **Recommendation: A.** It is one site, it matches the manager's third message, and it fixes the same loss for every other provider failure.
 
-### D4 — A cut-off that the fallback recovers (F10)
+### D4 — A call the fallback recovers (F10, F24)
 
-When Gemini is cut off on a report or a condensation, Claude answers and the call succeeds. Nothing tells the user that a call type hit its cap, which is the condition #148's third AC exists to show: the issue's own reason for being is that a cap set too low "truncates output with nothing to say so". The manager's notification list was built for this and has no reader, and the guide says it is printed.
+When Gemini is cut off on a report or a condensation, Claude answers and the call succeeds. #148 exists because a cap set too low "truncates output with nothing to say so". A recovered cut-off is that exact case, and today nothing reports it (F24). The same holds for every automatic fallback, whatever its cause. The manager's notification list was built for this, has no reader, and the guide says it is printed (F10).
 
-- **Option A — the manager logs every refusal at `warning`, naming call type, cap, provider and reason, whether or not the fallback recovers; the unread notification list and its accessors are removed and the guide's claim is corrected.** The daemon's log then records every overrun. An interactive CLI user sees nothing on a recovered call.
-- **Option B — surface the notification list.** The CLI report and condensation commands print `get_fallback_notifications()` after a successful generation, and the EOD and daemon paths log it. More sites, and the list is per-manager-instance state on a module singleton (`get_provider_manager`), so a long-running daemon accumulates it unless every reader clears it.
+- **Option A — log only.** The manager logs every refusal at `warning`. The unread list goes. Rejected by Ray, 20261011: it is visible only to someone watching the daemon log.
+- **Option B — the fallback's reason travels with the result, and every surface that reports the result states it.** `ProviderManager.generate` returns, with the response, the reason the primary was not used: the refusal naming call type, cap, provider and vendor reason, or the primary's error. This replaces the bare `fallback_used` flag and the unread list, so there is no state on the singleton manager. The manager also logs it at `warning`. The surfaces that report the result:
+  - **Reports:** the reason is stored in the report row's `metadata` (JSON, no migration). `reports save` prints a `⚠` line naming it. The EOD step's completion message, which Slack shows, reads it from the saved row: "Daily report generated by claude — gemini was cut off at daily_internal's cap of 16000".
+  - **Condensation:** both commands print the `⚠` line and the provider that answered, instead of only the configured one.
+  - **Narration:** log only. The notification is the product, and a fallback on a 2000-token summary does not change what the operator does next.
+  - **Intent parse, task match, note dedup:** no fallback is configured, so a refusal is a failure (D3).
 - **Option C — leave recovered calls silent.** Meets the AC's letter ("when a call type fails"), not its purpose.
 
-**Recommendation: A.** One site, no state, and it records every overrun where the daemon's other diagnostics already go. The notification list is dead code in the path this work changes, so it is removed here, not deferred.
+**Recommendation: B, covering every automatic fallback, not only cut-offs.** It is one return value carried through the existing call sites, and it puts the reason where the result is read: the CLI output, the Slack EOD message and the stored report. Extending it to fallbacks for any cause goes beyond #148's ACs. The mechanism is the same, the dead list is removed either way, and an API-error fallback that nobody sees is the same "I think everything is good" problem. `_fallback_notifications` and its accessors are removed and `docs/AI_SETTINGS_GUIDE.md` § Fallback behaviour is corrected.
 
-### D5 — A failed report generation reads as success to the EOD workflow (F13–F15)
+### D5 — A failed report generation reads as success to the EOD workflow (F13–F15, F25–F29)
 
-With D1 alone, a cut-off daily report is refused and not saved, which meets #148's second AC. But `reports save` exits 0, so the EOD step reports "generated" and step 4b drafts the previous day's report in its place. The operator is told the opposite of what happened, and the draft is stale.
+With D1 alone, a cut-off daily report is refused and not saved, which meets #148's second AC. But `reports save` exits 0, so the EOD step reports "generated", and step 4b drafts the previous day's report in its place (#192).
 
-- **Option A — `reports save` exits non-zero when generation fails.** The EOD step's existing non-zero branch then returns `FAILED` (non-interactive) or offers retry or skip (interactive), and prints the captured output carrying the refusal. One change, on the command's error path.
-- **Option B — a separate issue.** The defect predates #148 and holds for every generation failure.
+A non-zero exit on its own is not enough. Slack would show the failure with no cause (F25). Skipping would claim the report was saved (F26). Retrying without changing anything would repeat the cut-off (F27). The change is therefore four parts, each closing one of those effects:
 
-**Recommendation: A.** Without it, #148's third AC fails on the path where daily reports are made: the daemon's EOD. The exit code is the existing contract between the workflow and its child command, and the workflow already handles a non-zero exit. Step 4b still drafts by mtime after an operator chooses skip; that selection is outside #148 and goes to the correction issue (Q4).
+1. **`reports save` exits non-zero on a failed generation,** per §5.6 (F28): `2` for a provider failure, `1` otherwise. The "no active client" informational exit stays `0`.
+2. **The error line goes to stderr,** so the Slack and daemon `FAILED` message carries the cause (F25). §5.6 names no stream; suggested wording for §5.6's Error row: "written to stderr, so a caller capturing the command's output receives the cause".
+3. **A cut-off refusal names the setting to change:** `report_types.<call type>.max_tokens` (or `application_functions.…`) in `config/ai_settings.json`. Retry starts a fresh process that reads the config again (F27), so in `workmain eod` the operator can raise the cap and then choose `[r]etry`. In Slack the step pauses on the failure (`slack_eod.py:310-323`), and `continue` skips it.
+4. **Choosing skip after a failure returns `FAILED` with the cause,** instead of falling through to "report saved as unconfirmed" (F26). The EOD summary then lists the step under failed.
+
+Nothing else calls `reports save`, and weekly takes the same branch as daily (F29). One effect remains, and is tracked separately: step 4b still runs after a failed 4a and drafts the newest earlier report (#192).
+
+**Recommendation: A, all four parts, in this work.** Without them, #148's third AC fails on the path where daily reports are made.
 
 ## 5. Open questions
 
 | Q | Question | Answer |
 | --- | --- | --- |
-| Q1 | D3: the manager's no-fallback and manual-mode messages include the cause's text (Option A)? | |
-| Q2 | D4: the manager logs every refusal at `warning`, whether or not the fallback recovers; `_fallback_notifications` and its two accessors are removed and `docs/AI_SETTINGS_GUIDE.md` § Fallback behaviour is corrected (Option A)? | |
-| Q3 | D5: `reports save` exits non-zero when generation fails, in this work (Option A)? | |
-| Q4 | Out of scope, for one correction issue at close-out: step 4b's `email save` drafts the newest report file whatever its date (F15), and a refused or failed reply's billed tokens are not recorded (F22). The issue body's stale condensation evidence (F23) is corrected when the issue is edited at close-out. Agreed? | |
+| Q1 | D3: the manager's no-fallback and manual-mode messages include the cause's text (Option A)? | Answered 20261011 (Ray): agreed, Option A. |
+| Q2 | D4: the fallback's reason travels with the result, and every surface that reports it states it: report row metadata, the `reports save` and condensation output, and the EOD completion message. Narration logs only. It covers every automatic fallback, not only cut-offs, and the unread notification list is removed (Option B)? | |
+| Q3 | D5: `reports save` exits non-zero on failure, writes the error to stderr, names the cap setting to change on a cut-off, and an interactive skip returns `FAILED`. All four parts, in this work? | |
+| Q4 | Out of scope: email draft date selection (F15) and unrecorded billed replies (F22). | Answered 20261011 (Ray): separate issues. Opened as #192 (email, bottom of the queue) and #191 (cost recording, blocked by #148, to be moved up by Ray). F23 is corrected when #148's body is edited at close-out. |
 
 ## 6. Disposition
 
