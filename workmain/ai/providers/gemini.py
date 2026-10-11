@@ -23,6 +23,7 @@ from workmain.ai.base_provider import (
     ProviderStatus,
     GenerationRequest,
     GenerationResponse,
+    FinishStatus,
     ProviderError,
     RateLimitError,
     ConfigurationError,
@@ -100,6 +101,22 @@ class GeminiProvider(BaseProvider):
             'automatic_function_calling': self.policy["automatic_function_calling"],
         }
 
+    @staticmethod
+    def _map_finish(response) -> tuple:
+        """Map Gemini's finish signal to (FinishStatus, vendor reason string)."""
+        candidates = response.candidates
+        reason = candidates[0].finish_reason if candidates else None
+        if not reason:
+            feedback = getattr(response, 'prompt_feedback', None)
+            block = getattr(feedback, 'block_reason', None)
+            return FinishStatus.STOPPED, block.name if block else 'NO_CANDIDATE'
+        name = getattr(reason, 'name', str(reason))
+        if name == 'STOP':
+            return FinishStatus.COMPLETE, name
+        if name == 'MAX_TOKENS':
+            return FinishStatus.CUT_OFF, name
+        return FinishStatus.STOPPED, name
+
     def generate(self, request: GenerationRequest) -> GenerationResponse:
         """
         Generate text using Gemini.
@@ -143,6 +160,8 @@ class GeminiProvider(BaseProvider):
 
                 self._set_status(ProviderStatus.AVAILABLE)
 
+                finish, finish_reason = self._map_finish(response)
+
                 metadata = {}
                 if response.candidates and len(response.candidates) > 0:
                     candidate = response.candidates[0]
@@ -165,6 +184,8 @@ class GeminiProvider(BaseProvider):
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
                     cost=cost,
+                    finish=finish,
+                    finish_reason=finish_reason,
                     metadata=metadata
                 )
 

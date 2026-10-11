@@ -14,7 +14,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from workmain.ai.base_provider import GenerationResponse, ProviderType
+from workmain.ai.base_provider import FinishStatus, GenerationResponse, ProviderType
 from workmain.ai.note_condenser import NoteCondenser
 from workmain.ai.provider_manager import ProviderManager
 from workmain.ai.report_generator import ReportGenerator
@@ -39,6 +39,7 @@ def _response(provider, content="ok", reason=None):
     return GenerationResponse(
         content=content, provider=provider, model="m", tokens_used=10,
         prompt_tokens=4, completion_tokens=4, cost=0.0, metadata=metadata,
+        finish=FinishStatus.COMPLETE, finish_reason=reason,
     )
 
 

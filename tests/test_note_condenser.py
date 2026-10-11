@@ -25,7 +25,7 @@ from unittest.mock import patch
 
 import pytest
 
-from workmain.ai.base_provider import GenerationRequest, GenerationResponse, ProviderType
+from workmain.ai.base_provider import FinishStatus, GenerationRequest, GenerationResponse, ProviderType
 from workmain.ai.note_condenser import NoteCondenser, _compute_condensed_tags
 from workmain.ai.provider_manager import ProviderManager
 from workmain.database.models import Meeting, Note
@@ -83,6 +83,8 @@ def _fake_response(content: str) -> GenerationResponse:
         prompt_tokens=5,
         completion_tokens=5,
         cost=0.0,
+        finish=FinishStatus.COMPLETE,
+        finish_reason="end_turn",
     )
 
 

@@ -23,6 +23,10 @@ from workmain.ai.base_provider import (
     ProviderError,
     ProviderUnavailableError,
     ConfigurationError,
+    FinishStatus,
+    GenerationResponse,
+    IncompleteResponseError,
+    require_complete,
 )
 from workmain.ai.providers import PROVIDER_REGISTRY, ClaudeProvider, GeminiProvider, OllamaProvider
 from workmain.ai.providers.ollama import OllamaProvider as OllamaProviderDirect
@@ -1002,3 +1006,67 @@ def test_eligible_provider_names_follows_accepts():
     assert _manager_from_dict(settings).get_eligible_provider_names('intent_parse') == [
         'claude', 'ollama'
     ]
+
+
+# ---------------------------------------------------------------------------
+# Finish status and the refusal (issue #148)
+# ---------------------------------------------------------------------------
+
+def _finish_response(finish, reason, content="text"):
+    return GenerationResponse(
+        content=content, provider=ProviderType.GEMINI, model="m",
+        tokens_used=1, prompt_tokens=1, completion_tokens=0, cost=0.0,
+        finish=finish, finish_reason=reason,
+    )
+
+
+class TestRequireComplete:
+    def test_construction_without_finish_raises(self):
+        """AC1.4: a provider that forgets to report how it finished fails construction."""
+        with pytest.raises(TypeError):
+            GenerationResponse(
+                content="x", provider=ProviderType.CLAUDE, model="m",
+                tokens_used=1, prompt_tokens=1, completion_tokens=0, cost=0.0,
+            )
+
+    def test_cut_off_message_names_everything(self):
+        """AC3.1: DR3's first form, exactly."""
+        response = _finish_response(FinishStatus.CUT_OFF, "MAX_TOKENS")
+        with pytest.raises(IncompleteResponseError) as exc:
+            require_complete(
+                response, "daily_internal", 16000,
+                "report_types.daily_internal.max_tokens",
+            )
+        assert str(exc.value) == (
+            "daily_internal reply from gemini was cut off at its cap of 16000 "
+            "tokens (MAX_TOKENS). Raise report_types.daily_internal.max_tokens "
+            "in config/ai_settings.json."
+        )
+        assert exc.value.call_type == "daily_internal"
+        assert exc.value.max_tokens == 16000
+        assert exc.value.provider == "gemini"
+        assert exc.value.finish_reason == "MAX_TOKENS"
+
+    def test_cut_off_without_setting_omits_raise_sentence(self):
+        response = _finish_response(FinishStatus.CUT_OFF, "length")
+        with pytest.raises(IncompleteResponseError) as exc:
+            require_complete(response, "providers test", 512, None)
+        assert str(exc.value) == (
+            "providers test reply from gemini was cut off at its cap of 512 "
+            "tokens (length)."
+        )
+
+    def test_stopped_message(self):
+        response = _finish_response(FinishStatus.STOPPED, "SAFETY")
+        with pytest.raises(IncompleteResponseError) as exc:
+            require_complete(response, "x", 10, None)
+        assert str(exc.value) == "x reply from gemini stopped before completing (SAFETY)."
+
+    def test_empty_complete_message(self):
+        response = _finish_response(FinishStatus.COMPLETE, "STOP", content="  ")
+        with pytest.raises(IncompleteResponseError) as exc:
+            require_complete(response, "x", 10, None)
+        assert str(exc.value) == "x reply from gemini was empty (STOP)."
+
+    def test_complete_passes(self):
+        require_complete(_finish_response(FinishStatus.COMPLETE, "STOP"), "x", 10, None)

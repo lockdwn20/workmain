@@ -16,6 +16,7 @@ from workmain.ai.base_provider import (
     ProviderStatus,
     GenerationRequest,
     GenerationResponse,
+    FinishStatus,
     ProviderError
 )
 
@@ -92,7 +93,9 @@ class MockProvider(BaseProvider):
             tokens_used=total_tokens,
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
-            cost=cost
+            cost=cost,
+            finish=FinishStatus.COMPLETE,
+            finish_reason="end_turn",
         )
 
     def estimate_cost(self, prompt_tokens: int, completion_tokens: int) -> float:

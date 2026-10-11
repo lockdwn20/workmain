@@ -27,6 +27,7 @@ from workmain.ai.base_provider import (
     ProviderStatus,
     GenerationRequest,
     GenerationResponse,
+    FinishStatus,
     ProviderError,
     RateLimitError,
     ConfigurationError,
@@ -139,6 +140,14 @@ class ClaudeProvider(BaseProvider):
 
                 self._set_status(ProviderStatus.AVAILABLE)
 
+                stop_reason = response.stop_reason
+                if stop_reason in ('end_turn', 'stop_sequence'):
+                    finish = FinishStatus.COMPLETE
+                elif stop_reason in ('max_tokens', 'model_context_window_exceeded'):
+                    finish = FinishStatus.CUT_OFF
+                else:
+                    finish = FinishStatus.STOPPED
+
                 return GenerationResponse(
                     content=content,
                     provider=self.provider_type,
@@ -147,6 +156,8 @@ class ClaudeProvider(BaseProvider):
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
                     cost=cost,
+                    finish=finish,
+                    finish_reason=str(stop_reason),
                     metadata={
                         'stop_reason': response.stop_reason,
                         'model': response.model,

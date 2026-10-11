@@ -27,7 +27,7 @@ from unittest.mock import patch
 
 from click.testing import CliRunner
 
-from workmain.ai.base_provider import GenerationResponse, ProviderType
+from workmain.ai.base_provider import FinishStatus, GenerationResponse, ProviderType
 from workmain.cli.commands.meetings import meetings
 from workmain.database.models import Meeting, Note, TimeEntry
 from workmain.database.repositories.notes_repo import NotesRepository
@@ -46,6 +46,8 @@ def _fake_response(content: str) -> GenerationResponse:
         prompt_tokens=5,
         completion_tokens=5,
         cost=0.0,
+        finish=FinishStatus.COMPLETE,
+        finish_reason="end_turn",
     )
 
 

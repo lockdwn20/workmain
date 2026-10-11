@@ -11,6 +11,7 @@ import pytest
 from workmain.ai.intent_parser import IntentParser, IntentParseError
 from workmain.ai.base_provider import (
     GenerationResponse,
+    FinishStatus,
     ProviderType,
     ProviderError,
     ProviderUnavailableError,
@@ -31,6 +32,8 @@ def _make_response(content: str) -> GenerationResponse:
         prompt_tokens=15,
         completion_tokens=5,
         cost=0.0,
+        finish=FinishStatus.COMPLETE,
+        finish_reason="stop",
     )
 
 
