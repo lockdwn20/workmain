@@ -1205,3 +1205,46 @@ class TestManagerRefusal:
         """AC6.4: the returned notice is the only record of a fallback."""
         manager, _ = _route_manager(_StubProvider(ProviderType.CLAUDE))
         assert not [name for name in dir(manager) if "notif" in name]
+
+
+def _invoke_providers_test(finish, reason, content):
+    """Run 'providers test gemini' with the provider's generate returning one reply."""
+    provider = MagicMock()
+    provider.check_availability.return_value = ProviderStatus.AVAILABLE
+    provider.generate.return_value = GenerationResponse(
+        content=content, provider=ProviderType.GEMINI, model="m", tokens_used=5,
+        prompt_tokens=3, completion_tokens=2, cost=0.0,
+        finish=finish, finish_reason=reason,
+    )
+    manager = MagicMock()
+    manager.get_configured_provider_names.return_value = ['claude', 'gemini', 'ollama']
+    manager.is_disabled.return_value = False
+    manager.get_provider.return_value = provider
+    manager.get_all_provider_configs.return_value = {'gemini': {'api_key_env': 'GOOGLE_API_KEY'}}
+    with patch('workmain.cli.commands.providers.get_provider_manager', return_value=manager), \
+            patch('workmain.utils.ai_arguments.get_provider_manager', return_value=manager):
+        return CliRunner(mix_stderr=False).invoke(providers, ['test', 'gemini'])
+
+
+def test_providers_test_fails_on_cut_off_reply():
+    """AC4.1."""
+    result = _invoke_providers_test(FinishStatus.CUT_OFF, "MAX_TOKENS", "partial")
+    assert result.exit_code == 2
+    assert "API test successful" not in result.output
+    assert "providers test" in result.stderr
+    assert "512" in result.stderr
+    assert "GOOGLE_API_KEY" not in result.stderr
+
+
+def test_providers_test_fails_on_empty_reply():
+    """AC4.2."""
+    result = _invoke_providers_test(FinishStatus.COMPLETE, "STOP", "")
+    assert result.exit_code == 2
+    assert "API test successful" not in result.output
+    assert "was empty" in result.stderr
+
+
+def test_providers_test_succeeds_on_complete_reply():
+    result = _invoke_providers_test(FinishStatus.COMPLETE, "STOP", "API connection successful")
+    assert result.exit_code == 0
+    assert "API test successful" in result.output

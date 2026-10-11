@@ -21,9 +21,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 from click.testing import CliRunner
 
-from workmain.ai.base_provider import ProviderType
+from workmain.ai.base_provider import ProviderError, ProviderType
 from workmain.ai.provider_manager import ProviderManager
 from workmain.ai.report_generator import ReportGenerator
+from tests.mocks.stub_providers import complete, cut_off, drop_fallback, stubbed_manager
 
 _SENTINEL_TOKENS = 7001
 
@@ -250,3 +251,52 @@ class TestPreviewRouting:
 
         assert result.exit_code == 0, result.output
         assert generator.preview_report.call_args.kwargs["provider"] == ProviderType.CLAUDE
+
+
+# ---------------------------------------------------------------------------
+# Refusal and fallback (issue #148)
+# ---------------------------------------------------------------------------
+
+class TestReportRefusal:
+    def test_cut_off_report_is_neither_saved_nor_written(self, tmp_path, db_session):
+        """AC2.1: a cut-off report with no fallback."""
+        pm = stubbed_manager(
+            tmp_path, {"gemini": cut_off(ProviderType.GEMINI)},
+            edit=drop_fallback("daily_internal"),
+        )
+        generator = ReportGenerator(db_session, provider_manager=pm)
+        generator.reports_repo = MagicMock()
+        generator._save_report = MagicMock()
+
+        with pytest.raises(ProviderError) as exc:
+            generator.generate_report(
+                template_name="daily_internal", report_date=date.today(),
+                save_to_file=True,
+            )
+
+        assert "daily_internal" in str(exc.value)
+        generator.reports_repo.create.assert_not_called()
+        generator._save_report.assert_not_called()
+
+    def test_fallback_answer_is_stored_and_returned_with_its_reason(self, tmp_path, db_session):
+        """AC6.1 (a): a CUT_OFF primary and a COMPLETE fallback."""
+        pm = stubbed_manager(tmp_path, {
+            "gemini": cut_off(ProviderType.GEMINI),
+            "claude": complete(ProviderType.CLAUDE, content="Fallback report body"),
+        })
+        generator = ReportGenerator(db_session, provider_manager=pm)
+        real_create = generator.reports_repo.create
+        generator.reports_repo.create = MagicMock(side_effect=real_create)
+
+        result = generator.generate_report(
+            template_name="daily_internal", report_date=date.today(),
+            save_to_file=False,
+        )
+
+        reason = result["fallback_reason"]
+        assert "daily_internal" in reason
+        assert "16000" in reason
+        assert "gemini" in reason and "claude" in reason
+        assert generator.reports_repo.create.call_args.kwargs["fallback_reason"] == reason
+        stored = generator.reports_repo.get_by_id(result["report_id"])
+        assert stored.report_metadata["fallback_reason"] == reason

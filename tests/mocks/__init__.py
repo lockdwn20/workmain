@@ -1,5 +1,6 @@
 """
-Package marker reserving a namespace for test mocks.
+Package for test mocks.
 
-No mock module has been added under it yet.
+stub_providers holds the stub providers that drive refusal and fallback
+through a real ProviderManager.
 """

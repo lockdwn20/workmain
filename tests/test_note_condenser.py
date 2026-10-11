@@ -89,7 +89,7 @@ def _fake_response(content: str) -> GenerationResponse:
 
 
 class TestCondenseMeetingReturnsTuple:
-    """condense_meeting()'s two return paths both return (summary, tags)
+    """condense_meeting()'s two return paths both return (summary, tags, notice)
     (Item 69 Design Rule 14)."""
 
     def test_condense_meeting_attended_fallback_returns_tuple(self, db_session):
@@ -113,7 +113,7 @@ class TestCondenseMeetingReturnsTuple:
         condenser = NoteCondenser(db_session)
         result = condenser.condense_meeting(meeting)
 
-        assert result == (f"Attended {meeting.title}", ["info-only"])
+        assert result == (f"Attended {meeting.title}", ["info-only"], None)
 
     def test_condense_meeting_ai_path_returns_tuple(self, db_session):
         meeting = Meeting(
@@ -136,8 +136,9 @@ class TestCondenseMeetingReturnsTuple:
             condenser.provider_manager, "generate",
             return_value=(_fake_response("Client review: discussed Q3 roadmap"), None),
         ):
-            summary, resolved_tags = condenser.condense_meeting(meeting)
+            summary, resolved_tags, notice = condenser.condense_meeting(meeting)
 
+        assert notice is None
         assert summary == "Client review: discussed Q3 roadmap"
         assert resolved_tags == ["client-report"]
 
@@ -291,3 +292,59 @@ class TestCondensationRequest:
         assert called_meeting.id == meeting.id
         assert called_notes is sentinel_notes
         assert recorded["request"] is sentinel_request
+
+
+# ---------------------------------------------------------------------------
+# Issue #148 — a cut-off condensation is refused; a fallback answer is returned
+# ---------------------------------------------------------------------------
+
+def _meeting_with_note(db_session, title):
+    meeting = Meeting(
+        title=title, start_time=_MEETING_START,
+        end_time=datetime(2099, 6, 5, 9, 30), is_recurring=False,
+    )
+    db_session.add(meeting)
+    db_session.commit()
+    db_session.refresh(meeting)
+    NotesRepository(db_session).create(
+        content="Discussed the refusal", tags=["client-report"],
+        meeting_id=meeting.id, source="meeting", created_at=_MEETING_START,
+    )
+    return meeting
+
+
+class TestCondensationRefusal:
+    def test_cut_off_condensation_is_not_stored(self, tmp_path, db_session):
+        """AC2.2."""
+        from workmain.ai.base_provider import ProviderError, ProviderType
+        from tests.mocks.stub_providers import cut_off, drop_fallback, stubbed_manager
+        meeting = _meeting_with_note(db_session, "Sentinel Refusal Meeting 2099")
+        condenser = NoteCondenser(db_session)
+        condenser.provider_manager = stubbed_manager(
+            tmp_path, {"gemini": cut_off(ProviderType.GEMINI)},
+            edit=drop_fallback("note_condensation"),
+        )
+
+        with pytest.raises(ProviderError):
+            condenser.condense_meeting(meeting)
+
+        db_session.refresh(meeting)
+        assert meeting.condensed_summary is None
+
+    def test_fallback_condensation_returns_notice(self, tmp_path, db_session):
+        """AC6.2 (condenser half)."""
+        from workmain.ai.base_provider import ProviderType
+        from tests.mocks.stub_providers import complete, cut_off, stubbed_manager
+        meeting = _meeting_with_note(db_session, "Sentinel Fallback Meeting 2099")
+        condenser = NoteCondenser(db_session)
+        condenser.provider_manager = stubbed_manager(tmp_path, {
+            "gemini": cut_off(ProviderType.GEMINI),
+            "claude": complete(ProviderType.CLAUDE, content="Recovered summary"),
+        })
+
+        summary, _, notice = condenser.condense_meeting(meeting)
+
+        assert summary == "Recovered summary"
+        assert notice.primary == ProviderType.GEMINI
+        assert notice.fallback == ProviderType.CLAUDE
+        assert "note_condensation" in notice.message

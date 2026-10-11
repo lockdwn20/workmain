@@ -176,3 +176,68 @@ class TestMeetingsCondenseUsesComputedTags(unittest.TestCase):
         )
         self.assertIsNotNone(second_note)
         self.assertEqual(entries_after_second[0].note_id, second_note.id)
+
+
+class TestMeetingsCondenseRefusal(unittest.TestCase):
+    """Issue #148 — a refused condensation exits non-zero with its cause on
+    stderr; a recovered fallback is reported on stderr (DR9, DR10)."""
+
+    def setUp(self):
+        import tempfile
+        from dotenv import load_dotenv
+        load_dotenv()
+        from workmain.database.connection import get_db
+        self.session = get_db().get_session()
+        self._tmp = tempfile.TemporaryDirectory()
+        self._meeting_ids = []
+
+    def tearDown(self):
+        for mid in self._meeting_ids:
+            note_ids = [n.id for n in self.session.query(Note).filter(Note.meeting_id == mid)]
+            if note_ids:
+                self.session.query(TimeEntry).filter(
+                    TimeEntry.note_id.in_(note_ids)
+                ).delete(synchronize_session=False)
+                self.session.query(Note).filter(
+                    Note.id.in_(note_ids)
+                ).delete(synchronize_session=False)
+            self.session.query(Meeting).filter(Meeting.id == mid).delete()
+        self.session.commit()
+        self.session.close()
+        self._tmp.cleanup()
+
+    def _invoke(self, stubs):
+        from pathlib import Path
+        from workmain.ai import provider_manager as pm_module
+        from tests.mocks.stub_providers import stubbed_manager
+
+        meeting = _seed_meeting(self.session, "Sentinel Meetings Condense Refusal 2099")
+        self._meeting_ids.append(meeting.id)
+        NotesRepository(self.session).create(
+            content="Discussed refusal", tags=["client-report"],
+            meeting_id=meeting.id, source="meeting", created_at=_MEETING_DATE,
+        )
+        manager = stubbed_manager(Path(self._tmp.name), stubs)
+        with patch.object(pm_module, "_provider_manager_instance", manager):
+            return CliRunner(mix_stderr=False).invoke(meetings, ["condense", str(meeting.id)])
+
+    def test_refused_condensation_exits_2_with_cause_on_stderr(self):
+        from tests.mocks.stub_providers import cut_off
+        result = self._invoke({
+            "gemini": cut_off(ProviderType.GEMINI),
+            "claude": cut_off(ProviderType.CLAUDE),
+        })
+        self.assertEqual(result.exit_code, 2, result.output)
+        self.assertIn("note_condensation", result.stderr)
+        self.assertIn("4000", result.stderr)
+        self.assertEqual(len(result.stderr.strip().splitlines()), 1)
+
+    def test_fallback_condensation_warns_on_stderr(self):
+        from tests.mocks.stub_providers import complete, cut_off
+        result = self._invoke({
+            "gemini": cut_off(ProviderType.GEMINI),
+            "claude": complete(ProviderType.CLAUDE, content="Recovered summary"),
+        })
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("⚠", result.stderr)
+        self.assertIn("claude answered note_condensation because gemini failed", result.stderr)

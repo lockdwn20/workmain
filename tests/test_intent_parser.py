@@ -422,3 +422,36 @@ class TestIntentRouting:
 
         assert IntentParser().is_available("task_match") is True
         assert asked == ["claude"]
+
+
+class TestIntentParserRefusal:
+    """AC2.4, AC2.5 — a cut-off Ollama reply never reaches a parser."""
+
+    def _manager(self, tmp_path, monkeypatch):
+        from tests.mocks.stub_providers import cut_off, stubbed_manager
+        pm = stubbed_manager(
+            tmp_path, {"ollama": cut_off(ProviderType.OLLAMA, content='{"action": "log_n')},
+        )
+        monkeypatch.setattr(_provider_manager_module, "_provider_manager_instance", pm)
+        return pm
+
+    def test_cut_off_intent_reply_raises_provider_error(self, tmp_path, monkeypatch):
+        self._manager(tmp_path, monkeypatch)
+        with pytest.raises(ProviderError) as exc:
+            IntentParser().parse("log a note")
+        assert not isinstance(exc.value, IntentParseError)
+        assert "intent_parse" in str(exc.value)
+        assert "256" in str(exc.value)
+
+    def test_cut_off_task_match_raises_provider_error(self, tmp_path, monkeypatch):
+        self._manager(tmp_path, monkeypatch)
+        task = MagicMock()
+        task.note.content = "finish the report"
+        note = MagicMock(id=1, content="worked on the report")
+        with pytest.raises(ProviderError):
+            IntentParser().parse_task_match(task, [note])
+
+    def test_cut_off_note_dedup_raises_provider_error(self, tmp_path, monkeypatch):
+        self._manager(tmp_path, monkeypatch)
+        with pytest.raises(ProviderError):
+            IntentParser().parse_note_duplicate("a", "b")

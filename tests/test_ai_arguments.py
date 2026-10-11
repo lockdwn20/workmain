@@ -335,3 +335,50 @@ class TestReportTypeFiltersRows(unittest.TestCase):
         self.assertEqual(costs.exit_code, 0, costs.output)
         self.assertIn('zz_issue154_type', costs.output)
         self.assertNotIn('No reports found matching filters', costs.output)
+
+
+class TestReportsFailureOutput:
+    """Issue #148 — reports save and preview report a failure on stderr, non-zero."""
+
+    def test_save_shows_refusal_on_stderr_and_exits_2(self):
+        """AC3.3."""
+        from workmain.ai.base_provider import ProviderError
+        message = (
+            "Primary provider gemini failed and no fallback configured: daily_internal "
+            "reply from gemini was cut off at its cap of 16000 tokens (MAX_TOKENS). "
+            "Raise report_types.daily_internal.max_tokens in config/ai_settings.json."
+        )
+        generator = MagicMock()
+        generator.generate_report.side_effect = ProviderError(message)
+        with patch('workmain.cli.commands.reports.get_report_generator',
+                   return_value=generator), \
+                patch('workmain.cli.commands.reports.get_db'), \
+                patch('workmain.cli.commands.reports.SystemStateRepository'):
+            result = CliRunner(mix_stderr=False).invoke(reports, ['save', 'daily_internal'])
+        assert result.exit_code == 2, result.output
+        assert 'daily_internal' in result.stderr
+        assert '16000' in result.stderr
+        assert 'Generation Details' not in result.stdout
+
+    def test_preview_failure_exits_1_on_stderr(self):
+        """AC3.9."""
+        result = CliRunner(mix_stderr=False).invoke(reports, ['preview', 'no_such_template'])
+        assert result.exit_code == 1, result.output
+        assert 'Error:' in result.stderr
+
+    def test_save_prints_fallback_line_on_stdout(self):
+        """AC6.1 (b)."""
+        generator = MagicMock()
+        generator.generate_report.return_value = {
+            'content': 'body', 'provider': 'claude', 'model': 'm', 'tokens_used': 10,
+            'prompt_tokens': 5, 'completion_tokens': 5, 'cost': 0.0, 'file_path': None,
+            'fallback_reason': 'claude answered daily_internal because gemini failed: cut off',
+        }
+        with patch('workmain.cli.commands.reports.get_report_generator',
+                   return_value=generator), \
+                patch('workmain.cli.commands.reports.get_db'), \
+                patch('workmain.cli.commands.reports.SystemStateRepository'):
+            result = CliRunner(mix_stderr=False).invoke(reports, ['save', 'daily_internal'])
+        assert result.exit_code == 0, result.output
+        assert '⚠' in result.stdout
+        assert 'claude answered daily_internal because gemini failed' in result.stdout

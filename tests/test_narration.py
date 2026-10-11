@@ -12,9 +12,11 @@ import logging
 from pathlib import Path
 
 from workmain.ai import provider_manager as provider_manager_module
+from workmain.ai.base_provider import ProviderType
 from workmain.ai.provider_manager import ProviderManager
 from workmain.daemon import narration
 from workmain.daemon.models import Observation, ObservationType
+from tests.mocks.stub_providers import cut_off, drop_fallback, stubbed_manager
 
 _SENTINEL_TOKENS = 7001
 
@@ -117,3 +119,20 @@ class TestNarrationRouting:
         narration.narrate(_one_observation())
 
         assert asked == ["claude"]
+
+
+class TestNarrationRefusal:
+    """AC2.3 — a cut-off narration is not sent; the plain observation list is."""
+
+    def test_cut_off_narration_returns_fallback_text(self, tmp_path, monkeypatch):
+        pm = stubbed_manager(
+            tmp_path,
+            {"claude": cut_off(ProviderType.CLAUDE, content="TRUNCATED NARRATIO")},
+            edit=drop_fallback("daemon_narration"),
+        )
+        monkeypatch.setattr(provider_manager_module, "_provider_manager_instance", pm)
+
+        result = narration.narrate(_one_observation())
+
+        assert "TRUNCATED NARRATIO" not in result
+        assert "Missing time entry for 2pm meeting" in result
