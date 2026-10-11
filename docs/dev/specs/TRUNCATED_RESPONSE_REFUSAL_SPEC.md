@@ -21,6 +21,7 @@
 | 20261011 | Ray | Study Q3 (D5): `reports save` exits non-zero on failure, writes its error to stderr, a cut-off names the setting to raise, an interactive skip returns `FAILED`. | Taken — DR5, DR10, DR11, Steps 3–4. |
 | 20261011 | Ray | Study Q4: email draft date selection and unrecorded billed replies are separate issues. | Opened as #192 and #191. Out of scope here. |
 | 20261011 | Spanner | The Slack intent reply on a provider failure states the failure instead of "couldn't understand that". Without it, #148's third AC fails for `intent_parse` on its only entry path (study F18). An `IntentParseError` keeps today's reply. | DR12, Step 3. Not settled in the study; flagged for Ray at hand-off. |
+| 20261011 | Ray | The §5.6 Error row gains the stream (stderr) and the integration exit code in this branch: #148's fix exposes the gap and needs it. | Taken — DR10, Step 3, AC3.7. |
 | 20261011 | Spanner | `providers test` exits non-zero on every failure outcome. `docs/DEVELOPMENT_STANDARDS.md` §5.6 requires it, and Step 3 rewrites that command's failure path anyway. The disabled-provider message stays exit 0: it is informational, and #155 owns that path (study F17 of #182). | DR10, Step 3. |
 | 20261011 | Spanner | The vendor finish strings are removed from `metadata` (`finish_reason`, `stop_reason`). The new response field is their single home, and `compare_providers.py`, their only reader, moves to it. | DR2, Steps 1–2. |
 
@@ -108,7 +109,17 @@ Verified 20261011 on `feature/issue-148-truncated-response-detection` at `34f3ac
     - Any other exception prints as today, with the hint, through `err_console`, and exits 2.
     - A non-`AVAILABLE` status exits 2.
     - The disabled message stays exit 0.
-  - **§5.6 standards gap:** its Error row names no stream. Suggested wording for that row: "written to stderr, so a caller capturing the command's output receives the cause". Ray decides whether it lands with this branch.
+  - **§5.6 states the stream.** `docs/DEVELOPMENT_STANDARDS.md` §5.6's Error row is the only statement of the CLI error pattern; `git grep -n '\[red\]Error' -- docs CLAUDE.md .claude ':!docs/archive'` finds no other. Its text today is:
+
+    ```markdown
+    | Error | `console.print("[red]Error:[/red] <message>")` then `sys.exit(1)` |
+    ```
+
+    It is replaced with:
+
+    ```markdown
+    | Error | `err_console.print("[red]Error:[/red] <message>")` on a `Console(stderr=True)`, then `sys.exit(1)`, or `sys.exit(2)` for an integration error. Written to stderr so a caller capturing the command's output, such as the EOD workflow, receives the cause. |
+    ```
 - **DR11 — The EOD report step never reports a failure as success.** In `_run_report_review_step`:
   - An interactive `[s]kip` after a non-zero exit returns `EodStepResult(status=FAILED, error=run.failure_message(f"{label} report generation"))`.
   - A failed retry returns `FAILED` with `retry.failure_message(f"{label} report generation retry")`.
@@ -126,7 +137,7 @@ Each step ends with a commit. There is no approval stop between steps.
 | --- | --- | --- |
 | 1 | **Providers report how they finished.** DR1–DR3 in `base_provider.py`. DR2 in the three providers. The six test construction sites in §2 pass `finish=FinishStatus.COMPLETE, finish_reason=...` with the vendor value their fixture models. The offline Gemini fixtures that set `candidates = []` give a candidate with `finish_reason` `STOP` where the test expects a normal reply. New tests §6 (a). | `workmain/ai/base_provider.py`, `workmain/ai/providers/{claude,gemini,ollama}.py`, tests |
 | 2 | **The manager refuses and returns its fallback.** DR4–DR8. `compare_providers.py` per DR13. `tests/test_ai_foundation.py:229`'s notification assertions become assertions on the returned notice (`primary`, `fallback`, and `message` naming both). `docs/AI_SETTINGS_GUIDE.md` § Fallback behaviour states DR6–DR8 in place of the notification list. The `max_tokens` row of the `report_types` table, which `application_functions` cites, gains one sentence: a reply that reaches the cap is refused, and the error names the setting. New tests §6 (b). | `workmain/ai/provider_manager.py`, `scripts/compare_providers.py`, `docs/AI_SETTINGS_GUIDE.md`, tests |
-| 3 | **Callers surface refusals and fallbacks.** DR9 reports and condensation, including the two `condense_meeting` callers and the two test sites in §2. DR10. DR12. New tests §6 (c). | `workmain/ai/report_generator.py`, `workmain/database/repositories/reports_repo.py`, `workmain/ai/note_condenser.py`, `workmain/cli/commands/{reports,meetings,notes,providers}.py`, `workmain/daemon/daemon.py`, `workmain/integrations/slack/slack_eod.py`, tests |
+| 3 | **Callers surface refusals and fallbacks.** DR9 reports and condensation, including the two `condense_meeting` callers and the two test sites in §2. DR10, including the §5.6 Error row. DR12. New tests §6 (c). | `docs/DEVELOPMENT_STANDARDS.md`, `workmain/ai/report_generator.py`, `workmain/database/repositories/reports_repo.py`, `workmain/ai/note_condenser.py`, `workmain/cli/commands/{reports,meetings,notes,providers}.py`, `workmain/daemon/daemon.py`, `workmain/integrations/slack/slack_eod.py`, tests |
 | 4 | **The EOD report step reports what happened.** DR9's EOD message. DR11. New tests §6 (d). | `workmain/workflows/eod_workflow.py`, tests |
 
 ### Authorization points
@@ -155,6 +166,7 @@ Issue #148's ACs, in order: AC1 provider distinguishability, AC2 no call type us
 | AC3.4 | The EOD report step, non-interactive, fails with the refusal in its message. | Test of `_run_report_review_step` with `_is_interactive` false and `run_workmain` returning returncode 2 and the refusal on stderr: status `FAILED`; `error` contains the call type and cap. |
 | AC3.5 | The EOD report step, interactive, never claims a report was saved after a failed generation. | Tests of `_run_report_review_step` with `_is_interactive` true and a non-zero `run_workmain`: `[s]kip` → status `FAILED` with the cause in `error`; `[r]etry` failing again → `FAILED` with the retry's stderr in `error`. Neither prints "report saved as unconfirmed". |
 | AC3.6 | A Slack intent request that hits a provider failure tells the user what failed. | Tests of `_dispatch_message` and `_handle_inline_correction` with `parse` raising `ProviderError("intent_parse … cap of 256 …")`: the posted text contains "intent_parse" and "256". With `parse` raising `IntentParseError`, the posted text is today's "couldn't understand" reply. |
+| AC3.7 | `docs/DEVELOPMENT_STANDARDS.md` §5.6 states that a command's error goes to stderr and which exit code it takes, as DR10 replaces it. | Stated reading by Ray of §5.6's Error row against DR10's replacement text. |
 | AC4.1 | `providers test` reports failure, not success, on a cut-off reply. | `CliRunner(mix_stderr=False)` test of `providers test gemini` with the provider's `generate` returning `CUT_OFF`: exit code 2; output does not contain "API test successful"; `result.stderr` contains "providers test" and "512"; no API-key hint. |
 | AC4.2 | `providers test` reports failure, not success, on an empty reply. | Same test with `COMPLETE` and `content=""`: exit code 2; no "API test successful"; `result.stderr` contains "was empty". |
 | AC5.1 | Full suite passes with no net test loss from the baseline at branch creation. | `pytest`: at least 1164 passed, 0 failed, 0 skipped, with the counts recorded in the results artifact. `pytest automation/` passes. |
