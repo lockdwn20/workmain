@@ -1,6 +1,6 @@
 # Baseline Harness Commit — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261011
 **Spec:** `../specs/BASELINE_HARNESS_COMMIT_SPEC.md`
@@ -40,6 +40,7 @@ None.
 - **Test suite:** `pytest` 1164 passed, 0 failed, 0 skipped. `pytest automation/` 58 passed, 0 failed, 0 skipped. The baseline is the same, since the change touches no file under `tests/` or `automation/`, and `testpaths = ["tests"]` keeps pytest from collecting `scripts/baseline/`.
 - **Live verification:** n/a. The harness is not run before #188 ships.
 - **Daemon restart:** n/a. `chore/*` carries no restart, `docs/DEVELOPMENT_STANDARDS.md` §2.6.
+- **Close-out preflight:** `pytest` 1164 passed, 0 failed, 0 skipped, re-run at close-out. `pytest automation/` was not required (`P9` n/a), since no path under `automation/` changed.
 
 ## 6. Follow-ups
 
