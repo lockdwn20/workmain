@@ -1,6 +1,6 @@
 # Truncated Response Refusal — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261011
 **Branch:** `feature/issue-148-truncated-response-detection` (from `dev`)

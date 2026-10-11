@@ -1,6 +1,6 @@
 # Truncated Response Refusal — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Anvil (Role 3)
 **Date:** 20261011
 **Spec:** `../specs/TRUNCATED_RESPONSE_REFUSAL_SPEC.md`
@@ -68,7 +68,7 @@ Steps 1–4 are implemented and committed on `feature/issue-148-truncated-respon
 
 - **Test suite:** 1221 passed, 0 failed, 0 skipped (baseline: 1164 passed, 0 failed, 0 skipped); `pytest automation/` 58 passed, 0 failed, 0 skipped.
 - **Live verification:** none. No command was run against a live provider.
-- **Daemon restart:** not performed. It is close-out's step.
+- **Daemon restart:** performed at close-out after the `dev` merge; the confirmed `ActiveEnterTimestamp` is carried by the issue's closing comment.
 
 ## 6. Follow-ups
 
