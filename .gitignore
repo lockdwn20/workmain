@@ -58,6 +58,7 @@ staging/reports/*
 staging/email/*
 staging/clockify/*
 staging/notes/*
+staging/baseline/*
 !staging/reports/.gitkeep
 !staging/email/.gitkeep
 !staging/clockify/.gitkeep
