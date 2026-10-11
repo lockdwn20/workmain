@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.43.0] - 2026-10-11
+
+A reply cut off at its token cap was used as if it were complete, on every provider and every call type: a cut-off report was saved and delivered, a cut-off summary was stored, and `workmain providers test` reported success. Every reply now states how it finished, and a cut-off, stopped or empty reply is refused. A fallback that answers in the primary's place is now reported wherever the result is shown (issue #148).
+
+### Added
+
+- `GenerationResponse.finish` (`FinishStatus`: `COMPLETE`, `CUT_OFF`, `STOPPED`) and `finish_reason`, mapped by each provider from its vendor's own signal
+- `require_complete()` and `IncompleteResponseError`: a refusal names the call type, the cap, the provider, the vendor reason and the `max_tokens` setting to raise
+- `FallbackNotice`, returned by `ProviderManager.generate()` when the fallback answers. Reports store its reason in the report row's metadata; `reports save`, `meetings condense`, `notes log` and the EOD report and condense steps show it
+
+### Changed
+
+- `ProviderManager.generate()` refuses an incomplete reply from either provider, keeps the cause in its no-fallback and manual-mode errors, and logs every primary failure
+- `reports save`, `reports preview`, `meetings condense` and `providers test` write errors to stderr and exit non-zero: `2` for a provider failure, `1` otherwise
+- `providers test` fails on a cut-off or empty reply
+- EOD report step: a skip or failed retry after a failed generation, or a zero exit with no report row, returns `FAILED`; the completion message names the provider that answered and any fallback
+- EOD condense step: a failed condensation fails the step after the remaining meetings are condensed; a recovered fallback appears in the step message
+- Slack: a provider failure during intent parsing is reported as one, and the failure footer says that `continue` retries and `skip` skips
+- `workmain` CLI processes log to stdout, so stderr carries only a command's own error or warning
+- `scripts/compare_providers.py` judges a run by the response's finish status
+- `docs/DEVELOPMENT_STANDARDS.md` §5.6: errors, and warnings a caller must receive, go to stderr
+- `docs/AI_SETTINGS_GUIDE.md`: fallback behaviour and what happens when a reply reaches `max_tokens`
+
+### Removed
+
+- `ProviderManager`'s fallback notification list and its accessors, which nothing read
+- `finish_reason` and `stop_reason` from provider response metadata
+
+Suite: 1221 passed, 0 failed, 0 skipped (baseline 1164 passed, 0 failed, 0 skipped).
+
 ## [1.42.2] - 2026-10-09
 
 Gemini 3.6 Flash produced daily, weekly and condensation output well below what `claude-sonnet-5` produces from the same data. Gemini now runs `gemini-3.1-pro-preview`, which Ray judged comparable in a side-by-side on 2026-10-08's data. Gemini had also never received a system prompt, because `GeminiProvider` pasted it into the user message (issue #181).
