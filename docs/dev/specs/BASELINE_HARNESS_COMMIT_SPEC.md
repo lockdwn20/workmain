@@ -1,6 +1,6 @@
 # Baseline Harness Commit — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261009
 **Branch:** `chore/issue-182-commit-baseline-harness`
