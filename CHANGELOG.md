@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.45.0] - 2026-10-11
+
+WorkmAIn paid for AI replies that never reached its cost record. Daemon narration, task match and note dedup wrote no `ai_costs` row; reports, condensations and intent parses wrote one only if the caller's own work then succeeded; and a reply refused as incomplete was never recorded. Every reply a provider returns is now recorded once, from `ProviderManager.generate`, and `ai_costs` is the only record of cost (issue #191).
+
+### Added
+
+- `workmain/services/ai_cost_service.py`: the one place `ai_costs` rows are written, each in its own session, so a caller's failure cannot lose the row. A recording failure logs a warning and never fails the AI call
+- `ai_costs.refused` and `ai_costs.finish_reason` (migration `025`): a reply that was billed but rejected as cut off, stopped or empty is recorded and marked
+- Cost rows for daemon narration, task match, note dedup and `workmain providers test`
+
+### Changed
+
+- `ProviderManager.generate` records every reply it receives, including a refused primary reply and the fallback reply after it, and returns their row ids on the reply
+- `ai_costs.interaction_type` holds the call type as named in `config/ai_settings.json` (`daily_internal`, `note_condensation`, …) or `providers_test`. Migration `026` renamed existing rows and the CHECK constraint is gone
+- Reports no longer carry cost in their metadata; `workmain reports costs` reads `ai_costs`. Migrations copied the models and provider totals only the reports held, then removed the cost keys
+- `workmain providers costs`, `meetings costs`, `notes costs` and `reports costs`, and the token lines of `meetings condense`, `reports save` and `providers test`, show prompt, answer and thinking tokens separately, with `—` where a provider reports no thinking count
+- The Claude and Gemini status check (`workmain providers list`, `providers test`) is a model lookup and no longer sends a billed generation request
+- `condense_meeting` returns a fourth value, the cost row ids for that condensation
+
+### Removed
+
+- `CostTracker` and its exports
+- `Report.ai_provider`, `.total_cost` and `.total_tokens`, and the uncalled `get_cost_summary` and `get_costs_by_date` report-cost readers
+
+Suite: 1271 passed, 0 failed, 0 skipped (baseline 1232 passed, 0 failed, 0 skipped).
+
 ## [1.44.0] - 2026-10-11
 
 Gemini bills its thinking tokens as output, but WorkmAIn priced and recorded only the answer, so a Gemini request's recorded cost was about half its bill. `ai_costs` also recomputed `total_tokens` from prompt and answer, which dropped thinking from every stored total. Thinking is now priced at the completion rate, recorded on every provider that reports it, and every stored total is the provider's own (issue #149).
