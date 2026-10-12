@@ -181,10 +181,6 @@ def compare(
     return runs
 
 
-def _thinking_tokens(response: GenerationResponse) -> int:
-    return response.tokens_used - response.prompt_tokens - response.completion_tokens
-
-
 def _summary_rows(runs: List[Run]) -> List[str]:
     rows = ["| Call type | Request | Provider | Model | Reason | Result |", "| --- | --- | --- | --- | --- | --- |"]
     for run in runs:
@@ -224,11 +220,12 @@ def render(runs: List[Run], report_date: date, candidate: str, baseline: str) ->
             lines += [f"Error: {run.error}", ""]
         else:
             r = run.response
+            thinking = "not reported" if r.thinking_tokens is None else r.thinking_tokens
             lines += [
                 f"- Model: {r.model}",
                 f"- Prompt tokens: {r.prompt_tokens}",
                 f"- Completion tokens: {r.completion_tokens}",
-                f"- Thinking tokens: {_thinking_tokens(r)}",
+                f"- Thinking tokens: {thinking}",
                 f"- Finish/stop reason: {run.reason or 'none'}",
                 "",
                 "~~~~",

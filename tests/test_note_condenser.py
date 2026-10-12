@@ -82,6 +82,7 @@ def _fake_response(content: str) -> GenerationResponse:
         tokens_used=10,
         prompt_tokens=5,
         completion_tokens=5,
+        thinking_tokens=None,
         cost=0.0,
         finish=FinishStatus.COMPLETE,
         finish_reason="end_turn",
@@ -348,3 +349,24 @@ class TestCondensationRefusal:
         assert notice.primary == ProviderType.GEMINI
         assert notice.fallback == ProviderType.CLAUDE
         assert "note_condensation" in notice.message
+
+
+class TestCondensationThinkingTokens:
+    def test_cost_row_carries_thinking_count(self, tmp_path, db_session):
+        """AC2.4, AC3.2: the row takes the reply's own thinking and total."""
+        from tests.mocks.stub_providers import StubProvider, stubbed_manager
+        from workmain.database.models import AiCost
+        meeting = _meeting_with_note(db_session, "Sentinel Thinking Meeting 2099")
+        condenser = NoteCondenser(db_session)
+        condenser.provider_manager = stubbed_manager(tmp_path, {
+            "gemini": StubProvider(
+                ProviderType.GEMINI, content="Summary",
+                thinking_tokens=50, tokens_used=77,
+            ),
+        })
+
+        condenser.condense_meeting(meeting)
+
+        row = db_session.query(AiCost).filter(AiCost.meeting_id == meeting.id).one()
+        assert row.thinking_tokens == 50
+        assert row.total_tokens == 77

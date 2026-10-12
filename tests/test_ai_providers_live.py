@@ -72,7 +72,14 @@ def test_gemini_generation():
     assert response.tokens_used > 0
     assert response.prompt_tokens > 0
     assert response.completion_tokens > 0
-    assert response.cost <= 0.001, f"Expected small cost but got ${response.cost}"
+    # Thinking is counted and priced at the completion rate (#149).
+    assert isinstance(response.thinking_tokens, int)
+    assert response.completion_tokens == response.tokens_used - response.prompt_tokens
+    expected = (
+        response.prompt_tokens * client.config["cost_per_1k_prompt_tokens"] / 1000
+        + response.completion_tokens * client.config["cost_per_1k_completion_tokens"] / 1000
+    )
+    assert response.cost == pytest.approx(expected)
 
 
 @pytest.mark.parametrize("name", [

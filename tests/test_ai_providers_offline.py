@@ -45,6 +45,7 @@ def _make_gemini_config():
 # ---------------------------------------------------------------------------
 
 import json as _json
+import types
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -80,6 +81,7 @@ def _fake_message(text="ok"):
     resp.content = [block]
     resp.usage.input_tokens = 5
     resp.usage.output_tokens = 3
+    resp.usage.output_tokens_details = None
     resp.stop_reason = "end_turn"
     resp.model = "claude-sonnet-5"
     resp.id = "msg_test"
@@ -300,6 +302,7 @@ class TestGeminiPolicyPayload:
         resp.usage_metadata.prompt_token_count = 4
         resp.usage_metadata.candidates_token_count = 2
         resp.usage_metadata.total_token_count = 6
+        resp.usage_metadata.thoughts_token_count = None
         resp.candidates = _gemini_candidates()
         return resp
 
@@ -524,6 +527,7 @@ class TestProviderManagerBuildsFromConfig:
         response.usage_metadata.prompt_token_count = 4
         response.usage_metadata.candidates_token_count = 2
         response.usage_metadata.total_token_count = 6
+        response.usage_metadata.thoughts_token_count = None
         response.candidates = _gemini_candidates()
         provider.generate(GenerationRequest(prompt="hi", max_tokens=20))
         provider.check_availability()
@@ -545,6 +549,7 @@ class TestProviderManagerBuildsFromConfig:
         response.usage_metadata.prompt_token_count = 4
         response.usage_metadata.candidates_token_count = 2
         response.usage_metadata.total_token_count = 6
+        response.usage_metadata.thoughts_token_count = None
         response.candidates = _gemini_candidates()
         provider.generate(GenerationRequest(prompt="USER", system_prompt="SYS", max_tokens=20))
         call = generate_content.call_args
@@ -608,6 +613,7 @@ class TestFinishStatusMapping:
         resp.usage_metadata.prompt_token_count = 4
         resp.usage_metadata.candidates_token_count = 2
         resp.usage_metadata.total_token_count = 6
+        resp.usage_metadata.thoughts_token_count = None
         resp.candidates = _gemini_candidates(name)
         client.models.generate_content.return_value = resp
         response = provider.generate(GenerationRequest(prompt="hi", max_tokens=20))
@@ -622,6 +628,7 @@ class TestFinishStatusMapping:
         resp.usage_metadata.prompt_token_count = 4
         resp.usage_metadata.candidates_token_count = 2
         resp.usage_metadata.total_token_count = 6
+        resp.usage_metadata.thoughts_token_count = None
         resp.candidates = _gemini_candidates("MAX_TOKENS")
         client.models.generate_content.return_value = resp
         provider.generate(GenerationRequest(prompt="hi", max_tokens=20))
@@ -634,9 +641,64 @@ class TestFinishStatusMapping:
         resp.usage_metadata.prompt_token_count = 4
         resp.usage_metadata.candidates_token_count = 0
         resp.usage_metadata.total_token_count = 4
+        resp.usage_metadata.thoughts_token_count = None
         resp.candidates = []
         resp.prompt_feedback = None
         client.models.generate_content.return_value = resp
         response = provider.generate(GenerationRequest(prompt="hi", max_tokens=20))
         assert response.finish is FinishStatus.STOPPED
         assert response.finish_reason == "NO_CANDIDATE"
+
+
+class TestThinkingTokenRecording:
+    """AC1.1-AC1.3: each provider records the vendor's thinking count (DR1-DR3)."""
+
+    @staticmethod
+    def _gemini_reply(candidates, thoughts, total):
+        resp = MagicMock()
+        resp.text = "ok"
+        resp.usage_metadata.prompt_token_count = 9
+        resp.usage_metadata.candidates_token_count = candidates
+        resp.usage_metadata.thoughts_token_count = thoughts
+        resp.usage_metadata.total_token_count = total
+        resp.candidates = _gemini_candidates()
+        return resp
+
+    def test_gemini_prices_thinking_at_completion_rate(self):
+        provider, client = _build_gemini()
+        client.models.generate_content.return_value = self._gemini_reply(6, 196, 211)
+        response = provider.generate(GenerationRequest(prompt="hi", max_tokens=20))
+        assert response.completion_tokens == 202
+        assert response.thinking_tokens == 196
+        assert response.tokens_used == 211
+        expected = (9 / 1000) * 0.00015 + (202 / 1000) * 0.0006
+        assert response.cost == pytest.approx(expected)
+
+    def test_gemini_no_thinking_count_records_zero(self):
+        provider, client = _build_gemini()
+        client.models.generate_content.return_value = self._gemini_reply(6, None, 15)
+        response = provider.generate(GenerationRequest(prompt="hi", max_tokens=20))
+        assert response.thinking_tokens == 0
+        assert response.completion_tokens == 6
+
+    def test_claude_records_vendor_thinking_count(self):
+        provider, client = _build_claude()
+        message = _fake_message()
+        message.usage.input_tokens = 10
+        message.usage.output_tokens = 100
+        message.usage.output_tokens_details = types.SimpleNamespace(thinking_tokens=40)
+        client.messages.create.return_value = message
+        response = provider.generate(GenerationRequest(prompt="hi", max_tokens=20))
+        assert response.thinking_tokens == 40
+        assert response.completion_tokens == 100
+        assert response.tokens_used == 110
+        expected = (10 / 1000) * 0.003 + (100 / 1000) * 0.015
+        assert response.cost == pytest.approx(expected)
+
+    def test_claude_without_output_tokens_details_records_none(self):
+        provider, client = _build_claude()
+        message = _fake_message()
+        message.usage.output_tokens_details = None
+        client.messages.create.return_value = message
+        response = provider.generate(GenerationRequest(prompt="hi", max_tokens=20))
+        assert response.thinking_tokens is None

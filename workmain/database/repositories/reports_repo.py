@@ -40,6 +40,7 @@ class ReportsRepository:
         ai_model: str,
         prompt_tokens: int,
         completion_tokens: int,
+        thinking_tokens: Optional[int],
         total_tokens: int,
         cost: float,
         generation_time: float,
@@ -57,7 +58,9 @@ class ReportsRepository:
             ai_provider: AI provider used (claude, gemini)
             ai_model: Model name
             prompt_tokens: Tokens in prompt
-            completion_tokens: Tokens in completion
+            completion_tokens: Tokens in completion, thinking included
+            thinking_tokens: How many of completion_tokens were thinking;
+                None when the provider reports no count
             total_tokens: Total tokens used
             cost: Generation cost in USD
             generation_time: Time taken to generate (seconds)
@@ -74,6 +77,7 @@ class ReportsRepository:
             "ai_model": ai_model,
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
+            "thinking_tokens": thinking_tokens,
             "total_tokens": total_tokens,
             "cost": cost,
             "generation_time": generation_time

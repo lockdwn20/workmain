@@ -153,7 +153,10 @@ class GeminiProvider(BaseProvider):
 
                 usage = response.usage_metadata
                 prompt_tokens = usage.prompt_token_count or 0
-                completion_tokens = usage.candidates_token_count or 0
+                # Gemini reports thinking wherever it happens, so an absent
+                # count means none was used. Thinking is billed as output.
+                thinking_tokens = usage.thoughts_token_count or 0
+                completion_tokens = (usage.candidates_token_count or 0) + thinking_tokens
                 total_tokens = usage.total_token_count or (prompt_tokens + completion_tokens)
 
                 cost = self.estimate_cost(prompt_tokens, completion_tokens)
@@ -181,6 +184,7 @@ class GeminiProvider(BaseProvider):
                     tokens_used=total_tokens,
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
+                    thinking_tokens=thinking_tokens,
                     cost=cost,
                     finish=finish,
                     finish_reason=finish_reason,
