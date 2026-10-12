@@ -18,6 +18,11 @@
 | 20261012 | Ray | Design study Q1–Q5 | #136 keeps isolation only. #200 converts the five non-command `unittest.TestCase` files. #199's command-group issues take the fourteen command-test files and the `reports`/`slack status` option-mapping criterion. The per-file docstring criterion is dropped; this spec removes the text its change makes false. |
 | 20261012 | Spanner | The fixture opens one connection per test, eagerly, for every test. | Kept simple. The prototype ran the suite, without the live provider tests, in 20 s. A lazy connection adds a code path for no observed need. |
 | 20261012 | Spanner | `DatabaseConnection.close()` raises during a test; replacing `SessionLocal` fails the test at teardown. | A check made only at teardown would come after a reconnected session had already committed live (study F10). |
+| 20261012 | Caliper | 7: AC1.1's counts check passes without the fix, because hand cleanup already restores the counts (study F3). Proposed: a SQLAlchemy `Engine` `commit` listener loaded with `-p`, requiring zero, with more than zero confirmed on the baseline. | Accepted. Measured 20261012, suite without the live provider tests: baseline 419 COMMITs, fixture 0 COMMITs and 1,367 savepoint releases. An application `commit()` under the fixture is a RELEASE, not a COMMIT. AC1.1 now requires zero, and §4 records the baseline count before Step 1. The counts diff stays as a second check. |
+| 20261012 | Caliper | 7: AC3.1's 50 ms poller was never shown to detect a live configuration change; "1 distinct snapshot" may already hold on `main`. | Accepted, and replaced by a deterministic check. Measured 20261012: the poller *does* detect it, 18 distinct snapshots on the baseline against 1 under the fixture. But it samples, and the listener does not. AC3.1 now counts root COMMITs whose transaction wrote `clients` or `system_state`: baseline 63, fixture 0. The poller is dropped. |
+| 20261012 | Caliper | 3/5: Step 5's kill-check file "outside `tests/`" would run without `tests/conftest.py`, commit live and leave a row. | Accepted. The file goes under `tests/` and is deleted straight after the run. |
+| 20261012 | Caliper | 2/7: `tests/test_reports_corrections.py:6–15` makes four false statements that neither Step 2 nor the AC6.1 pattern catches. | Accepted. The paragraph is added to Step 2, and the AC6.1 pattern gains `real \(committed\)`, `committed for real` and `invisible to`. A sweep for further phrasings (`flushed-but-uncommitted`, `separate transaction`, `uncommitted`, `own transaction`) found no other false site. The file count stays 21, because that file already matched on `commit for real`. |
+| 20261012 | Caliper | 3: the new §6.1 forbids `get_db()` in a test, and the spec's own `tests/test_database_isolation.py` calls it. | Accepted: §6.1 names the exception. That file's tests stand in for application code in order to test the fixture, and cannot be written another way: the `close()` guard can only be reached through `get_db()`. |
 | 20261012 | Spanner | The rollback test needs a `flush()` inside `session_scope()`, and must assert through a query, not `session.get()`. | Observed: without the flush the application session never joins, and `get()` answers from the identity map, so the test passed under `rollback_only`. With both, M1 fails it. |
 
 ---
@@ -72,7 +77,7 @@ Anything not covered here: stop and report it as § Role 3 states.
 
 ## 4. Steps
 
-Before Step 1, record on the branch the baseline counts for `pytest` and `pytest automation/`, in the form of `docs/DEVELOPMENT_STANDARDS.md` §6. Record them in the results artifact.
+Before Step 1, record on the branch the baseline counts for `pytest` and `pytest automation/`, in the form of `docs/DEVELOPMENT_STANDARDS.md` §6. In the same baseline `pytest` run, load the COMMIT listener (Step 5) and record its `commits` and `config_commits`. Both must be greater than zero. If either is zero, AC1.1 or AC3.1 cannot fail, so stop and report it (§3). Record all of this in the results artifact.
 
 | Step | Deliverable | Files |
 | --- | --- | --- |
@@ -262,6 +267,7 @@ The test's assertions are unchanged. Commit.
 Apply DR5 to every line that the AC6.1 grep returns. The grep on `ca35bfb` returns these sites outside the files Step 1 already rewrites:
 
 - In `tests/test_time_add.py`, `tests/test_notes_add.py`, `tests/test_meetings_condense.py`, `tests/test_notes_edit.py`, `tests/test_notes_log.py` and `tests/test_meetings_track.py`, delete the module-docstring sentence that begins `Uses a real committed session` and ends at its closing `).` Delete the paragraph too when it holds nothing else. Keep any sentence after it.
+- `tests/test_reports_corrections.py`, module docstring: replace the paragraph beginning `Uses unittest.TestCase with a real (committed) session` and ending `same as test_report_history.py.` with `Uses unittest.TestCase, mirroring test_report_history.py's pattern for this file. Seeded rows are deleted by ID in tearDown.`
 - `tests/test_reports_corrections.py`, in the helper's docstring: `then commit for real so a separately-sessioned CliRunner invocation can see it.` → `then commit.`
 - `tests/test_eod_workflow.py`: delete the paragraph beginning `Real committed-session pattern (mirrors test_reports_corrections.py)` and the paragraph `Real committed-session pattern — same rationale as TestReportReviewStepCollapse above.`
 - `tests/test_slack.py`: delete the paragraph beginning `Real committed-session pattern (mirrors test_report_correction.py's`.
@@ -290,7 +296,7 @@ If the grep returns a line not covered above, apply DR5 to it and record it as a
 | Test ends | The transaction rolls back; every write is discarded. |
 | Process killed mid-test | The transaction was never committed; PostgreSQL discards it when the connection drops. |
 
-- **A test that seeds or reads takes `db_session`.** It is a session from the same factory, so a command or service the test then calls sees what the test seeded. Commit it freely. Never call `get_db()` or `db.get_session()` in a test.
+- **A test that seeds or reads takes `db_session`.** It is a session from the same factory, so a command or service the test then calls sees what the test seeded. Commit it freely. Never call `get_db()` or `db.get_session()` in a test. The one exception is `tests/test_database_isolation.py`, whose tests stand in for application code in order to test this fixture.
 - **Hand application code a session only before that code opens its own.** Sessions sharing the connection must finish last-in, first-out, because releasing a savepoint also releases every savepoint opened after it. A test that builds an application object on `db_session` and then runs a command that opens its own session fails with `InvalidSavepointSpecification` at the command's commit. Let the command build the object from the session it opens, as `tests/test_cost_display.py`'s `TestMeetingsCondenseTokenLine` does.
 - **Inject a database failure; never rely on one.** Patch the module's `get_db` to raise, as `tests/test_ai_costs.py` does. A test whose result depends on which rows happen to exist in the live database is wrong.
 - **Leaving the transaction fails the test.** During a test `DatabaseConnection.close()` raises, and replacing `SessionLocal` fails the test at teardown. Code that builds its own engine is outside the fixture; the suite runs none.
@@ -311,11 +317,48 @@ No commit; the step's record is the results artifact.
 
 ### Step 5 — Measurements and results
 
-Run each check below from a directory outside the repository, with the project's interpreter and `-I`, and with the repository as the working directory where pytest runs. Record each script and its output in the results artifact. The scripts are not committed.
+Run each check from the repository root with the project's interpreter. Keep each script in a directory outside the repository and load it from there; none is committed. Record each script and its output in the results artifact.
 
-- **Counts** (AC1.1). A script that reads `select count(*)` for `notes`, `time_entries`, `meetings`, `reports`, `task_status`, `ai_costs`, `clients`, `system_state` and `schedule_exceptions` through `DatabaseConnection()` and prints them as JSON. Run it before and after a full `pytest`, and diff the two outputs.
-- **Kill** (AC2.1). Write a test file, outside `tests/` or deleted straight after, that opens `get_db().get_session()`, adds a sentinel `Meeting` dated 2099, commits, closes the session and calls `os.kill(os.getpid(), signal.SIGKILL)`. Run the counts script before and after `pytest <that file>`, and record pytest's exit status (137).
-- **Live configuration** (AC3.1). A script polling through its own `DatabaseConnection()` every 50 ms until a stop file exists. It reads `system_state.active_client_id` and every `clients` row's `id, is_active, slack_channel`. It records only the number of polls and the number of distinct snapshots, never the values, because those name the client. Start it, run the full `pytest`, then create the stop file.
+- **COMMIT listener** (AC1.1, AC3.1). Load it into a full `pytest` run with `PYTHONPATH=<script dir> pytest -p commitwatch`, with `COMMITWATCH_OUT` naming the output file. Under the fixture, an application `commit()` is a savepoint RELEASE, so a root COMMIT means a write reached the database.
+
+  ```python
+  """Count root-transaction COMMITs on every engine during a pytest run, and how
+  many of them carried an INSERT/UPDATE/DELETE on clients or system_state."""
+  import json, os
+  from sqlalchemy import event
+  from sqlalchemy.engine import Engine
+
+  OUT = os.environ["COMMITWATCH_OUT"]
+  _state = {"commits": 0, "config_commits": 0, "savepoint_releases": 0}
+  _dirty = {}
+
+  @event.listens_for(Engine, "before_cursor_execute")
+  def _bce(conn, cursor, statement, params, context, executemany):
+      s = " ".join(statement.split()).upper()
+      if s.startswith(("UPDATE CLIENTS", "UPDATE SYSTEM_STATE", "DELETE FROM CLIENTS",
+                       "DELETE FROM SYSTEM_STATE", "INSERT INTO CLIENTS", "INSERT INTO SYSTEM_STATE")):
+          _dirty[id(conn.connection)] = True
+
+  @event.listens_for(Engine, "commit")
+  def _commit(conn):
+      _state["commits"] += 1
+      if _dirty.pop(id(conn.connection), False):
+          _state["config_commits"] += 1
+
+  @event.listens_for(Engine, "release_savepoint")
+  def _rel(conn, name, context):
+      _state["savepoint_releases"] += 1
+
+  @event.listens_for(Engine, "rollback")
+  def _rb(conn):
+      _dirty.pop(id(conn.connection), None)
+
+  def pytest_sessionfinish(session, exitstatus):
+      json.dump(_state, open(OUT, "w"))
+  ```
+
+- **Counts** (AC1.1). A script that reads `select count(*)` for `notes`, `time_entries`, `meetings`, `reports`, `task_status`, `ai_costs`, `clients`, `system_state` and `schedule_exceptions` through `DatabaseConnection()` and prints them as JSON. Run it with `python -I` before and after the same full `pytest`, and diff the two outputs.
+- **Kill** (AC2.1). Write `tests/test_zz_kill_check.py`. It must be under `tests/`, so that `tests/conftest.py` applies to it. The test opens `get_db().get_session()`, adds a sentinel `Meeting` dated 2099, commits, closes the session and calls `os.kill(os.getpid(), signal.SIGKILL)`. Run the counts script, then `pytest tests/test_zz_kill_check.py`, recording its exit status (137), then the counts script again. Delete the file straight after; it is never committed.
 
 The results artifact is the last step. Commit.
 
@@ -327,21 +370,21 @@ Two, both in Step 4: deleting the `reports` rows and deleting the `ai_costs` row
 
 | AC | Criterion | How it is checked |
 | --- | --- | --- |
-| AC1.1 | A complete pytest run commits no row to the live database, including rows written by application code a test reaches | Step 5 counts script before and after a full `pytest`; the two outputs are identical |
+| AC1.1 | A complete pytest run commits nothing to the live database, including writes by application code a test reaches | Step 5 COMMIT listener on a full `pytest` reports `commits` 0, where the baseline run before Step 1 reported more than 0; and the Step 5 counts before and after that run are identical |
 | AC2.1 | A test process killed with no teardown leaves no row | Step 5 kill check: pytest exits 137 and the counts before and after are identical |
-| AC3.1 | No test changes live client configuration while the run is in progress | Step 5 poller across a full `pytest` records exactly 1 distinct snapshot |
+| AC3.1 | No test commits a change to live client configuration (`clients`, `system_state`) while the run is in progress | Step 5 COMMIT listener on a full `pytest` reports `config_commits` 0, where the baseline run before Step 1 reported more than 0 |
 | AC4.1 | Closing the database connection during a test fails at that moment | `pytest tests/test_database_isolation.py::TestIsolatedDatabase::test_closing_the_connection_during_a_test_raises` passes, and fails with the `monkeypatch.setattr(DatabaseConnection, 'close', …)` line removed from the fixture (mutation M2, observed failing 20261012) |
 | AC5.1 | No test stays off the live database through a module patch, a redirected commit or a blocked service | `grep -rn 'session_for_command\|_block_live_cost_recording\|commit = .*flush' tests/` returns no matches |
 | AC5.2 | An application rollback inside a test keeps the rows the test seeded, and an application session sees them | `pytest tests/test_database_isolation.py` passes. With `join_transaction_mode="rollback_only"` in the fixture (mutation M1, observed failing 20261012), `test_an_application_rollback_keeps_the_rows_the_test_seeded` fails |
 | AC5.3 | A database-failure test fails when its injected failure is removed, so it does not depend on live data | with the `monkeypatch.setattr('workmain.services.ai_cost_service.get_db', _refuse)` line removed, `test_record_reply_failure_returns_none_and_warns` fails (observed in the design study's prototype run) |
-| AC6.1 | No text in `tests/` describes an isolation mechanism the suite no longer uses | `grep -rniE 'real committed\|committed-session\|committed session\|commit for real\|not visible across\|redirected to flush\|redirect.*flush\|autouse block\|session_for_command\|production database directly' tests/` returns no matches (21 files on `ca35bfb`; 0 on the verified prototype) |
+| AC6.1 | No text in `tests/` describes an isolation mechanism the suite no longer uses | `grep -rniE 'real committed\|committed-session\|committed session\|commit for real\|not visible across\|redirected to flush\|redirect.*flush\|autouse block\|session_for_command\|production database directly\|real \(committed\)\|committed for real\|invisible to' tests/` returns no matches (21 files on `ca35bfb`) |
 | AC7.1 | §6.1 tells a test author how every test is isolated, when to take `db_session`, the last-in-first-out rule and how to test a database failure; §6.2 agrees with it | A stated reading by Ray of `docs/DEVELOPMENT_STANDARDS.md` §6.1 and §6.2, for whether a test author would write a live-database-free test from them alone |
 | AC8.1 | The suite passes with no reduction in passed count | `pytest` on the finished branch: passed ≥ the baseline plus 3 (the new tests), with no failure absent from the baseline |
 | AC8.2 | The automation suite still passes | `pytest automation/` reports the baseline's passed count, 0 failed |
 | AC9.1 | The three leaked `reports` rows are gone | `select count(*) from reports where report_date >= '2099-01-01'` returns 0 |
 | AC10.1 | The test-written `ai_costs` rows are gone | `select count(*) from ai_costs where model in ('test-model','stub-model') or context_label like 'Sentinel%' or (interaction_type='intent_parse' and prompt_tokens=15 and completion_tokens=5)` returns 0 |
 
-Entry paths: AC1.1 and AC3.1 run the whole suite, which reaches the database through `db_session`, through commands run by `CliRunner`, and through application code that tests call (`IntentParser.parse`, `ai_cost_service`). AC2.1 uses the hand-opened `get_db()` path that the TestCase files use until #200 and #199 convert them.
+Entry paths: AC1.1 and AC3.1 run the whole suite, including the live provider tests, which reaches the database through `db_session`, through commands run by `CliRunner`, and through application code that tests call (`IntentParser.parse`, `ai_cost_service`). AC2.1 uses the hand-opened `get_db()` path that the TestCase files use until #200 and #199 convert them.
 
 ## 6. Test plan
 
