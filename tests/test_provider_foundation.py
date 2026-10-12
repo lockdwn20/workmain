@@ -1015,7 +1015,7 @@ def test_eligible_provider_names_follows_accepts():
 def _finish_response(finish, reason, content="text"):
     return GenerationResponse(
         content=content, provider=ProviderType.GEMINI, model="m",
-        tokens_used=1, prompt_tokens=1, completion_tokens=0, cost=0.0,
+        tokens_used=1, prompt_tokens=1, completion_tokens=0, thinking_tokens=None, cost=0.0,
         finish=finish, finish_reason=reason,
     )
 
@@ -1026,7 +1026,7 @@ class TestRequireComplete:
         with pytest.raises(TypeError):
             GenerationResponse(
                 content="x", provider=ProviderType.CLAUDE, model="m",
-                tokens_used=1, prompt_tokens=1, completion_tokens=0, cost=0.0,
+                tokens_used=1, prompt_tokens=1, completion_tokens=0, thinking_tokens=None, cost=0.0,
             )
 
     def test_cut_off_message_names_everything(self):
@@ -1093,7 +1093,7 @@ class _StubProvider:
         finish, reason, content = self._args
         return GenerationResponse(
             content=content, provider=self.provider_type, model="m",
-            tokens_used=1, prompt_tokens=1, completion_tokens=0, cost=0.0,
+            tokens_used=1, prompt_tokens=1, completion_tokens=0, thinking_tokens=None, cost=0.0,
             finish=finish, finish_reason=reason,
         )
 
@@ -1213,7 +1213,7 @@ def _invoke_providers_test(finish, reason, content):
     provider.check_availability.return_value = ProviderStatus.AVAILABLE
     provider.generate.return_value = GenerationResponse(
         content=content, provider=ProviderType.GEMINI, model="m", tokens_used=5,
-        prompt_tokens=3, completion_tokens=2, cost=0.0,
+        prompt_tokens=3, completion_tokens=2, thinking_tokens=None, cost=0.0,
         finish=finish, finish_reason=reason,
     )
     manager = MagicMock()

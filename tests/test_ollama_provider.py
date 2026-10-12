@@ -121,6 +121,7 @@ class TestGenerate:
         assert response.prompt_tokens == 15
         assert response.completion_tokens == 25
         assert response.tokens_used == 40
+        assert response.thinking_tokens is None
 
     def test_generate_finish_mapping(self):
         """AC1.3: done_reason stop/length/absent → COMPLETE/CUT_OFF/STOPPED."""

@@ -31,6 +31,7 @@ def _make_response(content: str) -> GenerationResponse:
         tokens_used=20,
         prompt_tokens=15,
         completion_tokens=5,
+        thinking_tokens=None,
         cost=0.0,
         finish=FinishStatus.COMPLETE,
         finish_reason="stop",
