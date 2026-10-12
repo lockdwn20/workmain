@@ -65,6 +65,40 @@ class TestThinkingTokensColumn:
 
 
 # ---------------------------------------------------------------------------
+# ai_costs.refused / finish_reason columns, no type constraint (migration 025)
+# ---------------------------------------------------------------------------
+
+class TestRecordingColumns:
+    def test_refused_is_not_null_boolean_default_false(self, db_session):
+        """AC8.1: migration 025 added refused as boolean, not null, default false."""
+        row = db_session.execute(text(
+            "SELECT data_type, is_nullable, column_default "
+            "FROM information_schema.columns "
+            "WHERE table_name = 'ai_costs' AND column_name = 'refused'"
+        )).one()
+        assert row.data_type == 'boolean'
+        assert row.is_nullable == 'NO'
+        assert row.column_default == 'false'
+
+    def test_finish_reason_is_nullable(self, db_session):
+        """AC8.1: migration 025 added a nullable finish_reason."""
+        row = db_session.execute(text(
+            "SELECT is_nullable FROM information_schema.columns "
+            "WHERE table_name = 'ai_costs' AND column_name = 'finish_reason'"
+        )).one()
+        assert row.is_nullable == 'YES'
+
+    def test_no_interaction_type_check_constraint(self, db_session):
+        """AC8.1: the interaction_type CHECK constraint is gone."""
+        count = db_session.execute(text(
+            "SELECT count(*) FROM pg_constraint "
+            "WHERE conrelid = 'ai_costs'::regclass AND contype = 'c' "
+            "AND conname = 'ai_costs_interaction_type_check'"
+        )).scalar()
+        assert count == 0
+
+
+# ---------------------------------------------------------------------------
 # AiCostRepository.create()
 # ---------------------------------------------------------------------------
 
