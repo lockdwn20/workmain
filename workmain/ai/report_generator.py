@@ -33,6 +33,7 @@ from workmain.ai import (
     ProviderType
 )
 from workmain.ai.base_provider import ProviderUnavailableError
+from workmain.services import ai_cost_service
 from workmain.templates_engine import get_template_loader, TemplateLoader
 from workmain.database.repositories.reports_repo import get_reports_repository, ReportsRepository
 
@@ -211,21 +212,8 @@ class ReportGenerator:
             # End cost tracking with generation time
             self.cost_tracker.end_report(generation_time)
 
-            # Persist ai_costs row (dual-write alongside report_metadata)
-            from workmain.database.repositories.ai_costs_repo import AiCostRepository
-            AiCostRepository(self.session).create(
-                interaction_type='report',
-                provider=response.provider.value,
-                model=response.model,
-                prompt_tokens=response.prompt_tokens,
-                completion_tokens=response.completion_tokens,
-                thinking_tokens=response.thinking_tokens,
-                total_tokens=response.tokens_used,
-                cost_usd=response.cost,
-                generation_time_s=generation_time,
-                report_id=db_report.id,
-                context_label=template_name,
-            )
+            # Link the rows generate() recorded to the saved report
+            ai_cost_service.link_report(response.cost_record_ids, db_report.id)
 
             # Return result
             return {

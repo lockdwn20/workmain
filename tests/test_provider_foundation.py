@@ -1248,3 +1248,151 @@ def test_providers_test_succeeds_on_complete_reply():
     result = _invoke_providers_test(FinishStatus.COMPLETE, "STOP", "API connection successful")
     assert result.exit_code == 0
     assert "API test successful" in result.output
+
+
+# ---------------------------------------------------------------------------
+# ProviderManager.generate records every reply (issue #191)
+# ---------------------------------------------------------------------------
+
+class TestManagerRecording:
+    """AC1.8, AC1.9, AC2.1-AC2.3 — a real ProviderManager over scripted stubs."""
+
+    _SCRIPTED = dict(
+        prompt_tokens=9, completion_tokens=202, thinking_tokens=196,
+        tokens_used=211, cost=0.0123,
+    )
+
+    def _request(self):
+        from workmain.ai.base_provider import GenerationRequest
+        return GenerationRequest(prompt="p", max_tokens=1000)
+
+    def _count(self, db_session):
+        from workmain.database.models import AiCost
+        return db_session.query(AiCost).filter(
+            AiCost.interaction_type == "daily_internal"
+        ).count()
+
+    def test_failed_primary_records_nothing_and_fallback_records_one(
+        self, tmp_path, db_session, session_for_command
+    ):
+        """AC1.8"""
+        from tests.mocks.stub_providers import StubProvider, stubbed_manager
+        from workmain.ai.base_provider import GenerationError
+        session_for_command('workmain.services.ai_cost_service')
+        manager = stubbed_manager(tmp_path, {
+            "gemini": StubProvider(ProviderType.GEMINI, error=GenerationError("boom")),
+            "claude": StubProvider(ProviderType.CLAUDE, **self._SCRIPTED),
+        })
+        before = self._count(db_session)
+
+        response, notice = manager.generate(self._request(), report_type="daily_internal")
+
+        assert notice is not None
+        assert self._count(db_session) == before + 1
+        assert len(response.cost_record_ids) == 1
+        from workmain.database.models import AiCost
+        row = db_session.get(AiCost, response.cost_record_ids[0])
+        assert row.provider == "claude"
+        assert row.refused is False
+
+    def test_recording_failure_does_not_fail_the_call(self, tmp_path, caplog):
+        """AC1.9: no session_for_command, so the autouse block makes the service raise."""
+        from tests.mocks.stub_providers import StubProvider, stubbed_manager
+        manager = stubbed_manager(tmp_path, {
+            "gemini": StubProvider(ProviderType.GEMINI, **self._SCRIPTED),
+        })
+
+        with caplog.at_level("WARNING", logger="workmain.services.ai_cost_service"):
+            response, notice = manager.generate(
+                self._request(), report_type="daily_internal"
+            )
+
+        assert response.content == "stub reply"
+        assert response.cost_record_ids == []
+        assert "daily_internal" in caplog.text
+
+    def test_cut_off_reply_without_fallback_is_recorded_refused(
+        self, tmp_path, db_session, session_for_command
+    ):
+        """AC2.1"""
+        from tests.mocks.stub_providers import (
+            StubProvider, drop_fallback, stubbed_manager,
+        )
+        from workmain.ai.base_provider import IncompleteResponseError
+        from workmain.database.models import AiCost
+        session_for_command('workmain.services.ai_cost_service')
+        manager = stubbed_manager(
+            tmp_path,
+            {"gemini": StubProvider(
+                ProviderType.GEMINI, FinishStatus.CUT_OFF, "MAX_TOKENS",
+                content="partial", **self._SCRIPTED,
+            )},
+            edit=drop_fallback("daily_internal"),
+        )
+        before = self._count(db_session)
+
+        with pytest.raises(ProviderError) as exc:
+            manager.generate(self._request(), report_type="daily_internal")
+
+        assert isinstance(exc.value.__cause__, IncompleteResponseError)
+        assert self._count(db_session) == before + 1
+        row = db_session.query(AiCost).filter(
+            AiCost.interaction_type == "daily_internal"
+        ).order_by(AiCost.id.desc()).first()
+        assert row.refused is True
+        assert row.finish_reason == "MAX_TOKENS"
+        assert row.prompt_tokens == 9
+        assert row.completion_tokens == 202
+        assert row.thinking_tokens == 196
+        assert row.total_tokens == 211
+        assert float(row.cost_usd) == pytest.approx(0.0123)
+
+    def test_refused_primary_then_fallback_records_both_refused_first(
+        self, tmp_path, db_session, session_for_command
+    ):
+        """AC2.2"""
+        from tests.mocks.stub_providers import StubProvider, stubbed_manager
+        from workmain.database.models import AiCost
+        session_for_command('workmain.services.ai_cost_service')
+        manager = stubbed_manager(tmp_path, {
+            "gemini": StubProvider(
+                ProviderType.GEMINI, FinishStatus.CUT_OFF, "MAX_TOKENS",
+                content="partial",
+            ),
+            "claude": StubProvider(ProviderType.CLAUDE, **self._SCRIPTED),
+        })
+        before = self._count(db_session)
+
+        response, notice = manager.generate(self._request(), report_type="daily_internal")
+
+        assert self._count(db_session) == before + 2
+        assert len(response.cost_record_ids) == 2
+        first = db_session.get(AiCost, response.cost_record_ids[0])
+        second = db_session.get(AiCost, response.cost_record_ids[1])
+        assert (first.provider, first.refused) == ("gemini", True)
+        assert (second.provider, second.refused) == ("claude", False)
+
+    def test_empty_reply_is_recorded_refused(
+        self, tmp_path, db_session, session_for_command
+    ):
+        """AC2.3"""
+        from tests.mocks.stub_providers import (
+            StubProvider, drop_fallback, stubbed_manager,
+        )
+        from workmain.database.models import AiCost
+        session_for_command('workmain.services.ai_cost_service')
+        manager = stubbed_manager(
+            tmp_path,
+            {"gemini": StubProvider(ProviderType.GEMINI, content="")},
+            edit=drop_fallback("daily_internal"),
+        )
+        before = self._count(db_session)
+
+        with pytest.raises(ProviderError):
+            manager.generate(self._request(), report_type="daily_internal")
+
+        assert self._count(db_session) == before + 1
+        row = db_session.query(AiCost).filter(
+            AiCost.interaction_type == "daily_internal"
+        ).order_by(AiCost.id.desc()).first()
+        assert row.refused is True

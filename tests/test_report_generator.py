@@ -302,15 +302,19 @@ class TestReportRefusal:
         assert stored.report_metadata["fallback_reason"] == reason
 
 
-class TestReportThinkingTokens:
-    def test_report_row_and_metadata_carry_thinking_count(self, tmp_path, db_session):
-        """AC2.3, AC3.2: both stores take the reply's own counts."""
+class TestReportRecording:
+    def test_report_records_one_row_linked_to_the_saved_report(
+        self, tmp_path, db_session, session_for_command
+    ):
+        """AC1.1: one row, typed with the call type, linked, carrying the stub's values."""
         from tests.mocks.stub_providers import StubProvider
         from workmain.database.models import AiCost
+        session_for_command('workmain.services.ai_cost_service')
         pm = stubbed_manager(tmp_path, {
             "gemini": StubProvider(
                 ProviderType.GEMINI, content="Report body",
-                thinking_tokens=196, tokens_used=999,
+                prompt_tokens=9, completion_tokens=202, thinking_tokens=196,
+                tokens_used=211, cost=0.0123,
             ),
         })
         generator = ReportGenerator(db_session, provider_manager=pm)
@@ -321,8 +325,43 @@ class TestReportThinkingTokens:
         )
 
         row = db_session.query(AiCost).filter(AiCost.report_id == result["report_id"]).one()
+        assert row.interaction_type == "daily_internal"
+        assert row.refused is False
+        assert row.prompt_tokens == 9
+        assert row.completion_tokens == 202
         assert row.thinking_tokens == 196
-        assert row.total_tokens == 999
-        report = generator.reports_repo.get_by_id(result["report_id"])
-        assert report.report_metadata["thinking_tokens"] == 196
-        assert report.report_metadata["total_tokens"] == 999
+        assert row.total_tokens == 211
+        assert float(row.cost_usd) == pytest.approx(0.0123)
+
+    def test_save_failure_after_reply_still_leaves_an_unlinked_row(
+        self, tmp_path, db_session, session_for_command
+    ):
+        """AC3.2: the reply was paid for, so its row exists even when the save raises."""
+        from tests.mocks.stub_providers import StubProvider
+        from workmain.database.models import AiCost
+        session_for_command('workmain.services.ai_cost_service')
+        pm = stubbed_manager(tmp_path, {
+            "gemini": StubProvider(
+                ProviderType.GEMINI, content="Report body",
+                prompt_tokens=9, completion_tokens=202, thinking_tokens=196,
+                tokens_used=211, cost=0.0123,
+            ),
+        })
+        generator = ReportGenerator(db_session, provider_manager=pm)
+        generator.reports_repo = MagicMock()
+        generator.reports_repo.create.side_effect = RuntimeError("save failed")
+        before = db_session.query(AiCost).filter(
+            AiCost.interaction_type == "daily_internal", AiCost.total_tokens == 211,
+        ).count()
+
+        with pytest.raises(RuntimeError, match="save failed"):
+            generator.generate_report(
+                template_name="daily_internal", report_date=date.today(),
+                save_to_file=False,
+            )
+
+        rows = db_session.query(AiCost).filter(
+            AiCost.interaction_type == "daily_internal", AiCost.total_tokens == 211,
+        ).all()
+        assert len(rows) == before + 1
+        assert rows[-1].report_id is None

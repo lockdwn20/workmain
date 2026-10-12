@@ -665,7 +665,7 @@ def notes_log(meeting: str):
                 _provider_display = _rc.primary_provider.value.capitalize() if _rc else 'AI'
                 click.echo(f"\nSending to {_provider_display}...")
                 condenser = get_note_condenser(session)
-                summary, resolved_tags, notice = condenser.condense_meeting(meeting_obj)
+                summary, resolved_tags, notice, _ = condenser.condense_meeting(meeting_obj)
                 click.echo(f"✓ Condensed: \"{summary}\"")
                 if notice:
                     click.echo(f"⚠ {notice.message}")

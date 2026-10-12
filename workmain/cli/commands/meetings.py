@@ -869,7 +869,7 @@ def meetings_condense(meeting_title: str):
         condenser = get_note_condenser(session)
 
         try:
-            summary, resolved_tags, notice = condenser.condense_meeting(meeting)
+            summary, resolved_tags, notice, cost_record_ids = condenser.condense_meeting(meeting)
 
             # Get cost from last condensation.
             # end_report() clears _current_report, so read from _last_completed.

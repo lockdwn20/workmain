@@ -90,8 +90,8 @@ def _fake_response(content: str) -> GenerationResponse:
 
 
 class TestCondenseMeetingReturnsTuple:
-    """condense_meeting()'s two return paths both return (summary, tags, notice)
-    (Item 69 Design Rule 14)."""
+    """condense_meeting()'s two return paths both return
+    (summary, tags, notice, cost_record_ids) (Item 69 Design Rule 14, issue #191 DR8)."""
 
     def test_condense_meeting_attended_fallback_returns_tuple(self, db_session):
         meeting = Meeting(
@@ -114,7 +114,7 @@ class TestCondenseMeetingReturnsTuple:
         condenser = NoteCondenser(db_session)
         result = condenser.condense_meeting(meeting)
 
-        assert result == (f"Attended {meeting.title}", ["info-only"], None)
+        assert result == (f"Attended {meeting.title}", ["info-only"], None, [])
 
     def test_condense_meeting_ai_path_returns_tuple(self, db_session):
         meeting = Meeting(
@@ -137,7 +137,7 @@ class TestCondenseMeetingReturnsTuple:
             condenser.provider_manager, "generate",
             return_value=(_fake_response("Client review: discussed Q3 roadmap"), None),
         ):
-            summary, resolved_tags, notice = condenser.condense_meeting(meeting)
+            summary, resolved_tags, notice, _ = condenser.condense_meeting(meeting)
 
         assert notice is None
         assert summary == "Client review: discussed Q3 roadmap"
@@ -343,7 +343,7 @@ class TestCondensationRefusal:
             "claude": complete(ProviderType.CLAUDE, content="Recovered summary"),
         })
 
-        summary, _, notice = condenser.condense_meeting(meeting)
+        summary, _, notice, _ = condenser.condense_meeting(meeting)
 
         assert summary == "Recovered summary"
         assert notice.primary == ProviderType.GEMINI
@@ -351,22 +351,63 @@ class TestCondensationRefusal:
         assert "note_condensation" in notice.message
 
 
-class TestCondensationThinkingTokens:
-    def test_cost_row_carries_thinking_count(self, tmp_path, db_session):
-        """AC2.4, AC3.2: the row takes the reply's own thinking and total."""
+class TestCondensationRecording:
+    def test_condensation_records_one_row_for_its_reply(
+        self, tmp_path, db_session, session_for_command
+    ):
+        """AC1.2: one row, typed note_condensation, with the meeting and the stub's values."""
         from tests.mocks.stub_providers import StubProvider, stubbed_manager
         from workmain.database.models import AiCost
-        meeting = _meeting_with_note(db_session, "Sentinel Thinking Meeting 2099")
+        session_for_command('workmain.services.ai_cost_service')
+        meeting = _meeting_with_note(db_session, "Sentinel Recording Meeting 2099")
         condenser = NoteCondenser(db_session)
         condenser.provider_manager = stubbed_manager(tmp_path, {
             "gemini": StubProvider(
                 ProviderType.GEMINI, content="Summary",
-                thinking_tokens=50, tokens_used=77,
+                prompt_tokens=9, completion_tokens=202, thinking_tokens=196,
+                tokens_used=211, cost=0.0123,
             ),
         })
 
-        condenser.condense_meeting(meeting)
+        _, _, _, cost_record_ids = condenser.condense_meeting(meeting)
 
         row = db_session.query(AiCost).filter(AiCost.meeting_id == meeting.id).one()
-        assert row.thinking_tokens == 50
-        assert row.total_tokens == 77
+        assert cost_record_ids == [row.id]
+        assert row.interaction_type == "note_condensation"
+        assert row.context_label == meeting.title
+        assert row.refused is False
+        assert row.prompt_tokens == 9
+        assert row.completion_tokens == 202
+        assert row.thinking_tokens == 196
+        assert row.total_tokens == 211
+        assert float(row.cost_usd) == pytest.approx(0.0123)
+
+    def test_commit_failure_after_reply_still_leaves_the_row(
+        self, tmp_path, db_session, session_for_command, monkeypatch
+    ):
+        """AC3.3: the service's row is flushed on the first commit; the summary commit raises."""
+        from tests.mocks.stub_providers import StubProvider, stubbed_manager
+        from workmain.database.models import AiCost
+        session_for_command('workmain.services.ai_cost_service')
+        meeting = _meeting_with_note(db_session, "Sentinel Commit Failure Meeting 2099")
+        condenser = NoteCondenser(db_session)
+        condenser.provider_manager = stubbed_manager(tmp_path, {
+            "gemini": StubProvider(ProviderType.GEMINI, content="Summary"),
+        })
+        flush = db_session.flush
+        calls = []
+
+        def commit_then_fail():
+            calls.append(1)
+            if len(calls) == 1:
+                flush()
+                return
+            raise RuntimeError("summary commit failed")
+
+        monkeypatch.setattr(db_session, "commit", commit_then_fail)
+
+        with pytest.raises(RuntimeError, match="summary commit failed"):
+            condenser.condense_meeting(meeting)
+
+        row = db_session.query(AiCost).filter(AiCost.meeting_id == meeting.id).one()
+        assert row.interaction_type == "note_condensation"
