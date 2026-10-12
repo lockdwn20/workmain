@@ -23,6 +23,7 @@ Complete. All seven steps are delivered and the suite is green. Every provider r
 | 5 | Status check is a model lookup; `providers test` recorded; guide line | `workmain/ai/providers/{claude,gemini}.py`, `workmain/cli/commands/providers.py`, `docs/AI_SETTINGS_GUIDE.md`, tests | per §5 |
 | 6 | Cost screens and token lines; `CostTracker` removed | `workmain/utils/cost_display.py`, `workmain/database/repositories/ai_costs_repo.py`, `workmain/cli/commands/{providers,meetings,notes,reports}.py`, `workmain/ai/{report_generator,note_condenser,__init__}.py`, `workmain/ai/cost_tracker.py` (deleted), `tests/test_cost_display.py`, tests | per §5 |
 | 7 | Migration `026` file; executed by Ray; AC8.4 and AC8.5 tests | `workmain/database/migrations/026_ai_costs_single_record.sql`, `tests/test_ai_costs.py` | per §5 |
+| 8 | DR21: the answer rule moved to the repository module. DR22: the cost-command tests assert on recorded table cells, not rendered text | `workmain/database/repositories/ai_costs_repo.py`, `workmain/utils/cost_display.py`, `tests/test_cost_display.py` | per §5 |
 
 ## 3. Acceptance criteria
 
@@ -45,11 +46,13 @@ Complete. All seven steps are delivered and the suite is green. Every provider r
 | AC3.3 | Met | `tests/test_note_condenser.py::TestCondensationRecording::test_commit_failure_after_reply_still_leaves_the_row` |
 | AC4.1 | Met | `git grep -n 'AiCostRepository\|AiCost(' -- workmain` hits only `ai_costs_repo.py`, `models.py`, `ai_cost_service.py`; `get_ai_cost_repository` hits only the repository module and the four commands |
 | AC4.2 | Met | `tests/test_cost_display.py`, each command test patches `create` and `link_report` to raise and asserts no "Failed to get costs" |
+| AC4.3 | Met | `git grep -n 'workmain.utils.cost_display\|from rich\|import rich' -- workmain/database` returns no hits |
 | AC5.1 | Met | `tests/test_cost_display.py::TestProvidersCosts` |
 | AC5.2 | Met | `tests/test_cost_display.py::TestCondensationCosts` |
 | AC5.3 | Met | `tests/test_cost_display.py::TestReportsCosts` |
 | AC5.4 | Met | `tests/test_cost_display.py::TestAnswerAndThinkingRules` and `TestMeetingsCondenseTokenLine` |
 | AC6.1 | Met | bare `pytest`, counts in §5; deleted tests in §4 |
+| AC6.2 | Met | `COLUMNS=60 pytest` reports 0 failed (counts in §5) |
 | AC7.1 | Met | `tests/test_ai_providers_offline.py::TestProviderManagerBuildsFromConfig::test_gemini_check_availability_looks_up_the_model_and_generates_nothing` and the Claude counterpart |
 | AC7.2 | Met | `tests/test_ai_providers_offline.py::test_check_availability_429_and_500` and `test_claude_check_availability_maps_rate_limit_and_api_errors` |
 | AC7.3 | Met | Ray read the `REQUIRED_POLICY_KEYS` sentence in `docs/AI_SETTINGS_GUIDE.md` ("Adding a provider"). The sentence now reads "If `generate()` reads any policy key" |
@@ -67,12 +70,11 @@ Complete. All seven steps are delivered and the suite is green. Every provider r
 | 1 | The suite was red at Step 2's commit: 11 failures from the three callers still calling `create` without `refused` and `finish_reason`. | DR7 makes them required, and the caller writes are removed in Step 3. Green again at Step 3's commit. | Not asked; spec ordering |
 | 2 | `ReportGenerator.generate_report` lost its `try`/`except`, and the body is dedented one level. | The `except` existed only to end cost tracking, and DR13 removes the tracker. | Not asked |
 | 3 | `summarize`, the new `get_summary` keys and `get_report_costs` were built in Step 2. | §6 (a) tests `summarize` at Step 2 and DR7 lists `get_report_costs`; Step 6 uses them. | Not asked |
-| 4 | `ai_costs_repo.py` imports `answer_tokens` from `workmain/utils/cost_display.py`. | DR17 puts the answer rule there; one definition. | Not asked |
-| 5 | Tables use `show_edge=False`, collapsed padding and a 6-column minimum for the label column. | The nine-column row did not fit 80 columns. A refused row's provider still squeezes the label there. | Not asked |
-| 6 | `tests/test_ai_arguments.py::TestReportTypeFiltersRows` seeds and deletes an `AiCost` row linked to its report, and the save-output mock gained `thinking_tokens`. | `reports costs` now reads cost rows, so a report with none prints nothing. | Not asked |
-| 7 | `meetings condense` prints the cost and the token line as two dim lines. | DR16 says "followed by" and fixes no layout. | Not asked |
-| 8 | `Report` docstring in `models.py` no longer says its metadata holds costs. | It became untrue at Step 4. | Not asked |
-| 9 | `025` and `026` were executed by Ray with `psql`, not by Anvil. | The permission classifier denied an app-connection execution; Ray ran them. | Ray |
+| 4 | Tables use `show_edge=False`, collapsed padding and a 6-column minimum for the label column. | The nine-column row did not fit 80 columns. A refused row's provider still squeezes the label there. | Not asked |
+| 5 | `tests/test_ai_arguments.py::TestReportTypeFiltersRows` seeds and deletes an `AiCost` row linked to its report, and the save-output mock gained `thinking_tokens`. | `reports costs` now reads cost rows, so a report with none prints nothing. | Not asked |
+| 6 | `meetings condense` prints the cost and the token line as two dim lines. | DR16 says "followed by" and fixes no layout. | Not asked |
+| 7 | `Report` docstring in `models.py` no longer says its metadata holds costs. | It became untrue at Step 4. | Not asked |
+| 8 | `025` and `026` were executed by Ray with `psql`, not by Anvil. | The permission classifier denied an app-connection execution; Ray ran them. | Ray |
 
 Tests deleted, with the reason:
 
@@ -90,6 +92,7 @@ Tests deleted, with the reason:
 ## 5. Verification
 
 - **Test suite:** 1271 passed, 0 failed, 0 skipped (baseline: 1232 passed, 0 failed, 0 skipped) — form per `docs/DEVELOPMENT_STANDARDS.md` §6.
+- **Narrow terminal:** `COLUMNS=60 pytest`: 1271 passed, 0 failed, 0 skipped.
 - **Live verification:** Ray ran R1–R6 on the branch before `026` and reported all six passing; Anvil's read-only pre-`026` count was 0; Ray then executed `026` and the AC8.4 and AC8.5 tests passed against the live database.
 - **Daemon restart:** for `/closeout`.
 
