@@ -133,4 +133,4 @@ With F3 and F16, thinking is not Gemini-only. Ray asked whether each provider's 
 
 ## 6. Disposition
 
-- Promoted to: (pending Analysis)
+- Promoted to: `../specs/THINKING_TOKEN_RECORDING_SPEC.md`
