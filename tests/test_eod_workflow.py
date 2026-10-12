@@ -7,11 +7,8 @@ returns, and review step subprocess dispatch (canonical location after
 extraction).
 """
 
-import tempfile
 import threading
-import unittest
 from datetime import date, datetime
-from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 import pytest
@@ -19,6 +16,7 @@ import pytest
 from workmain.ai.base_provider import ProviderStatus, ProviderError, ConfigurationError
 from workmain.daemon.models import Observation, ObservationType
 from workmain.daemon import state_io
+from workmain.database.models import Report
 from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
 from workmain.database.repositories.task_status_repo import TaskStatusRepository
@@ -49,17 +47,17 @@ FRIDAY    = 4
 SENTINEL_DATE = date(2099, 1, 1)
 
 
-class TestEodStepResult(unittest.TestCase):
+class TestEodStepResult:
     """Tests for EodStepResult dataclass and EodStepStatus enum."""
 
     def test_default_status_is_completed(self):
         result = EodStepResult()
-        self.assertEqual(result.status, EodStepStatus.COMPLETED)
+        assert result.status == EodStepStatus.COMPLETED
 
     def test_failed_result_carries_error(self):
         result = EodStepResult(status=EodStepStatus.FAILED, error="test error")
-        self.assertEqual(result.status, EodStepStatus.FAILED)
-        self.assertEqual(result.error, "test error")
+        assert result.status == EodStepStatus.FAILED
+        assert result.error == "test error"
 
     def test_paused_result_carries_pause_reason(self):
         result = EodStepResult(
@@ -67,100 +65,97 @@ class TestEodStepResult(unittest.TestCase):
             pause_reason="Are these entries correct?",
             pause_resume_hint="Edit then re-run",
         )
-        self.assertEqual(result.status, EodStepStatus.PAUSED)
-        self.assertEqual(result.pause_reason, "Are these entries correct?")
+        assert result.status == EodStepStatus.PAUSED
+        assert result.pause_reason == "Are these entries correct?"
 
     def test_status_enum_values(self):
-        self.assertEqual(EodStepStatus.COMPLETED.value, 'completed')
-        self.assertEqual(EodStepStatus.FAILED.value, 'failed')
-        self.assertEqual(EodStepStatus.PAUSED.value, 'paused')
-        self.assertEqual(EodStepStatus.SKIPPED.value, 'skipped')
+        assert EodStepStatus.COMPLETED.value == 'completed'
+        assert EodStepStatus.FAILED.value == 'failed'
+        assert EodStepStatus.PAUSED.value == 'paused'
+        assert EodStepStatus.SKIPPED.value == 'skipped'
 
 
-class TestGetStepSequence(unittest.TestCase):
+class TestGetStepSequence:
     """Tests for get_step_sequence / _build_step_sequence step counts and keys."""
 
     def test_monday_returns_ten_steps(self):
         steps = get_step_sequence(MONDAY, [])
         keys = [s['key'] for s in steps]
-        self.assertEqual(len(steps), 10)
-        self.assertIn('pre_flight_inspection', keys)
-        self.assertIn('task_match', keys)
-        self.assertIn('note_dedup', keys)
-        self.assertNotIn('weekly', keys)
-        self.assertNotIn('weekly_report', keys)
+        assert len(steps) == 10
+        assert 'pre_flight_inspection' in keys
+        assert 'task_match' in keys
+        assert 'note_dedup' in keys
+        assert 'weekly' not in keys
+        assert 'weekly_report' not in keys
 
     def test_thursday_returns_eleven_steps(self):
         steps = get_step_sequence(THURSDAY, [])
         keys = [s['key'] for s in steps]
-        self.assertEqual(len(steps), 11)
-        self.assertIn('weekly', keys)
+        assert len(steps) == 11
+        assert 'weekly' in keys
 
     def test_friday_returns_twelve_steps(self):
         steps = get_step_sequence(FRIDAY, [])
         keys = [s['key'] for s in steps]
-        self.assertEqual(len(steps), 12)
-        self.assertIn('weekly_report', keys)
-        self.assertIn('weekly_email', keys)
+        assert len(steps) == 12
+        assert 'weekly_report' in keys
+        assert 'weekly_email' in keys
 
     def test_skip_weekly_thursday_returns_ten_steps(self):
         steps = get_step_sequence(THURSDAY, ['weekly'])
         keys = [s['key'] for s in steps]
-        self.assertEqual(len(steps), 10)
-        self.assertNotIn('weekly', keys)
+        assert len(steps) == 10
+        assert 'weekly' not in keys
 
     def test_skip_weekly_friday_returns_ten_steps(self):
         steps = get_step_sequence(FRIDAY, ['weekly'])
         keys = [s['key'] for s in steps]
-        self.assertEqual(len(steps), 10)
-        self.assertNotIn('weekly_report', keys)
-        self.assertNotIn('weekly_email', keys)
+        assert len(steps) == 10
+        assert 'weekly_report' not in keys
+        assert 'weekly_email' not in keys
 
     def test_step_dicts_have_required_keys(self):
         steps = get_step_sequence(MONDAY, [])
         for step in steps:
-            self.assertIn('key', step)
-            self.assertIn('num', step)
-            self.assertIn('desc', step)
-            self.assertIn('runner', step)
-            self.assertTrue(callable(step['runner']))
+            assert 'key' in step
+            assert 'num' in step
+            assert 'desc' in step
+            assert 'runner' in step
+            assert callable(step['runner'])
 
     def test_step_num_denominator_matches_length(self):
         steps = get_step_sequence(MONDAY, [])
         N = len(steps)
         for step in steps:
             parts = step['num'].split('/')
-            self.assertEqual(int(parts[1]), N)
+            assert int(parts[1]) == N
 
 
-class TestRunStep(unittest.TestCase):
+class TestRunStep:
     """Tests for run_step() dispatch and return type."""
 
     def test_run_step_returns_eod_step_result(self):
         steps = get_step_sequence(MONDAY, [])
         condense = next(s for s in steps if s['key'] == 'condense')
         result = run_step(condense, dry_run=True, target_date=SENTINEL_DATE)
-        self.assertIsInstance(result, EodStepResult)
+        assert isinstance(result, EodStepResult)
 
     def test_run_step_dry_run_all_return_completed(self):
         """All step runners return COMPLETED in dry-run mode."""
         steps = get_step_sequence(FRIDAY, [])  # Friday has all 12 steps
         for step in steps:
             result = run_step(step, dry_run=True, target_date=SENTINEL_DATE)
-            self.assertEqual(
-                result.status, EodStepStatus.COMPLETED,
-                f"Step '{step['key']}' dry-run returned {result.status}"
-            )
+            assert result.status == EodStepStatus.COMPLETED, f"Step '{step['key']}' dry-run returned {result.status}"
 
     def test_run_step_dispatches_to_runner(self):
         """run_step calls step['runner'] and returns its result."""
         steps = get_step_sequence(MONDAY, [])
         sync_step = next(s for s in steps if s['key'] == 'sync')
         result = run_step(sync_step, dry_run=True, target_date=SENTINEL_DATE)
-        self.assertEqual(result.status, EodStepStatus.COMPLETED)
+        assert result.status == EodStepStatus.COMPLETED
 
 
-class TestReviewStepDispatch(unittest.TestCase):
+class TestReviewStepDispatch:
     """Tests that _run_review_step calls the correct time subcommand for the date.
 
     Canonical location after extraction from eod.py — mirrors TestReviewStepDispatch
@@ -186,45 +181,45 @@ class TestReviewStepDispatch(unittest.TestCase):
 
     def test_review_step_dry_run_returns_completed(self):
         result = _run_review_step(dry_run=True, target_date=SENTINEL_DATE)
-        self.assertEqual(result.status, EodStepStatus.COMPLETED)
+        assert result.status == EodStepStatus.COMPLETED
 
     def test_review_step_returns_eod_step_result(self):
         with patch('workmain.workflows.eod_workflow.run_workmain',
                    return_value=WorkmainRun(returncode=0)), \
              patch('workmain.workflows.eod_workflow._confirm', return_value=True):
             result = _run_review_step(dry_run=False, target_date=date(2026, 4, 27))
-        self.assertIsInstance(result, EodStepResult)
-        self.assertEqual(result.status, EodStepStatus.COMPLETED)
+        assert isinstance(result, EodStepResult)
+        assert result.status == EodStepStatus.COMPLETED
 
 
-class TestTokenizeAndScore(unittest.TestCase):
+class TestTokenizeAndScore:
     """Tests for keyword matching helpers used in the task_match step."""
 
     def test_tokenize_removes_stop_words(self):
         tokens = _tokenize("the quick brown fox")
-        self.assertNotIn('the', tokens)
-        self.assertIn('quick', tokens)
-        self.assertIn('brown', tokens)
-        self.assertIn('fox', tokens)
+        assert 'the' not in tokens
+        assert 'quick' in tokens
+        assert 'brown' in tokens
+        assert 'fox' in tokens
 
     def test_tokenize_lowercases(self):
         tokens = _tokenize("XSOAR Migration Review")
-        self.assertIn('xsoar', tokens)
-        self.assertIn('migration', tokens)
-        self.assertIn('review', tokens)
+        assert 'xsoar' in tokens
+        assert 'migration' in tokens
+        assert 'review' in tokens
 
     def test_score_match_full_overlap(self):
         tokens = {'xsoar', 'migration', 'review'}
         score = _score_match(tokens, tokens)
-        self.assertAlmostEqual(score, 1.0)
+        assert score == pytest.approx(1.0, abs=5e-8)
 
     def test_score_match_no_overlap(self):
         score = _score_match({'xsoar'}, {'unrelated', 'words'})
-        self.assertAlmostEqual(score, 0.0)
+        assert score == pytest.approx(0.0, abs=5e-8)
 
     def test_score_match_empty_task_tokens(self):
         score = _score_match(set(), {'any', 'tokens'})
-        self.assertAlmostEqual(score, 0.0)
+        assert score == pytest.approx(0.0, abs=5e-8)
 
     def test_keyword_score_match_returns_best_note(self):
         """Gate 5 §5.0: _keyword_score_match() compares notes directly now
@@ -244,9 +239,9 @@ class TestTokenizeAndScore(unittest.TestCase):
             FakeNote("XSOAR migration work completed"),
         ]
         result = _keyword_score_match(task, notes)
-        self.assertGreater(result["score"], 0.0)
-        self.assertIsNotNone(result["note"])
-        self.assertEqual(result["note"].content, "XSOAR migration work completed")
+        assert result["score"] > 0.0
+        assert result["note"] is not None
+        assert result["note"].content == "XSOAR migration work completed"
 
 
 # ---------------------------------------------------------------------------
@@ -900,12 +895,12 @@ class TestConfigurationFaultReported:
 class TestControlResumeRetries:
     """CONTROL_RESUME retries the current step — it does not skip it."""
 
-    def _manager_with_session(self):
+    def _manager_with_session(self, tmp_path):
         from workmain.integrations.slack.slack_eod import SlackEodManager, SlackEodSession
         from workmain.daemon.conversation_state import ConversationStore
         client = MagicMock()
         daemon = MagicMock()
-        store = ConversationStore(path=Path(tempfile.mkdtemp()) / 'conversation_state.json')
+        store = ConversationStore(path=tmp_path / 'conversation_state.json')
         manager = SlackEodManager(client, daemon, store)
         session = SlackEodSession(
             user_id='U1', channel_id='D1', target_date=SENTINEL_DATE,
@@ -918,24 +913,24 @@ class TestControlResumeRetries:
         store.save_session(session)
         return manager, session, client
 
-    def test_resume_does_not_append_to_skipped(self):
-        manager, session, client = self._manager_with_session()
+    def test_resume_does_not_append_to_skipped(self, tmp_path):
+        manager, session, client = self._manager_with_session(tmp_path)
         with patch.object(manager, '_advance_step') as mock_advance:
             manager.handle_reply('U1', 'resume')
         assert session.skipped == []
         assert session.current_step_idx == 0  # unchanged — retry, not advance
         mock_advance.assert_called_once_with(session)
 
-    def test_resume_unsets_paused(self):
-        manager, session, client = self._manager_with_session()
+    def test_resume_unsets_paused(self, tmp_path):
+        manager, session, client = self._manager_with_session(tmp_path)
         with patch.object(manager, '_advance_step'):
             manager.handle_reply('U1', 'resume')
         assert session.paused is False
 
-    def test_skip_still_advances_and_records_skipped(self):
+    def test_skip_still_advances_and_records_skipped(self, tmp_path):
         """Contrast case — CONTROL_SKIP still advances current_step_idx and
         records the step key, unlike CONTROL_RESUME."""
-        manager, session, client = self._manager_with_session()
+        manager, session, client = self._manager_with_session(tmp_path)
         with patch.object(manager, '_advance_step'):
             manager.handle_reply('U1', 'skip')
         assert session.skipped == ['review']
@@ -947,12 +942,12 @@ class TestHandleReplyMidFlightGuard:
     working' reply while session.paused is False (long-running step in
     flight); CONTROL_STOP is unaffected by the guard."""
 
-    def _manager_with_running_session(self):
+    def _manager_with_running_session(self, tmp_path):
         from workmain.integrations.slack.slack_eod import SlackEodManager, SlackEodSession
         from workmain.daemon.conversation_state import ConversationStore
         client = MagicMock()
         daemon = MagicMock()
-        store = ConversationStore(path=Path(tempfile.mkdtemp()) / 'conversation_state.json')
+        store = ConversationStore(path=tmp_path / 'conversation_state.json')
         manager = SlackEodManager(client, daemon, store)
         session = SlackEodSession(
             user_id='U1', channel_id='D1', target_date=SENTINEL_DATE,
@@ -963,30 +958,30 @@ class TestHandleReplyMidFlightGuard:
         store.save_session(session)
         return manager, session, client
 
-    def test_skip_blocked_while_not_paused(self):
-        manager, session, client = self._manager_with_running_session()
+    def test_skip_blocked_while_not_paused(self, tmp_path):
+        manager, session, client = self._manager_with_running_session(tmp_path)
         manager.handle_reply('U1', 'skip')
         assert session.skipped == []
         assert session.current_step_idx == 0
         client.post_message.assert_called_once()
         assert 'still working' in client.post_message.call_args[0][1].lower()
 
-    def test_confirm_blocked_while_not_paused(self):
-        manager, session, client = self._manager_with_running_session()
+    def test_confirm_blocked_while_not_paused(self, tmp_path):
+        manager, session, client = self._manager_with_running_session(tmp_path)
         manager.handle_reply('U1', 'yes')
         assert session.completed == []
         assert session.current_step_idx == 0
 
-    def test_resume_blocked_while_not_paused(self):
-        manager, session, client = self._manager_with_running_session()
+    def test_resume_blocked_while_not_paused(self, tmp_path):
+        manager, session, client = self._manager_with_running_session(tmp_path)
         with patch.object(manager, '_advance_step') as mock_advance:
             manager.handle_reply('U1', 'resume')
         mock_advance.assert_not_called()
 
-    def test_stop_not_blocked_while_running(self):
+    def test_stop_not_blocked_while_running(self, tmp_path):
         """CONTROL_STOP is deliberately excluded from the guard union —
         cancellation must work regardless of paused state."""
-        manager, session, client = self._manager_with_running_session()
+        manager, session, client = self._manager_with_running_session(tmp_path)
         manager.handle_reply('U1', 'stop')
         assert not manager.has_session('U1')
         assert session._cancel_event.is_set()
@@ -998,7 +993,7 @@ class TestHandleReplyMidFlightGuard:
 GATE1_SENTINEL_DATE = date(2098, 11, 3)
 
 
-class TestReportReviewStepCollapse(unittest.TestCase):
+class TestReportReviewStepCollapse:
     """Item #61 Gate 1 (Design Rules 1-2) — collapsed _run_report_review_step,
     exercised through its two public thin wrappers. Covers G2's re-review
     behavior (daily and weekly), the G1 no-active-client guard (weekly
@@ -1006,61 +1001,44 @@ class TestReportReviewStepCollapse(unittest.TestCase):
     (generation_error_fatal).
     """
 
-    def setUp(self):
-        from dotenv import load_dotenv
-        load_dotenv()
-        from workmain.database.connection import get_db
-        from workmain.database.models import Report
-        self._Report = Report
-        db = get_db()
-        self.session = db.get_session()
-        self._seeded_ids: list[int] = []
-
-    def tearDown(self):
-        for rid in self._seeded_ids:
-            self.session.query(self._Report).filter(self._Report.id == rid).delete()
-        self.session.commit()
-        self.session.close()
-
-    def _seed(self, report_type, status, report_date=GATE1_SENTINEL_DATE,
+    def _seed(self, db_session, report_type, status, report_date=GATE1_SENTINEL_DATE,
               content='Sentinel content for Item 61 Gate 1 tests.'):
-        r = self._Report(
+        r = Report(
             report_type=report_type,
             report_date=report_date,
             content=content,
             status=status,
         )
-        self.session.add(r)
-        self.session.commit()
-        self.session.refresh(r)
-        self._seeded_ids.append(r.id)
+        db_session.add(r)
+        db_session.commit()
+        db_session.refresh(r)
         return r
 
     # --- G2: existing confirmed/corrected report re-opens for review ---
 
-    def test_daily_g2_existing_confirmed_report_skips_generation_and_reviews(self):
-        self._seed('daily_internal', 'confirmed')
+    def test_daily_g2_existing_confirmed_report_skips_generation_and_reviews(self, db_session):
+        self._seed(db_session, 'daily_internal', 'confirmed')
         with patch('workmain.workflows.eod_workflow._is_interactive', return_value=True), \
              patch('workmain.workflows.eod_workflow.run_workmain') as mock_run, \
              patch('workmain.workflows.eod_workflow._prompt_choice', return_value='s'):
             result = _run_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
         mock_run.assert_not_called()
-        self.assertEqual(result.status, EodStepStatus.COMPLETED)
+        assert result.status == EodStepStatus.COMPLETED
 
-    def test_weekly_g2_existing_corrected_report_skips_generation_and_reviews(self):
-        self._seed('weekly_client', 'corrected')
+    def test_weekly_g2_existing_corrected_report_skips_generation_and_reviews(self, db_session):
+        self._seed(db_session, 'weekly_client', 'corrected')
         with patch('workmain.workflows.eod_workflow._is_interactive', return_value=True), \
              patch('workmain.workflows.eod_workflow.run_workmain') as mock_run, \
              patch('workmain.workflows.eod_workflow._prompt_choice', return_value='s'), \
              patch.object(SystemStateRepository, 'get_int', return_value=1):
             result = _run_weekly_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
         mock_run.assert_not_called()
-        self.assertEqual(result.status, EodStepStatus.COMPLETED)
+        assert result.status == EodStepStatus.COMPLETED
 
-    def test_g2_confirmed_report_on_different_date_does_not_short_circuit(self):
+    def test_g2_confirmed_report_on_different_date_does_not_short_circuit(self, db_session):
         """G2 matches the exact date only — a confirmed report on a
         different date must not suppress generation for target_date."""
-        self._seed('daily_internal', 'confirmed',
+        self._seed(db_session, 'daily_internal', 'confirmed',
                     report_date=date(2098, 11, 4))
         with patch('workmain.workflows.eod_workflow._is_interactive', return_value=True), \
              patch('workmain.workflows.eod_workflow.run_workmain',
@@ -1069,19 +1047,19 @@ class TestReportReviewStepCollapse(unittest.TestCase):
             _run_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
         mock_run.assert_called_once()
 
-    def test_g2_non_interactive_confirmed_report_returns_completed_no_menu(self):
+    def test_g2_non_interactive_confirmed_report_returns_completed_no_menu(self, db_session):
         """AC5 — Slack EOD (surface #5) non-interactive path is unaffected:
         still returns COMPLETED with no menu when a confirmed report
         already exists for the exact date."""
-        self._seed('daily_internal', 'confirmed')
+        self._seed(db_session, 'daily_internal', 'confirmed')
         with patch('workmain.workflows.eod_workflow._is_interactive', return_value=False), \
              patch('workmain.workflows.eod_workflow.run_workmain') as mock_run, \
              patch('workmain.workflows.eod_workflow._prompt_choice') as mock_choice:
             result = _run_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
         mock_run.assert_not_called()
         mock_choice.assert_not_called()
-        self.assertEqual(result.status, EodStepStatus.COMPLETED)
-        self.assertIn('already confirmed', result.message)
+        assert result.status == EodStepStatus.COMPLETED
+        assert 'already confirmed' in result.message
 
     # --- G1 (weekly-only, unchanged): no active client skips entirely ---
 
@@ -1090,7 +1068,7 @@ class TestReportReviewStepCollapse(unittest.TestCase):
              patch('workmain.workflows.eod_workflow.run_workmain') as mock_run:
             result = _run_weekly_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
         mock_run.assert_not_called()
-        self.assertEqual(result.status, EodStepStatus.COMPLETED)
+        assert result.status == EodStepStatus.COMPLETED
 
     # --- generation_error_fatal split (daily fatal / weekly non-fatal) ---
 
@@ -1101,7 +1079,7 @@ class TestReportReviewStepCollapse(unittest.TestCase):
              patch('workmain.workflows.eod_workflow.run_workmain',
                    side_effect=OSError('boom')):
             result = _run_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
-        self.assertEqual(result.status, EodStepStatus.FAILED)
+        assert result.status == EodStepStatus.FAILED
 
     def test_weekly_generation_error_non_fatal_when_interactive(self):
         """generation_error_fatal=False — weekly stays COMPLETED
@@ -1111,7 +1089,7 @@ class TestReportReviewStepCollapse(unittest.TestCase):
                    side_effect=OSError('boom')), \
              patch.object(SystemStateRepository, 'get_int', return_value=1):
             result = _run_weekly_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
-        self.assertEqual(result.status, EodStepStatus.COMPLETED)
+        assert result.status == EodStepStatus.COMPLETED
 
     def test_weekly_generation_error_fatal_when_non_interactive(self):
         with patch('workmain.workflows.eod_workflow._is_interactive', return_value=False), \
@@ -1119,7 +1097,7 @@ class TestReportReviewStepCollapse(unittest.TestCase):
                    side_effect=OSError('boom')), \
              patch.object(SystemStateRepository, 'get_int', return_value=1):
             result = _run_weekly_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
-        self.assertEqual(result.status, EodStepStatus.FAILED)
+        assert result.status == EodStepStatus.FAILED
 
     # --- AC1: both wrappers delegate to the same shared implementation ---
 
@@ -1128,45 +1106,28 @@ class TestReportReviewStepCollapse(unittest.TestCase):
         from workmain.workflows import eod_workflow
         daily_src = inspect.getsource(eod_workflow._run_report_step)
         weekly_src = inspect.getsource(eod_workflow._run_weekly_report_step)
-        self.assertIn('_run_report_review_step', daily_src)
-        self.assertIn('_run_report_review_step', weekly_src)
+        assert '_run_report_review_step' in daily_src
+        assert '_run_report_review_step' in weekly_src
 
 
-class TestReportReviewStepEditBranch(unittest.TestCase):
+class TestReportReviewStepEditBranch:
     """Item #61 Gate 2 (Design Rules 3-4) — the shared [e]dit branch now
     routes through workmain.utils.editor.edit_in_editor() and a single
     ReportsRepository.apply_correction() call instead of setting fields
     directly and calling set_correction_note() separately.
     """
 
-    def setUp(self):
-        from dotenv import load_dotenv
-        load_dotenv()
-        from workmain.database.connection import get_db
-        from workmain.database.models import Report
-        self._Report = Report
-        db = get_db()
-        self.session = db.get_session()
-        self._seeded_ids: list[int] = []
-
-    def tearDown(self):
-        for rid in self._seeded_ids:
-            self.session.query(self._Report).filter(self._Report.id == rid).delete()
-        self.session.commit()
-        self.session.close()
-
-    def _seed(self, report_type, status='unconfirmed', report_date=GATE1_SENTINEL_DATE,
+    def _seed(self, db_session, report_type, status='unconfirmed', report_date=GATE1_SENTINEL_DATE,
               content='Original content for Item 61 Gate 2 edit-branch tests.'):
-        r = self._Report(report_type=report_type, report_date=report_date,
+        r = Report(report_type=report_type, report_date=report_date,
                           content=content, status=status)
-        self.session.add(r)
-        self.session.commit()
-        self.session.refresh(r)
-        self._seeded_ids.append(r.id)
+        db_session.add(r)
+        db_session.commit()
+        db_session.refresh(r)
         return r
 
-    def test_daily_edit_branch_applies_correction_with_note(self):
-        report = self._seed('daily_internal')
+    def test_daily_edit_branch_applies_correction_with_note(self, db_session):
+        report = self._seed(db_session, 'daily_internal')
         with patch('workmain.workflows.eod_workflow._is_interactive', return_value=True), \
              patch('workmain.workflows.eod_workflow.run_workmain',
                    return_value=WorkmainRun(returncode=0)), \
@@ -1175,15 +1136,15 @@ class TestReportReviewStepEditBranch(unittest.TestCase):
              patch('workmain.workflows.eod_workflow.edit_in_editor',
                    return_value='Edited via EOD.') as mock_edit:
             result = _run_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
-        self.assertEqual(result.status, EodStepStatus.COMPLETED)
+        assert result.status == EodStepStatus.COMPLETED
         mock_edit.assert_called_once()
-        self.session.refresh(report)
-        self.assertEqual(report.corrected_content, 'Edited via EOD.')
-        self.assertEqual(report.status, 'corrected')
-        self.assertEqual(report.correction_note, 'Fixed a typo')
+        db_session.refresh(report)
+        assert report.corrected_content == 'Edited via EOD.'
+        assert report.status == 'corrected'
+        assert report.correction_note == 'Fixed a typo'
 
-    def test_weekly_edit_branch_no_note_leaves_correction_note_unset(self):
-        report = self._seed('weekly_client')
+    def test_weekly_edit_branch_no_note_leaves_correction_note_unset(self, db_session):
+        report = self._seed(db_session, 'weekly_client')
         with patch('workmain.workflows.eod_workflow._is_interactive', return_value=True), \
              patch('workmain.workflows.eod_workflow.run_workmain',
                    return_value=WorkmainRun(returncode=0)), \
@@ -1193,28 +1154,28 @@ class TestReportReviewStepEditBranch(unittest.TestCase):
                    return_value='Edited weekly via EOD.'), \
              patch.object(SystemStateRepository, 'get_int', return_value=1):
             result = _run_weekly_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
-        self.assertEqual(result.status, EodStepStatus.COMPLETED)
-        self.session.refresh(report)
-        self.assertEqual(report.corrected_content, 'Edited weekly via EOD.')
-        self.assertEqual(report.status, 'corrected')
-        self.assertIsNone(report.correction_note)
+        assert result.status == EodStepStatus.COMPLETED
+        db_session.refresh(report)
+        assert report.corrected_content == 'Edited weekly via EOD.'
+        assert report.status == 'corrected'
+        assert report.correction_note is None
 
-    def test_edit_no_changes_detected_leaves_status_unchanged(self):
+    def test_edit_no_changes_detected_leaves_status_unchanged(self, db_session):
         content = 'Unchanged content.'
-        report = self._seed('daily_internal', content=content)
+        report = self._seed(db_session, 'daily_internal', content=content)
         with patch('workmain.workflows.eod_workflow._is_interactive', return_value=True), \
              patch('workmain.workflows.eod_workflow.run_workmain',
                    return_value=WorkmainRun(returncode=0)), \
              patch('workmain.workflows.eod_workflow._prompt_choice', return_value='e'), \
              patch('workmain.workflows.eod_workflow.edit_in_editor', return_value=content):
             result = _run_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
-        self.assertEqual(result.status, EodStepStatus.COMPLETED)
-        self.session.refresh(report)
-        self.assertEqual(report.status, 'unconfirmed')
-        self.assertIsNone(report.corrected_content)
+        assert result.status == EodStepStatus.COMPLETED
+        db_session.refresh(report)
+        assert report.status == 'unconfirmed'
+        assert report.corrected_content is None
 
 
-class TestSubprocessHardening(unittest.TestCase):
+class TestSubprocessHardening:
     """EOD subprocess hardening (Issue #94) — a timeout always fails the step
     (DR7); a non-zero exit keeps each site's existing policy, except step 1
     (condense), which fails the step (issue #148, DR14).
@@ -1239,23 +1200,23 @@ class TestSubprocessHardening(unittest.TestCase):
     def test_condense_timeout_returns_failed(self):
         result, _ = self._run_condense(
             WorkmainRun(returncode=None, timed_out=True, timeout=1800))
-        self.assertEqual(result.status, EodStepStatus.FAILED)
-        self.assertIn('1800', result.error)
+        assert result.status == EodStepStatus.FAILED
+        assert '1800' in result.error
 
     def test_review_timeout_returns_failed(self):
         with patch('workmain.workflows.eod_workflow.run_workmain',
                    return_value=WorkmainRun(returncode=None, timed_out=True, timeout=120)), \
              patch('workmain.workflows.eod_workflow._confirm', return_value=True):
             result = _run_review_step(dry_run=False, target_date=date(2026, 4, 27))
-        self.assertEqual(result.status, EodStepStatus.FAILED)
-        self.assertIn('120', result.error)
+        assert result.status == EodStepStatus.FAILED
+        assert '120' in result.error
 
     def test_email_timeout_returns_failed_with_value_named(self):
         with patch('workmain.workflows.eod_workflow.run_workmain',
                    return_value=WorkmainRun(returncode=None, timed_out=True, timeout=300)):
             result = _run_email_step(dry_run=False, target_date=date(2099, 1, 1))
-        self.assertEqual(result.status, EodStepStatus.FAILED)
-        self.assertIn('300', result.error)
+        assert result.status == EodStepStatus.FAILED
+        assert '300' in result.error
 
     # --- AC4.1: a non-zero exit at a FAILED site carries captured stderr ---
 
@@ -1264,30 +1225,30 @@ class TestSubprocessHardening(unittest.TestCase):
              patch('workmain.workflows.eod_workflow.run_workmain',
                    return_value=WorkmainRun(returncode=1, stderr='no recipients configured')):
             result = _run_email_step(dry_run=False, target_date=date(2099, 1, 1))
-        self.assertEqual(result.status, EodStepStatus.FAILED)
-        self.assertIn('no recipients configured', result.error)
+        assert result.status == EodStepStatus.FAILED
+        assert 'no recipients configured' in result.error
 
     # --- AC4.2: a non-zero exit changes no site's existing policy ---
 
     def test_condense_nonzero_returns_failed(self):
         result, _ = self._run_condense(WorkmainRun(returncode=1, stderr='boom'))
-        self.assertEqual(result.status, EodStepStatus.FAILED)
-        self.assertIn('boom', result.error)
+        assert result.status == EodStepStatus.FAILED
+        assert 'boom' in result.error
 
     def test_review_nonzero_policy_unchanged_continues(self):
         with patch('workmain.workflows.eod_workflow.run_workmain',
                    return_value=WorkmainRun(returncode=1, stderr='boom')), \
              patch('workmain.workflows.eod_workflow._confirm', return_value=True):
             result = _run_review_step(dry_run=False, target_date=date(2026, 4, 27))
-        self.assertEqual(result.status, EodStepStatus.COMPLETED)
+        assert result.status == EodStepStatus.COMPLETED
 
     def test_sync_retry_nonzero_policy_unchanged_continues(self):
         with patch('workmain.workflows.eod_workflow.run_workmain',
                    return_value=WorkmainRun(returncode=1, stderr='conflict')) as m, \
              patch('workmain.workflows.eod_workflow._prompt_choice', return_value='r'):
             result = _run_sync_step(dry_run=False, target_date=date(2099, 1, 1))
-        self.assertEqual(result.status, EodStepStatus.COMPLETED)
-        self.assertEqual(m.call_count, 2)
+        assert result.status == EodStepStatus.COMPLETED
+        assert m.call_count == 2
 
     # --- AC4.4: captured stderr reaches the operator at a warn-and-continue site ---
 
@@ -1301,45 +1262,27 @@ class TestSubprocessHardening(unittest.TestCase):
              patch('workmain.workflows.eod_workflow._prompt_choice', return_value='r'), \
              contextlib.redirect_stdout(buf):
             result = _run_email_step(dry_run=False, target_date=date(2099, 1, 1))
-        self.assertEqual(result.status, EodStepStatus.COMPLETED)
-        self.assertIn('SMTP down', buf.getvalue())
+        assert result.status == EodStepStatus.COMPLETED
+        assert 'SMTP down' in buf.getvalue()
 
 
 # ---------------------------------------------------------------------------
 # Issue #148 Step 4 — the report and condense steps report what happened
 # ---------------------------------------------------------------------------
 
-class TestReportStepOutcome(unittest.TestCase):
+class TestReportStepOutcome:
     """DR9 (EOD message), DR11 — AC3.4, AC3.5, AC6.1 (c), AC6.7."""
 
-    def setUp(self):
-        from dotenv import load_dotenv
-        load_dotenv()
-        from workmain.database.connection import get_db
-        from workmain.database.models import Report
-        self._Report = Report
-        self.session = get_db().get_session()
-        self._seeded_ids = []
-        self._tmp = tempfile.TemporaryDirectory()
-
-    def tearDown(self):
-        for rid in self._seeded_ids:
-            self.session.query(self._Report).filter(self._Report.id == rid).delete()
-        self.session.commit()
-        self.session.close()
-        self._tmp.cleanup()
-
-    def _seed(self, metadata):
-        r = self._Report(
+    def _seed(self, db_session, metadata):
+        r = Report(
             report_type='daily_internal', report_date=GATE1_SENTINEL_DATE,
             content='Sentinel body', status='unconfirmed', report_metadata=metadata,
         )
-        self.session.add(r)
-        self.session.commit()
-        self.session.refresh(r)
-        self._seeded_ids.append(r.id)
+        db_session.add(r)
+        db_session.commit()
+        db_session.refresh(r)
 
-    def _reports_save_run(self):
+    def _reports_save_run(self, tmp_path):
         """The WorkmainRun that 'reports save daily_internal' really produces
         when the only provider's reply is cut off (§6 fixture rule)."""
         from click.testing import CliRunner
@@ -1349,7 +1292,7 @@ class TestReportStepOutcome(unittest.TestCase):
         from tests.mocks.stub_providers import cut_off, drop_fallback, stubbed_manager
 
         manager = stubbed_manager(
-            Path(self._tmp.name), {'gemini': cut_off(ProviderType.GEMINI)},
+            tmp_path, {'gemini': cut_off(ProviderType.GEMINI)},
             edit=drop_fallback('daily_internal'),
         )
         with patch.object(pm_module, '_provider_manager_instance', manager):
@@ -1357,18 +1300,18 @@ class TestReportStepOutcome(unittest.TestCase):
                 reports, ['save', 'daily_internal', '--date', GATE1_SENTINEL_DATE.isoformat()])
         return WorkmainRun(returncode=result.exit_code, stderr=result.stderr)
 
-    def test_non_interactive_failure_carries_cli_refusal_on_one_line(self):
+    def test_non_interactive_failure_carries_cli_refusal_on_one_line(self, tmp_path):
         """AC3.4."""
-        run = self._reports_save_run()
-        self.assertNotEqual(run.returncode, 0)
+        run = self._reports_save_run(tmp_path)
+        assert run.returncode != 0
         with patch('workmain.workflows.eod_workflow._is_interactive', return_value=False), \
              patch('workmain.workflows.eod_workflow.run_workmain', return_value=run):
             result = _run_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
-        self.assertEqual(result.status, EodStepStatus.FAILED)
-        self.assertIn('daily_internal', result.error)
-        self.assertIn('16000', result.error)
-        self.assertIn('report_types.daily_internal.max_tokens', result.error)
-        self.assertEqual(len(result.error.splitlines()), 1)
+        assert result.status == EodStepStatus.FAILED
+        assert 'daily_internal' in result.error
+        assert '16000' in result.error
+        assert 'report_types.daily_internal.max_tokens' in result.error
+        assert len(result.error.splitlines()) == 1
 
     def test_interactive_skip_after_failure_returns_failed(self):
         """AC3.5."""
@@ -1378,9 +1321,9 @@ class TestReportStepOutcome(unittest.TestCase):
              patch('workmain.workflows.eod_workflow._prompt_choice', return_value='s'), \
              patch('builtins.print') as printed:
             result = _run_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
-        self.assertEqual(result.status, EodStepStatus.FAILED)
-        self.assertIn('cut off at 16000', result.error)
-        self.assertNotIn('unconfirmed', ' '.join(str(c) for c in printed.call_args_list))
+        assert result.status == EodStepStatus.FAILED
+        assert 'cut off at 16000' in result.error
+        assert 'unconfirmed' not in ' '.join(str(c) for c in printed.call_args_list)
 
     def test_interactive_failed_retry_returns_failed_with_cause(self):
         """AC3.5."""
@@ -1391,13 +1334,13 @@ class TestReportStepOutcome(unittest.TestCase):
              patch('workmain.workflows.eod_workflow._prompt_choice', return_value='r'), \
              patch('builtins.print') as printed:
             result = _run_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
-        self.assertEqual(result.status, EodStepStatus.FAILED)
-        self.assertIn('retry cut off at 16000', result.error)
-        self.assertNotIn('unconfirmed', ' '.join(str(c) for c in printed.call_args_list))
+        assert result.status == EodStepStatus.FAILED
+        assert 'retry cut off at 16000' in result.error
+        assert 'unconfirmed' not in ' '.join(str(c) for c in printed.call_args_list)
 
-    def test_non_interactive_message_names_provider_and_fallback_reason(self):
+    def test_non_interactive_message_names_provider_and_fallback_reason(self, db_session):
         """AC6.1 (c)."""
-        self._seed({
+        self._seed(db_session, {
             'ai_provider': 'claude',
             'fallback_reason': 'claude answered daily_internal because gemini failed: cut off',
         })
@@ -1405,9 +1348,9 @@ class TestReportStepOutcome(unittest.TestCase):
              patch('workmain.workflows.eod_workflow.run_workmain',
                    return_value=WorkmainRun(returncode=0)):
             result = _run_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
-        self.assertEqual(result.status, EodStepStatus.COMPLETED)
-        self.assertIn('generated by claude', result.message)
-        self.assertIn('because gemini failed', result.message)
+        assert result.status == EodStepStatus.COMPLETED
+        assert 'generated by claude' in result.message
+        assert 'because gemini failed' in result.message
 
     def test_non_interactive_zero_exit_with_no_row_fails(self):
         """AC6.7."""
@@ -1415,39 +1358,15 @@ class TestReportStepOutcome(unittest.TestCase):
              patch('workmain.workflows.eod_workflow.run_workmain',
                    return_value=WorkmainRun(returncode=0)):
             result = _run_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
-        self.assertEqual(result.status, EodStepStatus.FAILED)
-        self.assertIn('Daily', result.error)
-        self.assertIn(GATE1_SENTINEL_DATE.isoformat(), result.error)
+        assert result.status == EodStepStatus.FAILED
+        assert 'Daily' in result.error
+        assert GATE1_SENTINEL_DATE.isoformat() in result.error
 
 
-class TestCondenseStepOutcome(unittest.TestCase):
+class TestCondenseStepOutcome:
     """DR9 (EOD condense), DR14 — AC3.8, AC6.8, through the real command."""
 
-    def setUp(self):
-        from dotenv import load_dotenv
-        load_dotenv()
-        from workmain.database.connection import get_db
-        self.session = get_db().get_session()
-        self._tmp = tempfile.TemporaryDirectory()
-        self._meeting_ids = []
-
-    def tearDown(self):
-        from workmain.database.models import Meeting, Note, TimeEntry
-        for mid in self._meeting_ids:
-            note_ids = [n.id for n in self.session.query(Note).filter(Note.meeting_id == mid)]
-            if note_ids:
-                self.session.query(TimeEntry).filter(
-                    TimeEntry.note_id.in_(note_ids)
-                ).delete(synchronize_session=False)
-                self.session.query(Note).filter(
-                    Note.id.in_(note_ids)
-                ).delete(synchronize_session=False)
-            self.session.query(Meeting).filter(Meeting.id == mid).delete()
-        self.session.commit()
-        self.session.close()
-        self._tmp.cleanup()
-
-    def _condense_run(self, stubs):
+    def _condense_run(self, db_session, tmp_path, stubs):
         """The WorkmainRun 'meetings condense' really produces for these stubs."""
         from click.testing import CliRunner
         from workmain.ai import provider_manager as pm_module
@@ -1459,15 +1378,14 @@ class TestCondenseStepOutcome(unittest.TestCase):
             title='Sentinel Eod Condense 2099', start_time=datetime(2099, 6, 4, 9, 0),
             end_time=datetime(2099, 6, 4, 9, 30), is_recurring=False,
         )
-        self.session.add(meeting)
-        self.session.commit()
-        self.session.refresh(meeting)
-        self._meeting_ids.append(meeting.id)
-        NotesRepository(self.session).create(
+        db_session.add(meeting)
+        db_session.commit()
+        db_session.refresh(meeting)
+        NotesRepository(db_session).create(
             content='Discussed', tags=['client-report'], meeting_id=meeting.id,
             source='meeting', created_at=datetime(2099, 6, 4, 9, 0),
         )
-        manager = stubbed_manager(Path(self._tmp.name), stubs)
+        manager = stubbed_manager(tmp_path, stubs)
         with patch.object(pm_module, '_provider_manager_instance', manager):
             result = CliRunner(mix_stderr=False).invoke(meetings, ['condense', str(meeting.id)])
         return WorkmainRun(returncode=result.exit_code, stderr=result.stderr)
@@ -1490,33 +1408,33 @@ class TestCondenseStepOutcome(unittest.TestCase):
             result = _run_condense_step(dry_run=False, target_date=date(2099, 1, 1))
         return result, run_workmain
 
-    def test_refused_condensation_fails_step_and_still_condenses_the_rest(self):
+    def test_refused_condensation_fails_step_and_still_condenses_the_rest(self, db_session, tmp_path):
         """AC3.8."""
         from workmain.ai.base_provider import ProviderType
         from tests.mocks.stub_providers import cut_off
-        refused = self._condense_run({
+        refused = self._condense_run(db_session, tmp_path, {
             'gemini': cut_off(ProviderType.GEMINI), 'claude': cut_off(ProviderType.CLAUDE),
         })
         result, run_workmain = self._step(
             ['First Meeting', 'Second Meeting'], [refused, WorkmainRun(returncode=0)])
-        self.assertEqual(run_workmain.call_count, 2)
-        self.assertEqual(result.status, EodStepStatus.FAILED)
-        self.assertIn('First Meeting', result.error)
-        self.assertIn('note_condensation', result.error)
-        self.assertIn('4000', result.error)
-        self.assertNotIn('Second Meeting', result.error)
+        assert run_workmain.call_count == 2
+        assert result.status == EodStepStatus.FAILED
+        assert 'First Meeting' in result.error
+        assert 'note_condensation' in result.error
+        assert '4000' in result.error
+        assert 'Second Meeting' not in result.error
 
-    def test_recovered_fallback_is_reported_in_the_step_message(self):
+    def test_recovered_fallback_is_reported_in_the_step_message(self, db_session, tmp_path):
         """AC6.8."""
         from workmain.ai.base_provider import ProviderType
         from tests.mocks.stub_providers import complete, cut_off
-        recovered = self._condense_run({
+        recovered = self._condense_run(db_session, tmp_path, {
             'gemini': cut_off(ProviderType.GEMINI),
             'claude': complete(ProviderType.CLAUDE, content='Recovered summary'),
         })
-        self.assertEqual(recovered.returncode, 0)
+        assert recovered.returncode == 0
         result, _ = self._step(['Only Meeting'], [recovered])
-        self.assertEqual(result.status, EodStepStatus.COMPLETED)
-        self.assertIn("'Only Meeting'", result.message)
-        self.assertIn('claude answered note_condensation because gemini failed', result.message)
-        self.assertEqual(len(result.message.splitlines()), 1)
+        assert result.status == EodStepStatus.COMPLETED
+        assert "'Only Meeting'" in result.message
+        assert 'claude answered note_condensation because gemini failed' in result.message
+        assert len(result.message.splitlines()) == 1

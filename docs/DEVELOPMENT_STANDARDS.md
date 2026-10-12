@@ -714,6 +714,8 @@ Rules:
 3. One assertion focus per test. Prefer several small tests over one large one.
 4. No manual cleanup; §6.1's rollback discards every write.
 5. Group related tests in `class Test<Topic>` so `-k TestTopic` works.
+6. **A test is a method of a plain class, and it takes what it needs as arguments.** It takes `db_session` for a session (rule 1), `tmp_path` for a directory (rule 7) and `caplog` for log records; anything else it needs, it builds in its own body. pytest hands a fixture only to a test that names it as an argument, so this is the one form in which every test can reach every fixture.
+7. **A test's directory is `tmp_path`.** pytest creates it for the test and keeps only its last three runs, so a test has no directory to clean up and the suite leaves nothing behind.
 
 ### 6.3 Placement
 

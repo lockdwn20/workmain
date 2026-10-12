@@ -6,7 +6,6 @@ ActionExecutor tests use the db_session fixture (real DB, rolled back).
 ConfirmationGate tests are pure-unit (no DB required).
 """
 
-import unittest
 import uuid
 from datetime import date, datetime
 from unittest.mock import patch
@@ -29,145 +28,158 @@ from workmain.orchestration.confirmation_gate import ConfirmationGate
 # ActionResult / ActionExecutorError data-class sanity
 # ---------------------------------------------------------------------------
 
-class TestActionResult(unittest.TestCase):
+class TestActionResult:
 
     def test_success_result_has_entity_id(self):
         result = ActionResult(success=True, message="done", entity_id=42)
-        self.assertTrue(result.success)
-        self.assertEqual(result.entity_id, 42)
+        assert result.success
+        assert result.entity_id == 42
 
     def test_failed_result_carries_error(self):
         result = ActionResult(success=False, message="oops", error="no_match")
-        self.assertFalse(result.success)
-        self.assertEqual(result.error, "no_match")
-        self.assertIsNone(result.entity_id)
+        assert not result.success
+        assert result.error == "no_match"
+        assert result.entity_id is None
 
 
 # ---------------------------------------------------------------------------
 # ConfirmationGate — pure unit tests (no DB)
 # ---------------------------------------------------------------------------
 
-class TestConfirmationGateIsConfirmation(unittest.TestCase):
-
-    def setUp(self):
-        self.gate = ConfirmationGate()
+class TestConfirmationGateIsConfirmation:
 
     def test_yes_is_confirmation(self):
-        self.assertTrue(self.gate.is_confirmation("yes"))
+        gate = ConfirmationGate()
+        assert gate.is_confirmation("yes")
 
     def test_y_is_confirmation(self):
-        self.assertTrue(self.gate.is_confirmation("y"))
+        gate = ConfirmationGate()
+        assert gate.is_confirmation("y")
 
     def test_confirm_is_confirmation(self):
-        self.assertTrue(self.gate.is_confirmation("confirm"))
+        gate = ConfirmationGate()
+        assert gate.is_confirmation("confirm")
 
     def test_ok_is_confirmation(self):
-        self.assertTrue(self.gate.is_confirmation("ok"))
+        gate = ConfirmationGate()
+        assert gate.is_confirmation("ok")
 
     def test_no_is_not_confirmation(self):
-        self.assertFalse(self.gate.is_confirmation("no"))
+        gate = ConfirmationGate()
+        assert not gate.is_confirmation("no")
 
     def test_random_text_is_not_confirmation(self):
-        self.assertFalse(self.gate.is_confirmation("maybe later"))
+        gate = ConfirmationGate()
+        assert not gate.is_confirmation("maybe later")
 
     def test_case_insensitive_yes(self):
-        self.assertTrue(self.gate.is_confirmation("YES"))
+        gate = ConfirmationGate()
+        assert gate.is_confirmation("YES")
 
     def test_whitespace_stripped(self):
-        self.assertTrue(self.gate.is_confirmation("  yes  "))
+        gate = ConfirmationGate()
+        assert gate.is_confirmation("  yes  ")
 
 
-class TestConfirmationGateIsRejection(unittest.TestCase):
-
-    def setUp(self):
-        self.gate = ConfirmationGate()
+class TestConfirmationGateIsRejection:
 
     def test_no_is_rejection(self):
-        self.assertTrue(self.gate.is_rejection("no"))
+        gate = ConfirmationGate()
+        assert gate.is_rejection("no")
 
     def test_n_is_rejection(self):
-        self.assertTrue(self.gate.is_rejection("n"))
+        gate = ConfirmationGate()
+        assert gate.is_rejection("n")
 
     def test_cancel_is_rejection(self):
-        self.assertTrue(self.gate.is_rejection("cancel"))
+        gate = ConfirmationGate()
+        assert gate.is_rejection("cancel")
 
     def test_abort_is_rejection(self):
-        self.assertTrue(self.gate.is_rejection("abort"))
+        gate = ConfirmationGate()
+        assert gate.is_rejection("abort")
 
     def test_yes_is_not_rejection(self):
-        self.assertFalse(self.gate.is_rejection("yes"))
+        gate = ConfirmationGate()
+        assert not gate.is_rejection("yes")
 
     def test_random_text_is_not_rejection(self):
-        self.assertFalse(self.gate.is_rejection("some words"))
+        gate = ConfirmationGate()
+        assert not gate.is_rejection("some words")
 
 
-class TestConfirmationGateFormatPrompt(unittest.TestCase):
-
-    def setUp(self):
-        self.gate = ConfirmationGate()
+class TestConfirmationGateFormatPrompt:
 
     def test_create_time_entry_prompt_contains_duration(self):
+        gate = ConfirmationGate()
         action = {
             "action": "create_time_entry",
             "duration_minutes": 90,
             "description": "Stood up new SIEM pipeline",
         }
-        prompt = self.gate.format_prompt(action)
-        self.assertIn("1h 30m", prompt)
-        self.assertIn("SIEM pipeline", prompt)
-        self.assertIn("(yes/no)", prompt)
+        prompt = gate.format_prompt(action)
+        assert "1h 30m" in prompt
+        assert "SIEM pipeline" in prompt
+        assert "(yes/no)" in prompt
 
     def test_create_time_entry_prompt_includes_start_time(self):
+        gate = ConfirmationGate()
         action = {
             "action": "create_time_entry",
             "duration_minutes": 60,
             "description": "Standup",
             "start_time": "09:00",
         }
-        prompt = self.gate.format_prompt(action)
-        self.assertIn("09:00", prompt)
+        prompt = gate.format_prompt(action)
+        assert "09:00" in prompt
 
     def test_create_time_entry_prompt_truncates_long_description(self):
+        gate = ConfirmationGate()
         action = {
             "action": "create_time_entry",
             "duration_minutes": 30,
             "description": "x" * 200,
         }
-        prompt = self.gate.format_prompt(action)
-        self.assertIn("…", prompt)
+        prompt = gate.format_prompt(action)
+        assert "…" in prompt
 
     def test_create_note_prompt_contains_preview(self):
+        gate = ConfirmationGate()
         action = {"action": "create_note", "content": "Deploy window opened at 14:00."}
-        prompt = self.gate.format_prompt(action)
-        self.assertIn("Deploy window", prompt)
-        self.assertIn("(yes/no)", prompt)
+        prompt = gate.format_prompt(action)
+        assert "Deploy window" in prompt
+        assert "(yes/no)" in prompt
 
     def test_update_task_prompt_contains_status(self):
+        gate = ConfirmationGate()
         action = {
             "action": "update_task",
             "task_description": "XSOAR migration",
             "status": "completed",
         }
-        prompt = self.gate.format_prompt(action)
-        self.assertIn("XSOAR migration", prompt)
-        self.assertIn("completed", prompt)
+        prompt = gate.format_prompt(action)
+        assert "XSOAR migration" in prompt
+        assert "completed" in prompt
 
     def test_defer_task_prompt_contains_description(self):
+        gate = ConfirmationGate()
         action = {"action": "defer_task", "task_description": "Update runbook"}
-        prompt = self.gate.format_prompt(action)
-        self.assertIn("Update runbook", prompt)
-        self.assertIn("defer", prompt.lower())
+        prompt = gate.format_prompt(action)
+        assert "Update runbook" in prompt
+        assert "defer" in prompt.lower()
 
     def test_confirm_report_prompt_contains_report_type(self):
+        gate = ConfirmationGate()
         action = {"action": "confirm_report", "report_type": "daily_internal"}
-        prompt = self.gate.format_prompt(action)
-        self.assertIn("daily internal", prompt)
+        prompt = gate.format_prompt(action)
+        assert "daily internal" in prompt
 
     def test_unknown_action_prompt_falls_back_gracefully(self):
+        gate = ConfirmationGate()
         action = {"action": "something_novel"}
-        prompt = self.gate.format_prompt(action)
-        self.assertIn("something_novel", prompt)
-        self.assertIn("(yes/no)", prompt)
+        prompt = gate.format_prompt(action)
+        assert "something_novel" in prompt
+        assert "(yes/no)" in prompt
 
 
 # ---------------------------------------------------------------------------

@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.45.2] - 2026-10-12
+
+Five test files that test no CLI command were built on `unittest.TestCase`, so their tests could not take a pytest fixture. They built their own database sessions, temporary directories and cleanup in `setUp` and `tearDown` instead, and a full `pytest` run left 32 temporary directories behind in the system temp directory. Those five files are now plain pytest classes, every test keeps its name and every assertion, and a full run leaves nothing behind (issue #200).
+
+### Fixed
+
+- `tests/test_orchestration.py`, `tests/test_eod_workflow.py`, `tests/test_action_executor.py`, `tests/test_eod_pipeline.py`, `tests/test_self_invoke.py`: plain pytest classes. Tests take `db_session`, `tmp_path` and `caplog` as arguments, and the four sessions the tests opened themselves and their hand cleanup are gone
+- Temporary directories that tests left behind: `_make_store()` in `tests/test_orchestration.py` no longer falls back to `tempfile.mkdtemp()`; the seven `providers set default` tests in `tests/test_provider_foundation.py` take `tmp_path`; `tests/test_report_correction.py` removes the directory it creates
+
+### Changed
+
+- `docs/DEVELOPMENT_STANDARDS.md` §6.2 rules 6 and 7: a test is a method of a plain class that takes what it needs as arguments, and a test's directory is `tmp_path`
+
+Suite: 1274 passed, 0 failed, 0 skipped (baseline 1274 passed, 0 failed, 0 skipped).
+
 ## [1.45.1] - 2026-10-12
 
 Tests reached the live database. The `db_session` fixture isolated only its own session, so a command run through `CliRunner`, or application code a test reached, opened a session of its own. Tests written that way committed real rows and deleted them in `tearDown`. Some changed the live active client until they finished, and a run that did not complete left rows behind. Every test now runs inside one database transaction that is rolled back, and a full `pytest` run commits nothing (issue #136).
