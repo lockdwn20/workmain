@@ -344,7 +344,7 @@ class Report(Base):
     """
     Report model - represents AI-generated reports.
 
-    Stores generated report metadata including AI costs, tokens, and provider info.
+    Stores generated report metadata: provider, generation time, file path and fallback reason. Cost lives in ai_costs.
     Links to file system for actual report content.
     """
     __tablename__ = 'reports'
