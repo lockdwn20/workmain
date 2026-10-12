@@ -119,17 +119,17 @@ With F3 and F16, thinking is not Gemini-only. Ray asked whether each provider's 
 - **Reading the vendor's usage report** means knowing which response field holds thinking, and whether it is inside the output count or separate. That is the vendor's response contract, the same kind of fact as the finish-reason mapping #148 put in each provider. It changes only when the vendor's API or SDK changes, and that is a code change anyway. A config key could express it only as a field-path language over SDK objects. `docs/AI_SETTINGS_GUIDE.md` § The request payload policy also bars config from stating facts about a vendor. **This belongs in code:** each provider maps its usage into the vendor-neutral fields of D1 and D2.
 - **What each count costs** is pricing. Pricing changes without code, so it belongs in config and is Ray's (F17). Today both vendors price thinking at the output rate, so the completion rate already covers it. A `cost_per_1k_thinking_tokens` key would be a value Ray maintains that equals the completion rate every time.
 
-**Recommendation:** code reads the counts and config prices them, with no new config key in #149. The pricing changes that would need a key are cached input and long-prompt tiers (F17). Neither is live: no request uses caching, and prompts are far below the 200k tier. The issue that already reworks how rates are read is #155, which makes the rate keys required config. #155 decides the rate schema (one rate per token category, read in one place instead of two identical `estimate_cost` bodies), and #149 supplies the categories it prices.
+**Recommendation:** code reads the counts and config prices them, with no new config key in #149. The pricing changes that would need a key are cached input and long-prompt tiers (F17). Neither is live: no request uses caching, and prompts are far below the 200k tier.
 
 ## 5. Open questions
 
 | Q | Question | Answer |
 | --- | --- | --- |
-| Q1 | D1: `completion_tokens` is all billed output on every provider, with `thinking_tokens` as the part of it that was thinking, `None` where unreported. `estimate_cost` is unchanged (Option B)? | |
-| Q2 | D2 with F3: Claude rows record the vendor's thinking count (`0` while disabled) instead of `NULL`, as #182's answer assumed? | |
-| Q3 | D3: no change to the cost displays (Option A)? | Answered 20261011 (Ray): store it and make sure it is tabulated. A better breakdown in `workmain providers costs` and `workmain reports costs` comes later, and goes to #149's correction issue at close-out. |
-| Q4 | F15, test rows in the live `ai_costs` table: where does the fix go? Recommendation: add it to #136 as context plus criteria: `ai_costs` in the killed-run row count, an unchanged `ai_costs` row count across a full passing run, and a delete of the existing test rows, which is an authorization point at execution. #136 already owns isolating the suite from the live database. | |
-| Q5 | D4: token counts are read in code, pricing stays in config, and #149 adds no config key. #155 decides the rate schema, and #149's categories feed it? | |
+| Q1 | D1: `completion_tokens` is all billed output on every provider, with `thinking_tokens` as the part of it that was thinking, `None` where unreported. `estimate_cost` is unchanged (Option B)? | Answered 20261011 (Ray): Option B, on the route the providers already follow. |
+| Q2 | D2 with F3: Claude rows record the vendor's thinking count (`0` while disabled) instead of `NULL`, as #182's answer assumed? | Answered 20261011 (Ray): agreed, Claude rows record the vendor's count. F16's missing `effort` setting on Claude is additional work outside #149. |
+| Q3 | D3: no change to the cost displays (Option A)? | Answered 20261011 (Ray): store it and make sure it is tabulated. A better breakdown in `workmain providers costs` and `workmain reports costs` is additional work outside #149. |
+| Q4 | F15, test rows in the live `ai_costs` table: where does the fix go? Recommendation: add it to #136 as context plus criteria: `ai_costs` in the killed-run row count, an unchanged `ai_costs` row count across a full passing run, and a delete of the existing test rows, which is an authorization point at execution. #136 already owns isolating the suite from the live database. | Answered 20261011 (Ray): added to #136 (context, `ai_costs` in the killed-run count, a full-run no-new-rows criterion, and the delete as an authorization point). |
+| Q5 | D4: token counts are read in code, pricing stays in the two existing config rates, and #149 adds no config key? | Answered 20261011 (Ray): agreed, no deviation from the established route. |
 
 ## 6. Disposition
 
