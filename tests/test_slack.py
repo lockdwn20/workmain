@@ -401,10 +401,6 @@ class TestSlackPostWeeklySharedRunner(unittest.TestCase):
     test_slack.py is the established home for slack.py CLI coverage. Same
     filename-deviation pattern as Item #61 Gate 2
     (see tests/test_report_correction.py's docstring).
-
-    Real committed-session pattern (mirrors test_report_correction.py's
-    CLI-level classes) — slack_post() opens its own get_db() session, so
-    a db_session-fixture-flushed row would be invisible to it.
     """
 
     def setUp(self):

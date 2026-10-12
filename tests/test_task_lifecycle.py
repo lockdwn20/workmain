@@ -323,9 +323,7 @@ class TestTasksCLIErrors:
 class TestTasksListCapAndCarryoverRetirement(unittest.TestCase):
     """--all is a pure row-cap override, independent of --status (Design Rule 1);
     header never overstates (Design Rule 3); carryover no longer exists
-    (Design Rule 2). Seeds real committed rows — CliRunner-invoked commands
-    use their own get_db() session, not the db_session fixture (see
-    test_report_history.py's identical pattern)."""
+    (Design Rule 2). Seeds rows through its own get_db() session."""
 
     def setUp(self):
         from dotenv import load_dotenv

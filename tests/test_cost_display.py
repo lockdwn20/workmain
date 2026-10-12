@@ -1,8 +1,7 @@
 """
 Tests for the cost commands' output and the per-call token lines (issue #191).
 
-Rows are seeded in db_session with sentinel dates (2099-…) and handed to each
-command through session_for_command, so nothing is committed.
+Rows are seeded in db_session with sentinel dates (2099-…).
 
 A test checks the cells a command passed to Table.add_row, and summary lines on
 the output with whitespace collapsed. None depends on terminal width.

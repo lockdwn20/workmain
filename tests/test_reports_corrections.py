@@ -3,16 +3,7 @@ Tests for 'workmain reports corrections' — default 7-day window (by
 updated_at), its search, limit, type and all-time filters, sort order, and
 display format (Hotfix Item #56 Gate 2).
 
-Uses unittest.TestCase with a real (committed) session, mirroring
-test_report_history.py's established pattern for this file — not the
-pytest db_session fixture. CliRunner invokes the command via its own
-get_db() session, a separate transaction; data flushed-but-uncommitted
-under the isolated db_session fixture is invisible to it (confirmed by
-probe: a db_session-seeded row never appeared in CliRunner output).
-db_session's isolation only works when the same session object is reused
-on both sides, which a real CLI invocation never does. Every seeded row
-is committed for real and deleted by ID in tearDown, same as
-test_report_history.py.
+Uses unittest.TestCase, mirroring test_report_history.py's pattern for this file. Seeded rows are deleted by ID in tearDown.
 
 Each test isolates its own rows from real production data with either a
 unique correction_note marker term (matched via the search filter) or a
@@ -34,8 +25,7 @@ def _seed_correction(session, report_type='daily_internal', report_date=None,
                      content='Sentinel content for Item 56 Gate 2 tests.',
                      correction_note=None, updated_at=None) -> Report:
     """Insert a corrected Report row with fields set at construction (single
-    INSERT), then commit for real so a separately-sessioned CliRunner
-    invocation can see it. Caller is responsible for tracking the id for
+    INSERT), then commit. Caller is responsible for tracking the id for
     tearDown cleanup."""
     r = Report(
         report_type=report_type,

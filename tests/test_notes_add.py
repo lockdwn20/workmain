@@ -11,11 +11,6 @@ Item 69's spec named this coverage tests/test_notes.py, which does not exist
 in this repo; this file follows the established per-subcommand test file
 convention already used elsewhere for notes.py (test_notes_list.py,
 test_notes_show.py, test_notes_edit.py, test_notes_log.py) instead.
-
-Uses a real committed session (get_db().get_session()), not the db_session
-fixture — CliRunner.invoke() drives the command through its own session, and
-db_session-fixture rows are not visible across that boundary (confirmed
-during Hotfix Item #56 Gate 2; pattern reused from test_time_add.py).
 """
 
 import unittest

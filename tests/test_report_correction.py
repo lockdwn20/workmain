@@ -66,7 +66,7 @@ _SAMPLE_CONTENT = "Sentinel daily report content for Gate 7 tests."
 
 def _seed_report(session, report_type='daily_internal', report_date=None,
                  content=_SAMPLE_CONTENT, status=None) -> Report:
-    """Insert a Report row directly and return it (session.commit already redirected to flush)."""
+    """Insert a Report row directly and return it."""
     r = Report(
         report_type=report_type,
         report_date=report_date or SENTINEL_DATE_UNCONFIRMED,
@@ -448,7 +448,7 @@ class TestReportListStatusCLI:
 # ---------------------------------------------------------------------------
 
 class TestReportConfirmCLI(unittest.TestCase):
-    """CLI tests for 'workmain reports confirm' with real committed data."""
+    """CLI tests for 'workmain reports confirm' with seeded data."""
 
     def setUp(self):
         from dotenv import load_dotenv
@@ -609,7 +609,7 @@ class TestApplyCorrection:
 # ---------------------------------------------------------------------------
 
 class TestReportCorrectCLI(unittest.TestCase):
-    """CLI tests for 'workmain reports correct' with real committed data —
+    """CLI tests for 'workmain reports correct' with seeded data —
     mirrors TestReportConfirmCLI's pattern. $EDITOR is mocked by patching
     workmain.utils.editor.subprocess.run with a side effect that writes
     new content into the temp file edit_in_editor() reads back."""

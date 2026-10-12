@@ -8,10 +8,7 @@ this repo; this file follows the established per-subcommand convention already
 used for notes.py (test_notes_list.py, test_notes_log.py, test_notes_show.py)
 instead (same documented deviation as Gate 1 — see test_notes_log.py).
 
-Uses a real committed session (get_db().get_session()), not the db_session
-fixture — CliRunner.invoke() drives the command through its own session, and
-db_session-fixture rows are not visible across that boundary (confirmed during
-Hotfix Item #56 Gate 2). Seeded rows are cleaned up in tearDown by ID, mirroring
+Seeded rows are cleaned up in tearDown by ID, mirroring
 test_report_history.py's pattern.
 """
 
