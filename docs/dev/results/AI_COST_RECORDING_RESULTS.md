@@ -52,7 +52,7 @@ Complete. All seven steps are delivered and the suite is green. Every provider r
 | AC6.1 | Met | bare `pytest`, counts in §5; deleted tests in §4 |
 | AC7.1 | Met | `tests/test_ai_providers_offline.py::TestProviderManagerBuildsFromConfig::test_gemini_check_availability_looks_up_the_model_and_generates_nothing` and the Claude counterpart |
 | AC7.2 | Met | `tests/test_ai_providers_offline.py::test_check_availability_429_and_500` and `test_claude_check_availability_maps_rate_limit_and_api_errors` |
-| AC7.3 | Met | Ray's read the `REQUIRED_POLICY_KEYS` sentence in `docs/AI_SETTINGS_GUIDE.md` ("Adding a provider"). The sentence now reads "If `generate()` reads any policy key" |
+| AC7.3 | Met | Ray read the `REQUIRED_POLICY_KEYS` sentence in `docs/AI_SETTINGS_GUIDE.md` ("Adding a provider"). The sentence now reads "If `generate()` reads any policy key" |
 | AC8.1 | Met | `tests/test_ai_costs.py::TestRecordingColumns`, run after Ray executed `025` |
 | AC8.2 | Met | `tests/test_report_generator.py::TestReportRecording::test_report_records_one_row_linked_to_the_saved_report` asserts the six keys absent |
 | AC8.3 | Met | `git grep -n 'CostTracker\|cost_tracker' -- workmain scripts tests` returns nothing; the metadata grep returns nothing |
