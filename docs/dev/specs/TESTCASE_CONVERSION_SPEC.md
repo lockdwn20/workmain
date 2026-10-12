@@ -26,6 +26,7 @@
 | 20261012 | Caliper | 4: Step 5 and AC5.1's whole-suite scope go beyond the issue and the Q1 answer. | Ray, 20261012: option A, the extension is confirmed. |
 | 20261012 | Caliper | Second pass after findings 1–4 were resolved: No findings. | — |
 | 20261012 | Anvil | §2 row 2 said 41 TestCase classes and 9 with `setUp`/`tearDown`; the files hold 38 and 11. | Accepted. Corrected in §2 and in study F2. Neither count drives a step, criterion or conversion row; every site the conversion depends on is listed in its own §2 row and was confirmed. |
+| 20261012 | Ray | §6.2 rules 6 and 7 as shipped in Step 7 stated what a test must not be (`unittest.TestCase`, `tempfile`) rather than what it is. Spanner's reading also found rule 7's "cannot leave a directory behind" false (pytest keeps the last three runs), its TestCase cleanup clause in tension with rule 4, and rule 6 silent on `setup_method` and autouse fixtures that set `self` attributes. | Both rules restated positively: a test is a method of a plain class that takes what it needs as arguments, and a test's directory is `tmp_path`. The positive form excludes `setUp`, `setup_method` and attribute-setting autouse fixtures by its reason, and drops the TestCase clause. AC6.1 reworded to match; it stays Ray's sign-off. Step 7's quoted text updated to the shipped text. |
 
 ---
 
@@ -144,8 +145,8 @@ For each of the seven functions in §2: add `tmp_path` to its parameters, delete
 Append to the numbered Rules list in `docs/DEVELOPMENT_STANDARDS.md` §6.2, after rule 5:
 
 ```markdown
-6. **A test class is a plain class, never a `unittest.TestCase`.** A TestCase test cannot take a fixture as an argument, so it cannot take `db_session` (rule 1) or `tmp_path` (rule 7). What a test needs set up is a fixture it takes or code in its own body; there is no `setUp` or `tearDown`.
-7. **A test that needs a directory takes `tmp_path`.** pytest creates one for each test and prunes them to its last three runs, so the test cannot leave a directory behind. `tempfile.TemporaryDirectory()` cleans up only when its block exits, and `tempfile.mkdtemp()` never does: whether either leaves something behind depends on the test getting the cleanup right. A `unittest.TestCase` test cannot take `tmp_path` (rule 6), so until its file is converted it removes whatever directory it creates.
+6. **A test is a method of a plain class, and it takes what it needs as arguments.** It takes `db_session` for a session (rule 1), `tmp_path` for a directory (rule 7) and `caplog` for log records; anything else it needs, it builds in its own body. pytest hands a fixture only to a test that names it as an argument, so this is the one form in which every test can reach every fixture.
+7. **A test's directory is `tmp_path`.** pytest creates it for the test and keeps only its last three runs, so a test has no directory to clean up and the suite leaves nothing behind.
 ```
 
 ### Authorization points
@@ -165,7 +166,7 @@ None. No migration, no GitHub deletion, no merge, no force-push, no service chan
 | AC5.1 | A full test run leaves nothing behind in the system temp directory | the AC5.1 command below prints `0` (32 on `a4071ea`, measured 20261012) |
 | AC5.2 | No plain pytest test creates a temp directory of its own; every one takes `tmp_path` | in the AC5.2 commands below, the first prints nothing and the second prints exactly two lines, `tests/test_meetings_condense.py:187` and `tests/test_report_correction.py:686`, both in TestCase files #199 carries (19 lines on `a4071ea`) |
 | AC5.3 | The `tests/test_provider_foundation.py` change only replaces the temp directory | the AC5.3 command below shows, for each of the seven functions, only three changes: the signature gains `tmp_path`, the `with` line is removed, and the `settings_path` line changes. No other line differs |
-| AC6.1 | §6.2 tells a test author not to use `unittest.TestCase`, and where a test's directory comes from, with the reason for each | a stated reading by Ray of `docs/DEVELOPMENT_STANDARDS.md` §6.2 rules 6 and 7, for whether a test author would write a plain class taking `db_session` and `tmp_path` from them alone |
+| AC6.1 | §6.2 tells a test author the form a test takes and where its directory comes from, with the reason for each | a stated reading by Ray of `docs/DEVELOPMENT_STANDARDS.md` §6.2 rules 6 and 7, for whether a test author would write a plain class taking `db_session` and `tmp_path` from them alone |
 | AC7.1 | The suite passes with no reduction in passed count | bare `pytest` on the finished branch: passed equals the baseline recorded before Step 1, 0 failed |
 
 ```bash

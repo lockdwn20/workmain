@@ -24,7 +24,7 @@ One criterion, AC6.1, is Ray's reading of §6.2 and is recorded as awaiting him.
 | 4 | 10 classes converted; four classes take `db_session` and lose their sessions, `load_dotenv()`, `tearDown` and id lists; five temp directories come from `tmp_path` | `tests/test_eod_workflow.py` | +0 |
 | 5 | `self.addCleanup(shutil.rmtree, tmp_dir)` after the leaking `mkdtemp()` | `tests/test_report_correction.py` | +0 |
 | 6 | The seven `TemporaryDirectory` test functions take `tmp_path` | `tests/test_provider_foundation.py` | +0 |
-| 7 | §6.2 rules 6 and 7, as the spec's Step 7 gives them | `docs/DEVELOPMENT_STANDARDS.md` | n/a |
+| 7 | §6.2 rules 6 and 7, as the spec's Step 7 gives them; restated positively by Spanner after Ray's review (spec Decision Log) | `docs/DEVELOPMENT_STANDARDS.md` | n/a |
 
 ## 3. Acceptance criteria
 
@@ -39,7 +39,7 @@ One criterion, AC6.1, is Ray's reading of §6.2 and is recorded as awaiting him.
 | AC5.1 | Met | the AC5.1 command prints `0` (32 before Step 1) |
 | AC5.2 | Met | the first AC5.2 command prints nothing; the second prints exactly `tests/test_meetings_condense.py:187` and `tests/test_report_correction.py:687` (the spec's :686 moved one line when `import shutil` was added above it) |
 | AC5.3 | Met | `git diff -w a4071ea -- tests/test_provider_foundation.py` shows 35 changed lines: 7 functions × 5 (signature before and after, the `with` line, the `settings_path` line before and after). No other line differs |
-| AC6.1 | **Not met — Awaiting Ray** | Ray's stated reading of `docs/DEVELOPMENT_STANDARDS.md` §6.2 rules 6 and 7. The text is the spec's Step 7 text, verbatim |
+| AC6.1 | **Not met — Awaiting Ray** | Ray's stated reading of `docs/DEVELOPMENT_STANDARDS.md` §6.2 rules 6 and 7. The text is the spec's Step 7 text, verbatim, as restated after Ray's review |
 | AC7.1 | Met | bare `pytest`: 1274 passed, 0 failed, 0 skipped |
 
 ## 4. Deviations from spec
