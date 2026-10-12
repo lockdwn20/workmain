@@ -23,6 +23,7 @@
 | 20261012 | Caliper | 3/5: Step 5's kill-check file "outside `tests/`" would run without `tests/conftest.py`, commit live and leave a row. | Accepted. The file goes under `tests/` and is deleted straight after the run. |
 | 20261012 | Caliper | 2/7: `tests/test_reports_corrections.py:6–15` makes four false statements that neither Step 2 nor the AC6.1 pattern catches. | Accepted. The paragraph is added to Step 2, and the AC6.1 pattern gains `real \(committed\)`, `committed for real` and `invisible to`. A sweep for further phrasings (`flushed-but-uncommitted`, `separate transaction`, `uncommitted`, `own transaction`) found no other false site. The file count stays 21, because that file already matched on `commit for real`. |
 | 20261012 | Caliper | 3: the new §6.1 forbids `get_db()` in a test, and the spec's own `tests/test_database_isolation.py` calls it. | Accepted: §6.1 names the exception. That file's tests stand in for application code in order to test the fixture, and cannot be written another way: the `close()` guard can only be reached through `get_db()`. |
+| 20261012 | Caliper | 7: AC5.1 and AC6.1 put grep commands with `\\|` in table cells, where GFM renders the pipe escape differently from the raw text. The raw AC6.1 returned 0 files on `7ddbd30` with all 21 sites present, and the rendered AC5.1 returned 0. | Accepted. Both commands moved to a fenced block under the §5 table, written with one `-e` per alternative, so no pipe appears anywhere. Counts from the block exactly as written, on `ca35bfb`: AC5.1 60 lines in 10 files, AC6.1 21 files. No other table cell in this spec contains a pipe. Running the block as written also showed that `grep -r` matches `tests/__pycache__/*.pyc` (43 files for AC6.1), so both commands take `--include='*.py'`. |
 | 20261012 | Spanner | The rollback test needs a `flush()` inside `session_scope()`, and must assert through a query, not `session.get()`. | Observed: without the flush the application session never joins, and `get()` answers from the identity map, so the test passed under `rollback_only`. With both, M1 fails it. |
 
 ---
@@ -374,15 +375,28 @@ Two, both in Step 4: deleting the `reports` rows and deleting the `ai_costs` row
 | AC2.1 | A test process killed with no teardown leaves no row | Step 5 kill check: pytest exits 137 and the counts before and after are identical |
 | AC3.1 | No test commits a change to live client configuration (`clients`, `system_state`) while the run is in progress | Step 5 COMMIT listener on a full `pytest` reports `config_commits` 0, where the baseline run before Step 1 reported more than 0 |
 | AC4.1 | Closing the database connection during a test fails at that moment | `pytest tests/test_database_isolation.py::TestIsolatedDatabase::test_closing_the_connection_during_a_test_raises` passes, and fails with the `monkeypatch.setattr(DatabaseConnection, 'close', …)` line removed from the fixture (mutation M2, observed failing 20261012) |
-| AC5.1 | No test stays off the live database through a module patch, a redirected commit or a blocked service | `grep -rn 'session_for_command\|_block_live_cost_recording\|commit = .*flush' tests/` returns no matches |
+| AC5.1 | No test stays off the live database through a module patch, a redirected commit or a blocked service | The AC5.1 command in the block below this table prints nothing (60 lines in 10 files on `ca35bfb`) |
 | AC5.2 | An application rollback inside a test keeps the rows the test seeded, and an application session sees them | `pytest tests/test_database_isolation.py` passes. With `join_transaction_mode="rollback_only"` in the fixture (mutation M1, observed failing 20261012), `test_an_application_rollback_keeps_the_rows_the_test_seeded` fails |
 | AC5.3 | A database-failure test fails when its injected failure is removed, so it does not depend on live data | with the `monkeypatch.setattr('workmain.services.ai_cost_service.get_db', _refuse)` line removed, `test_record_reply_failure_returns_none_and_warns` fails (observed in the design study's prototype run) |
-| AC6.1 | No text in `tests/` describes an isolation mechanism the suite no longer uses | `grep -rniE 'real committed\|committed-session\|committed session\|commit for real\|not visible across\|redirected to flush\|redirect.*flush\|autouse block\|session_for_command\|production database directly\|real \(committed\)\|committed for real\|invisible to' tests/` returns no matches (21 files on `ca35bfb`) |
+| AC6.1 | No text in `tests/` describes an isolation mechanism the suite no longer uses | The AC6.1 command in the block below this table prints nothing (21 files on `ca35bfb`) |
 | AC7.1 | §6.1 tells a test author how every test is isolated, when to take `db_session`, the last-in-first-out rule and how to test a database failure; §6.2 agrees with it | A stated reading by Ray of `docs/DEVELOPMENT_STANDARDS.md` §6.1 and §6.2, for whether a test author would write a live-database-free test from them alone |
 | AC8.1 | The suite passes with no reduction in passed count | `pytest` on the finished branch: passed ≥ the baseline plus 3 (the new tests), with no failure absent from the baseline |
 | AC8.2 | The automation suite still passes | `pytest automation/` reports the baseline's passed count, 0 failed |
 | AC9.1 | The three leaked `reports` rows are gone | `select count(*) from reports where report_date >= '2099-01-01'` returns 0 |
 | AC10.1 | The test-written `ai_costs` rows are gone | `select count(*) from ai_costs where model in ('test-model','stub-model') or context_label like 'Sentinel%' or (interaction_type='intent_parse' and prompt_tokens=15 and completion_tokens=5)` returns 0 |
+
+The two grep checks, run from the repository root exactly as written. Each alternative is its own `-e` pattern, so no pipe character appears and the command reads the same in the raw file and on the rendered page. `--include='*.py'` keeps compiled files in `tests/__pycache__/` out of the result:
+
+```bash
+# AC5.1 — prints every match; passes when it prints nothing
+grep -rn --include='*.py' -e 'session_for_command' -e '_block_live_cost_recording' -e 'commit = .*flush' tests/
+
+# AC6.1 — prints each file with a match; passes when it prints nothing
+grep -rliE --include='*.py' -e 'real committed' -e 'committed-session' -e 'committed session' -e 'commit for real' \
+  -e 'not visible across' -e 'redirected to flush' -e 'redirect.*flush' -e 'autouse block' \
+  -e 'session_for_command' -e 'production database directly' -e 'real \(committed\)' \
+  -e 'committed for real' -e 'invisible to' tests/
+```
 
 Entry paths: AC1.1 and AC3.1 run the whole suite, including the live provider tests, which reaches the database through `db_session`, through commands run by `CliRunner`, and through application code that tests call (`IntentParser.parse`, `ai_cost_service`). AC2.1 uses the hand-opened `get_db()` path that the TestCase files use until #200 and #199 convert them.
 
