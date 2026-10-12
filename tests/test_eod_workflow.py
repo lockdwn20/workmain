@@ -1004,12 +1004,6 @@ class TestReportReviewStepCollapse(unittest.TestCase):
     behavior (daily and weekly), the G1 no-active-client guard (weekly
     only), and the daily-fatal/weekly-non-fatal generation-error split
     (generation_error_fatal).
-
-    Real committed-session pattern (mirrors test_reports_corrections.py) —
-    _run_report_review_step opens its own get_db() session internally, so
-    a db_session-fixture-flushed row would be invisible to it (same root
-    cause documented there: separate session/connection, not the same
-    committed transaction).
     """
 
     def setUp(self):
@@ -1143,9 +1137,6 @@ class TestReportReviewStepEditBranch(unittest.TestCase):
     routes through workmain.utils.editor.edit_in_editor() and a single
     ReportsRepository.apply_correction() call instead of setting fields
     directly and calling set_correction_note() separately.
-
-    Real committed-session pattern — same rationale as
-    TestReportReviewStepCollapse above.
     """
 
     def setUp(self):

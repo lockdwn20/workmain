@@ -144,8 +144,7 @@ class TestSlackReportsIntegration:
 class TestSlackStatusCommandPath:
     """slack status runs its real query on the db_session session against seeded rows."""
 
-    def test_status_lists_five_newest_posted_of_any_type(self, db_session, session_for_command):
-        session_for_command('workmain.cli.commands.slack')
+    def test_status_lists_five_newest_posted_of_any_type(self, db_session):
         posted = {}
         for n, day in enumerate([21, 25, 20, 24, 22, 23]):
             report_type = 'daily_internal' if n % 2 == 0 else 'weekly_client'
@@ -402,10 +401,6 @@ class TestSlackPostWeeklySharedRunner(unittest.TestCase):
     test_slack.py is the established home for slack.py CLI coverage. Same
     filename-deviation pattern as Item #61 Gate 2
     (see tests/test_report_correction.py's docstring).
-
-    Real committed-session pattern (mirrors test_report_correction.py's
-    CLI-level classes) — slack_post() opens its own get_db() session, so
-    a db_session-fixture-flushed row would be invisible to it.
     """
 
     def setUp(self):

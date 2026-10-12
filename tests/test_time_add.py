@@ -12,10 +12,7 @@ this repo; this file follows the established per-subcommand test file
 convention already used for notes.py (test_notes_list.py, test_notes_show.py)
 instead.
 
-Uses a real committed session (get_db().get_session()), not the db_session
-fixture — CliRunner.invoke() drives the command through its own session, and
-db_session-fixture rows are not visible across that boundary (confirmed during
-Hotfix Item #56 Gate 2). Both the primary note+time-entry (surface #5) and the
+Both the primary note+time-entry (surface #5) and the
 additional note (surface #7) are queried back by sentinel content and cleaned
 up by ID in tearDown, mirroring test_report_history.py's pattern.
 """

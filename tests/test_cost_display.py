@@ -1,8 +1,7 @@
 """
 Tests for the cost commands' output and the per-call token lines (issue #191).
 
-Rows are seeded in db_session with sentinel dates (2099-…) and handed to each
-command through session_for_command, so nothing is committed.
+Rows are seeded in db_session with sentinel dates (2099-…).
 
 A test checks the cells a command passed to Table.add_row, and summary lines on
 the output with whitespace collapsed. None depends on terminal width.
@@ -81,10 +80,9 @@ class TestAnswerAndThinkingRules:
 
 class TestProvidersCosts:
     def test_summary_and_both_tables_show_three_counts(
-        self, db_session, session_for_command, monkeypatch
+        self, db_session, monkeypatch
     ):
         """AC5.1, AC4.2"""
-        session_for_command('workmain.cli.commands.providers')
         _row(db_session, interaction_type='daily_internal', provider='gemini',
              prompt_tokens=10, completion_tokens=202, thinking_tokens=196,
              total_tokens=212, cost_usd=0.5)
@@ -114,10 +112,9 @@ class TestProvidersCosts:
 
 class TestCondensationCosts:
     def test_meetings_and_notes_costs_agree(
-        self, db_session, session_for_command, monkeypatch
+        self, db_session, monkeypatch
     ):
         """AC5.2, AC4.2"""
-        session_for_command('workmain.cli.commands.meetings')
         _row(db_session, context_label='MtgA', provider='gemini',
              prompt_tokens=10, completion_tokens=202, thinking_tokens=196,
              total_tokens=212, cost_usd=0.5)
@@ -128,7 +125,6 @@ class TestCondensationCosts:
         meetings_result, meetings_out, meetings_cells = _invoke(
             meetings, ['costs', *_DAY_ARGS])
 
-        session_for_command('workmain.cli.commands.notes')
         notes_result, notes_out, notes_cells = _invoke(notes, ['costs', *_DAY_ARGS])
 
         expected_cells = [
@@ -160,10 +156,9 @@ class TestCondensationCosts:
 
 class TestReportsCosts:
     def test_reads_cost_rows_not_report_metadata(
-        self, db_session, session_for_command, monkeypatch
+        self, db_session, monkeypatch
     ):
         """AC5.3, AC4.2: the report's stale metadata never reaches the output."""
-        session_for_command('workmain.cli.commands.reports')
         report = Report(
             report_type='daily_internal', report_date=_DAY, content='x',
             report_metadata={'ai_provider': 'gemini', 'cost': 9.87, 'total_tokens': 77777},
@@ -198,13 +193,11 @@ class TestReportsCosts:
 
 class TestMeetingsCondenseTokenLine:
     def test_line_is_read_from_the_recorded_rows(
-        self, tmp_path, db_session, session_for_command
+        self, tmp_path, db_session
     ):
         """AC5.4"""
         from tests.mocks.stub_providers import StubProvider, stubbed_manager
         from workmain.ai.note_condenser import NoteCondenser
-        session_for_command('workmain.cli.commands.meetings')
-        session_for_command('workmain.services.ai_cost_service')
         meeting = Meeting(
             title='Sentinel Condense Cost Line 2099',
             start_time=datetime(2099, 6, 4, 9, 0),
@@ -218,8 +211,7 @@ class TestMeetingsCondenseTokenLine:
             meeting_id=meeting.id, source='meeting',
             created_at=datetime(2099, 6, 4, 9, 0),
         )
-        condenser = NoteCondenser(db_session)
-        condenser.provider_manager = stubbed_manager(tmp_path, {
+        manager = stubbed_manager(tmp_path, {
             'gemini': StubProvider(
                 ProviderType.GEMINI, content='Condensed.',
                 prompt_tokens=9, completion_tokens=202, thinking_tokens=196,
@@ -227,8 +219,13 @@ class TestMeetingsCondenseTokenLine:
             ),
         })
 
+        def condenser_on_the_commands_session(session):
+            condenser = NoteCondenser(session)
+            condenser.provider_manager = manager
+            return condenser
+
         with patch('workmain.cli.commands.meetings.get_note_condenser',
-                   return_value=condenser):
+                   side_effect=condenser_on_the_commands_session):
             result, out, _ = _invoke(meetings, ['condense', str(meeting.id)])
 
         assert result.exit_code == 0, result.output

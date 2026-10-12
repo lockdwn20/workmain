@@ -11,11 +11,6 @@ exist in this repo; this file follows the established per-subcommand test
 file convention already used for meetings.py (test_meetings_edit.py,
 test_meetings_track.py — this item's own Gate 4 precedent).
 
-Uses a real committed session (get_db().get_session()), not the db_session
-fixture — CliRunner.invoke() drives the command through its own session,
-and db_session-fixture rows are not visible across that boundary (confirmed
-during Hotfix Item #56 Gate 2; pattern reused from test_meetings_track.py).
-
 Mocks ProviderManager.generate — a true singleton, so patching the class
 method affects the in-process CLI-invoked session too — to avoid a live AI
 call and control the condensed summary content deterministically.

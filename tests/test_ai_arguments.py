@@ -290,7 +290,7 @@ class TestReportTypeArguments:
 class TestReportTypeFiltersRows(unittest.TestCase):
     """A configured report type absent from the old list filters stored rows.
 
-    Committed-session pattern (tests/test_reports_corrections.py); parametrize
+    Seeds rows through its own get_db() session; parametrize
     does not run on TestCase methods, so this test has its own class.
     """
 

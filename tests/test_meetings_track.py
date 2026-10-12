@@ -10,12 +10,6 @@ Item 69's spec named this coverage tests/test_meetings.py, which does not
 exist in this repo; this file follows the established per-subcommand test
 file convention already used elsewhere for meetings.py (test_meetings_edit.py)
 and notes.py (test_notes_add.py, this item's own Gate 4 precedent).
-
-Uses a real committed session (get_db().get_session()), not the db_session
-fixture — CliRunner.invoke() drives the command through its own session, and
-db_session-fixture rows are not visible across that boundary (confirmed
-during Hotfix Item #56 Gate 2; pattern reused from test_time_add.py /
-test_notes_add.py).
 """
 
 import unittest

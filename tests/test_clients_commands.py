@@ -1,7 +1,6 @@
 """
 CLI-level tests for the `workmain clients` command group, exercised through
-Click's CliRunner. These tests interact with the production database directly
-(CliRunner spawns real sessions); the autouse fixture handles cleanup.
+Click's CliRunner. Seeded rows are removed by the file's own autouse cleanup fixture.
 """
 
 import pytest
