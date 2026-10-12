@@ -1,6 +1,6 @@
 # Thinking Token Recording — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261011
 **Branch:** `feature/issue-149-gemini-thinking-tokens` (from `dev`)
