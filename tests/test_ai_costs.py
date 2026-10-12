@@ -99,6 +99,30 @@ class TestRecordingColumns:
 
 
 # ---------------------------------------------------------------------------
+# One record of cost (migration 026)
+# ---------------------------------------------------------------------------
+
+class TestSingleCostRecord:
+    def test_no_cost_row_carries_a_retired_type(self, db_session):
+        """AC8.4: migration 026 renamed 'report' and 'condensation'."""
+        count = db_session.execute(text(
+            "SELECT count(*) FROM ai_costs "
+            "WHERE interaction_type IN ('report', 'condensation')"
+        )).scalar()
+        assert count == 0
+
+    def test_no_report_with_a_cost_row_carries_a_cost_key(self, db_session):
+        """AC8.5: migration 026 stripped the six cost keys from those reports."""
+        count = db_session.execute(text(
+            "SELECT count(*) FROM reports r "
+            "WHERE EXISTS (SELECT 1 FROM ai_costs a WHERE a.report_id = r.id) "
+            "AND r.metadata ?| array['ai_model', 'prompt_tokens', "
+            "'completion_tokens', 'thinking_tokens', 'total_tokens', 'cost']"
+        )).scalar()
+        assert count == 0
+
+
+# ---------------------------------------------------------------------------
 # AiCostRepository.create()
 # ---------------------------------------------------------------------------
 
