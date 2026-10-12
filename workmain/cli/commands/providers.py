@@ -10,6 +10,7 @@ full ai_settings.json detail view.
 
 import json
 import sys
+import time
 from pathlib import Path
 from typing import Optional
 import click
@@ -29,6 +30,7 @@ from workmain.ai.base_provider import (
     ProviderUnavailableError,
     require_complete,
 )
+from workmain.services import ai_cost_service
 from workmain.utils.ai_arguments import require_eligible_provider, require_provider, require_report_type
 from workmain.utils.date_utils import resolve_date_window, format_date_window_label
 
@@ -149,8 +151,20 @@ def test_provider(provider: str):
             max_tokens=probe_max_tokens,
         )
 
+        started = time.monotonic()
         response = client.generate(request)
-        require_complete(response, "providers test", probe_max_tokens, None)
+        elapsed = time.monotonic() - started
+        refused = False
+        try:
+            require_complete(response, "providers test", probe_max_tokens, None)
+        except IncompleteResponseError:
+            refused = True
+            raise
+        finally:
+            ai_cost_service.record_reply(
+                response, "providers_test",
+                refused=refused, generation_time_s=elapsed,
+            )
 
         console.print()
         console.print(f"[green]✓ {provider_lower.title()} API test successful![/green]")

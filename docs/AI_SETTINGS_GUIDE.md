@@ -198,7 +198,7 @@ Adding a provider requires five steps — no other code changes needed:
    Implement all five abstract methods from `BaseProvider` (generate, estimate_cost,
    validate_config, count_tokens, check_availability). See `providers/claude.py` for
    a complete example. Set `provider_type = ProviderType.<NAME>` on the class and use
-   `self.provider_type` wherever the class names itself. If `generate()` or `check_availability()` reads any policy key,
+   `self.provider_type` wherever the class names itself. If `generate()` reads any policy key,
    declare those keys in a `REQUIRED_POLICY_KEYS` class attribute so an incomplete
    policy is refused at construction rather than failing at request time.
 

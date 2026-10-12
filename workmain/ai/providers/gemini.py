@@ -88,7 +88,7 @@ class GeminiProvider(BaseProvider):
 
     def _generation_config(self, max_tokens: int) -> dict:
         """
-        Build the generation config shared by generate() and check_availability().
+        Build the generation config used by generate().
 
         Returns max_output_tokens and the policy's thinking_config and
         automatic_function_calling — nothing else. One builder so a
@@ -308,16 +308,13 @@ class GeminiProvider(BaseProvider):
         """
         Check if Gemini API is available.
 
+        Looks up the configured model; no generation request is made.
+
         Returns:
             Provider status
         """
         try:
-            config_dict = self._generation_config(100)
-            self.client.models.generate_content(
-                model=self.model,
-                contents=["test"],
-                config=types.GenerateContentConfig(**config_dict)
-            )
+            self.client.models.get(model=self.model)
             self._set_status(ProviderStatus.AVAILABLE)
             return ProviderStatus.AVAILABLE
 

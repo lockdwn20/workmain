@@ -135,15 +135,6 @@ class TestClaudePayloadContract:
         kwargs = client.messages.create.call_args.kwargs
         assert kwargs["thinking"] == {"type": "disabled"}
 
-    def test_claude_payload_check_availability_identical_contract(self):
-        provider, client = _build_claude()
-        client.messages.create.return_value = _fake_message()
-        provider.check_availability()
-        kwargs = client.messages.create.call_args.kwargs
-        assert "temperature" not in kwargs
-        assert kwargs["thinking"] == {"type": "disabled"}
-        assert kwargs["max_tokens"] == 1
-
     def test_claude_policy_non_empty_sampling_spreads_into_payload(self):
         policy = {"thinking": {"type": "disabled"},
                   "sampling": {"temperature": 0.5, "top_p": 0.9}}
@@ -156,16 +147,6 @@ class TestClaudePayloadContract:
 
     def test_claude_declares_required_policy_keys(self):
         assert ClaudeProvider.REQUIRED_POLICY_KEYS == {"thinking", "sampling"}
-
-    def test_claude_check_availability_carries_thinking_policy(self):
-        """AC1.3 — check_availability() carries the policy's thinking object,
-        same as generate()."""
-        policy = {"thinking": {"type": "enabled", "budget_tokens": 1024}, "sampling": {}}
-        provider, client = _build_claude(policy=policy)
-        client.messages.create.return_value = _fake_message()
-        provider.check_availability()
-        kwargs = client.messages.create.call_args.kwargs
-        assert kwargs["thinking"] == {"type": "enabled", "budget_tokens": 1024}
 
 
 class TestGenerationRequestContract:
@@ -307,7 +288,7 @@ class TestGeminiPolicyPayload:
         return resp
 
     def test_gemini_policy_sampling_key_not_sent(self):
-        """A sampling value placed in the policy reaches neither request path."""
+        """A sampling value placed in the policy never reaches the request."""
         provider, client = self._build_gemini({
             "sampling": {"temperature": 0.42, "top_p": 0.9, "top_k": 40},
             "thinking_config": {"thinking_level": "high"},
@@ -315,8 +296,7 @@ class TestGeminiPolicyPayload:
         })
         client.models.generate_content.return_value = self._fake_gemini_response()
         provider.generate(GenerationRequest(prompt="hi", max_tokens=20))
-        provider.check_availability()
-        assert client.models.generate_content.call_count == 2
+        assert client.models.generate_content.call_count == 1
         for call in client.models.generate_content.call_args_list:
             config = call.kwargs["config"]
             assert config.temperature is None
@@ -362,18 +342,6 @@ class TestGeminiPolicyPayload:
         with pytest.raises(ConfigurationError, match="thinking_config"):
             self._build_gemini({"automatic_function_calling": {"disable": True}})
 
-    def test_gemini_check_availability_carries_policy(self):
-        """AC1.3 — check_availability() carries the policy's thinking_config,
-        same as generate()."""
-        provider, client = self._build_gemini(
-            {"thinking_config": {"thinking_level": "high"}, "automatic_function_calling": {"disable": True}}
-        )
-        client.models.generate_content.return_value = self._fake_gemini_response()
-        provider.check_availability()
-        config = client.models.generate_content.call_args.kwargs["config"]
-        assert config.thinking_config.thinking_level.name == "HIGH"
-        assert config.max_output_tokens == 100
-
     def test_gemini_afc_value_from_policy(self):
         """AC1.1 — generate() sends the policy's automatic_function_calling value."""
         for disable in (True, False):
@@ -383,18 +351,6 @@ class TestGeminiPolicyPayload:
             })
             client.models.generate_content.return_value = self._fake_gemini_response()
             provider.generate(GenerationRequest(prompt="hi", max_tokens=20))
-            config = client.models.generate_content.call_args.kwargs["config"]
-            assert config.automatic_function_calling.disable is disable
-
-    def test_gemini_check_availability_carries_afc(self):
-        """AC1.2 — check_availability() sends the policy's AFC value, same as generate()."""
-        for disable in (True, False):
-            provider, client = self._build_gemini({
-                "thinking_config": {"thinking_level": "high"},
-                "automatic_function_calling": {"disable": disable},
-            })
-            client.models.generate_content.return_value = self._fake_gemini_response()
-            provider.check_availability()
             config = client.models.generate_content.call_args.kwargs["config"]
             assert config.automatic_function_calling.disable is disable
 
@@ -499,10 +455,38 @@ class TestGeminiRateLimitTranslation:
         assert client.models.generate_content.call_count == 3
 
     def test_check_availability_429_and_500(self):
+        """AC7.2 — the status mapping, read from the model lookup."""
         provider, client = _build_gemini()
-        client.models.generate_content.side_effect = _FakeGeminiAPIError(429)
+        client.models.get.side_effect = _FakeGeminiAPIError(429)
         assert provider.check_availability() == ProviderStatus.RATE_LIMITED
-        client.models.generate_content.side_effect = _FakeGeminiAPIError(500)
+        client.models.get.side_effect = _FakeGeminiAPIError(500)
+        assert provider.check_availability() == ProviderStatus.UNAVAILABLE
+
+    def test_gemini_check_availability_looks_up_the_model_and_generates_nothing(self):
+        """AC7.1"""
+        provider, client = _build_gemini()
+        assert provider.check_availability() == ProviderStatus.AVAILABLE
+        client.models.get.assert_called_once_with(model=provider.model)
+        client.models.generate_content.assert_not_called()
+
+    def test_claude_check_availability_looks_up_the_model_and_generates_nothing(self):
+        """AC7.1"""
+        provider, client = _build_claude()
+        assert provider.check_availability() == ProviderStatus.AVAILABLE
+        client.models.retrieve.assert_called_once_with(provider.model)
+        client.messages.create.assert_not_called()
+
+    def test_claude_check_availability_maps_rate_limit_and_api_errors(self):
+        """AC7.2"""
+        provider, client = _build_claude()
+        request = httpx.Request("GET", "https://api.anthropic.com/v1/models")
+        client.models.retrieve.side_effect = anthropic.RateLimitError(
+            "slow down", response=httpx.Response(429, request=request), body=None
+        )
+        assert provider.check_availability() == ProviderStatus.RATE_LIMITED
+        client.models.retrieve.side_effect = _status_error(500)
+        assert provider.check_availability() == ProviderStatus.ERROR
+        client.models.retrieve.side_effect = RuntimeError("down")
         assert provider.check_availability() == ProviderStatus.UNAVAILABLE
 
 
@@ -518,8 +502,8 @@ class TestProviderManagerBuildsFromConfig:
         assert provider.model == _load_ai_settings()['gemini']['model']
 
     def test_gemini_shipped_policy_sends_no_sampling(self, offline_provider_env):
-        """Both request paths built from the shipped policy carry no sampling
-        parameter and no thinking_budget, and do carry thinking_level."""
+        """The request built from the shipped policy carries no sampling
+        parameter and no thinking_budget, and does carry thinking_level."""
         provider = ProviderManager().get_provider('gemini')
         generate_content = provider.client.models.generate_content
         response = generate_content.return_value
@@ -530,8 +514,7 @@ class TestProviderManagerBuildsFromConfig:
         response.usage_metadata.thoughts_token_count = None
         response.candidates = _gemini_candidates()
         provider.generate(GenerationRequest(prompt="hi", max_tokens=20))
-        provider.check_availability()
-        assert generate_content.call_count == 2
+        assert generate_content.call_count == 1
         for call in generate_content.call_args_list:
             config = call.kwargs["config"]
             assert config.temperature is None
@@ -567,8 +550,14 @@ class TestProviderManagerBuildsFromConfig:
         """AC2.1 — the shipped Gemini policy makes the SDK skip its AFC loop."""
         from google.genai._extra_utils import should_disable_afc
         provider = ProviderManager().get_provider('gemini')
-        provider.client.models.generate_content.return_value = MagicMock()
-        provider.check_availability()
+        response = provider.client.models.generate_content.return_value
+        response.text = "ok"
+        response.usage_metadata.prompt_token_count = 4
+        response.usage_metadata.candidates_token_count = 2
+        response.usage_metadata.total_token_count = 6
+        response.usage_metadata.thoughts_token_count = None
+        response.candidates = _gemini_candidates()
+        provider.generate(GenerationRequest(prompt="hi", max_tokens=20))
         config = provider.client.models.generate_content.call_args.kwargs["config"]
         assert should_disable_afc(config) is True
 

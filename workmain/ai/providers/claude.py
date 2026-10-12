@@ -82,7 +82,7 @@ class ClaudeProvider(BaseProvider):
 
     def _base_api_params(self, max_tokens: int) -> dict:
         """
-        Build the request payload shared by generate() and check_availability().
+        Build the request payload used by generate().
 
         Returns model, max_tokens, the policy's thinking object, and whatever
         sampling parameters the policy carries — nothing else. One builder so a
@@ -264,13 +264,13 @@ class ClaudeProvider(BaseProvider):
         """
         Check if Claude API is available.
 
+        Looks up the configured model; no generation request is made.
+
         Returns:
             Provider status
         """
         try:
-            api_params = self._base_api_params(1)
-            api_params["messages"] = [{"role": "user", "content": "test"}]
-            self.client.messages.create(**api_params)
+            self.client.models.retrieve(self.model)
             self._set_status(ProviderStatus.AVAILABLE)
             return ProviderStatus.AVAILABLE
 

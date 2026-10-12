@@ -1396,3 +1396,52 @@ class TestManagerRecording:
             AiCost.interaction_type == "daily_internal"
         ).order_by(AiCost.id.desc()).first()
         assert row.refused is True
+
+
+class TestProvidersTestRecording:
+    """AC1.7 — providers test records its reply, typed providers_test."""
+
+    def _invoke(self, tmp_path, stub):
+        from tests.mocks.stub_providers import stubbed_manager
+        manager = stubbed_manager(tmp_path, {"claude": stub})
+        with patch('workmain.cli.commands.providers.get_provider_manager', return_value=manager), \
+                patch('workmain.utils.ai_arguments.get_provider_manager', return_value=manager):
+            return CliRunner(mix_stderr=False).invoke(providers, ['test', 'claude'])
+
+    def test_complete_reply_is_recorded(self, tmp_path, db_session, session_for_command):
+        from tests.mocks.stub_providers import StubProvider
+        from workmain.database.models import AiCost
+        session_for_command('workmain.services.ai_cost_service')
+        query = db_session.query(AiCost).filter(AiCost.interaction_type == "providers_test")
+        before = query.count()
+
+        result = self._invoke(tmp_path, StubProvider(
+            ProviderType.CLAUDE, content="API connection successful",
+            prompt_tokens=9, completion_tokens=202, thinking_tokens=196,
+            tokens_used=211, cost=0.0123,
+        ))
+
+        assert result.exit_code == 0
+        assert query.count() == before + 1
+        row = query.order_by(AiCost.id.desc()).first()
+        assert row.provider == "claude"
+        assert row.refused is False
+        assert row.prompt_tokens == 9
+        assert row.thinking_tokens == 196
+        assert row.total_tokens == 211
+        assert float(row.cost_usd) == pytest.approx(0.0123)
+
+    def test_cut_off_reply_is_recorded_refused(self, tmp_path, db_session, session_for_command):
+        from tests.mocks.stub_providers import StubProvider
+        from workmain.database.models import AiCost
+        session_for_command('workmain.services.ai_cost_service')
+        query = db_session.query(AiCost).filter(AiCost.interaction_type == "providers_test")
+        before = query.count()
+
+        result = self._invoke(tmp_path, StubProvider(
+            ProviderType.CLAUDE, FinishStatus.CUT_OFF, "max_tokens", content="partial",
+        ))
+
+        assert result.exit_code == 2
+        assert query.count() == before + 1
+        assert query.order_by(AiCost.id.desc()).first().refused is True
