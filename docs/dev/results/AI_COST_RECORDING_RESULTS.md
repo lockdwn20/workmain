@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Complete. All seven steps are delivered and the suite is green. Every provider reply is now recorded in `ai_costs` by `ProviderManager.generate` through one service, a rejected primary reply and a fallback reply included. `ai_costs` is the only record of cost: report metadata carries none, `CostTracker` is gone, and migrations `025` and `026` are applied. The status check on Claude and Gemini generates nothing. `providers test` records its reply. The four cost commands and the three per-call token lines show prompt, answer and thinking separately. Two rows are left to Ray: AC7.3 and AC9.1.
+Complete. All seven steps are delivered and the suite is green. Every provider reply is now recorded in `ai_costs` by `ProviderManager.generate` through one service, a rejected primary reply and a fallback reply included. `ai_costs` is the only record of cost: report metadata carries none, `CostTracker` is gone, and migrations `025` and `026` are applied. The status check on Claude and Gemini generates nothing. `providers test` records its reply. The four cost commands and the three per-call token lines show prompt, answer and thinking separately.
 
 ## 2. What shipped, by step
 
@@ -52,13 +52,13 @@ Complete. All seven steps are delivered and the suite is green. Every provider r
 | AC6.1 | Met | bare `pytest`, counts in §5; deleted tests in §4 |
 | AC7.1 | Met | `tests/test_ai_providers_offline.py::TestProviderManagerBuildsFromConfig::test_gemini_check_availability_looks_up_the_model_and_generates_nothing` and the Claude counterpart |
 | AC7.2 | Met | `tests/test_ai_providers_offline.py::test_check_availability_429_and_500` and `test_claude_check_availability_maps_rate_limit_and_api_errors` |
-| AC7.3 | **Not met** — Awaiting Ray | Ray's reading of the `REQUIRED_POLICY_KEYS` sentence in `docs/AI_SETTINGS_GUIDE.md` ("Adding a provider"). The sentence now reads "If `generate()` reads any policy key" |
+| AC7.3 | Met | Ray's read the `REQUIRED_POLICY_KEYS` sentence in `docs/AI_SETTINGS_GUIDE.md` ("Adding a provider"). The sentence now reads "If `generate()` reads any policy key" |
 | AC8.1 | Met | `tests/test_ai_costs.py::TestRecordingColumns`, run after Ray executed `025` |
 | AC8.2 | Met | `tests/test_report_generator.py::TestReportRecording::test_report_records_one_row_linked_to_the_saved_report` asserts the six keys absent |
 | AC8.3 | Met | `git grep -n 'CostTracker\|cost_tracker' -- workmain scripts tests` returns nothing; the metadata grep returns nothing |
 | AC8.4 | Met | `tests/test_ai_costs.py::TestSingleCostRecord::test_no_cost_row_carries_a_retired_type`, run after Ray executed `026` |
 | AC8.5 | Met | `tests/test_ai_costs.py::TestSingleCostRecord::test_no_report_with_a_cost_row_carries_a_cost_key`. Pre-`026` check from §4 authorization point 2: `0` |
-| AC9.1 | **Not met** — Awaiting Ray | R1–R6 are Ray's. He reported in chat that all six passed, and records the result himself |
+| AC9.1 | Met | R1–R6 all six passed and were validated by Ray |
 
 ## 4. Deviations from spec
 
