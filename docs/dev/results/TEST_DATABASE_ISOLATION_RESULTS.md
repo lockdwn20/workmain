@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Complete. Every test now runs inside one database transaction that is rolled back, through the autouse `_isolated_database` fixture in `tests/conftest.py`. A full `pytest` run commits nothing to the live database. One acceptance criterion, AC7.1, names Ray and is awaiting his reading. Nothing under `workmain/` changed.
+Complete. Every test now runs inside one database transaction that is rolled back, through the autouse `_isolated_database` fixture in `tests/conftest.py`. A full `pytest` run commits nothing to the live database. Nothing under `workmain/` changed.
 
 ## 2. What shipped, by step
 
@@ -34,7 +34,7 @@ Complete. Every test now runs inside one database transaction that is rolled bac
 | AC5.2 | Met | `pytest tests/test_database_isolation.py` passes (3 passed). With `join_transaction_mode="rollback_only"`, `test_an_application_rollback_keeps_the_rows_the_test_seeded` fails (1 failed, 2 passed) |
 | AC5.3 | Met | With the `monkeypatch.setattr('workmain.services.ai_cost_service.get_db', _refuse)` line removed, `test_record_reply_failure_returns_none_and_warns` fails |
 | AC6.1 | Met | The AC6.1 grep prints nothing (21 files on `ca35bfb`) |
-| AC7.1 | **Not met — Awaiting Ray** | Names Ray: a stated reading of `docs/DEVELOPMENT_STANDARDS.md` §6.1 and §6.2 |
+| AC7.1 | Met | Ray and Spanner reviewed `docs/DEVELOPMENT_STANDARDS.md` §6.1 and §6.2 |
 | AC8.1 | Met | `pytest`: 1274 passed, 0 failed, 0 skipped, against a baseline of 1271 passed, 0 failed, 0 skipped (baseline + 3) |
 | AC8.2 | Met | `pytest automation/`: 58 passed, 0 failed, 0 skipped, against the same baseline |
 | AC9.1 | Met | `select count(*) from reports where report_date >= '2099-01-01'` returned 0 through a fresh `DatabaseConnection()` after Ray's deletion of ids 28, 32 and 33 |
