@@ -1,6 +1,6 @@
 # Five Non-Command TestCase Files to Plain pytest — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Anvil (Role 3)
 **Date:** 20261012
 **Spec:** `../specs/TESTCASE_CONVERSION_SPEC.md`

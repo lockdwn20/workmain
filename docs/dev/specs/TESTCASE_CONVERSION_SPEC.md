@@ -1,6 +1,6 @@
 # Five Non-Command TestCase Files to Plain pytest — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261012
 **Branch:** `hotfix/issue-200-testcase-conversion` (from `main`)
