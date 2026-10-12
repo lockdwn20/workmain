@@ -303,13 +303,12 @@ class TestReportRefusal:
 
 class TestReportRecording:
     def test_report_records_one_row_linked_to_the_saved_report(
-        self, tmp_path, db_session, session_for_command
+        self, tmp_path, db_session
     ):
         """AC1.1, AC8.2: one row, typed with the call type, linked, carrying the
         stub's values; the report's metadata carries no cost key."""
         from tests.mocks.stub_providers import StubProvider
         from workmain.database.models import AiCost
-        session_for_command('workmain.services.ai_cost_service')
         pm = stubbed_manager(tmp_path, {
             "gemini": StubProvider(
                 ProviderType.GEMINI, content="Report body",
@@ -340,12 +339,11 @@ class TestReportRecording:
         assert "generation_time" in report.report_metadata
 
     def test_save_failure_after_reply_still_leaves_an_unlinked_row(
-        self, tmp_path, db_session, session_for_command
+        self, tmp_path, db_session
     ):
         """AC3.2: the reply was paid for, so its row exists even when the save raises."""
         from tests.mocks.stub_providers import StubProvider
         from workmain.database.models import AiCost
-        session_for_command('workmain.services.ai_cost_service')
         pm = stubbed_manager(tmp_path, {
             "gemini": StubProvider(
                 ProviderType.GEMINI, content="Report body",

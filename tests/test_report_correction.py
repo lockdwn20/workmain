@@ -66,7 +66,7 @@ _SAMPLE_CONTENT = "Sentinel daily report content for Gate 7 tests."
 
 def _seed_report(session, report_type='daily_internal', report_date=None,
                  content=_SAMPLE_CONTENT, status=None) -> Report:
-    """Insert a Report row directly and return it (session.commit already redirected to flush)."""
+    """Insert a Report row directly and return it."""
     r = Report(
         report_type=report_type,
         report_date=report_date or SENTINEL_DATE_UNCONFIRMED,
@@ -369,8 +369,7 @@ def _spy_on(method: str, recorded: list):
 class TestReportListCommandPath:
     """reports list runs its real query on the db_session session against seeded rows."""
 
-    def test_status_all_lists_every_status(self, db_session, session_for_command):
-        session_for_command('workmain.cli.commands.reports')
+    def test_status_all_lists_every_status(self, db_session):
         unconfirmed = _seed_report(db_session, 'zz_issue157', date(2100, 8, 10))
         confirmed = _seed_report(db_session, 'zz_issue157', date(2100, 8, 11),
                                  status='confirmed')
@@ -380,8 +379,7 @@ class TestReportListCommandPath:
         spy.assert_called_once_with(ANY, report_type=None, status=None, limit=2)
         assert [r.id for r in recorded[0]] == [confirmed.id, unconfirmed.id]
 
-    def test_no_status_lists_every_status(self, db_session, session_for_command):
-        session_for_command('workmain.cli.commands.reports')
+    def test_no_status_lists_every_status(self, db_session):
         unconfirmed = _seed_report(db_session, 'zz_issue157', date(2100, 8, 12))
         confirmed = _seed_report(db_session, 'zz_issue157', date(2100, 8, 13),
                                  status='confirmed')
@@ -391,8 +389,7 @@ class TestReportListCommandPath:
         spy.assert_called_once_with(ANY, report_type=None, status=None, limit=2)
         assert [r.id for r in recorded[0]] == [confirmed.id, unconfirmed.id]
 
-    def test_status_filters_rows(self, db_session, session_for_command):
-        session_for_command('workmain.cli.commands.reports')
+    def test_status_filters_rows(self, db_session):
         confirmed = _seed_report(db_session, 'zz_issue157', date(2100, 8, 14),
                                  status='confirmed')
         _seed_report(db_session, 'zz_issue157', date(2100, 8, 15))
@@ -451,7 +448,7 @@ class TestReportListStatusCLI:
 # ---------------------------------------------------------------------------
 
 class TestReportConfirmCLI(unittest.TestCase):
-    """CLI tests for 'workmain reports confirm' with real committed data."""
+    """CLI tests for 'workmain reports confirm' with seeded data."""
 
     def setUp(self):
         from dotenv import load_dotenv
@@ -612,7 +609,7 @@ class TestApplyCorrection:
 # ---------------------------------------------------------------------------
 
 class TestReportCorrectCLI(unittest.TestCase):
-    """CLI tests for 'workmain reports correct' with real committed data —
+    """CLI tests for 'workmain reports correct' with seeded data —
     mirrors TestReportConfirmCLI's pattern. $EDITOR is mocked by patching
     workmain.utils.editor.subprocess.run with a side effect that writes
     new content into the temp file edit_in_editor() reads back."""

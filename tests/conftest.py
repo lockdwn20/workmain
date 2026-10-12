@@ -3,82 +3,75 @@ Pytest fixtures shared across all test files.
 """
 
 import os
-import types
 from unittest.mock import patch
 
 import pytest
 from dotenv import load_dotenv
 
 
-@pytest.fixture
-def db_session():
+@pytest.fixture(autouse=True)
+def _isolated_database(monkeypatch):
     """
-    Database session fixture with full transaction isolation.
+    Run every test inside one database transaction that is rolled back.
 
-    How it works:
-    - session.commit is redirected to session.flush so all repository code
-      works normally (data becomes visible within the session for subsequent
-      queries) but nothing is ever committed to the database.
-    - session.rollback() is called at teardown, rolling back every INSERT,
-      UPDATE, and DELETE performed during the test.
-
-    Result: the production database is completely unaffected by any test,
-    regardless of what data the test creates.
+    The application's session factory is bound to a connection this fixture
+    owns, inside a transaction it began. Every session any code opens through
+    get_db() joins that transaction: a commit() releases a savepoint, a
+    rollback() returns to one, and nothing reaches the database. Rolling the
+    transaction back at teardown discards every write, and a run killed
+    mid-test leaves nothing because the transaction was never committed.
     """
     load_dotenv()
 
-    from workmain.database.connection import get_db
-    db = get_db()
-    session = db.get_session()
+    from sqlalchemy.orm import sessionmaker
+    from workmain.database.connection import DatabaseConnection, get_db
 
-    # Redirect commit → flush: data lands in the DB transaction (visible
-    # for subsequent queries within this session) but is never committed.
-    session.commit = session.flush
+    db = get_db()
+    engine = db.connect()
+    live_factory = db.SessionLocal
+    connection = engine.connect()
+    outer = connection.begin()
+    test_factory = sessionmaker(
+        bind=connection,
+        autocommit=False,
+        autoflush=False,
+        join_transaction_mode="create_savepoint",
+    )
+    db.SessionLocal = test_factory
+
+    def _refuse_close(self):
+        raise RuntimeError(
+            "DatabaseConnection.close() during a test would reconnect outside "
+            "the test's transaction"
+        )
+
+    monkeypatch.setattr(DatabaseConnection, 'close', _refuse_close)
 
     try:
-        yield session
+        yield
     finally:
-        session.rollback()   # undo every flushed-but-uncommitted change
-        session.close()
-
-
-@pytest.fixture(autouse=True)
-def _block_live_cost_recording(monkeypatch):
-    """
-    Stop every test from recording AI costs to the live database.
-
-    The recording service's get_db raises, so a test that reaches it takes the
-    service's warning path. A test that checks a recorded row calls
-    session_for_command('workmain.services.ai_cost_service'), which replaces
-    this patch so the row lands in db_session and is rolled back.
-    """
-    def _refuse():
-        raise RuntimeError("tests do not record AI costs to the live database")
-
-    monkeypatch.setattr('workmain.services.ai_cost_service.get_db', _refuse)
+        replaced = db.SessionLocal is not test_factory
+        db.SessionLocal = live_factory
+        outer.rollback()
+        connection.close()
+        assert not replaced, "the test replaced the session factory"
 
 
 @pytest.fixture
-def session_for_command(db_session, monkeypatch):
+def db_session():
     """
-    Hand the db_session session to code that opens its own through get_db().
+    A session for the test's own seeding and reads.
 
-    Returns a function taking a module path. It points that module's get_db at
-    an object whose get_session() returns the db_session session, and makes
-    the session's close() a no-op for the test, so the command reads seeded
-    rows inside the rolled-back transaction.
-
-    #95 replaces the per-module patch with one hook through session_scope().
+    It comes from the same factory application code uses, so the test and the
+    code it calls share one transaction. Commit it freely; nothing persists.
     """
-    def _hand(module: str):
-        monkeypatch.setattr(
-            f'{module}.get_db',
-            lambda: types.SimpleNamespace(get_session=lambda: db_session),
-        )
-        monkeypatch.setattr(db_session, 'close', lambda: None)
-        return db_session
+    from workmain.database.connection import get_db
 
-    return _hand
+    session = get_db().get_session()
+    try:
+        yield session
+    finally:
+        session.close()
 
 
 @pytest.fixture

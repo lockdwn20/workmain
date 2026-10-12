@@ -1273,12 +1273,11 @@ class TestManagerRecording:
         ).count()
 
     def test_failed_primary_records_nothing_and_fallback_records_one(
-        self, tmp_path, db_session, session_for_command
+        self, tmp_path, db_session
     ):
         """AC1.8"""
         from tests.mocks.stub_providers import StubProvider, stubbed_manager
         from workmain.ai.base_provider import GenerationError
-        session_for_command('workmain.services.ai_cost_service')
         manager = stubbed_manager(tmp_path, {
             "gemini": StubProvider(ProviderType.GEMINI, error=GenerationError("boom")),
             "claude": StubProvider(ProviderType.CLAUDE, **self._SCRIPTED),
@@ -1295,8 +1294,13 @@ class TestManagerRecording:
         assert row.provider == "claude"
         assert row.refused is False
 
-    def test_recording_failure_does_not_fail_the_call(self, tmp_path, caplog):
-        """AC1.9: no session_for_command, so the autouse block makes the service raise."""
+    def test_recording_failure_does_not_fail_the_call(self, tmp_path, caplog, monkeypatch):
+        """AC1.9: the recording service cannot reach the database; the call still returns."""
+        def _refuse():
+            raise RuntimeError("database unavailable")
+
+        monkeypatch.setattr('workmain.services.ai_cost_service.get_db', _refuse)
+
         from tests.mocks.stub_providers import StubProvider, stubbed_manager
         manager = stubbed_manager(tmp_path, {
             "gemini": StubProvider(ProviderType.GEMINI, **self._SCRIPTED),
@@ -1312,7 +1316,7 @@ class TestManagerRecording:
         assert "daily_internal" in caplog.text
 
     def test_cut_off_reply_without_fallback_is_recorded_refused(
-        self, tmp_path, db_session, session_for_command
+        self, tmp_path, db_session
     ):
         """AC2.1"""
         from tests.mocks.stub_providers import (
@@ -1320,7 +1324,6 @@ class TestManagerRecording:
         )
         from workmain.ai.base_provider import IncompleteResponseError
         from workmain.database.models import AiCost
-        session_for_command('workmain.services.ai_cost_service')
         manager = stubbed_manager(
             tmp_path,
             {"gemini": StubProvider(
@@ -1348,12 +1351,11 @@ class TestManagerRecording:
         assert float(row.cost_usd) == pytest.approx(0.0123)
 
     def test_refused_primary_then_fallback_records_both_refused_first(
-        self, tmp_path, db_session, session_for_command
+        self, tmp_path, db_session
     ):
         """AC2.2"""
         from tests.mocks.stub_providers import StubProvider, stubbed_manager
         from workmain.database.models import AiCost
-        session_for_command('workmain.services.ai_cost_service')
         manager = stubbed_manager(tmp_path, {
             "gemini": StubProvider(
                 ProviderType.GEMINI, FinishStatus.CUT_OFF, "MAX_TOKENS",
@@ -1373,14 +1375,13 @@ class TestManagerRecording:
         assert (second.provider, second.refused) == ("claude", False)
 
     def test_empty_reply_is_recorded_refused(
-        self, tmp_path, db_session, session_for_command
+        self, tmp_path, db_session
     ):
         """AC2.3"""
         from tests.mocks.stub_providers import (
             StubProvider, drop_fallback, stubbed_manager,
         )
         from workmain.database.models import AiCost
-        session_for_command('workmain.services.ai_cost_service')
         manager = stubbed_manager(
             tmp_path,
             {"gemini": StubProvider(ProviderType.GEMINI, content="")},
@@ -1408,10 +1409,9 @@ class TestProvidersTestRecording:
                 patch('workmain.utils.ai_arguments.get_provider_manager', return_value=manager):
             return CliRunner(mix_stderr=False).invoke(providers, ['test', 'claude'])
 
-    def test_complete_reply_is_recorded(self, tmp_path, db_session, session_for_command):
+    def test_complete_reply_is_recorded(self, tmp_path, db_session):
         from tests.mocks.stub_providers import StubProvider
         from workmain.database.models import AiCost
-        session_for_command('workmain.services.ai_cost_service')
         query = db_session.query(AiCost).filter(AiCost.interaction_type == "providers_test")
         before = query.count()
 
@@ -1431,10 +1431,9 @@ class TestProvidersTestRecording:
         assert row.total_tokens == 211
         assert float(row.cost_usd) == pytest.approx(0.0123)
 
-    def test_cut_off_reply_is_recorded_refused(self, tmp_path, db_session, session_for_command):
+    def test_cut_off_reply_is_recorded_refused(self, tmp_path, db_session):
         from tests.mocks.stub_providers import StubProvider
         from workmain.database.models import AiCost
-        session_for_command('workmain.services.ai_cost_service')
         query = db_session.query(AiCost).filter(AiCost.interaction_type == "providers_test")
         before = query.count()
 

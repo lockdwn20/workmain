@@ -144,11 +144,10 @@ class TestNarrationRecording:
     """AC1.3 — a narration reply is recorded, typed daemon_narration."""
 
     def test_narration_records_one_row(
-        self, tmp_path, monkeypatch, db_session, session_for_command
+        self, tmp_path, monkeypatch, db_session
     ):
         from tests.mocks.stub_providers import StubProvider
         from workmain.database.models import AiCost
-        session_for_command('workmain.services.ai_cost_service')
         pm = stubbed_manager(tmp_path, {
             "claude": StubProvider(
                 ProviderType.CLAUDE, content="Narrated.",

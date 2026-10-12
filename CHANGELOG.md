@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.45.1] - 2026-10-12
+
+Tests reached the live database. The `db_session` fixture isolated only its own session, so a command run through `CliRunner`, or application code a test reached, opened a session of its own. Tests written that way committed real rows and deleted them in `tearDown`. Some changed the live active client until they finished, and a run that did not complete left rows behind. Every test now runs inside one database transaction that is rolled back, and a full `pytest` run commits nothing (issue #136).
+
+### Fixed
+
+- `tests/conftest.py`: the autouse `_isolated_database` fixture binds the application's session factory to a transaction the test owns, with `join_transaction_mode="create_savepoint"`. Every session any code opens during a test joins it, and it is rolled back at teardown. During a test, `DatabaseConnection.close()` raises
+- Deleted from the live database: three leaked `reports` rows dated 2099-01-18, and the `ai_costs` rows earlier test runs wrote
+
+### Changed
+
+- `db_session` is a session from the same factory application code uses, and its `commit()` is no longer redirected to `flush()`
+- Tests of a database failure inject the failure themselves instead of depending on live data
+- `docs/DEVELOPMENT_STANDARDS.md` §6.1 states how every test is isolated, and §6.2 agrees with it
+
+### Removed
+
+- The `session_for_command` and `_block_live_cost_recording` fixtures, which the transaction fixture replaces
+
+Suite: 1274 passed, 0 failed, 0 skipped (baseline 1271 passed, 0 failed, 0 skipped).
+
 ## [1.45.0] - 2026-10-11
 
 WorkmAIn paid for AI replies that never reached its cost record. Daemon narration, task match and note dedup wrote no `ai_costs` row; reports, condensations and intent parses wrote one only if the caller's own work then succeeded; and a reply refused as incomplete was never recorded. Every reply a provider returns is now recorded once, from `ProviderManager.generate`, and `ai_costs` is the only record of cost (issue #191).
