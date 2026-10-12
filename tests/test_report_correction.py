@@ -29,6 +29,7 @@ data visible to the CLI's own DB sessions.
 """
 
 import os
+import shutil
 import unittest
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -684,6 +685,7 @@ class TestReportCorrectCLI(unittest.TestCase):
         """AC9 — staging-file mirror write is unchanged at this call site."""
         import tempfile
         tmp_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp_dir)
         staged_path = str(Path(tmp_dir) / 'staged_report.md')
         Path(staged_path).write_text('Original staged content.')
         r = self._seed(report_date=date(2098, 12, 13))

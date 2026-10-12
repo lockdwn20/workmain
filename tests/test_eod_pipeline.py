@@ -4,7 +4,6 @@ Step runner logic now lives in workmain.workflows.eod_workflow — imports updat
 to source _build_step_sequence and _run_review_step from there.
 """
 
-import unittest
 from datetime import date
 from unittest.mock import patch, call, MagicMock
 
@@ -19,7 +18,7 @@ THURSDAY  = 3
 FRIDAY    = 4
 
 
-class TestEodDayDetection(unittest.TestCase):
+class TestEodDayDetection:
     """Tests that _build_step_sequence returns correct steps per weekday."""
 
     def test_mon_step_sequence_count(self):
@@ -27,59 +26,56 @@ class TestEodDayDetection(unittest.TestCase):
         pre_flight, task_match, note_dedup — Gate 5's #32 deliverable)."""
         steps = _build_step_sequence(MONDAY, skip=[])
         keys = [s['key'] for s in steps]
-        self.assertNotIn('weekly', keys)
-        self.assertNotIn('weekly_report', keys)
-        self.assertNotIn('weekly_email', keys)
-        self.assertIn('pre_flight_inspection', keys)
-        self.assertIn('task_match', keys)
-        self.assertIn('note_dedup', keys)
-        self.assertEqual(len(steps), 10)
+        assert 'weekly' not in keys
+        assert 'weekly_report' not in keys
+        assert 'weekly_email' not in keys
+        assert 'pre_flight_inspection' in keys
+        assert 'task_match' in keys
+        assert 'note_dedup' in keys
+        assert len(steps) == 10
 
     def test_thu_includes_slack_step(self):
         """Thursday: slack post weekly step added — 11 steps total."""
         steps = _build_step_sequence(THURSDAY, skip=[])
         keys = [s['key'] for s in steps]
-        self.assertIn('weekly', keys)
-        self.assertEqual(len(steps), 11)
+        assert 'weekly' in keys
+        assert len(steps) == 11
 
     def test_fri_includes_weekly_report_and_email(self):
         """Friday: weekly_report and weekly_email steps added — 12 steps total."""
         steps = _build_step_sequence(FRIDAY, skip=[])
         keys = [s['key'] for s in steps]
-        self.assertIn('weekly_report', keys)
-        self.assertIn('weekly_email', keys)
-        self.assertEqual(len(steps), 12)
+        assert 'weekly_report' in keys
+        assert 'weekly_email' in keys
+        assert len(steps) == 12
 
 
-class TestEodSkipWeekly(unittest.TestCase):
+class TestEodSkipWeekly:
     """Tests that --skip weekly removes day-specific steps."""
 
     def test_skip_weekly_thu_removes_slack(self):
         """Thursday + skip=weekly: slack step absent, 10 base steps remain."""
         steps = _build_step_sequence(THURSDAY, skip=['weekly'])
         keys = [s['key'] for s in steps]
-        self.assertNotIn('weekly', keys)
-        self.assertEqual(len(steps), 10)
+        assert 'weekly' not in keys
+        assert len(steps) == 10
 
     def test_skip_weekly_fri_removes_both(self):
         """Friday + skip=weekly: weekly_report and weekly_email both absent, 10 base steps remain."""
         steps = _build_step_sequence(FRIDAY, skip=['weekly'])
         keys = [s['key'] for s in steps]
-        self.assertNotIn('weekly_report', keys)
-        self.assertNotIn('weekly_email', keys)
-        self.assertEqual(len(steps), 10)
+        assert 'weekly_report' not in keys
+        assert 'weekly_email' not in keys
+        assert len(steps) == 10
 
     def test_skip_weekly_mon_is_noop(self):
         """Monday + skip=weekly: sequence unchanged (still 10 steps)."""
         steps_normal = _build_step_sequence(MONDAY, skip=[])
         steps_skip   = _build_step_sequence(MONDAY, skip=['weekly'])
-        self.assertEqual(
-            [s['key'] for s in steps_normal],
-            [s['key'] for s in steps_skip]
-        )
+        assert [s['key'] for s in steps_normal] == [s['key'] for s in steps_skip]
 
 
-class TestEodDryRun(unittest.TestCase):
+class TestEodDryRun:
     """Tests that --dry-run output reflects correct day-specific step labels."""
 
     def _run_dry_run(self, weekday: int):
@@ -95,20 +91,20 @@ class TestEodDryRun(unittest.TestCase):
     def test_dry_run_thu_labels_include_slack(self):
         """Thursday dry-run output contains 'slack post weekly'."""
         result = self._run_dry_run(THURSDAY)
-        self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn('slack post weekly', result.output)
+        assert result.exit_code == 0, result.output
+        assert 'slack post weekly' in result.output
 
     def test_dry_run_fri_labels_include_weekly_report(self):
         """Friday dry-run output contains 'reports save weekly_client'."""
         result = self._run_dry_run(FRIDAY)
-        self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn('reports save weekly_client', result.output)
+        assert result.exit_code == 0, result.output
+        assert 'reports save weekly_client' in result.output
 
     def test_dry_run_fri_labels_include_weekly_email(self):
         """Friday dry-run output contains 'email save weekly_client'."""
         result = self._run_dry_run(FRIDAY)
-        self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn('email save weekly_client', result.output)
+        assert result.exit_code == 0, result.output
+        assert 'email save weekly_client' in result.output
 
     def test_skip_note_dedup(self):
         """--skip note_dedup is accepted (Item 71 VALID_STEPS wiring-gap fix,
@@ -116,12 +112,12 @@ class TestEodDryRun(unittest.TestCase):
         'skip' status in the plan table rather than 'run'."""
         runner = CliRunner()
         result = runner.invoke(eod, ['--skip', 'note_dedup', '--dry-run'])
-        self.assertEqual(result.exit_code, 0, result.output)
-        self.assertNotIn('Unknown step', result.output)
-        self.assertIn('note_dedup', result.output)
+        assert result.exit_code == 0, result.output
+        assert 'Unknown step' not in result.output
+        assert 'note_dedup' in result.output
 
 
-class TestReviewStepDispatch(unittest.TestCase):
+class TestReviewStepDispatch:
     """Tests that _run_review_step calls the correct time subcommand for the date."""
 
     def _run_review(self, target_date: date):

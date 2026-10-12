@@ -8,15 +8,16 @@ No DB writes for unit tests — DB-touching tests use the db_session fixture.
 """
 
 import json
+import logging
 import os
-import tempfile
 import time
-import unittest
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
 from unittest.mock import MagicMock, patch, call
+
+import pytest
 
 # Sentinel date: far future ensures no real DB/production data matches
 SENTINEL_DATE = date(2099, 1, 1)
@@ -26,14 +27,13 @@ SENTINEL_DATE = date(2099, 1, 1)
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_store(tmp_path=None):
-    """A ConversationStore backed by a throwaway temp file."""
+def _make_store(tmp_path):
+    """A ConversationStore backed by a file under the test's tmp_path."""
     from workmain.daemon.conversation_state import ConversationStore
-    base = Path(tmp_path) if tmp_path else Path(tempfile.mkdtemp())
-    return ConversationStore(path=base / 'daemon' / 'conversation_state.json')
+    return ConversationStore(path=Path(tmp_path) / 'daemon' / 'conversation_state.json')
 
 
-def _make_daemon(dm_channel='D_TEST', store=None):
+def _make_daemon(store, dm_channel='D_TEST'):
     """Build a WorkmAInDaemon with a mock socket client (no real Slack)."""
     from workmain.daemon.daemon import WorkmAInDaemon
     from workmain.integrations.slack.slack_eod import SlackEodManager
@@ -42,7 +42,7 @@ def _make_daemon(dm_channel='D_TEST', store=None):
     daemon = WorkmAInDaemon.__new__(WorkmAInDaemon)
     daemon._dm_channel = dm_channel
     daemon._operator_user_id = 'U_OP'
-    daemon._store = store or _make_store()
+    daemon._store = store
     daemon._gate = ConfirmationGate()
     daemon._intent_parser = None
     daemon._socket_client = MagicMock()
@@ -97,7 +97,7 @@ def _block_action_payload(action_id, value, action_ts='2000000001.000000', user=
 # Group 1 — WorkmAInDaemon socket event dispatch
 # ---------------------------------------------------------------------------
 
-class TestDaemonSocketDispatch(unittest.TestCase):
+class TestDaemonSocketDispatch:
 
     def test_message_event_routed_to_handle_message(self):
         """DM message event is dispatched to message_handler in background thread."""
@@ -139,9 +139,9 @@ class TestDaemonSocketDispatch(unittest.TestCase):
         time.sleep(0.05)
         handler.assert_not_called()
 
-    def test_block_actions_approve_routes_to_executor(self):
+    def test_block_actions_approve_routes_to_executor(self, tmp_path):
         """wm_approve correlates by token and reaches _execute_action."""
-        daemon = _make_daemon()
+        daemon = _make_daemon(_make_store(tmp_path))
         action_dict = {'action': 'create_note', 'content': 'test'}
         pending = daemon._store.put_pending('U_OP', action_dict)
         payload = _block_action_payload('wm_approve', pending.action_id)
@@ -150,14 +150,14 @@ class TestDaemonSocketDispatch(unittest.TestCase):
             daemon.handle_block_action(payload)
         mock_exec.assert_called_once_with(action_dict)
 
-    def test_block_actions_reject_sends_rejection_message(self):
+    def test_block_actions_reject_sends_rejection_message(self, tmp_path):
         """wm_reject with a matching token posts 'Action rejected.' and clears."""
-        daemon = _make_daemon()
+        daemon = _make_daemon(_make_store(tmp_path))
         pending = daemon._store.put_pending('U_OP', {'action': 'create_note', 'content': 'x'})
         payload = _block_action_payload('wm_reject', pending.action_id)
         daemon.handle_block_action(payload)
         daemon._socket_client.post_message.assert_called_once_with('D_TEST', 'Action rejected.')
-        self.assertIsNone(daemon._store.take_pending('U_OP'))
+        assert daemon._store.take_pending('U_OP') is None
 
     def test_acknowledgment_sent_before_dispatch(self):
         """Socket ack (send_socket_mode_response) is called before handler thread."""
@@ -178,15 +178,15 @@ class TestDaemonSocketDispatch(unittest.TestCase):
         req.payload = {'event': event}
         client._handle_request(mock_socket, req)
         time.sleep(0.05)
-        self.assertEqual(ack_order[0], 'ack')
+        assert ack_order[0] == 'ack'
 
-    def test_dm_channel_captured_from_inbound_message(self):
+    def test_dm_channel_captured_from_inbound_message(self, tmp_path):
         """handle_message updates _dm_channel from the inbound event channel."""
-        daemon = _make_daemon(dm_channel=None)
+        daemon = _make_daemon(_make_store(tmp_path), dm_channel=None)
         event = _dm_event(channel='D_DYNAMIC', text='hello')
         with patch.object(daemon, '_dispatch_message'):
             daemon.handle_message(event)
-        self.assertEqual(daemon._dm_channel, 'D_DYNAMIC')
+        assert daemon._dm_channel == 'D_DYNAMIC'
 
     def test_dm_channel_resolved_proactively_at_startup(self):
         """_resolve_dm_channel calls conversations_open and returns channel id."""
@@ -196,7 +196,7 @@ class TestDaemonSocketDispatch(unittest.TestCase):
         mock_web.conversations_open.return_value = {'channel': {'id': 'D_PROACTIVE'}}
         with patch('workmain.daemon.daemon.WebClient', return_value=mock_web):
             result = daemon._resolve_dm_channel('xoxb-bot', 'U_OPERATOR')
-        self.assertEqual(result, 'D_PROACTIVE')
+        assert result == 'D_PROACTIVE'
         mock_web.conversations_open.assert_called_once_with(users=['U_OPERATOR'])
 
     def test_duplicate_event_ts_discarded(self):
@@ -220,11 +220,11 @@ class TestDaemonSocketDispatch(unittest.TestCase):
         client._seen_ts.add(ts)
         client._seen_ts_times[ts] = time.monotonic() - 61.0
         client._evict_old_entries()
-        self.assertNotIn(ts, client._seen_ts)
-        self.assertNotIn(ts, client._seen_ts_times)
+        assert ts not in client._seen_ts
+        assert ts not in client._seen_ts_times
 
 
-class TestDaemonStartConfigurationFault(unittest.TestCase):
+class TestDaemonStartConfigurationFault:
     """AC5.4: a configuration fault fails daemon start (DR7) — start()
     loads the provider manager in line, before _resolve_dm_channel."""
 
@@ -243,7 +243,7 @@ class TestDaemonStartConfigurationFault(unittest.TestCase):
              patch('workmain.daemon.daemon.get_provider_manager',
                    side_effect=ConfigurationError("sentinel")), \
              patch.object(daemon, '_resolve_dm_channel') as mock_resolve:
-            with self.assertRaises(ConfigurationError):
+            with pytest.raises(ConfigurationError):
                 daemon.start()
         mock_resolve.assert_not_called()
 
@@ -252,56 +252,64 @@ class TestDaemonStartConfigurationFault(unittest.TestCase):
 # Group 2 — Block Kit payload (ConfirmationGate)
 # ---------------------------------------------------------------------------
 
-class TestConfirmationGateBlocks(unittest.TestCase):
-
-    def setUp(self):
-        from workmain.orchestration.confirmation_gate import ConfirmationGate
-        self.gate = ConfirmationGate()
+class TestConfirmationGateBlocks:
 
     def test_format_blocks_returns_two_block_list(self):
+        from workmain.orchestration.confirmation_gate import ConfirmationGate
+        gate = ConfirmationGate()
         action = {'action': 'create_note', 'content': 'test note'}
-        blocks = self.gate.format_blocks(action, 'ID1')
-        self.assertEqual(len(blocks), 2)
-        self.assertEqual(blocks[0]['type'], 'section')
-        self.assertEqual(blocks[1]['type'], 'actions')
+        blocks = gate.format_blocks(action, 'ID1')
+        assert len(blocks) == 2
+        assert blocks[0]['type'] == 'section'
+        assert blocks[1]['type'] == 'actions'
 
     def test_format_blocks_approve_action_id(self):
+        from workmain.orchestration.confirmation_gate import ConfirmationGate
+        gate = ConfirmationGate()
         action = {'action': 'create_note', 'content': 'test'}
-        blocks = self.gate.format_blocks(action, 'ID1')
+        blocks = gate.format_blocks(action, 'ID1')
         elements = blocks[1]['elements']
         approve = next(e for e in elements if e.get('action_id') == 'wm_approve')
-        self.assertEqual(approve['style'], 'primary')
+        assert approve['style'] == 'primary'
 
     def test_format_blocks_reject_action_id(self):
+        from workmain.orchestration.confirmation_gate import ConfirmationGate
+        gate = ConfirmationGate()
         action = {'action': 'create_note', 'content': 'test'}
-        blocks = self.gate.format_blocks(action, 'ID1')
+        blocks = gate.format_blocks(action, 'ID1')
         elements = blocks[1]['elements']
         reject = next(e for e in elements if e.get('action_id') == 'wm_reject')
-        self.assertEqual(reject['style'], 'danger')
+        assert reject['style'] == 'danger'
 
     def test_format_blocks_opaque_id_in_both_values(self):
         """Both button values carry the opaque correlation id — never the
         serialized action (delivers #102 AC3 early; deviations table)."""
+        from workmain.orchestration.confirmation_gate import ConfirmationGate
+        gate = ConfirmationGate()
         action = {'action': 'create_note', 'content': 'hello'}
-        blocks = self.gate.format_blocks(action, 'ID-XYZ')
+        blocks = gate.format_blocks(action, 'ID-XYZ')
         elements = blocks[1]['elements']
         for e in elements:
-            self.assertEqual(e['value'], 'ID-XYZ')
+            assert e['value'] == 'ID-XYZ'
 
     def test_format_blocks_truncates_long_description(self):
+        from workmain.orchestration.confirmation_gate import ConfirmationGate
+        gate = ConfirmationGate()
         long_content = 'x' * 200
         action = {'action': 'create_note', 'content': long_content}
-        blocks = self.gate.format_blocks(action, 'ID1')
+        blocks = gate.format_blocks(action, 'ID1')
         section_text = blocks[0]['text']['text']
         # format_prompt truncates at 80 chars for create_note
-        self.assertNotIn('(yes/no)', section_text)
-        self.assertLess(len(section_text), 250)
+        assert '(yes/no)' not in section_text
+        assert len(section_text) < 250
 
     def test_format_prompt_still_works(self):
+        from workmain.orchestration.confirmation_gate import ConfirmationGate
+        gate = ConfirmationGate()
         action = {'action': 'create_note', 'content': 'still works'}
-        prompt = self.gate.format_prompt(action)
-        self.assertIn('(yes/no)', prompt)
-        self.assertIn('still works', prompt)
+        prompt = gate.format_prompt(action)
+        assert '(yes/no)' in prompt
+        assert 'still works' in prompt
 
 
 # ---------------------------------------------------------------------------
@@ -325,7 +333,7 @@ def _make_meeting(mid, title, start_offset_min, end_offset_min=None,
     return m
 
 
-class TestMeetingTriggers(unittest.TestCase):
+class TestMeetingTriggers:
 
     def _run_schedule(self, meetings):
         """Run _schedule_today_meeting_triggers with mocked DB and scheduler."""
@@ -345,25 +353,25 @@ class TestMeetingTriggers(unittest.TestCase):
         meetings = [_make_meeting(1, 'Stand-up', start_offset_min=30, end_offset_min=60)]
         sched = self._run_schedule(meetings)
         job_ids = [c.kwargs.get('id') or c[1].get('id') for c in sched.add_job.call_args_list]
-        self.assertTrue(any('t2_1' in str(jid) for jid in job_ids))
+        assert any('t2_1' in str(jid) for jid in job_ids)
 
     def test_t2_job_not_scheduled_for_past_meeting(self):
         meetings = [_make_meeting(2, 'Old', start_offset_min=-60, end_offset_min=-30)]
         sched = self._run_schedule(meetings)
         job_ids = [str(c) for c in sched.add_job.call_args_list]
-        self.assertFalse(any('t2_2' in j for j in job_ids))
+        assert not any('t2_2' in j for j in job_ids)
 
     def test_t3_job_scheduled_using_end_time(self):
         meetings = [_make_meeting(3, 'Design Review', start_offset_min=10, end_offset_min=70)]
         sched = self._run_schedule(meetings)
         job_ids = [str(c) for c in sched.add_job.call_args_list]
-        self.assertTrue(any('t3_3' in j for j in job_ids))
+        assert any('t3_3' in j for j in job_ids)
 
     def test_t3_job_not_scheduled_if_end_time_none(self):
         meetings = [_make_meeting(4, 'No End', start_offset_min=10, end_offset_min=None)]
         sched = self._run_schedule(meetings)
         job_ids = [str(c) for c in sched.add_job.call_args_list]
-        self.assertFalse(any('t3_4' in j for j in job_ids))
+        assert not any('t3_4' in j for j in job_ids)
 
     def test_cancelled_meeting_skipped(self):
         meetings = [_make_meeting(5, 'Cancelled', start_offset_min=30, is_cancelled=True)]
@@ -386,7 +394,7 @@ class TestMeetingTriggers(unittest.TestCase):
             sched_mod._schedule_today_meeting_triggers(daemon)
         call_count = mock_scheduler.add_job.call_count
         # Two calls, two meetings each = 4 add_job calls total; no exception
-        self.assertEqual(call_count, 4)
+        assert call_count == 4
 
     def test_meeting_triggers_rescheduled_on_15min_rescan(self):
         """register_all_jobs wires an IntervalTrigger for rescan."""
@@ -399,14 +407,14 @@ class TestMeetingTriggers(unittest.TestCase):
              patch('workmain.daemon.scheduler._reschedule_t4_checkin'):
             sched_mod.register_all_jobs(daemon)
         job_ids = [c.kwargs.get('id', '') for c in mock_scheduler.add_job.call_args_list]
-        self.assertIn('t2t3_interval_rescan', job_ids)
+        assert 't2t3_interval_rescan' in job_ids
 
 
 # ---------------------------------------------------------------------------
 # Group 4 — T4 check-in
 # ---------------------------------------------------------------------------
 
-class TestT4Checkin(unittest.TestCase):
+class TestT4Checkin:
 
     def _run_reschedule(self, now_dt, is_working_day=True, is_working_hours=True,
                         delay_minutes=30, t4_interval=(30, 120)):
@@ -570,7 +578,7 @@ class TestT4Checkin(unittest.TestCase):
         daemon.post_message.assert_not_called()
         mock_resched.assert_called_once_with(daemon)
 
-    def test_t4_checkin_suppression_logs_debug(self):
+    def test_t4_checkin_suppression_logs_debug(self, caplog):
         """Suppression path logs at DEBUG level (AC 6)."""
         import workmain.daemon.scheduler as sched_mod
         daemon = MagicMock()
@@ -579,19 +587,21 @@ class TestT4Checkin(unittest.TestCase):
         note.created_at = datetime.now()
         mock_service = MagicMock()
         mock_service.get_t4_interval.return_value = (30, 90)
+        caplog.set_level(logging.DEBUG, logger='workmain.daemon.scheduler')
         with patch('workmain.database.repositories.notes_repo.NotesRepository') as mock_notes_cls, \
              patch('workmain.database.repositories.time_entries_repo.TimeEntriesRepository') as mock_entries_cls, \
              patch('workmain.daemon.scheduler.get_db') as mock_get_db, \
              patch('workmain.daemon.scheduler.ScheduleService', return_value=mock_service), \
-             patch('workmain.daemon.scheduler._reschedule_t4_checkin'), \
-             self.assertLogs('workmain.daemon.scheduler', level='DEBUG') as log_ctx:
+             patch('workmain.daemon.scheduler._reschedule_t4_checkin'):
             mock_get_db.return_value.get_session.return_value = MagicMock()
             mock_notes_cls.return_value.get_most_recent_since.return_value = note
             mock_entries_cls.return_value.get_most_recent_since.return_value = None
             sched_mod._send_t4_checkin(daemon)
-        self.assertTrue(any('suppressed' in msg for msg in log_ctx.output))
+        messages = [r.getMessage() for r in caplog.records
+                if r.name == 'workmain.daemon.scheduler' or r.name.startswith('workmain.daemon.scheduler.')]
+        assert any('suppressed' in msg for msg in messages)
 
-    def test_t4_checkin_suppression_logs_latest_of_both(self):
+    def test_t4_checkin_suppression_logs_latest_of_both(self, caplog):
         """When both Note and TimeEntry are recent, the debug log reflects the
         later of the two timestamps (observability-only, non-blocking)."""
         import workmain.daemon.scheduler as sched_mod
@@ -605,17 +615,19 @@ class TestT4Checkin(unittest.TestCase):
         entry.created_at = later
         mock_service = MagicMock()
         mock_service.get_t4_interval.return_value = (30, 90)
+        caplog.set_level(logging.DEBUG, logger='workmain.daemon.scheduler')
         with patch('workmain.database.repositories.notes_repo.NotesRepository') as mock_notes_cls, \
              patch('workmain.database.repositories.time_entries_repo.TimeEntriesRepository') as mock_entries_cls, \
              patch('workmain.daemon.scheduler.get_db') as mock_get_db, \
              patch('workmain.daemon.scheduler.ScheduleService', return_value=mock_service), \
-             patch('workmain.daemon.scheduler._reschedule_t4_checkin'), \
-             self.assertLogs('workmain.daemon.scheduler', level='DEBUG') as log_ctx:
+             patch('workmain.daemon.scheduler._reschedule_t4_checkin'):
             mock_get_db.return_value.get_session.return_value = MagicMock()
             mock_notes_cls.return_value.get_most_recent_since.return_value = note
             mock_entries_cls.return_value.get_most_recent_since.return_value = entry
             sched_mod._send_t4_checkin(daemon)
-        self.assertTrue(any(later.strftime('%H:%M') in msg for msg in log_ctx.output))
+        messages = [r.getMessage() for r in caplog.records
+                if r.name == 'workmain.daemon.scheduler' or r.name.startswith('workmain.daemon.scheduler.')]
+        assert any(later.strftime('%H:%M') in msg for msg in messages)
 
 
 # ---------------------------------------------------------------------------
@@ -630,14 +642,14 @@ class _FakeResult:
     error: Optional[str] = None
 
 
-class TestT6CorrectionRepresentation(unittest.TestCase):
+class TestT6CorrectionRepresentation:
 
-    def _daemon(self):
-        return _make_daemon()
+    def _daemon(self, tmp_path):
+        return _make_daemon(_make_store(tmp_path))
 
-    def test_t6_summary_posted_after_correct_report(self):
+    def test_t6_summary_posted_after_correct_report(self, tmp_path):
         """Successful correct_report posts Block Kit summary with report fields."""
-        daemon = self._daemon()
+        daemon = self._daemon(tmp_path)
         result = _FakeResult(success=True, message='Done.', entity_id=99)
         action = {'action': 'correct_report', 'correction': 'Fix typo'}
 
@@ -656,11 +668,11 @@ class TestT6CorrectionRepresentation(unittest.TestCase):
         daemon._socket_client.post_blocks.assert_called_once()
         blocks = daemon._socket_client.post_blocks.call_args[0][1]
         text_content = str(blocks)
-        self.assertIn('2026-06-25', text_content)
+        assert '2026-06-25' in text_content
 
-    def test_t6_summary_posted_after_write_correction_note(self):
+    def test_t6_summary_posted_after_write_correction_note(self, tmp_path):
         """write_correction_note action also triggers T6 re-presentation."""
-        daemon = self._daemon()
+        daemon = self._daemon(tmp_path)
         result = _FakeResult(success=True, message='Done.', entity_id=42)
         action = {'action': 'write_correction_note', 'note': 'Clarify section'}
 
@@ -678,9 +690,9 @@ class TestT6CorrectionRepresentation(unittest.TestCase):
 
         daemon._socket_client.post_blocks.assert_called_once()
 
-    def test_t6_fallback_on_missing_report(self):
+    def test_t6_fallback_on_missing_report(self, tmp_path):
         """Falls back to plain text when entity_id resolves to None."""
-        daemon = self._daemon()
+        daemon = self._daemon(tmp_path)
         result = _FakeResult(success=True, message='Done.', entity_id=999)
         action = {'action': 'correct_report'}
 
@@ -693,18 +705,18 @@ class TestT6CorrectionRepresentation(unittest.TestCase):
 
         daemon._socket_client.post_message.assert_called_once_with('D_TEST', 'Correction applied.')
 
-    def test_t6_not_posted_for_non_correction_actions(self):
+    def test_t6_not_posted_for_non_correction_actions(self, tmp_path):
         """create_time_entry and similar actions do not trigger T6."""
-        daemon = self._daemon()
+        daemon = self._daemon(tmp_path)
         result = _FakeResult(success=True, message='Logged.', entity_id=1)
         action = {'action': 'create_time_entry', 'duration_minutes': 60}
         daemon._maybe_post_correction_summary(result, action)
         daemon._socket_client.post_blocks.assert_not_called()
         daemon._socket_client.post_message.assert_not_called()
 
-    def test_t6_not_posted_on_failed_result(self):
+    def test_t6_not_posted_on_failed_result(self, tmp_path):
         """T6 is suppressed when result.success is False."""
-        daemon = self._daemon()
+        daemon = self._daemon(tmp_path)
         result = _FakeResult(success=False, message='Error.', entity_id=5)
         action = {'action': 'correct_report'}
         daemon._maybe_post_correction_summary(result, action)
@@ -739,98 +751,94 @@ def _eod_session(user_id='U_OP', channel_id='D_TEST', step_idx=2,
     return session
 
 
-class TestT5SessionPersistence(unittest.TestCase):
+class TestT5SessionPersistence:
     """ConversationStore persists and restores EOD sessions across restarts."""
 
-    def setUp(self):
-        self._tmpdir = tempfile.TemporaryDirectory()
-        self._path = Path(self._tmpdir.name) / 'daemon' / 'conversation_state.json'
-
-    def tearDown(self):
-        self._tmpdir.cleanup()
-
-    def _store(self):
+    def _store(self, tmp_path):
         from workmain.daemon.conversation_state import ConversationStore
-        return ConversationStore(path=self._path)
+        return ConversationStore(path=Path(tmp_path) / 'daemon' / 'conversation_state.json')
 
-    def test_save_session_creates_file_mode_600(self):
-        self._store().save_session(_eod_session())
-        self.assertTrue(self._path.exists())
-        self.assertTrue(oct(os.stat(self._path).st_mode).endswith('600'))
-        data = json.loads(self._path.read_text())
-        self.assertEqual(data['sessions'][0]['user_id'], 'U_OP')
-        self.assertEqual(data['sessions'][0]['current_step_idx'], 2)
+    def test_save_session_creates_file_mode_600(self, tmp_path):
+        store_path = tmp_path / 'daemon' / 'conversation_state.json'
+        self._store(tmp_path).save_session(_eod_session())
+        assert store_path.exists()
+        assert oct(os.stat(store_path).st_mode).endswith('600')
+        data = json.loads(store_path.read_text())
+        assert data['sessions'][0]['user_id'] == 'U_OP'
+        assert data['sessions'][0]['current_step_idx'] == 2
 
-    def test_store_round_trip(self):
+    def test_store_round_trip(self, tmp_path):
         """Both record types survive a fresh load()."""
-        s1 = self._store()
+        s1 = self._store(tmp_path)
         s1.put_pending('U_OP', {'action': 'create_note', 'content': 'hi'})
         s1.save_session(_eod_session(step_idx=1, completed=['note_review']))
 
-        s2 = self._store()
+        s2 = self._store(tmp_path)
         s2.load()
-        self.assertEqual(s2.take_pending('U_OP'), {'action': 'create_note', 'content': 'hi'})
+        assert s2.take_pending('U_OP') == {'action': 'create_note', 'content': 'hi'}
         restored = s2.get_session('U_OP')
-        self.assertIsNotNone(restored)
-        self.assertEqual(restored.current_step_idx, 1)
-        self.assertEqual(restored.completed, ['note_review'])
-        self.assertIsNone(restored.pending_action)
+        assert restored is not None
+        assert restored.current_step_idx == 1
+        assert restored.completed == ['note_review']
+        assert restored.pending_action is None
 
-    def test_store_load_corrupt_file(self):
-        self._path.parent.mkdir(parents=True, exist_ok=True)
-        self._path.write_text('not valid json {{{{')
-        store = self._store()
+    def test_store_load_corrupt_file(self, tmp_path):
+        store_path = tmp_path / 'daemon' / 'conversation_state.json'
+        store_path.parent.mkdir(parents=True, exist_ok=True)
+        store_path.write_text('not valid json {{{{')
+        store = self._store(tmp_path)
         store.load()   # must not raise
-        self.assertFalse(store.has_any_session())
-        self.assertIsNone(store.take_pending('U_OP'))
+        assert not store.has_any_session()
+        assert store.take_pending('U_OP') is None
 
-    def test_load_absent_file_is_empty_state(self):
-        store = self._store()
+    def test_load_absent_file_is_empty_state(self, tmp_path):
+        store = self._store(tmp_path)
         store.load()
-        self.assertFalse(store.has_any_session())
+        assert not store.has_any_session()
 
-    def test_stale_session_not_restored(self):
+    def test_stale_session_not_restored(self, tmp_path):
         """A session older than EOD_SESSION_TTL is dropped on load (DR9a)."""
-        s1 = self._store()
+        s1 = self._store(tmp_path)
         s1.save_session(_eod_session(started_at=datetime.now() - timedelta(hours=25)))
-        s2 = self._store()
+        s2 = self._store(tmp_path)
         s2.load()
-        self.assertFalse(s2.has_any_session())
-        self.assertEqual(s2.restored_sessions(), [])
+        assert not s2.has_any_session()
+        assert s2.restored_sessions() == []
 
-    def test_legacy_session_file_removed_on_load(self):
-        legacy = self._path.parent / 'eod_session.json'
+    def test_legacy_session_file_removed_on_load(self, tmp_path):
+        store_path = tmp_path / 'daemon' / 'conversation_state.json'
+        legacy = store_path.parent / 'eod_session.json'
         legacy.parent.mkdir(parents=True, exist_ok=True)
         legacy.write_text('{}')
-        self._store().load()
-        self.assertFalse(legacy.exists())
+        self._store(tmp_path).load()
+        assert not legacy.exists()
 
-    def test_discard_session_removes_from_memory_and_disk(self):
-        store = self._store()
+    def test_discard_session_removes_from_memory_and_disk(self, tmp_path):
+        store = self._store(tmp_path)
         store.save_session(_eod_session())
         store.discard_session('U_OP')
-        self.assertFalse(store.has_session('U_OP'))
-        fresh = self._store()
+        assert not store.has_session('U_OP')
+        fresh = self._store(tmp_path)
         fresh.load()
-        self.assertFalse(fresh.has_session('U_OP'))
+        assert not fresh.has_session('U_OP')
 
-    def test_session_not_started_when_one_already_active(self):
+    def test_session_not_started_when_one_already_active(self, tmp_path):
         """handle_start_eod guard fires when a session is already registered."""
         from workmain.integrations.slack.slack_eod import SlackEodManager
         mock_client = MagicMock()
-        store = self._store()
+        store = self._store(tmp_path)
         store.save_session(_eod_session())
         manager = SlackEodManager(mock_client, MagicMock(), store)
         manager.handle_start_eod('U_OP', 'D_TEST')
         mock_client.post_message.assert_called_once()
-        self.assertIn('resume', mock_client.post_message.call_args[0][1].lower())
+        assert 'resume' in mock_client.post_message.call_args[0][1].lower()
 
 
 # ---------------------------------------------------------------------------
 # Group 7 — Morning briefing content (Gate 4 Item #50)
 # ---------------------------------------------------------------------------
 
-class TestMorningBriefingContent(unittest.TestCase):
+class TestMorningBriefingContent:
     """build_morning_briefing() includes meetings and carry-forward tasks."""
 
     def _meeting(self, title, hour=9, duration_hours=1.0):
@@ -851,36 +859,36 @@ class TestMorningBriefingContent(unittest.TestCase):
         from workmain.integrations.slack.slack_eod import build_morning_briefing
         meeting = self._meeting('Standup')
         body = build_morning_briefing(date(2099, 1, 5), [meeting], [], [])
-        self.assertIn('Standup', body)
+        assert 'Standup' in body
 
     def test_no_meetings_shows_placeholder(self):
         from workmain.integrations.slack.slack_eod import build_morning_briefing
         body = build_morning_briefing(date(2099, 1, 5), [], [], [])
-        self.assertIn('No meetings scheduled today.', body)
+        assert 'No meetings scheduled today.' in body
 
     def test_carry_forward_tasks_included(self):
         from workmain.integrations.slack.slack_eod import build_morning_briefing
         task = self._task('Write the spec')
         body = build_morning_briefing(date(2099, 1, 5), [], [task], [])
-        self.assertIn('Write the spec', body)
-        self.assertIn('Carry-forward tasks', body)
+        assert 'Write the spec' in body
+        assert 'Carry-forward tasks' in body
 
     def test_no_tasks_omits_section_entirely(self):
         from workmain.integrations.slack.slack_eod import build_morning_briefing
         body = build_morning_briefing(date(2099, 1, 5), [], [], [])
-        self.assertNotIn('Carry-forward tasks', body)
+        assert 'Carry-forward tasks' not in body
 
     def test_unresolved_observations_shown_when_present(self):
         from workmain.integrations.slack.slack_eod import build_morning_briefing
         observations = [{'type': 'coverage', 'message': 'Gap detected 14:00-15:00'}]
         body = build_morning_briefing(date(2099, 1, 5), [], [], observations)
-        self.assertIn('[coverage] Gap detected 14:00-15:00', body)
-        self.assertIn('Unresolved from yesterday', body)
+        assert '[coverage] Gap detected 14:00-15:00' in body
+        assert 'Unresolved from yesterday' in body
 
     def test_unresolved_observations_omitted_when_empty(self):
         from workmain.integrations.slack.slack_eod import build_morning_briefing
         body = build_morning_briefing(date(2099, 1, 5), [], [], [])
-        self.assertNotIn('Unresolved from yesterday', body)
+        assert 'Unresolved from yesterday' not in body
 
     def test_meetings_and_tasks_together(self):
         from workmain.integrations.slack.slack_eod import build_morning_briefing
@@ -888,16 +896,16 @@ class TestMorningBriefingContent(unittest.TestCase):
         task = self._task('Finish the doc')
         observations = [{'type': 'tag_anomaly', 'message': 'Untagged note found'}]
         body = build_morning_briefing(date(2099, 1, 5), [meeting], [task], observations)
-        self.assertIn('Design Review', body)
-        self.assertIn('Finish the doc', body)
-        self.assertIn('[tag_anomaly] Untagged note found', body)
+        assert 'Design Review' in body
+        assert 'Finish the doc' in body
+        assert '[tag_anomaly] Untagged note found' in body
 
     def test_date_line_renders(self):
         from workmain.integrations.slack.slack_eod import build_morning_briefing
         from workmain.utils.date_format import format_date_display
         target_date = date(2099, 1, 5)
         body = build_morning_briefing(target_date, [], [], [])
-        self.assertIn(format_date_display(target_date), body.splitlines())
+        assert format_date_display(target_date) in body.splitlines()
 
     def test_multiple_observations_each_get_own_bullet(self):
         from workmain.integrations.slack.slack_eod import build_morning_briefing
@@ -906,15 +914,15 @@ class TestMorningBriefingContent(unittest.TestCase):
             {'type': 'tag_anomaly', 'message': 'Untagged note found'},
         ]
         body = build_morning_briefing(date(2099, 1, 5), [], [], observations)
-        self.assertIn('• [coverage] Gap detected 14:00-15:00', body)
-        self.assertIn('• [tag_anomaly] Untagged note found', body)
+        assert '• [coverage] Gap detected 14:00-15:00' in body
+        assert '• [tag_anomaly] Untagged note found' in body
 
 
 # ---------------------------------------------------------------------------
 # Group 8 — Exactly one start-of-day notification (Gate 4 Item #50)
 # ---------------------------------------------------------------------------
 
-class TestSingleStartOfDayNotification(unittest.TestCase):
+class TestSingleStartOfDayNotification:
     """register_all_jobs() registers exactly one 05:30-class job —
     'workday_start' — never the retired parallel 'morning_briefing' job
     (Gate 4 §4.1 consolidation)."""
@@ -932,16 +940,16 @@ class TestSingleStartOfDayNotification(unittest.TestCase):
             mock_get_db.return_value.get_session.return_value = mock_session
             sched_mod.register_all_jobs(daemon)
         job_ids = [c.kwargs.get('id', '') for c in mock_scheduler.add_job.call_args_list]
-        self.assertIn('workday_start', job_ids)
-        self.assertNotIn('morning_briefing', job_ids)
+        assert 'workday_start' in job_ids
+        assert 'morning_briefing' not in job_ids
         # Exactly one job carries the workday-start responsibility
-        self.assertEqual(job_ids.count('workday_start'), 1)
+        assert job_ids.count('workday_start') == 1
 
     def test_morning_briefing_function_no_longer_exists(self):
         """_send_morning_briefing() was removed entirely as dead code once
         its only registration was gone (Gate 4 §4.1)."""
         import workmain.daemon.scheduler as sched_mod
-        self.assertFalse(hasattr(sched_mod, '_send_morning_briefing'))
+        assert not hasattr(sched_mod, '_send_morning_briefing')
 
 
 # ---------------------------------------------------------------------------
@@ -949,7 +957,7 @@ class TestSingleStartOfDayNotification(unittest.TestCase):
 # (Gate 3 Finding 1 direct regression coverage)
 # ---------------------------------------------------------------------------
 
-class TestNotifyMethodSlackDelivery(unittest.TestCase):
+class TestNotifyMethodSlackDelivery:
     """Each of the five relocated triggers threads a daemon handle through
     to deliver(method='slack', daemon=daemon) when notify_method=slack —
     the exact gap Gate 3's Finding 1 fixed (job registration previously
@@ -981,29 +989,29 @@ class TestNotifyMethodSlackDelivery(unittest.TestCase):
         import workmain.daemon.scheduler as sched_mod
         mock_deliver, daemon = self._run_enriched_job(sched_mod.job_daily_closeout)
         mock_deliver.assert_called_once()
-        self.assertEqual(mock_deliver.call_args.kwargs.get('daemon'), daemon)
-        self.assertEqual(mock_deliver.call_args.kwargs.get('method'), 'slack')
+        assert mock_deliver.call_args.kwargs.get('daemon') == daemon
+        assert mock_deliver.call_args.kwargs.get('method') == 'slack'
 
     def test_weekly_draft_delivers_via_slack(self):
         import workmain.daemon.scheduler as sched_mod
         mock_deliver, daemon = self._run_enriched_job(sched_mod.job_weekly_draft)
         mock_deliver.assert_called_once()
-        self.assertEqual(mock_deliver.call_args.kwargs.get('daemon'), daemon)
-        self.assertEqual(mock_deliver.call_args.kwargs.get('method'), 'slack')
+        assert mock_deliver.call_args.kwargs.get('daemon') == daemon
+        assert mock_deliver.call_args.kwargs.get('method') == 'slack'
 
     def test_eow_delivers_via_slack(self):
         import workmain.daemon.scheduler as sched_mod
         mock_deliver, daemon = self._run_enriched_job(sched_mod.job_eow)
         mock_deliver.assert_called_once()
-        self.assertEqual(mock_deliver.call_args.kwargs.get('daemon'), daemon)
-        self.assertEqual(mock_deliver.call_args.kwargs.get('method'), 'slack')
+        assert mock_deliver.call_args.kwargs.get('daemon') == daemon
+        assert mock_deliver.call_args.kwargs.get('method') == 'slack'
 
     def test_eod_prompt_delivers_via_slack(self):
         import workmain.daemon.scheduler as sched_mod
         mock_deliver, daemon = self._run_enriched_job(sched_mod.job_eod_prompt)
         mock_deliver.assert_called_once()
-        self.assertEqual(mock_deliver.call_args.kwargs.get('daemon'), daemon)
-        self.assertEqual(mock_deliver.call_args.kwargs.get('method'), 'slack')
+        assert mock_deliver.call_args.kwargs.get('daemon') == daemon
+        assert mock_deliver.call_args.kwargs.get('method') == 'slack'
 
     def test_workday_start_delivers_via_slack(self):
         """job_workday_start doesn't go through _enriched_notify — it
@@ -1026,8 +1034,8 @@ class TestNotifyMethodSlackDelivery(unittest.TestCase):
             mock_cfg_cls.return_value.get_config.return_value = self._slack_config()
             sched_mod.job_workday_start(daemon)
         mock_deliver.assert_called_once()
-        self.assertEqual(mock_deliver.call_args[0][2], 'slack')
-        self.assertEqual(mock_deliver.call_args.kwargs.get('daemon'), daemon)
+        assert mock_deliver.call_args[0][2] == 'slack'
+        assert mock_deliver.call_args.kwargs.get('daemon') == daemon
 
 
 # ---------------------------------------------------------------------------
@@ -1071,7 +1079,7 @@ class TestGetUnresolvedObservationsBranches:
         assert notice == "No inspection data available."
 
 
-class TestJobWorkdayStartFreshnessAcceptableDates(unittest.TestCase):
+class TestJobWorkdayStartFreshnessAcceptableDates:
     """AC3 — job_workday_start() treats the state file as fresh when its
     target_date matches schedule.previous_working_day(target_date), not
     just target_date itself. previous_working_day() is mocked here (this
@@ -1116,9 +1124,9 @@ class TestJobWorkdayStartFreshnessAcceptableDates(unittest.TestCase):
         friday = date(2099, 1, 2)  # the Friday immediately before SENTINEL_MONDAY
         body = self._run(target_date=SENTINEL_MONDAY, previous_working_day=friday,
                           state_file_date=friday)
-        self.assertNotIn("Inspection data unavailable", body)
-        self.assertNotIn("No inspection data available", body)
-        self.assertIn("CF item.", body)
+        assert "Inspection data unavailable" not in body
+        assert "No inspection data available" not in body
+        assert "CF item." in body
 
     def test_pre_holiday_workday_state_file_fresh_after_holiday(self):
         """T1 fires Tuesday, the workday after a recorded Monday holiday;
@@ -1128,12 +1136,12 @@ class TestJobWorkdayStartFreshnessAcceptableDates(unittest.TestCase):
         friday = date(2099, 1, 2)  # last workday before the SENTINEL_MONDAY holiday
         body = self._run(target_date=SENTINEL_TUESDAY, previous_working_day=friday,
                           state_file_date=friday)
-        self.assertNotIn("Inspection data unavailable", body)
-        self.assertNotIn("No inspection data available", body)
-        self.assertIn("CF item.", body)
+        assert "Inspection data unavailable" not in body
+        assert "No inspection data available" not in body
+        assert "CF item." in body
 
 
-class TestJobWorkdayStartNoticeSplice(unittest.TestCase):
+class TestJobWorkdayStartNoticeSplice:
     """AC4/AC5 — job_workday_start() prepends the notice to the briefing
     body when _get_unresolved_observations() returns one; leaves the body
     untouched when notice is None."""
@@ -1164,17 +1172,15 @@ class TestJobWorkdayStartNoticeSplice(unittest.TestCase):
 
     def test_notice_prepended_when_present(self):
         body = self._run("Inspection data unavailable — last recorded 2099-01-01.")
-        self.assertTrue(
-            body.startswith("Inspection data unavailable — last recorded 2099-01-01.\n\n")
-        )
-        self.assertIn("BRIEFING_BODY", body)
+        assert body.startswith("Inspection data unavailable — last recorded 2099-01-01.\n\n")
+        assert "BRIEFING_BODY" in body
 
     def test_body_unchanged_when_notice_none(self):
         body = self._run(None)
-        self.assertEqual(body, "BRIEFING_BODY")
+        assert body == "BRIEFING_BODY"
 
 
-class TestPreviousWorkingDayGuard(unittest.TestCase):
+class TestPreviousWorkingDayGuard:
     """Rule 7 (F3) — a previous_working_day() failure (pathological
     schedule_exceptions) must not crash job_workday_start(); it falls back
     to acceptable_dates=[target_date] and logs a warning, and the
@@ -1206,36 +1212,29 @@ class TestPreviousWorkingDayGuard(unittest.TestCase):
         mock_deliver.assert_called_once()
         mock_logger.warning.assert_called_once()
         acceptable_dates_arg = mock_get_obs.call_args[0][0]
-        self.assertEqual(acceptable_dates_arg, [date.today()])
+        assert acceptable_dates_arg == [date.today()]
 
 
 # ---------------------------------------------------------------------------
 # Group 11 — Atomic state-file writer (Issue #101 step 1)
 # ---------------------------------------------------------------------------
 
-class TestWriteJsonAtomic(unittest.TestCase):
+class TestWriteJsonAtomic:
 
-    def setUp(self):
-        self._tmpdir = tempfile.TemporaryDirectory()
-        self._dir = Path(self._tmpdir.name)
-
-    def tearDown(self):
-        self._tmpdir.cleanup()
-
-    def test_write_json_atomic(self):
+    def test_write_json_atomic(self, tmp_path):
         """Replaces content rather than appending, sets mode 600, leaves no
         temp sibling behind, and creates the parent directory itself."""
         from workmain.daemon.state_io import write_json_atomic
-        path = self._dir / 'nested' / 'state.json'
+        path = tmp_path / 'nested' / 'state.json'
 
         write_json_atomic(path, {'a': 1, 'b': [1, 2, 3]})
-        self.assertEqual(json.loads(path.read_text()), {'a': 1, 'b': [1, 2, 3]})
+        assert json.loads(path.read_text()) == {'a': 1, 'b': [1, 2, 3]}
 
         write_json_atomic(path, {'a': 2})
-        self.assertEqual(json.loads(path.read_text()), {'a': 2})
+        assert json.loads(path.read_text()) == {'a': 2}
 
-        self.assertTrue(oct(os.stat(path).st_mode).endswith('600'))
-        self.assertEqual(list(path.parent.glob('*.tmp')), [])
+        assert oct(os.stat(path).st_mode).endswith('600')
+        assert list(path.parent.glob('*.tmp')) == []
 
 
 # ---------------------------------------------------------------------------
@@ -1243,29 +1242,28 @@ class TestWriteJsonAtomic(unittest.TestCase):
 # (Issue #101 steps 2 & 5)
 # ---------------------------------------------------------------------------
 
-class TestConversationStorePending(unittest.TestCase):
+class TestConversationStorePending:
 
-    def _store(self):
-        return _make_store()
+    def _store(self, tmp_path):
+        return _make_store(tmp_path)
 
-    def test_mismatched_action_id_leaves_record(self):
-        store = self._store()
+    def test_mismatched_action_id_leaves_record(self, tmp_path):
+        store = self._store(tmp_path)
         pa = store.put_pending('U_OP', {'action': 'create_note', 'content': 'x'})
-        self.assertIsNone(store.take_pending('U_OP', 'not-the-id'))
-        self.assertEqual(store.take_pending('U_OP', pa.action_id),
-                         {'action': 'create_note', 'content': 'x'})
+        assert store.take_pending('U_OP', 'not-the-id') is None
+        assert store.take_pending('U_OP', pa.action_id) == {'action': 'create_note', 'content': 'x'}
 
-    def test_expired_pending_not_executed(self):
-        store = self._store()
+    def test_expired_pending_not_executed(self, tmp_path):
+        store = self._store(tmp_path)
         store.put_pending('U_OP', {'action': 'create_note', 'content': 'x'})
         store._pending['U_OP'].created_at = datetime.now() - timedelta(minutes=30)
-        self.assertIsNone(store.take_pending('U_OP'))
+        assert store.take_pending('U_OP') is None
         # and the expired record is gone
-        self.assertIsNone(store.take_pending('U_OP'))
+        assert store.take_pending('U_OP') is None
 
-    def test_concurrent_take_pending_returns_one_winner(self):
+    def test_concurrent_take_pending_returns_one_winner(self, tmp_path):
         import threading as _t
-        store = self._store()
+        store = self._store(tmp_path)
         store.put_pending('U_OP', {'action': 'create_note', 'content': 'x'})
         results = []
         barrier = _t.Barrier(2)
@@ -1279,24 +1277,24 @@ class TestConversationStorePending(unittest.TestCase):
             th.start()
         for th in threads:
             th.join()
-        self.assertEqual(sum(1 for r in results if r is not None), 1)
+        assert sum(1 for r in results if r is not None) == 1
 
-    def test_long_action_button_value_under_slack_cap(self):
+    def test_long_action_button_value_under_slack_cap(self, tmp_path):
         from workmain.orchestration.confirmation_gate import ConfirmationGate
-        store = self._store()
+        store = self._store(tmp_path)
         action = {'action': 'write_correction_note', 'note': 'z' * 4000}
         pa = store.put_pending('U_OP', action)
         blocks = ConfirmationGate().format_blocks(action, pa.action_id)
         for e in blocks[1]['elements']:
-            self.assertLess(len(e['value']), 2000)
+            assert len(e['value']) < 2000
 
 
-class TestDoubleExecution(unittest.TestCase):
+class TestDoubleExecution:
     """A confirmed action executes exactly once regardless of the order the
     button click and the affirmative text arrive in (AC2)."""
 
-    def test_block_approve_then_yes_executes_once(self):
-        daemon = _make_daemon()
+    def test_block_approve_then_yes_executes_once(self, tmp_path):
+        daemon = _make_daemon(_make_store(tmp_path))
         action = {'action': 'create_note', 'content': 'once'}
         pa = daemon._store.put_pending('U_OP', action)
         with patch.object(daemon, '_execute_action') as mock_exec, \
@@ -1306,8 +1304,8 @@ class TestDoubleExecution(unittest.TestCase):
         mock_exec.assert_called_once_with(action)
         mock_dispatch.assert_called_once()   # 'yes' fell through to a fresh parse
 
-    def test_yes_then_block_approve_executes_once(self):
-        daemon = _make_daemon()
+    def test_yes_then_block_approve_executes_once(self, tmp_path):
+        daemon = _make_daemon(_make_store(tmp_path))
         action = {'action': 'create_note', 'content': 'once'}
         pa = daemon._store.put_pending('U_OP', action)
         with patch.object(daemon, '_execute_action') as mock_exec, \
@@ -1316,13 +1314,13 @@ class TestDoubleExecution(unittest.TestCase):
             daemon.handle_block_action(_block_action_payload('wm_approve', pa.action_id))
         mock_exec.assert_called_once_with(action)
         # the stale click was refused
-        self.assertTrue(any(
+        assert any(
             'no longer active' in c.args[1]
             for c in daemon._socket_client.post_message.call_args_list
-        ))
+        )
 
-    def test_block_reject_clears_pending(self):
-        daemon = _make_daemon()
+    def test_block_reject_clears_pending(self, tmp_path):
+        daemon = _make_daemon(_make_store(tmp_path))
         pa = daemon._store.put_pending('U_OP', {'action': 'create_note', 'content': 'x'})
         with patch.object(daemon, '_execute_action') as mock_exec, \
              patch.object(daemon, '_dispatch_message'):
@@ -1330,35 +1328,34 @@ class TestDoubleExecution(unittest.TestCase):
             daemon.handle_message(_dm_event(text='yes'))
         mock_exec.assert_not_called()
 
-    def test_stale_reject_does_not_clear_current_pending(self):
-        daemon = _make_daemon()
+    def test_stale_reject_does_not_clear_current_pending(self, tmp_path):
+        daemon = _make_daemon(_make_store(tmp_path))
         pa = daemon._store.put_pending('U_OP', {'action': 'create_note', 'content': 'x'})
         daemon.handle_block_action(_block_action_payload('wm_reject', 'stale-id'))
-        self.assertTrue(any(
+        assert any(
             'no longer active' in c.args[1]
             for c in daemon._socket_client.post_message.call_args_list
-        ))
-        self.assertEqual(daemon._store.take_pending('U_OP', pa.action_id),
-                         {'action': 'create_note', 'content': 'x'})
+        )
+        assert daemon._store.take_pending('U_OP', pa.action_id) == {'action': 'create_note', 'content': 'x'}
 
-    def test_actor_resolution(self):
+    def test_actor_resolution(self, tmp_path):
         # payload with user.id present → used
-        daemon = _make_daemon()
+        daemon = _make_daemon(_make_store(tmp_path))
         pa = daemon._store.put_pending('U_ALICE', {'action': 'create_note', 'content': 'x'})
         with patch.object(daemon, '_execute_action') as mock_exec:
             daemon.handle_block_action(_block_action_payload('wm_approve', pa.action_id, user='U_ALICE'))
         mock_exec.assert_called_once()
 
         # payload without user → falls back to cached operator id
-        daemon2 = _make_daemon()
+        daemon2 = _make_daemon(_make_store(tmp_path))
         pa2 = daemon2._store.put_pending('U_OP', {'action': 'create_note', 'content': 'x'})
         with patch.object(daemon2, '_execute_action') as mock_exec2:
             daemon2.handle_block_action(_block_action_payload('wm_approve', pa2.action_id, user=None))
         mock_exec2.assert_called_once()
 
-    def test_empty_result_message_posts_fallback(self):
+    def test_empty_result_message_posts_fallback(self, tmp_path):
         from workmain.orchestration.action_executor import ActionResult
-        daemon = _make_daemon()
+        daemon = _make_daemon(_make_store(tmp_path))
         with patch('workmain.daemon.daemon.get_db') as mock_db, \
              patch('workmain.orchestration.action_executor.ActionExecutor') as mock_ae, \
              patch.object(daemon, '_maybe_post_correction_summary'):
@@ -1368,87 +1365,78 @@ class TestDoubleExecution(unittest.TestCase):
         daemon._socket_client.post_message.assert_any_call('D_TEST', 'Action completed.')
 
 
-class TestEodStateThroughStore(unittest.TestCase):
+class TestEodStateThroughStore:
     """EOD session lifecycle and session.pending_action go through the store
     (AC6, AC14, AC16, AC17)."""
 
-    def setUp(self):
-        self._tmpdir = tempfile.TemporaryDirectory()
-        self._path = Path(self._tmpdir.name) / 'daemon' / 'conversation_state.json'
-
-    def tearDown(self):
-        self._tmpdir.cleanup()
-
-    def _store(self):
+    def _store(self, tmp_path):
         from workmain.daemon.conversation_state import ConversationStore
-        return ConversationStore(path=self._path)
+        return ConversationStore(path=Path(tmp_path) / 'daemon' / 'conversation_state.json')
 
     def _manager(self, store):
         from workmain.integrations.slack.slack_eod import SlackEodManager
         return SlackEodManager(MagicMock(), MagicMock(), store)
 
-    def test_eod_error_leaves_no_resumable_state(self):
-        daemon = _make_daemon(store=self._store())
+    def test_eod_error_leaves_no_resumable_state(self, tmp_path):
+        daemon = _make_daemon(self._store(tmp_path))
         daemon._store.save_session(_eod_session())
         daemon._eod_manager.has_session.return_value = True
         daemon._eod_manager.handle_reply.side_effect = RuntimeError('boom')
         daemon.handle_message(_dm_event(text='anything'))
-        fresh = self._store()
+        fresh = self._store(tmp_path)
         fresh.load()
-        self.assertFalse(fresh.has_any_session())
+        assert not fresh.has_any_session()
 
-    def test_start_eod_discards_pending_action(self):
-        store = self._store()
+    def test_start_eod_discards_pending_action(self, tmp_path):
+        store = self._store(tmp_path)
         store.put_pending('U_OP', {'action': 'create_note', 'content': 'stale offer'})
         manager = self._manager(store)
         with patch.object(manager, '_advance_step'):
             manager.handle_start_eod('U_OP', 'D_TEST')
-        self.assertIsNone(store.take_pending('U_OP'))
+        assert store.take_pending('U_OP') is None
 
-    def test_start_eod_persists_session_on_insert(self):
-        store = self._store()
+    def test_start_eod_persists_session_on_insert(self, tmp_path):
+        store = self._store(tmp_path)
         manager = self._manager(store)
         with patch.object(manager, '_advance_step'):
             manager.handle_start_eod('U_OP', 'D_TEST')
-        fresh = self._store()
+        fresh = self._store(tmp_path)
         fresh.load()
-        self.assertTrue(fresh.has_session('U_OP'))
+        assert fresh.has_session('U_OP')
 
-    def test_resume_offer_from_restored_session(self):
-        s1 = self._store()
+    def test_resume_offer_from_restored_session(self, tmp_path):
+        s1 = self._store(tmp_path)
         s1.save_session(_eod_session(step_idx=1, paused=True))
-        s2 = self._store()
+        s2 = self._store(tmp_path)
         s2.load()
-        daemon = _make_daemon(store=s2)
+        daemon = _make_daemon(s2)
         daemon._maybe_offer_eod_resume()
-        self.assertTrue(any(
+        assert any(
             'Welcome back' in c.args[1]
             for c in daemon._socket_client.post_message.call_args_list
-        ))
+        )
 
-    def test_cleared_inline_pending_not_resurrected(self):
-        store = self._store()
+    def test_cleared_inline_pending_not_resurrected(self, tmp_path):
+        store = self._store(tmp_path)
         session = _eod_session()
         session.pending_action = {'action': 'create_note', 'content': 'inline'}
         store.save_session(session)
-        self.assertEqual(store.take_session_pending('U_OP'),
-                         {'action': 'create_note', 'content': 'inline'})
-        fresh = self._store()
+        assert store.take_session_pending('U_OP') == {'action': 'create_note', 'content': 'inline'}
+        fresh = self._store(tmp_path)
         fresh.load()
-        self.assertIsNone(fresh.get_session('U_OP').pending_action)
+        assert fresh.get_session('U_OP').pending_action is None
 
-    def test_set_inline_pending_persisted(self):
-        store = self._store()
+    def test_set_inline_pending_persisted(self, tmp_path):
+        store = self._store(tmp_path)
         store.save_session(_eod_session())
         store.set_session_pending('U_OP', {'action': 'create_note', 'content': 'inline'})
-        fresh = self._store()
+        fresh = self._store(tmp_path)
         fresh.load()
-        self.assertEqual(fresh.get_session('U_OP').pending_action,
-                         {'action': 'create_note', 'content': 'inline'})
+        assert fresh.get_session('U_OP').pending_action == {'action': 'create_note', 'content': 'inline'}
 
-    def test_concurrent_take_session_pending_returns_one_winner(self):
+    def test_concurrent_take_session_pending_returns_one_winner(self, tmp_path):
         import threading as _t
-        store = self._store()
+        store = self._store(tmp_path)
         session = _eod_session()
         session.pending_action = {'action': 'create_note', 'content': 'inline'}
         store.save_session(session)
@@ -1464,11 +1452,11 @@ class TestEodStateThroughStore(unittest.TestCase):
             th.start()
         for th in threads:
             th.join()
-        self.assertEqual(sum(1 for r in results if r is not None), 1)
+        assert sum(1 for r in results if r is not None) == 1
 
-    def test_async_dispatch_persists_before_thread_start(self):
+    def test_async_dispatch_persists_before_thread_start(self, tmp_path):
         import workmain.integrations.slack.slack_eod as se
-        store = self._store()
+        store = self._store(tmp_path)
         manager = self._manager(store)
         session = _eod_session(step_idx=0, paused=False)
         store.save_session(session)
@@ -1486,66 +1474,66 @@ class TestEodStateThroughStore(unittest.TestCase):
         with patch.object(se.threading, 'Thread', _FakeThread):
             manager._run_step_async(session, {'key': 'task_match', 'num': 1, 'desc': 'Task match'})
 
-        self.assertEqual(order, ['save', 'start'])
+        assert order == ['save', 'start']
 
 
-class TestProviderFailureReplies(unittest.TestCase):
+class TestProviderFailureReplies:
     """Issue #148 DR12, DR15 — a provider failure in Slack is reported as one,
     and the failure footer says what 'continue' and 'skip' do."""
 
     _CAUSE = "intent_parse reply from ollama was cut off at its cap of 256 tokens (length)."
 
-    def _eod_manager(self):
+    def _eod_manager(self, tmp_path):
         from workmain.integrations.slack.slack_eod import SlackEodManager
-        store = _make_store()
+        store = _make_store(tmp_path)
         manager = SlackEodManager(MagicMock(), MagicMock(), store)
         return manager, store
 
-    def test_dispatch_message_reports_provider_failure(self):
+    def test_dispatch_message_reports_provider_failure(self, tmp_path):
         from workmain.ai.base_provider import ProviderError
-        daemon = _make_daemon()
+        daemon = _make_daemon(_make_store(tmp_path))
         daemon._intent_parser = MagicMock()
         daemon._intent_parser.parse.side_effect = ProviderError(self._CAUSE)
         with patch.object(daemon, 'post_message') as post:
             daemon._dispatch_message('U_OP', 'hello')
         text = post.call_args.args[0]
-        self.assertIn('intent_parse', text)
-        self.assertIn('256', text)
+        assert 'intent_parse' in text
+        assert '256' in text
 
-    def test_dispatch_message_keeps_understand_reply_for_parse_error(self):
+    def test_dispatch_message_keeps_understand_reply_for_parse_error(self, tmp_path):
         from workmain.ai.intent_parser import IntentParseError
-        daemon = _make_daemon()
+        daemon = _make_daemon(_make_store(tmp_path))
         daemon._intent_parser = MagicMock()
         daemon._intent_parser.parse.side_effect = IntentParseError('bad json')
         with patch.object(daemon, 'post_message') as post:
             daemon._dispatch_message('U_OP', 'hello')
-        self.assertIn("couldn't understand", post.call_args.args[0])
+        assert "couldn't understand" in post.call_args.args[0]
 
-    def test_inline_correction_reports_provider_failure(self):
+    def test_inline_correction_reports_provider_failure(self, tmp_path):
         from workmain.ai.base_provider import ProviderError
-        manager, _ = self._eod_manager()
+        manager, _ = self._eod_manager(tmp_path)
         manager._intent_parser = MagicMock()
         manager._intent_parser.parse.side_effect = ProviderError(self._CAUSE)
         with patch.object(manager, '_send') as send:
             manager._handle_inline_correction(_eod_session(paused=True), 'fix it')
         text = send.call_args.args[1]
-        self.assertIn('intent_parse', text)
-        self.assertIn('256', text)
+        assert 'intent_parse' in text
+        assert '256' in text
 
-    def test_inline_correction_keeps_understand_reply_for_parse_error(self):
+    def test_inline_correction_keeps_understand_reply_for_parse_error(self, tmp_path):
         from workmain.ai.intent_parser import IntentParseError
-        manager, _ = self._eod_manager()
+        manager, _ = self._eod_manager(tmp_path)
         manager._intent_parser = MagicMock()
         manager._intent_parser.parse.side_effect = IntentParseError('bad json')
         with patch.object(manager, '_send') as send:
             manager._handle_inline_correction(_eod_session(paused=True), 'fix it')
-        self.assertIn("couldn't understand", send.call_args.args[1])
+        assert "couldn't understand" in send.call_args.args[1]
 
-    def test_failed_step_footer_states_continue_retries(self):
+    def test_failed_step_footer_states_continue_retries(self, tmp_path):
         """AC3.10."""
         from workmain.integrations.slack.slack_eod import _FAILED_FOOTER
         from workmain.workflows.eod_workflow import EodStepResult, EodStepStatus
-        manager, store = self._eod_manager()
+        manager, store = self._eod_manager(tmp_path)
         session = _eod_session(step_idx=2)
         store.save_session(session)
         failed = EodStepResult(status=EodStepStatus.FAILED, error='boom')
@@ -1554,8 +1542,8 @@ class TestProviderFailureReplies(unittest.TestCase):
             manager._advance_step(session)
         blocks = send_blocks.call_args.kwargs.get('blocks') or send_blocks.call_args.args[1]
         footer = blocks[1]['elements'][0]['text']
-        self.assertEqual(footer, _FAILED_FOOTER)
-        self.assertIn("'continue' to retry", footer)
+        assert footer == _FAILED_FOOTER
+        assert "'continue' to retry" in footer
 
     def test_no_footer_still_says_continue_skips(self):
         import subprocess
@@ -1563,4 +1551,4 @@ class TestProviderFailureReplies(unittest.TestCase):
             ['git', 'grep', '-n', "'continue' to skip", '--', 'workmain'],
             capture_output=True, text=True,
         )
-        self.assertEqual(out.stdout, '')
+        assert out.stdout == ''
