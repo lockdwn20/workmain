@@ -86,9 +86,9 @@ The conversion sets the rule, so it writes the rule into §6.2 in the same spec:
 
 | Q | Question | Answer |
 | --- | --- | --- |
-| Q1 | The five files create temporary directories that are never removed. Every call to `_make_store()` in `tests/test_orchestration.py` without a path argument calls `tempfile.mkdtemp()`, which happens at 15 call sites (13 through `_make_daemon()`). That fallback exists only because TestCase tests could not take `tmp_path`, so the conversion makes it removable. Two plain pytest classes in `tests/test_eod_workflow.py` (lines 908 and 955) also call `tempfile.mkdtemp()` directly, though those are not TestCase tests. Should #200 remove the fallback and have every caller pass `tmp_path`, including those two plain classes? Or should the leak go to its own issue? **Recommendation: fold it into #200.** The fallback is dead once the conversion lands, and §6 already treats `tmp_path` as the only temp directory. The two plain-class sites sit in a file this branch rewrites, and they share the defect and the fix. A separate issue would edit the same lines twice. | |
+| Q1 | The five files create temporary directories that are never removed. Every call to `_make_store()` in `tests/test_orchestration.py` without a path argument calls `tempfile.mkdtemp()`, which happens at 15 call sites (13 through `_make_daemon()`). That fallback exists only because TestCase tests could not take `tmp_path`, so the conversion makes it removable. Two plain pytest classes in `tests/test_eod_workflow.py` (lines 908 and 955) also call `tempfile.mkdtemp()` directly, though those are not TestCase tests. Should #200 remove the fallback and have every caller pass `tmp_path`, including those two plain classes? Or should the leak go to its own issue? **Recommendation: fold it into #200.** The fallback is dead once the conversion lands, and §6 already treats `tmp_path` as the only temp directory. The two plain-class sites sit in a file this branch rewrites, and they share the defect and the fix. A separate issue would edit the same lines twice. | Answered 20261012 (Ray): fold it into #200. |
 
 ## 6. Disposition
 
-- Promoted to:
+- Promoted to: `../specs/TESTCASE_CONVERSION_SPEC.md`
 - Superseded by:
