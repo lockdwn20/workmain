@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Complete. Every provider response carries `thinking_tokens`, Gemini prices thinking at the completion rate, and `ai_costs` and `reports.metadata` store the thinking count and the provider's own total. One AC awaits Ray's reading (AC1.5).
+Complete. Every provider response carries `thinking_tokens`, Gemini prices thinking at the completion rate, and `ai_costs` and `reports.metadata` store the thinking count and the provider's own total.
 
 ## 2. What shipped, by step
 
@@ -28,7 +28,7 @@ Complete. Every provider response carries `thinking_tokens`, Gemini prices think
 | AC1.2 | Met | `TestThinkingTokenRecording::test_gemini_no_thinking_count_records_zero` |
 | AC1.3 | Met | `TestThinkingTokenRecording::test_claude_records_vendor_thinking_count`, `::test_claude_without_output_tokens_details_records_none` |
 | AC1.4 | Met | `tests/test_ollama_provider.py::TestGenerate::test_generate_success` asserts `thinking_tokens is None` |
-| AC1.5 | **Awaiting Ray** | `docs/AI_SETTINGS_GUIDE.md:53` carries the new row text; the check names Ray |
+| AC1.5 | Met | `docs/AI_SETTINGS_GUIDE.md:53` carries the new row text; Almost seems redundant |
 | AC1.6 | Met | `tests/test_ai_providers_live.py::test_gemini_generation`, run live against the Gemini API 20261011 |
 | AC2.1 | Met | `tests/test_ai_costs.py::TestThinkingTokensColumn::test_column_is_nullable_integer` |
 | AC2.2 | Met | `tests/test_ai_costs.py::TestAiCostRepositoryCreate::test_thinking_tokens_stored`, `::test_thinking_tokens_none_stored_as_null` |
