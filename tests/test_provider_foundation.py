@@ -560,122 +560,116 @@ def _make_full_settings():
     }
 
 
-def test_set_default_preserves_other_fields():
+def test_set_default_preserves_other_fields(tmp_path):
     """Read-modify-write preserves all fields not being changed."""
     runner = CliRunner()
-    with tempfile.TemporaryDirectory() as tmpdir:
-        settings_path = Path(tmpdir) / 'ai_settings.json'
-        settings = _make_full_settings()
-        _write_settings(settings_path, settings)
+    settings_path = tmp_path / 'ai_settings.json'
+    settings = _make_full_settings()
+    _write_settings(settings_path, settings)
 
-        with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
-            result = runner.invoke(
-                providers,
-                ['set', 'default', 'daily_internal', 'claude', '--force']
-            )
+    with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
+        result = runner.invoke(
+            providers,
+            ['set', 'default', 'daily_internal', 'claude', '--force']
+        )
 
-        assert result.exit_code == 0
+    assert result.exit_code == 0
 
-        with open(settings_path) as f:
-            updated = json.load(f)
+    with open(settings_path) as f:
+        updated = json.load(f)
 
-        # Targeted field updated
-        assert updated['report_types']['daily_internal']['primary_provider'] == 'claude'
-        # Other report types preserved
-        assert updated['report_types']['weekly_client']['primary_provider'] == 'gemini'
-        # Provider sections preserved
-        assert 'claude' in updated['providers']
-        assert 'ollama' in updated['providers']
+    # Targeted field updated
+    assert updated['report_types']['daily_internal']['primary_provider'] == 'claude'
+    # Other report types preserved
+    assert updated['report_types']['weekly_client']['primary_provider'] == 'gemini'
+    # Provider sections preserved
+    assert 'claude' in updated['providers']
+    assert 'ollama' in updated['providers']
 
 
-def test_set_default_updates_last_updated():
+def test_set_default_updates_last_updated(tmp_path):
     """last_updated field updated to today's date."""
     from datetime import date
     runner = CliRunner()
-    with tempfile.TemporaryDirectory() as tmpdir:
-        settings_path = Path(tmpdir) / 'ai_settings.json'
-        settings = _make_full_settings()
-        _write_settings(settings_path, settings)
+    settings_path = tmp_path / 'ai_settings.json'
+    settings = _make_full_settings()
+    _write_settings(settings_path, settings)
 
-        with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
-            result = runner.invoke(
-                providers,
-                ['set', 'default', 'daily_internal', 'claude', '--force']
-            )
+    with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
+        result = runner.invoke(
+            providers,
+            ['set', 'default', 'daily_internal', 'claude', '--force']
+        )
 
-        assert result.exit_code == 0
+    assert result.exit_code == 0
 
-        with open(settings_path) as f:
-            updated = json.load(f)
+    with open(settings_path) as f:
+        updated = json.load(f)
 
-        expected_date = date.today().strftime('%Y%m%d')
-        assert updated['last_updated'] == expected_date
+    expected_date = date.today().strftime('%Y%m%d')
+    assert updated['last_updated'] == expected_date
 
 
-def test_set_default_unknown_report_type_bad_parameter():
+def test_set_default_unknown_report_type_bad_parameter(tmp_path):
     """Unknown report_type → BadParameter."""
     runner = CliRunner()
-    with tempfile.TemporaryDirectory() as tmpdir:
-        settings_path = Path(tmpdir) / 'ai_settings.json'
-        _write_settings(settings_path, _make_full_settings())
+    settings_path = tmp_path / 'ai_settings.json'
+    _write_settings(settings_path, _make_full_settings())
 
-        with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
-            result = runner.invoke(
-                providers,
-                ['set', 'default', 'bad_report_type', 'claude', '--force']
-            )
+    with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
+        result = runner.invoke(
+            providers,
+            ['set', 'default', 'bad_report_type', 'claude', '--force']
+        )
 
     assert result.exit_code != 0
     assert 'bad_report_type' in result.output
 
 
-def test_set_default_unknown_provider_bad_parameter():
+def test_set_default_unknown_provider_bad_parameter(tmp_path):
     """Unknown provider → BadParameter."""
     runner = CliRunner()
-    with tempfile.TemporaryDirectory() as tmpdir:
-        settings_path = Path(tmpdir) / 'ai_settings.json'
-        _write_settings(settings_path, _make_full_settings())
+    settings_path = tmp_path / 'ai_settings.json'
+    _write_settings(settings_path, _make_full_settings())
 
-        with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
-            result = runner.invoke(
-                providers,
-                ['set', 'default', 'daily_internal', 'bad_provider', '--force']
-            )
+    with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
+        result = runner.invoke(
+            providers,
+            ['set', 'default', 'daily_internal', 'bad_provider', '--force']
+        )
 
     assert result.exit_code != 0
     assert 'bad_provider' in result.output
 
 
-def test_set_default_force_skips_confirmation():
+def test_set_default_force_skips_confirmation(tmp_path):
     """--force skips confirmation prompt."""
     runner = CliRunner()
-    with tempfile.TemporaryDirectory() as tmpdir:
-        settings_path = Path(tmpdir) / 'ai_settings.json'
-        _write_settings(settings_path, _make_full_settings())
+    settings_path = tmp_path / 'ai_settings.json'
+    _write_settings(settings_path, _make_full_settings())
 
-        with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
-            result = runner.invoke(
-                providers,
-                ['set', 'default', 'daily_internal', 'claude', '--force']
-            )
+    with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
+        result = runner.invoke(
+            providers,
+            ['set', 'default', 'daily_internal', 'claude', '--force']
+        )
 
     assert result.exit_code == 0
     # No "Proceed?" prompt in output
     assert 'Proceed?' not in result.output
 
 
-def test_set_default_output_includes_next_invocation_message():
+def test_set_default_output_includes_next_invocation_message(tmp_path):
     """'Changes take effect on next CLI invocation.' in output."""
     runner = CliRunner()
-    with tempfile.TemporaryDirectory() as tmpdir:
-        settings_path = Path(tmpdir) / 'ai_settings.json'
-        _write_settings(settings_path, _make_full_settings())
+    settings_path = tmp_path / 'ai_settings.json'
+    _write_settings(settings_path, _make_full_settings())
 
-        with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
-            result = runner.invoke(
-                providers,
-                ['set', 'default', 'daily_internal', 'claude', '--force']
-            )
+    with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
+        result = runner.invoke(
+            providers,
+            ['set', 'default', 'daily_internal', 'claude', '--force']
+        )
 
     assert result.exit_code == 0
     assert 'next CLI invocation' in result.output
@@ -891,26 +885,25 @@ def test_providers_list_prints_every_configured_report_type():
     assert 'daily_internal' in result.output
 
 
-def test_set_default_repairs_entry_the_manager_would_refuse():
+def test_set_default_repairs_entry_the_manager_would_refuse(tmp_path):
     """set default writes without constructing a ProviderManager, so it can repair a bad entry."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        settings_path = Path(tmpdir) / 'ai_settings.json'
-        settings = _make_full_settings()
-        settings['report_types']['daily_internal']['primary_provider'] = 'nonesuch'
-        _write_settings(settings_path, settings)
+    settings_path = tmp_path / 'ai_settings.json'
+    settings = _make_full_settings()
+    settings['report_types']['daily_internal']['primary_provider'] = 'nonesuch'
+    _write_settings(settings_path, settings)
 
-        with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path), \
-                patch('workmain.cli.commands.providers.get_provider_manager',
-                      side_effect=AssertionError("set default must not construct a manager")), \
-                patch('workmain.utils.ai_arguments.get_provider_manager',
-                      side_effect=AssertionError("set default must pass valid=, not read the manager")):
-            result = CliRunner().invoke(
-                providers, ['set', 'default', 'daily_internal', 'claude', '--force']
-            )
+    with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path), \
+            patch('workmain.cli.commands.providers.get_provider_manager',
+                  side_effect=AssertionError("set default must not construct a manager")), \
+            patch('workmain.utils.ai_arguments.get_provider_manager',
+                  side_effect=AssertionError("set default must pass valid=, not read the manager")):
+        result = CliRunner().invoke(
+            providers, ['set', 'default', 'daily_internal', 'claude', '--force']
+        )
 
-        assert result.exit_code == 0, result.output
-        with open(settings_path) as f:
-            assert json.load(f)['report_types']['daily_internal']['primary_provider'] == 'claude'
+    assert result.exit_code == 0, result.output
+    with open(settings_path) as f:
+        assert json.load(f)['report_types']['daily_internal']['primary_provider'] == 'claude'
 
 
 # ---------------------------------------------------------------------------
