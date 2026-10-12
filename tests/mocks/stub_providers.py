@@ -7,6 +7,7 @@ from typing import Callable, Dict, Optional
 from workmain.ai.base_provider import (
     FinishStatus,
     GenerationResponse,
+    ProviderStatus,
     ProviderType,
 )
 from workmain.ai.provider_manager import ProviderManager
@@ -18,7 +19,9 @@ class StubProvider:
     def __init__(self, provider_type: ProviderType, finish: FinishStatus = FinishStatus.COMPLETE,
                  reason: str = "STOP", content: str = "stub reply",
                  error: Optional[Exception] = None,
-                 thinking_tokens: Optional[int] = None, tokens_used: int = 10):
+                 thinking_tokens: Optional[int] = None, tokens_used: int = 10,
+                 prompt_tokens: int = 5, completion_tokens: int = 5,
+                 cost: float = 0.0):
         self.provider_type = provider_type
         self._finish = finish
         self._reason = reason
@@ -26,7 +29,13 @@ class StubProvider:
         self._error = error
         self._thinking_tokens = thinking_tokens
         self._tokens_used = tokens_used
+        self._prompt_tokens = prompt_tokens
+        self._completion_tokens = completion_tokens
+        self._cost = cost
         self.calls = 0
+
+    def check_availability(self):
+        return ProviderStatus.AVAILABLE
 
     def generate(self, request):
         self.calls += 1
@@ -34,8 +43,9 @@ class StubProvider:
             raise self._error
         return GenerationResponse(
             content=self._content, provider=self.provider_type, model="stub-model",
-            tokens_used=self._tokens_used, prompt_tokens=5, completion_tokens=5,
-            thinking_tokens=self._thinking_tokens, cost=0.0,
+            tokens_used=self._tokens_used, prompt_tokens=self._prompt_tokens,
+            completion_tokens=self._completion_tokens,
+            thinking_tokens=self._thinking_tokens, cost=self._cost,
             finish=self._finish, finish_reason=self._reason,
         )
 

@@ -4,12 +4,12 @@ Persists every AI API interaction for cost tracking and reporting.
 """
 
 from datetime import date, datetime, timezone
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from workmain.database.models import AiCost
+from workmain.database.models import AiCost, Report
 
 
 class AiCostRepository:
@@ -28,6 +28,9 @@ class AiCostRepository:
         thinking_tokens: Optional[int],
         total_tokens: int,
         cost_usd: float,
+        *,
+        refused: bool,
+        finish_reason: Optional[str],
         generation_time_s: Optional[float] = None,
         report_id: Optional[int] = None,
         meeting_id: Optional[int] = None,
@@ -37,7 +40,8 @@ class AiCostRepository:
         Persist a single AI API interaction.
 
         Args:
-            interaction_type: 'report' or 'condensation'
+            interaction_type: The call type, as named in config/ai_settings.json,
+                or 'providers_test'
             provider: AI provider name (e.g. 'claude', 'gemini')
             model: Model identifier string
             prompt_tokens: Input token count
@@ -46,10 +50,12 @@ class AiCostRepository:
                 None when the provider reports no count
             total_tokens: The total the provider reported
             cost_usd: Total cost in USD
+            refused: True when the reply was rejected as cut off, stopped or empty
+            finish_reason: The vendor's own finish value; None when unknown
             generation_time_s: Wall-clock seconds for the API call
             report_id: FK to reports.id (report interactions only)
             meeting_id: FK to meetings.id (condensation interactions only)
-            context_label: Human-readable label (report type or meeting title)
+            context_label: Human-readable label (meeting title for condensations)
 
         Returns:
             Persisted AiCost record.
@@ -63,6 +69,8 @@ class AiCostRepository:
             thinking_tokens=thinking_tokens,
             total_tokens=total_tokens,
             cost_usd=cost_usd,
+            refused=refused,
+            finish_reason=finish_reason,
             generation_time_s=generation_time_s,
             report_id=report_id,
             meeting_id=meeting_id,
@@ -73,6 +81,68 @@ class AiCostRepository:
         self.session.commit()
         self.session.refresh(record)
         return record
+
+    def link_report(self, ids: List[int], report_id: int) -> None:
+        """
+        Set report_id on the given cost rows and commit.
+
+        Args:
+            ids: ai_costs row ids; an empty list does nothing
+            report_id: FK to reports.id
+        """
+        if not ids:
+            return
+        self.session.query(AiCost).filter(AiCost.id.in_(ids)).update(
+            {AiCost.report_id: report_id}, synchronize_session=False
+        )
+        self.session.commit()
+
+    def get_by_ids(self, ids: List[int]) -> List[AiCost]:
+        """
+        Return the cost rows with the given ids, ordered by id.
+
+        Args:
+            ids: ai_costs row ids; an empty list returns an empty list
+        """
+        if not ids:
+            return []
+        return (
+            self.session.query(AiCost)
+            .filter(AiCost.id.in_(ids))
+            .order_by(AiCost.id)
+            .all()
+        )
+
+    def get_report_costs(
+        self,
+        provider: Optional[str] = None,
+        report_type: Optional[str] = None,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+    ) -> List[Tuple[AiCost, Report]]:
+        """
+        Return cost rows that belong to a report, each with its report.
+
+        Provider filters on the cost row, type on the report, and dates on
+        Report.report_date (inclusive).
+
+        Returns:
+            (AiCost, Report) pairs ordered by Report.report_date descending,
+            then AiCost.id descending.
+        """
+        query = self.session.query(AiCost, Report).join(
+            Report, AiCost.report_id == Report.id
+        )
+        if provider:
+            query = query.filter(AiCost.provider == provider)
+        if report_type:
+            query = query.filter(Report.report_type == report_type)
+        if start_date:
+            query = query.filter(Report.report_date >= start_date)
+        if end_date:
+            query = query.filter(Report.report_date <= end_date)
+        query = query.order_by(Report.report_date.desc(), AiCost.id.desc())
+        return [(cost, report) for cost, report in query.all()]
 
     def get_filtered(
         self,
@@ -130,9 +200,7 @@ class AiCostRepository:
             end_date: Inclusive range end (filters on created_at)
 
         Returns:
-            Dict with keys: total_cost, total_tokens, total_calls,
-            by_provider {name: {calls, cost, tokens}},
-            by_type {name: {calls, cost, tokens}}
+            The dict `summarize` returns.
         """
         query = self.session.query(AiCost)
 
@@ -145,37 +213,61 @@ class AiCostRepository:
         if end_date:
             query = query.filter(AiCost.created_at <= _date_end_bound(end_date))
 
-        rows = query.all()
+        return summarize(query.all())
 
-        total_cost = sum(float(r.cost_usd) for r in rows)
-        total_tokens = sum(r.total_tokens for r in rows)
-        total_calls = len(rows)
 
-        by_provider: Dict[str, Dict] = {}
-        for r in rows:
-            p = r.provider
-            if p not in by_provider:
-                by_provider[p] = {'calls': 0, 'cost': 0.0, 'tokens': 0}
-            by_provider[p]['calls'] += 1
-            by_provider[p]['cost'] += float(r.cost_usd)
-            by_provider[p]['tokens'] += r.total_tokens
+def _answer_tokens(row: AiCost) -> int:
+    """Completion tokens less thinking, or completion when thinking is unknown."""
+    if row.thinking_tokens is None:
+        return row.completion_tokens
+    return row.completion_tokens - row.thinking_tokens
 
-        by_type: Dict[str, Dict] = {}
-        for r in rows:
-            t = r.interaction_type
-            if t not in by_type:
-                by_type[t] = {'calls': 0, 'cost': 0.0, 'tokens': 0}
-            by_type[t]['calls'] += 1
-            by_type[t]['cost'] += float(r.cost_usd)
-            by_type[t]['tokens'] += r.total_tokens
 
-        return {
-            'total_cost': total_cost,
-            'total_tokens': total_tokens,
-            'total_calls': total_calls,
-            'by_provider': by_provider,
-            'by_type': by_type,
-        }
+def _bucket() -> Dict:
+    return {
+        'calls': 0, 'cost': 0.0, 'tokens': 0,
+        'prompt_tokens': 0, 'answer_tokens': 0, 'thinking_tokens': None,
+    }
+
+
+def _add_to_bucket(bucket: Dict, row: AiCost) -> None:
+    bucket['calls'] += 1
+    bucket['cost'] += float(row.cost_usd)
+    bucket['tokens'] += row.total_tokens
+    bucket['prompt_tokens'] += row.prompt_tokens
+    bucket['answer_tokens'] += _answer_tokens(row)
+    if row.thinking_tokens is not None:
+        bucket['thinking_tokens'] = (bucket['thinking_tokens'] or 0) + row.thinking_tokens
+
+
+def summarize(rows: List[AiCost]) -> Dict:
+    """
+    Aggregate cost rows into totals with breakdowns by provider and type.
+
+    Returns:
+        Dict with keys: total_cost, total_tokens, total_calls, prompt_tokens,
+        answer_tokens, thinking_tokens (None when no row reports a count),
+        by_provider and by_type. Each bucket in by_provider / by_type holds
+        calls, cost, tokens, prompt_tokens, answer_tokens, thinking_tokens.
+    """
+    total = _bucket()
+    by_provider: Dict[str, Dict] = {}
+    by_type: Dict[str, Dict] = {}
+    for r in rows:
+        _add_to_bucket(total, r)
+        _add_to_bucket(by_provider.setdefault(r.provider, _bucket()), r)
+        _add_to_bucket(by_type.setdefault(r.interaction_type, _bucket()), r)
+
+    return {
+        'total_cost': total['cost'],
+        'total_tokens': total['tokens'],
+        'total_calls': total['calls'],
+        'prompt_tokens': total['prompt_tokens'],
+        'answer_tokens': total['answer_tokens'],
+        'thinking_tokens': total['thinking_tokens'],
+        'by_provider': by_provider,
+        'by_type': by_type,
+    }
 
 
 def get_ai_cost_repository(session: Session) -> AiCostRepository:

@@ -12,7 +12,7 @@ from typing import List, Optional
 
 from sqlalchemy import (
     Column, Integer, String, Text, Boolean, DateTime, Date, Time, Float,
-    DECIMAL, Numeric, ForeignKey, ARRAY, Computed, JSON, func, CheckConstraint
+    DECIMAL, Numeric, ForeignKey, ARRAY, Computed, JSON, func, text
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -417,15 +417,10 @@ class AiCost(Base):
 
     One row per API interaction. Only one FK (report_id or meeting_id) is
     populated per row depending on the interaction type.
-    interaction_type values: 'report', 'condensation', 'intent_parse'.
+    interaction_type is the call type, as named in config/ai_settings.json,
+    or 'providers_test'.
     """
     __tablename__ = 'ai_costs'
-    __table_args__ = (
-        CheckConstraint(
-            "interaction_type IN ('report', 'condensation', 'intent_parse')",
-            name='ai_costs_interaction_type_check'
-        ),
-    )
 
     id                = Column(Integer, primary_key=True)
     interaction_type  = Column(String(50), nullable=False)
@@ -436,6 +431,9 @@ class AiCost(Base):
     total_tokens      = Column(Integer, nullable=False, default=0)
     thinking_tokens   = Column(Integer, nullable=True)
     cost_usd          = Column(Numeric(12, 8), nullable=False, default=0)
+    refused           = Column(Boolean, nullable=False, default=False,
+                               server_default=text('false'))
+    finish_reason     = Column(String(50), nullable=True)
     generation_time_s = Column(Float)
     report_id         = Column(Integer, ForeignKey('reports.id', ondelete='SET NULL'), nullable=True)
     meeting_id        = Column(Integer, ForeignKey('meetings.id', ondelete='SET NULL'), nullable=True)
