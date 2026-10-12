@@ -1,6 +1,6 @@
 # Five Non-Command TestCase Files to Plain pytest — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261012
 **Branch:** `hotfix/issue-200-testcase-conversion` (from `main`)
@@ -24,6 +24,7 @@
 | 20261012 | Caliper | 7: `caplog.messages` holds records from every logger, so the `assertLogs` mapping loosens the two log assertions (DR3). | Accepted. `log_ctx.output` maps to the messages of records from the named logger and its children only. |
 | 20261012 | Caliper | 2: §6.2 rule 7 as drafted is broken on ship by seven `tempfile.TemporaryDirectory()` sites in `tests/test_provider_foundation.py` and by two TestCase sites, and its reason is false for `TemporaryDirectory` and for a `mkdtemp()` the test removes. | Ray, 20261012: option B. The seven sites are in scope and take `tmp_path` (Step 6). They are module-level test functions, not class methods. They use the same `with tempfile.TemporaryDirectory()` construct the conversion table already covers, so no new conversion form is needed. Rule 7's text names the TestCase case and gives a reason that holds for both `tempfile` calls. Remaining sites after this branch: `tests/test_meetings_condense.py:187` and `tests/test_report_correction.py:686`, both TestCase files #199 carries. |
 | 20261012 | Caliper | 4: Step 5 and AC5.1's whole-suite scope go beyond the issue and the Q1 answer. | Ray, 20261012: option A, the extension is confirmed. |
+| 20261012 | Caliper | Second pass after findings 1–4 were resolved: No findings. | — |
 
 ---
 
