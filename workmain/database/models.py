@@ -388,27 +388,6 @@ class Report(Base):
 
     def __repr__(self):
         return f"<Report(id={self.id}, type='{self.report_type}', date={self.report_date})>"
-    
-    @property
-    def ai_provider(self) -> Optional[str]:
-        """Get AI provider from metadata."""
-        if self.report_metadata:
-            return self.report_metadata.get('ai_provider')
-        return None
-    
-    @property
-    def total_cost(self) -> float:
-        """Get total cost from metadata."""
-        if self.report_metadata:
-            return float(self.report_metadata.get('cost', 0))
-        return 0.0
-    
-    @property
-    def total_tokens(self) -> int:
-        """Get total tokens from metadata."""
-        if self.report_metadata:
-            return int(self.report_metadata.get('total_tokens', 0))
-        return 0
 
 
 class AiCost(Base):

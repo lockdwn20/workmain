@@ -306,7 +306,8 @@ class TestReportRecording:
     def test_report_records_one_row_linked_to_the_saved_report(
         self, tmp_path, db_session, session_for_command
     ):
-        """AC1.1: one row, typed with the call type, linked, carrying the stub's values."""
+        """AC1.1, AC8.2: one row, typed with the call type, linked, carrying the
+        stub's values; the report's metadata carries no cost key."""
         from tests.mocks.stub_providers import StubProvider
         from workmain.database.models import AiCost
         session_for_command('workmain.services.ai_cost_service')
@@ -332,6 +333,12 @@ class TestReportRecording:
         assert row.thinking_tokens == 196
         assert row.total_tokens == 211
         assert float(row.cost_usd) == pytest.approx(0.0123)
+        report = generator.reports_repo.get_by_id(result["report_id"])
+        for key in ("ai_model", "prompt_tokens", "completion_tokens",
+                    "thinking_tokens", "total_tokens", "cost"):
+            assert key not in report.report_metadata
+        assert report.report_metadata["ai_provider"] == "gemini"
+        assert "generation_time" in report.report_metadata
 
     def test_save_failure_after_reply_still_leaves_an_unlinked_row(
         self, tmp_path, db_session, session_for_command

@@ -197,12 +197,6 @@ class ReportGenerator:
                 report_date=report_date,
                 content=content,
                 ai_provider=response.provider.value,
-                ai_model=response.model,
-                prompt_tokens=response.prompt_tokens,
-                completion_tokens=response.completion_tokens,
-                thinking_tokens=response.thinking_tokens,
-                total_tokens=response.tokens_used,
-                cost=response.cost,
                 generation_time=generation_time,
                 file_path=str(file_path) if file_path else None,
                 client_id=client_id,
@@ -486,35 +480,6 @@ class ReportGenerator:
             }
             for report in reports
         ]
-    
-    def get_cost_summary(self, report_type: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Get cost summary for generated reports from database.
-        
-        Args:
-            report_type: Filter by report type (optional)
-            
-        Returns:
-            Cost summary dictionary
-        """
-        # Get summary from database
-        summary = self.reports_repo.get_cost_summary()
-        
-        if report_type and summary['by_type'].get(report_type):
-            # Return specific report type
-            data = summary['by_type'][report_type]
-            return {
-                "report_type": report_type,
-                "total_cost": data['cost'],
-                "reports": data['reports'],
-                "total_tokens": data['tokens']
-            }
-        elif report_type:
-            # Report type not found
-            return {"report_type": report_type, "total_cost": 0.0, "reports": 0}
-        else:
-            # Return full summary
-            return summary
 
 
 # Singleton instance
