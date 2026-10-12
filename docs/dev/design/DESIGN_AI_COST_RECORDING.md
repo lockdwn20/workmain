@@ -1,6 +1,6 @@
 # AI Cost Recording — Design Study
 
-**Status:** Active
+**Status:** Shipped
 **Kind:** Design study
 **Author:** Spanner (Role 1)
 **Date:** 20261011
@@ -127,5 +127,5 @@ These are Spanner's recommendations, each with its reason. Ray approves them wit
 
 ## 6. Disposition
 
-- Promoted to:
+- Promoted to: `../specs/AI_COST_RECORDING_SPEC.md`
 - Superseded by:

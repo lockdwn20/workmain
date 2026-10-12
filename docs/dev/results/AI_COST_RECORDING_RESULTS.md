@@ -1,10 +1,10 @@
 # AI Cost Recording — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Anvil (Role 3)
 **Date:** 20261011
 **Spec:** `../specs/AI_COST_RECORDING_SPEC.md`
-**Released as:** set by `/closeout`
+**Released as:** v1.45.0 (tag v1.45.0)
 
 ---
 
@@ -94,7 +94,7 @@ Tests deleted, with the reason:
 - **Test suite:** 1271 passed, 0 failed, 0 skipped (baseline: 1232 passed, 0 failed, 0 skipped) — form per `docs/DEVELOPMENT_STANDARDS.md` §6.
 - **Narrow terminal:** `COLUMNS=60 pytest`: 1271 passed, 0 failed, 0 skipped.
 - **Live verification:** Ray ran R1–R6 on the branch before `026` and reported all six passing; Anvil's read-only pre-`026` count was 0; Ray then executed `026` and the AC8.4 and AC8.5 tests passed against the live database.
-- **Daemon restart:** for `/closeout`.
+- **Daemon restart:** close-out's (`docs/DEVELOPMENT_STANDARDS.md` §2.6).
 
 ## 6. Follow-ups
 

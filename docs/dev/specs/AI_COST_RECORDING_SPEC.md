@@ -1,6 +1,6 @@
 # AI Cost Recording — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261011
 **Branch:** `feature/issue-191-ai-cost-recording` (from `dev`)
