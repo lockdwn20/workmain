@@ -10,7 +10,6 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from workmain.database.models import AiCost, Report
-from workmain.utils.cost_display import answer_tokens
 
 
 class AiCostRepository:
@@ -215,6 +214,13 @@ class AiCostRepository:
             query = query.filter(AiCost.created_at <= _date_end_bound(end_date))
 
         return summarize(query.all())
+
+
+def answer_tokens(completion_tokens: int, thinking_tokens: Optional[int]) -> int:
+    """Completion tokens less thinking, or completion when thinking is unknown."""
+    if thinking_tokens is None:
+        return completion_tokens
+    return completion_tokens - thinking_tokens
 
 
 def _bucket() -> Dict:

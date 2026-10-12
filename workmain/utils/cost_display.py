@@ -1,6 +1,6 @@
 """
-Rendering for AI cost figures: the answer and thinking rules, the per-call
-token line, and the summary, row and breakdown tables the four cost commands
+Rendering for AI cost figures: the thinking rule (the answer rule lives in
+the repository module), the per-call token line, and the summary, row and breakdown tables the four cost commands
 share.
 """
 
@@ -10,14 +10,9 @@ from rich import box
 from rich.console import Console
 from rich.table import Table
 
+from workmain.database.repositories.ai_costs_repo import answer_tokens
+
 NO_COUNT = "—"
-
-
-def answer_tokens(completion_tokens: int, thinking_tokens: Optional[int]) -> int:
-    """Completion tokens less thinking, or completion when thinking is unknown."""
-    if thinking_tokens is None:
-        return completion_tokens
-    return completion_tokens - thinking_tokens
 
 
 def format_thinking(thinking_tokens: Optional[int]) -> str:
