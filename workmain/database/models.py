@@ -12,7 +12,7 @@ from typing import List, Optional
 
 from sqlalchemy import (
     Column, Integer, String, Text, Boolean, DateTime, Date, Time, Float,
-    DECIMAL, Numeric, ForeignKey, ARRAY, Computed, JSON, func, CheckConstraint
+    DECIMAL, Numeric, ForeignKey, ARRAY, Computed, JSON, func, text
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -344,7 +344,7 @@ class Report(Base):
     """
     Report model - represents AI-generated reports.
 
-    Stores generated report metadata including AI costs, tokens, and provider info.
+    Stores generated report metadata: provider, generation time, file path and fallback reason. Cost lives in ai_costs.
     Links to file system for actual report content.
     """
     __tablename__ = 'reports'
@@ -388,27 +388,6 @@ class Report(Base):
 
     def __repr__(self):
         return f"<Report(id={self.id}, type='{self.report_type}', date={self.report_date})>"
-    
-    @property
-    def ai_provider(self) -> Optional[str]:
-        """Get AI provider from metadata."""
-        if self.report_metadata:
-            return self.report_metadata.get('ai_provider')
-        return None
-    
-    @property
-    def total_cost(self) -> float:
-        """Get total cost from metadata."""
-        if self.report_metadata:
-            return float(self.report_metadata.get('cost', 0))
-        return 0.0
-    
-    @property
-    def total_tokens(self) -> int:
-        """Get total tokens from metadata."""
-        if self.report_metadata:
-            return int(self.report_metadata.get('total_tokens', 0))
-        return 0
 
 
 class AiCost(Base):
@@ -417,15 +396,10 @@ class AiCost(Base):
 
     One row per API interaction. Only one FK (report_id or meeting_id) is
     populated per row depending on the interaction type.
-    interaction_type values: 'report', 'condensation', 'intent_parse'.
+    interaction_type is the call type, as named in config/ai_settings.json,
+    or 'providers_test'.
     """
     __tablename__ = 'ai_costs'
-    __table_args__ = (
-        CheckConstraint(
-            "interaction_type IN ('report', 'condensation', 'intent_parse')",
-            name='ai_costs_interaction_type_check'
-        ),
-    )
 
     id                = Column(Integer, primary_key=True)
     interaction_type  = Column(String(50), nullable=False)
@@ -436,6 +410,9 @@ class AiCost(Base):
     total_tokens      = Column(Integer, nullable=False, default=0)
     thinking_tokens   = Column(Integer, nullable=True)
     cost_usd          = Column(Numeric(12, 8), nullable=False, default=0)
+    refused           = Column(Boolean, nullable=False, default=False,
+                               server_default=text('false'))
+    finish_reason     = Column(String(50), nullable=True)
     generation_time_s = Column(Float)
     report_id         = Column(Integer, ForeignKey('reports.id', ondelete='SET NULL'), nullable=True)
     meeting_id        = Column(Integer, ForeignKey('meetings.id', ondelete='SET NULL'), nullable=True)

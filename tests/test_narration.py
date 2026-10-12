@@ -9,6 +9,8 @@ the resulting ProviderManager to narration by setting the module singleton
 
 import json
 import logging
+
+import pytest
 from pathlib import Path
 
 from workmain.ai import provider_manager as provider_manager_module
@@ -136,3 +138,37 @@ class TestNarrationRefusal:
 
         assert "TRUNCATED NARRATIO" not in result
         assert "Missing time entry for 2pm meeting" in result
+
+
+class TestNarrationRecording:
+    """AC1.3 — a narration reply is recorded, typed daemon_narration."""
+
+    def test_narration_records_one_row(
+        self, tmp_path, monkeypatch, db_session, session_for_command
+    ):
+        from tests.mocks.stub_providers import StubProvider
+        from workmain.database.models import AiCost
+        session_for_command('workmain.services.ai_cost_service')
+        pm = stubbed_manager(tmp_path, {
+            "claude": StubProvider(
+                ProviderType.CLAUDE, content="Narrated.",
+                prompt_tokens=9, completion_tokens=202, thinking_tokens=196,
+                tokens_used=211, cost=0.0123,
+            ),
+        })
+        monkeypatch.setattr(provider_manager_module, "_provider_manager_instance", pm)
+        query = db_session.query(AiCost).filter(
+            AiCost.interaction_type == "daemon_narration"
+        )
+        before = query.count()
+
+        narration.narrate(_one_observation())
+
+        assert query.count() == before + 1
+        row = query.order_by(AiCost.id.desc()).first()
+        assert row.provider == "claude"
+        assert row.prompt_tokens == 9
+        assert row.completion_tokens == 202
+        assert row.thinking_tokens == 196
+        assert row.total_tokens == 211
+        assert float(row.cost_usd) == pytest.approx(0.0123)

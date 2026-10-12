@@ -65,6 +65,64 @@ class TestThinkingTokensColumn:
 
 
 # ---------------------------------------------------------------------------
+# ai_costs.refused / finish_reason columns, no type constraint (migration 025)
+# ---------------------------------------------------------------------------
+
+class TestRecordingColumns:
+    def test_refused_is_not_null_boolean_default_false(self, db_session):
+        """AC8.1: migration 025 added refused as boolean, not null, default false."""
+        row = db_session.execute(text(
+            "SELECT data_type, is_nullable, column_default "
+            "FROM information_schema.columns "
+            "WHERE table_name = 'ai_costs' AND column_name = 'refused'"
+        )).one()
+        assert row.data_type == 'boolean'
+        assert row.is_nullable == 'NO'
+        assert row.column_default == 'false'
+
+    def test_finish_reason_is_nullable(self, db_session):
+        """AC8.1: migration 025 added a nullable finish_reason."""
+        row = db_session.execute(text(
+            "SELECT is_nullable FROM information_schema.columns "
+            "WHERE table_name = 'ai_costs' AND column_name = 'finish_reason'"
+        )).one()
+        assert row.is_nullable == 'YES'
+
+    def test_no_interaction_type_check_constraint(self, db_session):
+        """AC8.1: the interaction_type CHECK constraint is gone."""
+        count = db_session.execute(text(
+            "SELECT count(*) FROM pg_constraint "
+            "WHERE conrelid = 'ai_costs'::regclass AND contype = 'c' "
+            "AND conname = 'ai_costs_interaction_type_check'"
+        )).scalar()
+        assert count == 0
+
+
+# ---------------------------------------------------------------------------
+# One record of cost (migration 026)
+# ---------------------------------------------------------------------------
+
+class TestSingleCostRecord:
+    def test_no_cost_row_carries_a_retired_type(self, db_session):
+        """AC8.4: migration 026 renamed 'report' and 'condensation'."""
+        count = db_session.execute(text(
+            "SELECT count(*) FROM ai_costs "
+            "WHERE interaction_type IN ('report', 'condensation')"
+        )).scalar()
+        assert count == 0
+
+    def test_no_report_with_a_cost_row_carries_a_cost_key(self, db_session):
+        """AC8.5: migration 026 stripped the six cost keys from those reports."""
+        count = db_session.execute(text(
+            "SELECT count(*) FROM reports r "
+            "WHERE EXISTS (SELECT 1 FROM ai_costs a WHERE a.report_id = r.id) "
+            "AND r.metadata ?| array['ai_model', 'prompt_tokens', "
+            "'completion_tokens', 'thinking_tokens', 'total_tokens', 'cost']"
+        )).scalar()
+        assert count == 0
+
+
+# ---------------------------------------------------------------------------
 # AiCostRepository.create()
 # ---------------------------------------------------------------------------
 
@@ -81,6 +139,8 @@ class TestAiCostRepositoryCreate:
             thinking_tokens=None,
             total_tokens=300,
             cost_usd=0.0025,
+            refused=False,
+            finish_reason='STOP',
             context_label='daily_internal',
         )
         assert row.id is not None
@@ -105,6 +165,8 @@ class TestAiCostRepositoryCreate:
             thinking_tokens=None,
             total_tokens=70,
             cost_usd=0.0001,
+            refused=False,
+            finish_reason='STOP',
             context_label='Team Standup',
         )
         assert row.interaction_type == 'condensation'
@@ -123,6 +185,8 @@ class TestAiCostRepositoryCreate:
             thinking_tokens=None,
             total_tokens=20,
             cost_usd=0.0,
+            refused=False,
+            finish_reason='STOP',
         )
         db_session.refresh(row)
         assert row.total_tokens == 20
@@ -133,6 +197,7 @@ class TestAiCostRepositoryCreate:
             interaction_type='report', provider='gemini', model='m',
             prompt_tokens=9, completion_tokens=202, thinking_tokens=196,
             total_tokens=211, cost_usd=0.0,
+            refused=False, finish_reason='STOP',
         )
         db_session.refresh(row)
         assert row.thinking_tokens == 196
@@ -143,6 +208,7 @@ class TestAiCostRepositoryCreate:
             interaction_type='report', provider='ollama', model='m',
             prompt_tokens=9, completion_tokens=6, thinking_tokens=None,
             total_tokens=15, cost_usd=0.0,
+            refused=False, finish_reason='STOP',
         )
         db_session.refresh(row)
         assert row.thinking_tokens is None
@@ -368,3 +434,212 @@ class TestProviderManagerConfig:
             assert cfg.primary_provider != cfg.fallback_provider, (
                 f"{rt}: primary == fallback ({cfg.primary_provider})"
             )
+
+
+# ---------------------------------------------------------------------------
+# Recording columns, link_report, get_by_ids, summarize (issue #191 Step 2)
+# ---------------------------------------------------------------------------
+
+class TestAiCostRepositoryRecording:
+    def test_create_stores_refused_and_finish_reason(self, db_session):
+        """create() stores refused and finish_reason as given."""
+        row = AiCostRepository(db_session).create(
+            interaction_type='daily_internal', provider='gemini', model='m',
+            prompt_tokens=9, completion_tokens=202, thinking_tokens=196,
+            total_tokens=211, cost_usd=0.0123,
+            refused=True, finish_reason='MAX_TOKENS',
+        )
+        db_session.refresh(row)
+        assert row.refused is True
+        assert row.finish_reason == 'MAX_TOKENS'
+
+    def test_link_report_sets_report_id_on_given_rows_only(self, db_session):
+        """link_report sets report_id on the listed ids and leaves others alone."""
+        from workmain.database.models import Report
+        report = Report(report_type='daily_internal', report_date=_S_DATE,
+                        content='x', report_metadata={})
+        db_session.add(report)
+        db_session.flush()
+        a = _insert_cost(db_session)
+        b = _insert_cost(db_session)
+        c = _insert_cost(db_session)
+
+        AiCostRepository(db_session).link_report([a.id, b.id], report.id)
+        db_session.expire_all()
+
+        assert db_session.get(AiCost, a.id).report_id == report.id
+        assert db_session.get(AiCost, b.id).report_id == report.id
+        assert db_session.get(AiCost, c.id).report_id is None
+
+    def test_link_report_with_no_ids_does_nothing(self, db_session):
+        """An empty id list issues no update."""
+        row = _insert_cost(db_session)
+        AiCostRepository(db_session).link_report([], 1)
+        db_session.expire_all()
+        assert db_session.get(AiCost, row.id).report_id is None
+
+    def test_get_by_ids_returns_only_those_rows_in_id_order(self, db_session):
+        a = _insert_cost(db_session)
+        _insert_cost(db_session)
+        c = _insert_cost(db_session)
+        rows = AiCostRepository(db_session).get_by_ids([c.id, a.id])
+        assert [r.id for r in rows] == [a.id, c.id]
+
+    def test_get_by_ids_empty_returns_empty(self, db_session):
+        assert AiCostRepository(db_session).get_by_ids([]) == []
+
+    def test_summarize_splits_answer_from_thinking(self, db_session):
+        """Answer is completion less thinking; thinking is None when no row has one."""
+        from workmain.database.repositories.ai_costs_repo import summarize
+        gemini = AiCost(
+            interaction_type='daily_internal', provider='gemini', model='m',
+            prompt_tokens=10, completion_tokens=202, thinking_tokens=196,
+            total_tokens=212, cost_usd=0.5)
+        ollama = AiCost(
+            interaction_type='intent_parse', provider='ollama', model='m',
+            prompt_tokens=7, completion_tokens=3, thinking_tokens=None,
+            total_tokens=10, cost_usd=0.0)
+
+        result = summarize([gemini, ollama])
+
+        assert result['total_calls'] == 2
+        assert result['total_tokens'] == 222
+        assert result['prompt_tokens'] == 17
+        assert result['answer_tokens'] == 6 + 3
+        assert result['thinking_tokens'] == 196
+        assert result['by_provider']['gemini']['answer_tokens'] == 6
+        assert result['by_provider']['gemini']['thinking_tokens'] == 196
+        assert result['by_provider']['ollama']['answer_tokens'] == 3
+        assert result['by_provider']['ollama']['thinking_tokens'] is None
+        assert result['by_type']['intent_parse']['prompt_tokens'] == 7
+
+    def test_summarize_empty_has_no_thinking(self):
+        from workmain.database.repositories.ai_costs_repo import summarize
+        result = summarize([])
+        assert result['total_calls'] == 0
+        assert result['thinking_tokens'] is None
+
+
+# ---------------------------------------------------------------------------
+# ai_cost_service (issue #191 Step 2)
+# ---------------------------------------------------------------------------
+
+def _reply(**overrides):
+    from workmain.ai.base_provider import (
+        FinishStatus, GenerationResponse, ProviderType,
+    )
+    values = dict(
+        content='reply', provider=ProviderType.GEMINI, model='gemini-test',
+        tokens_used=211, prompt_tokens=9, completion_tokens=202,
+        thinking_tokens=196, cost=0.0123,
+        finish=FinishStatus.COMPLETE, finish_reason='STOP',
+    )
+    values.update(overrides)
+    return GenerationResponse(**values)
+
+
+class TestAiCostService:
+    def test_record_reply_stores_every_field(self, db_session, session_for_command):
+        """record_reply writes each field DR2 lists, from the reply."""
+        from workmain.services import ai_cost_service
+        session_for_command('workmain.services.ai_cost_service')
+
+        row_id = ai_cost_service.record_reply(
+            _reply(), 'daily_internal', refused=False, generation_time_s=3.5,
+            meeting_id=None, context_label='label',
+        )
+
+        row = db_session.get(AiCost, row_id)
+        assert row.interaction_type == 'daily_internal'
+        assert row.provider == 'gemini'
+        assert row.model == 'gemini-test'
+        assert row.prompt_tokens == 9
+        assert row.completion_tokens == 202
+        assert row.thinking_tokens == 196
+        assert row.total_tokens == 211
+        assert float(row.cost_usd) == pytest.approx(0.0123)
+        assert row.refused is False
+        assert row.finish_reason == 'STOP'
+        assert row.generation_time_s == pytest.approx(3.5)
+        assert row.context_label == 'label'
+
+    def test_record_reply_stores_refused(self, db_session, session_for_command):
+        from workmain.services import ai_cost_service
+        session_for_command('workmain.services.ai_cost_service')
+        row_id = ai_cost_service.record_reply(
+            _reply(finish_reason='MAX_TOKENS'), 'weekly_client',
+            refused=True, generation_time_s=1.0,
+        )
+        row = db_session.get(AiCost, row_id)
+        assert row.refused is True
+        assert row.finish_reason == 'MAX_TOKENS'
+
+    def test_link_report_sets_report_id(self, db_session, session_for_command):
+        from workmain.database.models import Report
+        from workmain.services import ai_cost_service
+        session_for_command('workmain.services.ai_cost_service')
+        report = Report(report_type='daily_internal', report_date=_S_DATE,
+                        content='x', report_metadata={})
+        db_session.add(report)
+        db_session.flush()
+        row = _insert_cost(db_session)
+
+        ai_cost_service.link_report([row.id], report.id)
+        db_session.expire_all()
+
+        assert db_session.get(AiCost, row.id).report_id == report.id
+
+    def test_link_report_with_no_ids_opens_no_session(self, monkeypatch):
+        """An empty list returns before get_db is reached."""
+        from workmain.services import ai_cost_service
+        opened = []
+        monkeypatch.setattr(
+            'workmain.services.ai_cost_service.get_db',
+            lambda: opened.append(1),
+        )
+        assert ai_cost_service.link_report([], 5) is None
+        assert opened == []
+
+    def test_record_reply_failure_returns_none_and_warns(self, caplog):
+        """With no database handed over, the autouse block raises; recording degrades."""
+        from workmain.services import ai_cost_service
+        with caplog.at_level('WARNING', logger='workmain.services.ai_cost_service'):
+            result = ai_cost_service.record_reply(
+                _reply(), 'intent_parse', refused=False, generation_time_s=0.1,
+            )
+        assert result is None
+        assert 'intent_parse' in caplog.text
+
+    def test_link_report_failure_logs_warning(self, caplog):
+        from workmain.services import ai_cost_service
+        with caplog.at_level('WARNING', logger='workmain.services.ai_cost_service'):
+            assert ai_cost_service.link_report([1, 2], 77) is None
+        assert '77' in caplog.text
+
+    def test_record_reply_takes_its_session_from_its_own_get_db_each_call(
+        self, monkeypatch
+    ):
+        """Two calls open two sessions through the module's get_db, closing each."""
+        from unittest.mock import MagicMock
+        from workmain.services import ai_cost_service
+        sessions = []
+
+        def fake_get_db():
+            session = MagicMock()
+            session.refresh = lambda record: setattr(record, 'id', 41)
+            sessions.append(session)
+            return MagicMock(get_session=lambda: session)
+
+        monkeypatch.setattr('workmain.services.ai_cost_service.get_db', fake_get_db)
+
+        for _ in range(2):
+            ai_cost_service.record_reply(
+                _reply(), 'daily_internal', refused=False, generation_time_s=0.2,
+            )
+
+        assert len(sessions) == 2
+        assert sessions[0] is not sessions[1]
+        for session in sessions:
+            session.add.assert_called_once()
+            session.commit.assert_called_once()
+            session.close.assert_called_once()

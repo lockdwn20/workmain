@@ -27,14 +27,6 @@ from workmain.ai.provider_manager import (
     ReportTypeConfig
 )
 
-from workmain.ai.cost_tracker import (
-    CostTracker,
-    get_cost_tracker,
-    SectionCost,
-    ReportCost,
-    CostCategory
-)
-
 from workmain.ai.providers import (
     PROVIDER_REGISTRY,
     ClaudeProvider,
@@ -71,13 +63,6 @@ __all__ = [
     'get_provider_manager',
     'FallbackMode',
     'ReportTypeConfig',
-
-    # Cost Tracker
-    'CostTracker',
-    'get_cost_tracker',
-    'SectionCost',
-    'ReportCost',
-    'CostCategory',
 
     # Provider Registry
     'PROVIDER_REGISTRY',

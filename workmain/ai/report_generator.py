@@ -24,15 +24,14 @@ import time
 from workmain.ai import (
     get_prompt_builder,
     get_provider_manager,
-    get_cost_tracker,
     PromptBuilder,
     ProviderManager,
-    CostTracker,
     GenerationRequest,
     GenerationResponse,
     ProviderType
 )
 from workmain.ai.base_provider import ProviderUnavailableError
+from workmain.services import ai_cost_service
 from workmain.templates_engine import get_template_loader, TemplateLoader
 from workmain.database.repositories.reports_repo import get_reports_repository, ReportsRepository
 
@@ -56,7 +55,6 @@ class ReportGenerator:
         session: Session,
         prompt_builder: Optional[PromptBuilder] = None,
         provider_manager: Optional[ProviderManager] = None,
-        cost_tracker: Optional[CostTracker] = None,
         template_loader: Optional[TemplateLoader] = None,
         reports_repository: Optional[ReportsRepository] = None,
         output_dir: Optional[Path] = None
@@ -68,7 +66,6 @@ class ReportGenerator:
             session: Database session
             prompt_builder: Prompt builder instance (optional)
             provider_manager: Provider manager instance (optional)
-            cost_tracker: Cost tracker instance (optional)
             template_loader: Template loader instance (optional)
             reports_repository: Reports repository instance (optional)
             output_dir: Directory for saving reports (optional)
@@ -76,7 +73,6 @@ class ReportGenerator:
         self.session = session
         self.prompt_builder = prompt_builder or get_prompt_builder(session)
         self.provider_manager = provider_manager or get_provider_manager()
-        self.cost_tracker = cost_tracker or get_cost_tracker()
         self.template_loader = template_loader or get_template_loader()
         self.reports_repo = reports_repository or get_reports_repository(session)
 
@@ -123,131 +119,92 @@ class ReportGenerator:
         # Start timing
         start_time = time.time()
         
-        # Initialize cost tracking
-        self.cost_tracker.start_report(template_name, report_date)
+        # Load template
+        template = self.template_loader.load(template_name)
         
-        try:
-            # Load template
-            template = self.template_loader.load(template_name)
-            
-            # Build prompts — every template (including weekly_client) goes
-            # through build_prompt() directly; build_weekly_prompt() and its
-            # confirmed-substitutive branch were retired (Item #61 Gate 3).
-            # provider stays None unless --provider flag was passed by caller;
-            # provider_manager.generate() resolves from ai_settings.json config.
-            system_prompt, user_prompt = self.prompt_builder.build_prompt(
+        # Build prompts — every template (including weekly_client) goes
+        # through build_prompt() directly; build_weekly_prompt() and its
+        # confirmed-substitutive branch were retired (Item #61 Gate 3).
+        # provider stays None unless --provider flag was passed by caller;
+        # provider_manager.generate() resolves from ai_settings.json config.
+        system_prompt, user_prompt = self.prompt_builder.build_prompt(
+            template_name=template_name,
+            report_date=report_date,
+            filter_client=filter_client,
+            client_id=client_id_filter,
+        )
+
+        # Create generation request. max_tokens is the template's own
+        # report_types cap — resolved through the manager, never a
+        # caller-supplied default (DR3, DR6).
+        request = GenerationRequest(
+            prompt=user_prompt,
+            system_prompt=system_prompt,
+            max_tokens=self.provider_manager.get_max_tokens(template_name),
+        )
+        
+        # Generate with AI
+        response, notice = self.provider_manager.generate(
+            request=request,
+            report_type=template_name,
+            provider_override=provider
+        )
+        
+        # Format output
+        content = self._format_output(
+            response.content,
+            output_format=output_format,
+            template=template,
+            report_date=report_date
+        )
+        
+        # Save to file if requested
+        file_path = None
+        if save_to_file:
+            file_path = self._save_report(
+                content=content,
                 template_name=template_name,
                 report_date=report_date,
-                filter_client=filter_client,
-                client_id=client_id_filter,
-            )
-
-            # Create generation request. max_tokens is the template's own
-            # report_types cap — resolved through the manager, never a
-            # caller-supplied default (DR3, DR6).
-            request = GenerationRequest(
-                prompt=user_prompt,
-                system_prompt=system_prompt,
-                max_tokens=self.provider_manager.get_max_tokens(template_name),
-            )
-            
-            # Generate with AI
-            response, notice = self.provider_manager.generate(
-                request=request,
-                report_type=template_name,
-                provider_override=provider
-            )
-            
-            # Track costs
-            self.cost_tracker.track_section(
-                section_name="full_report",
-                provider=response.provider.value,
-                model=response.model,
-                prompt_tokens=response.prompt_tokens,
-                completion_tokens=response.completion_tokens,
-                cost=response.cost
-            )
-            
-            # Format output
-            content = self._format_output(
-                response.content,
                 output_format=output_format,
-                template=template,
-                report_date=report_date
+                filename=filename
             )
-            
-            # Save to file if requested
-            file_path = None
-            if save_to_file:
-                file_path = self._save_report(
-                    content=content,
-                    template_name=template_name,
-                    report_date=report_date,
-                    output_format=output_format,
-                    filename=filename
-                )
-            
-            # Calculate generation time
-            generation_time = time.time() - start_time
-            
-            # Save to database
-            db_report = self.reports_repo.create(
-                report_type=template_name,
-                report_date=report_date,
-                content=content,
-                ai_provider=response.provider.value,
-                ai_model=response.model,
-                prompt_tokens=response.prompt_tokens,
-                completion_tokens=response.completion_tokens,
-                thinking_tokens=response.thinking_tokens,
-                total_tokens=response.tokens_used,
-                cost=response.cost,
-                generation_time=generation_time,
-                file_path=str(file_path) if file_path else None,
-                client_id=client_id,
-                fallback_reason=notice.message if notice else None,
-            )
-            
-            # End cost tracking with generation time
-            self.cost_tracker.end_report(generation_time)
-
-            # Persist ai_costs row (dual-write alongside report_metadata)
-            from workmain.database.repositories.ai_costs_repo import AiCostRepository
-            AiCostRepository(self.session).create(
-                interaction_type='report',
-                provider=response.provider.value,
-                model=response.model,
-                prompt_tokens=response.prompt_tokens,
-                completion_tokens=response.completion_tokens,
-                thinking_tokens=response.thinking_tokens,
-                total_tokens=response.tokens_used,
-                cost_usd=response.cost,
-                generation_time_s=generation_time,
-                report_id=db_report.id,
-                context_label=template_name,
-            )
-
-            # Return result
-            return {
-                "content": content,
-                "template_name": template_name,
-                "report_date": report_date.isoformat(),
-                "provider": response.provider.value,
-                "model": response.model,
-                "tokens_used": response.tokens_used,
-                "prompt_tokens": response.prompt_tokens,
-                "completion_tokens": response.completion_tokens,
-                "cost": response.cost,
-                "file_path": str(file_path) if file_path else None,
-                "report_id": db_report.id,
-                "fallback_reason": notice.message if notice else None,
-                "generated_at": datetime.now().isoformat()
-            }
         
-        except Exception as e:
-            # End cost tracking on error (with 0 time)
-            self.cost_tracker.end_report(0.0)
-            raise
+        # Calculate generation time
+        generation_time = time.time() - start_time
+        
+        # Save to database
+        db_report = self.reports_repo.create(
+            report_type=template_name,
+            report_date=report_date,
+            content=content,
+            ai_provider=response.provider.value,
+            generation_time=generation_time,
+            file_path=str(file_path) if file_path else None,
+            client_id=client_id,
+            fallback_reason=notice.message if notice else None,
+        )
+        
+        # Link the rows generate() recorded to the saved report
+        ai_cost_service.link_report(response.cost_record_ids, db_report.id)
+
+        # Return result
+        return {
+            "content": content,
+            "template_name": template_name,
+            "report_date": report_date.isoformat(),
+            "provider": response.provider.value,
+            "model": response.model,
+            "tokens_used": response.tokens_used,
+            "prompt_tokens": response.prompt_tokens,
+            "completion_tokens": response.completion_tokens,
+            "thinking_tokens": response.thinking_tokens,
+            "cost": response.cost,
+            "file_path": str(file_path) if file_path else None,
+            "report_id": db_report.id,
+            "fallback_reason": notice.message if notice else None,
+            "generated_at": datetime.now().isoformat()
+        }
+    
     
     def preview_report(
         self,
@@ -498,35 +455,6 @@ class ReportGenerator:
             }
             for report in reports
         ]
-    
-    def get_cost_summary(self, report_type: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Get cost summary for generated reports from database.
-        
-        Args:
-            report_type: Filter by report type (optional)
-            
-        Returns:
-            Cost summary dictionary
-        """
-        # Get summary from database
-        summary = self.reports_repo.get_cost_summary()
-        
-        if report_type and summary['by_type'].get(report_type):
-            # Return specific report type
-            data = summary['by_type'][report_type]
-            return {
-                "report_type": report_type,
-                "total_cost": data['cost'],
-                "reports": data['reports'],
-                "total_tokens": data['tokens']
-            }
-        elif report_type:
-            # Report type not found
-            return {"report_type": report_type, "total_cost": 0.0, "reports": 0}
-        else:
-            # Return full summary
-            return summary
 
 
 # Singleton instance

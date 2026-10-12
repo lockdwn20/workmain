@@ -18,7 +18,6 @@ from workmain.ai.base_provider import (
     ProviderStatus,
     GenerationRequest,
 )
-from workmain.ai.cost_tracker import CostTracker
 from workmain.ai.provider_manager import ProviderManager
 
 
@@ -145,32 +144,3 @@ def test_integrated_generation():
     assert not fallback_used
 
 
-@_needs("ANTHROPIC_API_KEY")
-def test_cost_tracking_integration():
-    """Test cost tracking with real generation."""
-    tracker = CostTracker()
-    tracker.start_report("test_report", date.today())
-
-    claude = ProviderManager().get_provider('claude')
-
-    request = GenerationRequest(
-        prompt="Write a one-sentence summary of AI.",
-        max_tokens=50,
-    )
-
-    response = claude.generate(request)
-
-    tracker.track_section(
-        section_name="Test Section",
-        provider="claude",
-        model=response.model,
-        prompt_tokens=response.prompt_tokens,
-        completion_tokens=response.completion_tokens,
-        cost=response.cost
-    )
-
-    completed = tracker.end_report(generation_time=1.5)
-
-    assert len(completed.sections) == 1
-    assert completed.total_cost > 0
-    assert completed.total_tokens > 0
