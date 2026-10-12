@@ -144,8 +144,7 @@ class TestSlackReportsIntegration:
 class TestSlackStatusCommandPath:
     """slack status runs its real query on the db_session session against seeded rows."""
 
-    def test_status_lists_five_newest_posted_of_any_type(self, db_session, session_for_command):
-        session_for_command('workmain.cli.commands.slack')
+    def test_status_lists_five_newest_posted_of_any_type(self, db_session):
         posted = {}
         for n, day in enumerate([21, 25, 20, 24, 22, 23]):
             report_type = 'daily_internal' if n % 2 == 0 else 'weekly_client'

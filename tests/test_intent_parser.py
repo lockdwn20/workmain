@@ -462,7 +462,7 @@ class TestIntentParseThinkingTokens:
     """AC2.5, AC3.2 — Ollama reports no thinking count."""
 
     def test_cost_row_records_null_thinking_and_the_reply_total(
-        self, tmp_path, db_session, session_for_command
+        self, tmp_path, db_session
     ):
         from tests.mocks.stub_providers import StubProvider, stubbed_manager
         from workmain.database.models import AiCost
@@ -472,7 +472,6 @@ class TestIntentParseThinkingTokens:
                 tokens_used=33,
             ),
         })
-        session_for_command('workmain.services.ai_cost_service')
         query = db_session.query(AiCost).filter(AiCost.interaction_type == "intent_parse")
         before = query.count()
 
@@ -503,10 +502,9 @@ class TestIntentCallRecording:
         return db_session.query(AiCost).filter(AiCost.interaction_type == call_type)
 
     def test_task_match_records_one_row(
-        self, tmp_path, monkeypatch, db_session, session_for_command
+        self, tmp_path, monkeypatch, db_session
     ):
         """AC1.5"""
-        session_for_command('workmain.services.ai_cost_service')
         self._manager(tmp_path, monkeypatch,
                       '{"matched": true, "confidence": 0.9, "note_id": 1}')
         query = self._query(db_session, "task_match")
@@ -521,10 +519,9 @@ class TestIntentCallRecording:
         assert query.count() == before + 1
 
     def test_note_dedup_records_one_row(
-        self, tmp_path, monkeypatch, db_session, session_for_command
+        self, tmp_path, monkeypatch, db_session
     ):
         """AC1.6"""
-        session_for_command('workmain.services.ai_cost_service')
         self._manager(tmp_path, monkeypatch,
                       '{"duplicate": true, "confidence": 0.8, "note_id": null}')
         query = self._query(db_session, "note_dedup")
@@ -536,10 +533,9 @@ class TestIntentCallRecording:
         assert query.count() == before + 1
 
     def test_non_json_intent_reply_is_still_recorded(
-        self, tmp_path, monkeypatch, db_session, session_for_command
+        self, tmp_path, monkeypatch, db_session
     ):
         """AC3.1: the reply was paid for even though it could not be parsed."""
-        session_for_command('workmain.services.ai_cost_service')
         self._manager(tmp_path, monkeypatch, "not json")
         from workmain.database.models import AiCost
         query = self._query(db_session, "intent_parse")

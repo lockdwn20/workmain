@@ -369,8 +369,7 @@ def _spy_on(method: str, recorded: list):
 class TestReportListCommandPath:
     """reports list runs its real query on the db_session session against seeded rows."""
 
-    def test_status_all_lists_every_status(self, db_session, session_for_command):
-        session_for_command('workmain.cli.commands.reports')
+    def test_status_all_lists_every_status(self, db_session):
         unconfirmed = _seed_report(db_session, 'zz_issue157', date(2100, 8, 10))
         confirmed = _seed_report(db_session, 'zz_issue157', date(2100, 8, 11),
                                  status='confirmed')
@@ -380,8 +379,7 @@ class TestReportListCommandPath:
         spy.assert_called_once_with(ANY, report_type=None, status=None, limit=2)
         assert [r.id for r in recorded[0]] == [confirmed.id, unconfirmed.id]
 
-    def test_no_status_lists_every_status(self, db_session, session_for_command):
-        session_for_command('workmain.cli.commands.reports')
+    def test_no_status_lists_every_status(self, db_session):
         unconfirmed = _seed_report(db_session, 'zz_issue157', date(2100, 8, 12))
         confirmed = _seed_report(db_session, 'zz_issue157', date(2100, 8, 13),
                                  status='confirmed')
@@ -391,8 +389,7 @@ class TestReportListCommandPath:
         spy.assert_called_once_with(ANY, report_type=None, status=None, limit=2)
         assert [r.id for r in recorded[0]] == [confirmed.id, unconfirmed.id]
 
-    def test_status_filters_rows(self, db_session, session_for_command):
-        session_for_command('workmain.cli.commands.reports')
+    def test_status_filters_rows(self, db_session):
         confirmed = _seed_report(db_session, 'zz_issue157', date(2100, 8, 14),
                                  status='confirmed')
         _seed_report(db_session, 'zz_issue157', date(2100, 8, 15))

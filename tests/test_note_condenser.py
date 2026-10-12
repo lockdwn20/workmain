@@ -353,12 +353,11 @@ class TestCondensationRefusal:
 
 class TestCondensationRecording:
     def test_condensation_records_one_row_for_its_reply(
-        self, tmp_path, db_session, session_for_command
+        self, tmp_path, db_session
     ):
         """AC1.2: one row, typed note_condensation, with the meeting and the stub's values."""
         from tests.mocks.stub_providers import StubProvider, stubbed_manager
         from workmain.database.models import AiCost
-        session_for_command('workmain.services.ai_cost_service')
         meeting = _meeting_with_note(db_session, "Sentinel Recording Meeting 2099")
         condenser = NoteCondenser(db_session)
         condenser.provider_manager = stubbed_manager(tmp_path, {
@@ -383,28 +382,20 @@ class TestCondensationRecording:
         assert float(row.cost_usd) == pytest.approx(0.0123)
 
     def test_commit_failure_after_reply_still_leaves_the_row(
-        self, tmp_path, db_session, session_for_command, monkeypatch
+        self, tmp_path, db_session, monkeypatch
     ):
-        """AC3.3: the service's row is flushed on the first commit; the summary commit raises."""
+        """AC3.3: the service commits its row through its own session; the summary commit raises."""
         from tests.mocks.stub_providers import StubProvider, stubbed_manager
         from workmain.database.models import AiCost
-        session_for_command('workmain.services.ai_cost_service')
         meeting = _meeting_with_note(db_session, "Sentinel Commit Failure Meeting 2099")
         condenser = NoteCondenser(db_session)
         condenser.provider_manager = stubbed_manager(tmp_path, {
             "gemini": StubProvider(ProviderType.GEMINI, content="Summary"),
         })
-        flush = db_session.flush
-        calls = []
-
-        def commit_then_fail():
-            calls.append(1)
-            if len(calls) == 1:
-                flush()
-                return
+        def summary_commit_fails():
             raise RuntimeError("summary commit failed")
 
-        monkeypatch.setattr(db_session, "commit", commit_then_fail)
+        monkeypatch.setattr(db_session, "commit", summary_commit_fails)
 
         with pytest.raises(RuntimeError, match="summary commit failed"):
             condenser.condense_meeting(meeting)

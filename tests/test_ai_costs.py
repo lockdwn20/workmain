@@ -539,10 +539,9 @@ def _reply(**overrides):
 
 
 class TestAiCostService:
-    def test_record_reply_stores_every_field(self, db_session, session_for_command):
+    def test_record_reply_stores_every_field(self, db_session):
         """record_reply writes each field DR2 lists, from the reply."""
         from workmain.services import ai_cost_service
-        session_for_command('workmain.services.ai_cost_service')
 
         row_id = ai_cost_service.record_reply(
             _reply(), 'daily_internal', refused=False, generation_time_s=3.5,
@@ -563,9 +562,8 @@ class TestAiCostService:
         assert row.generation_time_s == pytest.approx(3.5)
         assert row.context_label == 'label'
 
-    def test_record_reply_stores_refused(self, db_session, session_for_command):
+    def test_record_reply_stores_refused(self, db_session):
         from workmain.services import ai_cost_service
-        session_for_command('workmain.services.ai_cost_service')
         row_id = ai_cost_service.record_reply(
             _reply(finish_reason='MAX_TOKENS'), 'weekly_client',
             refused=True, generation_time_s=1.0,
@@ -574,10 +572,9 @@ class TestAiCostService:
         assert row.refused is True
         assert row.finish_reason == 'MAX_TOKENS'
 
-    def test_link_report_sets_report_id(self, db_session, session_for_command):
+    def test_link_report_sets_report_id(self, db_session):
         from workmain.database.models import Report
         from workmain.services import ai_cost_service
-        session_for_command('workmain.services.ai_cost_service')
         report = Report(report_type='daily_internal', report_date=_S_DATE,
                         content='x', report_metadata={})
         db_session.add(report)
@@ -600,8 +597,13 @@ class TestAiCostService:
         assert ai_cost_service.link_report([], 5) is None
         assert opened == []
 
-    def test_record_reply_failure_returns_none_and_warns(self, caplog):
-        """With no database handed over, the autouse block raises; recording degrades."""
+    def test_record_reply_failure_returns_none_and_warns(self, caplog, monkeypatch):
+        """The service cannot reach the database; recording degrades to a warning."""
+        def _refuse():
+            raise RuntimeError("database unavailable")
+
+        monkeypatch.setattr('workmain.services.ai_cost_service.get_db', _refuse)
+
         from workmain.services import ai_cost_service
         with caplog.at_level('WARNING', logger='workmain.services.ai_cost_service'):
             result = ai_cost_service.record_reply(
@@ -610,7 +612,13 @@ class TestAiCostService:
         assert result is None
         assert 'intent_parse' in caplog.text
 
-    def test_link_report_failure_logs_warning(self, caplog):
+    def test_link_report_failure_logs_warning(self, caplog, monkeypatch):
+        """The service cannot reach the database; linking degrades to a warning."""
+        def _refuse():
+            raise RuntimeError("database unavailable")
+
+        monkeypatch.setattr('workmain.services.ai_cost_service.get_db', _refuse)
+
         from workmain.services import ai_cost_service
         with caplog.at_level('WARNING', logger='workmain.services.ai_cost_service'):
             assert ai_cost_service.link_report([1, 2], 77) is None
