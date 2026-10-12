@@ -1,6 +1,6 @@
 # Thinking Token Recording — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Anvil (Role 3)
 **Date:** 20261011
 **Spec:** `../specs/THINKING_TOKEN_RECORDING_SPEC.md`
