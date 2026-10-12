@@ -1,6 +1,6 @@
 # Test Database Isolation — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261012
 **Branch:** `hotfix/issue-136-test-isolation` (from `main`)

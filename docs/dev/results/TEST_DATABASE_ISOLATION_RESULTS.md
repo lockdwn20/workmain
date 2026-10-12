@@ -1,10 +1,10 @@
 # Test Database Isolation — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Anvil (Role 3)
 **Date:** 20261012
 **Spec:** `../specs/TEST_DATABASE_ISOLATION_SPEC.md`
-**Released as:** v1.45.1
+**Released as:** v1.45.1 (tag v1.45.1)
 
 ---
 
@@ -52,7 +52,8 @@ Complete. Every test now runs inside one database transaction that is rolled bac
 - **Test suite:** 1274 passed, 0 failed, 0 skipped (baseline: 1271 passed, 0 failed, 0 skipped) — form per `docs/DEVELOPMENT_STANDARDS.md` §6.
 - **Automation suite:** 58 passed, 0 failed, 0 skipped (baseline: 58 passed, 0 failed, 0 skipped).
 - **Live verification:** the COMMIT listener, counts and kill checks of AC1.1, AC2.1 and AC3.1 ran against the live database on 20261012. Their scripts were kept outside the repository.
-- **Daemon restart:** close-out's, per `docs/DEVELOPMENT_STANDARDS.md` §1.1.
+- **Close-out preflight, 20261012:** `pytest` 1274 passed, 0 failed, 0 skipped on the branch tip after the AC7.1 sign-off; `automation/closeout_acs.py` exit 0; `automation/check_release_integrity.py` exit 0.
+- **Daemon restart:** close-out step 8, after the `dev` merge. The confirmed `ActiveEnterTimestamp` is carried by the issue's closing comment, because it postdates this commit.
 
 ## 6. Follow-ups
 
