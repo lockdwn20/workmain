@@ -20,6 +20,7 @@ from workmain.database.repositories.system_state_repository import SystemStateRe
 from workmain.database.repositories.ai_costs_repo import get_ai_cost_repository
 from workmain.ai.note_condenser import get_note_condenser
 from workmain.utils.ai_arguments import failure_exit_code, require_provider
+from workmain.utils.cost_display import format_token_line, render_condensation_costs, sum_rows
 from workmain.utils.date_utils import resolve_date_window, format_date_window_label
 
 
@@ -871,21 +872,20 @@ def meetings_condense(meeting_title: str):
         try:
             summary, resolved_tags, notice, cost_record_ids = condenser.condense_meeting(meeting)
 
-            # Get cost from last condensation.
-            # end_report() clears _current_report, so read from _last_completed.
-            cost_tracker = condenser.cost_tracker
-            report = cost_tracker._last_completed
-            if report and report.sections:
-                total_cost = sum(s.cost for s in report.sections)
-                total_tokens = sum(s.total_tokens for s in report.sections)
-            else:
-                total_cost = 0.0
-                total_tokens = 0
+            # Cost and tokens come from the rows generate() recorded for this call.
+            recorded = get_ai_cost_repository(session).get_by_ids(cost_record_ids)
+            totals = sum_rows(recorded)
 
             console.print("[green]✓ Condensed summary:[/green]")
             console.print(f"  \"{summary}\"")
             console.print()
-            console.print(f"[dim]Cost: ${total_cost:.6f} ({total_tokens} tokens)[/dim]")
+            console.print(f"[dim]Cost: ${totals['cost']:.6f}[/dim]")
+            console.print(
+                "[dim]" + format_token_line(
+                    totals['prompt_tokens'], totals['answer_tokens'],
+                    totals['thinking_tokens'],
+                ) + "[/dim]"
+            )
             if notice:
                 err_console.print(f"[yellow]⚠[/yellow] {escape(notice.message)}")
 
@@ -1738,7 +1738,7 @@ def meetings_costs(
     """
     Show AI costs incurred by meeting condensations.
 
-    Reads from the ai_costs table (interaction_type=condensation).
+    Reads from the ai_costs table (interaction_type=note_condensation).
     Defaults to the current calendar month.
 
     \b
@@ -1763,83 +1763,17 @@ def meetings_costs(
 
     try:
         repo = get_ai_cost_repository(session)
-        summary = repo.get_summary(
-            interaction_type='condensation',
-            provider=provider_type.value if provider_type else None,
-            start_date=start_date,
-            end_date=end_date,
-        )
-        rows = repo.get_filtered(
-            interaction_type='condensation',
+        render_condensation_costs(
+            console, repo,
             provider=provider_type.value if provider_type else None,
             start_date=start_date,
             end_date=end_date,
             limit=limit,
+            label=format_date_window_label(start_date, end_date),
+            title="Meeting Condensation Costs",
+            detail_heading="Meeting Detail",
+            filters=[f"Provider: {provider}"] if provider else [],
         )
-
-        label = format_date_window_label(start_date, end_date)
-        console.print()
-        console.print(f"[bold cyan]Meeting Condensation Costs — {label}[/bold cyan]")
-        console.print()
-
-        if summary['total_calls'] == 0:
-            console.print("[yellow]No condensation costs found for this period.[/yellow]")
-            console.print()
-            console.print("[dim]Condense a meeting with: workmain meetings condense <title>[/dim]")
-            console.print()
-            return
-
-        console.print(f"  Condensations: {summary['total_calls']}")
-        console.print(f"  Total Cost:    [green]${summary['total_cost']:.6f}[/green]")
-        console.print(f"  Total Tokens:  {summary['total_tokens']:,}")
-        console.print()
-
-        if summary['by_provider']:
-            console.print("[bold]By Provider:[/bold]")
-            table = Table(show_header=True, header_style="bold cyan", box=box.SIMPLE)
-            table.add_column("Provider", style="cyan")
-            table.add_column("Calls", justify="right", style="dim")
-            table.add_column("Cost", justify="right", style="green")
-            table.add_column("Tokens", justify="right", style="dim")
-            table.add_column("Avg Cost", justify="right", style="dim")
-
-            for prov, stats in sorted(summary['by_provider'].items()):
-                avg = stats['cost'] / stats['calls'] if stats['calls'] > 0 else 0.0
-                table.add_row(
-                    prov.title(),
-                    str(stats['calls']),
-                    f"${stats['cost']:.6f}",
-                    f"{stats['tokens']:,}",
-                    f"${avg:.6f}",
-                )
-            console.print(table)
-            console.print()
-
-        if rows:
-            console.print(f"[bold]Meeting Detail:[/bold] (showing {len(rows)})")
-            table = Table(show_header=True, header_style="bold cyan", box=box.SIMPLE)
-            table.add_column("Date", style="cyan", width=12)
-            table.add_column("Meeting", width=28)
-            table.add_column("Provider", width=10)
-            table.add_column("Tokens", justify="right", width=10)
-            table.add_column("Cost", justify="right", style="green", width=12)
-
-            for r in rows:
-                table.add_row(
-                    r.created_at.strftime('%Y-%m-%d'),
-                    (r.context_label or '')[:27],
-                    r.provider,
-                    f"{r.total_tokens:,}",
-                    f"${float(r.cost_usd):.6f}",
-                )
-            console.print(table)
-            console.print()
-
-        active_filters = [f"Period: {label}"]
-        if provider:
-            active_filters.append(f"Provider: {provider}")
-        console.print("[dim]" + "  |  ".join(active_filters) + "[/dim]")
-        console.print()
 
     except Exception as e:
         console.print(f"[red]✗ Failed to get costs: {e}[/red]")

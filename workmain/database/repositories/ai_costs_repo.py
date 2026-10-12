@@ -10,6 +10,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from workmain.database.models import AiCost, Report
+from workmain.utils.cost_display import answer_tokens
 
 
 class AiCostRepository:
@@ -216,13 +217,6 @@ class AiCostRepository:
         return summarize(query.all())
 
 
-def _answer_tokens(row: AiCost) -> int:
-    """Completion tokens less thinking, or completion when thinking is unknown."""
-    if row.thinking_tokens is None:
-        return row.completion_tokens
-    return row.completion_tokens - row.thinking_tokens
-
-
 def _bucket() -> Dict:
     return {
         'calls': 0, 'cost': 0.0, 'tokens': 0,
@@ -235,7 +229,7 @@ def _add_to_bucket(bucket: Dict, row: AiCost) -> None:
     bucket['cost'] += float(row.cost_usd)
     bucket['tokens'] += row.total_tokens
     bucket['prompt_tokens'] += row.prompt_tokens
-    bucket['answer_tokens'] += _answer_tokens(row)
+    bucket['answer_tokens'] += answer_tokens(row.completion_tokens, row.thinking_tokens)
     if row.thinking_tokens is not None:
         bucket['thinking_tokens'] = (bucket['thinking_tokens'] or 0) + row.thinking_tokens
 

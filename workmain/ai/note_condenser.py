@@ -12,7 +12,6 @@ from sqlalchemy.orm import Session
 
 from workmain.database.models import Meeting, Note
 from workmain.ai.base_provider import GenerationRequest
-from workmain.ai.cost_tracker import get_cost_tracker
 from workmain.ai.provider_manager import FallbackNotice, get_provider_manager
 from workmain.templates_engine import get_style_adapter
 
@@ -79,7 +78,6 @@ class NoteCondenser:
             session: Database session for queries and updates
         """
         self.session = session
-        self.cost_tracker = get_cost_tracker()
         self.style_adapter = get_style_adapter()
         self.provider_manager = get_provider_manager()
     
@@ -168,38 +166,21 @@ class NoteCondenser:
         
         request = self.build_condensation_request(db_meeting, notes)
 
-        # Track cost
-        self.cost_tracker.start_report(f"condense_{db_meeting.title}", datetime.now().date())
-        
-        try:
-            # Generate using config-driven provider ('note_condensation' entry in ai_settings.json)
-            response, notice = self.provider_manager.generate(
-                request,
-                report_type='note_condensation',
-                meeting_id=db_meeting.id,
-                context_label=db_meeting.title,
-            )
+        # Generate using config-driven provider ('note_condensation' entry in ai_settings.json)
+        response, notice = self.provider_manager.generate(
+            request,
+            report_type='note_condensation',
+            meeting_id=db_meeting.id,
+            context_label=db_meeting.title,
+        )
 
-            # Track cost
-            self.cost_tracker.track_section(
-                section_name="condensation",
-                provider=response.provider.value,
-                model=response.model,
-                prompt_tokens=response.prompt_tokens,
-                completion_tokens=response.completion_tokens,
-                cost=response.cost
-            )
+        # Update meeting with condensed summary
+        db_meeting.condensed_summary = response.content.strip()
+        db_meeting.condensed_at = datetime.now()
+        self.session.commit()
 
-            # Update meeting with condensed summary
-            db_meeting.condensed_summary = response.content.strip()
-            db_meeting.condensed_at = datetime.now()
-            self.session.commit()
+        return db_meeting.condensed_summary, resolved_tags, notice, response.cost_record_ids
 
-            return db_meeting.condensed_summary, resolved_tags, notice, response.cost_record_ids
-
-        finally:
-            self.cost_tracker.end_report(0.0)  # No generation time tracking needed
-    
     def _build_condensation_prompt(
         self,
         meeting: Meeting,

@@ -195,7 +195,6 @@ def _preview_generator(settings):
         session=MagicMock(),
         prompt_builder=builder,
         provider_manager=pm,
-        cost_tracker=MagicMock(),
         template_loader=MagicMock(),
         reports_repository=MagicMock(),
     )

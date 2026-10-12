@@ -137,7 +137,6 @@ class TestPreviewReportFilterParity:
             session=MagicMock(),
             prompt_builder=mock_pb,
             provider_manager=MagicMock(),
-            cost_tracker=MagicMock(),
             template_loader=mock_tl,
             reports_repository=MagicMock(),
         )
