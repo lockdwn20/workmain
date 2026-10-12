@@ -115,7 +115,7 @@ These are Spanner's recommendations, each with its reason. Ray approves them wit
 
 ### Not in this issue
 
-- **The Gemini re-send (F6).** As its own issue it would need: "Gemini's `generate` retries on any exception raised while reading a returned reply, re-sending a paid request. Limit the retry to transport and API errors, and assert in an offline test that an error while reading the reply raises without a second `generate_content` call." Ray decides whether that is its own issue, added to an existing one, or bundled.
+- **The Gemini re-send (F6).** Added to #125, which owns provider retry behaviour, as an acceptance criterion on 20261011 (Ray).
 - **Removing the test rows already in `ai_costs`.** #136 owns that.
 
 ## 5. Open questions
