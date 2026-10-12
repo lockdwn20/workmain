@@ -675,14 +675,16 @@ Reserved across all commands — no flag may reuse these:
 | Action | Effect |
 | --- | --- |
 | `commit()` anywhere | Releases a savepoint. The rows stay visible to every session in the test; nothing reaches the database. |
-| `rollback()` anywhere | Returns to the last savepoint. Rows written before it survive. |
+| `rollback()` anywhere | Discards that session's writes since its last commit. Rows the test or other sessions wrote earlier survive. |
 | Test ends | The transaction rolls back; every write is discarded. |
 | Process killed mid-test | The transaction was never committed; PostgreSQL discards it when the connection drops. |
 
 - **A test that seeds or reads takes `db_session`.** It is a session from the same factory, so a command or service the test then calls sees what the test seeded. Commit it freely. Never call `get_db()` or `db.get_session()` in a test. The one exception is `tests/test_database_isolation.py`, whose tests stand in for application code in order to test this fixture.
 - **Hand application code a session only before that code opens its own.** Sessions sharing the connection must finish last-in, first-out, because releasing a savepoint also releases every savepoint opened after it. A test that builds an application object on `db_session` and then runs a command that opens its own session fails with `InvalidSavepointSpecification` at the command's commit. Let the command build the object from the session it opens, as `tests/test_cost_display.py`'s `TestMeetingsCondenseTokenLine` does.
 - **Inject a database failure; never rely on one.** Patch the module's `get_db` to raise, as `tests/test_ai_costs.py` does. A test whose result depends on which rows happen to exist in the live database is wrong.
-- **Leaving the transaction fails the test.** During a test `DatabaseConnection.close()` raises, and replacing `SessionLocal` fails the test at teardown. Code that builds its own engine is outside the fixture; the suite runs none.
+- **Leaving the transaction fails the test.** During a test `DatabaseConnection.close()` raises, and replacing `SessionLocal` fails the test at teardown. Code that builds its own engine is outside the fixture, and no test may reach it.
+- **A child process is outside the transaction.** A test that reaches code which launches `workmain` (`workmain/utils/self_invoke.py`, `workmain/workflows/eod_workflow.py`) patches the launch.
+- **Every session in a test shares one connection, so database work stays on the test's thread.** A test that reaches a step thread replaces `threading.Thread`, as `tests/test_orchestration.py` does.
 - **Committed rows are visible.** The test's transaction sees everything already in the database, so a test that asserts exact totals or counts uses sentinel values (§6.2 rule 2).
 - **A row lock lasts the whole test.** A test that updates an existing row, such as a `system_state` key or a live client, holds that row's lock until it ends, and a CLI write to the row waits for it. Seed a row of the test's own wherever the test allows.
 
