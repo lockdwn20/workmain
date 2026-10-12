@@ -667,31 +667,30 @@ Reserved across all commands — no flag may reuse these:
 - The current expected pass count is whatever `main` last shipped — read it from the most recent `CHANGELOG.md` entry or run `pytest --collect-only -q`.
 - Do not transcribe a baseline into this or any other document; it goes stale immediately.
 
-### 6.1 The `db_session` fixture
+### 6.1 Test isolation from the database
 
-- Every test touching the database **must** take `db_session`.
-- It redirects `commit()` to `flush()` and rolls back at teardown, so nothing persists.
+- **Every test runs inside one database transaction that is rolled back when it ends.** The autouse fixture `_isolated_database` in `tests/conftest.py` binds the application's session factory (`DatabaseConnection.SessionLocal`) to a connection the fixture owns, inside a transaction it began, with SQLAlchemy's `join_transaction_mode="create_savepoint"`. No test requests it and no test can opt out of it.
+- Every session any code opens through `get_db()` joins that transaction: the test's own, a command run through `CliRunner`, and application code the test reaches without naming it. They share one connection, so each sees what the others wrote.
 
 | Action | Effect |
 | --- | --- |
-| `repo.create(...)` | Visible **within** the test session |
-| `session.commit()` inside a repo | Redirected to `flush()` |
-| Test ends | `rollback()` removes every write |
-| Production DB | Unaffected, always |
+| `commit()` anywhere | Releases a savepoint. The rows stay visible to every session in the test; nothing reaches the database. |
+| `rollback()` anywhere | Returns to the last savepoint. Rows written before it survive. |
+| Test ends | The transaction rolls back; every write is discarded. |
+| Process killed mid-test | The transaction was never committed; PostgreSQL discards it when the connection drops. |
 
-- Never call `get_db()` or `db.get_session()` directly in a test.
-
-- **Pitfall — fixture data is invisible to `CliRunner`.**
-  - A CLI command invoked through `CliRunner` opens its *own* session and transaction, so rows flushed-but-uncommitted by `db_session` are never visible to it.
-  - For any test that seeds data *and* invokes a CLI command, use a real committed session with explicit `tearDown` cleanup — the pattern in `tests/test_report_history.py`.
+- **A test that seeds or reads takes `db_session`.** It is a session from the same factory, so a command or service the test then calls sees what the test seeded. Commit it freely. Never call `get_db()` or `db.get_session()` in a test. The one exception is `tests/test_database_isolation.py`, whose tests stand in for application code in order to test this fixture.
+- **Hand application code a session only before that code opens its own.** Sessions sharing the connection must finish last-in, first-out, because releasing a savepoint also releases every savepoint opened after it. A test that builds an application object on `db_session` and then runs a command that opens its own session fails with `InvalidSavepointSpecification` at the command's commit. Let the command build the object from the session it opens, as `tests/test_cost_display.py`'s `TestMeetingsCondenseTokenLine` does.
+- **Inject a database failure; never rely on one.** Patch the module's `get_db` to raise, as `tests/test_ai_costs.py` does. A test whose result depends on which rows happen to exist in the live database is wrong.
+- **Leaving the transaction fails the test.** During a test `DatabaseConnection.close()` raises, and replacing `SessionLocal` fails the test at teardown. Code that builds its own engine is outside the fixture; the suite runs none.
+- **Committed rows are visible.** The test's transaction sees everything already in the database, so a test that asserts exact totals or counts uses sentinel values (§6.2 rule 2).
+- **A row lock lasts the whole test.** A test that updates an existing row, such as a `system_state` key or a live client, holds that row's lock until it ends, and a CLI write to the row waits for it. Seed a row of the test's own wherever the test allows.
 
 ### 6.2 Writing a test
 
   ```python
   """
   <Feature> tests.
-
-  Uses db_session fixture from conftest.py for full transaction isolation.
   """
 
   import pytest
@@ -708,10 +707,10 @@ Reserved across all commands — no flag may reuse these:
 
 Rules:
 
-1. Always use `db_session`.
+1. Take `db_session` for any session the test uses (§6.1).
 2. **Sentinel dates** for anything asserting exact totals or counts — e.g. `date(2099, 1, 1)` — so production data cannot skew the result.
 3. One assertion focus per test. Prefer several small tests over one large one.
-4. No manual cleanup; the fixture handles it. The only exception is a test of deletion itself.
+4. No manual cleanup; §6.1's rollback discards every write.
 5. Group related tests in `class Test<Topic>` so `-k TestTopic` works.
 
 ### 6.3 Placement
