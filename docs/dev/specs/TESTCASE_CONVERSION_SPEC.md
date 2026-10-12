@@ -20,6 +20,8 @@
 | 20261012 | Spanner | Every test name and class name stays as it is | AC2.1 and AC3.1 match tests by node ID, and a rename would read as one test lost and one test gained. |
 | 20261012 | Spanner | `_make_daemon()` takes its store as a required first argument, not `tmp_path` | Then there is one way to give a daemon a store. Two callers already pass one (`tests/test_orchestration.py` :1391, :1422). |
 | 20261012 | Spanner | Assertion-count script observed before specifying it | On the unchanged files against `a4071ea` it reports 0 tests fell. With one `self.assertIn` line deleted from `tests/test_self_invoke.py` and `self.assertRaises` changed to `pytest.raises`, it reports exactly one: `TestRunWorkmain::test_timeout_returns_timed_out 4 -> 3`. The swap it does not report. |
+| 20261012 | Caliper | 3: the conversion table leaves `self._seeded_ids` / `self._meeting_ids` unaddressed; with `tearDown` deleted, the appends raise `AttributeError` on a plain class. | Accepted. The `tearDown` row deletes the lists, their creation and every append. |
+| 20261012 | Caliper | 7: `caplog.messages` holds records from every logger, so the `assertLogs` mapping loosens the two log assertions (DR3). | Accepted. `log_ctx.output` maps to the messages of records from the named logger and its children only. |
 
 ---
 
@@ -75,14 +77,14 @@ On `origin/main` `a4071ea`, 20261012.
 | --- | --- |
 | `class X(unittest.TestCase):` | `class X:` |
 | `setUp` that opens a session (§2 row 3) | the test takes `db_session`; `self.session` becomes `db_session`; a `_seed` helper takes `db_session` as its first parameter after `self`; `self._Report` becomes a module-level `from workmain.database.models import Report` |
-| `tearDown` that deletes rows | deleted |
+| `tearDown` that deletes rows | deleted, together with the id lists it reads (`self._seeded_ids`, `self._meeting_ids`), their creation in `setUp` and every append to them (`tests/test_eod_workflow.py` :1036, :1165, :1340, :1465) |
 | `load_dotenv()` in `setUp` | deleted |
 | `setUp`/`tearDown` around `tempfile.TemporaryDirectory()`, or `with tempfile.TemporaryDirectory() as d:` in a test | the test takes `tmp_path`; a helper that used the directory (`_store`, `_manager`, `_reports_save_run`, `_condense_run`) takes the path as a parameter |
 | `setUp` that only does `self.gate = ConfirmationGate()` | `gate = ConfirmationGate()` as the test's first line; `self.gate` becomes `gate` |
 | `self.assertEqual(a, b)` / `NotEqual` / `True` / `False` / `IsNone` / `IsNotNone` / `In` / `NotIn` / `IsInstance` / `Greater` / `Less` | `assert a == b` / `a != b` / `a` / `not a` / `a is None` / `a is not None` / `a in b` / `a not in b` / `isinstance(a, b)` / `a > b` / `a < b`, with `, msg` kept where given |
 | `self.assertAlmostEqual(a, b)` | `assert a == pytest.approx(b, abs=5e-8)` |
 | `with self.assertRaises(E):` | `with pytest.raises(E):` |
-| `with ..., self.assertLogs(name, level='DEBUG') as log_ctx:` | the test takes `caplog`; `caplog.set_level(logging.DEBUG, logger=name)` before the `with`; the `assertLogs` item leaves the `with`; `log_ctx.output` becomes `caplog.messages` |
+| `with ..., self.assertLogs(name, level='DEBUG') as log_ctx:` | the test takes `caplog`; `caplog.set_level(logging.DEBUG, logger=name)` before the `with`; the `assertLogs` item leaves the `with`; `log_ctx.output` becomes `[r.getMessage() for r in caplog.records if r.name == name or r.name.startswith(name + '.')]`, so the assertion still sees only that logger and its children |
 | `import unittest`, `import tempfile` | deleted; `import pytest` added where a file lacks it (all but `test_action_executor.py` and `test_eod_workflow.py`), and `import logging` in `test_orchestration.py` for `caplog.set_level`; `from unittest.mock import …` stays |
 
 **Store helpers in `tests/test_orchestration.py`.**
