@@ -115,6 +115,8 @@ class IntentParser:
                 model=response.model,
                 prompt_tokens=response.prompt_tokens,
                 completion_tokens=response.completion_tokens,
+                thinking_tokens=response.thinking_tokens,
+                total_tokens=response.tokens_used,
                 cost_usd=0.0,
             )
             session.close()

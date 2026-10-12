@@ -50,7 +50,7 @@ Each key under `providers` is a `ProviderType` value (`workmain/ai/base_provider
 | Field | Description |
 |-------|-------------|
 | `cost_per_1k_prompt_tokens` | USD cost per 1,000 prompt tokens — used by `estimate_cost()` |
-| `cost_per_1k_completion_tokens` | USD cost per 1,000 completion tokens |
+| `cost_per_1k_completion_tokens` | USD cost per 1,000 completion tokens: every output token the provider bills, thinking included |
 | `rate_limit_rpm` | Requests per minute cap (informational) |
 | `timeout_seconds` | API call timeout |
 | `retry_attempts` | How many times to retry a failed API call |

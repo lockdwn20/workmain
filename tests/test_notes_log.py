@@ -110,6 +110,7 @@ def _fake_response(content: str) -> GenerationResponse:
         tokens_used=10,
         prompt_tokens=5,
         completion_tokens=5,
+        thinking_tokens=None,
         cost=0.0,
         finish=FinishStatus.COMPLETE,
         finish_reason="end_turn",

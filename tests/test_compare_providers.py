@@ -33,12 +33,13 @@ _DATE = date(2099, 6, 5)
 _START = datetime(2099, 6, 5, 9, 0)
 
 
-def _response(provider, content="ok", reason=None, finish=FinishStatus.COMPLETE):
+def _response(provider, content="ok", reason=None, finish=FinishStatus.COMPLETE,
+              thinking_tokens=None):
     if reason is None:
         reason = "STOP" if provider == ProviderType.GEMINI else "end_turn"
     return GenerationResponse(
         content=content, provider=provider, model="m", tokens_used=10,
-        prompt_tokens=4, completion_tokens=4, cost=0.0,
+        prompt_tokens=4, completion_tokens=4, thinking_tokens=thinking_tokens, cost=0.0,
         finish=finish, finish_reason=reason,
     )
 
@@ -183,6 +184,23 @@ class TestCompareProviders:
 
         changed = _manager(tmp_path, routing={"daily_internal": "claude"})
         assert types_for(changed) == expected - {"daily_internal"}
+
+
+def test_render_prints_the_responses_own_thinking_count():
+    """AC2.6: the response's count, or 'not reported' when it has none."""
+    runs = [
+        compare_providers.Run(
+            call_type="daily_internal", label="l", provider="gemini",
+            response=_response(ProviderType.GEMINI, thinking_tokens=196),
+        ),
+        compare_providers.Run(
+            call_type="daily_internal", label="l", provider="claude",
+            response=_response(ProviderType.CLAUDE, thinking_tokens=None),
+        ),
+    ]
+    text = compare_providers.render(runs, _DATE, "gemini", "claude")
+    lines = [ln for ln in text.splitlines() if ln.startswith("- Thinking tokens:")]
+    assert lines == ["- Thinking tokens: 196", "- Thinking tokens: not reported"]
 
 
 def test_script_has_no_finish_definition_of_its_own():

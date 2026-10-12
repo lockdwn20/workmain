@@ -25,6 +25,8 @@ class AiCostRepository:
         model: Optional[str],
         prompt_tokens: int,
         completion_tokens: int,
+        thinking_tokens: Optional[int],
+        total_tokens: int,
         cost_usd: float,
         generation_time_s: Optional[float] = None,
         report_id: Optional[int] = None,
@@ -39,7 +41,10 @@ class AiCostRepository:
             provider: AI provider name (e.g. 'claude', 'gemini')
             model: Model identifier string
             prompt_tokens: Input token count
-            completion_tokens: Output token count
+            completion_tokens: Output token count, thinking included
+            thinking_tokens: How many of completion_tokens were thinking;
+                None when the provider reports no count
+            total_tokens: The total the provider reported
             cost_usd: Total cost in USD
             generation_time_s: Wall-clock seconds for the API call
             report_id: FK to reports.id (report interactions only)
@@ -55,7 +60,8 @@ class AiCostRepository:
             model=model,
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
-            total_tokens=prompt_tokens + completion_tokens,
+            thinking_tokens=thinking_tokens,
+            total_tokens=total_tokens,
             cost_usd=cost_usd,
             generation_time_s=generation_time_s,
             report_id=report_id,

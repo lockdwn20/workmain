@@ -300,3 +300,29 @@ class TestReportRefusal:
         assert generator.reports_repo.create.call_args.kwargs["fallback_reason"] == reason
         stored = generator.reports_repo.get_by_id(result["report_id"])
         assert stored.report_metadata["fallback_reason"] == reason
+
+
+class TestReportThinkingTokens:
+    def test_report_row_and_metadata_carry_thinking_count(self, tmp_path, db_session):
+        """AC2.3, AC3.2: both stores take the reply's own counts."""
+        from tests.mocks.stub_providers import StubProvider
+        from workmain.database.models import AiCost
+        pm = stubbed_manager(tmp_path, {
+            "gemini": StubProvider(
+                ProviderType.GEMINI, content="Report body",
+                thinking_tokens=196, tokens_used=999,
+            ),
+        })
+        generator = ReportGenerator(db_session, provider_manager=pm)
+
+        result = generator.generate_report(
+            template_name="daily_internal", report_date=date.today(),
+            save_to_file=False,
+        )
+
+        row = db_session.query(AiCost).filter(AiCost.report_id == result["report_id"]).one()
+        assert row.thinking_tokens == 196
+        assert row.total_tokens == 999
+        report = generator.reports_repo.get_by_id(result["report_id"])
+        assert report.report_metadata["thinking_tokens"] == 196
+        assert report.report_metadata["total_tokens"] == 999

@@ -93,6 +93,7 @@ class MockProvider(BaseProvider):
             tokens_used=total_tokens,
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
+            thinking_tokens=None,
             cost=cost,
             finish=FinishStatus.COMPLETE,
             finish_reason="end_turn",

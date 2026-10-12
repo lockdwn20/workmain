@@ -107,6 +107,7 @@ class OllamaProvider(BaseProvider):
                 model=self._model,
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
+                thinking_tokens=None,
                 tokens_used=prompt_tokens + completion_tokens,
                 cost=0.0,
                 finish=finish,

@@ -136,6 +136,8 @@ class ClaudeProvider(BaseProvider):
                 prompt_tokens = response.usage.input_tokens
                 completion_tokens = response.usage.output_tokens
                 total_tokens = prompt_tokens + completion_tokens
+                details = response.usage.output_tokens_details
+                thinking_tokens = details.thinking_tokens if details is not None else None
                 cost = self.estimate_cost(prompt_tokens, completion_tokens)
 
                 self._set_status(ProviderStatus.AVAILABLE)
@@ -155,6 +157,7 @@ class ClaudeProvider(BaseProvider):
                     tokens_used=total_tokens,
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
+                    thinking_tokens=thinking_tokens,
                     cost=cost,
                     finish=finish,
                     finish_reason=str(stop_reason),

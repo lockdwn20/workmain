@@ -17,12 +17,15 @@ class StubProvider:
 
     def __init__(self, provider_type: ProviderType, finish: FinishStatus = FinishStatus.COMPLETE,
                  reason: str = "STOP", content: str = "stub reply",
-                 error: Optional[Exception] = None):
+                 error: Optional[Exception] = None,
+                 thinking_tokens: Optional[int] = None, tokens_used: int = 10):
         self.provider_type = provider_type
         self._finish = finish
         self._reason = reason
         self._content = content
         self._error = error
+        self._thinking_tokens = thinking_tokens
+        self._tokens_used = tokens_used
         self.calls = 0
 
     def generate(self, request):
@@ -31,7 +34,8 @@ class StubProvider:
             raise self._error
         return GenerationResponse(
             content=self._content, provider=self.provider_type, model="stub-model",
-            tokens_used=10, prompt_tokens=5, completion_tokens=5, cost=0.0,
+            tokens_used=self._tokens_used, prompt_tokens=5, completion_tokens=5,
+            thinking_tokens=self._thinking_tokens, cost=0.0,
             finish=self._finish, finish_reason=self._reason,
         )
 

@@ -70,9 +70,13 @@ class GenerationResponse:
         content: Generated text content
         provider: Provider that generated the response
         model: Model name/version used
-        tokens_used: Total tokens consumed
+        tokens_used: The total the provider reported, or the sum of its own
+            counts where it reports no total
         prompt_tokens: Tokens in prompt
-        completion_tokens: Tokens in completion
+        completion_tokens: Every output token the vendor billed, thinking
+            included
+        thinking_tokens: How many of completion_tokens were thinking; None
+            when the provider reports no count
         cost: Estimated cost in USD
         finish: How the reply ended, as the provider mapped its vendor signal
         finish_reason: The vendor's own finish value as a plain string
@@ -84,6 +88,7 @@ class GenerationResponse:
     tokens_used: int
     prompt_tokens: int
     completion_tokens: int
+    thinking_tokens: Optional[int]
     cost: float
     finish: FinishStatus
     finish_reason: str
