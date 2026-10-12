@@ -3,6 +3,9 @@ Tests for the cost commands' output and the per-call token lines (issue #191).
 
 Rows are seeded in db_session with sentinel dates (2099-…) and handed to each
 command through session_for_command, so nothing is committed.
+
+A test checks the cells a command passed to Table.add_row, and summary lines on
+the output with whitespace collapsed. None depends on terminal width.
 """
 
 from datetime import date, datetime, timezone
@@ -10,6 +13,7 @@ from unittest.mock import patch
 
 import pytest
 from click.testing import CliRunner
+from rich.table import Table
 
 from workmain.ai.base_provider import ProviderType
 from workmain.cli.commands.meetings import meetings
@@ -37,6 +41,15 @@ def _row(session, **overrides):
     session.add(row)
     session.flush()
     return row
+
+
+def _invoke(command, args):
+    """Invoke a command and return the result, its output with whitespace
+    collapsed, and the cells of every table row it built."""
+    with patch.object(Table, 'add_row', autospec=True, side_effect=Table.add_row) as add_row:
+        result = CliRunner().invoke(command, args)
+    cells = [tuple(call.args[1:]) for call in add_row.call_args_list]
+    return result, ' '.join(result.output.split()), cells
 
 
 def _no_writes(monkeypatch):
@@ -80,24 +93,23 @@ class TestProvidersCosts:
              total_tokens=10, cost_usd=0.0)
         _no_writes(monkeypatch)
 
-        result = CliRunner().invoke(providers, ['costs', *_DAY_ARGS])
+        result, out, cells = _invoke(providers, ['costs', *_DAY_ARGS])
 
         assert result.exit_code == 0, result.output
-        out = result.output
         assert 'Failed to get costs' not in out
-        assert 'Prompt Tokens:   17' in out
-        assert 'Answer Tokens:   9' in out
+        assert 'Prompt Tokens: 17' in out
+        assert 'Answer Tokens: 9' in out
         assert 'Thinking Tokens: 196' in out
-        assert 'Total Tokens:    222' in out
-        assert 'Total Cost:      $0.500000' in out
-        assert 'By Provider' in out
-        assert 'By Call Type' in out
-        assert 'daily_internal' in out
-        assert 'intent_parse' in out
-        gemini_line = next(l for l in out.splitlines() if l.strip().startswith('Gemini'))
-        assert '196' in gemini_line and ' 6 ' in gemini_line
-        ollama_line = next(l for l in out.splitlines() if l.strip().startswith('Ollama'))
-        assert '—' in ollama_line
+        assert 'Total Tokens: 222' in out
+        assert 'Total Cost: $0.500000' in out
+        assert 'By Provider:' in out
+        assert 'By Call Type:' in out
+        assert cells == [
+            ('Gemini', '1', '10', '6', '196', '212', '$0.500000', '$0.500000'),
+            ('Ollama', '1', '7', '3', '—', '10', '$0.000000', '$0.000000'),
+            ('daily_internal', '1', '10', '6', '196', '212', '$0.500000', '$0.500000'),
+            ('intent_parse', '1', '7', '3', '—', '10', '$0.000000', '$0.000000'),
+        ]
 
 
 class TestCondensationCosts:
@@ -113,25 +125,33 @@ class TestCondensationCosts:
              prompt_tokens=7, completion_tokens=3, thinking_tokens=None,
              total_tokens=10, cost_usd=0.0)
         _no_writes(monkeypatch)
-        meetings_out = CliRunner().invoke(meetings, ['costs', *_DAY_ARGS]).output
+        meetings_result, meetings_out, meetings_cells = _invoke(
+            meetings, ['costs', *_DAY_ARGS])
 
         session_for_command('workmain.cli.commands.notes')
-        notes_out = CliRunner().invoke(notes, ['costs', *_DAY_ARGS]).output
+        notes_result, notes_out, notes_cells = _invoke(notes, ['costs', *_DAY_ARGS])
 
-        for out in (meetings_out, notes_out):
+        expected_cells = [
+            ('Gemini', '1', '10', '6', '196', '212', '$0.500000', '$0.500000'),
+            ('Ollama', '1', '7', '3', '—', '10', '$0.000000', '$0.000000'),
+            ('2099-01-01', 'MtgA', 'gemini', '10', '6', '196', '212', '$0.500000'),
+            ('2099-01-01', 'MtgB', 'ollama', '7', '3', '—', '10', '$0.000000'),
+        ]
+        for result, out, cells in (
+            (meetings_result, meetings_out, meetings_cells),
+            (notes_result, notes_out, notes_cells),
+        ):
+            assert result.exit_code == 0, result.output
             assert 'Failed to get costs' not in out
-            assert 'Prompt Tokens:   17' in out
-            assert 'Answer Tokens:   9' in out
+            assert 'Prompt Tokens: 17' in out
+            assert 'Answer Tokens: 9' in out
             assert 'Thinking Tokens: 196' in out
-            assert 'MtgA' in out
-            meeting_b = next(l for l in out.splitlines() if 'MtgB' in l)
-            assert '—' in meeting_b
-        normalised = (
+            assert sorted(cells) == sorted(expected_cells)
+        assert (
             meetings_out
             .replace('Meeting Condensation Costs', 'TITLE')
             .replace('Meeting Detail', 'DETAIL')
-        )
-        assert normalised == (
+        ) == (
             notes_out
             .replace('Note Condensation Costs', 'TITLE')
             .replace('Condensation Detail', 'DETAIL')
@@ -158,20 +178,20 @@ class TestReportsCosts:
              total_tokens=37, cost_usd=0.25, report_id=report.id)
         _no_writes(monkeypatch)
 
-        result = CliRunner().invoke(reports, ['costs', *_DAY_ARGS])
+        result, out, cells = _invoke(reports, ['costs', *_DAY_ARGS])
 
         assert result.exit_code == 0, result.output
-        out = result.output
         assert 'Failed to get costs' not in out
-        assert 'gemini (refused)' in out
-        assert 'claude' in out
-        assert '2099-01-01' in out
-        assert 'daily' in out
-        assert 'Prompt Tokens:   17' in out
-        assert 'Answer Tokens:   36' in out
+        assert 'Prompt Tokens: 17' in out
+        assert 'Answer Tokens: 36' in out
         assert 'Thinking Tokens: 196' in out
-        assert 'Total Tokens:    249' in out
-        assert 'Total Cost:      $0.750000' in out
+        assert 'Total Tokens: 249' in out
+        assert 'Total Cost: $0.750000' in out
+        assert cells == [
+            ('2099-01-01', 'daily_internal', 'claude', '7', '30', '—', '37', '$0.250000'),
+            ('2099-01-01', 'daily_internal', 'gemini (refused)', '10', '6', '196', '212',
+             '$0.500000'),
+        ]
         assert '9.870000' not in out
         assert '77,777' not in out
 
@@ -209,11 +229,11 @@ class TestMeetingsCondenseTokenLine:
 
         with patch('workmain.cli.commands.meetings.get_note_condenser',
                    return_value=condenser):
-            result = CliRunner().invoke(meetings, ['condense', str(meeting.id)])
+            result, out, _ = _invoke(meetings, ['condense', str(meeting.id)])
 
         assert result.exit_code == 0, result.output
-        assert 'Cost: $0.012300' in result.output
-        assert 'Tokens: 9 prompt, 6 answer, 196 thinking' in result.output
+        assert 'Cost: $0.012300' in out
+        assert 'Tokens: 9 prompt, 6 answer, 196 thinking' in out
 
 
 class TestOldTrackerRemoved:
