@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.44.0] - 2026-10-11
+
+Gemini bills its thinking tokens as output, but WorkmAIn priced and recorded only the answer, so a Gemini request's recorded cost was about half its bill. `ai_costs` also recomputed `total_tokens` from prompt and answer, which dropped thinking from every stored total. Thinking is now priced at the completion rate, recorded on every provider that reports it, and every stored total is the provider's own (issue #149).
+
+### Added
+
+- `GenerationResponse.thinking_tokens`: how many of a reply's output tokens were thinking, from Gemini's `thoughts_token_count` and Claude's `output_tokens_details.thinking_tokens`; `None` for Ollama, which reports none
+- Migration `024`: nullable `ai_costs.thinking_tokens`. Rows written before it carry `NULL`
+- `thinking_tokens` in a report row's metadata
+
+### Changed
+
+- `completion_tokens` is every output token the provider billed, thinking included, on every provider. Gemini's now adds its thinking count, so Gemini costs and token totals rise from this release
+- `ai_costs.total_tokens` stores the provider's reported total instead of prompt plus answer
+- `scripts/compare_providers.py` prints the reply's own thinking count
+- `docs/AI_SETTINGS_GUIDE.md`: the completion rate prices thinking too
+
+Suite: 1232 passed, 0 failed, 0 skipped (baseline 1221 passed, 0 failed, 0 skipped).
+
 ## [1.43.0] - 2026-10-11
 
 A reply cut off at its token cap was used as if it were complete, on every provider and every call type: a cut-off report was saved and delivered, a cut-off summary was stored, and `workmain providers test` reported success. Every reply now states how it finished, and a cut-off, stopped or empty reply is refused. A fallback that answers in the primary's place is now reported wherever the result is shown (issue #148).
