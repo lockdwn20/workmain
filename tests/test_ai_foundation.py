@@ -20,12 +20,6 @@ from workmain.ai.base_provider import (
     ProviderError
 )
 
-from workmain.ai.cost_tracker import (
-    CostTracker,
-    SectionCost,
-    ReportCost
-)
-
 from workmain.ai.provider_manager import (
     ProviderManager,
     FallbackMode,
@@ -144,48 +138,6 @@ def test_base_provider():
     assert provider.call_count == 1
 
     print("✓ Base provider abstraction working")
-
-
-def test_cost_tracker():
-    """Test cost tracking system."""
-    print("\nTesting cost tracker...")
-
-    tracker = CostTracker()
-
-    report = tracker.start_report("daily_internal", date(2025, 12, 29))
-    assert tracker._current_report is not None
-
-    tracker.track_section(
-        section_name="Summary",
-        provider="claude",
-        model="claude-sonnet-4",
-        prompt_tokens=100,
-        completion_tokens=200,
-        cost=0.0045
-    )
-
-    tracker.track_section(
-        section_name="Tasks Completed",
-        provider="claude",
-        model="claude-sonnet-4",
-        prompt_tokens=150,
-        completion_tokens=250,
-        cost=0.00675
-    )
-
-    completed = tracker.end_report(generation_time=5.5)
-
-    assert len(completed.sections) == 2
-    assert completed.total_tokens == 700
-    assert abs(completed.total_cost - 0.01125) < 0.0001
-    assert completed.generation_time == 5.5
-
-    summary = tracker.get_report_summary(completed)
-    assert "daily_internal" in summary
-    assert "Summary" in summary
-    assert "Tasks Completed" in summary
-
-    print("✓ Cost tracker working")
 
 
 def test_provider_manager():

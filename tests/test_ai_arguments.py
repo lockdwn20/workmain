@@ -18,7 +18,7 @@ from click.testing import CliRunner
 from workmain.ai.base_provider import ProviderType
 from workmain.ai.provider_manager import ProviderManager
 from workmain.ai.report_generator import ReportGenerator
-from workmain.database.models import Report
+from workmain.database.models import AiCost, Report
 from workmain.cli.commands.email import email
 from workmain.cli.commands.meetings import meetings
 from workmain.cli.commands.notes import notes
@@ -202,7 +202,7 @@ class TestProviderArguments:
         prompt_builder.build_prompt.return_value = ('system', 'user')
         generator = ReportGenerator(
             session=MagicMock(), prompt_builder=prompt_builder, provider_manager=manager,
-            cost_tracker=MagicMock(), template_loader=MagicMock(),
+            template_loader=MagicMock(),
             reports_repository=MagicMock(),
         )
         with patch(_PATCH_TARGET, return_value=manager), \
@@ -312,8 +312,18 @@ class TestReportTypeFiltersRows(unittest.TestCase):
         self.session.commit()
         self.session.refresh(report)
         self.report_id = report.id
+        cost = AiCost(
+            interaction_type='zz_issue154_type', provider='claude', model='m',
+            prompt_tokens=3, completion_tokens=2, total_tokens=5, cost_usd=0.0,
+            report_id=report.id,
+        )
+        self.session.add(cost)
+        self.session.commit()
+        self.session.refresh(cost)
+        self.cost_id = cost.id
 
     def tearDown(self):
+        self.session.query(AiCost).filter(AiCost.id == self.cost_id).delete()
         self.session.query(Report).filter(Report.id == self.report_id).delete()
         self.session.commit()
         self.session.close()
@@ -334,7 +344,7 @@ class TestReportTypeFiltersRows(unittest.TestCase):
             reports, ['costs', '--type', 'zz_issue154_type', '--date', '2099-01-01'])
         self.assertEqual(costs.exit_code, 0, costs.output)
         self.assertIn('zz_issue154_type', costs.output)
-        self.assertNotIn('No reports found matching filters', costs.output)
+        self.assertNotIn('No report costs found', costs.output)
 
 
 class TestReportsFailureOutput:
@@ -371,7 +381,8 @@ class TestReportsFailureOutput:
         generator = MagicMock()
         generator.generate_report.return_value = {
             'content': 'body', 'provider': 'claude', 'model': 'm', 'tokens_used': 10,
-            'prompt_tokens': 5, 'completion_tokens': 5, 'cost': 0.0, 'file_path': None,
+            'prompt_tokens': 5, 'completion_tokens': 5, 'thinking_tokens': None,
+            'cost': 0.0, 'file_path': None,
             'fallback_reason': 'claude answered daily_internal because gemini failed: cut off',
         }
         with patch('workmain.cli.commands.reports.get_report_generator',

@@ -12,9 +12,7 @@ from sqlalchemy.orm import Session
 
 from workmain.database.models import Meeting, Note
 from workmain.ai.base_provider import GenerationRequest
-from workmain.ai.cost_tracker import get_cost_tracker
 from workmain.ai.provider_manager import FallbackNotice, get_provider_manager
-from workmain.database.repositories.ai_costs_repo import AiCostRepository
 from workmain.templates_engine import get_style_adapter
 
 
@@ -80,7 +78,6 @@ class NoteCondenser:
             session: Database session for queries and updates
         """
         self.session = session
-        self.cost_tracker = get_cost_tracker()
         self.style_adapter = get_style_adapter()
         self.provider_manager = get_provider_manager()
     
@@ -131,7 +128,7 @@ class NoteCondenser:
     def condense_meeting(
         self,
         meeting: Meeting,
-    ) -> Tuple[str, List[str], Optional[FallbackNotice]]:
+    ) -> Tuple[str, List[str], Optional[FallbackNotice], List[int]]:
         """
         Condense all notes from a meeting into a single summary.
 
@@ -140,7 +137,9 @@ class NoteCondenser:
 
         Returns:
             (condensed one-line summary, resolved tags for the summary note,
-            FallbackNotice when the fallback provider answered, else None)
+            FallbackNotice when the fallback provider answered else None,
+            the ai_costs ids recorded for the reply; [] when no provider was
+            called)
 
         Raises:
             ValueError: If meeting has no notes to condense
@@ -163,54 +162,25 @@ class NoteCondenser:
             db_meeting.condensed_summary = default_summary
             db_meeting.condensed_at = datetime.now()
             self.session.commit()
-            return default_summary, resolved_tags, None
+            return default_summary, resolved_tags, None, []
         
         request = self.build_condensation_request(db_meeting, notes)
 
-        # Track cost
-        self.cost_tracker.start_report(f"condense_{db_meeting.title}", datetime.now().date())
-        
-        try:
-            # Generate using config-driven provider ('note_condensation' entry in ai_settings.json)
-            response, notice = self.provider_manager.generate(
-                request,
-                report_type='note_condensation',
-            )
+        # Generate using config-driven provider ('note_condensation' entry in ai_settings.json)
+        response, notice = self.provider_manager.generate(
+            request,
+            report_type='note_condensation',
+            meeting_id=db_meeting.id,
+            context_label=db_meeting.title,
+        )
 
-            # Track cost
-            self.cost_tracker.track_section(
-                section_name="condensation",
-                provider=response.provider.value,
-                model=response.model,
-                prompt_tokens=response.prompt_tokens,
-                completion_tokens=response.completion_tokens,
-                cost=response.cost
-            )
+        # Update meeting with condensed summary
+        db_meeting.condensed_summary = response.content.strip()
+        db_meeting.condensed_at = datetime.now()
+        self.session.commit()
 
-            # Update meeting with condensed summary
-            db_meeting.condensed_summary = response.content.strip()
-            db_meeting.condensed_at = datetime.now()
-            self.session.commit()
+        return db_meeting.condensed_summary, resolved_tags, notice, response.cost_record_ids
 
-            # Persist ai_costs row
-            AiCostRepository(self.session).create(
-                interaction_type='condensation',
-                provider=response.provider.value,
-                model=response.model,
-                prompt_tokens=response.prompt_tokens,
-                completion_tokens=response.completion_tokens,
-                thinking_tokens=response.thinking_tokens,
-                total_tokens=response.tokens_used,
-                cost_usd=response.cost,
-                meeting_id=db_meeting.id,
-                context_label=db_meeting.title,
-            )
-
-            return db_meeting.condensed_summary, resolved_tags, notice
-
-        finally:
-            self.cost_tracker.end_report(0.0)  # No generation time tracking needed
-    
     def _build_condensation_prompt(
         self,
         meeting: Meeting,

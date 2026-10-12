@@ -472,7 +472,7 @@ class TestIntentParseThinkingTokens:
                 tokens_used=33,
             ),
         })
-        session_for_command('workmain.database.connection')
+        session_for_command('workmain.services.ai_cost_service')
         query = db_session.query(AiCost).filter(AiCost.interaction_type == "intent_parse")
         before = query.count()
 
@@ -483,3 +483,70 @@ class TestIntentParseThinkingTokens:
         row = query.order_by(AiCost.id.desc()).first()
         assert row.thinking_tokens is None
         assert row.total_tokens == 33
+
+
+class TestIntentCallRecording:
+    """AC1.5, AC1.6, AC3.1 — every intent call records its reply."""
+
+    def _manager(self, tmp_path, monkeypatch, content):
+        from tests.mocks.stub_providers import StubProvider, stubbed_manager
+        pm = stubbed_manager(tmp_path, {
+            "ollama": StubProvider(
+                ProviderType.OLLAMA, content=content,
+                prompt_tokens=15, completion_tokens=5, tokens_used=20, cost=0.0,
+            ),
+        })
+        monkeypatch.setattr(_provider_manager_module, "_provider_manager_instance", pm)
+
+    def _query(self, db_session, call_type):
+        from workmain.database.models import AiCost
+        return db_session.query(AiCost).filter(AiCost.interaction_type == call_type)
+
+    def test_task_match_records_one_row(
+        self, tmp_path, monkeypatch, db_session, session_for_command
+    ):
+        """AC1.5"""
+        session_for_command('workmain.services.ai_cost_service')
+        self._manager(tmp_path, monkeypatch,
+                      '{"matched": true, "confidence": 0.9, "note_id": 1}')
+        query = self._query(db_session, "task_match")
+        before = query.count()
+        task = MagicMock()
+        task.note.content = "finish the report"
+        note = MagicMock(id=1, content="worked on the report")
+
+        result = IntentParser().parse_task_match(task, [note])
+
+        assert result["matched"] is True
+        assert query.count() == before + 1
+
+    def test_note_dedup_records_one_row(
+        self, tmp_path, monkeypatch, db_session, session_for_command
+    ):
+        """AC1.6"""
+        session_for_command('workmain.services.ai_cost_service')
+        self._manager(tmp_path, monkeypatch,
+                      '{"duplicate": true, "confidence": 0.8, "note_id": null}')
+        query = self._query(db_session, "note_dedup")
+        before = query.count()
+
+        result = IntentParser().parse_note_duplicate("a", "b")
+
+        assert result["duplicate"] is True
+        assert query.count() == before + 1
+
+    def test_non_json_intent_reply_is_still_recorded(
+        self, tmp_path, monkeypatch, db_session, session_for_command
+    ):
+        """AC3.1: the reply was paid for even though it could not be parsed."""
+        session_for_command('workmain.services.ai_cost_service')
+        self._manager(tmp_path, monkeypatch, "not json")
+        from workmain.database.models import AiCost
+        query = self._query(db_session, "intent_parse")
+        before = query.count()
+
+        with pytest.raises(IntentParseError):
+            IntentParser().parse("log a note")
+
+        assert query.count() == before + 1
+        assert query.order_by(AiCost.id.desc()).first().refused is False

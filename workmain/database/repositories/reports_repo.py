@@ -37,12 +37,6 @@ class ReportsRepository:
         report_date: date,
         content: str,
         ai_provider: str,
-        ai_model: str,
-        prompt_tokens: int,
-        completion_tokens: int,
-        thinking_tokens: Optional[int],
-        total_tokens: int,
-        cost: float,
         generation_time: float,
         file_path: Optional[str] = None,
         client_id: Optional[int] = None,
@@ -56,13 +50,6 @@ class ReportsRepository:
             report_date: Date of the report
             content: Generated report content
             ai_provider: AI provider used (claude, gemini)
-            ai_model: Model name
-            prompt_tokens: Tokens in prompt
-            completion_tokens: Tokens in completion, thinking included
-            thinking_tokens: How many of completion_tokens were thinking;
-                None when the provider reports no count
-            total_tokens: Total tokens used
-            cost: Generation cost in USD
             generation_time: Time taken to generate (seconds)
             file_path: Optional path to saved file
             client_id: Optional client ID for attribution (None = internal mode)
@@ -71,15 +58,9 @@ class ReportsRepository:
         Returns:
             Created Report object
         """
-        # Build metadata
+        # Build metadata. Cost lives in ai_costs only.
         metadata = {
             "ai_provider": ai_provider,
-            "ai_model": ai_model,
-            "prompt_tokens": prompt_tokens,
-            "completion_tokens": completion_tokens,
-            "thinking_tokens": thinking_tokens,
-            "total_tokens": total_tokens,
-            "cost": cost,
             "generation_time": generation_time
         }
         
@@ -330,124 +311,6 @@ class ReportsRepository:
             q = q.limit(limit)
         return q.all()
 
-    def get_cost_summary(
-        self,
-        start_date: Optional[date] = None,
-        end_date: Optional[date] = None
-    ) -> Dict[str, Any]:
-        """
-        Get cost summary across all reports.
-        
-        Args:
-            start_date: Optional start date filter
-            end_date: Optional end date filter
-            
-        Returns:
-            Dictionary with cost summary
-        """
-        query = self.session.query(Report)
-        
-        if start_date:
-            query = query.filter(Report.report_date >= start_date)
-        if end_date:
-            query = query.filter(Report.report_date <= end_date)
-        
-        reports = query.all()
-        
-        if not reports:
-            return {
-                "total_reports": 0,
-                "total_cost": 0.0,
-                "total_tokens": 0,
-                "by_type": {},
-                "by_provider": {}
-            }
-        
-        # Calculate totals
-        total_cost = 0.0
-        total_tokens = 0
-        by_type = {}
-        by_provider = {}
-        
-        for report in reports:
-            if not report.report_metadata:
-                continue
-            
-            cost = float(report.report_metadata.get('cost', 0))
-            tokens = int(report.report_metadata.get('total_tokens', 0))
-            provider = report.report_metadata.get('ai_provider', 'unknown')
-            
-            total_cost += cost
-            total_tokens += tokens
-            
-            # By type
-            if report.report_type not in by_type:
-                by_type[report.report_type] = {
-                    'reports': 0,
-                    'cost': 0.0,
-                    'tokens': 0
-                }
-            by_type[report.report_type]['reports'] += 1
-            by_type[report.report_type]['cost'] += cost
-            by_type[report.report_type]['tokens'] += tokens
-            
-            # By provider
-            if provider not in by_provider:
-                by_provider[provider] = {
-                    'reports': 0,
-                    'cost': 0.0,
-                    'tokens': 0
-                }
-            by_provider[provider]['reports'] += 1
-            by_provider[provider]['cost'] += cost
-            by_provider[provider]['tokens'] += tokens
-        
-        return {
-            "total_reports": len(reports),
-            "total_cost": total_cost,
-            "total_tokens": total_tokens,
-            "by_type": by_type,
-            "by_provider": by_provider
-        }
-    
-    def get_costs_by_date(
-        self,
-        start_date: Optional[date] = None,
-        end_date: Optional[date] = None
-    ) -> Dict[str, float]:
-        """
-        Get costs grouped by date.
-        
-        Args:
-            start_date: Optional start date filter
-            end_date: Optional end date filter
-            
-        Returns:
-            Dictionary mapping date strings to costs
-        """
-        query = self.session.query(Report)
-        
-        if start_date:
-            query = query.filter(Report.report_date >= start_date)
-        if end_date:
-            query = query.filter(Report.report_date <= end_date)
-        
-        reports = query.all()
-        
-        costs_by_date = {}
-        for report in reports:
-            if not report.report_metadata:
-                continue
-            
-            date_str = report.report_date.isoformat()
-            cost = float(report.report_metadata.get('cost', 0))
-            
-            if date_str not in costs_by_date:
-                costs_by_date[date_str] = 0.0
-            costs_by_date[date_str] += cost
-        
-        return costs_by_date
-    
     def delete(self, report_id: int) -> bool:
         """
         Delete a report record.

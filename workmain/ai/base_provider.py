@@ -10,7 +10,7 @@ connectivity.
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 
 
@@ -81,6 +81,8 @@ class GenerationResponse:
         finish: How the reply ended, as the provider mapped its vendor signal
         finish_reason: The vendor's own finish value as a plain string
         metadata: Additional provider-specific data
+        cost_record_ids: The ai_costs ids ProviderManager.generate recorded
+            during the call that returned this reply. Providers do not set it.
     """
     content: str
     provider: ProviderType
@@ -93,6 +95,7 @@ class GenerationResponse:
     finish: FinishStatus
     finish_reason: str
     metadata: Optional[Dict[str, Any]] = None
+    cost_record_ids: List[int] = field(default_factory=list)
 
 
 class BaseProvider(ABC):

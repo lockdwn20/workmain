@@ -42,6 +42,22 @@ def db_session():
         session.close()
 
 
+@pytest.fixture(autouse=True)
+def _block_live_cost_recording(monkeypatch):
+    """
+    Stop every test from recording AI costs to the live database.
+
+    The recording service's get_db raises, so a test that reaches it takes the
+    service's warning path. A test that checks a recorded row calls
+    session_for_command('workmain.services.ai_cost_service'), which replaces
+    this patch so the row lands in db_session and is rolled back.
+    """
+    def _refuse():
+        raise RuntimeError("tests do not record AI costs to the live database")
+
+    monkeypatch.setattr('workmain.services.ai_cost_service.get_db', _refuse)
+
+
 @pytest.fixture
 def session_for_command(db_session, monkeypatch):
     """

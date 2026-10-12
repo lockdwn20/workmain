@@ -25,9 +25,13 @@ from rich import box
 
 from workmain.database.connection import get_db
 from workmain.database.repositories.system_state_repository import SystemStateRepository
+from workmain.database.repositories.ai_costs_repo import get_ai_cost_repository, summarize
 from workmain.database.repositories.reports_repo import get_reports_repository
 from workmain.ai import get_report_generator, ReportFormat, ProviderType
 from workmain.utils.ai_arguments import failure_exit_code, require_eligible_provider, require_provider, require_report_type
+from workmain.utils.cost_display import (
+    format_call_tokens, render_cost_rows, render_cost_summary,
+)
 from workmain.utils.date_utils import resolve_date_window, format_date_window_label
 from workmain.utils.editor import edit_in_editor
 from workmain.utils.self_invoke import TIMEOUT_NETWORK, run_workmain
@@ -203,7 +207,7 @@ def generate_report_impl(
             console.print("[bold]Generation Details:[/bold]")
             console.print(f"  Provider: {result['provider']}")
             console.print(f"  Model: {result['model']}")
-            console.print(f"  Tokens: {result['tokens_used']:,} (prompt: {result['prompt_tokens']:,}, completion: {result['completion_tokens']:,})")
+            console.print(f"  {format_call_tokens(result['prompt_tokens'], result['completion_tokens'], result['thinking_tokens'])}")
             console.print(f"  Cost: ${result['cost']:.6f}")
 
             if result['file_path']:
@@ -765,7 +769,8 @@ def report_costs(
     """
     Show per-report cost breakdown with provider and token details.
 
-    Shows each individual report's cost. Defaults to the current calendar month.
+    Reads the ai_costs table: one row per recorded reply, including a refused
+    primary reply, with prompt, answer and thinking tokens shown separately. Defaults to the current calendar month.
     For aggregate totals grouped by provider and type, use
     'workmain providers costs'.
 
@@ -792,72 +797,35 @@ def report_costs(
     session = db.get_session()
 
     try:
-        repo = get_reports_repository(session)
-        all_reports = repo.list_reports(limit=500)
-
-        if not all_reports:
-            console.print()
-            console.print("[yellow]No reports found in database[/yellow]")
-            console.print()
-            console.print("[dim]Generate a report first with: workmain reports save daily_internal[/dim]")
-            console.print()
-            return
-
-        # Filter in Python
-        filtered = []
-        for report in all_reports:
-            if start_date and report.report_date < start_date:
-                continue
-            if end_date and report.report_date > end_date:
-                continue
-            if provider_type:
-                rp = (report.report_metadata or {}).get('ai_provider', '').lower()
-                if rp != provider_type.value:
-                    continue
-            if report_type and report.report_type != report_type:
-                continue
-            filtered.append(report)
+        pairs = get_ai_cost_repository(session).get_report_costs(
+            provider=provider_type.value if provider_type else None,
+            report_type=report_type,
+            start_date=start_date,
+            end_date=end_date,
+        )
 
         label = format_date_window_label(start_date, end_date)
         console.print()
         console.print(f"[bold cyan]Report Costs — {label}[/bold cyan]")
         console.print()
 
-        if not filtered:
-            console.print("[yellow]No reports found matching filters.[/yellow]")
+        if not pairs:
+            console.print("[yellow]No report costs found matching filters.[/yellow]")
+            console.print()
+            console.print("[dim]Generate a report first with: workmain reports save daily_internal[/dim]")
             console.print()
             return
 
-        total_cost = sum(float((r.report_metadata or {}).get('cost', 0)) for r in filtered)
-        total_tokens = sum(int((r.report_metadata or {}).get('total_tokens', 0)) for r in filtered)
+        summary = summarize([cost for cost, _ in pairs])
+        render_cost_summary(console, summary, "Calls")
 
-        console.print(f"  Reports:      {len(filtered)}")
-        console.print(f"  Total Cost:   [green]${total_cost:.6f}[/green]")
-        console.print(f"  Total Tokens: {total_tokens:,}")
-        console.print()
-
-        display = filtered[:limit]
-        console.print(f"[bold]Report Detail:[/bold] (showing {len(display)} of {len(filtered)})")
-
-        table = Table(show_header=True, header_style="bold cyan", box=box.SIMPLE)
-        table.add_column("Date", style="cyan", width=12)
-        table.add_column("Type", width=20)
-        table.add_column("Provider", width=10)
-        table.add_column("Tokens", justify="right", width=10)
-        table.add_column("Cost", justify="right", style="green", width=12)
-
-        for r in display:
-            meta = r.report_metadata or {}
-            table.add_row(
-                str(r.report_date),
-                r.report_type,
-                meta.get('ai_provider', 'unknown'),
-                f"{int(meta.get('total_tokens', 0)):,}",
-                f"${float(meta.get('cost', 0)):.6f}",
-            )
-
-        console.print(table)
-        console.print()
+        display = pairs[:limit]
+        render_cost_rows(
+            console,
+            [(report.report_date, report.report_type, cost) for cost, report in display],
+            f"[bold]Report Detail:[/bold] (showing {len(display)} of {len(pairs)})",
+            "Type",
+        )
 
         active_filters = [f"Period: {label}"]
         if provider:

@@ -23,6 +23,7 @@ from workmain.database.repositories.ai_costs_repo import get_ai_cost_repository
 from workmain.utils.tag_utils import parse_tags, get_tag_system
 from workmain.services import notes_service, time_entry_service
 from workmain.utils.ai_arguments import require_provider
+from workmain.utils.cost_display import render_condensation_costs
 from workmain.utils.date_utils import resolve_date_window, format_date_window_label
 
 console = Console()
@@ -665,7 +666,7 @@ def notes_log(meeting: str):
                 _provider_display = _rc.primary_provider.value.capitalize() if _rc else 'AI'
                 click.echo(f"\nSending to {_provider_display}...")
                 condenser = get_note_condenser(session)
-                summary, resolved_tags, notice = condenser.condense_meeting(meeting_obj)
+                summary, resolved_tags, notice, _ = condenser.condense_meeting(meeting_obj)
                 click.echo(f"✓ Condensed: \"{summary}\"")
                 if notice:
                     click.echo(f"⚠ {notice.message}")
@@ -1026,7 +1027,7 @@ def notes_costs(
     """
     Show AI costs for note condensations.
 
-    Reads from the ai_costs table (interaction_type=condensation).
+    Reads from the ai_costs table (interaction_type=note_condensation).
     Defaults to the current calendar month.
 
     \b
@@ -1051,83 +1052,17 @@ def notes_costs(
 
     try:
         repo = get_ai_cost_repository(session)
-        summary = repo.get_summary(
-            interaction_type='condensation',
-            provider=provider_type.value if provider_type else None,
-            start_date=start_date,
-            end_date=end_date,
-        )
-        rows = repo.get_filtered(
-            interaction_type='condensation',
+        render_condensation_costs(
+            console, repo,
             provider=provider_type.value if provider_type else None,
             start_date=start_date,
             end_date=end_date,
             limit=limit,
+            label=format_date_window_label(start_date, end_date),
+            title="Note Condensation Costs",
+            detail_heading="Condensation Detail",
+            filters=[f"Provider: {provider}"] if provider else [],
         )
-
-        label = format_date_window_label(start_date, end_date)
-        console.print()
-        console.print(f"[bold cyan]Note Condensation Costs — {label}[/bold cyan]")
-        console.print()
-
-        if summary['total_calls'] == 0:
-            console.print("[yellow]No condensation costs found for this period.[/yellow]")
-            console.print()
-            console.print("[dim]Condense a meeting with: workmain meetings condense <title>[/dim]")
-            console.print()
-            return
-
-        console.print(f"  Condensations: {summary['total_calls']}")
-        console.print(f"  Total Cost:    [green]${summary['total_cost']:.6f}[/green]")
-        console.print(f"  Total Tokens:  {summary['total_tokens']:,}")
-        console.print()
-
-        if summary['by_provider']:
-            console.print("[bold]By Provider:[/bold]")
-            table = Table(show_header=True, header_style="bold cyan", box=box.SIMPLE)
-            table.add_column("Provider", style="cyan")
-            table.add_column("Calls", justify="right", style="dim")
-            table.add_column("Cost", justify="right", style="green")
-            table.add_column("Tokens", justify="right", style="dim")
-            table.add_column("Avg Cost", justify="right", style="dim")
-
-            for prov, stats in sorted(summary['by_provider'].items()):
-                avg = stats['cost'] / stats['calls'] if stats['calls'] > 0 else 0.0
-                table.add_row(
-                    prov.title(),
-                    str(stats['calls']),
-                    f"${stats['cost']:.6f}",
-                    f"{stats['tokens']:,}",
-                    f"${avg:.6f}",
-                )
-            console.print(table)
-            console.print()
-
-        if rows:
-            console.print(f"[bold]Condensation Detail:[/bold] (showing {len(rows)})")
-            table = Table(show_header=True, header_style="bold cyan", box=box.SIMPLE)
-            table.add_column("Date", style="cyan", width=12)
-            table.add_column("Meeting", width=28)
-            table.add_column("Provider", width=10)
-            table.add_column("Tokens", justify="right", width=10)
-            table.add_column("Cost", justify="right", style="green", width=12)
-
-            for r in rows:
-                table.add_row(
-                    r.created_at.strftime('%Y-%m-%d'),
-                    (r.context_label or '')[:27],
-                    r.provider,
-                    f"{r.total_tokens:,}",
-                    f"${float(r.cost_usd):.6f}",
-                )
-            console.print(table)
-            console.print()
-
-        active_filters = [f"Period: {label}"]
-        if provider:
-            active_filters.append(f"Provider: {provider}")
-        console.print("[dim]" + "  |  ".join(active_filters) + "[/dim]")
-        console.print()
 
     except Exception as e:
         console.print(f"[red]✗ Failed to get costs: {e}[/red]")

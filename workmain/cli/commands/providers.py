@@ -10,6 +10,7 @@ full ai_settings.json detail view.
 
 import json
 import sys
+import time
 from pathlib import Path
 from typing import Optional
 import click
@@ -29,7 +30,11 @@ from workmain.ai.base_provider import (
     ProviderUnavailableError,
     require_complete,
 )
+from workmain.services import ai_cost_service
 from workmain.utils.ai_arguments import require_eligible_provider, require_provider, require_report_type
+from workmain.utils.cost_display import (
+    format_call_tokens, render_cost_breakdown, render_cost_summary,
+)
 from workmain.utils.date_utils import resolve_date_window, format_date_window_label
 
 
@@ -149,8 +154,20 @@ def test_provider(provider: str):
             max_tokens=probe_max_tokens,
         )
 
+        started = time.monotonic()
         response = client.generate(request)
-        require_complete(response, "providers test", probe_max_tokens, None)
+        elapsed = time.monotonic() - started
+        refused = False
+        try:
+            require_complete(response, "providers test", probe_max_tokens, None)
+        except IncompleteResponseError:
+            refused = True
+            raise
+        finally:
+            ai_cost_service.record_reply(
+                response, "providers_test",
+                refused=refused, generation_time_s=elapsed,
+            )
 
         console.print()
         console.print(f"[green]✓ {provider_lower.title()} API test successful![/green]")
@@ -159,7 +176,7 @@ def test_provider(provider: str):
         console.print()
         console.print("[dim]Usage Statistics:[/dim]")
         console.print(f"  Model: {response.model}")
-        console.print(f"  Tokens: {response.tokens_used} (prompt: {response.prompt_tokens}, completion: {response.completion_tokens})")
+        console.print(f"  {format_call_tokens(response.prompt_tokens, response.completion_tokens, response.thinking_tokens)}")
         console.print(f"  Cost: ${response.cost:.6f}")
         console.print()
 
@@ -200,7 +217,8 @@ def show_costs(
     """
     Show aggregate AI cost totals from all interactions.
 
-    Groups totals by provider and interaction type (reports + condensations).
+    Groups totals by provider and call type, with prompt, answer and thinking
+    tokens shown separately.
     Defaults to the current calendar month.
     For per-report cost detail, use 'workmain reports costs'.
 
@@ -244,52 +262,16 @@ def show_costs(
             console.print()
             return
 
-        console.print(f"  Total Calls:  {summary['total_calls']}")
-        console.print(f"  Total Cost:   [green]${summary['total_cost']:.6f}[/green]")
-        console.print(f"  Total Tokens: {summary['total_tokens']:,}")
-        console.print()
+        render_cost_summary(console, summary, "Total Calls")
 
         if summary['by_provider']:
-            console.print("[bold]By Provider:[/bold]")
-            table = Table(show_header=True, header_style="bold cyan", box=box.SIMPLE)
-            table.add_column("Provider", style="cyan")
-            table.add_column("Calls", justify="right", style="dim")
-            table.add_column("Cost", justify="right", style="green")
-            table.add_column("Tokens", justify="right", style="dim")
-            table.add_column("Avg Cost", justify="right", style="dim")
-
-            for prov, stats in sorted(summary['by_provider'].items()):
-                avg = stats['cost'] / stats['calls'] if stats['calls'] > 0 else 0.0
-                table.add_row(
-                    prov.title(),
-                    str(stats['calls']),
-                    f"${stats['cost']:.6f}",
-                    f"{stats['tokens']:,}",
-                    f"${avg:.6f}",
-                )
-            console.print(table)
-            console.print()
+            render_cost_breakdown(
+                console, "By Provider",
+                {p.title(): b for p, b in summary['by_provider'].items()},
+            )
 
         if summary['by_type']:
-            console.print("[bold]By Interaction Type:[/bold]")
-            table = Table(show_header=True, header_style="bold cyan", box=box.SIMPLE)
-            table.add_column("Type", style="cyan")
-            table.add_column("Calls", justify="right", style="dim")
-            table.add_column("Cost", justify="right", style="green")
-            table.add_column("Tokens", justify="right", style="dim")
-            table.add_column("Avg Cost", justify="right", style="dim")
-
-            for itype, stats in sorted(summary['by_type'].items()):
-                avg = stats['cost'] / stats['calls'] if stats['calls'] > 0 else 0.0
-                table.add_row(
-                    itype.title(),
-                    str(stats['calls']),
-                    f"${stats['cost']:.6f}",
-                    f"{stats['tokens']:,}",
-                    f"${avg:.6f}",
-                )
-            console.print(table)
-            console.print()
+            render_cost_breakdown(console, "By Call Type", summary['by_type'])
 
         active_filters = [f"Period: {label}"]
         if provider:

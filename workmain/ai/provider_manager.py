@@ -11,6 +11,7 @@ disabled provider).
 import json
 import logging
 import os
+import time
 from typing import Dict, Optional, List, Tuple
 from enum import Enum
 from dataclasses import dataclass
@@ -25,10 +26,12 @@ from workmain.ai.base_provider import (
     ProviderError,
     RateLimitError,
     ConfigurationError,
+    IncompleteResponseError,
     require_complete,
 )
 from workmain.ai.providers import PROVIDER_REGISTRY
 from workmain.config_manager.loader import ConfigLoader
+from workmain.services import ai_cost_service
 
 logger = logging.getLogger(__name__)
 
@@ -175,11 +178,53 @@ class ProviderManager:
             f"config/ai_settings.json."
         )
 
+    def _generate_and_record(
+        self,
+        provider: BaseProvider,
+        request: GenerationRequest,
+        call_type: str,
+        max_tokens_key: str,
+        meeting_id: Optional[int],
+        context_label: Optional[str],
+        cost_record_ids: List[int],
+    ) -> GenerationResponse:
+        """
+        Call one provider, record the reply it returns, and reject it if incomplete.
+
+        A reply that require_complete rejects is recorded with refused=True
+        before IncompleteResponseError propagates. A provider call that raises
+        before returning a reply records nothing. Each recorded id is appended
+        to cost_record_ids, and the accepted reply carries that whole list.
+        """
+        started = time.monotonic()
+        response = provider.generate(request)
+        elapsed = time.monotonic() - started
+
+        refused = False
+        try:
+            require_complete(response, call_type, request.max_tokens, max_tokens_key)
+        except IncompleteResponseError:
+            refused = True
+            raise
+        finally:
+            record_id = ai_cost_service.record_reply(
+                response, call_type,
+                refused=refused, generation_time_s=elapsed,
+                meeting_id=meeting_id, context_label=context_label,
+            )
+            if record_id is not None:
+                cost_record_ids.append(record_id)
+
+        response.cost_record_ids = cost_record_ids
+        return response
+
     def generate(
         self,
         request: GenerationRequest,
         report_type: Optional[str] = None,
-        provider_override: Optional[ProviderType] = None
+        provider_override: Optional[ProviderType] = None,
+        meeting_id: Optional[int] = None,
+        context_label: Optional[str] = None,
     ) -> Tuple[GenerationResponse, Optional[FallbackNotice]]:
         """
         Generate content using appropriate provider.
@@ -189,10 +234,15 @@ class ProviderManager:
             report_type: Call type (for provider selection); always required
             provider_override: Optional provider override; must accept the
                 call type's instructions
+            meeting_id: Recorded on each cost row (condensation only)
+            context_label: Recorded on each cost row
 
         Returns:
             Tuple of (GenerationResponse, FallbackNotice or None). The notice is
-            set when the fallback provider answered, and states why.
+            set when the fallback provider answered, and states why. Every
+            reply a provider returned is recorded in ai_costs, including a
+            rejected primary reply; the returned reply's cost_record_ids holds
+            those row ids in the order recorded.
 
         Raises:
             ProviderError: If generation fails with all providers
@@ -218,10 +268,14 @@ class ProviderManager:
             fallback = config.fallback_provider
             fallback_mode = config.fallback_mode
 
+        cost_record_ids: List[int] = []
+
         try:
             provider = self.get_provider(primary.value)
-            response = provider.generate(request)
-            require_complete(response, report_type, request.max_tokens, config.max_tokens_key)
+            response = self._generate_and_record(
+                provider, request, report_type, config.max_tokens_key,
+                meeting_id, context_label, cost_record_ids,
+            )
             return response, None
 
         except (ProviderError, RateLimitError) as e:
@@ -242,9 +296,9 @@ class ProviderManager:
 
             try:
                 fallback_provider = self.get_provider(fallback.value)
-                response = fallback_provider.generate(request)
-                require_complete(
-                    response, report_type, request.max_tokens, config.max_tokens_key
+                response = self._generate_and_record(
+                    fallback_provider, request, report_type, config.max_tokens_key,
+                    meeting_id, context_label, cost_record_ids,
                 )
                 return response, FallbackNotice(
                     call_type=report_type,
