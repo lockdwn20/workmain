@@ -456,3 +456,30 @@ class TestIntentParserRefusal:
         self._manager(tmp_path, monkeypatch)
         with pytest.raises(ProviderError):
             IntentParser().parse_note_duplicate("a", "b")
+
+
+class TestIntentParseThinkingTokens:
+    """AC2.5, AC3.2 — Ollama reports no thinking count."""
+
+    def test_cost_row_records_null_thinking_and_the_reply_total(
+        self, tmp_path, db_session, session_for_command
+    ):
+        from tests.mocks.stub_providers import StubProvider, stubbed_manager
+        from workmain.database.models import AiCost
+        pm = stubbed_manager(tmp_path, {
+            "ollama": StubProvider(
+                ProviderType.OLLAMA, content='{"action": "create_note"}',
+                tokens_used=33,
+            ),
+        })
+        session_for_command('workmain.database.connection')
+        query = db_session.query(AiCost).filter(AiCost.interaction_type == "intent_parse")
+        before = query.count()
+
+        with patch("workmain.ai.intent_parser.get_provider_manager", return_value=pm):
+            IntentParser().parse("log a note")
+
+        assert query.count() == before + 1
+        row = query.order_by(AiCost.id.desc()).first()
+        assert row.thinking_tokens is None
+        assert row.total_tokens == 33

@@ -434,6 +434,7 @@ class AiCost(Base):
     prompt_tokens     = Column(Integer, nullable=False, default=0)
     completion_tokens = Column(Integer, nullable=False, default=0)
     total_tokens      = Column(Integer, nullable=False, default=0)
+    thinking_tokens   = Column(Integer, nullable=True)
     cost_usd          = Column(Numeric(12, 8), nullable=False, default=0)
     generation_time_s = Column(Float)
     report_id         = Column(Integer, ForeignKey('reports.id', ondelete='SET NULL'), nullable=True)

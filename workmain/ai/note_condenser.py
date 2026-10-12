@@ -199,6 +199,8 @@ class NoteCondenser:
                 model=response.model,
                 prompt_tokens=response.prompt_tokens,
                 completion_tokens=response.completion_tokens,
+                thinking_tokens=response.thinking_tokens,
+                total_tokens=response.tokens_used,
                 cost_usd=response.cost,
                 meeting_id=db_meeting.id,
                 context_label=db_meeting.title,

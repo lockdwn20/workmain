@@ -78,6 +78,8 @@ class TestAiCostRepositoryCreate:
             model='claude-sonnet-test',
             prompt_tokens=200,
             completion_tokens=100,
+            thinking_tokens=None,
+            total_tokens=300,
             cost_usd=0.0025,
             context_label='daily_internal',
         )
@@ -100,6 +102,8 @@ class TestAiCostRepositoryCreate:
             model='gemini-test',
             prompt_tokens=50,
             completion_tokens=20,
+            thinking_tokens=None,
+            total_tokens=70,
             cost_usd=0.0001,
             context_label='Team Standup',
         )
@@ -107,18 +111,41 @@ class TestAiCostRepositoryCreate:
         assert row.provider == 'gemini'
         assert row.total_tokens == 70
 
-    def test_total_tokens_equals_sum(self, db_session):
-        """total_tokens is always prompt_tokens + completion_tokens."""
+    def test_total_tokens_is_stored_as_given(self, db_session):
+        """AC3.1: total_tokens is the provider's total, not recomputed."""
         repo = AiCostRepository(db_session)
         row = repo.create(
             interaction_type='report',
             provider='claude',
             model='m',
-            prompt_tokens=333,
-            completion_tokens=111,
+            prompt_tokens=10,
+            completion_tokens=5,
+            thinking_tokens=None,
+            total_tokens=20,
             cost_usd=0.0,
         )
-        assert row.total_tokens == 444
+        db_session.refresh(row)
+        assert row.total_tokens == 20
+
+    def test_thinking_tokens_stored(self, db_session):
+        """AC2.2: the thinking count is stored as given."""
+        row = AiCostRepository(db_session).create(
+            interaction_type='report', provider='gemini', model='m',
+            prompt_tokens=9, completion_tokens=202, thinking_tokens=196,
+            total_tokens=211, cost_usd=0.0,
+        )
+        db_session.refresh(row)
+        assert row.thinking_tokens == 196
+
+    def test_thinking_tokens_none_stored_as_null(self, db_session):
+        """AC2.2: None is stored as NULL, not 0."""
+        row = AiCostRepository(db_session).create(
+            interaction_type='report', provider='ollama', model='m',
+            prompt_tokens=9, completion_tokens=6, thinking_tokens=None,
+            total_tokens=15, cost_usd=0.0,
+        )
+        db_session.refresh(row)
+        assert row.thinking_tokens is None
 
 
 # ---------------------------------------------------------------------------
