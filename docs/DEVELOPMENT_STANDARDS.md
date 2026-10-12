@@ -714,6 +714,8 @@ Rules:
 3. One assertion focus per test. Prefer several small tests over one large one.
 4. No manual cleanup; §6.1's rollback discards every write.
 5. Group related tests in `class Test<Topic>` so `-k TestTopic` works.
+6. **A test class is a plain class, never a `unittest.TestCase`.** A TestCase test cannot take a fixture as an argument, so it cannot take `db_session` (rule 1) or `tmp_path` (rule 7). What a test needs set up is a fixture it takes or code in its own body; there is no `setUp` or `tearDown`.
+7. **A test that needs a directory takes `tmp_path`.** pytest creates one for each test and prunes them to its last three runs, so the test cannot leave a directory behind. `tempfile.TemporaryDirectory()` cleans up only when its block exits, and `tempfile.mkdtemp()` never does: whether either leaves something behind depends on the test getting the cleanup right. A `unittest.TestCase` test cannot take `tmp_path` (rule 6), so until its file is converted it removes whatever directory it creates.
 
 ### 6.3 Placement
 
