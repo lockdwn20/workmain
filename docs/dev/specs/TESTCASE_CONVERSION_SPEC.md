@@ -25,6 +25,7 @@
 | 20261012 | Caliper | 2: §6.2 rule 7 as drafted is broken on ship by seven `tempfile.TemporaryDirectory()` sites in `tests/test_provider_foundation.py` and by two TestCase sites, and its reason is false for `TemporaryDirectory` and for a `mkdtemp()` the test removes. | Ray, 20261012: option B. The seven sites are in scope and take `tmp_path` (Step 6). They are module-level test functions, not class methods. They use the same `with tempfile.TemporaryDirectory()` construct the conversion table already covers, so no new conversion form is needed. Rule 7's text names the TestCase case and gives a reason that holds for both `tempfile` calls. Remaining sites after this branch: `tests/test_meetings_condense.py:187` and `tests/test_report_correction.py:686`, both TestCase files #199 carries. |
 | 20261012 | Caliper | 4: Step 5 and AC5.1's whole-suite scope go beyond the issue and the Q1 answer. | Ray, 20261012: option A, the extension is confirmed. |
 | 20261012 | Caliper | Second pass after findings 1–4 were resolved: No findings. | — |
+| 20261012 | Anvil | §2 row 2 said 41 TestCase classes and 9 with `setUp`/`tearDown`; the files hold 38 and 11. | Accepted. Corrected in §2 and in study F2. Neither count drives a step, criterion or conversion row; every site the conversion depends on is listed in its own §2 row and was confirmed. |
 
 ---
 
@@ -53,7 +54,7 @@ On `origin/main` `a4071ea`, 20261012.
 | Claim | Evidence |
 | --- | --- |
 | Tests collected per file: 100, 78, 58, 12, 10. Every test sits in a class. | `pytest --collect-only -q <file>`; the assertion-count script's per-file test totals equal these counts |
-| 41 TestCase classes. `setUp`/`tearDown` in 9 of them. No `setUpClass`, `subTest`, `skipTest`, `addCleanup`, `self.fail` or method-level `@patch`. | study F2 |
+| 38 TestCase classes (18, 10, 4, 4, 2). `setUp`/`tearDown` in 11 of them. No `setUpClass`, `subTest`, `skipTest`, `addCleanup`, `self.fail` or method-level `@patch`. | study F2 |
 | Sessions opened by the tests and deleted by hand: `tests/test_eod_workflow.py` `TestReportReviewStepCollapse` :1009–1023, `TestReportReviewStepEditBranch` :1142–1156, `TestReportStepOutcome` :1315–1330, `TestCondenseStepOutcome` :1426–1448. Each `setUp` also calls `load_dotenv()`. | study F3; `grep -n '\.delete(' <five files>` hits only these tearDowns (:1021, :1154, :1327, :1441, :1444, :1445) |
 | Temp directories created in `setUp` or a test body: `tests/test_orchestration.py` :746, :1219, :1376; `tests/test_eod_workflow.py` :1323, :1431; `tests/test_self_invoke.py` :23, :30 | study F4 |
 | `_make_store(tmp_path=None)` (`tests/test_orchestration.py:29`) falls back to `tempfile.mkdtemp()`. `_make_daemon(dm_channel='D_TEST', store=None)` (:36) falls back to `_make_store()` (:45). Neither is referenced outside this file. | `grep -rn -e '_make_store' -e '_make_daemon' --include='*.py' .`: hits only in `tests/test_orchestration.py` |
