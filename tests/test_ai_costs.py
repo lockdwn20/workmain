@@ -9,6 +9,7 @@ import pytest
 from datetime import date, datetime, timezone
 
 import click
+from sqlalchemy import text
 
 from workmain.database.models import AiCost
 from workmain.database.repositories.ai_costs_repo import AiCostRepository
@@ -46,6 +47,21 @@ def _insert_cost(
     db_session.add(row)
     db_session.flush()
     return row
+
+
+# ---------------------------------------------------------------------------
+# ai_costs.thinking_tokens column (migration 024)
+# ---------------------------------------------------------------------------
+
+class TestThinkingTokensColumn:
+    def test_column_is_nullable_integer(self, db_session):
+        """AC2.1: migration 024 added a nullable integer thinking_tokens."""
+        row = db_session.execute(text(
+            "SELECT data_type, is_nullable FROM information_schema.columns "
+            "WHERE table_name = 'ai_costs' AND column_name = 'thinking_tokens'"
+        )).one()
+        assert row.data_type == 'integer'
+        assert row.is_nullable == 'YES'
 
 
 # ---------------------------------------------------------------------------
