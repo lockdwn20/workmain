@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Complete, apart from the criteria that name Ray, which wait on his reading. #58 is rewritten as the pilot. Sixteen conversion issues, #201–#216, are open under #198, each blocked by #58. #159 and #160 are narrowed to their rows outside `workmain/cli/`. #95, #96 and #168 carry the context the spec gives them, and #95 and #96 each gain one criterion. Every dependency link the spec names exists on GitHub. The design study records which issue converts each census entry and each width-dependent test.
+Complete. #58 is rewritten as the pilot. Sixteen conversion issues, #201–#216, are open under #198, each blocked by #58. #159 and #160 are narrowed to their rows outside `workmain/cli/`. #95, #96 and #168 carry the context the spec gives them, and #95 and #96 each gain one criterion. Every dependency link the spec names exists on GitHub. The design study records which issue converts each census entry and each width-dependent test.
 
 ## 2. What shipped, by step
 
@@ -29,10 +29,10 @@ Complete, apart from the criteria that name Ray, which wait on his reading. #58 
 | AC | Status | Evidence |
 | --- | --- | --- |
 | AC1.1 | Met | every name from `ls workmain/cli/commands/*.py` except `__init__.py` has a `###` section in Appendix A; the loop over them prints nothing |
-| AC2.1 | Not met | Awaiting Ray |
+| AC2.1 | Met | Reviewed by Ray |
 | AC3.1 | Met | every §5 row of the study carries an answer dated 20261012; commit `9df9624`, which recorded the last answer, is 2026-10-12T16:01:07-07:00; the earliest new issue, #201, was created at 2026-10-13T05:00:18Z (2026-10-12 22:00:18 -07:00) |
-| AC4.1 | Not met | The mechanical part is met. All 18 Appendix A headings and all 29 Appendix B rows name an issue; `gh issue view 198 --json subIssues` lists 58, 136, 199, 200 and 201–216; the grep for `\bF[0-9]+\b`, `Appendix`, `design study` and `DESIGN_` over the live bodies of #58 and #201–#216 finds nothing. The reading of three bodies is awaiting Ray. |
-| AC4.2 | Not met | Awaiting Ray |
+| AC4.1 | Met | The mechanical part is met. All 18 Appendix A headings and all 29 Appendix B rows name an issue; `gh issue view 198 --json subIssues` lists 58, 136, 199, 200 and 201–216; the grep for `\bF[0-9]+\b`, `Appendix`, `design study` and `DESIGN_` over the live bodies of #58 and #201–#216 finds nothing. The reading of three bodies was done by Ray. |
+| AC4.2 | Met | Reviewed by Ray |
 | AC5.1 | Met | Over the live bodies, each of the fourteen files appears in a criterion using the X-TC pattern: `tests/test_task_lifecycle.py` in #58; `test_clients_commands.py` in #204; `test_meetings_condense.py` and `test_meetings_track.py` in #208; `test_notes_add.py`, `test_notes_edit.py` and `test_notes_log.py` in #209; `test_ai_arguments.py`, `test_report_correction.py`, `test_report_history.py` and `test_reports_corrections.py` in #212; `test_slack.py` and `test_slack_channel_config.py` in #214; `test_time_add.py` in #216. #212 carries X-OPT and #214 carries X-ENTRY. |
 | AC6.1 | Met | Appendix C has a row for each of #158, #159, #160, #161, #167, #168, #169, #95, #104, #140, #136 and #58; the `blocked_by` read-back in §5 shows every link AC6.1 lists |
 
