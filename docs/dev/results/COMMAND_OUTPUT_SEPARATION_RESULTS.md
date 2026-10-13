@@ -81,5 +81,4 @@ Complete. #58 is rewritten as the pilot. Sixteen conversion issues, #201–#216,
 
 | Item | Description | Why deferred |
 | --- | --- | --- |
-| Ray's readings | AC2.1, the reading part of AC4.1, and AC4.2 | Ray-owned checks (`docs/DEVELOPMENT_STANDARDS.md` §1.2) |
 | Close-out | `/closeout` for `chore/issue-199-command-output-recon` | close-out's, not this spec's |
