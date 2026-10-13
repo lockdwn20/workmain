@@ -186,7 +186,7 @@ What the `tasks` commands do today, measured on `main` `b61e321`, 20261012:
 
 ### Step 2 — the sixteen conversion issues
 
-Create the AI-costs issue first, because four other groups are blocked by it. For each group in §4.1 below, write a payload to the scratchpad and run `python3 automation/issue_validator.py <payload> --create`. Record the new issue's number. Every payload has:
+Create the AI-costs and clockify issues first, because other groups are blocked by them. For each group in §4.1 below, write a payload to the scratchpad and run `python3 automation/issue_validator.py <payload> --create`. Record the new issue's number. Every payload has:
 
 - `title`: the group's title from §4.1.
 - `context`: the assembly below.
@@ -564,7 +564,7 @@ None. Steps 1–4 create and edit issues and add links, and delete nothing. No s
 | AC3.1 | Every design question was answered by Ray before any conversion issue was opened | every row of the study's §5 carries an answer dated 20261012, and each new issue's `createdAt` is later than the commit that recorded the last answer (`9df9624`) |
 | AC4.1 | Every census finding is carried by an open issue under #198 that can be worked without the design study | every Appendix A heading and every Appendix B row names an issue, and `gh issue view 198 --json subIssues` lists each of them; `grep -nE '\bF[0-9]+\b\|Appendix\|design study\|DESIGN_'` over each new issue's body, and over #58's, finds nothing; and a stated reading by Ray of three of the new issues' bodies for whether each can be worked on alone |
 | AC5.1 | Each of the fourteen command-test files carried from #136 is converted by a named sub-issue of #198, and the reports and slack issues carry #136's entry-path criterion | `gh issue view <N> --json body` over the new issues and #58 finds each of the fourteen file names in a criterion using the X-TC pattern (#58's for `tests/test_task_lifecycle.py`, the new issues' for the other thirteen); the reports body contains X-OPT and the slack body contains X-ENTRY |
-| AC6.1 | Each overlapping issue has a stated place, and every link that place implies exists on GitHub | the study's Appendix C names #158, #159, #160, #161, #167, #168, #169, #95, #104, #140, #136 and #58; the DR5 read-back shows #96 ← #95, #58 ← #96, #104 ← #58, every conversion ← #58, email ← #104, meetings and notes ← #168, reports and slack ← #167, meetings, notes, providers and reports ← AI costs, and #115 ← slack and gdocs |
+| AC6.1 | Each overlapping issue has a stated place, and every link that place implies exists on GitHub | the study's Appendix C names #158, #159, #160, #161, #167, #168, #169, #95, #104, #140, #136 and #58; the DR5 read-back shows #96 ← #95, #58 ← #96, #104 ← #58, every conversion ← #58, email ← #104, meetings and notes ← #168, reports and slack ← #167, meetings, notes, providers and reports ← AI costs, time ← clockify, and #115 ← slack and gdocs |
 | AC4.2 | The `tasks` group's census findings are carried by #58, a sub-issue of #198, which also describes the output module the study settles | a stated reading by Ray of #58's title and body |
 
 ## 6. Test plan
