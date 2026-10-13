@@ -215,7 +215,7 @@ Appendix C gives the decision for each issue #199 names, and for #104 and #115, 
 
 ## 6. Disposition
 
-- All questions answered 20261012 (Ray). Promoted to: pending, the direct-path spec that opens the conversion issues.
+- All questions answered 20261012 (Ray). Promoted to: `../specs/COMMAND_OUTPUT_SEPARATION_SPEC.md`; #58 rewritten as the pilot; conversion issues #201–#216. Additional links the spec made: #208, #209, #211 and #212 blocked by #201; #216 blocked by #202.
 - Superseded by: n/a
 
 ---
@@ -224,7 +224,7 @@ Appendix C gives the decision for each issue #199 names, and for #104 and #115, 
 
 One table per command file. **Reads** names the repository methods, raw queries, files and services the command reaches, including through module-local helpers. **Decides** states the logic between reading and printing. **Prints** names the output form. **Columns** gives each table column's setting and what Rich 13.7.0 does with a value that does not fit (F6): *default* wraps at spaces and shortens an over-long word with `…`; *width=N* does the same inside N characters; *no_wrap* shortens with `…` and can be reduced to `…` alone; *min_width=N* pushes the table past a terminal narrower than N, where it is cropped with no marker. **Tests** names the test files that drive the command through `CliRunner` (count of tests in parentheses), and any that call into the command module directly.
 
-### `calendar.py` — 563 lines, 5 commands and a group callback
+### `calendar.py` — 563 lines, 5 commands and a group callback — converted by #203
 
 | Command | Reads | Decides | Prints | Columns | Tests |
 | --- | --- | --- | --- | --- | --- |
@@ -233,7 +233,7 @@ One table per command file. **Reads** names the repository methods, raw queries,
 | `calendar sync` | — | stub: raises `NotImplementedError` | `_StubCommandError` message | — | none |
 | `calendar import` | the ICS file (`parse_ics_file`); raw queries in `_classify_events` (meeting by Outlook id, fallback match, note count); `detect_removed_meetings` | each event's status (new, updated, unchanged, cancelled, notes kept on original date, removed), the counts, whether anything is to do; confirms; writes through `import_events_to_db` | Rich lines; preview line per event | — | none |
 
-### `clients.py` — 293 lines, 6 commands
+### `clients.py` — 293 lines, 6 commands — converted by #204
 
 | Command | Reads | Decides | Prints | Columns | Tests |
 | --- | --- | --- | --- | --- | --- |
@@ -244,7 +244,7 @@ One table per command file. **Reads** names the repository methods, raw queries,
 | `clients set active` | `get_by_name`, `set_active`, `clear_active` | `internal` clears the active client | Rich line | — | `test_clients_commands.py` (8) |
 | `clients status` | `system_state.active_client_id`, `get_by_id`, `get_active` | falls back to the client flagged active | Rich lines | — | `test_clients_commands.py` (2) |
 
-### `clockify.py` — 459 lines, 5 commands
+### `clockify.py` — 459 lines, 5 commands — converted by #202
 
 | Command | Reads | Decides | Prints | Columns | Tests |
 | --- | --- | --- | --- | --- | --- |
@@ -254,7 +254,7 @@ One table per command file. **Reads** names the repository methods, raw queries,
 | `clockify sync pull` | `ClockifySync.pull_entries` (prompts inside) | the date range | `click.echo` | — | none |
 | `clockify sync both` | `get_by_date`; push then pull | which entries are unsynced | `click.echo` | — | none |
 
-### `email.py` — 695 lines, 10 commands
+### `email.py` — 695 lines, 10 commands — converted by #205
 
 | Command | Reads | Decides | Prints | Columns | Tests |
 | --- | --- | --- | --- | --- | --- |
@@ -268,13 +268,13 @@ One table per command file. **Reads** names the repository methods, raw queries,
 | `email recipients delete` | `get_recipient_by_id` or substring over `get_all_recipients`; `remove_recipient` | picker; confirms | Rich lines | — | none |
 | `email assign` / `unassign` | `require_report_type`; `active_client_id`; `get_recipient_by_id`; `assign_recipient`/`unassign_recipient` | scope is the active client, or global | Rich line | — | `test_ai_arguments.py` (2); `test_ai_arguments.py` (1) |
 
-### `eod.py` — 249 lines, 1 command
+### `eod.py` — 249 lines, 1 command — converted by #206
 
 | Command | Reads | Decides | Prints | Columns | Tests |
 | --- | --- | --- | --- | --- | --- |
 | `eod` | `eod_workflow.get_step_sequence`, `run_step` (returns `EodStepResult`) | the date; the skip set (`report` implies `email`); completed, skipped and failed steps; the retry hint | two panels, two tables, Rich lines | plan: Step width=7 · Key width=14 · Action default · (status) width=8; summary: Status width=12 · Steps default | `test_eod_pipeline.py` (4) |
 
-### `gdocs.py` — 693 lines, 6 commands
+### `gdocs.py` — 693 lines, 6 commands — converted by #207
 
 | Command | Reads | Decides | Prints | Columns | Tests |
 | --- | --- | --- | --- | --- | --- |
@@ -285,7 +285,7 @@ One table per command file. **Reads** names the repository methods, raw queries,
 | `gdocs upload clockify` | staging PDF; `already_uploaded`; Drive upload; `record_upload` | as above | Rich lines | — | none |
 | `gdocs upload all` | `ctx.invoke` of the three uploads (F10) | continue after a failure (prompts); summary | Rich lines | — | `test_gdrive.py` (1) |
 
-### `meetings.py` — 1,786 lines, 18 commands (costs in the AI-costs table)
+### `meetings.py` — 1,786 lines, 18 commands (costs in the AI-costs table) — converted by #208
 
 | Command | Reads | Decides | Prints | Columns | Tests |
 | --- | --- | --- | --- | --- | --- |
@@ -308,7 +308,7 @@ One table per command file. **Reads** names the repository methods, raw queries,
 | `meetings template delete` | meeting-template config file | confirms | Rich line | — | none |
 | `meetings template use` | meeting-template config file; `create` per occurrence | date range; the same series expansion as `create` (F8) | Rich lines | — | none |
 
-### `notes.py` — 1,076 lines, 10 commands (costs in the AI-costs table)
+### `notes.py` — 1,076 lines, 10 commands (costs in the AI-costs table) — converted by #209
 
 | Command | Reads | Decides | Prints | Columns | Tests |
 | --- | --- | --- | --- | --- | --- |
@@ -321,7 +321,7 @@ One table per command file. **Reads** names the repository methods, raw queries,
 | `notes today` | `get_today(include_tags)` | keyword filter in Python | `click.echo` | — | `test_notes_list.py` (2) |
 | `notes date` / `search` / `meeting` | `ctx.invoke` of `notes list` | deprecated aliases | Rich warning, then `notes list` | — | `test_notes_list.py` (1); `test_notes_list.py` (1); `test_notes_list.py` (1) |
 
-### `notifications.py` — 292 lines, 5 commands
+### `notifications.py` — 292 lines, 5 commands — converted by #210
 
 | Command | Reads | Decides | Prints | Columns | Tests |
 | --- | --- | --- | --- | --- | --- |
@@ -330,7 +330,7 @@ One table per command file. **Reads** names the repository methods, raw queries,
 | `notifications status` | `get_config`; `last_inspection.json`; `scheduled_jobs.json`; `daemon.scheduler._load_trigger_times` (private) | today's inspection or none; today's slots by weekday; passed or upcoming | Rich lines | — | `test_notifications_commands.py` (5) |
 | `notifications enable` / `disable` | `set_enabled` | — | Rich line | — | none |
 
-### `providers.py` — 439 lines, 4 commands (costs in the AI-costs table)
+### `providers.py` — 439 lines, 4 commands (costs in the AI-costs table) — converted by #211
 
 | Command | Reads | Decides | Prints | Columns | Tests |
 | --- | --- | --- | --- | --- | --- |
@@ -339,7 +339,7 @@ One table per command file. **Reads** names the repository methods, raw queries,
 | `providers set default` | reads and writes `config/ai_settings.json`; `require_report_type`, `require_eligible_provider` | confirms unless `--force` | Rich lines | — | `test_ai_arguments.py` (5), `test_provider_foundation.py` (7) |
 | `providers config show` | reads `config/ai_settings.json` | — | two tables, each in a panel | Provider width=10 · Enabled width=8 · Model min_width=28 · API Key Env width=24 · Cost Structure default; Report Type min_width=20 · Primary width=12 · Fallback width=12 | none |
 
-### `reports.py` — 847 lines, 10 commands (costs in the AI-costs table)
+### `reports.py` — 847 lines, 10 commands (costs in the AI-costs table) — converted by #212
 
 | Command | Reads | Decides | Prints | Columns | Tests |
 | --- | --- | --- | --- | --- | --- |
@@ -353,7 +353,7 @@ One table per command file. **Reads** names the repository methods, raw queries,
 | `reports show` | `get_by_id`, or a staging file by name | ID or file name | one to three panels | — | `test_report_history.py` (6) |
 | `reports resend` | `get_by_id`; staging file | overwrite prompt; runs `email save` as a child process (F9) | Rich lines, the child's output | — | `test_report_history.py` (5) |
 
-### `schedule.py` — 578 lines, 12 commands
+### `schedule.py` — 578 lines, 12 commands — converted by #213
 
 | Command | Reads | Decides | Prints | Columns | Tests |
 | --- | --- | --- | --- | --- | --- |
@@ -369,7 +369,7 @@ One table per command file. **Reads** names the repository methods, raw queries,
 | `schedule set task-match-interval` / `note-dedup-interval` | `set` | at least 1 | Rich line | — | none |
 | `schedule config show` | `system_state` trigger times and working hours; `ScheduleService` intervals | working-hours default written in the command (F8) | table, Rich lines | Trigger default · Time default | none |
 
-### `slack.py` — 652 lines, 7 commands
+### `slack.py` — 652 lines, 7 commands — converted by #214
 
 | Command | Reads | Decides | Prints | Columns | Tests |
 | --- | --- | --- | --- | --- | --- |
@@ -381,7 +381,7 @@ One table per command file. **Reads** names the repository methods, raw queries,
 | `slack setup` | token; Slack API; config file; channel resolution | which of seven steps are done | Rich checklist lines | — | none |
 | `slack post` | channel resolution; token; `eod_workflow._run_report_review_step` (F10); `list_reports`; `list_slack_posted`; Slack API `post_message` | weekly only; confirmed or corrected only; already posted needs `--force`; prompts; writes the report's Slack fields itself (#167) | Rich lines | — | `test_slack.py` (10); `test_slack.py` also calls `.callback` and `get_draft_date_range` |
 
-### `tasks.py` — 403 lines, 5 commands
+### `tasks.py` — 403 lines, 5 commands — converted by #58
 
 | Command | Reads | Decides | Prints | Columns | Tests |
 | --- | --- | --- | --- | --- | --- |
@@ -390,7 +390,7 @@ One table per command file. **Reads** names the repository methods, raw queries,
 | `tasks show` | `_resolve_task` (note ID or content substring, picker); note, meeting | completed or dismissed label | Rich lines | — | `test_task_lifecycle.py` (2) |
 | `tasks complete` / `dismiss` | `_resolve_task`; `set_completed` / `set_dismissed` | — | Rich line (content cut at 60 in code) | — | `test_task_lifecycle.py` (1); none |
 
-### `templates.py` — 541 lines, 8 commands
+### `templates.py` — 541 lines, 8 commands — converted by #215
 
 | Command | Reads | Decides | Prints | Columns | Tests |
 | --- | --- | --- | --- | --- | --- |
@@ -402,7 +402,7 @@ One table per command file. **Reads** names the repository methods, raw queries,
 | `templates create` | prompts; writes `templates/reports/<name>.json` | recipient type from `--type` | `click.echo` | — | none |
 | `templates section add` | template loader; prompts; `FieldManager` | — | `click.echo` | — | none |
 
-### `time.py` — 634 lines, 6 commands
+### `time.py` — 634 lines, 6 commands — converted by #216
 
 | Command | Reads | Decides | Prints | Columns | Tests |
 | --- | --- | --- | --- | --- | --- |
@@ -411,7 +411,7 @@ One table per command file. **Reads** names the repository methods, raw queries,
 | `time delete` | `_resolve_time_entry`; `delete` | confirms | `click.echo` | — | none |
 | `time today` / `week` / `date` | `get_today`, `get_week`, `get_by_date` | Monday to Friday range; totals and category breakdown (`format_time_summary`); `--show-ids` ignored (F14) | `click.echo` | — | none |
 
-### `interface.py` — 3 top-level commands
+### `interface.py` — 3 top-level commands — converted by #206
 
 | Command | Reads | Decides | Prints | Columns | Tests |
 | --- | --- | --- | --- | --- | --- |
@@ -419,7 +419,7 @@ One table per command file. **Reads** names the repository methods, raw queries,
 | `status` | `active_client_id`, `ClientRepository.get_by_id`, `list_all` | — (the phase table is fixed text, F14) | Rich lines, table | Component default · Status default | none |
 | `today` | — | static text | Rich lines | — | none |
 
-### AI costs — `meetings costs`, `notes costs`, `providers costs`, `reports costs`
+### AI costs — `meetings costs`, `notes costs`, `providers costs`, `reports costs` — converted by #201
 
 | Command | Reads | Decides | Prints | Columns | Tests |
 | --- | --- | --- | --- | --- | --- |
@@ -474,54 +474,54 @@ for w in $(seq 20 2 80) 100 120 200; do COLUMNS=$w pytest -q -p no:cacheprovider
 
 Every test that failed at any width. The command is the one the test runs through `CliRunner`, from the test map in §2.
 
-| Test | Command | Fails at COLUMNS | What the search misses |
-| --- | --- | --- | --- |
-| `tests/test_ai_arguments.py::TestReportTypeFiltersRows::test_configured_type_filters_reports` | `reports corrections`, `reports costs`, `reports list` | 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56 | table cell shortened with `…` |
-| `tests/test_ai_arguments.py::TestReportsFailureOutput::test_save_prints_fallback_line_on_stdout` | `reports save` | 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54 | phrase wrapped at a space |
-| `tests/test_clients_commands.py::TestClientsList::test_clients_list_with_clients` | `clients add`, `clients list` | 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40 | table cell shortened with `…` |
-| `tests/test_gdrive.py::TestGDocsCLI::test_10_upload_all_dry_run` | `gdocs upload all` | 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48 | word longer than the line broken without a space |
-| `tests/test_meetings_edit.py::TestMeetingsEdit::test_id_not_found` | `meetings edit` | 20, 22, 24 | phrase wrapped at a space |
-| `tests/test_meetings_edit.py::TestMeetingsEdit::test_no_options_error` | `meetings edit` | 20, 22 | phrase wrapped at a space |
-| `tests/test_notes_list.py::TestNotesListCLI::test_deprecated_date_alias_prints_warning` | `notes date` | 48, 50, 52 | phrase wrapped at a space |
-| `tests/test_notes_list.py::TestNotesListCLI::test_deprecated_meeting_alias_prints_warning` | `notes meeting` | 52, 54 | phrase wrapped at a space |
-| `tests/test_notes_list.py::TestNotesListCLI::test_deprecated_search_alias_prints_warning` | `notes search` | 50, 52, 54 | phrase wrapped at a space |
-| `tests/test_notifications_commands.py::TestNotificationsStatusCommand::test_status_all_clear_today` | `notifications status` | 20, 22, 24 | phrase wrapped at a space |
-| `tests/test_notifications_commands.py::TestNotificationsStatusCommand::test_status_corrupt_inspection_file` | `notifications status` | 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40 | phrase wrapped at a space |
-| `tests/test_notifications_commands.py::TestNotificationsStatusCommand::test_status_no_inspection_file` | `notifications status` | 20, 22, 24, 26, 28, 38, 40, 42, 44, 46, 48, 50, 52, 54 | phrase wrapped at a space |
-| `tests/test_notifications_commands.py::TestNotificationsStatusCommand::test_status_observations_today` | `notifications status` | 20 | phrase wrapped at a space |
-| `tests/test_notifications_commands.py::TestNotificationsStatusCommand::test_status_stale_inspection_file` | `notifications status` | 20, 22, 24, 26, 28, 38, 40, 42, 44, 46, 48, 50, 52, 54 | phrase wrapped at a space |
-| `tests/test_provider_foundation.py::test_providers_test_succeeds_on_complete_reply` | `providers test` | 20, 22, 24, 26, 28 | phrase wrapped at a space |
-| `tests/test_provider_foundation.py::test_set_default_output_includes_next_invocation_message` | `providers set default` | 20, 28, 30, 32, 34, 36, 38, 40, 42 | phrase wrapped at a space |
-| `tests/test_report_correction.py::TestReportConfirmCLI::test_reports_list_no_flag_shows_all` | `reports list` | 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58 | table cell shortened with `…` |
-| `tests/test_report_history.py::TestReportResend::test_resend_prompts_on_existing_file` | `reports resend` | 22, 30, 44, 46 | phrase wrapped at a space |
-| `tests/test_report_history.py::TestReportResend::test_resend_reports_failed_draft_without_raising` | `reports resend` | 20 | phrase wrapped at a space |
-| `tests/test_report_history.py::TestReportView::test_show_displays_both_panels_and_note_together` | `reports show` | 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44 | text inside a Rich `Panel` |
-| `tests/test_report_history.py::TestReportView::test_show_displays_corrected_content_when_present` | `reports show` | 20, 22, 24, 26, 28, 30, 32, 34 | text inside a Rich `Panel` |
-| `tests/test_report_history.py::TestReportView::test_show_displays_correction_note_when_set` | `reports show` | 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42 | text inside a Rich `Panel` |
-| `tests/test_report_history.py::TestReportView::test_show_omits_corrected_panel_when_corrected_content_is_null` | `reports show` | 20, 22, 24, 26, 28, 30, 32, 34 | text inside a Rich `Panel` |
-| `tests/test_report_history.py::TestReportView::test_view_valid_id` | `reports show` | 20 | text inside a Rich `Panel` |
-| `tests/test_reports_corrections.py::TestReportsCorrections::test_no_results_message` | `reports corrections` | 20, 22, 24, 26 | phrase wrapped at a space |
-| `tests/test_slack.py::TestSlackPostWeeklySharedRunner::test_already_posted_blocks_without_force` | `slack post` | 22, 24, 26, 28, 42, 44, 46 | phrase wrapped at a space |
-| `tests/test_slack_channel_config.py::TestSlackSetWorkspace::test_slack_set_workspace_shows_config` | `slack set workspace` | 24, 26, 46, 48, 50, 52, 54 | word longer than the line broken without a space |
-| `tests/test_slack_channel_config.py::TestSlackStatusDisplay::test_slack_status_fallback_when_no_client_channel` | `slack status` | 20, 22 | table cell shortened with `…` |
-| `tests/test_task_lifecycle.py::TestTasksListCapAndCarryoverRetirement::test_list_header_truncation_honest` | `tasks list` | 20 | phrase wrapped at a space |
+| Test | Command | Fails at COLUMNS | What the search misses | Converted by |
+| --- | --- | --- | --- | --- |
+| `tests/test_ai_arguments.py::TestReportTypeFiltersRows::test_configured_type_filters_reports` | `reports corrections`, `reports costs`, `reports list` | 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56 | table cell shortened with `…` | #212 |
+| `tests/test_ai_arguments.py::TestReportsFailureOutput::test_save_prints_fallback_line_on_stdout` | `reports save` | 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54 | phrase wrapped at a space | #212 |
+| `tests/test_clients_commands.py::TestClientsList::test_clients_list_with_clients` | `clients add`, `clients list` | 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40 | table cell shortened with `…` | #204 |
+| `tests/test_gdrive.py::TestGDocsCLI::test_10_upload_all_dry_run` | `gdocs upload all` | 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48 | word longer than the line broken without a space | #207 |
+| `tests/test_meetings_edit.py::TestMeetingsEdit::test_id_not_found` | `meetings edit` | 20, 22, 24 | phrase wrapped at a space | #208 |
+| `tests/test_meetings_edit.py::TestMeetingsEdit::test_no_options_error` | `meetings edit` | 20, 22 | phrase wrapped at a space | #208 |
+| `tests/test_notes_list.py::TestNotesListCLI::test_deprecated_date_alias_prints_warning` | `notes date` | 48, 50, 52 | phrase wrapped at a space | #209 |
+| `tests/test_notes_list.py::TestNotesListCLI::test_deprecated_meeting_alias_prints_warning` | `notes meeting` | 52, 54 | phrase wrapped at a space | #209 |
+| `tests/test_notes_list.py::TestNotesListCLI::test_deprecated_search_alias_prints_warning` | `notes search` | 50, 52, 54 | phrase wrapped at a space | #209 |
+| `tests/test_notifications_commands.py::TestNotificationsStatusCommand::test_status_all_clear_today` | `notifications status` | 20, 22, 24 | phrase wrapped at a space | #210 |
+| `tests/test_notifications_commands.py::TestNotificationsStatusCommand::test_status_corrupt_inspection_file` | `notifications status` | 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40 | phrase wrapped at a space | #210 |
+| `tests/test_notifications_commands.py::TestNotificationsStatusCommand::test_status_no_inspection_file` | `notifications status` | 20, 22, 24, 26, 28, 38, 40, 42, 44, 46, 48, 50, 52, 54 | phrase wrapped at a space | #210 |
+| `tests/test_notifications_commands.py::TestNotificationsStatusCommand::test_status_observations_today` | `notifications status` | 20 | phrase wrapped at a space | #210 |
+| `tests/test_notifications_commands.py::TestNotificationsStatusCommand::test_status_stale_inspection_file` | `notifications status` | 20, 22, 24, 26, 28, 38, 40, 42, 44, 46, 48, 50, 52, 54 | phrase wrapped at a space | #210 |
+| `tests/test_provider_foundation.py::test_providers_test_succeeds_on_complete_reply` | `providers test` | 20, 22, 24, 26, 28 | phrase wrapped at a space | #211 |
+| `tests/test_provider_foundation.py::test_set_default_output_includes_next_invocation_message` | `providers set default` | 20, 28, 30, 32, 34, 36, 38, 40, 42 | phrase wrapped at a space | #211 |
+| `tests/test_report_correction.py::TestReportConfirmCLI::test_reports_list_no_flag_shows_all` | `reports list` | 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58 | table cell shortened with `…` | #212 |
+| `tests/test_report_history.py::TestReportResend::test_resend_prompts_on_existing_file` | `reports resend` | 22, 30, 44, 46 | phrase wrapped at a space | #212 |
+| `tests/test_report_history.py::TestReportResend::test_resend_reports_failed_draft_without_raising` | `reports resend` | 20 | phrase wrapped at a space | #212 |
+| `tests/test_report_history.py::TestReportView::test_show_displays_both_panels_and_note_together` | `reports show` | 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44 | text inside a Rich `Panel` | #212 |
+| `tests/test_report_history.py::TestReportView::test_show_displays_corrected_content_when_present` | `reports show` | 20, 22, 24, 26, 28, 30, 32, 34 | text inside a Rich `Panel` | #212 |
+| `tests/test_report_history.py::TestReportView::test_show_displays_correction_note_when_set` | `reports show` | 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42 | text inside a Rich `Panel` | #212 |
+| `tests/test_report_history.py::TestReportView::test_show_omits_corrected_panel_when_corrected_content_is_null` | `reports show` | 20, 22, 24, 26, 28, 30, 32, 34 | text inside a Rich `Panel` | #212 |
+| `tests/test_report_history.py::TestReportView::test_view_valid_id` | `reports show` | 20 | text inside a Rich `Panel` | #212 |
+| `tests/test_reports_corrections.py::TestReportsCorrections::test_no_results_message` | `reports corrections` | 20, 22, 24, 26 | phrase wrapped at a space | #212 |
+| `tests/test_slack.py::TestSlackPostWeeklySharedRunner::test_already_posted_blocks_without_force` | `slack post` | 22, 24, 26, 28, 42, 44, 46 | phrase wrapped at a space | #214 |
+| `tests/test_slack_channel_config.py::TestSlackSetWorkspace::test_slack_set_workspace_shows_config` | `slack set workspace` | 24, 26, 46, 48, 50, 52, 54 | word longer than the line broken without a space | #214 |
+| `tests/test_slack_channel_config.py::TestSlackStatusDisplay::test_slack_status_fallback_when_no_client_channel` | `slack status` | 20, 22 | table cell shortened with `…` | #214 |
+| `tests/test_task_lifecycle.py::TestTasksListCapAndCarryoverRetirement::test_list_header_truncation_honest` | `tasks list` | 20 | phrase wrapped at a space | #58 |
 
 ## Appendix C — Overlapping issues
 
 | Issue | What it changes in the commands | Decision | Link it implies |
 | --- | --- | --- | --- |
 | #158 | Parent of the repository-access children; no rows of its own. | Unchanged; closes when its children close. | none |
-| #159 | `Meeting` reads in `calendar.py` (`_get_outlook_stats`, `_classify_events`, `today`, `week`, `month`, `import`) and `meetings list --cancelled`; non-CLI rows in `ics_parser`, `note_condenser`, `field_manager`. | Q7. Recommended: the calendar and meetings conversions take the CLI rows; #159 is narrowed to the rest. | none (the CLI rows leave #159) |
-| #160 | `TimeEntry` reads in `clockify status`, `clockify sync push --all` and `meetings reschedule`; non-CLI rows in `inspection_engine` and `note_condenser`. | Q7. Recommended: the clockify and meetings conversions take the CLI rows; #160 is narrowed to the rest. | none |
+| #159 | `Meeting` reads in `calendar.py` (`_get_outlook_stats`, `_classify_events`, `today`, `week`, `month`, `import`) and `meetings list --cancelled`; non-CLI rows in `ics_parser`, `note_condenser`, `field_manager`. | Q7. Answered: the calendar (#203) and meetings (#208) conversions take the CLI rows; #159 is narrowed to the rest. | none (the CLI rows leave #159) |
+| #160 | `TimeEntry` reads in `clockify status`, `clockify sync push --all` and `meetings reschedule`; non-CLI rows in `inspection_engine` and `note_condenser`. | Q7. Answered: the clockify (#202) and meetings (#208) conversions take the CLI rows; #160 is narrowed to the rest. | none |
 | #161 | No CLI rows (`field_manager`, `clockify/sync.py`). | Independent of the conversion. | none |
-| #167 | `Report` writes in `reports confirm` and `slack post weekly`, plus `eod_workflow` and `action_executor`. | Q7. Recommended: the reports and slack conversions are blocked by #167. | reports conversion and slack conversion blocked by #167 |
-| #168 | `TimeEntry` repoint in `meetings condense` and `notes log`; `ClockifySync.push_entries`. | Q7. Recommended: the meetings and notes conversions are blocked by #168. Decided 20261012 (Ray): the lazy `entry.note.content` reads in `push_entries` (§4.1, Loading related records) are added to its context. | meetings conversion and notes conversion blocked by #168 |
+| #167 | `Report` writes in `reports confirm` and `slack post weekly`, plus `eod_workflow` and `action_executor`. | Q7 (answered): the reports (#212) and slack (#214) conversions are blocked by #167. | #212 and #214 blocked by #167 |
+| #168 | `TimeEntry` repoint in `meetings condense` and `notes log`; `ClockifySync.push_entries`. | Q7 (answered): the meetings (#208) and notes (#209) conversions are blocked by #168. Decided 20261012 (Ray): the lazy `entry.note.content` reads in `push_entries` (§4.1, Loading related records) are added to its context. | #208 and #209 blocked by #168 |
 | #169 | No CLI rows (`action_executor` task deferral). | Independent of the conversion. | none |
 | #95 | Replaces every `get_session()`/`try`/`finally` with `session_scope()`, CLI included, and writes the §4.1 rule. | Q0 (answered): lands first, with its full scope and its §4.1 criterion. The conversions cite the rule it writes. | #96 blocked by #95 |
 | #96 | Removes `commit()` from the repositories and `ActionExecutor`'s handlers, and states the boundary rule in §4.3. | Q0 (answered): lands after #95 and before the pilot. Its spec lists its call sites and carries a CLI-path persistence criterion (§4.0). | #58 blocked by #96 |
-| #104 | Daily-internal email draft as a service; removes the EOD and `reports resend` child processes for `email save`. | Q8. Recommended: blocked by the pilot; blocks the email conversion. | #104 blocked by #58; email conversion blocked by #104 |
-| #115 | `slack post weekly` and `gdocs upload all` act without prompting; the EOD step asks instead. | Q8. Recommended: blocked by the slack and gdocs conversions. | #115 blocked by the slack conversion and the gdocs conversion |
+| #104 | Daily-internal email draft as a service; removes the EOD and `reports resend` child processes for `email save`. | Q8 (answered): blocked by the pilot; blocks the email conversion (#205). | #104 blocked by #58; #205 blocked by #104 |
+| #115 | `slack post weekly` and `gdocs upload all` act without prompting; the EOD step asks instead. | Q8 (answered): blocked by the slack (#214) and gdocs (#207) conversions. | #115 blocked by #214 and #207 |
 | #140 | One accepted set of date and time input forms. | Independent. Argument parsing stays in the command (§4.1), so #140's grep of `workmain/cli` still finds every site, before or after a conversion. | none |
 | #136 | Closed 20261012. Its command-test work moved here. | The fourteen files (F13) are assigned to the conversion issues that rewrite their tests; the `reports list`/`history` and `slack status` option-mapping criterion goes to the reports and slack conversions. | none |
-| #58 | The output module. | Q6. Recommended: rewritten as the pilot. Its §5.6 rules state the stdout/stderr/exit-code contract (§4.1). | #58 blocked by #96; every other conversion blocked by #58 |
+| #58 | The output module. | Q6 (answered): rewritten as the pilot. Its §5.6 rules state the stdout/stderr/exit-code contract (§4.1). | #58 blocked by #96; #201–#216 blocked by #58 |
 | EOD child commands (F9) | `meetings condense`, `clockify sync push`, `time today`/`date`, `reports save`, `email save`, `clockify report save`, `gdocs upload all`, `slack post weekly`. | Decided 20261012 (Ray): each conversion issue that touches one names the EOD step as a call site, with a criterion checking that step's handling of the new exit codes against #94's per-site policy (§4.1). | none |
