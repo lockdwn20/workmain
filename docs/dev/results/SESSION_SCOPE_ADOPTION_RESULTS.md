@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Complete. All 120 `get_session()` calls under `workmain/` outside `connection.py` are `session_scope()` blocks, §4.1 and §4.2 of `docs/DEVELOPMENT_STANDARDS.md` state the rule, and the suite is above baseline. AC5.1 awaits Ray's reading.
+Complete. All 120 `get_session()` calls under `workmain/` outside `connection.py` are `session_scope()` blocks, §4.1 and §4.2 of `docs/DEVELOPMENT_STANDARDS.md` state the rule, and the suite is above baseline.
 
 ## 2. What shipped, by step
 
@@ -32,14 +32,14 @@ Complete. All 120 `get_session()` calls under `workmain/` outside `connection.py
 | AC2.1 | Met | `grep -rn 'session.close()' workmain/ --include='*.py' \| grep -v connection.py` returns zero hits |
 | AC3.1 | Met | `pytest` passes; `grep -rnE "get_session(\.return_value\| *=\|\.side_effect)" tests/` returns zero hits |
 | AC4.1 | Met | `pytest tests/test_ai_costs.py::TestAiCostService::test_record_reply_closes_its_session_when_create_raises` passes, with AC1.1 |
-| AC5.1 | **Not met** | Awaiting Ray |
+| AC5.1 | Met | Reviewed by Ray |
 | AC6.1 | Met | 1278 passed, 0 failed, 0 skipped against a baseline of 1274 passed, 0 failed, 0 skipped |
 
 ## 4. Deviations from spec
 
 | # | Deviation | Reason | Approved by |
 | --- | --- | --- | --- |
-| 1 | `tests/test_eod_workflow.py`, the note-dedup merge-direction test: the `patch.object(db_session, 'close')` and its comment are removed along with the `get_db` stub | The comment says the patch stops the step's `finally: session.close()` closing the fixture's session. The step no longer closes it, so the patch and comment are stale. DR6 names the stub and its `get_db` patch only | Not yet approved: Ray to confirm |
+| 1 | `tests/test_eod_workflow.py`, the note-dedup merge-direction test: the `patch.object(db_session, 'close')` and its comment are removed along with the `get_db` stub | The comment says the patch stops the step's `finally: session.close()` closing the fixture's session. The step no longer closes it, so the patch and comment are stale. DR6 names the stub and its `get_db` patch only | Ray |
 | 2 | `tests/test_slack.py` and `tests/test_report_correction.py` changed, and four tests failed at Step 2 under the plain conversion | Two repository spies kept ORM rows and the tests read them after the command's scope closed (§4.2) | Spanner, spec amendment `ac27b30` |
 
 ## 5. Verification
