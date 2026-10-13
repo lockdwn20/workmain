@@ -1,6 +1,6 @@
 # Command Output Separation — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261012
 **Spec:** `../specs/COMMAND_OUTPUT_SEPARATION_SPEC.md`
@@ -46,7 +46,9 @@ Complete. #58 is rewritten as the pilot. Sixteen conversion issues, #201–#216,
 
 ## 5. Verification
 
-- **Test suite:** not run; no file under `tests/`, `automation/`, `workmain/`, `config/` or `templates/` changed (spec §6).
+- **Test suite:** 1274 passed, 0 failed, 0 skipped at close-out preflight (baseline: 1274 passed, 0 failed, 0 skipped, the full-width sweep runs at `b61e321`). No file under `tests/`, `automation/`, `workmain/`, `config/` or `templates/` changed (spec §6).
+- **Live verification:** the GitHub state this work produced. Every issue body, label, parent and `blocked_by` link listed below was read back from GitHub after it was written.
+- **Daemon restart:** n/a. A `chore/*` branch changes no application code, so `docs/DEVELOPMENT_STANDARDS.md` §2.6 requires none.
 - **Issues created** (Step 2), each by `python3 automation/issue_validator.py <scratchpad payload> --create`, which ran `gh issue create … --parent 198 --label defect --label cli --label tests [--label <area>] --blocked-by <set> --project 'WorkmAIn Queue'`:
 
 | Group | Issue | Area label | Blocked by |

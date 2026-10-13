@@ -1,6 +1,6 @@
 # Command Output Separation — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261012
 **Branch:** `chore/issue-199-command-output-recon`
