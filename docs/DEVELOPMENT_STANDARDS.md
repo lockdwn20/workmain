@@ -407,26 +407,26 @@ Confirm the new `ActiveEnterTimestamp` postdates the merge commit before calling
 
 ### 4.1 Session pattern
 
-- `get_session()` is a **method on the `Database` class**, not a module-level function.
-- Always `get_db()` first.
+- Application code under `workmain/` opens a session only through `DatabaseConnection.session_scope()`, reached through `get_db()`. The scope commits when its block exits normally, rolls back when an `Exception` leaves the block, and closes the session in every case.
 
   ```python
   from workmain.database.connection import get_db
 
   db = get_db()
-  session = db.get_session()
-  try:
+  with db.session_scope() as session:
       repo = SomeRepository(session)
       # ... work ...
-  finally:
-      session.close()
   ```
+
+- `get_session()` is a method on `DatabaseConnection`, not a module-level function. In application code under `workmain/`, only `session_scope()` calls it; tests follow §6.1.
+- **A handler that recovers from an exception sits outside the `with`.** A handler that catches an exception and carries on wraps the `with`, so the scope has rolled back before the handler runs. A handler inside the block that swallows a database error leaves the transaction failed, and the scope's commit then raises.
+- **An exception that is not an `Exception` skips both commit and rollback.** `SystemExit` (from `sys.exit()` or `raise SystemExit`) and `KeyboardInterrupt` derive only from `BaseException`, so the scope only closes the session and its uncommitted writes are discarded. `ctx.exit()` and `click.Abort` are `Exception`s and roll the scope back.
 
 ### 4.2 Session discipline
 
 - Objects must be re-queried inside the session that will modify them. Passing an ORM object across a session boundary causes **silent** persistence failures — no exception, no write.
 
-- In daemon code, access ORM relationships inside the `try` block, before `session.close()`.
+- No ORM object is read after its `session_scope()` block exits. The exit commit expires every loaded attribute, and a read afterwards raises `DetachedInstanceError`. Read the values the code after the block needs while the block is open.
 
 ### 4.3 Repository pattern
 
