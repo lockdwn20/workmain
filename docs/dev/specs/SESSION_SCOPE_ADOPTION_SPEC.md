@@ -32,6 +32,7 @@
 | 20261013 | Caliper | Step 3's §4.1 bullet says `KeyboardInterrupt` skips commit and rollback, but §1, #95's body and #96's census obligation name only `SystemExit`, so nothing checks where an interrupt discards writes once repositories stop committing | Accepted. A `KeyboardInterrupt` comes from the user pressing Ctrl-C, not from a site in the code, so a census can't find where it arises. §1 says so, and #96's obligation now has its spec state whether discarding an interrupted scope's writes is intended, and account for the handlers that catch it inside a scope. |
 | 20261013 | Caliper | The DR2 placement check's `SITES` is a hand-written copy of the 41 sites §2 lists | Accepted. The check derives the set from the branch's base with `git merge-base HEAD dev`, using the same pairing as the census. In testing it derived the same 41 sites. |
 | 20261013 | Caliper | §7 cites the step's commit at `eod_workflow.py:613`; it is at 614, and 613 is the `pass` | Accepted. |
+| 20261013 | Anvil | Step 2: four tests fail with `DetachedInstanceError`: `tests/test_slack.py::TestSlackStatusCommandPath::test_status_lists_five_newest_posted_of_any_type` and three in `tests/test_report_correction.py::TestReportListCommandPath`. Each spies on a `ReportsRepository` method, keeps the ORM rows it returned, and reads them after the command's scope has closed. §2's census of affected tests looked only for `get_session` stubs | Accepted. Each spy records the plain values its assertions read, at the moment the method returns, while the command's scope is still open (DR6, Step 2). That is §4.2 applied to the tests, and `expire_on_commit` is unchanged (DR4). The Step 2 suite run, with every conversion in place and these four the only failures, is the census for this kind of test. Checked against Anvil's Step 2 tree: the two files went from 4 failed, 76 passed to 80 passed. |
 
 ---
 
@@ -73,6 +74,7 @@
 | No application session closes with uncommitted changes, so the exit commit writes nothing that `close()` discards today. A probe over the full suite showed this, and the probe's one hit, in a test fixture, shows it can detect such a close | study F12 |
 | Test call sites of the `get_session` contract, found by `grep -rnE "get_session(\.return_value\| *=\|\.side_effect)" tests/`. Stubs that hand in `db_session` | `tests/test_eod_workflow.py` 296, 325, 351, 376, 405, 430, 466, 507, 520, 556, 605, 638, 677, 705, 727, 769, 789, 816, 835, 857, 879. Each comes with a `patch('workmain.workflows.eod_workflow.get_db') as mock_get_db` that has no other use. In a prototype, removing all 21 left the file's results unchanged |
 | The same search: stubs that hand in a `MagicMock` | `tests/test_orchestration.py` 347, 391, 439, 505, 520, 539, 596, 624, 664, 687, 702, 940, 982, 1030, 1103, 1163, 1203, 1362; `tests/test_eod_task_matching.py` 215, 229, 276; `tests/test_gdrive.py` 243; `tests/test_provider_foundation.py` 500; `tests/test_ai_costs.py` 639 (a `MagicMock(get_session=...)` stand-in) |
+| Tests that keep ORM rows a repository spy recorded inside the command, and read them after the command returns. Found by Anvil's Step 2 suite run, with every conversion in place | `tests/test_slack.py:171-182` `_record` in `TestSlackStatusCommandPath.test_status_lists_five_newest_posted_of_any_type`; `tests/test_report_correction.py:358-367` `_spy_on`, used by the three `TestReportListCommandPath` tests at 373-407 |
 | `click.exceptions.Exit` and `click.Abort` subclass `RuntimeError` (click 8.1.7), so a scope rolls back on them. `SystemExit` skips both commit and rollback | `python -c "import click.exceptions as e; print(e.Exit.__mro__)"` |
 | While repositories commit for themselves, a savepoint can't contain a failure. A `session.commit()` inside `session.begin_nested()` commits the whole transaction, and the session leaves its transaction (`in_transaction()` is `False` afterwards). A failing statement inside `begin_nested()` with no commit rolls back to the savepoint, and the session stays usable. Observed against PostgreSQL inside the test fixture | probe, 20261013 |
 | §4.1 names the class `Database` and shows the hand-written pattern. §4.2 limits its rule to relationships in daemon code | `docs/DEVELOPMENT_STANDARDS.md` §4.1, §4.2 |
@@ -101,7 +103,7 @@
   mock_db.return_value.session_scope.return_value.__enter__.return_value = mock_session
   ```
 
-  `tests/test_ai_costs.py:639` is rewritten as Step 1 quotes. No other test changes, apart from the four new tests in §6.
+  `tests/test_ai_costs.py:639` is rewritten as Step 1 quotes. A spy that records ORM rows inside a command records the plain values its assertions read instead, as Step 2 quotes (§4.2). No other test changes, apart from the four new tests in §6.
 
 Anything not covered here: stop, as `.claude/skills/session-start/SKILL.md` § Role 3 states.
 
@@ -112,7 +114,7 @@ Before Step 1, record the baseline `pytest` counts in the form of `docs/DEVELOPM
 | Step | Deliverable | Files |
 | --- | --- | --- |
 | 1 | Services, daemon, integrations and workflows converted, with their tests | `workmain/services/ai_cost_service.py`, `workmain/daemon/daemon.py`, `workmain/daemon/scheduler.py`, `workmain/integrations/slack/slack_eod.py`, `workmain/workflows/eod_workflow.py`, `tests/test_ai_costs.py`, `tests/test_orchestration.py`, `tests/test_eod_workflow.py`, `tests/test_eod_task_matching.py` |
-| 2 | CLI converted, with its tests | every file under `workmain/cli/commands/` §2 lists, `workmain/cli/interface.py`, `tests/test_gdrive.py`, `tests/test_provider_foundation.py`, `tests/test_status_command.py` (new) |
+| 2 | CLI converted, with its tests | every file under `workmain/cli/commands/` §2 lists, `workmain/cli/interface.py`, `tests/test_gdrive.py`, `tests/test_provider_foundation.py`, `tests/test_slack.py`, `tests/test_report_correction.py`, `tests/test_status_command.py` (new) |
 | 3 | §4.1 and §4.2 | `docs/DEVELOPMENT_STANDARDS.md` |
 | 4 | Results artifact | `docs/dev/results/SESSION_SCOPE_ADOPTION_RESULTS.md` |
 
@@ -227,6 +229,25 @@ After the block, replace each read of `active_client`:
 `active_client_id` is the id the client was looked up by, so it equals `active_client.id` wherever `active_client_name` is set.
 
 **Tests.** Re-point the stubs at `tests/test_gdrive.py:243` and `tests/test_provider_foundation.py:500` (DR6). Add `tests/test_status_command.py`, as quoted in §6.
+
+**Spies that keep ORM rows** (DR6). Each records the values its assertions read, at the moment the method returns.
+
+`tests/test_slack.py` `TestSlackStatusCommandPath.test_status_lists_five_newest_posted_of_any_type`:
+
+| Current | Replacement |
+| --- | --- |
+| `recorded.append(result)` (in `_record`) | `recorded.append([(r.id, r.report_type) for r in result])` |
+| `assert [r.id for r in recorded[0]] == [posted[d].id for d in (25, 24, 23, 22, 21)]` | `assert [rid for rid, _ in recorded[0]] == [posted[d].id for d in (25, 24, 23, 22, 21)]` |
+| `assert {r.report_type for r in recorded[0]} == {'daily_internal', 'weekly_client'}` | `assert {rtype for _, rtype in recorded[0]} == {'daily_internal', 'weekly_client'}` |
+
+`tests/test_report_correction.py`:
+
+| Current | Replacement |
+| --- | --- |
+| `"""Patch ReportsRepository.<method> with a spy that runs the real method and records its result."""` (`_spy_on`'s docstring) | `"""Patch ReportsRepository.<method> with a spy that runs the real method and records the ids of the rows it returns."""` |
+| `recorded.append(result)` (in `_spy_on`) | `recorded.append([r.id for r in result])` |
+| `assert [r.id for r in recorded[0]] == [confirmed.id, unconfirmed.id]` (two tests) | `assert recorded[0] == [confirmed.id, unconfirmed.id]` |
+| `assert [r.id for r in recorded[0]] == [confirmed.id]` | `assert recorded[0] == [confirmed.id]` |
 
 ### Step 3 — standards
 
