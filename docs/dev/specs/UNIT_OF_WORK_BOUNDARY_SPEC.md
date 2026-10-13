@@ -39,6 +39,8 @@
 | 20261013 | Ray | Step 4's `_completed` posts a child's stderr to Slack, and nothing captures Python's `warnings` module, so a library warning would reach Slack as "complete, with a warning" | `logging.captureWarnings(True)` in `_configure_cli_logging`, so warnings go to the log on stdout and stderr carries only a command's own lines, as §5.6 assumes (Step 4 item 5). T35. A test that only checks stderr for a warning raised inside a command passes before the change too, because pytest records warnings itself (probe, 20261013); T35 checks where `warnings.showwarning` sends a warning once the CLI has started, which fails before the change and passes after. |
 | 20261013 | Ray | Launching a child `workmain` process is a wait: a child that writes a row the parent's open transaction has written waits on the parent's lock while the parent waits on the child | DR3 and the §4.1 text name it alongside a prompt, an editor and an outside action. No site launches a child after a write: §2 lists the two scopes that launch one. Ray's note named `eod_workflow.py:387` as a third; that scope is the pre-flight inspection, which calls the AI narration and launches no child. |
 | 20261013 | Ray | The dead-code removals | Stay as specced: `ReportsRepository.delete`, and `migrate_series_uid_records` with its three tests. |
+| 20261013 | Caliper | Step 4's `err_console` in `gdocs.py` and `slack.py` omits `soft_wrap=True`, which §5.6's Error row requires so a captured caller receives the cause as one line; without it the record-failure message reaches Slack broken at 80 columns | Accepted. Both become `Console(stderr=True, soft_wrap=True)`, the pattern at `meetings.py:28`, `providers.py:42` and `reports.py:42`. |
+| 20261013 | Caliper | T35 names `tests/test_cli_logging.py` as new; #148 (`9a06d52`) added it | Accepted. T35 is added to the existing file. |
 
 ---
 
@@ -338,7 +340,7 @@ The suite passes at the end of each step.
            )
    ```
 
-   Add `err_console = Console(stderr=True)` beside `console` at `gdocs.py:41`. Each of the three `gdrive_repo.record_upload(...)` calls (366, 455, 541) becomes a `_record_upload(...)` call with the same values.
+   Add `err_console = Console(stderr=True, soft_wrap=True)` beside `console` at `gdocs.py:41`, as §5.6's Error row requires. Each of the three `gdrive_repo.record_upload(...)` calls (366, 455, 541) becomes a `_record_upload(...)` call with the same values.
 2. **Weekly Slack post.** Add to `slack.py`:
 
    ```python
@@ -366,7 +368,7 @@ The suite passes at the end of each step.
        return True
    ```
 
-   At `slack.py:625-628`, the three attribute assignments and `session.commit()` become `recorded = _record_slack_post(report.id, message_ts, target_channel, workspace_name)`, and the closing `console.print("  Report record updated (reports table)")` runs only when `recorded` is true. Add `err_console = Console(stderr=True)` beside `console` at `slack.py:41`.
+   At `slack.py:625-628`, the three attribute assignments and `session.commit()` become `recorded = _record_slack_post(report.id, message_ts, target_channel, workspace_name)`, and the closing `console.print("  Report record updated (reports table)")` runs only when `recorded` is true. Add `err_console = Console(stderr=True, soft_wrap=True)` beside `console` at `slack.py:41`, as §5.6's Error row requires.
 3. **Clockify.** In `sync.py`, add:
 
    ```python
@@ -557,7 +559,7 @@ None. This spec runs no migration, deletes no GitHub object, merges nothing to `
 | T32 | `tests/test_eod_workflow.py` | `_run_slack_weekly_step`, the same. |
 | T33 | `tests/test_orchestration.py` | `SlackEodManager._handle_step_result` with a `COMPLETED` result whose `message` holds a record-failure line: the block sent to Slack contains the line. |
 | T34 | `tests/test_database_isolation.py` | Inside `get_db().record_scope()`, `SHOW lock_timeout` returns `5s`. |
-| T35 | `tests/test_cli_logging.py` (new) | With `logging.captureWarnings(False)` first, invoke a no-op command registered on `cli` for the test through `CliRunner`, then call `warnings.showwarning(UserWarning(...), UserWarning, __file__, 1)`: the warning is a `py.warnings` log record and stderr is empty. Observed failing before the change and passing after (probe, 20261013). The test restores `captureWarnings(False)` and removes the command. |
+| T35 | `tests/test_cli_logging.py` (existing; added beside `test_cli_log_record_goes_to_stdout_and_nothing_to_stderr`) | With `logging.captureWarnings(False)` first, invoke a no-op command registered on `cli` for the test through `CliRunner`, then call `warnings.showwarning(UserWarning(...), UserWarning, __file__, 1)`: the warning is a `py.warnings` log record and stderr is empty. Observed failing before the change and passing after (probe, 20261013). The test restores `captureWarnings(False)` and removes the command. |
 
 ## 7. Risks and rollback
 
