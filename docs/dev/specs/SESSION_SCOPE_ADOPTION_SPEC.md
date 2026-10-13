@@ -21,6 +21,11 @@
 | 20261013 | Spanner | The issue's fourth criterion names `intent_parser.py:119-134`, which no longer opens a session (#191, commit `36ae559`) | AC4.1 checks the same property at the site that replaced it, `ai_cost_service.record_reply`. The issue's wording is updated at close-out. |
 | 20261013 | Spanner | `scripts/` has its own `get_session()` calls | Out of scope (§1). The §4.1 rule is written for application code under `workmain/`. |
 | 20261013 | Spanner | Tests that hand converted code a session through a `get_session` stub (study F7) | §6.1 decides it: a stub that hands in `db_session` is deleted, and a stub that hands in a `MagicMock` is re-pointed at `session_scope()` (DR6). |
+| 20261013 | Caliper | AC3.1's grep matches the Step 1 rewrite `db.get_session = lambda: session`, so AC3.1 cannot pass | Accepted. The rewrite sets the stand-in's `get_session` through `monkeypatch.setattr`. The grep is unchanged: the stand-in is a real `DatabaseConnection`, which converted code does reach. |
+| 20261013 | Caliper | §2's list of sites with their own `except` clauses names `eod_workflow.py` 971, which has none, and omits 1002, which has one. Study F4 and F6 cite the same wrong line | Accepted. The census paired each open with the first `try` at or after it, which is wrong in a function with four sessions. It was re-run, pairing each open with the `try` that follows it in the same block. §2 now reads 1002, as do study F4 and F6. The site count is unchanged at 41; the review's 45 counted others. |
+| 20261013 | Caliper | Step 3's §4.1 "only `session_scope()` calls it" contradicts `tests/conftest.py`'s `db_session` and §6.1 | Accepted, with the review's wording. |
+| 20261013 | Caliper | Step 3's §4.1 bullet names only `SystemExit`; `KeyboardInterrupt` takes the same path | Accepted, with the review's wording. |
+| 20261013 | Caliper | AC1.4 checks DR2 at one site of the 41 | Accepted. AC1.4 adds the DR2 placement check in §5, keyed to every listed site by file, function and position. Ending-in-a-`try` was rejected as the test: `meetings.py:834` and `reports.py:623` legitimately end their body that way. |
 
 ---
 
@@ -51,7 +56,7 @@
 | Every site closes its session in a `finally`, and the `session.close()` calls are exactly those (`grep -rn 'session.close()' workmain/ --include='*.py' \| grep -v connection.py`) | AST walk of each site's enclosing function (study §2) |
 | Every site opens its session before its `try` and outside it, except `record_reply` and `link_report`, which open it inside the `try` | `workmain/services/ai_cost_service.py:44-47,85-88` |
 | Some sites run statements between the open and the `try`. These are repository constructions or date arithmetic. The one query among them, `SystemStateRepository(session).get_int('active_client_id')`, sits before a `try` with handlers only at `meetings.py:184` `create` | `cli/commands/calendar.py` 287, 315, 347; `meetings.py` 184, 370, 454, 570, 625, 743, 789, 834, 960, 995, 1059; `notes.py` 257, 391, 465, 520, 762, 867, 913; `time.py` 197, 385, 452, 496, 537, 595 |
-| Sites whose `try` has its own `except` clauses. No such clause reads the session | `clients.py` 51, 158; `clockify.py` 56, 272, 353, 416; `gdocs.py` 324, 440, 528; `meetings.py` 184, 834, 1059, 1185, 1321, 1420, 1653, 1762; `notes.py` 520, 1051; `providers.py` 243; `reports.py` 124, 312, 544, 623, 696, 797; `daemon.py` 142, 171, 205, 488, 577; `scheduler.py` 255, 279; `slack_eod.py` 463; `ai_cost_service.py` 46, 87; `eod_workflow.py` 198, 393, 458, 670, 971 |
+| Sites whose `try` has its own `except` clauses. No such clause reads the session | `clients.py` 51, 158; `clockify.py` 56, 272, 353, 416; `gdocs.py` 324, 440, 528; `meetings.py` 184, 834, 1059, 1185, 1321, 1420, 1653, 1762; `notes.py` 520, 1051; `providers.py` 243; `reports.py` 124, 312, 544, 623, 696, 797; `daemon.py` 142, 171, 205, 488, 577; `scheduler.py` 255, 279; `slack_eod.py` 463; `ai_cost_service.py` 46, 87; `eod_workflow.py` 198, 393, 458, 670, 1002 |
 | `session_scope()` commits on normal exit, rolls back on `Exception`, and closes in `finally`. Its only caller is a test | `workmain/database/connection.py:64-81` `DatabaseConnection.session_scope`; `tests/test_database_isolation.py:46` |
 | Both session factories use the default `expire_on_commit=True`. After the exit commit, any attribute read raises `DetachedInstanceError`, observed against SQLAlchemy 2.0.23 | `workmain/database/connection.py:51-55`; `tests/conftest.py:34-39` |
 | Two sites read ORM attributes after their block. Under a plain conversion both fail, which the two tests in Step 1 and Step 2 showed in a prototype | `scheduler.py:213` (`Meeting.is_cancelled`, `.start_time`, `.end_time`, `.id`); `interface.py:138` (`Client.name`, `.id`) |
@@ -182,11 +187,11 @@ The lines that follow (`scheduled_t3 += 1` and the log call) are unchanged.
 
 - `tests/test_eod_workflow.py`: delete the 21 `db_session` stubs §2 lists, each with its `patch('workmain.workflows.eod_workflow.get_db') as mock_get_db` (DR6).
 - `tests/test_orchestration.py`, `tests/test_eod_task_matching.py`: re-point the stubs §2 lists (DR6).
-- `tests/test_ai_costs.py` `test_record_reply_takes_its_session_from_its_own_get_db_each_call`: replace `return MagicMock(get_session=lambda: session)` with the three lines below. Add `from workmain.database.connection import DatabaseConnection` to the test's imports, and change `session.commit.assert_called_once()` to `session.commit.assert_called()`, because the repository and the scope each commit.
+- `tests/test_ai_costs.py` `test_record_reply_takes_its_session_from_its_own_get_db_each_call`: replace `return MagicMock(get_session=lambda: session)` with the three lines below. Add `from workmain.database.connection import DatabaseConnection` to the test's imports, and change `session.commit.assert_called_once()` to `session.commit.assert_called()`, because the repository and the scope each commit. The stand-in is a real `DatabaseConnection`, so the test runs the real `session_scope()`. Its `get_session` is set through `monkeypatch`, which the test already takes.
 
   ```python
               db = DatabaseConnection()
-              db.get_session = lambda: session
+              monkeypatch.setattr(db, 'get_session', lambda: session)
               return db
   ```
 
@@ -230,10 +235,10 @@ After the block, replace each read of `active_client`:
       # ... work ...
   ```
 
-- `get_session()` is a method on `DatabaseConnection`, not a module-level function, and only `session_scope()` calls it.
+- `get_session()` is a method on `DatabaseConnection`, not a module-level function. In application code under `workmain/`, only `session_scope()` calls it; tests follow §6.1.
 - **A command owns its unit of work.** A CLI command, a daemon job or a workflow step opens the `session_scope()` its work runs in. A service takes the caller's session as an argument and never opens or commits one, except for a write that records an outside action (§4.3).
 - **A handler that recovers from an exception sits outside the `with`.** A handler that catches an exception and carries on wraps the `with`, so the scope has rolled back before the handler runs. A handler inside the block that swallows a database error leaves the transaction failed, and the scope's commit then raises.
-- **`SystemExit` skips both commit and rollback.** `sys.exit()` and `raise SystemExit` are not `Exception`s, so the scope only closes the session and its uncommitted writes are discarded. `ctx.exit()` and `click.Abort` are `Exception`s and roll the scope back.
+- **An exception that is not an `Exception` skips both commit and rollback.** `SystemExit` (from `sys.exit()` or `raise SystemExit`) and `KeyboardInterrupt` derive only from `BaseException`, so the scope only closes the session and its uncommitted writes are discarded. `ctx.exit()` and `click.Abort` are `Exception`s and roll the scope back.
 ~~~
 
 **§4.2.** Replace the bullet `- In daemon code, access ORM relationships inside the \`try\` block, before \`session.close()\`.` with:
@@ -263,13 +268,66 @@ None. This spec runs no migration, deletes no GitHub object, merges nothing to `
 | AC1.1 | Every database session that application code under `workmain/` opens is opened through `session_scope()`, so each one commits on exit, rolls back on `Exception` and is always closed | `grep -rn 'get_session()' workmain/ --include='*.py' \| grep -v connection.py` returns zero hits |
 | AC1.2 | Daemon meeting-trigger scheduling reads its meetings from the database inside the scope, and schedules T2 and T3 for a meeting it read. Entry path: `_schedule_today_meeting_triggers`, the one function that daemon start, the midnight rescan and the 15-minute rescan all call | `pytest tests/test_orchestration.py::TestMeetingTriggersFromDatabase` |
 | AC1.3 | `workmain status` shows the active client it read from the database inside the scope. Entry path: the CLI, through `CliRunner` | `pytest tests/test_status_command.py` |
-| AC1.4 | A workflow step whose session fails inside the scope reports the failure and continues, rather than raising out of the workflow. Entry path: `_run_task_match_step`; DR2 applies the same placement at every site §2 lists with its own `except` clauses | `pytest tests/test_eod_workflow.py::TestTaskMatchStepDatabaseFailure` |
+| AC1.4 | At every site §2 lists with its own `except` clauses, a failure inside the scope is rolled back before the handler runs, so the handler's recovery holds rather than the scope's commit raising. The behaviour is shown at `_run_task_match_step`, and the placement at every listed site | `pytest tests/test_eod_workflow.py::TestTaskMatchStepDatabaseFailure`, and the DR2 placement check in §5 exits 0 |
 | AC2.1 | No code under `workmain/` outside `connection.py` closes a session itself; the scope closes every one | `grep -rn 'session.close()' workmain/ --include='*.py' \| grep -v connection.py` returns zero hits |
 | AC3.1 | Adopting `session_scope()` changes no test's isolation. Every converted site's session comes from the factory the #136 fixture binds, and no test hands converted code a session through a `get_session` stub that the code no longer calls | `pytest` passes with the fixture in place, and `grep -rnE "get_session(\.return_value\| *=\|\.side_effect)" tests/` returns zero hits |
 | AC4.1 | Cost recording, which replaced the `intent_parser.py` site the issue names, opens its session through `session_scope()` and closes it when `AiCostRepository.create` raises | `pytest tests/test_ai_costs.py::TestAiCostService::test_record_reply_closes_its_session_when_create_raises`, with AC1.1 |
 | AC5.1 | §4.1 documents `session_scope()` as the required pattern and names the class `DatabaseConnection`, and §4.2 states that no ORM object is read after its scope | A stated reading by Ray of §4.1 and §4.2 for exactly that |
 | AC6.1 | The suite passes at or above baseline | `pytest`; counts in §6's form |
 | AC7.1 | §4.1 states that a command owns its unit of work through `session_scope()`, and that a service takes the caller's session and never opens or commits one, except for the writes §4.3 says commit on their own; §4.3 states that rule | A stated reading by Ray of §4.1 and §4.3 for exactly that |
+
+**DR2 placement check** (AC1.4). Run from the repository root with `python3 - workmain <<'EOF'`, using the script below. It keys each §2 site with its own `except` clauses by file, function and the site's position among that function's `session_scope()` blocks. It exits 1 and names any site whose `with` is not the first statement of a `try` with `except` clauses. In a prototype it passed with `_run_task_match_step`'s handler outside the `with` and failed with it inside.
+
+```python
+import ast, pathlib, sys
+
+SITES = {
+    'cli/commands/clients.py': {'clients_add': [1], 'clients_delete': [1]},
+    'cli/commands/clockify.py': {'status': [1], 'clockify_sync_push': [1], 'clockify_sync_pull': [1], 'clockify_sync_both': [1]},
+    'cli/commands/gdocs.py': {'gdocs_upload_notes': [1], 'gdocs_upload_report': [1], 'gdocs_upload_clockify': [1]},
+    'cli/commands/meetings.py': {'create': [1], 'meetings_condense': [1], 'meetings_edit': [1], 'meetings_reschedule': [1], 'meetings_series_edit': [1], 'meetings_skip': [1], 'meetings_template_use': [1], 'meetings_costs': [1]},
+    'cli/commands/notes.py': {'notes_log': [1], 'notes_costs': [1]},
+    'cli/commands/providers.py': {'show_costs': [1]},
+    'cli/commands/reports.py': {'generate_report_impl': [1], '_report_list_impl': [1], 'report_corrections': [1], 'report_show': [1], 'report_resend': [1], 'report_costs': [1]},
+    'daemon/daemon.py': {'_enriched_notify': [1], '_pre_meeting_reminder': [1], '_schedule_meeting_reminders': [1], '_execute_action': [1], '_maybe_post_correction_summary': [1]},
+    'daemon/scheduler.py': {'_send_t2': [1], '_send_t3': [1]},
+    'integrations/slack/slack_eod.py': {'_execute_and_reprompt': [1]},
+    'services/ai_cost_service.py': {'record_reply': [1], 'link_report': [1]},
+    'workflows/eod_workflow.py': {'_run_condense_step': [1], '_run_pre_flight_inspection_step': [1], '_run_task_match_step': [1], '_run_note_dedup_step': [1], '_run_report_review_step': [4]},
+}
+
+
+def is_scope(node):
+    return isinstance(node, ast.With) and any(
+        isinstance(i.context_expr, ast.Call)
+        and isinstance(i.context_expr.func, ast.Attribute)
+        and i.context_expr.func.attr == 'session_scope'
+        for i in node.items
+    )
+
+
+root = pathlib.Path(sys.argv[1])
+bad = []
+for rel, funcs in SITES.items():
+    tree = ast.parse((root / rel).read_text())
+    parent = {c: p for p in ast.walk(tree) for c in ast.iter_child_nodes(p)}
+    for name, positions in funcs.items():
+        defs = [f for f in ast.walk(tree) if isinstance(f, ast.FunctionDef) and f.name == name]
+        if len(defs) != 1:
+            bad.append(f'{rel} {name}: {len(defs)} definitions')
+            continue
+        scopes = sorted((n for n in ast.walk(defs[0]) if is_scope(n)), key=lambda n: n.lineno)
+        for k in positions:
+            if k > len(scopes):
+                bad.append(f'{rel} {name} #{k}: no such session_scope() block')
+                continue
+            block = scopes[k - 1]
+            owner = parent[block]
+            if not (isinstance(owner, ast.Try) and owner.handlers and owner.body[0] is block):
+                bad.append(f'{rel}:{block.lineno} {name} #{k}: its except clauses are not on a try whose first statement is this block')
+print('\n'.join(bad) or 'ok')
+sys.exit(1 if bad else 0)
+```
 
 ## 6. Test plan
 
