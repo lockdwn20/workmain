@@ -22,6 +22,17 @@
 | 20261012 | Spanner | `ai_arguments._fail` prints errors to stdout; which conversion routes it through the output module | The providers conversion, since `ai_arguments` validates provider and report-type arguments. Its callers in other groups are listed in that issue as call sites (§1.2). |
 | 20261012 | Spanner | The AI-costs command functions live in `meetings.py`, `notes.py`, `providers.py` and `reports.py`, whose conversions check the whole file | The meetings, notes, providers and reports conversions are blocked by the AI-costs conversion, so their whole-file checks hold when they run. The AI-costs issue is created first in Step 2. |
 | 20261012 | Spanner | `ClockifySync` and `TagSystem.interactive_correction` prompt with raw `input()` below the CLI (study F7) | Carried by the clockify and notes conversions. Q2 (Option A) puts every question to the user in the command. |
+| 20261012 | Caliper | X-TC's and #58's pattern `unittest` also matches `from unittest.mock import …`, which ten owned files use and §4.4's command tests need, so a converted file would fail | Accepted. Both checks now match `unittest\.TestCase` and `^import unittest$`. The reason is stated under the common-criteria table. |
+| 20261012 | Caliper | AC5.1 looks for the fourteen files only in the new issues; `tests/test_task_lifecycle.py` is carried by #58, which is rewritten, not opened | Accepted. AC5.1's check covers the new issues and #58. #58 is a sub-issue of #198 that this recon rewrites to carry the file, which meets #199's AC5 property. |
+| 20261012 | Caliper | AC7.1 maps to an AC7 #199 does not have | Accepted. Remapped to AC4.2: #58 carries the `tasks` group's census findings, which is #199's AC4 property, and describes the output module. |
+| 20261012 | Caliper | The slack X-OPT is vacuous: `slack status` takes no options | Accepted. Slack carries X-ENTRY instead: `slack status` and `slack post` are tested through `CliRunner`, not `.callback`, which is what #136's carried criterion asks for `slack status`. |
+| 20261012 | Caliper | Routing `ai_arguments._fail` to stderr leaves its test call sites unenumerated: `TestRequireProvider` and `TestRequireReportType` read `capsys.readouterr().out` | Accepted. The providers block lists both classes, and the `mix_stderr=False` tests in that file, as call sites it owns. Verified: Click 8.1.7's `CliRunner` mixes stderr into `result.output` by default, so other groups' command tests are unaffected. |
+| 20261012 | Caliper | The clockify block omits `ClockifySync`'s other call sites (`time add`, `tests/test_clockify_sync.py`) and its `print()` calls; time and clockify are not linked | Accepted. The clockify block owns `sync.py`'s prompts, its prints and all three call sites. The time conversion is blocked by the clockify conversion. |
+| 20261012 | Caliper | No criterion obliges anyone to write the unit-of-work rule or the outside-action rule, and the #96 insert attributes the unit-of-work rule to #96 | Accepted. Step 4 appends one criterion to #95 (§4.1 unit of work) and one to #96 (§4.3 outside-action rule). It adds criteria and rewords none. The #96 insert now attributes the §4.1 rule to #95. |
+| 20261012 | Caliper | Copied Appendix A rows carry study finding IDs and an undefined column vocabulary, which breaks DR1; three-body reading does not check sixteen | Accepted. Assembly removes every finding reference and prepends a column legend. AC4.1 adds a grep for finding IDs, `Appendix` and the study's name over every new body and #58's. |
+| 20261012 | Caliper | Removing `time`'s `-i`/`--show-ids` leaves §5.5's reserved row describing a flag nothing uses | Accepted. The time block also removes that §5.5 row, since `notes list --show-ids` has no short form. |
+| 20261012 | Caliper | #58's eager-loading check passes on eager loading in any method of `task_status_repo.py` | Accepted. The check is now a service test showing the number of statements `tasks list` runs does not grow with the number of tasks, which tests the path itself. |
+| 20261012 | Caliper | The pre-edit save and the duplicate search appear only in §7; Step 1 quotes only the first line of #58's body | Accepted. A new Step 0 does both before any write. Step 1 quotes #58's whole current body. |
 
 ---
 
@@ -40,10 +51,10 @@
 **Out of scope:**
 
 - Any change under `workmain/`, `tests/`, `scripts/` or `config/`.
-- Any change to `docs/DEVELOPMENT_STANDARDS.md`. The pilot and #95/#96 write those rules.
+- Any change to `docs/DEVELOPMENT_STANDARDS.md`. The pilot and #95/#96 write those rules. Step 4 adds one criterion to each of #95 and #96 so that a criterion obliges each rule to be written.
 - Board order, which Ray set in the Web UI on 20261012 (#95 and #96 moved ahead of #198's group).
 - Closing any issue.
-- Rewording any acceptance criterion except the two file counts in Step 4.
+- Rewording any acceptance criterion, except the two file counts in Step 4. Step 4 adds criteria to #95 and #96 but rewords none.
 
 ## 3. Design rules
 
@@ -58,6 +69,7 @@
 
 | Step | Deliverable | Files |
 | --- | --- | --- |
+| 0 | Pre-edit bodies saved; duplicate search run | none (scratchpad) |
 | 1 | #58 rewritten as the pilot; #58 blocked by #96 | none (GitHub) |
 | 2 | Sixteen conversion issues opened | none (GitHub) |
 | 3 | Remaining links: #96 ← #95, #104 ← #58, #115 ← slack and gdocs conversions | none (GitHub) |
@@ -65,11 +77,50 @@
 | 5 | Each conversion issue's number recorded in the design study | `docs/dev/design/DESIGN_COMMAND_OUTPUT_SEPARATION.md` |
 | 6 | Results artifact | `docs/dev/results/COMMAND_OUTPUT_SEPARATION_RESULTS.md` |
 
-Steps 1–4 change no file and make no commit. Every `gh` write they run is recorded in the results artifact. Steps 5 and 6 each end with a commit.
+Steps 0–4 change no file in the repository and make no commit. Every `gh` write they run is recorded in the results artifact. Steps 5 and 6 each end with a commit.
+
+### Step 0 — before any write
+
+- Save the current body of #58, #95, #96, #159, #160 and #168 to the scratchpad with `gh issue view <N> --json title,body`. §7's rollback restores from these files.
+- For each group in §4.1, run `gh issue list --state open --search "<group> commands"` and read every result (§1.3). Stop and surface to Ray if an open issue already covers a group's conversion.
 
 ### Step 1 — #58 becomes the pilot
 
-Replace #58's title and body, and keep its milestone. Today's body opens `> Migrated from \`docs/FEATURE_BACKLOG.md\` **Item 7**, added 20251226.` and is replaced whole.
+Replace #58's title (`formatters.py Extraction`) and body, and keep its milestone. The body being replaced, whole:
+
+````markdown
+> Migrated from `docs/FEATURE_BACKLOG.md` **Item 7**, added 20251226.
+> Legacy citation `#7` in specs/CHANGELOG/commits refers to the backlog item,
+> not this issue's GitHub number.
+
+**Effort estimate (as recorded):** ~4 hours
+
+**Blocks** the command-aliases and shell-autocomplete issues (legacy Items 1 and 2).
+
+## Description
+
+Child of #198. Before #198 this issue required output to stay identical; that requirement is withdrawn, because the output module is where one rule for shortening and wrapping is applied to every command.
+
+Extract formatting functions scattered across command files into a shared `formatters.py` module. Deferred until all commands are built so real patterns are visible before abstracting.
+
+## Why deferred
+
+Premature abstraction risk. All commands needed to be built first to see the real pattern. Phase 15 refactor pass is the right time.
+
+## Acceptance criteria
+
+- [ ] Common formatting functions extracted to `workmain/utils/formatters.py` (or similar)
+- [ ] All command files updated to import from shared module
+- [ ] Every CLI table and panel is built by this module, which applies the shorten-or-wrap rule that `docs/DEVELOPMENT_STANDARDS.md` section 5.6 states. Output changes wherever a command's current choice differs from that rule; the module's shape and the rule are settled by #199's design study.
+- [ ] Tests updated if formatting functions have unit tests
+
+## Files affected
+
+- `workmain/cli/commands/*.py` (all command files)
+- New: `workmain/utils/formatters.py`
+
+---
+````
 
 - `gh issue edit 58 --title "Build the CLI output module and its rules on the tasks commands" --body-file <scratchpad>/58.md --add-label tests --add-blocked-by 96`
 
@@ -118,7 +169,7 @@ What the `tasks` commands do today, measured on `main` `b61e321`, 20261012:
 - A test author knows from docs/DEVELOPMENT_STANDARDS.md §6.2 alone how to test a service, the output module and a command, and that a command run as an EOD child process is also covered at its EOD step
   - Checked by: a stated reading by Ray of §6.2 for exactly that
 - docs/DEVELOPMENT_STANDARDS.md §4.3 states that a repository method returning rows whose related records a caller needs loads them eagerly, and the tasks list path follows it
-  - Checked by: a stated reading by Ray of §4.3, and grep -nE 'selectinload|joinedload|contains_eager' workmain/database/repositories/task_status_repo.py returning at least one hit
+  - Checked by: a stated reading by Ray of §4.3, and a service test that seeds tasks on a sentinel date, lists them through the tasks list service, and asserts the number of SQL statements executed does not grow with the number of tasks
 - No tasks command opens a session itself, constructs a repository or queries; each calls a service in workmain/services/ inside a session_scope() it owns and hands the result to the output module
   - Checked by: git grep -nE 'get_session\(|Repository\(|_repository\(|\.query\(' workmain/cli/commands/tasks.py returning no hits, and a stated reading by Ray of the results artifact's table of each command and the service function it calls
 - Nothing in workmain/cli/commands/tasks.py prints except through the output module, and its unused _format_task_row is gone
@@ -126,7 +177,7 @@ What the `tasks` commands do today, measured on `main` `b61e321`, 20261012:
 - Every tasks service function is tested at the service, and every tasks command has a command test that patches its service and render call
   - Checked by: a stated reading by Ray of the results artifact's tables pairing each service function and each command with its tests
 - tests/test_task_lifecycle.py is plain pytest classes that take db_session, with no session of their own and no hand cleanup
-  - Checked by: git grep -nE 'unittest|get_db\(|def setUp|def tearDown' tests/test_task_lifecycle.py returning no hits
+  - Checked by: git grep -nE 'unittest\.TestCase|^import unittest$|get_db\(|def setUp|def tearDown' tests/test_task_lifecycle.py returning no hits
 - No tasks test depends on terminal width
   - Checked by: for w in $(seq 20 2 80) 100 120 200; do COLUMNS=$w pytest -q tests/test_task_lifecycle.py tests/test_output.py <the service test file this issue adds>; done reporting 0 failed at every width
 - The full suite passes
@@ -160,7 +211,12 @@ Create the AI-costs issue first, because four other groups are blocked by it. Fo
    The census below was measured on `main` `b61e321`, 20261012. This issue's own recon re-measures the group before its spec (§1.1).
    ```
 
-2. `## What the commands do today`, followed by each Appendix A table the group names, copied from the design study verbatim with its `###` heading demoted to `###` under this section.
+2. `## What the commands do today`, followed by the column legend below, then each Appendix A table the group names, copied from the design study with its `###` heading kept, and with every finding reference (`F` followed by digits) removed together with the comma joining it to other text in the same parentheses, and parentheses left empty removed too. `(F4)` disappears, `(F8, #168)` becomes `(#168)`, and `(prompts inside, F7)` becomes `(prompts inside)`. Nothing else in a row changes. The legend:
+
+   ```markdown
+   **Reads** names the repository methods, raw queries, files and services the command reaches. **Decides** states the logic between reading and printing. **Prints** names the output form. **Columns** gives each table column's setting and what Rich 13.7.0 does with a value that does not fit: *default* wraps at spaces and shortens a word longer than the column with `…`; *width=N* does the same inside N characters; *no_wrap* shortens with `…`, and where two such columns compete the narrower is reduced to `…` alone; *min_width=N* pushes the table past a terminal narrower than N, where it is cropped with no marker. **Tests** names the test files that run the command through `CliRunner`, with the number of tests in parentheses.
+   ```
+
 3. `## Width-dependent tests`, followed by the Appendix B rows for the group's commands, copied verbatim under the Appendix B header row. Where the group has none, it reads: `A full-suite sweep at every even COLUMNS value from 20 to 80, then 100, 120 and 200, found none.`
 4. `## Tests`, followed by the group's Tests bullets.
 5. `## Overlaps`, followed by the group's Overlaps bullets.
@@ -178,15 +234,16 @@ Create the AI-costs issue first, because four other groups are blocked by it. Fo
 | C5 | No {group} test depends on terminal width | for w in $(seq 20 2 80) 100 120 200; do COLUMNS=$w pytest -q {tests}; done reporting 0 failed at every width |
 | C6 | The full suite passes | pytest reporting 0 failed |
 
-(The `\|` in the C1 and C2 checks escapes this table only. Each payload carries a plain `|`.)
+(The `\|` in the C1, C2 and X-TC checks escapes this table only. Each payload carries a plain `|`. The X-TC pattern names `unittest.TestCase` and a bare `import unittest`, not the word `unittest`, because `from unittest.mock import patch` is how §4.4's command tests patch.)
 
 **Extra criteria by kind**, added where a group's block calls for them:
 
 | # | Criterion | Check |
 | --- | --- | --- |
-| X-TC | {owned files} are plain pytest classes that take db_session, with no session of their own and no hand cleanup | git grep -nE 'unittest\|get_db\(\|def setUp\|def tearDown' {owned files} returning no hits |
+| X-TC | {owned files} are plain pytest classes that take db_session, with no session of their own and no hand cleanup | git grep -nE 'unittest\.TestCase\|^import unittest$\|get_db\(\|def setUp\|def tearDown' {owned files} returning no hits |
 | X-EOD | Each EOD step that runs a {group} command as a child process handles every exit code and output stream the converted command now produces as that site's existing policy requires, through the run_workmain entry path | a test in tests/test_eod_workflow.py for each changed exit code drives the step with run_workmain patched to return it and asserts the step's result, and a stated reading by Ray of the results artifact's call-site table |
 | X-OPT | {commands} map each option to the value passed to the service, through the command-line entry point with Click's option parsing | a CliRunner test per option asserting the patched service's arguments, named in the results artifact |
+| X-ENTRY | slack status and slack post are tested through their command-line entry points, not by calling their command functions | git grep -n '\.callback' tests/test_slack.py tests/test_slack_channel_config.py returning no hits, and a CliRunner test of slack status asserting the patched service was called |
 
 ### 4.1 Group blocks
 
@@ -203,9 +260,9 @@ Create the AI-costs issue first, because four other groups are blocked by it. Fo
 - Tests: `tests/test_clients_commands.py` runs all six commands (31 invocations). It is a plain pytest file that opens its own session through `get_db()`. It commits changes to the live active client and `system_state.active_client_id` inside the test transaction.
 - Overlaps: none.
 
-**clockify** — title: `The clockify commands query, decide and print in one function; move the deciding into a service and the printing into the output module`. Area label `clockify`. Files: `workmain/cli/commands/clockify.py`. Appendix A: `clockify.py`. Extra criteria: X-EOD.
+**clockify** — title: `The clockify commands query, decide and print in one function; move the deciding into a service and the printing into the output module`. Area label `clockify`. Files: `workmain/cli/commands/clockify.py`, `workmain/integrations/clockify/sync.py`. Appendix A: `clockify.py`. Extra criteria: X-EOD.
 
-- Tests: `tests/test_clockify.py` runs `clockify report save` (3), and patches `clockify.ClockifyClient` and `clockify._CLOCKIFY_DIR`. No test runs `status` or `sync`.
+- Tests: `tests/test_clockify.py` runs `clockify report save` (3), and patches `clockify.ClockifyClient` and `clockify._CLOCKIFY_DIR`. `tests/test_clockify_sync.py` tests `ClockifySync` directly. No test runs `status` or `sync`.
 - Overlaps:
   - #160 listed this file's `TimeEntry` reads, `status` (the latest `synced_at`) and `clockify_sync_push` (every entry, for `--all`). They move here, into `TimeEntriesRepository` methods.
   - #168 owns `ClockifySync.push_entries`' writes of `clockify_id` and `synced_at`. Those writes record a push to Clockify, so they follow §4.3's rule for writes that record an outside action.
@@ -213,7 +270,9 @@ Create the AI-costs issue first, because four other groups are blocked by it. Fo
 - EOD:
   - The sync step runs `clockify sync push` (`workmain/workflows/eod_workflow.py` `run_workmain(['clockify', 'sync', 'push'], …)`, and its retry).
   - The Clockify step runs `clockify report save daily …` (`cmd_args = ['clockify', 'report', 'save', 'daily', …]`, and its retry).
-- Also in scope: `ClockifySync` asks the user about conflicts with raw `input()` and `click.prompt` (`workmain/integrations/clockify/sync.py:284,328`), below the command. The question moves into the command, and the service plans and applies (§5.6, the shared picker).
+- Also in scope:
+  - `ClockifySync` asks the user about conflicts with raw `input()` and `click.prompt` (`workmain/integrations/clockify/sync.py:284,328`), and prints progress with `print()` (`sync.py:87,114,125,195,251–259`), below the command. The questions move into the command, and the progress lines into the output module, with plan and apply calls (§5.6, the shared picker).
+  - Its call sites are this issue's: the three `clockify sync` commands, `time add`'s push (`workmain/cli/commands/time.py:351–352`, `push_entries(entries=[entry], interactive=True)`), and `tests/test_clockify_sync.py` (seven constructions, and `pull_entries(…, interactive=False)`). The time conversion is blocked by this issue, so `time add` moves to the new calls when it converts, and this issue keeps `time add` working on them meanwhile.
 
 **email** — title: `The email commands query, decide and print in one function; move the deciding into a service and the printing into the output module`. Area label `reports`. Files: `workmain/cli/commands/email.py`. Appendix A: `email.py`. Blocked by: `58`, `104`. Extra criteria: X-EOD.
 
@@ -300,12 +359,13 @@ Create the AI-costs issue first, because four other groups are blocked by it. Fo
 
 - Tests:
   - `tests/test_provider_foundation.py` runs `providers list` (1), `test` (7) and `set default` (7). It patches `providers._SETTINGS_PATH` (10 times), `providers.get_provider_manager` (8) and `providers.get_db`.
-  - `tests/test_ai_arguments.py` `TestProviderArguments` and `TestEligibleProviderArguments` run `providers test` and `providers set default`.
+  - `tests/test_ai_arguments.py` `TestProviderArguments` and `TestEligibleProviderArguments` run `providers test` and `providers set default`. `TestRequireProvider` and `TestRequireReportType` test `ai_arguments` directly.
 - Overlaps: #132 (set default can leave no working fallback) and #182's children stay their own.
 - Also in scope:
   - `require_provider`, `require_report_type` and `require_eligible_provider` in `workmain/utils/ai_arguments.py` print their error to a stdout console and exit 1 (`_fail`).
   - They are routed through the output module's error line on stderr.
   - Their callers are call sites under §1.2: `email.py` (2), `meetings.py` (1), `notes.py` (1), `providers.py` (5) and `reports.py` (6).
+  - So are the tests that read the stream the error is printed to: `tests/test_ai_arguments.py` `TestRequireProvider` and `TestRequireReportType`, which read `capsys.readouterr().out`. This issue owns and updates both classes. It also updates the `CliRunner(mix_stderr=False)` tests in that file that reach an `ai_arguments` error. Other `CliRunner` tests read `result.output`, which mixes stdout and stderr under Click 8.1.7, so they are unaffected.
 
 **reports** — title: `The reports commands query, decide and print in one function; move the deciding into a service and the printing into the output module`. Area label `reports`. Files: `workmain/cli/commands/reports.py`, except `reports costs`. Appendix A: `reports.py`. Blocked by: `58`, `167`, the AI-costs issue. Extra criteria:
 
@@ -340,7 +400,7 @@ Create the AI-costs issue first, because four other groups are blocked by it. Fo
 
 - X-TC with `tests/test_slack.py` and `tests/test_slack_channel_config.py`;
 - X-EOD;
-- X-OPT with `slack status`.
+- X-ENTRY.
 
 - Tests:
   - `tests/test_slack.py` runs `slack post` (10), calls the `.callback` of `slack_post` and `slack_status`, and calls `get_draft_date_range`. It is a `TestCase` file.
@@ -353,7 +413,7 @@ Create the AI-costs issue first, because four other groups are blocked by it. Fo
 - Also in scope:
   - The report's Slack fields record a post already made, so they follow §4.3's rule for writes that record an outside action (`slack.py:641`).
   - `slack post` calls `workmain.workflows.eod_workflow._run_report_review_step`, a private function. It calls a public service instead.
-  - `slack status` is tested through its command-line entry point, so the mapping from its options to the values it passes on is covered. #157 tested it by calling the command function.
+  - `slack status` takes no options. #136's carried criterion for it is the entry path: it and `slack post` are tested through `CliRunner` instead of their `.callback`, which #157's tests call.
 
 **templates** — title: `The templates commands decide and print in one function; move the deciding into a service and the printing into the output module`. Area label `templates`. Files: `workmain/cli/commands/templates.py`. Appendix A: `templates.py`. Extra criteria: none.
 
@@ -361,7 +421,7 @@ Create the AI-costs issue first, because four other groups are blocked by it. Fo
 - Overlaps: #56, #76, #77, #78 and #151 stay their own.
 - Also in scope: every `templates` command prints with `click.echo`, and `templates list` prints a traceback on error. C3's "tested at the service" means against template files under `tmp_path` where a command reads or writes files.
 
-**time** — title: `The time commands query, decide and print in one function; move the deciding into a service and the printing into the output module`. Files: `workmain/cli/commands/time.py`. Appendix A: `time.py`. Extra criteria: X-TC with `tests/test_time_add.py`; X-EOD.
+**time** — title: `The time commands query, decide and print in one function; move the deciding into a service and the printing into the output module`. Files: `workmain/cli/commands/time.py`. Appendix A: `time.py`. Blocked by: `58`, the clockify conversion. Extra criteria: X-TC with `tests/test_time_add.py`; X-EOD.
 
 - Tests:
   - `tests/test_time_add.py` runs `time add` (2). It is a `TestCase` file.
@@ -372,7 +432,8 @@ Create the AI-costs issue first, because four other groups are blocked by it. Fo
 - EOD: the review step runs `time today`, or `time date <date>` for a backdated run, and echoes its output to the operator.
 - Also in scope:
   - `time` accepts `--show-ids`/`-i` on the group and `--show-ids` on `today`, `week` and `date`, and reads none of them, since IDs are always printed. These options are removed.
-  - `time add` offers a Clockify push through `ClockifySync.push_entries`, whose prompts the clockify conversion moves.
+  - The `-i` / `--show-ids` row of `docs/DEVELOPMENT_STANDARDS.md` §5.5 ("Group level only") then describes a flag no command has, since `notes list --show-ids` has no short form. This issue removes that row, as a fix ships its standard.
+  - `time add` offers a Clockify push through `ClockifySync.push_entries`. The clockify conversion, which blocks this issue, replaces its prompting calls with plan and apply calls, and this issue's `time add` uses them.
 
 **AI costs** — title: `The four AI cost commands share a renderer that queries the database; move their deciding into a service and their printing into the output module`. Area label `ai-llm`. Files: `meetings costs`, `notes costs`, `providers costs` and `reports costs`, in their command files; `workmain/utils/cost_display.py`. Appendix A: `AI costs`. Extra criteria: none.
 
@@ -425,10 +486,17 @@ Each body is fetched with `gh issue view <N> --json body --jq .body`, edited as 
   **Sequencing, decided 20261012 by Ray.** This issue lands before #96, and #96 before #58, the pilot of #198's command conversion. #96 removes the repositories' own commits. Most of the 120 session sites commit nothing themselves, so removing those commits is safe only once every site runs inside `session_scope()`, which commits when the scope exits. Every command conversion under #198 then cites the §4.1 rule this issue writes for how a command owns its unit of work. `session_scope()` rolls back only on `Exception`: a `sys.exit()` or `SystemExit` inside a scope skips both the commit and the rollback, and closing the session discards the scope's writes. Today the repository's own commit has already saved them. #96's spec lists each such exit.
   ```
 
+  Append to #95's criteria:
+
+  ```markdown
+  - docs/DEVELOPMENT_STANDARDS.md §4.1 states that a command owns its unit of work through session_scope(), and that a service takes the caller's session and never opens or commits one, except for the writes §4.3 says commit on their own
+    - Checked by: a stated reading by Ray of §4.1 for exactly that
+  ```
+
 - **#96.** Insert before `**ACs**`:
 
   ```markdown
-  **Sequencing and spec obligations, decided 20261012 by Ray.** This issue lands after #95 and before #58, the pilot of #198's command conversion. Once #95 has put every session site in `session_scope()`, removing the repository commits loses no write. Every service the conversion writes is then built on this issue's rule: the command owns the unit of work, and a service never commits. Removing a commit is a contract change under `docs/DEVELOPMENT_STANDARDS.md` §1.2, so this issue's spec shows:
+  **Sequencing and spec obligations, decided 20261012 by Ray.** This issue lands after #95 and before #58, the pilot of #198's command conversion. Once #95 has put every session site in `session_scope()`, removing the repository commits loses no write. Every service the conversion writes is then built on the §4.1 rule #95 writes (the command owns the unit of work through `session_scope()`, and a service never opens or commits a session), together with this issue's §4.3 boundary rule. Removing a commit is a contract change under `docs/DEVELOPMENT_STANDARDS.md` §1.2, so this issue's spec shows:
 
   - every caller of a repository method that commits, with evidence that after #95 each one runs inside `session_scope()`;
   - for each `.commit()` outside the repositories and `connection.py` (23 on 20261012, including `eod_workflow` and `notes_service`), what happens to it: inside a scope it loses no data, but it breaks atomicity;
@@ -442,6 +510,13 @@ Each body is fetched with `gh issue view <N> --json body --jq .body`, edited as 
   - `workmain/cli/commands/gdocs.py:369,460,548` `record_upload`: the file is in Drive;
   - `workmain/cli/commands/slack.py:641`, the report's Slack fields: the report is posted;
   - `workmain/integrations/clockify/sync.py:107–108,184–185` `clockify_id` and `synced_at`: the entry is in Clockify.
+  ```
+
+  Append to #96's criteria:
+
+  ```markdown
+  - docs/DEVELOPMENT_STANDARDS.md §4.3's boundary text states the rule for writes that record an outside action, and every such site the spec finds commits in its own session_scope() immediately after the action
+    - Checked by: a stated reading by Ray of §4.3, and the spec's table of those sites with the test that shows each row survives a later failure in the same command
   ```
 
 - **#168.** Insert before `**ACs**`:
@@ -487,10 +562,10 @@ None. Steps 1–4 create and edit issues and add links, and delete nothing. No s
 | AC1.1 | Every command file is censused for what it queries, decides and prints, and how its table columns shorten or wrap | each name from `ls workmain/cli/commands/*.py` except `__init__.py` has a `###` section in the study's Appendix A |
 | AC2.1 | The width census is measured on the whole suite, with commit, date and command recorded, and every failing test listed | a stated reading by Ray of the study's Appendix B |
 | AC3.1 | Every design question was answered by Ray before any conversion issue was opened | every row of the study's §5 carries an answer dated 20261012, and each new issue's `createdAt` is later than the commit that recorded the last answer (`9df9624`) |
-| AC4.1 | Every census finding is carried by an open issue under #198 that can be worked without the design study | every Appendix A heading and every Appendix B row names an issue, and `gh issue view 198 --json subIssues` lists each of them; and a stated reading by Ray of three of the new issues' bodies for whether each can be worked on alone |
-| AC5.1 | Each of the fourteen command-test files carried from #136 is converted by a named sub-issue of #198, and the reports and slack issues carry the option-mapping criterion | `gh issue view <N> --json body` for the new issues finds each of the fourteen file names in an X-TC criterion; the reports and slack bodies contain the X-OPT criterion |
+| AC4.1 | Every census finding is carried by an open issue under #198 that can be worked without the design study | every Appendix A heading and every Appendix B row names an issue, and `gh issue view 198 --json subIssues` lists each of them; `grep -nE '\bF[0-9]+\b\|Appendix\|design study\|DESIGN_'` over each new issue's body, and over #58's, finds nothing; and a stated reading by Ray of three of the new issues' bodies for whether each can be worked on alone |
+| AC5.1 | Each of the fourteen command-test files carried from #136 is converted by a named sub-issue of #198, and the reports and slack issues carry #136's entry-path criterion | `gh issue view <N> --json body` over the new issues and #58 finds each of the fourteen file names in a criterion using the X-TC pattern (#58's for `tests/test_task_lifecycle.py`, the new issues' for the other thirteen); the reports body contains X-OPT and the slack body contains X-ENTRY |
 | AC6.1 | Each overlapping issue has a stated place, and every link that place implies exists on GitHub | the study's Appendix C names #158, #159, #160, #161, #167, #168, #169, #95, #104, #140, #136 and #58; the DR5 read-back shows #96 ← #95, #58 ← #96, #104 ← #58, every conversion ← #58, email ← #104, meetings and notes ← #168, reports and slack ← #167, meetings, notes, providers and reports ← AI costs, and #115 ← slack and gdocs |
-| AC7.1 | #58 describes the output module the study settles, as the pilot | a stated reading by Ray of #58's title and body |
+| AC4.2 | The `tasks` group's census findings are carried by #58, a sub-issue of #198, which also describes the output module the study settles | a stated reading by Ray of #58's title and body |
 
 ## 6. Test plan
 
