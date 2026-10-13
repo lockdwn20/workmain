@@ -418,8 +418,10 @@ Confirm the new `ActiveEnterTimestamp` postdates the merge commit before calling
       # ... work ...
   ```
 
+- **The code that opens a scope owns its unit of work.** It may commit inside the scope. Code it hands the session to — a repository, a service, an orchestrator such as `ActionExecutor` — reads and writes through that session and never commits it, rolls it back or opens another. Two exceptions: it may contain a failure in a savepoint (`session.begin_nested()`, below), and it records an outside action in a session of its own (§4.3).
+- **The owner commits before it waits.** If the scope has written since its last commit, the owner commits immediately before it prompts, opens an editor, starts a child `workmain` process or performs an outside action. No transaction holding a write stays open across user input, a child process or a call to another system.
 - `get_session()` is a method on `DatabaseConnection`, not a module-level function. In application code under `workmain/`, only `session_scope()` calls it; tests follow §6.1.
-- **A handler that recovers from an exception sits outside the `with`.** A handler that catches an exception and carries on wraps the `with`, so the scope has rolled back before the handler runs. A handler inside the block that swallows a database error leaves the transaction failed, and the scope's commit then raises.
+- **A handler that recovers from an exception sits outside the `with`, or outside a savepoint inside it.** A handler that wraps the `with` runs after the scope has rolled back. Inside the block, the guarded work runs in `with session.begin_nested():` and the handler wraps that, so a failure rolls back to the savepoint and the scope carries on. Nothing inside a savepoint commits: a commit there commits the whole transaction. A handler inside the block that swallows a database error without a savepoint leaves the transaction failed, and the scope's commit then raises.
 - **An exception that is not an `Exception` skips both commit and rollback.** `SystemExit` (from `sys.exit()` or `raise SystemExit`) and `KeyboardInterrupt` derive only from `BaseException`, so the scope only closes the session and its uncommitted writes are discarded. `ctx.exit()` and `click.Abort` are `Exception`s and roll the scope back.
 
 ### 4.2 Session discipline
@@ -441,10 +443,16 @@ Confirm the new `ActiveEnterTimestamp` postdates the merge commit before calling
       def create(self, ...) -> Model:
           obj = Model(...)
           self.session.add(obj)
-          self.session.commit()
+          self.session.flush()
           self.session.refresh(obj)
           return obj
   ```
+
+- **A repository method never commits.** It flushes after a write, so the row has its id and its database defaults, and later queries in the session see it.
+- **A write that records an outside action commits on its own.** A row that records something already done outside WorkmAIn's database — a provider call that has been billed, a file in Drive, a Slack message, an entry in Clockify — is written in its own session, opened with `get_db().record_scope()`, immediately after the action, independent of the command's unit of work, so a later failure in the command can't undo the record of something that can't be undone. `record_scope()` is `session_scope()` with a lock timeout, so a record that reaches a row another transaction holds fails instead of waiting.
+  - It never writes or references a row the command's open transaction has written. A second session can't see an uncommitted row, and waits on a row the transaction has locked.
+  - Its failure is never silent. Cost recording logs a warning and carries on. Every other record reports, on stderr, what happened outside, what was not recorded and what will repeat. The command's exit status doesn't change: the outside action succeeded, and a non-zero exit invites a rerun that would repeat it.
+  - It is tested at the function that writes it (§6.1).
 
 ### 4.4 PostgreSQL arrays
 
@@ -675,12 +683,13 @@ Reserved across all commands — no flag may reuse these:
 | Action | Effect |
 | --- | --- |
 | `commit()` anywhere | Releases a savepoint. The rows stay visible to every session in the test; nothing reaches the database. |
-| `rollback()` anywhere | Discards that session's writes since its last commit. Rows the test or other sessions wrote earlier survive. |
+| `rollback()` anywhere | Discards that session's writes since its last commit, and every commit a session opened after it made in the meantime. Rows written before it began survive. |
 | Test ends | The transaction rolls back; every write is discarded. |
 | Process killed mid-test | The transaction was never committed; PostgreSQL discards it when the connection drops. |
 
 - **A test that seeds or reads takes `db_session`.** It is a session from the same factory, so a command or service the test then calls sees what the test seeded. Commit it freely. Never call `get_db()` or `db.get_session()` in a test. The one exception is `tests/test_database_isolation.py`, whose tests stand in for application code in order to test this fixture.
 - **Hand application code a session only before that code opens its own.** Sessions sharing the connection must finish last-in, first-out, because releasing a savepoint also releases every savepoint opened after it. A test that builds an application object on `db_session` and then runs a command that opens its own session fails with `InvalidSavepointSpecification` at the command's commit. Let the command build the object from the session it opens, as `tests/test_cost_display.py`'s `TestMeetingsCondenseTokenLine` does.
+- **A record committed inside another session's open transaction is discarded by that session's rollback in a test**, though in production it is on its own connection and survives. Test an outside-action record (§4.3) at the function that writes it: call it, fail a later scope, and assert the record through `db_session`.
 - **Inject a database failure; never rely on one.** Patch the module's `get_db` to raise, as `tests/test_ai_costs.py` does. A test whose result depends on which rows happen to exist in the live database is wrong.
 - **Leaving the transaction fails the test.** During a test `DatabaseConnection.close()` raises, and replacing `SessionLocal` fails the test at teardown. Code that builds its own engine is outside the fixture, and no test may reach it.
 - **A child process is outside the transaction.** A test that reaches code which launches `workmain` (`workmain/utils/self_invoke.py`, `workmain/workflows/eod_workflow.py`) patches the launch.
