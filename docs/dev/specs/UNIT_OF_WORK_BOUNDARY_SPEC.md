@@ -1,6 +1,6 @@
 # Unit-of-Work Boundary — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261013
 **Branch:** `feature/issue-96-unit-of-work` (from `dev`)
