@@ -21,6 +21,8 @@ import unittest
 from datetime import datetime
 from unittest.mock import patch
 
+import click
+import pytest
 from click.testing import CliRunner
 
 from workmain.cli.commands.time import time
@@ -189,3 +191,58 @@ class TestTimeAddMeetingPathClientId(unittest.TestCase):
         entry = self.session.query(TimeEntry).filter(TimeEntry.note_id == note.id).first()
         self.assertIsNotNone(entry)
         self.assertEqual(entry.client_id, client.id)
+
+
+def _notes_with(session, content):
+    return session.query(Note).filter(Note.content == content).all()
+
+
+class TestTimeAddUnitOfWork:
+    """time add commits its writes before each wait, and a command stopped
+    between two writes leaves neither (#96)."""
+
+    def test_t7_time_add_persists_a_note_and_a_time_entry(self, db_session):
+        content = "Sentinel time add persists 2099-96"
+
+        result = CliRunner().invoke(time, ["add", content, "1h", "-T", "0900"], input="n\n")
+
+        assert result.exit_code == 0, result.output
+        notes = _notes_with(db_session, content)
+        assert len(notes) == 1
+        entries = db_session.query(TimeEntry).filter(TimeEntry.note_id == notes[0].id).all()
+        assert len(entries) == 1
+
+    def test_t2_interrupt_between_the_note_and_the_entry_leaves_neither(self, db_session):
+        from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+        content = "Sentinel time add interrupted 2099-96"
+
+        with patch.object(TimeEntriesRepository, "create", side_effect=KeyboardInterrupt):
+            CliRunner().invoke(time, ["add", content, "1h", "-T", "0900"])
+
+        assert _notes_with(db_session, content) == []
+
+    def test_t14_meeting_entry_persists_when_the_extra_notes_prompt_is_cancelled(
+        self, db_session
+    ):
+        meeting = _seed_meeting(db_session, "Sentinel Time Add Abort Meeting 2099-96")
+        content = "Sentinel time add meeting abort 2099-96"
+
+        with patch('click.confirm', side_effect=click.Abort()):
+            CliRunner().invoke(
+                time,
+                ["add", content, "1h", "-T", "0900", "-d", "2099-06-01", "-m", str(meeting.id)],
+            )
+
+        notes = _notes_with(db_session, content)
+        assert len(notes) == 1
+        assert db_session.query(TimeEntry).filter(TimeEntry.note_id == notes[0].id).count() == 1
+
+    def test_t15_entry_persists_when_the_clockify_sync_prompt_is_cancelled(self, db_session):
+        content = "Sentinel time add sync abort 2099-96"
+
+        with patch('click.confirm', side_effect=click.Abort()):
+            CliRunner().invoke(time, ["add", content, "1h", "-T", "0900"])
+
+        notes = _notes_with(db_session, content)
+        assert len(notes) == 1
+        assert db_session.query(TimeEntry).filter(TimeEntry.note_id == notes[0].id).count() == 1

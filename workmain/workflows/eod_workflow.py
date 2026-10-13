@@ -585,20 +585,17 @@ def _run_task_match_step(dry_run: bool, target_date: date, non_interactive: bool
                 print(f"  Note: {match_preview}")
                 print()
 
-                try:
-                    raw = _prompt_choice(
-                        "  [c]omplete   [d]ismiss   [s]kip (Enter)",
-                        default='s',
-                    )
-                except (EOFError, KeyboardInterrupt):
-                    n_skipped += 1
-                    continue
+                raw = _prompt_choice(
+                    "  [c]omplete   [d]ismiss   [s]kip (Enter)",
+                    default='s',
+                )
 
                 if raw in ('c', 'complete'):
                     task_repo.set_completed(ts.note_id)
                     if note and note.id:
                         try:
-                            task_repo.set_forwarding_note(ts.id, note.id)
+                            with session.begin_nested():
+                                task_repo.set_forwarding_note(ts.id, note.id)
                         except Exception:
                             pass
                     session.commit()
@@ -791,11 +788,7 @@ def _run_note_dedup_step(dry_run: bool, target_date: date, non_interactive: bool
                 print(f"  Note B: {preview_b}")
                 print()
 
-                try:
-                    raw = _prompt_choice("  [m]erge   [s]kip (Enter)", default='s')
-                except (EOFError, KeyboardInterrupt):
-                    n_skipped += 1
-                    continue
+                raw = _prompt_choice("  [m]erge   [s]kip (Enter)", default='s')
 
                 if raw in ('m', 'merge'):
                     # More recent note survives; older note dismissed (Gate 5

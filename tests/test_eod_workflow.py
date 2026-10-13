@@ -376,8 +376,9 @@ class TestStep3cUncappedQueries:
 
     def test_step3c_remaining_count_uncapped(self, tmp_path, db_session, monkeypatch):
         """Interactive path: after the review loop, the 'remaining' query
-        also passes limit=0. _prompt_choice is forced to raise EOFError so
-        the loop skips without needing real stdin input."""
+        also passes limit=0. _prompt_choice is forced to return its default
+        ('s', as it does on end of input) so the loop skips without needing
+        real stdin input."""
         monkeypatch.setenv('WORKMAIN_STATE_DIR', str(tmp_path))
         _write_cf_state_file(SENTINEL_DATE)
         _, ts = _cf_note_with_task(db_session, "Deploy the XSOAR migration", SENTINEL_DATE)
@@ -393,7 +394,7 @@ class TestStep3cUncappedQueries:
                    mock_get_filtered), \
              patch('workmain.ai.providers.ollama.OllamaProvider.check_availability',
                    return_value=ProviderStatus.UNAVAILABLE), \
-             patch('workmain.workflows.eod_workflow._prompt_choice', side_effect=EOFError):
+             patch('workmain.workflows.eod_workflow._prompt_choice', return_value='s'):
             result = _run_task_match_step(
                 dry_run=False, target_date=SENTINEL_DATE, non_interactive=False,
             )
@@ -402,6 +403,39 @@ class TestStep3cUncappedQueries:
         assert mock_get_filtered.call_count == 2
         remaining_call = mock_get_filtered.call_args_list[1]
         assert remaining_call.kwargs.get('limit') == 0
+
+
+class TestTaskMatchCompleteSurvivesFailedForwardingNote:
+    """A database error setting the forwarding note is contained by a
+    savepoint, so the completion that precedes it is still committed (#96)."""
+
+    def test_complete_survives_a_failed_forwarding_note(self, tmp_path, db_session, monkeypatch):
+        monkeypatch.setenv('WORKMAIN_STATE_DIR', str(tmp_path))
+        _write_cf_state_file(SENTINEL_DATE)
+        note, ts = _cf_note_with_task(db_session, "Deploy the XSOAR migration", SENTINEL_DATE)
+        NotesRepository(db_session).create(
+            content="Deploy the XSOAR migration completed today",
+            tags=['internal-only'],
+            source='ad-hoc',
+            created_at=datetime(SENTINEL_DATE.year, SENTINEL_DATE.month, SENTINEL_DATE.day, 10, 0),
+        )
+        db_session.commit()
+
+        def failing_forwarding_note(self, *args, **kwargs):
+            self.session.execute(text("SELECT 1/0"))
+
+        with patch('workmain.ai.providers.ollama.OllamaProvider.check_availability',
+                   return_value=ProviderStatus.UNAVAILABLE), \
+             patch('workmain.workflows.eod_workflow._prompt_choice', return_value='c'), \
+             patch.object(TaskStatusRepository, 'set_forwarding_note', failing_forwarding_note):
+            result = _run_task_match_step(
+                dry_run=False, target_date=SENTINEL_DATE, non_interactive=False,
+            )
+
+        assert result.status == EodStepStatus.COMPLETED
+        db_session.expire_all()
+        task = TaskStatusRepository(db_session).get_by_note_id(note.id)
+        assert task.status == 'completed'
 
 
 class TestTaskMatchCancellationAndNoTimeBudget:
@@ -729,7 +763,7 @@ class TestCandidatePathTag:
         with patch('workmain.ai.providers.ollama.OllamaProvider.check_availability',
                    return_value=ProviderStatus.AVAILABLE), \
              patch('workmain.ai.intent_parser.IntentParser', return_value=mock_parser), \
-             patch('workmain.workflows.eod_workflow._prompt_choice', side_effect=EOFError):
+             patch('workmain.workflows.eod_workflow._prompt_choice', return_value='s'):
             result = _run_task_match_step(
                 dry_run=False, target_date=SENTINEL_DATE, non_interactive=False,
             )
@@ -747,7 +781,7 @@ class TestCandidatePathTag:
 
         with patch('workmain.ai.providers.ollama.OllamaProvider.check_availability',
                    return_value=ProviderStatus.UNAVAILABLE), \
-             patch('workmain.workflows.eod_workflow._prompt_choice', side_effect=EOFError):
+             patch('workmain.workflows.eod_workflow._prompt_choice', return_value='s'):
             result = _run_task_match_step(
                 dry_run=False, target_date=SENTINEL_DATE, non_interactive=False,
             )

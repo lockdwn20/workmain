@@ -15,7 +15,9 @@ test_notes_show.py, test_notes_edit.py, test_notes_log.py) instead.
 
 import unittest
 from datetime import datetime
+from unittest.mock import patch
 
+import click
 from click.testing import CliRunner
 
 from workmain.cli.commands.notes import notes
@@ -96,3 +98,15 @@ class TestNotesAddMeetingFollowOnTagPrompt(unittest.TestCase):
         )
         self.assertIsNotNone(entry)
         self.assertEqual(entry.meeting_id, meeting.id)
+
+
+def test_t12_note_persists_when_the_time_entry_prompt_is_cancelled(db_session):
+    """The note is committed before "Create time entry for this meeting?", so
+    cancelling that prompt keeps it (#96)."""
+    meeting = _seed_meeting(db_session, "Sentinel Notes Add Abort Meeting 2099-96")
+    content = "Sentinel notes add abort 2099-96"
+
+    with patch('click.confirm', side_effect=click.Abort()):
+        CliRunner().invoke(notes, ["add", content, "-m", str(meeting.id)])
+
+    assert db_session.query(Note).filter(Note.content == content).count() == 1
