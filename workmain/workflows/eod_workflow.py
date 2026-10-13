@@ -260,6 +260,22 @@ def _run_condense_step(dry_run: bool, target_date: date) -> EodStepResult:
         return EodStepResult(status=EodStepStatus.FAILED, error=str(e))
 
 
+def _completed(run, label: str) -> EodStepResult:
+    """A COMPLETED result that carries a captured child's stderr as its message.
+
+    A child that exits 0 but writes to stderr is warning its caller
+    (DEVELOPMENT_STANDARDS §5.6). The terminal has already seen it through
+    _echo_workmain; the Slack EOD path sees only the result's message.
+    """
+    warning = run.stderr.strip() if run.stderr else ''
+    if warning:
+        return EodStepResult(
+            status=EodStepStatus.COMPLETED,
+            message=f"{label} complete, with a warning:\n{warning}",
+        )
+    return EodStepResult(status=EodStepStatus.COMPLETED)
+
+
 def _run_sync_step(dry_run: bool, target_date: date) -> EodStepResult:
     """Step 2: Sync time entries to Clockify."""
     if dry_run:
@@ -290,10 +306,11 @@ def _run_sync_step(dry_run: bool, target_date: date) -> EodStepResult:
                         status=EodStepStatus.FAILED,
                         error=retry.failure_message("Clockify sync retry"),
                     )
+                run = retry
             elif action == 's':
                 print("  Sync skipped")
 
-        return EodStepResult(status=EodStepStatus.COMPLETED)
+        return _completed(run, "Clockify sync")
 
     except Exception as e:
         print(f"  ✗ Sync step error: {e}")
@@ -1218,7 +1235,7 @@ def _run_gdocs_step(dry_run: bool, target_date: date) -> EodStepResult:
         else:
             print("  ✓ All files uploaded to Google Drive")
 
-        return EodStepResult(status=EodStepStatus.COMPLETED)
+        return _completed(run, "Drive upload")
 
     except Exception as e:
         print(f"  ✗ Drive upload step error: {e}")
@@ -1256,7 +1273,7 @@ def _run_slack_weekly_step(dry_run: bool, target_date: date) -> EodStepResult:
                 )
             print("  Continuing to Complete.")
 
-        return EodStepResult(status=EodStepStatus.COMPLETED)
+        return _completed(run, "Slack weekly post")
 
     except Exception as e:
         print(f"  ✗ Slack weekly step error: {e}")

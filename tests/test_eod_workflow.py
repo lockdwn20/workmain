@@ -37,7 +37,9 @@ from workmain.workflows.eod_workflow import (
     _keyword_score_match,
     _keyword_note_dedup_match,
 )
-from workmain.workflows.eod_workflow import _run_condense_step, _run_sync_step, _run_email_step
+from workmain.workflows.eod_workflow import (
+    _run_condense_step, _run_sync_step, _run_email_step, _run_gdocs_step, _run_slack_weekly_step,
+)
 from workmain.utils.self_invoke import TIMEOUT_LOCAL, WorkmainRun
 
 MONDAY    = 0
@@ -1447,3 +1449,45 @@ class TestTaskMatchStepDatabaseFailure:
 
         assert result.status == EodStepStatus.COMPLETED
         assert 'Task match step failed' in capsys.readouterr().out
+
+
+_RECORD_FAILURE_LINE = (
+    "✗ Entry 7 is in Clockify as cid-7, but recording it failed: boom. "
+    "The next push will create it again."
+)
+
+
+class TestRecordFailureReachesTheOperator:
+    """A child that exits 0 with a record-failure line on stderr is warning its
+    caller: the terminal echoes it and never offers a retry, and the Slack EOD
+    path receives it as the step's completion message (#96)."""
+
+    @staticmethod
+    def _run(stderr=_RECORD_FAILURE_LINE):
+        return WorkmainRun(returncode=0, stderr=stderr)
+
+    def test_t27_sync_step_echoes_the_line_and_offers_no_retry(self, capsys):
+        with patch('workmain.workflows.eod_workflow.run_workmain', return_value=self._run()), \
+             patch('workmain.workflows.eod_workflow._prompt_choice') as prompt:
+            result = _run_sync_step(dry_run=False, target_date=SENTINEL_DATE)
+
+        prompt.assert_not_called()
+        assert result.status == EodStepStatus.COMPLETED
+        assert _RECORD_FAILURE_LINE in capsys.readouterr().out
+
+    def test_t29_gdocs_step_echoes_the_line_and_completes(self, capsys):
+        with patch('workmain.workflows.eod_workflow.run_workmain', return_value=self._run()):
+            result = _run_gdocs_step(dry_run=False, target_date=SENTINEL_DATE)
+
+        assert result.status == EodStepStatus.COMPLETED
+        assert _RECORD_FAILURE_LINE in capsys.readouterr().out
+
+    @pytest.mark.parametrize('step', [_run_sync_step, _run_gdocs_step, _run_slack_weekly_step],
+                             ids=['sync', 'gdocs', 'slack_weekly'])
+    def test_t30_to_t32_slack_path_carries_the_line_in_the_message(self, step):
+        with patch('workmain.workflows.eod_workflow.run_workmain', return_value=self._run()), \
+             patch('workmain.workflows.eod_workflow._is_interactive', return_value=False):
+            result = step(dry_run=False, target_date=SENTINEL_DATE)
+
+        assert result.status == EodStepStatus.COMPLETED
+        assert _RECORD_FAILURE_LINE in result.message

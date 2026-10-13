@@ -1643,3 +1643,23 @@ class TestActionResultFollowsCommit:
         )
 
         assert events == ['scope_exit', 'post']
+
+
+class TestStepWarningReachesSlack:
+
+    def test_t33_a_completed_step_message_is_sent_to_slack(self, tmp_path):
+        from workmain.integrations.slack.slack_eod import SlackEodManager
+        from workmain.workflows.eod_workflow import EodStepResult, EodStepStatus
+        line = "✗ Uploaded X to Drive (file id abc), but recording the upload failed: boom."
+        manager = SlackEodManager(MagicMock(), MagicMock(), _make_store(tmp_path))
+        manager._send_blocks = MagicMock()
+        session = _eod_session()
+        step = {'key': 'time_review', 'num': 3, 'desc': 'Time review'}
+
+        manager._handle_step_result(
+            session, step,
+            EodStepResult(status=EodStepStatus.COMPLETED, message=f"Drive upload complete, with a warning:\n{line}"),
+        )
+
+        blocks = manager._send_blocks.call_args.kwargs['blocks']
+        assert line in blocks[0]['text']['text']

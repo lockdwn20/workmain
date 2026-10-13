@@ -16,13 +16,21 @@ test); ClockifySync is instantiated directly against db_session in-process,
 so the db_session/CliRunner isolation gotcha does not apply here.
 """
 
-from datetime import datetime, timedelta, timezone
-from unittest.mock import patch
+from datetime import date, datetime, time, timedelta, timezone
+from unittest.mock import MagicMock, patch
 
-from workmain.database.models import Client
+import pytest
+from click.testing import CliRunner
+from sqlalchemy import event
+
+from workmain.cli.commands.clockify import clockify
+from workmain.database.connection import DatabaseConnection, get_db
+from workmain.database.models import Client, Note, TimeEntry
+from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
 from workmain.database.repositories.task_status_repo import TaskStatusRepository
-from workmain.integrations.clockify.sync import ClockifySync
+from workmain.integrations.clockify.sync import ClockifySync, SyncConflict
+from workmain.services import notes_service, time_entry_service
 
 
 def _set_active_client(session, name: str) -> int:
@@ -54,8 +62,9 @@ class TestImportClockifyEntry:
         sync_engine = ClockifySync(db_session)
 
         with patch('workmain.integrations.clockify.sync.click.prompt', return_value=""):
-            entry = sync_engine._import_clockify_entry(_fake_clockify_entry())
+            entry_id = sync_engine._import_clockify_entry(_fake_clockify_entry())
 
+        entry = db_session.get(TimeEntry, entry_id)
         assert entry.client_id == client_id
         assert entry.note.client_id == client_id
 
@@ -67,9 +76,10 @@ class TestImportClockifyEntry:
 
         before = datetime.now()
         with patch('workmain.integrations.clockify.sync.click.prompt', return_value=""):
-            entry = sync_engine._import_clockify_entry(_fake_clockify_entry(when=old_start))
+            entry_id = sync_engine._import_clockify_entry(_fake_clockify_entry(when=old_start))
         after = datetime.now()
 
+        entry = db_session.get(TimeEntry, entry_id)
         assert before <= entry.note.created_at <= after
         assert entry.note.created_at.date() != entry.entry_date
 
@@ -77,33 +87,37 @@ class TestImportClockifyEntry:
         sync_engine = ClockifySync(db_session)
 
         with patch('workmain.integrations.clockify.sync.click.prompt', return_value="#cf"):
-            entry = sync_engine._import_clockify_entry(_fake_clockify_entry())
+            entry_id = sync_engine._import_clockify_entry(_fake_clockify_entry())
 
+        entry = db_session.get(TimeEntry, entry_id)
         assert entry.note.tags == ['carry-forward']
 
     def test_clockify_import_blank_prompt_defaults_internal_only(self, db_session):
         sync_engine = ClockifySync(db_session)
 
         with patch('workmain.integrations.clockify.sync.click.prompt', return_value=""):
-            entry = sync_engine._import_clockify_entry(_fake_clockify_entry())
+            entry_id = sync_engine._import_clockify_entry(_fake_clockify_entry())
 
+        entry = db_session.get(TimeEntry, entry_id)
         assert entry.note.tags == ['internal-only']
 
     def test_clockify_import_skips_prompt_when_noninteractive(self, db_session):
         sync_engine = ClockifySync(db_session)
 
         with patch('workmain.integrations.clockify.sync.click.prompt') as mock_prompt:
-            entry = sync_engine._import_clockify_entry(_fake_clockify_entry(), interactive=False)
+            entry_id = sync_engine._import_clockify_entry(_fake_clockify_entry(), interactive=False)
 
         mock_prompt.assert_not_called()
+        entry = db_session.get(TimeEntry, entry_id)
         assert entry.note.tags == ['internal-only']
 
     def test_clockify_import_cf_tag_creates_task(self, db_session):
         sync_engine = ClockifySync(db_session)
 
         with patch('workmain.integrations.clockify.sync.click.prompt', return_value="#cf"):
-            entry = sync_engine._import_clockify_entry(_fake_clockify_entry())
+            entry_id = sync_engine._import_clockify_entry(_fake_clockify_entry())
 
+        entry = db_session.get(TimeEntry, entry_id)
         task_status = TaskStatusRepository(db_session).get_by_note_id(entry.note.id)
         assert task_status is not None
         assert task_status.status == 'active'
@@ -120,3 +134,135 @@ class TestPullEntriesInteractivityThreading:
 
         mock_prompt.assert_not_called()
         assert results['imported'] == 1
+
+
+# ---------------------------------------------------------------------------
+# Outside-action records: each Clockify write commits in its own scope
+# ---------------------------------------------------------------------------
+
+def _seed_entry(session, description: str) -> int:
+    note = notes_service.create_note(
+        session, content=description, tags=['internal-only'], source='ad-hoc',
+    )
+    entry = time_entry_service.create_paired_time_entry(
+        session, note, duration_hours=1.0, entry_date=date(2099, 6, 1),
+        entry_time=time(9, 0),
+    )
+    session.commit()
+    return entry.id
+
+
+class _HandedSessionWatch:
+    """Collects every TimeEntry and Note change that reaches the handed session."""
+
+    def __init__(self, session):
+        self.session = session
+        self.seen = []
+        event.listen(session, 'before_flush', self._collect)
+
+    def _collect(self, session, flush_context, instances):
+        for obj in list(session.new) + list(session.dirty):
+            if isinstance(obj, (TimeEntry, Note)):
+                self.seen.append(obj)
+
+    def assert_untouched(self):
+        event.remove(self.session, 'before_flush', self._collect)
+        assert self.seen == []
+        for obj in list(self.session.new) + list(self.session.dirty):
+            assert not isinstance(obj, (TimeEntry, Note))
+
+
+def _fail_a_later_scope():
+    with pytest.raises(RuntimeError):
+        with get_db().session_scope() as session:
+            session.add(Client(name="Sentinel later failure 2099-96", is_active=False))
+            session.flush()
+            raise RuntimeError("later failure")
+
+
+def _record_scope_spy():
+    return patch.object(
+        DatabaseConnection, 'record_scope', autospec=True,
+        side_effect=DatabaseConnection.record_scope,
+    )
+
+
+class TestClockifyRecordsCommitInTheirOwnScope:
+
+    def test_t20_push_link_survives_a_later_failed_scope(self, db_session):
+        entry_id = _seed_entry(db_session, "Sentinel push record 2099-96")
+        client = MagicMock()
+        client.create_time_entry.return_value = {'id': 'clockify-push-id'}
+        sync_engine = ClockifySync(db_session, client=client)
+        entry = db_session.get(TimeEntry, entry_id)
+        watch = _HandedSessionWatch(db_session)
+
+        with _record_scope_spy() as spy:
+            results = sync_engine.push_entries(entries=[entry], interactive=False)
+        _fail_a_later_scope()
+
+        assert results['successful'] == 1 and results['unrecorded'] == []
+        spy.assert_called()
+        watch.assert_untouched()
+        db_session.expire_all()
+        assert db_session.get(TimeEntry, entry_id).clockify_id == 'clockify-push-id'
+
+    def test_t21_pull_link_survives_a_later_failed_scope(self, db_session):
+        entry_id = _seed_entry(db_session, "Sentinel pull link 2099-96")
+        local = db_session.get(TimeEntry, entry_id)
+        remote = _fake_clockify_entry()
+        remote['id'] = 'clockify-link-id'
+        client = MagicMock()
+        client.get_time_entries.return_value = [remote]
+        sync_engine = ClockifySync(db_session, client=client)
+        conflict = SyncConflict(local, remote, 'duplicate')
+        watch = _HandedSessionWatch(db_session)
+
+        with _record_scope_spy() as spy, \
+             patch.object(sync_engine, '_detect_conflict', return_value=conflict), \
+             patch.object(sync_engine, '_resolve_conflict_interactive', return_value='link'):
+            results = sync_engine.pull_entries(start_date=date(2099, 6, 1), interactive=True)
+        _fail_a_later_scope()
+
+        assert results['conflicts'] == 1
+        spy.assert_called()
+        watch.assert_untouched()
+        db_session.expire_all()
+        assert db_session.get(TimeEntry, entry_id).clockify_id == 'clockify-link-id'
+
+    def test_t22_pull_import_survives_a_later_failed_scope(self, db_session):
+        remote = _fake_clockify_entry(description="Sentinel pull import 2099-96")
+        remote['id'] = 'clockify-import-id'
+        client = MagicMock()
+        client.get_time_entries.return_value = [remote]
+        sync_engine = ClockifySync(db_session, client=client)
+        watch = _HandedSessionWatch(db_session)
+
+        with _record_scope_spy() as spy:
+            results = sync_engine.pull_entries(start_date=date.today(), interactive=False)
+        _fail_a_later_scope()
+
+        assert results['imported'] == 1
+        spy.assert_called()
+        watch.assert_untouched()
+        entry = db_session.query(TimeEntry).filter(
+            TimeEntry.clockify_id == 'clockify-import-id'
+        ).one()
+        assert entry.note.content == "Sentinel pull import 2099-96"
+
+    def test_t24_an_unrecorded_push_is_reported_and_is_not_a_failure(self, db_session):
+        description = "Sentinel unrecorded push 2099-96"
+        _seed_entry(db_session, description)
+        runner = CliRunner(mix_stderr=False)
+
+        with patch('workmain.integrations.clockify.sync.ClockifyClient') as client_cls, \
+             patch.object(TimeEntriesRepository, 'mark_as_synced', return_value=None):
+            client_cls.return_value.create_time_entry.return_value = {'id': 'clockify-unrecorded-id'}
+            loud = runner.invoke(clockify, ['sync', 'push', '-d', '2099-06-01'])
+            silent = runner.invoke(clockify, ['sync', 'push', '-d', '2099-06-01', '--silent'])
+
+        assert loud.exit_code == 0 and silent.exit_code == 0
+        assert 'clockify-unrecorded-id' in loud.stderr
+        assert 'clockify-unrecorded-id' in silent.stderr
+        assert 'In Clockify but not recorded locally' in loud.stdout
+        assert 'Failed entries' not in loud.stdout

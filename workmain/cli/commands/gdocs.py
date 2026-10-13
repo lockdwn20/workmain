@@ -22,6 +22,7 @@ from typing import Optional
 
 import click
 from rich.console import Console
+from rich.markup import escape
 from rich.panel import Panel
 from rich.rule import Rule
 
@@ -39,6 +40,7 @@ from workmain.integrations.gdrive import cache as folder_cache
 
 
 console = Console()
+err_console = Console(stderr=True, soft_wrap=True)
 
 # Project root: workmain/cli/commands/gdocs.py → 4 parents up
 _PROJECT_ROOT  = Path(__file__).parent.parent.parent.parent
@@ -50,6 +52,33 @@ _STAGING_CLOCKIFY = _PROJECT_ROOT / "staging" / "clockify"
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _record_upload(local_path: Path, drive_file_id: str, folder_id: str,
+                   filename: str, upload_type: str, upload_date: date) -> None:
+    """Record a completed Drive upload in its own scope (DEVELOPMENT_STANDARDS §4.3).
+
+    A failure is reported on stderr and the command carries on with its
+    exit status unchanged: the file is in Drive, and rerunning the upload
+    would put it there again.
+    """
+    try:
+        with get_db().record_scope() as session:
+            GDriveRepository(session).record_upload(
+                local_path=str(local_path),
+                drive_file_id=drive_file_id,
+                drive_folder_id=folder_id,
+                filename=filename,
+                upload_type=upload_type,
+                upload_date=upload_date,
+            )
+    except Exception as exc:
+        err_console.print(
+            f"[red]✗ Uploaded {filename} to Drive (file id {drive_file_id}), "
+            f"but recording the upload failed:[/red] {escape(str(exc))}. A later upload of "
+            "this file will not be recognised as a duplicate."
+        )
+
 
 def _parse_date_arg(date_str: Optional[str]) -> date:
     """Parse YYYYMMDD string to date, defaulting to today."""
@@ -363,13 +392,9 @@ def gdocs_upload_notes(date_str: Optional[str], dry_run: bool, force: bool):
             )
 
             # Record in DB
-            gdrive_repo.record_upload(
-                local_path=str(local_path),
-                drive_file_id=drive_file_id,
-                drive_folder_id=folder_ids["Raw_Notes"],
-                filename=filename,
-                upload_type="notes",
-                upload_date=target_date,
+            _record_upload(
+                local_path, drive_file_id, folder_ids["Raw_Notes"],
+                filename, "notes", target_date,
             )
 
             console.print(
@@ -452,13 +477,10 @@ def gdocs_upload_report(date_str: Optional[str], dry_run: bool, force: bool):
                 mime_type="text/markdown",
             )
 
-            gdrive_repo.record_upload(
-                local_path=str(local_path),
-                drive_file_id=drive_file_id,
-                drive_folder_id=folder_ids["Reports"],
-                filename=filename,
-                upload_type="report",
-                upload_date=target_date,
+            # Record in DB
+            _record_upload(
+                local_path, drive_file_id, folder_ids["Reports"],
+                filename, "report", target_date,
             )
 
             console.print(
@@ -538,13 +560,10 @@ def gdocs_upload_clockify(date_str: Optional[str], dry_run: bool, force: bool):
                 mime_type="application/pdf",
             )
 
-            gdrive_repo.record_upload(
-                local_path=str(local_path),
-                drive_file_id=drive_file_id,
-                drive_folder_id=folder_ids["Clockify"],
-                filename=filename,
-                upload_type="clockify",
-                upload_date=target_date,
+            # Record in DB
+            _record_upload(
+                local_path, drive_file_id, folder_ids["Clockify"],
+                filename, "clockify", target_date,
             )
 
             console.print(
