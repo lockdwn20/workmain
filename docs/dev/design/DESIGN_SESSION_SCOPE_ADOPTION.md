@@ -10,7 +10,7 @@
 
 ## 1. Purpose
 
-Issue #95 replaces every hand-written `get_session()` / `try` / `finally: session.close()` block under `workmain/` with `DatabaseConnection.session_scope()`. It also writes the §4.1 rule that a command owns its unit of work. The issue calls the change mechanical. This study checks that claim against the source.
+Issue #95 replaces every hand-written `get_session()` / `try` / `finally: session.close()` block under `workmain/` with `DatabaseConnection.session_scope()`. It also writes the §4.1 and §4.2 rules that session adoption makes true; the rule that a command owns its unit of work is #96's (F9). The issue calls the change mechanical. This study checks that claim against the source.
 
 `session_scope()` does two things the hand-written blocks do not: it commits when the block exits normally, and it rolls back on `Exception`. Those two additions are where a mechanical conversion stops being behaviour-neutral. This study finds every site where they change behaviour, and asks Ray the questions that decide how the spec handles each one.
 

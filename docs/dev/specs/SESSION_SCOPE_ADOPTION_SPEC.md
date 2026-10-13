@@ -28,6 +28,10 @@
 | 20261013 | Caliper | §7 and the Decision Log name `notes.py:647` as the only in-block handler that changes output. `notes.py:712`, around condensation in the same `notes_log` block, also catches database failures and carries on: from `notes_service.create_note`, the `session.commit()` that links the time entry, and `time_entry_service.create_paired_time_entry`. Under the scope, the exit commit then raises, and the outer handler prints an extra `✗ Error:` line after `✗ Condensation failed`. Ray's settlement of `notes.py:647` doesn't cover a failure that starts in condensation | Moved to #96 (Ray, 20261013). |
 | 20261013 | Caliper | `ai_cost_service.link_report` opens its own session inside a service for a write that isn't an outside action, which Step 3's §4.1 text forbids. No issue owns the fix. Its only caller, `workmain/ai/report_generator.py:176-188`, creates the report in the command's session and then calls `link_report`. Once #96 removes repository commits, `link_report`'s separate session writes a foreign key to an uncommitted report row; that fails, and `ai_cost_service.py:89-90` logs it as a warning | Moved to #96 (Ray, 20261013). |
 | 20261013 | Caliper | AC1.4 checks DR2 at one site of the 41 | Accepted. AC1.4 adds the DR2 placement check in §5, keyed to every listed site by file, function and position. Ending-in-a-`try` was rejected as the test: `meetings.py:834` and `reports.py:623` legitimately end their body that way. |
+| 20261013 | Caliper | §1's repository-commits bullet says the rule §4.1 writes ("a service never commits") is met there, and the study's purpose paragraph says #95 writes the unit-of-work rule; both predate Ray's 20261013 decision | Accepted. Both now say #96 writes the rule. |
+| 20261013 | Caliper | Step 3's §4.1 bullet says `KeyboardInterrupt` skips commit and rollback, but §1, #95's body and #96's census obligation name only `SystemExit`, so nothing checks where an interrupt discards writes once repositories stop committing | Accepted. A `KeyboardInterrupt` comes from the user pressing Ctrl-C, not from a site in the code, so a census can't find where it arises. §1 says so, and #96's obligation now has its spec state whether discarding an interrupted scope's writes is intended, and account for the handlers that catch it inside a scope. |
+| 20261013 | Caliper | The DR2 placement check's `SITES` is a hand-written copy of the 41 sites §2 lists | Accepted. The check derives the set from the branch's base with `git merge-base HEAD dev`, using the same pairing as the census. In testing it derived the same 41 sites. |
+| 20261013 | Caliper | §7 cites the step's commit at `eod_workflow.py:613`; it is at 614, and 613 is the `pass` | Accepted. |
 
 ---
 
@@ -43,8 +47,8 @@
 **Out of scope:**
 
 - **`scripts/`.** Scripts are utilities, not application code (§6.3). `scripts/baseline/` is reference-only until #188, and its read-only guard refuses `session.commit()` by design.
-- **Repository commits, and every `.commit()` outside the repositories.** That is #96's census, including `notes_service`, `note_condenser` and the Clockify sync. The rule §4.1 writes ("a service never commits") is met there.
-- **`sys.exit()` and `SystemExit` inside a scope.** No write is lost while the repositories commit. #96's spec lists each one (study F5).
+- **Repository commits, and every `.commit()` outside the repositories.** That is #96's census, including `notes_service`, `note_condenser` and the Clockify sync. #96 also writes the §4.1 rule that a service never commits, which those changes make true.
+- **`sys.exit()`, `SystemExit` and `KeyboardInterrupt` inside a scope.** No write is lost while the repositories commit. #96's spec lists each `sys.exit()` and `SystemExit` (study F5). A `KeyboardInterrupt` comes from the user pressing Ctrl-C wherever the code happens to be, not from a site in the code, so a census can't find where it arises. #96's spec states whether discarding an interrupted scope's uncommitted writes is intended, and accounts for the handlers that catch it inside a scope (`eod_workflow.py:603`, `eod_workflow.py:809`).
 - **How long a session is held.** The EOD report-review step and the interactive steps hold their session across user input, as they do today. The conversion doesn't change when a session opens or closes.
 - **`_get_draft_recipients`' optional-session shape** (study F11). It is a CLI helper, not a service. Its own `get_session()` site is converted like every other.
 - **Tests that open their own session.** `tests/conftest.py` `db_session`, `tests/test_meetings_condense.py` and `tests/test_ai_arguments.py` are test code, which §6.1 and #198 govern.
@@ -273,57 +277,88 @@ None. This spec runs no migration, deletes no GitHub object, merges nothing to `
 | AC5.1 | §4.1 states that `session_scope()` is the only way application code under `workmain/` opens a session, and names the class `DatabaseConnection`; that only `session_scope()` calls `get_session()`, with tests following §6.1; that a handler which recovers from an exception sits outside the `with`; and that `SystemExit` and `KeyboardInterrupt` skip both commit and rollback. §4.2 states that no ORM object is read after its scope | A stated reading by Ray of §4.1 and §4.2 for exactly that |
 | AC6.1 | The suite passes at or above baseline | `pytest`; counts in §6's form |
 
-**DR2 placement check** (AC1.4). Run from the repository root with `python3 - workmain <<'EOF'`, using the script below. It keys each §2 site with its own `except` clauses by file, function and the site's position among that function's `session_scope()` blocks. It exits 1 and names any site whose `with` is not the first statement of a `try` with `except` clauses. In a prototype it passed with `_run_task_match_step`'s handler outside the `with` and failed with it inside.
+**DR2 placement check** (AC1.4). Run it from the repository root on the branch, with `python3 - <<'EOF'` followed by the script below. It derives the set of sites from the branch's base (`git merge-base HEAD dev`), so it keeps no list of its own. At the base, it pairs each `get_session()` open with the `try` that follows it in the same block, or the `try` that contains it, and keys every site whose `try` has `except` clauses by function and by the site's position among that function's opens. On the converted tree, it checks that the `session_scope()` block in that position is the first statement of a `try` with `except` clauses. It exits 1 and names each site that fails, or exits 1 if it found no sites. In testing, it derived the 41 sites §2 lists, flagged all 41 on today's tree, and passed `_run_task_match_step` in a prototype with the handler outside the `with`, failing it with the handler inside.
 
 ```python
-import ast, pathlib, sys
+import ast, pathlib, subprocess, sys
 
-SITES = {
-    'cli/commands/clients.py': {'clients_add': [1], 'clients_delete': [1]},
-    'cli/commands/clockify.py': {'status': [1], 'clockify_sync_push': [1], 'clockify_sync_pull': [1], 'clockify_sync_both': [1]},
-    'cli/commands/gdocs.py': {'gdocs_upload_notes': [1], 'gdocs_upload_report': [1], 'gdocs_upload_clockify': [1]},
-    'cli/commands/meetings.py': {'create': [1], 'meetings_condense': [1], 'meetings_edit': [1], 'meetings_reschedule': [1], 'meetings_series_edit': [1], 'meetings_skip': [1], 'meetings_template_use': [1], 'meetings_costs': [1]},
-    'cli/commands/notes.py': {'notes_log': [1], 'notes_costs': [1]},
-    'cli/commands/providers.py': {'show_costs': [1]},
-    'cli/commands/reports.py': {'generate_report_impl': [1], '_report_list_impl': [1], 'report_corrections': [1], 'report_show': [1], 'report_resend': [1], 'report_costs': [1]},
-    'daemon/daemon.py': {'_enriched_notify': [1], '_pre_meeting_reminder': [1], '_schedule_meeting_reminders': [1], '_execute_action': [1], '_maybe_post_correction_summary': [1]},
-    'daemon/scheduler.py': {'_send_t2': [1], '_send_t3': [1]},
-    'integrations/slack/slack_eod.py': {'_execute_and_reprompt': [1]},
-    'services/ai_cost_service.py': {'record_reply': [1], 'link_report': [1]},
-    'workflows/eod_workflow.py': {'_run_condense_step': [1], '_run_pre_flight_inspection_step': [1], '_run_task_match_step': [1], '_run_note_dedup_step': [1], '_run_report_review_step': [4]},
-}
+ROOT = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else pathlib.Path('.')
+BASE = subprocess.run(['git', 'merge-base', 'HEAD', 'dev'], capture_output=True, text=True, check=True).stdout.strip()
 
 
-def is_scope(node):
-    return isinstance(node, ast.With) and any(
-        isinstance(i.context_expr, ast.Call)
-        and isinstance(i.context_expr.func, ast.Attribute)
-        and i.context_expr.func.attr == 'session_scope'
-        for i in node.items
-    )
+def name_of(node):
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return name_of(node.value) + '.' + node.attr
+    return '?'
 
 
-root = pathlib.Path(sys.argv[1])
-bad = []
-for rel, funcs in SITES.items():
-    tree = ast.parse((root / rel).read_text())
+def functions(tree):
+    return [f for f in ast.walk(tree) if isinstance(f, (ast.FunctionDef, ast.AsyncFunctionDef))]
+
+
+def own(fn, node_type_test):
+    """Nodes in fn that test true, excluding those inside nested functions."""
+    inner = {id(n) for f in functions(fn) if f is not fn for n in ast.walk(f)}
+    return sorted((n for n in ast.walk(fn) if node_type_test(n) and id(n) not in inner), key=lambda n: (n.lineno, n.col_offset))
+
+
+def is_open(n):
+    return isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr == 'get_session' and not n.args
+
+
+def is_scope(n):
+    return isinstance(n, ast.With) and any(
+        isinstance(i.context_expr, ast.Call) and isinstance(i.context_expr.func, ast.Attribute)
+        and i.context_expr.func.attr == 'session_scope' for i in n.items)
+
+
+def sites_with_handlers(tree):
+    """(function, position) of each get_session() open whose try has except clauses, at the base."""
     parent = {c: p for p in ast.walk(tree) for c in ast.iter_child_nodes(p)}
-    for name, positions in funcs.items():
-        defs = [f for f in ast.walk(tree) if isinstance(f, ast.FunctionDef) and f.name == name]
+    found = []
+    for fn in functions(tree):
+        for k, call in enumerate(own(fn, is_open), 1):
+            stmt = parent[call]
+            block = next(getattr(parent[stmt], f) for f in ('body', 'orelse', 'finalbody')
+                         if isinstance(getattr(parent[stmt], f, None), list) and stmt in getattr(parent[stmt], f))
+            following = next((s for s in block[block.index(stmt) + 1:] if isinstance(s, ast.Try)), None)
+            enclosing = parent[stmt] if isinstance(parent[stmt], ast.Try) else None
+            owner = following or enclosing
+            if owner is not None and owner.handlers:
+                found.append((fn.name, k))
+    return found
+
+
+bad, checked = [], 0
+listed = subprocess.run(['git', 'ls-tree', '-r', '--name-only', BASE, 'workmain/'], capture_output=True, text=True, check=True).stdout.split()
+for rel in listed:
+    if not rel.endswith('.py') or rel.endswith('database/connection.py'):
+        continue
+    base_src = subprocess.run(['git', 'show', f'{BASE}:{rel}'], capture_output=True, text=True, check=True).stdout
+    sites = sites_with_handlers(ast.parse(base_src))
+    if not sites:
+        continue
+    tree = ast.parse((ROOT / rel).read_text())
+    parent = {c: p for p in ast.walk(tree) for c in ast.iter_child_nodes(p)}
+    for name, k in sites:
+        checked += 1
+        defs = [f for f in functions(tree) if f.name == name]
         if len(defs) != 1:
             bad.append(f'{rel} {name}: {len(defs)} definitions')
             continue
-        scopes = sorted((n for n in ast.walk(defs[0]) if is_scope(n)), key=lambda n: n.lineno)
-        for k in positions:
-            if k > len(scopes):
-                bad.append(f'{rel} {name} #{k}: no such session_scope() block')
-                continue
-            block = scopes[k - 1]
-            owner = parent[block]
-            if not (isinstance(owner, ast.Try) and owner.handlers and owner.body[0] is block):
-                bad.append(f'{rel}:{block.lineno} {name} #{k}: its except clauses are not on a try whose first statement is this block')
+        scopes = own(defs[0], is_scope)
+        if k > len(scopes):
+            bad.append(f'{rel} {name} #{k}: no such session_scope() block')
+            continue
+        block = scopes[k - 1]
+        owner = parent[block]
+        if not (isinstance(owner, ast.Try) and owner.handlers and owner.body[0] is block):
+            bad.append(f'{rel}:{block.lineno} {name} #{k}: its except clauses are not on a try whose first statement is this block')
+print(f'{checked} sites checked')
 print('\n'.join(bad) or 'ok')
-sys.exit(1 if bad else 0)
+sys.exit(1 if bad or not checked else 0)
 ```
 
 ## 6. Test plan
@@ -468,6 +503,6 @@ class TestStatusCommand:
 - **A write that `close()` discarded today is now committed.** The probe in study F12 found none, but it covers only the paths the suite exercises.
 - **Visible output changes.**
   - `notes log`: after a database error in per-line note creation (`notes.py:647`) or in condensation (`notes.py:712`), the scope's exit commit fails and the command's own handler prints one more `✗ Error` line.
-  - `eod` task match (`eod_workflow.py:612`): unchanged. When `set_forwarding_note` fails with a database error, the handler swallows it, and the step's own `session.commit()` at `eod_workflow.py:613` then raises. The step reports `⚠ Task match step failed (…) — continuing` and returns `COMPLETED`, as it does today. The commit still runs before the scope exits, and the step's handler sits outside the `with` (DR2). A `ValueError` for a missing row leaves the session usable, and the task is marked complete, as today.
+  - `eod` task match (`eod_workflow.py:612`): unchanged. When `set_forwarding_note` fails with a database error, the handler swallows it, and the step's own `session.commit()` at `eod_workflow.py:614` then raises. The step reports `⚠ Task match step failed (…) — continuing` and returns `COMPLETED`, as it does today. The commit still runs before the scope exits, and the step's handler sits outside the `with` (DR2). A `ValueError` for a missing row leaves the session usable, and the task is marked complete, as today.
   - `meetings create`: a failure in its `get_int('active_client_id')` read is now reported by the command's handler instead of a traceback (DR2).
 - **Rollback.** Each step is one commit. Reverting Step 2 or Step 1 restores that area's hand-written blocks and its tests together. Step 3 is documentation only.
