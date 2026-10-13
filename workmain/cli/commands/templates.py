@@ -301,9 +301,7 @@ def preview(template_name: str, date: Optional[str]):
 
         # Get database session
         db = get_db()
-        session = db.get_session()
-        
-        try:
+        with db.session_scope() as session:
             # Create renderer with session
             renderer = TemplateRenderer(session)
 
@@ -315,9 +313,6 @@ def preview(template_name: str, date: Optional[str]):
             click.echo("=" * 60)
             click.echo(rendered)
             click.echo("=" * 60)
-            
-        finally:
-            session.close()
         
     except Exception as e:
         click.echo(f"Error previewing template: {e}", err=True)

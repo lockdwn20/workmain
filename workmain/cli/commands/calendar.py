@@ -252,8 +252,7 @@ def calendar(ctx):
     """
     if ctx.invoked_subcommand is None:
         db = get_db()
-        session = db.get_session()
-        try:
+        with db.session_scope() as session:
             count, last_date = _get_outlook_stats(session)
             last_str = last_date.strftime('%Y-%m-%d') if last_date else 'never'
             console.print()
@@ -266,8 +265,6 @@ def calendar(ctx):
             )
             console.print()
             console.print(ctx.get_help())
-        finally:
-            session.close()
 
 
 # ------------------------------------------------------------------
@@ -284,10 +281,9 @@ def calendar_today():
       workmain calendar today
     """
     db = get_db()
-    session = db.get_session()
-    today = date.today()
+    with db.session_scope() as session:
+        today = date.today()
 
-    try:
         meetings = (
             session.query(Meeting)
             .filter(
@@ -298,8 +294,6 @@ def calendar_today():
             .all()
         )
         _display_meetings(f"Today, {today.strftime('%d %b %Y')}", meetings)
-    finally:
-        session.close()
 
 
 @calendar.command('week')
@@ -312,12 +306,11 @@ def calendar_week():
       workmain calendar week
     """
     db = get_db()
-    session = db.get_session()
-    today = date.today()
-    week_start = today - timedelta(days=today.weekday())  # Monday
-    week_end = week_start + timedelta(days=7)
+    with db.session_scope() as session:
+        today = date.today()
+        week_start = today - timedelta(days=today.weekday())  # Monday
+        week_end = week_start + timedelta(days=7)
 
-    try:
         meetings = (
             session.query(Meeting)
             .filter(
@@ -330,8 +323,6 @@ def calendar_week():
         )
         mon_str = week_start.strftime('%d %b %Y')
         _display_meetings(f"Week of {mon_str}", meetings)
-    finally:
-        session.close()
 
 
 @calendar.command('month')
@@ -344,15 +335,14 @@ def calendar_month():
       workmain calendar month
     """
     db = get_db()
-    session = db.get_session()
-    today = date.today()
-    # First day of next month
-    if today.month == 12:
-        next_month = date(today.year + 1, 1, 1)
-    else:
-        next_month = date(today.year, today.month + 1, 1)
+    with db.session_scope() as session:
+        today = date.today()
+        # First day of next month
+        if today.month == 12:
+            next_month = date(today.year + 1, 1, 1)
+        else:
+            next_month = date(today.year, today.month + 1, 1)
 
-    try:
         meetings = (
             session.query(Meeting)
             .filter(
@@ -365,8 +355,6 @@ def calendar_month():
         )
         month_name = today.strftime('%B %Y')
         _display_meetings(month_name, meetings)
-    finally:
-        session.close()
 
 
 # ------------------------------------------------------------------
@@ -420,9 +408,7 @@ def calendar_import(file: str, dry_run: bool, silent: bool):
     """
     file_path = Path(file).expanduser()
     db = get_db()
-    session = db.get_session()
-
-    try:
+    with db.session_scope() as session:
         # --- Parse ---
         try:
             raw = file_path.read_bytes()
@@ -555,9 +541,6 @@ def calendar_import(file: str, dry_run: bool, silent: bool):
                     f"{m.title}"
                 )
             console.print()
-
-    finally:
-        session.close()
 
 
 __all__ = ['calendar']

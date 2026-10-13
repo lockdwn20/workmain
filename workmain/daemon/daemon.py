@@ -139,54 +139,50 @@ def _enriched_notify(daemon, title: str, extra_body: str = '') -> None:
     not substituted for it.
     """
     db = get_db()
-    session = db.get_session()
     try:
-        target_date = date.today()
-        if not ScheduleService(session).is_working_day(target_date):
-            logging.info("Notification suppressed — today is not a working day")
-            return
+        with db.session_scope() as session:
+            target_date = date.today()
+            if not ScheduleService(session).is_working_day(target_date):
+                logging.info("Notification suppressed — today is not a working day")
+                return
 
-        summary = _assemble_notification_content(session, target_date)
+            summary = _assemble_notification_content(session, target_date)
 
-        config = NotificationConfigRepository(session).get_config()
-        if not config.enabled:
-            # Preserved from current behavior: assembly and last_inspection.json
-            # write already happened above; only the delivery call is skipped.
-            logging.info("Notification suppressed — notifications disabled")
-            return
+            config = NotificationConfigRepository(session).get_config()
+            if not config.enabled:
+                # Preserved from current behavior: assembly and last_inspection.json
+                # write already happened above; only the delivery call is skipped.
+                logging.info("Notification suppressed — notifications disabled")
+                return
 
-        body = f"{extra_body}\n\n{summary}" if extra_body else summary
+            body = f"{extra_body}\n\n{summary}" if extra_body else summary
 
-        deliver(title, body, method=config.method, daemon=daemon)
-        logging.info("Delivered enriched notification: %s", title)
+            deliver(title, body, method=config.method, daemon=daemon)
+            logging.info("Delivered enriched notification: %s", title)
     except Exception:
         logging.exception("Error in _enriched_notify(%s)", title)
-    finally:
-        session.close()
 
 
 def _pre_meeting_reminder(meeting_title: str, daemon) -> None:
     """Deliver a 15-minute pre-meeting reminder for a single meeting."""
     db = get_db()
-    session = db.get_session()
     try:
-        if not ScheduleService(session).is_working_day(date.today()):
-            logging.info("Pre-meeting reminder suppressed — today is not a working day")
-            return
-        config = NotificationConfigRepository(session).get_config()
-        if not config.enabled:
-            return
-        deliver(
-            title="Meeting in 15 min",
-            body=f"Starting soon: {meeting_title}",
-            method=config.method,
-            daemon=daemon,
-        )
-        logging.info("Pre-meeting reminder delivered: %s", meeting_title)
+        with db.session_scope() as session:
+            if not ScheduleService(session).is_working_day(date.today()):
+                logging.info("Pre-meeting reminder suppressed — today is not a working day")
+                return
+            config = NotificationConfigRepository(session).get_config()
+            if not config.enabled:
+                return
+            deliver(
+                title="Meeting in 15 min",
+                body=f"Starting soon: {meeting_title}",
+                method=config.method,
+                daemon=daemon,
+            )
+            logging.info("Pre-meeting reminder delivered: %s", meeting_title)
     except Exception:
         logging.exception("Error delivering pre-meeting reminder for %s", meeting_title)
-    finally:
-        session.close()
 
 
 def _schedule_meeting_reminders(target_date: date, scheduler: BlockingScheduler, daemon) -> None:
@@ -202,42 +198,40 @@ def _schedule_meeting_reminders(target_date: date, scheduler: BlockingScheduler,
             job.remove()
 
     db = get_db()
-    session = db.get_session()
     try:
-        repo = MeetingsRepository(session)
-        meetings = repo.get_active_for_date(target_date)
-        now = datetime.now()
-        scheduled = 0
-        reminder_list = []
-        for meeting in meetings:
-            if meeting.start_time is None:
-                continue
-            fire_time = meeting.start_time - timedelta(minutes=15)
-            if fire_time <= now:
-                continue
-            scheduler.add_job(
-                _pre_meeting_reminder,
-                DateTrigger(run_date=fire_time),
-                id=f'pre_meeting_{meeting.id}',
-                replace_existing=True,
-                kwargs={'meeting_title': meeting.title or '(No Title)', 'daemon': daemon},
-            )
-            scheduled += 1
-            reminder_list.append({
-                'title': meeting.title or '(No Title)',
-                'fire_at': fire_time.strftime('%H:%M'),
-            })
-            logging.info(
-                "Scheduled pre-meeting reminder for '%s' at %s",
-                meeting.title,
-                fire_time.strftime('%H:%M'),
-            )
-        logging.info("Pre-meeting reminders scheduled: %d", scheduled)
-        _write_scheduled_jobs(reminder_list, target_date)
+        with db.session_scope() as session:
+            repo = MeetingsRepository(session)
+            meetings = repo.get_active_for_date(target_date)
+            now = datetime.now()
+            scheduled = 0
+            reminder_list = []
+            for meeting in meetings:
+                if meeting.start_time is None:
+                    continue
+                fire_time = meeting.start_time - timedelta(minutes=15)
+                if fire_time <= now:
+                    continue
+                scheduler.add_job(
+                    _pre_meeting_reminder,
+                    DateTrigger(run_date=fire_time),
+                    id=f'pre_meeting_{meeting.id}',
+                    replace_existing=True,
+                    kwargs={'meeting_title': meeting.title or '(No Title)', 'daemon': daemon},
+                )
+                scheduled += 1
+                reminder_list.append({
+                    'title': meeting.title or '(No Title)',
+                    'fire_at': fire_time.strftime('%H:%M'),
+                })
+                logging.info(
+                    "Scheduled pre-meeting reminder for '%s' at %s",
+                    meeting.title,
+                    fire_time.strftime('%H:%M'),
+                )
+            logging.info("Pre-meeting reminders scheduled: %d", scheduled)
+            _write_scheduled_jobs(reminder_list, target_date)
     except Exception:
         logging.exception("Error scheduling pre-meeting reminders")
-    finally:
-        session.close()
 
 
 # ---------------------------------------------------------------------------
@@ -485,18 +479,16 @@ class WorkmAInDaemon:
         """Execute a confirmed action and report the result."""
         from workmain.orchestration.action_executor import ActionExecutor, ActionExecutorError
         db = get_db()
-        session = db.get_session()
         try:
-            result = ActionExecutor(session).execute(action)
-            self.post_message(result.message or 'Action completed.')
-            self._maybe_post_correction_summary(result, action)
+            with db.session_scope() as session:
+                result = ActionExecutor(session).execute(action)
+                self.post_message(result.message or 'Action completed.')
+                self._maybe_post_correction_summary(result, action)
         except ActionExecutorError as e:
             self.post_message(f"Error: {e}")
         except Exception as e:
             logger.error("Unexpected execution error: %s", e)
             self.post_message("An unexpected error occurred. Please try again.")
-        finally:
-            session.close()
 
     def _get_intent_parser(self):
         """Lazily instantiate IntentParser; returns None on init failure."""
@@ -574,26 +566,24 @@ class WorkmAInDaemon:
             return
         from workmain.database.repositories.reports_repo import ReportsRepository
         db = get_db()
-        session = db.get_session()
         try:
-            report = ReportsRepository(session).get_by_id(result.entity_id)
-            if report:
-                blocks = [
-                    {'type': 'section', 'text': {'type': 'mrkdwn',
-                        'text': f'*Report updated* — {report.report_date}'}},
-                    {'type': 'section', 'text': {'type': 'mrkdwn',
-                        'text': f'Status: `{report.status}`'}},
-                ]
-                if report.correction_note:
-                    blocks.append({'type': 'section', 'text': {'type': 'mrkdwn',
-                        'text': f'Correction note: {report.correction_note}'}})
-                self.post_blocks(blocks, fallback_text='Report updated.')
-            else:
-                self.post_message('Correction applied.')
+            with db.session_scope() as session:
+                report = ReportsRepository(session).get_by_id(result.entity_id)
+                if report:
+                    blocks = [
+                        {'type': 'section', 'text': {'type': 'mrkdwn',
+                            'text': f'*Report updated* — {report.report_date}'}},
+                        {'type': 'section', 'text': {'type': 'mrkdwn',
+                            'text': f'Status: `{report.status}`'}},
+                    ]
+                    if report.correction_note:
+                        blocks.append({'type': 'section', 'text': {'type': 'mrkdwn',
+                            'text': f'Correction note: {report.correction_note}'}})
+                    self.post_blocks(blocks, fallback_text='Report updated.')
+                else:
+                    self.post_message('Correction applied.')
         except Exception:
             self.post_message('Correction applied.')
-        finally:
-            session.close()
 
 
 # ---------------------------------------------------------------------------

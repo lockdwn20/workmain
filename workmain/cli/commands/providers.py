@@ -240,51 +240,47 @@ def show_costs(
         return
 
     db = get_db()
-    session = db.get_session()
-
     try:
-        repo = get_ai_cost_repository(session)
-        summary = repo.get_summary(
-            provider=provider_type.value if provider_type else None,
-            start_date=start_date,
-            end_date=end_date,
-        )
-
-        label = format_date_window_label(start_date, end_date)
-        console.print()
-        console.print(f"[bold cyan]AI Cost Summary — {label}[/bold cyan]")
-        console.print()
-
-        if summary['total_calls'] == 0:
-            console.print("[yellow]No AI interactions found for this period.[/yellow]")
-            console.print()
-            console.print("[dim]Generate a report with: workmain reports save daily_internal[/dim]")
-            console.print()
-            return
-
-        render_cost_summary(console, summary, "Total Calls")
-
-        if summary['by_provider']:
-            render_cost_breakdown(
-                console, "By Provider",
-                {p.title(): b for p, b in summary['by_provider'].items()},
+        with db.session_scope() as session:
+            repo = get_ai_cost_repository(session)
+            summary = repo.get_summary(
+                provider=provider_type.value if provider_type else None,
+                start_date=start_date,
+                end_date=end_date,
             )
 
-        if summary['by_type']:
-            render_cost_breakdown(console, "By Call Type", summary['by_type'])
+            label = format_date_window_label(start_date, end_date)
+            console.print()
+            console.print(f"[bold cyan]AI Cost Summary — {label}[/bold cyan]")
+            console.print()
 
-        active_filters = [f"Period: {label}"]
-        if provider:
-            active_filters.append(f"Provider: {provider}")
-        console.print("[dim]" + "  |  ".join(active_filters) + "[/dim]")
-        console.print()
+            if summary['total_calls'] == 0:
+                console.print("[yellow]No AI interactions found for this period.[/yellow]")
+                console.print()
+                console.print("[dim]Generate a report with: workmain reports save daily_internal[/dim]")
+                console.print()
+                return
+
+            render_cost_summary(console, summary, "Total Calls")
+
+            if summary['by_provider']:
+                render_cost_breakdown(
+                    console, "By Provider",
+                    {p.title(): b for p, b in summary['by_provider'].items()},
+                )
+
+            if summary['by_type']:
+                render_cost_breakdown(console, "By Call Type", summary['by_type'])
+
+            active_filters = [f"Period: {label}"]
+            if provider:
+                active_filters.append(f"Provider: {provider}")
+            console.print("[dim]" + "  |  ".join(active_filters) + "[/dim]")
+            console.print()
 
     except Exception as e:
         console.print(f"[red]✗ Failed to get costs: {e}[/red]")
         console.print()
-
-    finally:
-        session.close()
 
 
 @providers.group('set')

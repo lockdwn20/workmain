@@ -61,13 +61,10 @@ def notifications_set(method: str):
         return
 
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         repo = NotificationConfigRepository(session)
         repo.set_method(method)
         console.print(f"[green]Notification method set to:[/green] {method}")
-    finally:
-        session.close()
 
 
 # ---------------------------------------------------------------------------
@@ -96,13 +93,10 @@ def notifications_test(method: Optional[str]):
 
     if method is None:
         db = get_db()
-        session = db.get_session()
-        try:
+        with db.session_scope() as session:
             repo = NotificationConfigRepository(session)
             config = repo.get_config()
             method = config.method
-        finally:
-            session.close()
 
     deliver(
         title="WorkmAIn Test",
@@ -146,11 +140,8 @@ def _load_cron_jobs(session) -> list:
 def _remaining_cron_jobs(now: datetime) -> list:
     """Return today's cron slots as (label, time_str, is_past) tuples."""
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         cron_jobs = _load_cron_jobs(session)
-    finally:
-        session.close()
     dow = now.isoweekday()
     today_time = now.time().replace(second=0, microsecond=0)
     slots = []
@@ -183,12 +174,9 @@ def _load_scheduled_jobs(state_dir: Path) -> list:
 def notifications_status():
     """Show delivery configuration, today's inspection observations, and today's schedule."""
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         repo = NotificationConfigRepository(session)
         config = repo.get_config()
-    finally:
-        session.close()
 
     updated = (
         config.updated_at.strftime('%Y-%m-%d %H:%M')
@@ -267,26 +255,20 @@ def notifications_status():
 def notifications_enable():
     """Enable notification delivery."""
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         repo = NotificationConfigRepository(session)
         repo.set_enabled(True)
         console.print("[green]Notifications enabled.[/green]")
-    finally:
-        session.close()
 
 
 @notifications.command('disable')
 def notifications_disable():
     """Disable notification delivery."""
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         repo = NotificationConfigRepository(session)
         repo.set_enabled(False)
         console.print("[yellow]Notifications disabled.[/yellow]")
-    finally:
-        session.close()
 
 
 __all__ = ['notifications']

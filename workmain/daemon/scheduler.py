@@ -52,8 +52,7 @@ def job_workday_start(daemon: Any) -> None:
 
     logger.info("job_workday_start firing")
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         target_date = date.today()
         schedule = ScheduleService(session)
         if not schedule.is_working_day(target_date):
@@ -82,8 +81,6 @@ def job_workday_start(daemon: Any) -> None:
         config = NotificationConfigRepository(session).get_config()
         if config.enabled:
             deliver("", body, config.method, daemon=daemon)
-    finally:
-        session.close()
 
 
 def job_daily_closeout(daemon: Any) -> None:
@@ -210,32 +207,30 @@ def _schedule_today_meeting_triggers(daemon: Any) -> None:
         return
 
     db = get_db()
-    session = db.get_session()
-    try:
-        meetings = MeetingsRepository(session).get_by_date(date.today())
-    finally:
-        session.close()
+    with db.session_scope() as session:
+        meetings = [
+            (m.id, m.start_time, m.end_time)
+            for m in MeetingsRepository(session).get_by_date(date.today())
+            if not m.is_cancelled
+        ]
 
     now = datetime.now()
     scheduled_t2, scheduled_t3 = 0, 0
-    for meeting in meetings:
-        if meeting.is_cancelled:
-            continue
-
-        if meeting.start_time and meeting.start_time > now:
+    for meeting_id, start_time, end_time in meetings:
+        if start_time and start_time > now:
             _scheduler.add_job(
-                lambda mid=meeting.id: _send_t2(mid, daemon),
-                trigger=DateTrigger(run_date=meeting.start_time),
-                id=f't2_{meeting.id}',
+                lambda mid=meeting_id: _send_t2(mid, daemon),
+                trigger=DateTrigger(run_date=start_time),
+                id=f't2_{meeting_id}',
                 replace_existing=True,
             )
             scheduled_t2 += 1
 
-        if meeting.end_time and meeting.end_time > now:
+        if end_time and end_time > now:
             _scheduler.add_job(
-                lambda mid=meeting.id: _send_t3(mid, daemon),
-                trigger=DateTrigger(run_date=meeting.end_time),
-                id=f't3_{meeting.id}',
+                lambda mid=meeting_id: _send_t3(mid, daemon),
+                trigger=DateTrigger(run_date=end_time),
+                id=f't3_{meeting_id}',
                 replace_existing=True,
             )
             scheduled_t3 += 1
@@ -252,21 +247,19 @@ def _send_t2(meeting_id: int, daemon: Any) -> None:
     from workmain.database.repositories.meetings_repo import MeetingsRepository
 
     db = get_db()
-    session = db.get_session()
     try:
-        meeting = MeetingsRepository(session).get_by_id(meeting_id)
-        if not meeting:
-            logger.warning('T2: meeting %d not found', meeting_id)
-            return
-        dur = f' ({int(meeting.duration_hours * 60)} min)' if meeting.duration_hours else ''
-        daemon.post_message(
-            f'*{meeting.title}* is starting now{dur}.\n'
-            f'Add notes: message me here or use `workmain note add`'
-        )
+        with db.session_scope() as session:
+            meeting = MeetingsRepository(session).get_by_id(meeting_id)
+            if not meeting:
+                logger.warning('T2: meeting %d not found', meeting_id)
+                return
+            dur = f' ({int(meeting.duration_hours * 60)} min)' if meeting.duration_hours else ''
+            daemon.post_message(
+                f'*{meeting.title}* is starting now{dur}.\n'
+                f'Add notes: message me here or use `workmain note add`'
+            )
     except Exception as e:
         logger.warning('T2 send failed for meeting %d: %s', meeting_id, e)
-    finally:
-        session.close()
     _reschedule_t4_checkin(daemon)
 
 
@@ -276,20 +269,18 @@ def _send_t3(meeting_id: int, daemon: Any) -> None:
     from workmain.database.repositories.meetings_repo import MeetingsRepository
 
     db = get_db()
-    session = db.get_session()
     try:
-        meeting = MeetingsRepository(session).get_by_id(meeting_id)
-        if not meeting:
-            logger.warning('T3: meeting %d not found', meeting_id)
-            return
-        daemon.post_message(
-            f'*{meeting.title}* has ended.\n'
-            f'Finalize notes and confirm tags when ready.'
-        )
+        with db.session_scope() as session:
+            meeting = MeetingsRepository(session).get_by_id(meeting_id)
+            if not meeting:
+                logger.warning('T3: meeting %d not found', meeting_id)
+                return
+            daemon.post_message(
+                f'*{meeting.title}* has ended.\n'
+                f'Finalize notes and confirm tags when ready.'
+            )
     except Exception as e:
         logger.warning('T3 send failed for meeting %d: %s', meeting_id, e)
-    finally:
-        session.close()
     _reschedule_t4_checkin(daemon)
 
 
@@ -312,8 +303,7 @@ def _reschedule_t4_checkin(daemon: Any) -> None:
         return
 
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         schedule_service = ScheduleService(session)
         now = datetime.now()
         if not schedule_service.is_working_day(now.date()):
@@ -322,8 +312,6 @@ def _reschedule_t4_checkin(daemon: Any) -> None:
         fire_at = now + timedelta(minutes=delay_minutes)
         if not schedule_service.is_working_hours(fire_at):
             return   # end-of-day stop — intentional, not a bug
-    finally:
-        session.close()
 
     _scheduler.add_job(
         lambda: _send_t4_checkin(daemon),
@@ -350,8 +338,7 @@ def _send_t4_checkin(daemon: Any) -> None:
     from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
 
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         _, t4_max = ScheduleService(session).get_t4_interval()
         since = datetime.now() - timedelta(minutes=t4_max)
         recent_note = NotesRepository(session).get_most_recent_since(since)
@@ -360,8 +347,6 @@ def _send_t4_checkin(daemon: Any) -> None:
         # instance after the session closes.
         recent_note_at = recent_note.created_at if recent_note else None
         recent_entry_at = recent_entry.created_at if recent_entry else None
-    finally:
-        session.close()
 
     if recent_note_at or recent_entry_at:
         candidates = [t for t in (recent_note_at, recent_entry_at) if t is not None]
@@ -404,11 +389,8 @@ def register_all_jobs(daemon: Any) -> None:
     # with the five registrations it feeds — build_scheduler() no longer
     # holds a session or reads system_state at all.
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         trigger_times = _load_trigger_times(session)
-    finally:
-        session.close()
 
     workday_start_hour, workday_start_minute = trigger_times['trigger_time_workday_start']
     daily_closeout_hour, daily_closeout_minute = trigger_times['trigger_time_daily_closeout']

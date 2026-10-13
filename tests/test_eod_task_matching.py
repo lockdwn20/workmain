@@ -212,7 +212,7 @@ class TestTaskMatchStepEntryConditions:
 
         with patch.dict(os.environ, {'WORKMAIN_STATE_DIR': str(tmp_path)}):
             with patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
-                mock_get_db.return_value.get_session.return_value = mock_session
+                mock_get_db.return_value.session_scope.return_value.__enter__.return_value = mock_session
                 with patch('workmain.database.repositories.task_status_repo.'
                            'TaskStatusRepository', return_value=mock_task_repo):
                         # The step imports TaskStatusRepository lazily inside the function
@@ -226,7 +226,7 @@ class TestTaskMatchStepEntryConditions:
         with patch.dict(os.environ, {'WORKMAIN_STATE_DIR': str(tmp_path)}):
             with patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
                 mock_sess = MagicMock()
-                mock_get_db.return_value.get_session.return_value = mock_sess
+                mock_get_db.return_value.session_scope.return_value.__enter__.return_value = mock_sess
 
                 class _FakeTaskRepo:
                     def __init__(self, session): pass
@@ -273,7 +273,7 @@ class TestTaskMatchStepEntryConditions:
             with patch.dict(os.environ, {'WORKMAIN_STATE_DIR': str(tmp_path)}):
                 with patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
                     mock_sess = MagicMock()
-                    mock_get_db.return_value.get_session.return_value = mock_sess
+                    mock_get_db.return_value.session_scope.return_value.__enter__.return_value = mock_sess
                     result = _run_task_match_step(
                         dry_run=False, target_date=date(2099, 1, 1)
                     )

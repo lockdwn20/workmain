@@ -121,102 +121,101 @@ def generate_report_impl(
         report_date: Date to generate report for (default: today)
     """
     db = get_db()
-    session = db.get_session()
-
     try:
-        from workmain.templates_engine import get_template_loader
-        generator = get_report_generator(session)
-        active_client_id = SystemStateRepository(session).get_int('active_client_id')
-        if report_date is None:
-            report_date = datetime.today().date()
+        with db.session_scope() as session:
+            from workmain.templates_engine import get_template_loader
+            generator = get_report_generator(session)
+            active_client_id = SystemStateRepository(session).get_int('active_client_id')
+            if report_date is None:
+                report_date = datetime.today().date()
 
-        # Determine client filter based on template recipient_type
-        template_loader = get_template_loader()
-        template = template_loader.load(template_name)
-        recipient_type = template.get('recipient_type', 'internal_management')
-        filter_client, client_id_filter = get_client_filter(recipient_type, active_client_id)
+            # Determine client filter based on template recipient_type
+            template_loader = get_template_loader()
+            template = template_loader.load(template_name)
+            recipient_type = template.get('recipient_type', 'internal_management')
+            filter_client, client_id_filter = get_client_filter(recipient_type, active_client_id)
 
-        # Informational exit: client report requested with no active client
-        if filter_client and client_id_filter is None:
-            console.print(
-                f"[yellow]Report skipped — no active client set.[/yellow]\n"
-                f"'{template_name}' requires a client context "
-                f"(recipient_type: {recipient_type}).\n"
-                "Run 'workmain clients set active <name>' then retry."
-            )
-            return
-
-        if preview_only:
-            console.print(f"\n[cyan]Previewing {template_name} report for {report_date}...[/cyan]\n")
-
-            preview = generator.preview_report(
-                template_name=template_name,
-                report_date=report_date,
-                filter_client=filter_client,
-                client_id=client_id_filter,
-                provider=provider,
-            )
-
-            console.print("[bold]Report Preview:[/bold]")
-            console.print(f"  Template: {preview['template_name']}")
-            console.print(f"  Date: {preview['report_date']}")
-            console.print(f"  Provider: {preview['provider']}")
-            console.print(f"  Estimated prompt tokens: ~{preview['estimated_tokens']:,}")
-            if preview['estimated_cost'] is None:
-                console.print(f"  Estimated cost: unavailable — {preview['cost_unavailable_reason']}")
-            else:
+            # Informational exit: client report requested with no active client
+            if filter_client and client_id_filter is None:
                 console.print(
-                    f"  Estimated cost: up to ~${preview['estimated_cost']:.6f} "
-                    f"(completion at the {preview['max_completion_tokens']:,}-token cap)"
+                    f"[yellow]Report skipped — no active client set.[/yellow]\n"
+                    f"'{template_name}' requires a client context "
+                    f"(recipient_type: {recipient_type}).\n"
+                    "Run 'workmain clients set active <name>' then retry."
                 )
-            console.print()
+                return
 
-            console.print("[bold]System Prompt (first 500 chars):[/bold]")
-            console.print(f"[dim]{preview['system_prompt'][:500]}...[/dim]")
-            console.print()
+            if preview_only:
+                console.print(f"\n[cyan]Previewing {template_name} report for {report_date}...[/cyan]\n")
 
-            console.print("[bold]User Prompt (first 500 chars):[/bold]")
-            console.print(f"[dim]{preview['user_prompt'][:500]}...[/dim]")
-            console.print()
+                preview = generator.preview_report(
+                    template_name=template_name,
+                    report_date=report_date,
+                    filter_client=filter_client,
+                    client_id=client_id_filter,
+                    provider=provider,
+                )
 
-            console.print("[dim]This is what will be sent to AI. No charges incurred in preview mode.[/dim]")
-            console.print()
+                console.print("[bold]Report Preview:[/bold]")
+                console.print(f"  Template: {preview['template_name']}")
+                console.print(f"  Date: {preview['report_date']}")
+                console.print(f"  Provider: {preview['provider']}")
+                console.print(f"  Estimated prompt tokens: ~{preview['estimated_tokens']:,}")
+                if preview['estimated_cost'] is None:
+                    console.print(f"  Estimated cost: unavailable — {preview['cost_unavailable_reason']}")
+                else:
+                    console.print(
+                        f"  Estimated cost: up to ~${preview['estimated_cost']:.6f} "
+                        f"(completion at the {preview['max_completion_tokens']:,}-token cap)"
+                    )
+                console.print()
 
-        else:
-            console.print(f"\n[cyan]Generating {template_name} report for {report_date}...[/cyan]")
+                console.print("[bold]System Prompt (first 500 chars):[/bold]")
+                console.print(f"[dim]{preview['system_prompt'][:500]}...[/dim]")
+                console.print()
 
-            result = generator.generate_report(
-                template_name=template_name,
-                report_date=report_date,
-                provider=provider,
-                save_to_file=True,
-                output_format=ReportFormat.MARKDOWN,
-                client_id=active_client_id,
-                filter_client=filter_client,
-                client_id_filter=client_id_filter,
-            )
+                console.print("[bold]User Prompt (first 500 chars):[/bold]")
+                console.print(f"[dim]{preview['user_prompt'][:500]}...[/dim]")
+                console.print()
 
-            console.print()
-            console.print(Panel(
-                result['content'],
-                title=f"[bold]{template_name.replace('_', ' ').title()}[/bold]",
-                border_style="green"
-            ))
+                console.print("[dim]This is what will be sent to AI. No charges incurred in preview mode.[/dim]")
+                console.print()
 
-            console.print()
-            console.print("[bold]Generation Details:[/bold]")
-            console.print(f"  Provider: {result['provider']}")
-            console.print(f"  Model: {result['model']}")
-            console.print(f"  {format_call_tokens(result['prompt_tokens'], result['completion_tokens'], result['thinking_tokens'])}")
-            console.print(f"  Cost: ${result['cost']:.6f}")
+            else:
+                console.print(f"\n[cyan]Generating {template_name} report for {report_date}...[/cyan]")
 
-            if result['file_path']:
-                console.print(f"  [green]✓ Saved to: {result['file_path']}[/green]")
+                result = generator.generate_report(
+                    template_name=template_name,
+                    report_date=report_date,
+                    provider=provider,
+                    save_to_file=True,
+                    output_format=ReportFormat.MARKDOWN,
+                    client_id=active_client_id,
+                    filter_client=filter_client,
+                    client_id_filter=client_id_filter,
+                )
 
-            if result['fallback_reason']:
-                console.print(f"[yellow]⚠[/yellow] {escape(result['fallback_reason'])}")
+                console.print()
+                console.print(Panel(
+                    result['content'],
+                    title=f"[bold]{template_name.replace('_', ' ').title()}[/bold]",
+                    border_style="green"
+                ))
 
-            console.print()
+                console.print()
+                console.print("[bold]Generation Details:[/bold]")
+                console.print(f"  Provider: {result['provider']}")
+                console.print(f"  Model: {result['model']}")
+                console.print(f"  {format_call_tokens(result['prompt_tokens'], result['completion_tokens'], result['thinking_tokens'])}")
+                console.print(f"  Cost: ${result['cost']:.6f}")
+
+                if result['file_path']:
+                    console.print(f"  [green]✓ Saved to: {result['file_path']}[/green]")
+
+                if result['fallback_reason']:
+                    console.print(f"[yellow]⚠[/yellow] {escape(result['fallback_reason'])}")
+
+                console.print()
 
     except Exception as e:
         err_console.print(f"[red]Error:[/red] {escape(str(e))}")
@@ -224,9 +223,6 @@ def generate_report_impl(
         if '--debug' in click.get_current_context().args:
             traceback.print_exc()
         sys.exit(failure_exit_code(e))
-
-    finally:
-        session.close()
 
 
 @click.group()
@@ -309,73 +305,69 @@ def _report_list_impl(
         raise SystemExit(1)
 
     db = get_db()
-    session = db.get_session()
-
     try:
-        rows = get_reports_repository(session).list_by_report_date(
-            report_type=report_type,
-            status=status_filter if status_filter and status_filter != 'all' else None,
-            limit=limit,
-        )
-
-        if not rows:
-            console.print("\n[yellow]No reports found.[/yellow]")
-            console.print("[dim]Generate your first report with: workmain reports save daily_internal[/dim]\n")
-            return
-
-        title = f"Report History (last {len(rows)})"
-        if report_type:
-            title += f" — {report_type}"
-        if status_filter and status_filter != 'all':
-            title += f" — status={status_filter}"
-
-        table = Table(
-            title=f"\n{title}",
-            show_header=True,
-            header_style="bold cyan",
-            box=box.ROUNDED
-        )
-
-        table.add_column("ID", style="dim", justify="right")
-        table.add_column("Type", style="cyan")
-        table.add_column("Date", style="green")
-        table.add_column("Status", no_wrap=True)
-        table.add_column("Created", style="dim")
-        table.add_column("Slack", justify="center")
-        table.add_column("Preview", style="dim")
-
-        status_style = {
-            'unconfirmed': '[yellow]unconfirmed[/yellow]',
-            'confirmed': '[green]confirmed[/green]',
-            'corrected': '[cyan]corrected[/cyan]',
-        }
-
-        for r in rows:
-            created_str = r.created_at.strftime('%H:%M') if r.created_at else "—"
-            slack_str = "✓" if r.slack_message_ts else "—"
-            preview = r.content.lstrip('# \n')[:50] if r.content else ""
-            st = status_style.get(r.status, r.status or "—")
-
-            table.add_row(
-                str(r.id),
-                r.report_type or "—",
-                str(r.report_date) if r.report_date else "—",
-                st,
-                created_str,
-                slack_str,
-                preview
+        with db.session_scope() as session:
+            rows = get_reports_repository(session).list_by_report_date(
+                report_type=report_type,
+                status=status_filter if status_filter and status_filter != 'all' else None,
+                limit=limit,
             )
 
-        console.print(table)
-        console.print()
+            if not rows:
+                console.print("\n[yellow]No reports found.[/yellow]")
+                console.print("[dim]Generate your first report with: workmain reports save daily_internal[/dim]\n")
+                return
+
+            title = f"Report History (last {len(rows)})"
+            if report_type:
+                title += f" — {report_type}"
+            if status_filter and status_filter != 'all':
+                title += f" — status={status_filter}"
+
+            table = Table(
+                title=f"\n{title}",
+                show_header=True,
+                header_style="bold cyan",
+                box=box.ROUNDED
+            )
+
+            table.add_column("ID", style="dim", justify="right")
+            table.add_column("Type", style="cyan")
+            table.add_column("Date", style="green")
+            table.add_column("Status", no_wrap=True)
+            table.add_column("Created", style="dim")
+            table.add_column("Slack", justify="center")
+            table.add_column("Preview", style="dim")
+
+            status_style = {
+                'unconfirmed': '[yellow]unconfirmed[/yellow]',
+                'confirmed': '[green]confirmed[/green]',
+                'corrected': '[cyan]corrected[/cyan]',
+            }
+
+            for r in rows:
+                created_str = r.created_at.strftime('%H:%M') if r.created_at else "—"
+                slack_str = "✓" if r.slack_message_ts else "—"
+                preview = r.content.lstrip('# \n')[:50] if r.content else ""
+                st = status_style.get(r.status, r.status or "—")
+
+                table.add_row(
+                    str(r.id),
+                    r.report_type or "—",
+                    str(r.report_date) if r.report_date else "—",
+                    st,
+                    created_str,
+                    slack_str,
+                    preview
+                )
+
+            console.print(table)
+            console.print()
 
     except SystemExit:
         raise
     except Exception as e:
         console.print(f"[red]✗ Failed to list reports: {e}[/red]")
-
-    finally:
-        session.close()
 
 
 @reports.command('list')
@@ -435,8 +427,7 @@ def report_confirm(identifier: str):
       workmain reports confirm 2026-05-27
     """
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         report = _resolve_report(session, identifier)
         if report.status in ('confirmed', 'corrected'):
             console.print(
@@ -449,8 +440,6 @@ def report_confirm(identifier: str):
         console.print(
             f"[green]✓ Report confirmed:[/green] {report.report_type} {report.report_date}"
         )
-    finally:
-        session.close()
 
 
 @reports.command('correct')
@@ -469,8 +458,7 @@ def report_correct(identifier: str):
       workmain reports correct 2026-05-27
     """
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         report = _resolve_report(session, identifier)
         current = report.corrected_content if report.corrected_content else report.content
         edited = edit_in_editor(
@@ -494,8 +482,6 @@ def report_correct(identifier: str):
         console.print(
             f"[green]✓ Report correction saved:[/green] {report_type} {report_date}"
         )
-    finally:
-        session.close()
 
 
 def format_correction_display(report) -> str:
@@ -541,69 +527,65 @@ def report_corrections(date_str: Optional[str], search: Optional[str], limit_opt
     require_report_type(report_type)
 
     db = get_db()
-    session = db.get_session()
-
     try:
-        filter_date = None
-        if date_str:
-            try:
-                filter_date = date.fromisoformat(date_str)
-            except ValueError:
-                console.print(f"[red]✗ Invalid date: '{date_str}' — expected YYYY-MM-DD[/red]")
-                raise SystemExit(1)
+        with db.session_scope() as session:
+            filter_date = None
+            if date_str:
+                try:
+                    filter_date = date.fromisoformat(date_str)
+                except ValueError:
+                    console.print(f"[red]✗ Invalid date: '{date_str}' — expected YYYY-MM-DD[/red]")
+                    raise SystemExit(1)
 
-        window_start = None
-        if not show_all and not filter_date and not search:
-            window_start = datetime.now().date() - timedelta(days=7)
+            window_start = None
+            if not show_all and not filter_date and not search:
+                window_start = datetime.now().date() - timedelta(days=7)
 
-        effective_limit = None if show_all else (limit_opt if limit_opt is not None else 20)
+            effective_limit = None if show_all else (limit_opt if limit_opt is not None else 20)
 
-        rows = get_reports_repository(session).get_filtered(
-            status='corrected',
-            report_type=report_type,
-            report_date=filter_date,
-            updated_after=window_start,
-            search=search,
-            limit=effective_limit,
-        )
+            rows = get_reports_repository(session).get_filtered(
+                status='corrected',
+                report_type=report_type,
+                report_date=filter_date,
+                updated_after=window_start,
+                search=search,
+                limit=effective_limit,
+            )
 
-        if not rows:
-            console.print("\n[yellow]No corrected reports found.[/yellow]\n")
-            return
+            if not rows:
+                console.print("\n[yellow]No corrected reports found.[/yellow]\n")
+                return
 
-        if search:
-            header = f"Corrections matching '{search}'"
-        elif filter_date:
-            header = f"Corrections — {filter_date}"
-        elif show_all:
-            header = "Report Corrections — all"
-        elif report_type:
-            header = f"Corrections — type {report_type}"
-        else:
-            header = "Report Corrections — last 7 days"
+            if search:
+                header = f"Corrections matching '{search}'"
+            elif filter_date:
+                header = f"Corrections — {filter_date}"
+            elif show_all:
+                header = "Report Corrections — all"
+            elif report_type:
+                header = f"Corrections — type {report_type}"
+            else:
+                header = "Report Corrections — last 7 days"
 
-        click.echo(f"\n{header} ({len(rows)}):\n")
-        click.echo("=" * 60)
+            click.echo(f"\n{header} ({len(rows)}):\n")
+            click.echo("=" * 60)
 
-        current_date = None
-        for r in rows:
-            row_date = r.updated_at.date() if r.updated_at else None
-            if row_date != current_date:
-                if current_date is not None:
-                    click.echo("=" * 60)
-                click.echo(f"\n[{row_date}]")
+            current_date = None
+            for r in rows:
+                row_date = r.updated_at.date() if r.updated_at else None
+                if row_date != current_date:
+                    if current_date is not None:
+                        click.echo("=" * 60)
+                    click.echo(f"\n[{row_date}]")
+                    click.echo("-" * 60)
+                    current_date = row_date
+                click.echo(format_correction_display(r))
                 click.echo("-" * 60)
-                current_date = row_date
-            click.echo(format_correction_display(r))
-            click.echo("-" * 60)
 
     except SystemExit:
         raise
     except Exception as e:
         console.print(f"[red]✗ Failed to list corrections: {e}[/red]")
-
-    finally:
-        session.close()
 
 
 @reports.command('show')
@@ -620,64 +602,60 @@ def report_show(target: str):
       workmain reports show daily_internal_2026-03-05.md
     """
     db = get_db()
-    session = db.get_session()
-
     try:
-        try:
-            report_id = int(target)
-            # ID path — fetch from database
-            report = get_reports_repository(session).get_by_id(report_id)
+        with db.session_scope() as session:
+            try:
+                report_id = int(target)
+                # ID path — fetch from database
+                report = get_reports_repository(session).get_by_id(report_id)
 
-            if not report:
-                console.print(f"[red]Error: No report found with ID {report_id}.[/red]")
-                raise SystemExit(1)
+                if not report:
+                    console.print(f"[red]Error: No report found with ID {report_id}.[/red]")
+                    raise SystemExit(1)
 
-            title = f"Report #{report.id} — {report.report_type} — {report.report_date}"
+                title = f"Report #{report.id} — {report.report_type} — {report.report_date}"
 
-            console.print()
-            console.print(Panel(
-                report.content or "(no content)",
-                title=f"[bold]{title}[/bold]",
-                border_style="green"
-            ))
-            if report.corrected_content:
+                console.print()
                 console.print(Panel(
-                    report.corrected_content,
-                    title="[bold]Corrected Version[/bold]",
-                    border_style="yellow"
+                    report.content or "(no content)",
+                    title=f"[bold]{title}[/bold]",
+                    border_style="green"
                 ))
-            if report.correction_note:
-                console.print(f"  [yellow]Correction note:[/yellow] {report.correction_note}")
-            console.print()
+                if report.corrected_content:
+                    console.print(Panel(
+                        report.corrected_content,
+                        title="[bold]Corrected Version[/bold]",
+                        border_style="yellow"
+                    ))
+                if report.correction_note:
+                    console.print(f"  [yellow]Correction note:[/yellow] {report.correction_note}")
+                console.print()
 
-        except ValueError:
-            # Filename path — read from staging directory
-            generator = get_report_generator(session)
-            file_path = generator.output_dir / target
+            except ValueError:
+                # Filename path — read from staging directory
+                generator = get_report_generator(session)
+                file_path = generator.output_dir / target
 
-            if not file_path.exists():
-                console.print(f"[red]✗ Report not found: {target}[/red]")
-                console.print("\n[dim]Use 'workmain reports list' to see available reports[/dim]\n")
-                return
+                if not file_path.exists():
+                    console.print(f"[red]✗ Report not found: {target}[/red]")
+                    console.print("\n[dim]Use 'workmain reports list' to see available reports[/dim]\n")
+                    return
 
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
 
-            console.print()
-            console.print(Panel(
-                content,
-                title=f"[bold]{target}[/bold]",
-                border_style="green"
-            ))
-            console.print()
+                console.print()
+                console.print(Panel(
+                    content,
+                    title=f"[bold]{target}[/bold]",
+                    border_style="green"
+                ))
+                console.print()
 
     except SystemExit:
         raise
     except Exception as e:
         console.print(f"[red]✗ Failed to show report: {e}[/red]")
-
-    finally:
-        session.close()
 
 
 @reports.command('resend')
@@ -693,53 +671,49 @@ def report_resend(id: int):
       workmain reports resend 42
     """
     db = get_db()
-    session = db.get_session()
-
     try:
-        report = get_reports_repository(session).get_by_id(id)
+        with db.session_scope() as session:
+            report = get_reports_repository(session).get_by_id(id)
 
-        if not report:
-            console.print(f"[red]Error: No report found with ID {id}.[/red]")
-            raise SystemExit(1)
+            if not report:
+                console.print(f"[red]Error: No report found with ID {id}.[/red]")
+                raise SystemExit(1)
 
-        report_type = report.report_type
-        report_date = report.report_date.isoformat() if report.report_date else "unknown"
-        staging_filename = f"{report_type}_{report_date}.md"
+            report_type = report.report_type
+            report_date = report.report_date.isoformat() if report.report_date else "unknown"
+            staging_filename = f"{report_type}_{report_date}.md"
 
-        # Resolve staging dir relative to project root
-        project_root = Path(__file__).resolve().parents[3]
-        staging_path = project_root / "staging" / "reports" / staging_filename
+            # Resolve staging dir relative to project root
+            project_root = Path(__file__).resolve().parents[3]
+            staging_path = project_root / "staging" / "reports" / staging_filename
 
-        if staging_path.exists():
-            console.print(f"{staging_path} already exists.")
-            overwrite = click.prompt("Overwrite? [y/N]", default="n")
-            if overwrite.strip().lower() != 'y':
-                console.print("Aborted.")
-                return
+            if staging_path.exists():
+                console.print(f"{staging_path} already exists.")
+                overwrite = click.prompt("Overwrite? [y/N]", default="n")
+                if overwrite.strip().lower() != 'y':
+                    console.print("Aborted.")
+                    return
 
-        staging_path.parent.mkdir(parents=True, exist_ok=True)
-        staging_path.write_text(report.content or "", encoding='utf-8')
-        console.print(f"[green]✓ Report #{id} staged to {staging_path.relative_to(project_root)}[/green]")
+            staging_path.parent.mkdir(parents=True, exist_ok=True)
+            staging_path.write_text(report.content or "", encoding='utf-8')
+            console.print(f"[green]✓ Report #{id} staged to {staging_path.relative_to(project_root)}[/green]")
 
-        # Invoke email pipeline via the workmain binary (no get_email_generator() API exists)
-        run = run_workmain(['email', 'save', report_type], timeout=TIMEOUT_NETWORK)
-        if run.stdout.strip():
-            console.print(run.stdout.rstrip())
-        if run.stderr.strip():
-            console.print(run.stderr.rstrip())
-        if run.ok:
-            console.print(f"[green]✓ Email draft created. View with: workmain email list[/green]")
-        else:
-            console.print(f"[red]✗ Email draft failed: {run.failure_message('Email draft')}[/red]")
-            console.print(f"[dim]Note: staging file written. Retry with: workmain email save {report_type}[/dim]")
+            # Invoke email pipeline via the workmain binary (no get_email_generator() API exists)
+            run = run_workmain(['email', 'save', report_type], timeout=TIMEOUT_NETWORK)
+            if run.stdout.strip():
+                console.print(run.stdout.rstrip())
+            if run.stderr.strip():
+                console.print(run.stderr.rstrip())
+            if run.ok:
+                console.print(f"[green]✓ Email draft created. View with: workmain email list[/green]")
+            else:
+                console.print(f"[red]✗ Email draft failed: {run.failure_message('Email draft')}[/red]")
+                console.print(f"[dim]Note: staging file written. Retry with: workmain email save {report_type}[/dim]")
 
     except SystemExit:
         raise
     except Exception as e:
         console.print(f"[red]✗ resend failed: {e}[/red]")
-
-    finally:
-        session.close()
 
 
 @reports.command('costs')
@@ -794,53 +768,49 @@ def report_costs(
         return
 
     db = get_db()
-    session = db.get_session()
-
     try:
-        pairs = get_ai_cost_repository(session).get_report_costs(
-            provider=provider_type.value if provider_type else None,
-            report_type=report_type,
-            start_date=start_date,
-            end_date=end_date,
-        )
+        with db.session_scope() as session:
+            pairs = get_ai_cost_repository(session).get_report_costs(
+                provider=provider_type.value if provider_type else None,
+                report_type=report_type,
+                start_date=start_date,
+                end_date=end_date,
+            )
 
-        label = format_date_window_label(start_date, end_date)
-        console.print()
-        console.print(f"[bold cyan]Report Costs — {label}[/bold cyan]")
-        console.print()
-
-        if not pairs:
-            console.print("[yellow]No report costs found matching filters.[/yellow]")
+            label = format_date_window_label(start_date, end_date)
             console.print()
-            console.print("[dim]Generate a report first with: workmain reports save daily_internal[/dim]")
+            console.print(f"[bold cyan]Report Costs — {label}[/bold cyan]")
             console.print()
-            return
 
-        summary = summarize([cost for cost, _ in pairs])
-        render_cost_summary(console, summary, "Calls")
+            if not pairs:
+                console.print("[yellow]No report costs found matching filters.[/yellow]")
+                console.print()
+                console.print("[dim]Generate a report first with: workmain reports save daily_internal[/dim]")
+                console.print()
+                return
 
-        display = pairs[:limit]
-        render_cost_rows(
-            console,
-            [(report.report_date, report.report_type, cost) for cost, report in display],
-            f"[bold]Report Detail:[/bold] (showing {len(display)} of {len(pairs)})",
-            "Type",
-        )
+            summary = summarize([cost for cost, _ in pairs])
+            render_cost_summary(console, summary, "Calls")
 
-        active_filters = [f"Period: {label}"]
-        if provider:
-            active_filters.append(f"Provider: {provider}")
-        if report_type:
-            active_filters.append(f"Type: {report_type}")
-        console.print("[dim]" + "  |  ".join(active_filters) + "[/dim]")
-        console.print()
+            display = pairs[:limit]
+            render_cost_rows(
+                console,
+                [(report.report_date, report.report_type, cost) for cost, report in display],
+                f"[bold]Report Detail:[/bold] (showing {len(display)} of {len(pairs)})",
+                "Type",
+            )
+
+            active_filters = [f"Period: {label}"]
+            if provider:
+                active_filters.append(f"Provider: {provider}")
+            if report_type:
+                active_filters.append(f"Type: {report_type}")
+            console.print("[dim]" + "  |  ".join(active_filters) + "[/dim]")
+            console.print()
 
     except Exception as e:
         console.print(f"[red]✗ Failed to get costs: {e}[/red]")
         console.print()
-
-    finally:
-        session.close()
 
 
 # Export command group

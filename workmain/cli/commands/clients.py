@@ -48,15 +48,13 @@ def clients_add(name: str):
       workmain clients add ACME
     """
     db = get_db()
-    session = db.get_session()
     try:
-        repo = ClientRepository(session)
-        client = repo.create(name)
-        console.print(f"[green]Client '{client.name}' created (ID: {client.id}).[/green]")
+        with db.session_scope() as session:
+            repo = ClientRepository(session)
+            client = repo.create(name)
+            console.print(f"[green]Client '{client.name}' created (ID: {client.id}).[/green]")
     except ValueError as e:
         console.print(f"[red]✗ {e}[/red]")
-    finally:
-        session.close()
 
 
 # ---------------------------------------------------------------------------
@@ -72,8 +70,7 @@ def clients_list():
       workmain clients list
     """
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         repo = ClientRepository(session)
         all_clients = repo.list_all()
         if not all_clients:
@@ -93,8 +90,6 @@ def clients_list():
             table.add_row(str(c.id), c.name, active_indicator)
 
         console.print(table)
-    finally:
-        session.close()
 
 
 # ---------------------------------------------------------------------------
@@ -114,8 +109,7 @@ def clients_show(id_or_name: str):
       workmain clients show 1
     """
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         repo = ClientRepository(session)
         client = _resolve_client(repo, id_or_name)
         if client is None:
@@ -131,8 +125,6 @@ def clients_show(id_or_name: str):
         console.print(f"  Active:   {active_str}")
         console.print(f"  Created:  {created_str}")
         console.print()
-    finally:
-        session.close()
 
 
 # ---------------------------------------------------------------------------
@@ -155,36 +147,34 @@ def clients_delete(id_or_name: str, force: bool):
       workmain clients delete 2 --force
     """
     db = get_db()
-    session = db.get_session()
     try:
-        repo = ClientRepository(session)
-        client = _resolve_client(repo, id_or_name)
-        if client is None:
-            _not_found(repo, id_or_name)
-            return
+        with db.session_scope() as session:
+            repo = ClientRepository(session)
+            client = _resolve_client(repo, id_or_name)
+            if client is None:
+                _not_found(repo, id_or_name)
+                return
 
-        if client.is_active and not force:
-            console.print(
-                f"[yellow]Client '{client.name}' is currently active. "
-                f"Use --force to delete.[/yellow]"
-            )
-            return
+            if client.is_active and not force:
+                console.print(
+                    f"[yellow]Client '{client.name}' is currently active. "
+                    f"Use --force to delete.[/yellow]"
+                )
+                return
 
-        if not force:
-            click.confirm(
-                f"Delete client '{client.name}' (ID: {client.id})?",
-                abort=True,
-            )
+            if not force:
+                click.confirm(
+                    f"Delete client '{client.name}' (ID: {client.id})?",
+                    abort=True,
+                )
 
-        if client.is_active:
-            repo.clear_active()
+            if client.is_active:
+                repo.clear_active()
 
-        repo.delete(client.id)
-        console.print(f"[green]Client '{client.name}' deleted.[/green]")
+            repo.delete(client.id)
+            console.print(f"[green]Client '{client.name}' deleted.[/green]")
     except click.Abort:
         console.print("[dim]Cancelled.[/dim]")
-    finally:
-        session.close()
 
 
 # ---------------------------------------------------------------------------
@@ -211,17 +201,13 @@ def clients_set_active(name: str):
     """
     if name.strip().lower() == 'internal':
         db = get_db()
-        session = db.get_session()
-        try:
+        with db.session_scope() as session:
             ClientRepository(session).clear_active()
             console.print("[green]Active client cleared. Operating in internal mode.[/green]")
-        finally:
-            session.close()
         return
 
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         repo = ClientRepository(session)
         client = repo.get_by_name(name)
         if client is None:
@@ -229,8 +215,6 @@ def clients_set_active(name: str):
             return
         repo.set_active(client.id)
         console.print(f"[green]Active client set to: '{client.name}'.[/green]")
-    finally:
-        session.close()
 
 
 # ---------------------------------------------------------------------------
@@ -246,8 +230,7 @@ def clients_status():
       workmain clients status
     """
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         state_repo = SystemStateRepository(session)
         client_repo = ClientRepository(session)
 
@@ -265,8 +248,6 @@ def clients_status():
             console.print(
                 "Use 'workmain clients set active <name>' to switch to a client context."
             )
-    finally:
-        session.close()
 
 
 # ---------------------------------------------------------------------------

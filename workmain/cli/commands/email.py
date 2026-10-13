@@ -139,13 +139,10 @@ def _get_draft_recipients(
         return _build_lists(repo, active_client_id)
 
     db = get_db()
-    _session = db.get_session()
-    try:
+    with db.session_scope() as _session:
         active_client_id = SystemStateRepository(_session).get_int('active_client_id')
         repo = get_email_repository(_session)
         return _build_lists(repo, active_client_id)
-    finally:
-        _session.close()
 
 
 def _resolve_draft_file(n: str) -> Optional[Path]:
@@ -444,8 +441,7 @@ def recipients_list():
       workmain email recipients list
     """
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         repo = get_email_repository(session)
         recipients = repo.get_all_recipients()
 
@@ -488,9 +484,6 @@ def recipients_list():
         n = len(recipients)
         console.print(f"\n[dim]{n} recipient{'s' if n != 1 else ''}[/dim]\n")
 
-    finally:
-        session.close()
-
 
 @email_recipients.command('add')
 @click.argument('email_addr')
@@ -505,8 +498,7 @@ def recipients_add(email_addr: str):
       workmain email recipients add peter@example.com
     """
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         repo = get_email_repository(session)
         existing = repo.get_recipient_by_email(email_addr)
         if existing:
@@ -524,8 +516,6 @@ def recipients_add(email_addr: str):
             f"[dim]Assign to a template: "
             f"workmain email assign {recipient.id} <template> to[/dim]\n"
         )
-    finally:
-        session.close()
 
 
 @email_recipients.command('delete')
@@ -544,8 +534,7 @@ def recipients_delete(identifier: str):
       workmain email recipients delete "peter"
     """
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         repo = get_email_repository(session)
 
         # Resolve by ID or email substring (Item 26 Direction A fix)
@@ -607,9 +596,6 @@ def recipients_delete(identifier: str):
         repo.remove_recipient(recipient.id)
         console.print(f"[green]✓ Removed: {recipient.email}[/green]\n")
 
-    finally:
-        session.close()
-
 
 # ------------------------------------------------------------------
 # Assign / Unassign
@@ -639,8 +625,7 @@ def email_assign(recipient_id: int, template: str, role: str):
     require_report_type(template)
     from workmain.database.repositories.system_state_repository import SystemStateRepository
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         active_client_id = SystemStateRepository(session).get_int('active_client_id')
         repo = get_email_repository(session)
         recipient = repo.get_recipient_by_id(recipient_id)
@@ -653,8 +638,6 @@ def email_assign(recipient_id: int, template: str, role: str):
         console.print(
             f"\nAssigned: {recipient.email} -> {template} ({role.lower()}) [{scope}]\n"
         )
-    finally:
-        session.close()
 
 
 @email.command('unassign')
@@ -675,8 +658,7 @@ def email_unassign(recipient_id: int, template: str):
     require_report_type(template)
     from workmain.database.repositories.system_state_repository import SystemStateRepository
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         active_client_id = SystemStateRepository(session).get_int('active_client_id')
         repo = get_email_repository(session)
         recipient = repo.get_recipient_by_id(recipient_id)
@@ -688,8 +670,6 @@ def email_unassign(recipient_id: int, template: str):
         console.print(
             f"\nUnassigned: {recipient.email} from {template}\n"
         )
-    finally:
-        session.close()
 
 
 __all__ = ['email']

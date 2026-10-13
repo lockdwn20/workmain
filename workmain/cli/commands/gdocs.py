@@ -261,8 +261,7 @@ def gdocs_status():
 
     # Recent uploads
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         repo = GDriveRepository(session)
         recent = repo.get_recent_uploads(limit=5)
         console.print()
@@ -274,8 +273,6 @@ def gdocs_status():
                 )
         else:
             console.print("  [dim](none yet)[/dim]")
-    finally:
-        session.close()
 
     console.print()
 
@@ -321,70 +318,68 @@ def gdocs_upload_notes(date_str: Optional[str], dry_run: bool, force: bool):
     local_path  = _STAGING_NOTES / filename
 
     db = get_db()
-    session = db.get_session()
     try:
-        gdrive_repo = GDriveRepository(session)
+        with db.session_scope() as session:
+            gdrive_repo = GDriveRepository(session)
 
-        # Duplicate protection
-        if not force and gdrive_repo.already_uploaded(filename, target_date, "notes"):
-            console.print(
-                f"\n[yellow]⚠ Notes for {target_date} already uploaded.[/yellow] "
-                "Use [bold]--force[/bold] to overwrite.\n"
+            # Duplicate protection
+            if not force and gdrive_repo.already_uploaded(filename, target_date, "notes"):
+                console.print(
+                    f"\n[yellow]⚠ Notes for {target_date} already uploaded.[/yellow] "
+                    "Use [bold]--force[/bold] to overwrite.\n"
+                )
+                return
+
+            # Fetch notes from DB
+            notes_repo = NotesRepository(session)
+            notes = notes_repo.get_by_date(target_date)
+
+            root_name = os.environ.get("GDRIVE_TIMECARDS_ROOT", "Timecards")
+
+            if dry_run:
+                console.print(f"\n[dim][DRY RUN] Notes for {target_date}: {len(notes)} note(s)[/dim]")
+                console.print(f"[dim][DRY RUN] Would write: {local_path}[/dim]")
+                console.print(
+                    f"[dim][DRY RUN] Would upload: {filename} "
+                    f"→ {root_name}/{period}/Raw_Notes/[/dim]\n"
+                )
+                return
+
+            # Format markdown
+            content = _format_notes_markdown(notes, target_date)
+
+            # Write to staging
+            _STAGING_NOTES.mkdir(parents=True, exist_ok=True)
+            local_path.write_text(content, encoding="utf-8")
+
+            # Upload
+            client = _get_client()
+            folder_ids = client.ensure_period_structure(period)
+            drive_file_id = client.upload_file(
+                local_path=local_path,
+                folder_id=folder_ids["Raw_Notes"],
+                filename=filename,
+                mime_type="text/markdown",
             )
-            return
 
-        # Fetch notes from DB
-        notes_repo = NotesRepository(session)
-        notes = notes_repo.get_by_date(target_date)
-
-        root_name = os.environ.get("GDRIVE_TIMECARDS_ROOT", "Timecards")
-
-        if dry_run:
-            console.print(f"\n[dim][DRY RUN] Notes for {target_date}: {len(notes)} note(s)[/dim]")
-            console.print(f"[dim][DRY RUN] Would write: {local_path}[/dim]")
-            console.print(
-                f"[dim][DRY RUN] Would upload: {filename} "
-                f"→ {root_name}/{period}/Raw_Notes/[/dim]\n"
+            # Record in DB
+            gdrive_repo.record_upload(
+                local_path=str(local_path),
+                drive_file_id=drive_file_id,
+                drive_folder_id=folder_ids["Raw_Notes"],
+                filename=filename,
+                upload_type="notes",
+                upload_date=target_date,
             )
-            return
 
-        # Format markdown
-        content = _format_notes_markdown(notes, target_date)
-
-        # Write to staging
-        _STAGING_NOTES.mkdir(parents=True, exist_ok=True)
-        local_path.write_text(content, encoding="utf-8")
-
-        # Upload
-        client = _get_client()
-        folder_ids = client.ensure_period_structure(period)
-        drive_file_id = client.upload_file(
-            local_path=local_path,
-            folder_id=folder_ids["Raw_Notes"],
-            filename=filename,
-            mime_type="text/markdown",
-        )
-
-        # Record in DB
-        gdrive_repo.record_upload(
-            local_path=str(local_path),
-            drive_file_id=drive_file_id,
-            drive_folder_id=folder_ids["Raw_Notes"],
-            filename=filename,
-            upload_type="notes",
-            upload_date=target_date,
-        )
-
-        console.print(
-            f"\n[green]✓ Uploaded:[/green] {filename} "
-            f"→ {root_name}/{period}/Raw_Notes/\n"
-        )
+            console.print(
+                f"\n[green]✓ Uploaded:[/green] {filename} "
+                f"→ {root_name}/{period}/Raw_Notes/\n"
+            )
 
     except GDriveClientError as exc:
         console.print(f"\n[red]✗ Drive API error:[/red] {exc}. Check your connection and retry.\n")
         sys.exit(1)
-    finally:
-        session.close()
 
 
 @gdocs_upload.command("report")
@@ -437,45 +432,43 @@ def gdocs_upload_report(date_str: Optional[str], dry_run: bool, force: bool):
         sys.exit(1)
 
     db = get_db()
-    session = db.get_session()
     try:
-        gdrive_repo = GDriveRepository(session)
+        with db.session_scope() as session:
+            gdrive_repo = GDriveRepository(session)
 
-        if not force and gdrive_repo.already_uploaded(filename, target_date, "report"):
-            console.print(
-                f"\n[yellow]⚠ Report for {target_date} already uploaded.[/yellow] "
-                "Use [bold]--force[/bold] to overwrite.\n"
+            if not force and gdrive_repo.already_uploaded(filename, target_date, "report"):
+                console.print(
+                    f"\n[yellow]⚠ Report for {target_date} already uploaded.[/yellow] "
+                    "Use [bold]--force[/bold] to overwrite.\n"
+                )
+                return
+
+            client = _get_client()
+            folder_ids = client.ensure_period_structure(period)
+            drive_file_id = client.upload_file(
+                local_path=local_path,
+                folder_id=folder_ids["Reports"],
+                filename=filename,
+                mime_type="text/markdown",
             )
-            return
 
-        client = _get_client()
-        folder_ids = client.ensure_period_structure(period)
-        drive_file_id = client.upload_file(
-            local_path=local_path,
-            folder_id=folder_ids["Reports"],
-            filename=filename,
-            mime_type="text/markdown",
-        )
+            gdrive_repo.record_upload(
+                local_path=str(local_path),
+                drive_file_id=drive_file_id,
+                drive_folder_id=folder_ids["Reports"],
+                filename=filename,
+                upload_type="report",
+                upload_date=target_date,
+            )
 
-        gdrive_repo.record_upload(
-            local_path=str(local_path),
-            drive_file_id=drive_file_id,
-            drive_folder_id=folder_ids["Reports"],
-            filename=filename,
-            upload_type="report",
-            upload_date=target_date,
-        )
-
-        console.print(
-            f"\n[green]✓ Uploaded:[/green] {filename} "
-            f"→ {root_name}/{period}/Reports/\n"
-        )
+            console.print(
+                f"\n[green]✓ Uploaded:[/green] {filename} "
+                f"→ {root_name}/{period}/Reports/\n"
+            )
 
     except GDriveClientError as exc:
         console.print(f"\n[red]✗ Drive API error:[/red] {exc}. Check your connection and retry.\n")
         sys.exit(1)
-    finally:
-        session.close()
 
 
 @gdocs_upload.command("clockify")
@@ -525,45 +518,43 @@ def gdocs_upload_clockify(date_str: Optional[str], dry_run: bool, force: bool):
         sys.exit(1)
 
     db = get_db()
-    session = db.get_session()
     try:
-        gdrive_repo = GDriveRepository(session)
+        with db.session_scope() as session:
+            gdrive_repo = GDriveRepository(session)
 
-        if not force and gdrive_repo.already_uploaded(filename, target_date, "clockify"):
-            console.print(
-                f"\n[yellow]⚠ Clockify PDF for {target_date} already uploaded.[/yellow] "
-                "Use [bold]--force[/bold] to overwrite.\n"
+            if not force and gdrive_repo.already_uploaded(filename, target_date, "clockify"):
+                console.print(
+                    f"\n[yellow]⚠ Clockify PDF for {target_date} already uploaded.[/yellow] "
+                    "Use [bold]--force[/bold] to overwrite.\n"
+                )
+                return
+
+            client = _get_client()
+            folder_ids = client.ensure_period_structure(period)
+            drive_file_id = client.upload_file(
+                local_path=local_path,
+                folder_id=folder_ids["Clockify"],
+                filename=filename,
+                mime_type="application/pdf",
             )
-            return
 
-        client = _get_client()
-        folder_ids = client.ensure_period_structure(period)
-        drive_file_id = client.upload_file(
-            local_path=local_path,
-            folder_id=folder_ids["Clockify"],
-            filename=filename,
-            mime_type="application/pdf",
-        )
+            gdrive_repo.record_upload(
+                local_path=str(local_path),
+                drive_file_id=drive_file_id,
+                drive_folder_id=folder_ids["Clockify"],
+                filename=filename,
+                upload_type="clockify",
+                upload_date=target_date,
+            )
 
-        gdrive_repo.record_upload(
-            local_path=str(local_path),
-            drive_file_id=drive_file_id,
-            drive_folder_id=folder_ids["Clockify"],
-            filename=filename,
-            upload_type="clockify",
-            upload_date=target_date,
-        )
-
-        console.print(
-            f"\n[green]✓ Uploaded:[/green] {filename} "
-            f"→ {root_name}/{period}/Clockify/\n"
-        )
+            console.print(
+                f"\n[green]✓ Uploaded:[/green] {filename} "
+                f"→ {root_name}/{period}/Clockify/\n"
+            )
 
     except GDriveClientError as exc:
         console.print(f"\n[red]✗ Drive API error:[/red] {exc}. Check your connection and retry.\n")
         sys.exit(1)
-    finally:
-        session.close()
 
 
 @gdocs_upload.command("all")

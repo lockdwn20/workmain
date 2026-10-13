@@ -629,6 +629,7 @@ class TestAiCostService:
     ):
         """Two calls open two sessions through the module's get_db, closing each."""
         from unittest.mock import MagicMock
+        from workmain.database.connection import DatabaseConnection
         from workmain.services import ai_cost_service
         sessions = []
 
@@ -636,7 +637,9 @@ class TestAiCostService:
             session = MagicMock()
             session.refresh = lambda record: setattr(record, 'id', 41)
             sessions.append(session)
-            return MagicMock(get_session=lambda: session)
+            db = DatabaseConnection()
+            monkeypatch.setattr(db, 'get_session', lambda: session)
+            return db
 
         monkeypatch.setattr('workmain.services.ai_cost_service.get_db', fake_get_db)
 
@@ -649,5 +652,37 @@ class TestAiCostService:
         assert sessions[0] is not sessions[1]
         for session in sessions:
             session.add.assert_called_once()
-            session.commit.assert_called_once()
+            session.commit.assert_called()
             session.close.assert_called_once()
+
+    def test_record_reply_closes_its_session_when_create_raises(self, monkeypatch):
+        """A failed insert still closes the session record_reply opened."""
+        from workmain.database.connection import DatabaseConnection
+        from workmain.services import ai_cost_service
+
+        open_session = DatabaseConnection.get_session
+        closed = []
+
+        def tracked_session(self):
+            session = open_session(self)
+            close = session.close
+
+            def tracked_close():
+                closed.append(session)
+                close()
+
+            session.close = tracked_close
+            return session
+
+        def refuse(self, **kwargs):
+            raise RuntimeError("insert failed")
+
+        monkeypatch.setattr(DatabaseConnection, 'get_session', tracked_session)
+        monkeypatch.setattr(
+            'workmain.services.ai_cost_service.AiCostRepository.create', refuse
+        )
+
+        assert ai_cost_service.record_reply(
+            _reply(), 'intent_parse', refused=False, generation_time_s=0.1,
+        ) is None
+        assert len(closed) == 1

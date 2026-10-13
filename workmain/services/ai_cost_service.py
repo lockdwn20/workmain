@@ -40,32 +40,27 @@ def record_reply(
     Returns:
         The new row's id, or None when recording failed.
     """
-    session = None
     try:
-        db = get_db()
-        session = db.get_session()
-        row = AiCostRepository(session).create(
-            interaction_type=call_type,
-            provider=response.provider.value,
-            model=response.model,
-            prompt_tokens=response.prompt_tokens,
-            completion_tokens=response.completion_tokens,
-            thinking_tokens=response.thinking_tokens,
-            total_tokens=response.tokens_used,
-            cost_usd=response.cost,
-            refused=refused,
-            finish_reason=response.finish_reason,
-            generation_time_s=generation_time_s,
-            meeting_id=meeting_id,
-            context_label=context_label,
-        )
-        return row.id
+        with get_db().session_scope() as session:
+            row = AiCostRepository(session).create(
+                interaction_type=call_type,
+                provider=response.provider.value,
+                model=response.model,
+                prompt_tokens=response.prompt_tokens,
+                completion_tokens=response.completion_tokens,
+                thinking_tokens=response.thinking_tokens,
+                total_tokens=response.tokens_used,
+                cost_usd=response.cost,
+                refused=refused,
+                finish_reason=response.finish_reason,
+                generation_time_s=generation_time_s,
+                meeting_id=meeting_id,
+                context_label=context_label,
+            )
+            return row.id
     except Exception as e:
         logger.warning("Could not record AI cost for %s: %s", call_type, e)
         return None
-    finally:
-        if session is not None:
-            session.close()
 
 
 def link_report(cost_record_ids: List[int], report_id: int) -> None:
@@ -81,14 +76,9 @@ def link_report(cost_record_ids: List[int], report_id: int) -> None:
     """
     if not cost_record_ids:
         return None
-    session = None
     try:
-        db = get_db()
-        session = db.get_session()
-        AiCostRepository(session).link_report(cost_record_ids, report_id)
+        with get_db().session_scope() as session:
+            AiCostRepository(session).link_report(cost_record_ids, report_id)
     except Exception as e:
         logger.warning("Could not link AI cost rows to report %s: %s", report_id, e)
-    finally:
-        if session is not None:
-            session.close()
     return None

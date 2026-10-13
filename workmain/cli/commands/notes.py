@@ -254,10 +254,9 @@ def notes_add(text: Optional[str], tags: Optional[str], meeting: Optional[str],
       workmain notes add -m  (interactive picker)
     """
     db = get_db()
-    session = db.get_session()
-    meetings_repo = MeetingsRepository(session)
+    with db.session_scope() as session:
+        meetings_repo = MeetingsRepository(session)
 
-    try:
         # Get meeting ID if specified
         meeting_id = None
         if meeting == '':  # --meeting with no value = interactive
@@ -364,9 +363,6 @@ def notes_add(text: Optional[str], tags: Optional[str], meeting: Optional[str],
 
                 click.echo(f"✓ Time entry created: {meeting_duration:.2f}h - {time_description}")
 
-    finally:
-        session.close()
-
 
 @notes.command('edit')
 @click.argument('identifier')
@@ -388,11 +384,10 @@ def notes_edit(identifier: str, content: Optional[str], tags: Optional[str],
       workmain notes edit 5 -m 42
     """
     db = get_db()
-    session = db.get_session()
-    notes_repo = NotesRepository(session)
-    meetings_repo = MeetingsRepository(session)
+    with db.session_scope() as session:
+        notes_repo = NotesRepository(session)
+        meetings_repo = MeetingsRepository(session)
 
-    try:
         note = _resolve_note(identifier, notes_repo)
         if not note:
             return
@@ -446,9 +441,6 @@ def notes_edit(identifier: str, content: Optional[str], tags: Optional[str],
         else:
             click.echo(f"✗ Update failed")
 
-    finally:
-        session.close()
-
 
 @notes.command('delete')
 @click.argument('identifier')
@@ -462,10 +454,9 @@ def notes_delete(identifier: str):
       workmain notes delete "security review"
     """
     db = get_db()
-    session = db.get_session()
-    notes_repo = NotesRepository(session)
+    with db.session_scope() as session:
+        notes_repo = NotesRepository(session)
 
-    try:
         note = _resolve_note(identifier, notes_repo)
         if not note:
             return
@@ -496,9 +487,6 @@ def notes_delete(identifier: str):
         else:
             click.echo(f"✗ Delete failed")
 
-    finally:
-        session.close()
-
 
 @notes.command('log')
 @click.option('--meeting', '-m', required=True, help='Meeting title (fuzzy match)')
@@ -517,210 +505,207 @@ def notes_log(meeting: str):
       workmain notes log -m "Daily Standup"
     """
     db = get_db()
-    session = db.get_session()
-    meetings_repo = MeetingsRepository(session)
-
     try:
-        # Resolve meeting by ID or fuzzy title match (Item 26 Direction B fix)
-        meeting_obj = None
+        with db.session_scope() as session:
+            meetings_repo = MeetingsRepository(session)
 
-        if meeting.isdigit():
-            meeting_obj = meetings_repo.get_by_id(int(meeting))
-            if not meeting_obj:
-                click.echo(f"\n✗ No meeting found with ID {meeting}")
-                return
-        else:
-            matches = meetings_repo.fuzzy_match(meeting, threshold=0.6)
+            # Resolve meeting by ID or fuzzy title match (Item 26 Direction B fix)
+            meeting_obj = None
 
-            if not matches:
-                click.echo(f"\n✗ Meeting not found: '{meeting}'")
-                click.echo()
-                click.echo("To create this meeting first:")
-                click.echo(f"  workmain meetings create \"{meeting}\" -b HH:MM -e HH:MM")
-                click.echo()
-                return
-
-            if len(matches) == 1:
-                meeting_obj, score = matches[0]
-                if score < 0.95:
-                    click.echo(f"\nFound similar meeting: {meeting_obj.title}")
-                    if not click.confirm("Use this meeting?", default=True):
-                        click.echo("Cancelled.")
-                        return
+            if meeting.isdigit():
+                meeting_obj = meetings_repo.get_by_id(int(meeting))
+                if not meeting_obj:
+                    click.echo(f"\n✗ No meeting found with ID {meeting}")
+                    return
             else:
-                # Multiple matches — show date to distinguish recurring meetings
-                today = datetime.now().date()
-                click.echo(f"\nMultiple meetings found:")
-                for i, (m, score) in enumerate(matches[:5], 1):
-                    note_count = meetings_repo.get_note_count(m.id)
-                    meeting_date = m.start_time.strftime('%Y-%m-%d %H:%M') if m.start_time else "No date"
-                    is_today = m.start_time.date() == today if m.start_time else False
-                    today_marker = " ← Today" if is_today else ""
-                    click.echo(f"  {i}. {m.title} ({meeting_date}, {note_count} notes, {score*100:.0f}% match){today_marker}")
+                matches = meetings_repo.fuzzy_match(meeting, threshold=0.6)
 
-                choice = click.prompt("\nSelect meeting [1-5, or 0 to cancel]", type=int, default=1)
-                if choice == 0 or choice > len(matches):
-                    click.echo("Cancelled.")
+                if not matches:
+                    click.echo(f"\n✗ Meeting not found: '{meeting}'")
+                    click.echo()
+                    click.echo("To create this meeting first:")
+                    click.echo(f"  workmain meetings create \"{meeting}\" -b HH:MM -e HH:MM")
+                    click.echo()
                     return
 
-                meeting_obj, _ = matches[choice - 1]
+                if len(matches) == 1:
+                    meeting_obj, score = matches[0]
+                    if score < 0.95:
+                        click.echo(f"\nFound similar meeting: {meeting_obj.title}")
+                        if not click.confirm("Use this meeting?", default=True):
+                            click.echo("Cancelled.")
+                            return
+                else:
+                    # Multiple matches — show date to distinguish recurring meetings
+                    today = datetime.now().date()
+                    click.echo(f"\nMultiple meetings found:")
+                    for i, (m, score) in enumerate(matches[:5], 1):
+                        note_count = meetings_repo.get_note_count(m.id)
+                        meeting_date = m.start_time.strftime('%Y-%m-%d %H:%M') if m.start_time else "No date"
+                        is_today = m.start_time.date() == today if m.start_time else False
+                        today_marker = " ← Today" if is_today else ""
+                        click.echo(f"  {i}. {m.title} ({meeting_date}, {note_count} notes, {score*100:.0f}% match){today_marker}")
 
-        # Get bulk input
-        click.echo(f"\nAdding notes to meeting: {meeting_obj.title}")
-        click.echo()
+                    choice = click.prompt("\nSelect meeting [1-5, or 0 to cancel]", type=int, default=1)
+                    if choice == 0 or choice > len(matches):
+                        click.echo("Cancelled.")
+                        return
 
-        # Check for $EDITOR environment variable
-        editor = os.environ.get('EDITOR')
-        notes_text = None
+                    meeting_obj, _ = matches[choice - 1]
 
-        if editor:
-            click.echo(f"Opening editor: {editor}")
-            click.echo("Enter notes (one per line), save and close to continue")
+            # Get bulk input
+            click.echo(f"\nAdding notes to meeting: {meeting_obj.title}")
             click.echo()
 
-            with tempfile.NamedTemporaryFile(mode='w+', suffix='.txt', delete=False) as tf:
-                temp_path = tf.name
-                tf.write("# Enter notes below (one per line)\n")
-                tf.write("# Lines starting with # are ignored\n")
-                tf.write("# Add tags with #ilo #cf etc.\n")
-                tf.write("#\n")
+            # Check for $EDITOR environment variable
+            editor = os.environ.get('EDITOR')
+            notes_text = None
 
-            try:
-                subprocess.call([editor, temp_path])
+            if editor:
+                click.echo(f"Opening editor: {editor}")
+                click.echo("Enter notes (one per line), save and close to continue")
+                click.echo()
 
-                with open(temp_path, 'r') as f:
-                    lines = f.readlines()
-
-                notes_text = '\n'.join([
-                    line.strip()
-                    for line in lines
-                    if line.strip() and not line.strip().startswith('#')
-                ])
-
-            finally:
-                os.unlink(temp_path)
-
-        else:
-            click.echo("Enter notes (one per line)")
-            click.echo("Add tags inline: Fixed bug #ilo #cf")
-            click.echo("Press Enter on blank line to finish")
-            click.echo()
-
-            lines = []
-            while True:
-                line = click.prompt("", default="", show_default=False)
-                if not line.strip():
-                    break
-                lines.append(line)
-
-            notes_text = '\n'.join(lines)
-
-        # Parse and create notes (if any were entered)
-        note_lines = []
-        if notes_text and notes_text.strip():
-            note_lines = [line.strip() for line in notes_text.split('\n') if line.strip()]
-
-        created_count = 0
-        if note_lines:
-            click.echo()
-            click.echo(f"Creating {len(note_lines)} note(s)...")
-            click.echo()
-
-            for line in note_lines:
-                clean_text, note_tags, invalid = parse_tags(line, apply_default=True)
-
-                if invalid:
-                    click.echo(f"  ⚠️  Invalid tags in: {line[:50]}...")
-                    click.echo(f"      Ignored: {', '.join(invalid)}")
+                with tempfile.NamedTemporaryFile(mode='w+', suffix='.txt', delete=False) as tf:
+                    temp_path = tf.name
+                    tf.write("# Enter notes below (one per line)\n")
+                    tf.write("# Lines starting with # are ignored\n")
+                    tf.write("# Add tags with #ilo #cf etc.\n")
+                    tf.write("#\n")
 
                 try:
-                    note = notes_service.create_note(
+                    subprocess.call([editor, temp_path])
+
+                    with open(temp_path, 'r') as f:
+                        lines = f.readlines()
+
+                    notes_text = '\n'.join([
+                        line.strip()
+                        for line in lines
+                        if line.strip() and not line.strip().startswith('#')
+                    ])
+
+                finally:
+                    os.unlink(temp_path)
+
+            else:
+                click.echo("Enter notes (one per line)")
+                click.echo("Add tags inline: Fixed bug #ilo #cf")
+                click.echo("Press Enter on blank line to finish")
+                click.echo()
+
+                lines = []
+                while True:
+                    line = click.prompt("", default="", show_default=False)
+                    if not line.strip():
+                        break
+                    lines.append(line)
+
+                notes_text = '\n'.join(lines)
+
+            # Parse and create notes (if any were entered)
+            note_lines = []
+            if notes_text and notes_text.strip():
+                note_lines = [line.strip() for line in notes_text.split('\n') if line.strip()]
+
+            created_count = 0
+            if note_lines:
+                click.echo()
+                click.echo(f"Creating {len(note_lines)} note(s)...")
+                click.echo()
+
+                for line in note_lines:
+                    clean_text, note_tags, invalid = parse_tags(line, apply_default=True)
+
+                    if invalid:
+                        click.echo(f"  ⚠️  Invalid tags in: {line[:50]}...")
+                        click.echo(f"      Ignored: {', '.join(invalid)}")
+
+                    try:
+                        note = notes_service.create_note(
+                            session,
+                            content=clean_text,
+                            tags=note_tags or ['internal-only'],
+                            source='meeting',
+                            meeting_id=meeting_obj.id,
+                        )
+                        created_count += 1
+                        click.echo(f"  ✓ {note.display_tags} {clean_text[:60]}")
+
+                    except Exception as e:
+                        click.echo(f"  ✗ Failed: {line[:50]}... ({e})")
+
+                click.echo()
+                click.echo(f"✓ Created {created_count} of {len(note_lines)} note(s)")
+                click.echo()
+            else:
+                click.echo("\nNo notes entered.")
+                click.echo()
+
+            # Prompt to condense notes and create time entry
+            # When no notes or only #ifo notes, condensation produces "Attended <meeting>"
+            if click.confirm("Condense notes and create time entry?", default=True):
+                try:
+                    from workmain.ai.note_condenser import get_note_condenser
+                    from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+
+                    from workmain.ai.provider_manager import get_provider_manager
+                    _rc = get_provider_manager().get_report_config('note_condensation')
+                    _provider_display = _rc.primary_provider.value.capitalize() if _rc else 'AI'
+                    click.echo(f"\nSending to {_provider_display}...")
+                    condenser = get_note_condenser(session)
+                    summary, resolved_tags, notice, _ = condenser.condense_meeting(meeting_obj)
+                    click.echo(f"✓ Condensed: \"{summary}\"")
+                    if notice:
+                        click.echo(f"⚠ {notice.message}")
+
+                    # Create note from condensed summary
+                    condensed_note = notes_service.create_note(
                         session,
-                        content=clean_text,
-                        tags=note_tags or ['internal-only'],
-                        source='meeting',
+                        content=summary,
+                        tags=resolved_tags,
                         meeting_id=meeting_obj.id,
+                        source='condensed',
                     )
-                    created_count += 1
-                    click.echo(f"  ✓ {note.display_tags} {clean_text[:60]}")
+                    click.echo(f"✓ Note created (ID: {condensed_note.id})")
+
+                    # Update or create time entry
+                    time_repo = TimeEntriesRepository(session)
+                    existing = time_repo.get_by_meeting(meeting_obj.id)
+                    meeting_date = meeting_obj.start_time.date()
+                    existing_today = [e for e in existing if e.entry_date == meeting_date]
+
+                    if existing_today:
+                        entry = existing_today[0]
+                        entry.note_id = condensed_note.id
+                        session.commit()
+                        click.echo(f"✓ Time entry (ID: {entry.id}) linked to condensed note")
+                    else:
+                        duration_hours = (
+                            meeting_obj.end_time - meeting_obj.start_time
+                        ).total_seconds() / 3600
+
+                        entry = time_entry_service.create_paired_time_entry(
+                            session,
+                            condensed_note,
+                            duration_hours=duration_hours,
+                            entry_date=meeting_obj.start_time.date(),
+                            entry_time=meeting_obj.start_time.time(),
+                            category='meeting',
+                        )
+                        click.echo(f"✓ Time entry created (ID: {entry.id}, {duration_hours:.2f}h)")
+
+                    click.echo()
 
                 except Exception as e:
-                    click.echo(f"  ✗ Failed: {line[:50]}... ({e})")
-
-            click.echo()
-            click.echo(f"✓ Created {created_count} of {len(note_lines)} note(s)")
-            click.echo()
-        else:
-            click.echo("\nNo notes entered.")
-            click.echo()
-
-        # Prompt to condense notes and create time entry
-        # When no notes or only #ifo notes, condensation produces "Attended <meeting>"
-        if click.confirm("Condense notes and create time entry?", default=True):
-            try:
-                from workmain.ai.note_condenser import get_note_condenser
-                from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
-
-                from workmain.ai.provider_manager import get_provider_manager
-                _rc = get_provider_manager().get_report_config('note_condensation')
-                _provider_display = _rc.primary_provider.value.capitalize() if _rc else 'AI'
-                click.echo(f"\nSending to {_provider_display}...")
-                condenser = get_note_condenser(session)
-                summary, resolved_tags, notice, _ = condenser.condense_meeting(meeting_obj)
-                click.echo(f"✓ Condensed: \"{summary}\"")
-                if notice:
-                    click.echo(f"⚠ {notice.message}")
-
-                # Create note from condensed summary
-                condensed_note = notes_service.create_note(
-                    session,
-                    content=summary,
-                    tags=resolved_tags,
-                    meeting_id=meeting_obj.id,
-                    source='condensed',
-                )
-                click.echo(f"✓ Note created (ID: {condensed_note.id})")
-
-                # Update or create time entry
-                time_repo = TimeEntriesRepository(session)
-                existing = time_repo.get_by_meeting(meeting_obj.id)
-                meeting_date = meeting_obj.start_time.date()
-                existing_today = [e for e in existing if e.entry_date == meeting_date]
-
-                if existing_today:
-                    entry = existing_today[0]
-                    entry.note_id = condensed_note.id
-                    session.commit()
-                    click.echo(f"✓ Time entry (ID: {entry.id}) linked to condensed note")
-                else:
-                    duration_hours = (
-                        meeting_obj.end_time - meeting_obj.start_time
-                    ).total_seconds() / 3600
-
-                    entry = time_entry_service.create_paired_time_entry(
-                        session,
-                        condensed_note,
-                        duration_hours=duration_hours,
-                        entry_date=meeting_obj.start_time.date(),
-                        entry_time=meeting_obj.start_time.time(),
-                        category='meeting',
-                    )
-                    click.echo(f"✓ Time entry created (ID: {entry.id}, {duration_hours:.2f}h)")
-
-                click.echo()
-
-            except Exception as e:
-                click.echo(f"\n✗ Condensation failed: {e}")
-                click.echo("You can condense later with:")
-                click.echo(f"  workmain meetings condense \"{meeting_obj.title}\"")
-                click.echo()
+                    click.echo(f"\n✗ Condensation failed: {e}")
+                    click.echo("You can condense later with:")
+                    click.echo(f"  workmain meetings condense \"{meeting_obj.title}\"")
+                    click.echo()
 
     except Exception as e:
         click.echo(f"\n✗ Error: {e}")
         click.echo()
-
-    finally:
-        session.close()
 
 
 @notes.command('list')
@@ -759,11 +744,10 @@ def notes_list(date_str: Optional[str], meeting_str: Optional[str], search: Opti
         history = False
 
     db = get_db()
-    session = db.get_session()
-    notes_repo = NotesRepository(session)
-    meetings_repo = MeetingsRepository(session)
+    with db.session_scope() as session:
+        notes_repo = NotesRepository(session)
+        meetings_repo = MeetingsRepository(session)
 
-    try:
         # Parse date filter
         date_filter = None
         if date_str:
@@ -848,9 +832,6 @@ def notes_list(date_str: Optional[str], meeting_str: Optional[str], search: Opti
             click.echo(format_note_display(note, show_id=show_ids))
             click.echo("-" * 60)
 
-    finally:
-        session.close()
-
 
 @notes.command('show')
 @click.argument('identifier')
@@ -864,10 +845,9 @@ def notes_show(identifier: str):
       workmain notes show "security review"
     """
     db = get_db()
-    session = db.get_session()
-    notes_repo = NotesRepository(session)
+    with db.session_scope() as session:
+        notes_repo = NotesRepository(session)
 
-    try:
         note = _resolve_note(identifier, notes_repo)
         if not note:
             return
@@ -891,9 +871,6 @@ def notes_show(identifier: str):
         console.print(f"Source:     {source}")
         console.print()
 
-    finally:
-        session.close()
-
 
 @notes.command('today')
 @click.option('--tags', '-t', help='Filter by tags (comma-separated: ilo,cf or "#ilo #cf")')
@@ -910,10 +887,9 @@ def notes_today(tags: Optional[str], search: Optional[str]):
       workmain notes today -s "security"
     """
     db = get_db()
-    session = db.get_session()
-    notes_repo = NotesRepository(session)
+    with db.session_scope() as session:
+        notes_repo = NotesRepository(session)
 
-    try:
         include_tags = None
         if tags:
             if '#' not in tags:
@@ -939,9 +915,6 @@ def notes_today(tags: Optional[str], search: Optional[str]):
         for note in note_list:
             click.echo(format_note_display(note))
             click.echo("-" * 60)
-
-    finally:
-        session.close()
 
 
 @notes.command('date')
@@ -1048,28 +1021,24 @@ def notes_costs(
         return
 
     db = get_db()
-    session = db.get_session()
-
     try:
-        repo = get_ai_cost_repository(session)
-        render_condensation_costs(
-            console, repo,
-            provider=provider_type.value if provider_type else None,
-            start_date=start_date,
-            end_date=end_date,
-            limit=limit,
-            label=format_date_window_label(start_date, end_date),
-            title="Note Condensation Costs",
-            detail_heading="Condensation Detail",
-            filters=[f"Provider: {provider}"] if provider else [],
-        )
+        with db.session_scope() as session:
+            repo = get_ai_cost_repository(session)
+            render_condensation_costs(
+                console, repo,
+                provider=provider_type.value if provider_type else None,
+                start_date=start_date,
+                end_date=end_date,
+                limit=limit,
+                label=format_date_window_label(start_date, end_date),
+                title="Note Condensation Costs",
+                detail_heading="Condensation Detail",
+                filters=[f"Provider: {provider}"] if provider else [],
+            )
 
     except Exception as e:
         console.print(f"[red]✗ Failed to get costs: {e}[/red]")
         console.print()
-
-    finally:
-        session.close()
 
 
 # Export command group

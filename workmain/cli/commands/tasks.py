@@ -178,8 +178,7 @@ def task_list(status_filter: str, show_all: bool, search: Optional[str],
     effective_limit = 0 if show_all else limit
 
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         repo = TaskStatusRepository(session)
         total_count = repo.count_filtered(
             status=status_filter,
@@ -243,9 +242,6 @@ def task_list(status_filter: str, show_all: bool, search: Optional[str],
         console.print(table)
         console.print()
 
-    finally:
-        session.close()
-
 
 # ---------------------------------------------------------------------------
 # tasks today
@@ -263,8 +259,7 @@ def task_today(search: Optional[str]):
       workmain tasks today --search "splunk"
     """
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         repo = TaskStatusRepository(session)
         today = datetime.now().date()
         tasks_result = repo.get_filtered(
@@ -287,9 +282,6 @@ def task_today(search: Optional[str]):
                 console.print(f"  Tags: {format_tags_short(note.tags)}")
             console.print()
 
-    finally:
-        session.close()
-
 
 # ---------------------------------------------------------------------------
 # tasks show
@@ -309,8 +301,7 @@ def task_show(identifier: str):
       workmain tasks show "TheHive RQ"
     """
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         ts = _resolve_task(session, identifier)
         note = ts.note
 
@@ -331,9 +322,6 @@ def task_show(identifier: str):
         console.print(f"  {note.content}")
         console.print()
 
-    finally:
-        session.close()
-
 
 # ---------------------------------------------------------------------------
 # tasks complete
@@ -353,8 +341,7 @@ def task_complete(identifier: str):
       workmain tasks complete "TheHive RQ"
     """
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         ts = _resolve_task(session, identifier)
         note = ts.note
         repo = TaskStatusRepository(session)
@@ -362,9 +349,6 @@ def task_complete(identifier: str):
         session.commit()
         preview = note.content[:60] + "…" if len(note.content) > 60 else note.content
         console.print(f"[green]✓ Task marked complete:[/green] {preview}")
-
-    finally:
-        session.close()
 
 
 # ---------------------------------------------------------------------------
@@ -385,8 +369,7 @@ def task_dismiss(identifier: str):
       workmain tasks dismiss "ServiceNow ticket"
     """
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         ts = _resolve_task(session, identifier)
         note = ts.note
         repo = TaskStatusRepository(session)
@@ -394,9 +377,6 @@ def task_dismiss(identifier: str):
         session.commit()
         preview = note.content[:60] + "…" if len(note.content) > 60 else note.content
         console.print(f"[yellow]✓ Task dismissed:[/yellow] {preview}")
-
-    finally:
-        session.close()
 
 
 # Export command group

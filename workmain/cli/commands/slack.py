@@ -176,11 +176,8 @@ def slack_auth(reauth: bool):
     save_slack_config(cfg)
 
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         channel = _get_display_channel(session) or "(not set)"
-    finally:
-        session.close()
 
     console.print(f"\n[green]✓ Slack authenticated[/green]")
     console.print(f"  Workspace:       {info['team']}")
@@ -211,8 +208,7 @@ def slack_status():
         console.print("  Run: [bold]workmain slack setup[/bold]")
 
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         channel = _get_display_channel(session)
 
         from workmain.database.repositories.system_state_repository import SystemStateRepository
@@ -250,8 +246,6 @@ def slack_status():
                     ts_display,
                 )
             console.print(table)
-    finally:
-        session.close()
 
 
 # ---------------------------------------------------------------------------
@@ -281,8 +275,7 @@ def slack_set_channel(channel: str):
     channel = _normalize_channel(channel)
 
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         from workmain.database.repositories.system_state_repository import SystemStateRepository
         from workmain.database.repositories.client_repository import ClientRepository
         active_client_id = SystemStateRepository(session).get_int('active_client_id')
@@ -299,8 +292,6 @@ def slack_set_channel(channel: str):
             f"\n[green]✓[/green] Slack channel for '[bold]{client.name}[/bold]' "
             f"set to '[bold]{channel}[/bold]'."
         )
-    finally:
-        session.close()
 
 
 @slack_set.command("workspace")
@@ -398,11 +389,8 @@ def slack_setup():
 
     # Resolve channel via DB
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         channel = _get_display_channel(session)
-    finally:
-        session.close()
 
     if not token_present:
         # Nothing configured — show full instructions
@@ -527,11 +515,8 @@ def slack_post(
         target_channel = _normalize_channel(channel)
     else:
         db = get_db()
-        _ch_session = db.get_session()
-        try:
+        with db.session_scope() as _ch_session:
             target_channel = _resolve_slack_channel(_ch_session)
-        finally:
-            _ch_session.close()
 
         if not target_channel:
             console.print(
@@ -590,8 +575,7 @@ def slack_post(
     # the same row the review produced — no second upsert, no second row.
     # -----------------------------------------------------------------------
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         repo = get_reports_repository(session)
         reports = repo.list_reports(
             report_type='weekly_client',
@@ -648,5 +632,3 @@ def slack_post(
         console.print(f"  Period:     {monday_display} – {anchor_display}")
         console.print(f"  Timestamp:  {message_ts}")
         console.print("  Report record updated (reports table)")
-    finally:
-        session.close()
