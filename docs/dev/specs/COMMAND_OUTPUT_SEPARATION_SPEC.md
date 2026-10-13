@@ -33,6 +33,7 @@
 | 20261012 | Caliper | Removing `time`'s `-i`/`--show-ids` leaves §5.5's reserved row describing a flag nothing uses | Accepted. The time block also removes that §5.5 row, since `notes list --show-ids` has no short form. |
 | 20261012 | Caliper | #58's eager-loading check passes on eager loading in any method of `task_status_repo.py` | Accepted. The check is now a service test showing the number of statements `tasks list` runs does not grow with the number of tasks, which tests the path itself. |
 | 20261012 | Caliper | The pre-edit save and the duplicate search appear only in §7; Step 1 quotes only the first line of #58's body | Accepted. A new Step 0 does both before any write. Step 1 quotes #58's whole current body. |
+| 20261012 | Caliper | Clockify's C1 runs over `sync.py`, where `TimeEntriesRepository(session)` (line 57) is the intended access below the CLI and `query(Project)` (line 362) is #161's row; the cited `print()` lines stop at 259, but run to 293 | Accepted. Clockify's C1 is narrowed to `clockify.py`, and C2 covers both files. #161 keeps its row, and no link is added. The print range now reads `251–293`. |
 
 ---
 
@@ -260,7 +261,7 @@ Create the AI-costs and clockify issues first, because other groups are blocked 
 - Tests: `tests/test_clients_commands.py` runs all six commands (31 invocations). It is a plain pytest file that opens its own session through `get_db()`. It commits changes to the live active client and `system_state.active_client_id` inside the test transaction.
 - Overlaps: none.
 
-**clockify** — title: `The clockify commands query, decide and print in one function; move the deciding into a service and the printing into the output module`. Area label `clockify`. Files: `workmain/cli/commands/clockify.py`, `workmain/integrations/clockify/sync.py`. Appendix A: `clockify.py`. Extra criteria: X-EOD.
+**clockify** — title: `The clockify commands query, decide and print in one function; move the deciding into a service and the printing into the output module`. Area label `clockify`. Files: `workmain/cli/commands/clockify.py`, `workmain/integrations/clockify/sync.py`. C1's `{files}` is `workmain/cli/commands/clockify.py` alone: `sync.py` sits below the CLI and reaches the database through its own `TimeEntriesRepository` (`sync.py:57`), and its `Project` query (`sync.py:362`, `_get_clockify_project_id`) is #161's. C2's `{files}` is both files. Appendix A: `clockify.py`. Extra criteria: X-EOD.
 
 - Tests: `tests/test_clockify.py` runs `clockify report save` (3), and patches `clockify.ClockifyClient` and `clockify._CLOCKIFY_DIR`. `tests/test_clockify_sync.py` tests `ClockifySync` directly. No test runs `status` or `sync`.
 - Overlaps:
@@ -271,7 +272,7 @@ Create the AI-costs and clockify issues first, because other groups are blocked 
   - The sync step runs `clockify sync push` (`workmain/workflows/eod_workflow.py` `run_workmain(['clockify', 'sync', 'push'], …)`, and its retry).
   - The Clockify step runs `clockify report save daily …` (`cmd_args = ['clockify', 'report', 'save', 'daily', …]`, and its retry).
 - Also in scope:
-  - `ClockifySync` asks the user about conflicts with raw `input()` and `click.prompt` (`workmain/integrations/clockify/sync.py:284,328`), and prints progress with `print()` (`sync.py:87,114,125,195,251–259`), below the command. The questions move into the command, and the progress lines into the output module, with plan and apply calls (§5.6, the shared picker).
+  - `ClockifySync` asks the user about conflicts with raw `input()` and `click.prompt` (`workmain/integrations/clockify/sync.py:284,328`), and prints progress and the conflict display with `print()` (`sync.py:87,114,125,195,251–293`), below the command. The questions move into the command, and the progress lines into the output module, with plan and apply calls (§5.6, the shared picker).
   - Its call sites are this issue's: the three `clockify sync` commands, `time add`'s push (`workmain/cli/commands/time.py:351–352`, `push_entries(entries=[entry], interactive=True)`), and `tests/test_clockify_sync.py` (seven constructions, and `pull_entries(…, interactive=False)`). The time conversion is blocked by this issue, so `time add` moves to the new calls when it converts, and this issue keeps `time add` working on them meanwhile.
 
 **email** — title: `The email commands query, decide and print in one function; move the deciding into a service and the printing into the output module`. Area label `reports`. Files: `workmain/cli/commands/email.py`. Appendix A: `email.py`. Blocked by: `58`, `104`. Extra criteria: X-EOD.
