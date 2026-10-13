@@ -25,6 +25,8 @@
 | 20261013 | Caliper | §2's list of sites with their own `except` clauses names `eod_workflow.py` 971, which has none, and omits 1002, which has one. Study F4 and F6 cite the same wrong line | Accepted. The census paired each open with the first `try` at or after it, which is wrong in a function with four sessions. It was re-run, pairing each open with the `try` that follows it in the same block. §2 now reads 1002, as do study F4 and F6. The site count is unchanged at 41; the review's 45 counted others. |
 | 20261013 | Caliper | Step 3's §4.1 "only `session_scope()` calls it" contradicts `tests/conftest.py`'s `db_session` and §6.1 | Accepted, with the review's wording. |
 | 20261013 | Caliper | Step 3's §4.1 bullet names only `SystemExit`; `KeyboardInterrupt` takes the same path | Accepted, with the review's wording. |
+| 20261013 | Caliper | §7 and the Decision Log name `notes.py:647` as the only in-block handler that changes output. `notes.py:712`, around condensation in the same `notes_log` block, also catches database failures and carries on: from `notes_service.create_note`, the `session.commit()` that links the time entry, and `time_entry_service.create_paired_time_entry`. Under the scope, the exit commit then raises, and the outer handler prints an extra `✗ Error:` line after `✗ Condensation failed`. Ray's settlement of 647 doesn't cover a failure that starts in condensation | |
+| 20261013 | Caliper | `ai_cost_service.link_report` opens its own session inside a service for a write that isn't an outside action, which Step 3's §4.1 text forbids. No issue owns the fix. Its only caller, `workmain/ai/report_generator.py:176-188`, creates the report in the command's session and then calls `link_report`. Once #96 removes repository commits, `link_report`'s separate session writes a foreign key to an uncommitted report row; that fails, and `ai_cost_service.py:89-90` logs it as a warning | |
 | 20261013 | Caliper | AC1.4 checks DR2 at one site of the 41 | Accepted. AC1.4 adds the DR2 placement check in §5, keyed to every listed site by file, function and position. Ending-in-a-`try` was rejected as the test: `meetings.py:834` and `reports.py:623` legitimately end their body that way. |
 
 ---
@@ -47,6 +49,11 @@
 - **`_get_draft_recipients`' optional-session shape** (study F11). It is a CLI helper, not a service. Its own `get_session()` site is converted like every other.
 - **Tests that open their own session.** `tests/conftest.py` `db_session`, `tests/test_meetings_condense.py` and `tests/test_ai_arguments.py` are test code, which §6.1 and #198 govern.
 - **`connection.py`.** `session_scope()` and the session factory are unchanged.
+- **Recovering from a database failure inside a scope.** Three handlers catch a database failure inside a session and carry on: `notes.py:647` (per-line note creation in `notes_log`), `notes.py:712` (condensation in `notes_log`) and `eod_workflow.py:612` (`set_forwarding_note` in `_run_task_match_step`). Separately, `ai_cost_service.link_report` opens its own session for a write that isn't an outside action. These sites stay as they are under DR3. Where the fix goes is open in the Decision Log. The fix, wherever it goes:
+  - Wrap the database work each of the three handlers guards in `session.begin_nested()`, so a failure rolls back only to that savepoint and the rest of the command's unit of work continues.
+  - Change `link_report` to take the caller's session, so the link commits or rolls back with the report it links, and keep its log-and-continue behind a savepoint.
+  - It is blocked by #96: while repositories commit for themselves, a savepoint can't contain a failure (§2).
+  - Until it ships, `link_report` contradicts the §4.1 rule Step 3 writes, as the service commits #96 removes do.
 
 ## 2. Verified current state
 
@@ -66,6 +73,7 @@
 | Test call sites of the `get_session` contract, found by `grep -rnE "get_session(\.return_value\| *=\|\.side_effect)" tests/`. Stubs that hand in `db_session` | `tests/test_eod_workflow.py` 296, 325, 351, 376, 405, 430, 466, 507, 520, 556, 605, 638, 677, 705, 727, 769, 789, 816, 835, 857, 879. Each comes with a `patch('workmain.workflows.eod_workflow.get_db') as mock_get_db` that has no other use. In a prototype, removing all 21 left the file's results unchanged |
 | The same search: stubs that hand in a `MagicMock` | `tests/test_orchestration.py` 347, 391, 439, 505, 520, 539, 596, 624, 664, 687, 702, 940, 982, 1030, 1103, 1163, 1203, 1362; `tests/test_eod_task_matching.py` 215, 229, 276; `tests/test_gdrive.py` 243; `tests/test_provider_foundation.py` 500; `tests/test_ai_costs.py` 639 (a `MagicMock(get_session=...)` stand-in) |
 | `click.exceptions.Exit` and `click.Abort` subclass `RuntimeError` (click 8.1.7), so a scope rolls back on them. `SystemExit` skips both commit and rollback | `python -c "import click.exceptions as e; print(e.Exit.__mro__)"` |
+| While repositories commit for themselves, a savepoint can't contain a failure. A `session.commit()` inside `session.begin_nested()` commits the whole transaction, and the session leaves its transaction (`in_transaction()` is `False` afterwards). A failing statement inside `begin_nested()` with no commit rolls back to the savepoint, and the session stays usable. Observed against PostgreSQL inside the test fixture | probe, 20261013 |
 | §4.1 names the class `Database` and shows the hand-written pattern. §4.2 limits its rule to relationships in daemon code | `docs/DEVELOPMENT_STANDARDS.md` §4.1, §4.2 |
 
 ## 3. Design rules
@@ -470,6 +478,6 @@ class TestStatusCommand:
 - **A missed read after the scope.** The census of reads after a block is an AST walk, matched by name. A missed site fails loudly with `DetachedInstanceError`, and only on a path the suite doesn't exercise.
 - **A write that `close()` discarded today is now committed.** The probe in study F12 found none, but it covers only the paths the suite exercises.
 - **Visible output changes.**
-  - `notes log`: after a database error, the scope's exit commit fails and the command's own handler prints one more `✗ Error` line.
+  - `notes log`: after a database error in per-line note creation (`notes.py:647`) or in condensation (`notes.py:712`), the scope's exit commit fails and the command's own handler prints one more `✗ Error` line.
   - `meetings create`: a failure in its `get_int('active_client_id')` read is now reported by the command's handler instead of a traceback (DR2).
 - **Rollback.** Each step is one commit. Reverting Step 2 or Step 1 restores that area's hand-written blocks and its tests together. Step 3 is documentation only.
