@@ -195,73 +195,69 @@ def _run_condense_step(dry_run: bool, target_date: date) -> EodStepResult:
         return EodStepResult(status=EodStepStatus.COMPLETED)
 
     db = get_db()
-    session = db.get_session()
-
     try:
-        repo = MeetingsRepository(session)
-        today_meetings = repo.get_by_date(target_date)
+        with db.session_scope() as session:
+            repo = MeetingsRepository(session)
+            today_meetings = repo.get_by_date(target_date)
 
-        pending = []
-        for mtg in today_meetings:
-            mtg_date = mtg.start_time.date() if mtg.start_time else None
-            total_count = repo.get_note_count(mtg.id, exclude_ifo=False, meeting_date=mtg_date)
-            non_ifo_count = repo.get_note_count(mtg.id, meeting_date=mtg_date)
-            if total_count > 0 and not mtg.condensed_summary:
-                pending.append((mtg, total_count, non_ifo_count))
+            pending = []
+            for mtg in today_meetings:
+                mtg_date = mtg.start_time.date() if mtg.start_time else None
+                total_count = repo.get_note_count(mtg.id, exclude_ifo=False, meeting_date=mtg_date)
+                non_ifo_count = repo.get_note_count(mtg.id, meeting_date=mtg_date)
+                if total_count > 0 and not mtg.condensed_summary:
+                    pending.append((mtg, total_count, non_ifo_count))
 
-        if not pending:
-            print("  ✓ No pending meetings to condense")
-            return EodStepResult(status=EodStepStatus.COMPLETED)
+            if not pending:
+                print("  ✓ No pending meetings to condense")
+                return EodStepResult(status=EodStepStatus.COMPLETED)
 
-        print(f"  {len(pending)} meeting(s) with notes but no summary:")
-        for mtg, total_count, non_ifo_count in pending:
-            ifo_label = " (ifo-only → default summary)" if non_ifo_count == 0 else ""
-            print(f"    • (ID: {mtg.id}) {mtg.title} — {total_count} note(s){ifo_label}")
-        print()
+            print(f"  {len(pending)} meeting(s) with notes but no summary:")
+            for mtg, total_count, non_ifo_count in pending:
+                ifo_label = " (ifo-only → default summary)" if non_ifo_count == 0 else ""
+                print(f"    • (ID: {mtg.id}) {mtg.title} — {total_count} note(s){ifo_label}")
+            print()
 
-        failures = []
-        warnings = []
-        for mtg, total_count, non_ifo_count in pending:
-            print(f"  → {mtg.title}")
-            if _confirm(f"    Condense {total_count} note(s)?"):
-                run = run_workmain(
-                    ['meetings', 'condense', mtg.title],
-                    timeout=TIMEOUT_AI,
-                    capture=not _is_interactive(),
-                )
-                _echo_workmain(run, stdout=True)
-                if run.timed_out:
-                    return EodStepResult(
-                        status=EodStepStatus.FAILED,
-                        error=run.failure_message(f"Condensing '{mtg.title}'"),
+            failures = []
+            warnings = []
+            for mtg, total_count, non_ifo_count in pending:
+                print(f"  → {mtg.title}")
+                if _confirm(f"    Condense {total_count} note(s)?"):
+                    run = run_workmain(
+                        ['meetings', 'condense', mtg.title],
+                        timeout=TIMEOUT_AI,
+                        capture=not _is_interactive(),
                     )
-                if run.returncode != 0:
-                    print(f"  ⚠ Condensation returned non-zero for '{mtg.title}'")
-                    failures.append(run.failure_message(f"Condensing '{mtg.title}'"))
-                elif run.stderr.strip():
-                    warnings.append(f"'{mtg.title}': {run.stderr.strip()}")
-            else:
-                print(f"  Skipped: {mtg.title}")
+                    _echo_workmain(run, stdout=True)
+                    if run.timed_out:
+                        return EodStepResult(
+                            status=EodStepStatus.FAILED,
+                            error=run.failure_message(f"Condensing '{mtg.title}'"),
+                        )
+                    if run.returncode != 0:
+                        print(f"  ⚠ Condensation returned non-zero for '{mtg.title}'")
+                        failures.append(run.failure_message(f"Condensing '{mtg.title}'"))
+                    elif run.stderr.strip():
+                        warnings.append(f"'{mtg.title}': {run.stderr.strip()}")
+                else:
+                    print(f"  Skipped: {mtg.title}")
 
-        warning_text = f" ⚠ {'; '.join(warnings)}" if warnings else ""
-        if failures:
-            return EodStepResult(
-                status=EodStepStatus.FAILED,
-                error="; ".join(failures) + warning_text,
-            )
-        if warnings:
-            return EodStepResult(
-                status=EodStepStatus.COMPLETED,
-                message=f"Condensation complete{warning_text}",
-            )
-        return EodStepResult(status=EodStepStatus.COMPLETED)
+            warning_text = f" ⚠ {'; '.join(warnings)}" if warnings else ""
+            if failures:
+                return EodStepResult(
+                    status=EodStepStatus.FAILED,
+                    error="; ".join(failures) + warning_text,
+                )
+            if warnings:
+                return EodStepResult(
+                    status=EodStepStatus.COMPLETED,
+                    message=f"Condensation complete{warning_text}",
+                )
+            return EodStepResult(status=EodStepStatus.COMPLETED)
 
     except Exception as e:
         print(f"  ✗ Condense step error: {e}")
         return EodStepResult(status=EodStepStatus.FAILED, error=str(e))
-
-    finally:
-        session.close()
 
 
 def _run_sync_step(dry_run: bool, target_date: date) -> EodStepResult:
@@ -317,8 +313,7 @@ def _run_review_step(dry_run: bool, target_date: date, non_interactive: bool = F
 
     if non_interactive:
         _db = get_db()
-        _session = _db.get_session()
-        try:
+        with _db.session_scope() as _session:
             from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
             entries = TimeEntriesRepository(_session).get_by_date(target_date)
             if not entries:
@@ -337,8 +332,6 @@ def _run_review_step(dry_run: bool, target_date: date, non_interactive: bool = F
                 total_hours += float(e.duration_hours or 0)
             lines.append(f"Total: {total_hours:.2f}h")
             formatted = "\n".join(lines)
-        finally:
-            _session.close()
         return EodStepResult(
             status=EodStepStatus.PAUSED,
             message=formatted,
@@ -390,32 +383,29 @@ def _run_pre_flight_inspection_step(dry_run: bool, target_date: date) -> EodStep
         return EodStepResult(status=EodStepStatus.COMPLETED)
 
     db = get_db()
-    session = db.get_session()
     try:
-        from workmain.daemon.inspection_engine import InspectionEngine
-        from workmain.daemon.narration import narrate
+        with db.session_scope() as session:
+            from workmain.daemon.inspection_engine import InspectionEngine
+            from workmain.daemon.narration import narrate
 
-        engine = InspectionEngine(session)
-        observations = engine.run(target_date)
-        summary = narrate(observations)
-        state_io.write_last_inspection(observations, summary, target_date)
+            engine = InspectionEngine(session)
+            observations = engine.run(target_date)
+            summary = narrate(observations)
+            state_io.write_last_inspection(observations, summary, target_date)
 
-        if observations:
-            print(f"  Pre-flight: {len(observations)} item(s) flagged")
-            print()
-            for obs in observations:
-                msg = obs.message if len(obs.message) <= 80 else obs.message[:79] + '…'
-                print(f"    • {msg}")
-        else:
-            print("  Pre-flight: all clear")
-        return EodStepResult(status=EodStepStatus.COMPLETED)
+            if observations:
+                print(f"  Pre-flight: {len(observations)} item(s) flagged")
+                print()
+                for obs in observations:
+                    msg = obs.message if len(obs.message) <= 80 else obs.message[:79] + '…'
+                    print(f"    • {msg}")
+            else:
+                print("  Pre-flight: all clear")
+            return EodStepResult(status=EodStepStatus.COMPLETED)
 
     except Exception as e:
         print(f"  ⚠ Pre-flight inspection failed ({e}) — continuing")
         return EodStepResult(status=EodStepStatus.COMPLETED)
-
-    finally:
-        session.close()
 
 
 def _run_task_match_step(dry_run: bool, target_date: date, non_interactive: bool = False,
@@ -455,190 +445,187 @@ def _run_task_match_step(dry_run: bool, target_date: date, non_interactive: bool
         return EodStepResult(status=EodStepStatus.COMPLETED)
 
     db = get_db()
-    session = db.get_session()
     try:
-        from workmain.database.repositories.task_status_repo import TaskStatusRepository
-        from workmain.database.repositories.notes_repo import NotesRepository
+        with db.session_scope() as session:
+            from workmain.database.repositories.task_status_repo import TaskStatusRepository
+            from workmain.database.repositories.notes_repo import NotesRepository
 
-        task_repo = TaskStatusRepository(session)
-        active_tasks = task_repo.get_filtered(status='active', limit=0)
+            task_repo = TaskStatusRepository(session)
+            active_tasks = task_repo.get_filtered(status='active', limit=0)
 
-        if not active_tasks:
-            print("  No active tasks — skipping task match")
-            return EodStepResult(status=EodStepStatus.COMPLETED)
+            if not active_tasks:
+                print("  No active tasks — skipping task match")
+                return EodStepResult(status=EodStepStatus.COMPLETED)
 
-        note_repo = NotesRepository(session)
-        notes_today = note_repo.get_by_date(target_date)
+            note_repo = NotesRepository(session)
+            notes_today = note_repo.get_by_date(target_date)
 
-        if not notes_today:
-            print("  No notes for today — skipping task match")
-            return EodStepResult(status=EodStepStatus.COMPLETED)
+            if not notes_today:
+                print("  No notes for today — skipping task match")
+                return EodStepResult(status=EodStepStatus.COMPLETED)
 
-        notes_by_id = {n.id: n for n in notes_today}
+            notes_by_id = {n.id: n for n in notes_today}
 
-        # Check the provider task_match routes to — semantic matching when available, keyword fallback otherwise
-        from workmain.ai.intent_parser import IntentParser
-        intent_parser = IntentParser()
-        ollama_available = intent_parser.is_available('task_match')
+            # Check the provider task_match routes to — semantic matching when available, keyword fallback otherwise
+            from workmain.ai.intent_parser import IntentParser
+            intent_parser = IntentParser()
+            ollama_available = intent_parser.is_available('task_match')
 
-        from workmain.ai.base_provider import ProviderError
+            from workmain.ai.base_provider import ProviderError
 
-        # Throttled Slack progress message — posted once, edited in place.
-        # progress_ts stays None in CLI context (daemon is None) or if the
-        # initial post fails; either way, per-iteration print() below still
-        # provides progress (and reaches journald under systemd).
-        total = len(active_tasks)
-        progress_ts = None
-        progress_interval = 10
-        if daemon is not None:
-            from workmain.services.schedule_service import ScheduleService
-            progress_interval = ScheduleService(session).get_task_match_interval()
-            progress_ts = daemon.post_message(f"Checking 0/{total}...")
-            if progress_ts is None:
-                print("  ⚠ Progress post to Slack failed — continuing without Slack updates")
-        last_progress_update = time.monotonic()
+            # Throttled Slack progress message — posted once, edited in place.
+            # progress_ts stays None in CLI context (daemon is None) or if the
+            # initial post fails; either way, per-iteration print() below still
+            # provides progress (and reaches journald under systemd).
+            total = len(active_tasks)
+            progress_ts = None
+            progress_interval = 10
+            if daemon is not None:
+                from workmain.services.schedule_service import ScheduleService
+                progress_interval = ScheduleService(session).get_task_match_interval()
+                progress_ts = daemon.post_message(f"Checking 0/{total}...")
+                if progress_ts is None:
+                    print("  ⚠ Progress post to Slack failed — continuing without Slack updates")
+            last_progress_update = time.monotonic()
 
-        candidates = []
-        for i, ts in enumerate(active_tasks, 1):
-            if cancel_event is not None and cancel_event.is_set():
-                print(f"  Task match cancelled at {i}/{total}")
-                return EodStepResult(status=EodStepStatus.SKIPPED, message="Task match cancelled.")
+            candidates = []
+            for i, ts in enumerate(active_tasks, 1):
+                if cancel_event is not None and cancel_event.is_set():
+                    print(f"  Task match cancelled at {i}/{total}")
+                    return EodStepResult(status=EodStepStatus.SKIPPED, message="Task match cancelled.")
 
-            print(f"  Checking {i}/{total}...")
-            if progress_ts is not None:
-                now = time.monotonic()
-                if now - last_progress_update >= progress_interval:
-                    daemon.update_message(progress_ts, f"Checking {i}/{total}...")
-                    last_progress_update = now
+                print(f"  Checking {i}/{total}...")
+                if progress_ts is not None:
+                    now = time.monotonic()
+                    if now - last_progress_update >= progress_interval:
+                        daemon.update_message(progress_ts, f"Checking {i}/{total}...")
+                        last_progress_update = now
 
-            if not ts.note or not ts.note.content:
-                continue
-
-            # Self-match exclusion (Operations_Config_Correction_Sprint
-            # Gate 5 §5.0): TaskStatus rows are created eagerly when a note
-            # gains the carry-forward tag, so a note tagged carry-forward
-            # earlier the same day this step runs already has an active
-            # TaskStatus — and notes_today is unfiltered, so that task's own
-            # note would otherwise sit in its own candidate list and score a
-            # trivial perfect match against itself. Filtered once, upstream
-            # of both scoring paths, not patched separately into each.
-            candidate_notes = [n for n in notes_today if n.id != ts.note_id]
-            if not candidate_notes:
-                # This task's only same-day note is its own — nothing left
-                # to compare against.
-                continue
-
-            if ollama_available:
-                try:
-                    result = intent_parser.parse_task_match(ts, candidate_notes)
-                except ProviderError as e:
-                    ollama_available = False
-                    print(
-                        f"  ⚠ Ollama generation failed ({e}); falling back to "
-                        f"keyword matching for this and remaining tasks. "
-                        f"Cause: {e.__cause__}"
-                    )
-                else:
-                    if result["confidence"] < 0.7:
-                        continue
-                    matched_note = notes_by_id.get(result["note_id"])
-                    candidates.append((result["confidence"], ts, matched_note, "llm"))
+                if not ts.note or not ts.note.content:
                     continue
-            # keyword path — reached when ollama_available is False at loop
-            # entry OR immediately after demotion for the item that raised
-            result = _keyword_score_match(ts, candidate_notes)
-            if result["score"] < 0.2:
-                continue
-            candidates.append((result["score"], ts, result["note"], "keyword"))
 
-        candidates.sort(key=lambda x: x[0], reverse=True)
+                # Self-match exclusion (Operations_Config_Correction_Sprint
+                # Gate 5 §5.0): TaskStatus rows are created eagerly when a note
+                # gains the carry-forward tag, so a note tagged carry-forward
+                # earlier the same day this step runs already has an active
+                # TaskStatus — and notes_today is unfiltered, so that task's own
+                # note would otherwise sit in its own candidate list and score a
+                # trivial perfect match against itself. Filtered once, upstream
+                # of both scoring paths, not patched separately into each.
+                candidate_notes = [n for n in notes_today if n.id != ts.note_id]
+                if not candidate_notes:
+                    # This task's only same-day note is its own — nothing left
+                    # to compare against.
+                    continue
 
-        if not candidates:
-            print("  No matches found above threshold")
-            return EodStepResult(status=EodStepStatus.COMPLETED)
+                if ollama_available:
+                    try:
+                        result = intent_parser.parse_task_match(ts, candidate_notes)
+                    except ProviderError as e:
+                        ollama_available = False
+                        print(
+                            f"  ⚠ Ollama generation failed ({e}); falling back to "
+                            f"keyword matching for this and remaining tasks. "
+                            f"Cause: {e.__cause__}"
+                        )
+                    else:
+                        if result["confidence"] < 0.7:
+                            continue
+                        matched_note = notes_by_id.get(result["note_id"])
+                        candidates.append((result["confidence"], ts, matched_note, "llm"))
+                        continue
+                # keyword path — reached when ollama_available is False at loop
+                # entry OR immediately after demotion for the item that raised
+                result = _keyword_score_match(ts, candidate_notes)
+                if result["score"] < 0.2:
+                    continue
+                candidates.append((result["score"], ts, result["note"], "keyword"))
 
-        if non_interactive:
-            lines = [f"Found {len(candidates)} carry-forward task match(es):"]
+            candidates.sort(key=lambda x: x[0], reverse=True)
+
+            if not candidates:
+                print("  No matches found above threshold")
+                return EodStepResult(status=EodStepStatus.COMPLETED)
+
+            if non_interactive:
+                lines = [f"Found {len(candidates)} carry-forward task match(es):"]
+                for score, ts, note, path in candidates:
+                    confidence = "high" if score >= 0.5 else "medium"
+                    path_label = "LLM" if path == "llm" else "keyword"
+                    note_preview = (ts.note.content or '')[:80]
+                    match_preview = ((note.content if note else '') or '')[:80]
+                    lines.append(f"• Task: {note_preview}")
+                    lines.append(f"  Matches: {match_preview} ({confidence} confidence) [{path_label}]")
+                lines.append("Use 'update task X as complete/dismissed' to resolve, then reply 'yes' when done.")
+                formatted = "\n".join(lines)
+                return EodStepResult(
+                    status=EodStepStatus.PAUSED,
+                    pause_reason=formatted,
+                    pause_resume_hint="Reply 'yes' when done resolving tasks.",
+                )
+
+            print(f"  Found {len(candidates)} candidate match(es) to review:")
+            print()
+
+            n_completed = 0
+            n_dismissed = 0
+            n_skipped = 0
+
             for score, ts, note, path in candidates:
                 confidence = "high" if score >= 0.5 else "medium"
                 path_label = "LLM" if path == "llm" else "keyword"
-                note_preview = (ts.note.content or '')[:80]
-                match_preview = ((note.content if note else '') or '')[:80]
-                lines.append(f"• Task: {note_preview}")
-                lines.append(f"  Matches: {match_preview} ({confidence} confidence) [{path_label}]")
-            lines.append("Use 'update task X as complete/dismissed' to resolve, then reply 'yes' when done.")
-            formatted = "\n".join(lines)
-            return EodStepResult(
-                status=EodStepStatus.PAUSED,
-                pause_reason=formatted,
-                pause_resume_hint="Reply 'yes' when done resolving tasks.",
-            )
+                note_content = ts.note.content or ''
+                match_desc = (note.content if note else '') or ''
+                note_preview = note_content[:80] + ('…' if len(note_content) > 80 else '')
+                match_preview = match_desc[:80] + ('…' if len(match_desc) > 80 else '')
 
-        print(f"  Found {len(candidates)} candidate match(es) to review:")
-        print()
+                print("─" * 57)
+                print(f"  Match found ({confidence} confidence — {score:.2f}) [{path_label}]:")
+                print(f"  Task: {note_preview}")
+                print(f"  Note: {match_preview}")
+                print()
 
-        n_completed = 0
-        n_dismissed = 0
-        n_skipped = 0
+                try:
+                    raw = _prompt_choice(
+                        "  [c]omplete   [d]ismiss   [s]kip (Enter)",
+                        default='s',
+                    )
+                except (EOFError, KeyboardInterrupt):
+                    n_skipped += 1
+                    continue
 
-        for score, ts, note, path in candidates:
-            confidence = "high" if score >= 0.5 else "medium"
-            path_label = "LLM" if path == "llm" else "keyword"
-            note_content = ts.note.content or ''
-            match_desc = (note.content if note else '') or ''
-            note_preview = note_content[:80] + ('…' if len(note_content) > 80 else '')
-            match_preview = match_desc[:80] + ('…' if len(match_desc) > 80 else '')
+                if raw in ('c', 'complete'):
+                    task_repo.set_completed(ts.note_id)
+                    if note and note.id:
+                        try:
+                            task_repo.set_forwarding_note(ts.id, note.id)
+                        except Exception:
+                            pass
+                    session.commit()
+                    print("  ✓ Marked complete")
+                    n_completed += 1
+                elif raw in ('d', 'dismiss'):
+                    task_repo.set_dismissed(ts.note_id)
+                    session.commit()
+                    print("  ✓ Dismissed")
+                    n_dismissed += 1
+                else:
+                    n_skipped += 1
 
             print("─" * 57)
-            print(f"  Match found ({confidence} confidence — {score:.2f}) [{path_label}]:")
-            print(f"  Task: {note_preview}")
-            print(f"  Note: {match_preview}")
             print()
 
-            try:
-                raw = _prompt_choice(
-                    "  [c]omplete   [d]ismiss   [s]kip (Enter)",
-                    default='s',
-                )
-            except (EOFError, KeyboardInterrupt):
-                n_skipped += 1
-                continue
-
-            if raw in ('c', 'complete'):
-                task_repo.set_completed(ts.note_id)
-                if note and note.id:
-                    try:
-                        task_repo.set_forwarding_note(ts.id, note.id)
-                    except Exception:
-                        pass
-                session.commit()
-                print("  ✓ Marked complete")
-                n_completed += 1
-            elif raw in ('d', 'dismiss'):
-                task_repo.set_dismissed(ts.note_id)
-                session.commit()
-                print("  ✓ Dismissed")
-                n_dismissed += 1
-            else:
-                n_skipped += 1
-
-        print("─" * 57)
-        print()
-
-        remaining = task_repo.get_filtered(status='active', limit=0)
-        print(
-            f"  Task review complete. {n_completed} completed, "
-            f"{n_dismissed} dismissed, {n_skipped} skipped. "
-            f"{len(remaining)} active tasks remaining."
-        )
-        return EodStepResult(status=EodStepStatus.COMPLETED)
+            remaining = task_repo.get_filtered(status='active', limit=0)
+            print(
+                f"  Task review complete. {n_completed} completed, "
+                f"{n_dismissed} dismissed, {n_skipped} skipped. "
+                f"{len(remaining)} active tasks remaining."
+            )
+            return EodStepResult(status=EodStepStatus.COMPLETED)
 
     except Exception as e:
         print(f"  ⚠ Task match step failed ({e}) — continuing")
         return EodStepResult(status=EodStepStatus.COMPLETED)
-
-    finally:
-        session.close()
 
 
 def _run_note_dedup_step(dry_run: bool, target_date: date, non_interactive: bool = False,
@@ -667,190 +654,187 @@ def _run_note_dedup_step(dry_run: bool, target_date: date, non_interactive: bool
         return EodStepResult(status=EodStepStatus.COMPLETED)
 
     db = get_db()
-    session = db.get_session()
     try:
-        from workmain.database.repositories.task_status_repo import TaskStatusRepository
+        with db.session_scope() as session:
+            from workmain.database.repositories.task_status_repo import TaskStatusRepository
 
-        task_repo = TaskStatusRepository(session)
-        active_tasks = task_repo.get_filtered(status='active', limit=0)
+            task_repo = TaskStatusRepository(session)
+            active_tasks = task_repo.get_filtered(status='active', limit=0)
 
-        if not active_tasks:
-            print("  No active carry-forward tasks — skipping note dedup")
-            return EodStepResult(status=EodStepStatus.COMPLETED)
+            if not active_tasks:
+                print("  No active carry-forward tasks — skipping note dedup")
+                return EodStepResult(status=EodStepStatus.COMPLETED)
 
-        today_tasks = []
-        existing_tasks = []
-        for ts in active_tasks:
-            if not ts.note or not ts.note.content:
-                continue
-            if ts.note.created_date == target_date:
-                today_tasks.append(ts)
-            else:
-                existing_tasks.append(ts)
-
-        if not today_tasks:
-            print("  No new carry-forward notes today — skipping note dedup")
-            return EodStepResult(status=EodStepStatus.COMPLETED)
-
-        # Candidate pairs: new x existing, plus new x new (C(new, 2)).
-        # existing x existing is excluded — already evaluated in a prior run.
-        pairs = [(a, b) for a in today_tasks for b in existing_tasks]
-        for i in range(len(today_tasks)):
-            for j in range(i + 1, len(today_tasks)):
-                pairs.append((today_tasks[i], today_tasks[j]))
-
-        if not pairs:
-            print("  No candidate pairs to compare — skipping note dedup")
-            return EodStepResult(status=EodStepStatus.COMPLETED)
-
-        # Check the provider note_dedup routes to — semantic matching when available, keyword fallback otherwise
-        from workmain.ai.intent_parser import IntentParser
-        intent_parser = IntentParser()
-        ollama_available = intent_parser.is_available('note_dedup')
-
-        from workmain.ai.base_provider import ProviderError
-
-        # Throttled Slack progress message — same mechanism as task match,
-        # independent interval (this loop's iteration count differs
-        # structurally — up to ~n²/2 at scale, vs. linear for task match).
-        total = len(pairs)
-        progress_ts = None
-        progress_interval = 10
-        if daemon is not None:
-            from workmain.services.schedule_service import ScheduleService
-            progress_interval = ScheduleService(session).get_note_dedup_interval()
-            progress_ts = daemon.post_message(f"Comparing 0/{total}...")
-            if progress_ts is None:
-                print("  ⚠ Progress post to Slack failed — continuing without Slack updates")
-        last_progress_update = time.monotonic()
-
-        duplicates_found = []
-        for i, (ts_a, ts_b) in enumerate(pairs, 1):
-            if cancel_event is not None and cancel_event.is_set():
-                print(f"  Note dedup cancelled at {i}/{total}")
-                return EodStepResult(status=EodStepStatus.SKIPPED, message="Note dedup cancelled.")
-
-            print(f"  Comparing {i}/{total}...")
-            if progress_ts is not None:
-                now = time.monotonic()
-                if now - last_progress_update >= progress_interval:
-                    daemon.update_message(progress_ts, f"Comparing {i}/{total}...")
-                    last_progress_update = now
-
-            note_a, note_b = ts_a.note, ts_b.note
-
-            if ollama_available:
-                try:
-                    result = intent_parser.parse_note_duplicate(note_a.content, note_b.content)
-                except ProviderError as e:
-                    ollama_available = False
-                    print(
-                        f"  ⚠ Ollama generation failed ({e}); falling back to "
-                        f"keyword matching for this and remaining pairs. "
-                        f"Cause: {e.__cause__}"
-                    )
-                else:
-                    if not result["duplicate"] or result["confidence"] < 0.7:
-                        continue
-                    duplicates_found.append((ts_a, ts_b))
+            today_tasks = []
+            existing_tasks = []
+            for ts in active_tasks:
+                if not ts.note or not ts.note.content:
                     continue
-            # keyword path — reached when ollama_available is False at loop
-            # entry OR immediately after demotion for the pair that raised
-            result = _keyword_note_dedup_match(note_a.content, note_b.content)
-            if result["score"] < 0.5:
-                continue
-            duplicates_found.append((ts_a, ts_b))
+                if ts.note.created_date == target_date:
+                    today_tasks.append(ts)
+                else:
+                    existing_tasks.append(ts)
 
-        if not duplicates_found:
-            print("  No duplicate notes found")
-            return EodStepResult(status=EodStepStatus.COMPLETED)
+            if not today_tasks:
+                print("  No new carry-forward notes today — skipping note dedup")
+                return EodStepResult(status=EodStepStatus.COMPLETED)
 
-        if non_interactive:
-            lines = [f"Found {len(duplicates_found)} duplicate note pair(s):"]
-            for ts_a, ts_b in duplicates_found:
-                preview_a = (ts_a.note.content or '')[:80]
-                preview_b = (ts_b.note.content or '')[:80]
-                lines.append(f"• {preview_a}")
-                lines.append(f"  ~ {preview_b}")
-            lines.append(
-                "Reply describing which note is the duplicate "
-                "(e.g. '<note> is a duplicate of <note>') to resolve, then reply 'yes' when done."
-            )
-            formatted = "\n".join(lines)
-            return EodStepResult(
-                status=EodStepStatus.PAUSED,
-                pause_reason=formatted,
-                pause_resume_hint="Reply 'yes' when done resolving duplicates.",
-            )
+            # Candidate pairs: new x existing, plus new x new (C(new, 2)).
+            # existing x existing is excluded — already evaluated in a prior run.
+            pairs = [(a, b) for a in today_tasks for b in existing_tasks]
+            for i in range(len(today_tasks)):
+                for j in range(i + 1, len(today_tasks)):
+                    pairs.append((today_tasks[i], today_tasks[j]))
 
-        print(f"  Found {len(duplicates_found)} duplicate pair(s) to review:")
-        print()
+            if not pairs:
+                print("  No candidate pairs to compare — skipping note dedup")
+                return EodStepResult(status=EodStepStatus.COMPLETED)
 
-        n_merged = 0
-        n_skipped = 0
-        dismissed_this_run = set()
+            # Check the provider note_dedup routes to — semantic matching when available, keyword fallback otherwise
+            from workmain.ai.intent_parser import IntentParser
+            intent_parser = IntentParser()
+            ollama_available = intent_parser.is_available('note_dedup')
 
-        for ts_a, ts_b in duplicates_found:
-            note_a, note_b = ts_a.note, ts_b.note
-            if note_a.id in dismissed_this_run or note_b.id in dismissed_this_run:
-                continue
+            from workmain.ai.base_provider import ProviderError
 
-            preview_a = note_a.content[:80] + ('…' if len(note_a.content) > 80 else '')
-            preview_b = note_b.content[:80] + ('…' if len(note_b.content) > 80 else '')
+            # Throttled Slack progress message — same mechanism as task match,
+            # independent interval (this loop's iteration count differs
+            # structurally — up to ~n²/2 at scale, vs. linear for task match).
+            total = len(pairs)
+            progress_ts = None
+            progress_interval = 10
+            if daemon is not None:
+                from workmain.services.schedule_service import ScheduleService
+                progress_interval = ScheduleService(session).get_note_dedup_interval()
+                progress_ts = daemon.post_message(f"Comparing 0/{total}...")
+                if progress_ts is None:
+                    print("  ⚠ Progress post to Slack failed — continuing without Slack updates")
+            last_progress_update = time.monotonic()
 
-            print("─" * 57)
-            print("  Duplicate found:")
-            print(f"  Note A: {preview_a}")
-            print(f"  Note B: {preview_b}")
+            duplicates_found = []
+            for i, (ts_a, ts_b) in enumerate(pairs, 1):
+                if cancel_event is not None and cancel_event.is_set():
+                    print(f"  Note dedup cancelled at {i}/{total}")
+                    return EodStepResult(status=EodStepStatus.SKIPPED, message="Note dedup cancelled.")
+
+                print(f"  Comparing {i}/{total}...")
+                if progress_ts is not None:
+                    now = time.monotonic()
+                    if now - last_progress_update >= progress_interval:
+                        daemon.update_message(progress_ts, f"Comparing {i}/{total}...")
+                        last_progress_update = now
+
+                note_a, note_b = ts_a.note, ts_b.note
+
+                if ollama_available:
+                    try:
+                        result = intent_parser.parse_note_duplicate(note_a.content, note_b.content)
+                    except ProviderError as e:
+                        ollama_available = False
+                        print(
+                            f"  ⚠ Ollama generation failed ({e}); falling back to "
+                            f"keyword matching for this and remaining pairs. "
+                            f"Cause: {e.__cause__}"
+                        )
+                    else:
+                        if not result["duplicate"] or result["confidence"] < 0.7:
+                            continue
+                        duplicates_found.append((ts_a, ts_b))
+                        continue
+                # keyword path — reached when ollama_available is False at loop
+                # entry OR immediately after demotion for the pair that raised
+                result = _keyword_note_dedup_match(note_a.content, note_b.content)
+                if result["score"] < 0.5:
+                    continue
+                duplicates_found.append((ts_a, ts_b))
+
+            if not duplicates_found:
+                print("  No duplicate notes found")
+                return EodStepResult(status=EodStepStatus.COMPLETED)
+
+            if non_interactive:
+                lines = [f"Found {len(duplicates_found)} duplicate note pair(s):"]
+                for ts_a, ts_b in duplicates_found:
+                    preview_a = (ts_a.note.content or '')[:80]
+                    preview_b = (ts_b.note.content or '')[:80]
+                    lines.append(f"• {preview_a}")
+                    lines.append(f"  ~ {preview_b}")
+                lines.append(
+                    "Reply describing which note is the duplicate "
+                    "(e.g. '<note> is a duplicate of <note>') to resolve, then reply 'yes' when done."
+                )
+                formatted = "\n".join(lines)
+                return EodStepResult(
+                    status=EodStepStatus.PAUSED,
+                    pause_reason=formatted,
+                    pause_resume_hint="Reply 'yes' when done resolving duplicates.",
+                )
+
+            print(f"  Found {len(duplicates_found)} duplicate pair(s) to review:")
             print()
 
-            try:
-                raw = _prompt_choice("  [m]erge   [s]kip (Enter)", default='s')
-            except (EOFError, KeyboardInterrupt):
-                n_skipped += 1
-                continue
+            n_merged = 0
+            n_skipped = 0
+            dismissed_this_run = set()
 
-            if raw in ('m', 'merge'):
-                # More recent note survives; older note dismissed (Gate 5
-                # §5.4 locked rule — confirmed by Ray).
-                if note_a.created_at >= note_b.created_at:
-                    surviving_note, dismissed_note = note_a, note_b
-                else:
-                    surviving_note, dismissed_note = note_b, note_a
+            for ts_a, ts_b in duplicates_found:
+                note_a, note_b = ts_a.note, ts_b.note
+                if note_a.id in dismissed_this_run or note_b.id in dismissed_this_run:
+                    continue
 
-                dismissed_task_status = task_repo.get_by_note_id(dismissed_note.id)
-                if dismissed_task_status is None:
-                    print(f"  ⚠ No task_status found for note {dismissed_note.id} — skipping merge")
+                preview_a = note_a.content[:80] + ('…' if len(note_a.content) > 80 else '')
+                preview_b = note_b.content[:80] + ('…' if len(note_b.content) > 80 else '')
+
+                print("─" * 57)
+                print("  Duplicate found:")
+                print(f"  Note A: {preview_a}")
+                print(f"  Note B: {preview_b}")
+                print()
+
+                try:
+                    raw = _prompt_choice("  [m]erge   [s]kip (Enter)", default='s')
+                except (EOFError, KeyboardInterrupt):
                     n_skipped += 1
                     continue
 
-                try:
-                    task_repo.set_forwarding_note(dismissed_task_status.id, surviving_note.id)
-                    task_repo.set_dismissed(dismissed_note.id)
-                    session.commit()
-                    dismissed_this_run.add(dismissed_note.id)
-                    print(f"  ✓ Merged — note {dismissed_note.id} now forwards to note {surviving_note.id}")
-                    n_merged += 1
-                except ValueError as e:
-                    # Do not silently pass here — the existing task-match/
-                    # deduplicate_task callers do; this step surfaces it.
-                    print(f"  ⚠ Merge failed: {e}")
-                    session.rollback()
-                    n_skipped += 1
-            else:
-                n_skipped += 1
+                if raw in ('m', 'merge'):
+                    # More recent note survives; older note dismissed (Gate 5
+                    # §5.4 locked rule — confirmed by Ray).
+                    if note_a.created_at >= note_b.created_at:
+                        surviving_note, dismissed_note = note_a, note_b
+                    else:
+                        surviving_note, dismissed_note = note_b, note_a
 
-        print("─" * 57)
-        print()
-        print(f"  Note dedup review complete. {n_merged} merged, {n_skipped} skipped.")
-        return EodStepResult(status=EodStepStatus.COMPLETED)
+                    dismissed_task_status = task_repo.get_by_note_id(dismissed_note.id)
+                    if dismissed_task_status is None:
+                        print(f"  ⚠ No task_status found for note {dismissed_note.id} — skipping merge")
+                        n_skipped += 1
+                        continue
+
+                    try:
+                        task_repo.set_forwarding_note(dismissed_task_status.id, surviving_note.id)
+                        task_repo.set_dismissed(dismissed_note.id)
+                        session.commit()
+                        dismissed_this_run.add(dismissed_note.id)
+                        print(f"  ✓ Merged — note {dismissed_note.id} now forwards to note {surviving_note.id}")
+                        n_merged += 1
+                    except ValueError as e:
+                        # Do not silently pass here — the existing task-match/
+                        # deduplicate_task callers do; this step surfaces it.
+                        print(f"  ⚠ Merge failed: {e}")
+                        session.rollback()
+                        n_skipped += 1
+                else:
+                    n_skipped += 1
+
+            print("─" * 57)
+            print()
+            print(f"  Note dedup review complete. {n_merged} merged, {n_skipped} skipped.")
+            return EodStepResult(status=EodStepStatus.COMPLETED)
 
     except Exception as e:
         print(f"  ⚠ Note dedup step failed ({e}) — continuing")
         return EodStepResult(status=EodStepStatus.COMPLETED)
-
-    finally:
-        session.close()
 
 
 def _run_report_review_step(
@@ -880,11 +864,8 @@ def _run_report_review_step(
 
     if require_active_client:
         db = get_db()
-        session = db.get_session()
-        try:
+        with db.session_scope() as session:
             active_client_id = SystemStateRepository(session).get_int('active_client_id')
-        finally:
-            session.close()
 
         if active_client_id is None:
             print(
@@ -896,8 +877,7 @@ def _run_report_review_step(
 
     # Pre-check: is there already a confirmed/corrected report for this exact date?
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         from workmain.database.repositories.reports_repo import get_reports_repository
         repo = get_reports_repository(session)
         existing = repo.list_reports(
@@ -906,8 +886,6 @@ def _run_report_review_step(
             end_date=target_date,
         )
         already_reviewed = any(r.status in ('confirmed', 'corrected') for r in existing)
-    finally:
-        session.close()
 
     if already_reviewed:
         print(
@@ -968,8 +946,7 @@ def _run_report_review_step(
                 message=f"{label} report already confirmed — review with: workmain reports history",
             )
         db = get_db()
-        session = db.get_session()
-        try:
+        with db.session_scope() as session:
             from workmain.database.repositories.reports_repo import get_reports_repository
             rows = get_reports_repository(session).list_reports(
                 report_type=report_type,
@@ -978,8 +955,6 @@ def _run_report_review_step(
                 limit=1,
             )
             metadata = (rows[0].report_metadata or {}) if rows else None
-        finally:
-            session.close()
         if metadata is None:
             return EodStepResult(
                 status=EodStepStatus.FAILED,
@@ -999,99 +974,96 @@ def _run_report_review_step(
     # Load the report for review — freshly generated, or the existing
     # confirmed/corrected row when generation was skipped above.
     db = get_db()
-    session = db.get_session()
     try:
-        from workmain.database.repositories.reports_repo import get_reports_repository
-        repo = get_reports_repository(session)
-        reports = repo.list_reports(
-            report_type=report_type,
-            start_date=target_date,
-            end_date=target_date,
-            limit=1,
-        )
-
-        if not reports:
-            print(
-                f"  ⚠ Could not load {label.lower()} report for review — "
-                f"report saved as unconfirmed"
+        with db.session_scope() as session:
+            from workmain.database.repositories.reports_repo import get_reports_repository
+            repo = get_reports_repository(session)
+            reports = repo.list_reports(
+                report_type=report_type,
+                start_date=target_date,
+                end_date=target_date,
+                limit=1,
             )
+
+            if not reports:
+                print(
+                    f"  ⚠ Could not load {label.lower()} report for review — "
+                    f"report saved as unconfirmed"
+                )
+                return EodStepResult(status=EodStepStatus.COMPLETED)
+
+            report = reports[0]
+            content = report.content or ''
+            preview = content[:200] + '…' if len(content) > 200 else content
+
+            preview_header = f"─── {label} Report Preview ───"
+            print()
+            print(preview_header)
+            print(preview)
+            print('─' * len(preview_header))
+            print()
+
+            while True:
+                choice = _prompt_choice(
+                    "  Review: [v]iew / [e]dit / [c]onfirm / [s]kip",
+                    default='s',
+                )
+
+                if choice == 'v':
+                    view_header = f"─── {label} Report — Full View ───"
+                    print()
+                    print(view_header)
+                    print(content)
+                    print('─' * len(view_header))
+                    print()
+                    continue
+
+                elif choice == 'e':
+                    source = report.corrected_content if report.corrected_content else content
+                    edited = edit_in_editor(source, report_fn=lambda msg: print(f"  ⚠ {msg}"))
+                    if edited is not None and edited != source:
+                        correction_note_text = _prompt_raw(
+                            "  Add a correction note (optional, Enter to skip): "
+                        ).strip()
+                        repo.apply_correction(report.id, edited, note=correction_note_text or None)
+                        fp = (report.report_metadata or {}).get('file_path')
+                        if fp:
+                            try:
+                                Path(fp).write_text(edited, encoding='utf-8')
+                            except Exception as stage_err:
+                                print(f"  ⚠ DB saved; staging file update failed: {stage_err}")
+                        if correction_note_text:
+                            print("  Correction note saved.")
+                        print(f"  ✓ {label} report saved with corrections.")
+                    else:
+                        print("  No changes detected.")
+                    break
+
+                elif choice == 'c':
+                    report.status = 'confirmed'
+                    report.updated_at = datetime.now()
+                    session.commit()
+                    print(f"  ✓ {label} report confirmed.")
+                    break
+
+                else:  # s or any other input
+                    print()
+                    if report_type == 'daily_internal':
+                        print(
+                            "  ⚠ Daily report left unconfirmed — it will not appear "
+                            "in the weekly draft until confirmed."
+                        )
+                    else:
+                        print(f"  ⚠ {label} report left unconfirmed.")
+                    break
+
             return EodStepResult(status=EodStepStatus.COMPLETED)
-
-        report = reports[0]
-        content = report.content or ''
-        preview = content[:200] + '…' if len(content) > 200 else content
-
-        preview_header = f"─── {label} Report Preview ───"
-        print()
-        print(preview_header)
-        print(preview)
-        print('─' * len(preview_header))
-        print()
-
-        while True:
-            choice = _prompt_choice(
-                "  Review: [v]iew / [e]dit / [c]onfirm / [s]kip",
-                default='s',
-            )
-
-            if choice == 'v':
-                view_header = f"─── {label} Report — Full View ───"
-                print()
-                print(view_header)
-                print(content)
-                print('─' * len(view_header))
-                print()
-                continue
-
-            elif choice == 'e':
-                source = report.corrected_content if report.corrected_content else content
-                edited = edit_in_editor(source, report_fn=lambda msg: print(f"  ⚠ {msg}"))
-                if edited is not None and edited != source:
-                    correction_note_text = _prompt_raw(
-                        "  Add a correction note (optional, Enter to skip): "
-                    ).strip()
-                    repo.apply_correction(report.id, edited, note=correction_note_text or None)
-                    fp = (report.report_metadata or {}).get('file_path')
-                    if fp:
-                        try:
-                            Path(fp).write_text(edited, encoding='utf-8')
-                        except Exception as stage_err:
-                            print(f"  ⚠ DB saved; staging file update failed: {stage_err}")
-                    if correction_note_text:
-                        print("  Correction note saved.")
-                    print(f"  ✓ {label} report saved with corrections.")
-                else:
-                    print("  No changes detected.")
-                break
-
-            elif choice == 'c':
-                report.status = 'confirmed'
-                report.updated_at = datetime.now()
-                session.commit()
-                print(f"  ✓ {label} report confirmed.")
-                break
-
-            else:  # s or any other input
-                print()
-                if report_type == 'daily_internal':
-                    print(
-                        "  ⚠ Daily report left unconfirmed — it will not appear "
-                        "in the weekly draft until confirmed."
-                    )
-                else:
-                    print(f"  ⚠ {label} report left unconfirmed.")
-                break
-
-        return EodStepResult(status=EodStepStatus.COMPLETED)
 
     except Exception as e:
         print(
             f"  ⚠ {label} report review failed ({e}) — report saved but review skipped"
         )
         return EodStepResult(status=EodStepStatus.COMPLETED)
-
-    finally:
-        session.close()
 
 
 def _run_report_step(dry_run: bool, target_date: date) -> EodStepResult:

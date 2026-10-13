@@ -19,6 +19,8 @@ from unittest.mock import MagicMock, patch, call
 
 import pytest
 
+from workmain.database.models import Meeting
+
 # Sentinel date: far future ensures no real DB/production data matches
 SENTINEL_DATE = date(2099, 1, 1)
 
@@ -344,7 +346,7 @@ class TestMeetingTriggers:
              patch('workmain.database.connection.get_db') as mock_db, \
              patch('workmain.database.repositories.meetings_repo.MeetingsRepository') as mock_repo_cls:
             mock_session = MagicMock()
-            mock_db.return_value.get_session.return_value = mock_session
+            mock_db.return_value.session_scope.return_value.__enter__.return_value = mock_session
             mock_repo_cls.return_value.get_by_date.return_value = meetings
             sched_mod._schedule_today_meeting_triggers(daemon)
         return mock_scheduler
@@ -388,7 +390,7 @@ class TestMeetingTriggers:
              patch('workmain.database.connection.get_db') as mock_db, \
              patch('workmain.database.repositories.meetings_repo.MeetingsRepository') as mock_repo_cls:
             mock_session = MagicMock()
-            mock_db.return_value.get_session.return_value = mock_session
+            mock_db.return_value.session_scope.return_value.__enter__.return_value = mock_session
             mock_repo_cls.return_value.get_by_date.return_value = meetings
             sched_mod._schedule_today_meeting_triggers(daemon)
             sched_mod._schedule_today_meeting_triggers(daemon)
@@ -436,7 +438,7 @@ class TestT4Checkin:
              patch('workmain.daemon.scheduler.ScheduleService', return_value=mock_service), \
              patch('workmain.daemon.scheduler.random') as mock_rand, \
              patch('workmain.daemon.scheduler.datetime') as mock_dt:
-            mock_get_db.return_value.get_session.return_value = MagicMock()
+            mock_get_db.return_value.session_scope.return_value.__enter__.return_value = MagicMock()
             mock_rand.randint.return_value = delay_minutes
             mock_dt.now.return_value = now_dt
             mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
@@ -502,7 +504,7 @@ class TestT4Checkin:
              patch('workmain.database.repositories.meetings_repo.MeetingsRepository') as mock_repo_cls, \
              patch('workmain.daemon.scheduler._reschedule_t4_checkin') as mock_resched:
             mock_session = MagicMock()
-            mock_db.return_value.get_session.return_value = mock_session
+            mock_db.return_value.session_scope.return_value.__enter__.return_value = mock_session
             mock_repo_cls.return_value.get_by_id.return_value = meeting
             sched_mod._send_t2(1, daemon)
         mock_resched.assert_called_once_with(daemon)
@@ -517,7 +519,7 @@ class TestT4Checkin:
              patch('workmain.database.repositories.meetings_repo.MeetingsRepository') as mock_repo_cls, \
              patch('workmain.daemon.scheduler._reschedule_t4_checkin') as mock_resched:
             mock_session = MagicMock()
-            mock_db.return_value.get_session.return_value = mock_session
+            mock_db.return_value.session_scope.return_value.__enter__.return_value = mock_session
             mock_repo_cls.return_value.get_by_id.return_value = meeting
             sched_mod._send_t3(1, daemon)
         mock_resched.assert_called_once_with(daemon)
@@ -536,7 +538,7 @@ class TestT4Checkin:
              patch('workmain.daemon.scheduler.get_db') as mock_get_db, \
              patch('workmain.daemon.scheduler.ScheduleService', return_value=mock_service), \
              patch('workmain.daemon.scheduler._reschedule_t4_checkin') as mock_resched:
-            mock_get_db.return_value.get_session.return_value = MagicMock()
+            mock_get_db.return_value.session_scope.return_value.__enter__.return_value = MagicMock()
             mock_notes_cls.return_value.get_most_recent_since.return_value = note_hit
             mock_entries_cls.return_value.get_most_recent_since.return_value = entry_hit
             sched_mod._send_t4_checkin(daemon)
@@ -593,7 +595,7 @@ class TestT4Checkin:
              patch('workmain.daemon.scheduler.get_db') as mock_get_db, \
              patch('workmain.daemon.scheduler.ScheduleService', return_value=mock_service), \
              patch('workmain.daemon.scheduler._reschedule_t4_checkin'):
-            mock_get_db.return_value.get_session.return_value = MagicMock()
+            mock_get_db.return_value.session_scope.return_value.__enter__.return_value = MagicMock()
             mock_notes_cls.return_value.get_most_recent_since.return_value = note
             mock_entries_cls.return_value.get_most_recent_since.return_value = None
             sched_mod._send_t4_checkin(daemon)
@@ -621,7 +623,7 @@ class TestT4Checkin:
              patch('workmain.daemon.scheduler.get_db') as mock_get_db, \
              patch('workmain.daemon.scheduler.ScheduleService', return_value=mock_service), \
              patch('workmain.daemon.scheduler._reschedule_t4_checkin'):
-            mock_get_db.return_value.get_session.return_value = MagicMock()
+            mock_get_db.return_value.session_scope.return_value.__enter__.return_value = MagicMock()
             mock_notes_cls.return_value.get_most_recent_since.return_value = note
             mock_entries_cls.return_value.get_most_recent_since.return_value = entry
             sched_mod._send_t4_checkin(daemon)
@@ -661,7 +663,7 @@ class TestT6CorrectionRepresentation:
         with patch('workmain.daemon.daemon.get_db') as mock_db, \
              patch('workmain.database.repositories.reports_repo.ReportsRepository') as mock_repo_cls:
             mock_session = MagicMock()
-            mock_db.return_value.get_session.return_value = mock_session
+            mock_db.return_value.session_scope.return_value.__enter__.return_value = mock_session
             mock_repo_cls.return_value.get_by_id.return_value = mock_report
             daemon._maybe_post_correction_summary(result, action)
 
@@ -684,7 +686,7 @@ class TestT6CorrectionRepresentation:
         with patch('workmain.daemon.daemon.get_db') as mock_db, \
              patch('workmain.database.repositories.reports_repo.ReportsRepository') as mock_repo_cls:
             mock_session = MagicMock()
-            mock_db.return_value.get_session.return_value = mock_session
+            mock_db.return_value.session_scope.return_value.__enter__.return_value = mock_session
             mock_repo_cls.return_value.get_by_id.return_value = mock_report
             daemon._maybe_post_correction_summary(result, action)
 
@@ -699,7 +701,7 @@ class TestT6CorrectionRepresentation:
         with patch('workmain.daemon.daemon.get_db') as mock_db, \
              patch('workmain.database.repositories.reports_repo.ReportsRepository') as mock_repo_cls:
             mock_session = MagicMock()
-            mock_db.return_value.get_session.return_value = mock_session
+            mock_db.return_value.session_scope.return_value.__enter__.return_value = mock_session
             mock_repo_cls.return_value.get_by_id.return_value = None
             daemon._maybe_post_correction_summary(result, action)
 
@@ -937,7 +939,7 @@ class TestSingleStartOfDayNotification:
              patch('workmain.daemon.scheduler.get_db') as mock_get_db, \
              patch('workmain.daemon.scheduler._schedule_today_meeting_triggers'), \
              patch('workmain.daemon.scheduler._reschedule_t4_checkin'):
-            mock_get_db.return_value.get_session.return_value = mock_session
+            mock_get_db.return_value.session_scope.return_value.__enter__.return_value = mock_session
             sched_mod.register_all_jobs(daemon)
         job_ids = [c.kwargs.get('id', '') for c in mock_scheduler.add_job.call_args_list]
         assert 'workday_start' in job_ids
@@ -979,7 +981,7 @@ class TestNotifyMethodSlackDelivery:
              patch('workmain.daemon.daemon.NotificationConfigRepository') as mock_cfg_cls, \
              patch('workmain.daemon.daemon._assemble_notification_content', return_value='summary'), \
              patch('workmain.daemon.daemon.deliver') as mock_deliver:
-            mock_get_db.return_value.get_session.return_value = mock_session
+            mock_get_db.return_value.session_scope.return_value.__enter__.return_value = mock_session
             mock_svc_cls.return_value.is_working_day.return_value = True
             mock_cfg_cls.return_value.get_config.return_value = self._slack_config()
             job_fn(daemon)
@@ -1027,7 +1029,7 @@ class TestNotifyMethodSlackDelivery:
              patch('workmain.database.repositories.notification_repository.NotificationConfigRepository') as mock_cfg_cls, \
              patch('workmain.database.repositories.task_status_repo.TaskStatusRepository') as mock_task_cls, \
              patch('workmain.daemon.delivery.deliver') as mock_deliver:
-            mock_get_db.return_value.get_session.return_value = mock_session
+            mock_get_db.return_value.session_scope.return_value.__enter__.return_value = mock_session
             mock_svc_cls.return_value.is_working_day.return_value = True
             mock_mtg_cls.return_value.get_active_for_date.return_value = []
             mock_task_cls.return_value.get_filtered.return_value = []
@@ -1100,7 +1102,7 @@ class TestJobWorkdayStartFreshnessAcceptableDates:
              patch('workmain.database.repositories.task_status_repo.TaskStatusRepository') as mock_task_cls, \
              patch('workmain.daemon.state_io.read_last_inspection') as mock_read, \
              patch('workmain.daemon.delivery.deliver') as mock_deliver:
-            mock_get_db.return_value.get_session.return_value = mock_session
+            mock_get_db.return_value.session_scope.return_value.__enter__.return_value = mock_session
             mock_date_cls.today.return_value = target_date
             mock_svc_cls.return_value.is_working_day.return_value = True
             mock_svc_cls.return_value.previous_working_day.return_value = previous_working_day
@@ -1160,7 +1162,7 @@ class TestJobWorkdayStartNoticeSplice:
              patch('workmain.integrations.slack.slack_eod.build_morning_briefing',
                    return_value='BRIEFING_BODY') as mock_build, \
              patch('workmain.daemon.delivery.deliver') as mock_deliver:
-            mock_get_db.return_value.get_session.return_value = mock_session
+            mock_get_db.return_value.session_scope.return_value.__enter__.return_value = mock_session
             mock_svc_cls.return_value.is_working_day.return_value = True
             mock_svc_cls.return_value.previous_working_day.return_value = date.today()
             mock_mtg_cls.return_value.get_active_for_date.return_value = []
@@ -1200,7 +1202,7 @@ class TestPreviousWorkingDayGuard:
              patch('workmain.database.repositories.notification_repository.NotificationConfigRepository') as mock_cfg_cls, \
              patch('workmain.database.repositories.task_status_repo.TaskStatusRepository') as mock_task_cls, \
              patch('workmain.daemon.delivery.deliver') as mock_deliver:
-            mock_get_db.return_value.get_session.return_value = mock_session
+            mock_get_db.return_value.session_scope.return_value.__enter__.return_value = mock_session
             mock_svc_cls.return_value.is_working_day.return_value = True
             mock_svc_cls.return_value.previous_working_day.side_effect = ValueError("pathological")
             mock_mtg_cls.return_value.get_active_for_date.return_value = []
@@ -1359,7 +1361,7 @@ class TestDoubleExecution:
         with patch('workmain.daemon.daemon.get_db') as mock_db, \
              patch('workmain.orchestration.action_executor.ActionExecutor') as mock_ae, \
              patch.object(daemon, '_maybe_post_correction_summary'):
-            mock_db.return_value.get_session.return_value = MagicMock()
+            mock_db.return_value.session_scope.return_value.__enter__.return_value = MagicMock()
             mock_ae.return_value.execute.return_value = ActionResult(success=True, message='')
             daemon._execute_action({'action': 'create_note', 'content': 'x'})
         daemon._socket_client.post_message.assert_any_call('D_TEST', 'Action completed.')
@@ -1552,3 +1554,35 @@ class TestProviderFailureReplies:
             capture_output=True, text=True,
         )
         assert out.stdout == ''
+
+
+class TestMeetingTriggersFromDatabase:
+    """Meeting triggers are scheduled from meetings read inside the scope."""
+
+    def test_triggers_are_scheduled_for_a_meeting_read_from_the_database(
+        self, db_session, monkeypatch
+    ):
+        import workmain.daemon.scheduler as sched_mod
+        today = date.today()
+        meeting = Meeting(
+            title='Sentinel Trigger Meeting',
+            start_time=datetime(today.year, today.month, today.day, 12, 0),
+            end_time=datetime(today.year, today.month, today.day, 12, 30),
+            is_recurring=False,
+        )
+        db_session.add(meeting)
+        db_session.commit()
+
+        class _JustAfterMidnight(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return datetime(today.year, today.month, today.day, 0, 0, 1)
+
+        monkeypatch.setattr(sched_mod, 'datetime', _JustAfterMidnight)
+        scheduler = MagicMock()
+        monkeypatch.setattr(sched_mod, '_scheduler', scheduler)
+
+        sched_mod._schedule_today_meeting_triggers(MagicMock())
+
+        ids = {c.kwargs['id'] for c in scheduler.add_job.call_args_list}
+        assert {f't2_{meeting.id}', f't3_{meeting.id}'} <= ids

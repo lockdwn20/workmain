@@ -12,6 +12,7 @@ from datetime import date, datetime
 from unittest.mock import patch, MagicMock
 
 import pytest
+from sqlalchemy import text
 
 from workmain.ai.base_provider import ProviderStatus, ProviderError, ConfigurationError
 from workmain.daemon.models import Observation, ObservationType
@@ -291,9 +292,7 @@ class TestTaskMatchSelfExclusion:
         _write_cf_state_file(SENTINEL_DATE)
         _cf_note_with_task(db_session, "Write the integration spec", SENTINEL_DATE)
 
-        with self._force_keyword_fallback(), \
-             patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
-            mock_get_db.return_value.get_session.return_value = db_session
+        with self._force_keyword_fallback():
             result = _run_task_match_step(
                 dry_run=False, target_date=SENTINEL_DATE, non_interactive=True,
             )
@@ -320,9 +319,7 @@ class TestTaskMatchSelfExclusion:
                    return_value=ProviderStatus.AVAILABLE), \
              patch('workmain.ai.intent_parser.IntentParser', return_value=mock_parser), \
              patch('workmain.database.repositories.task_status_repo.TaskStatusRepository.get_filtered',
-                   return_value=[ts]), \
-             patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
-            mock_get_db.return_value.get_session.return_value = db_session
+                   return_value=[ts]):
             result = _run_task_match_step(
                 dry_run=False, target_date=SENTINEL_DATE, non_interactive=True,
             )
@@ -346,9 +343,7 @@ class TestTaskMatchSelfExclusion:
             created_at=datetime(SENTINEL_DATE.year, SENTINEL_DATE.month, SENTINEL_DATE.day, 10, 0),
         )
 
-        with self._force_keyword_fallback(), \
-             patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
-            mock_get_db.return_value.get_session.return_value = db_session
+        with self._force_keyword_fallback():
             result = _run_task_match_step(
                 dry_run=False, target_date=SENTINEL_DATE, non_interactive=True,
             )
@@ -371,9 +366,7 @@ class TestStep3cUncappedQueries:
         with patch('workmain.database.repositories.task_status_repo.TaskStatusRepository.get_filtered',
                    mock_get_filtered), \
              patch('workmain.ai.providers.ollama.OllamaProvider.check_availability',
-                   return_value=ProviderStatus.UNAVAILABLE), \
-             patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
-            mock_get_db.return_value.get_session.return_value = db_session
+                   return_value=ProviderStatus.UNAVAILABLE):
             _run_task_match_step(
                 dry_run=False, target_date=SENTINEL_DATE, non_interactive=True,
             )
@@ -400,9 +393,7 @@ class TestStep3cUncappedQueries:
                    mock_get_filtered), \
              patch('workmain.ai.providers.ollama.OllamaProvider.check_availability',
                    return_value=ProviderStatus.UNAVAILABLE), \
-             patch('workmain.workflows.eod_workflow._prompt_choice', side_effect=EOFError), \
-             patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
-            mock_get_db.return_value.get_session.return_value = db_session
+             patch('workmain.workflows.eod_workflow._prompt_choice', side_effect=EOFError):
             result = _run_task_match_step(
                 dry_run=False, target_date=SENTINEL_DATE, non_interactive=False,
             )
@@ -425,9 +416,7 @@ class TestTaskMatchCancellationAndNoTimeBudget:
         cancel_event.set()
 
         with patch('workmain.ai.providers.ollama.OllamaProvider.check_availability',
-                   return_value=ProviderStatus.UNAVAILABLE), \
-             patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
-            mock_get_db.return_value.get_session.return_value = db_session
+                   return_value=ProviderStatus.UNAVAILABLE):
             result = _run_task_match_step(
                 dry_run=False, target_date=SENTINEL_DATE, non_interactive=True,
                 cancel_event=cancel_event,
@@ -461,9 +450,7 @@ class TestTaskMatchCancellationAndNoTimeBudget:
              patch('workmain.workflows.eod_workflow._keyword_score_match',
                    side_effect=_counting_score_match), \
              patch('workmain.database.repositories.task_status_repo.TaskStatusRepository.get_filtered',
-                   return_value=sentinel_tasks), \
-             patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
-            mock_get_db.return_value.get_session.return_value = db_session
+                   return_value=sentinel_tasks):
             result = _run_task_match_step(
                 dry_run=False, target_date=SENTINEL_DATE, non_interactive=True,
             )
@@ -502,9 +489,7 @@ class TestNoteDedupPairingScope:
              patch('workmain.workflows.eod_workflow._keyword_note_dedup_match',
                    side_effect=_counting_match), \
              patch('workmain.database.repositories.task_status_repo.TaskStatusRepository.get_filtered',
-                   return_value=today_tasks + existing_tasks), \
-             patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
-            mock_get_db.return_value.get_session.return_value = db_session
+                   return_value=today_tasks + existing_tasks):
             result = _run_note_dedup_step(
                 dry_run=False, target_date=SENTINEL_DATE, non_interactive=True,
             )
@@ -516,11 +501,9 @@ class TestNoteDedupPairingScope:
         monkeypatch.setenv('WORKMAIN_STATE_DIR', str(tmp_path))
         prev_day = date(2098, 12, 31)
         _cf_note_with_task(db_session, "Existing only", prev_day)
-        with patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
-            mock_get_db.return_value.get_session.return_value = db_session
-            result = _run_note_dedup_step(
-                dry_run=False, target_date=SENTINEL_DATE, non_interactive=True,
-            )
+        result = _run_note_dedup_step(
+            dry_run=False, target_date=SENTINEL_DATE, non_interactive=True,
+        )
         assert result.status == EodStepStatus.COMPLETED
 
 
@@ -545,15 +528,7 @@ class TestNoteDedupMergeDirection:
                    return_value={"score": 0.9}), \
              patch('workmain.workflows.eod_workflow._prompt_choice', return_value='m'), \
              patch('workmain.database.repositories.task_status_repo.TaskStatusRepository.get_filtered',
-                   return_value=[ts_old, ts_new]), \
-             patch('workmain.workflows.eod_workflow.get_db') as mock_get_db, \
-             patch.object(db_session, 'close'):
-            # session.close() is patched to a no-op for this block — the
-            # step runner's own `finally: session.close()` would otherwise
-            # close db_session out from under the fixture, breaking the
-            # refresh() calls below and the fixture's own rollback/close
-            # at teardown.
-            mock_get_db.return_value.get_session.return_value = db_session
+                   return_value=[ts_old, ts_new]):
             result = _run_note_dedup_step(
                 dry_run=False, target_date=SENTINEL_DATE, non_interactive=False,
             )
@@ -600,9 +575,7 @@ class TestProviderErrorDemotion:
              patch('workmain.workflows.eod_workflow._keyword_score_match',
                    side_effect=_counting_keyword), \
              patch('workmain.database.repositories.task_status_repo.TaskStatusRepository.get_filtered',
-                   return_value=tasks), \
-             patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
-            mock_get_db.return_value.get_session.return_value = db_session
+                   return_value=tasks):
             result = _run_task_match_step(
                 dry_run=False, target_date=SENTINEL_DATE, non_interactive=True,
             )
@@ -633,9 +606,7 @@ class TestProviderErrorDemotion:
              patch('workmain.ai.intent_parser.IntentParser', return_value=mock_parser), \
              patch('workmain.workflows.eod_workflow._keyword_score_match') as mock_keyword, \
              patch('workmain.database.repositories.task_status_repo.TaskStatusRepository.get_filtered',
-                   return_value=tasks), \
-             patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
-            mock_get_db.return_value.get_session.return_value = db_session
+                   return_value=tasks):
             result = _run_task_match_step(
                 dry_run=False, target_date=SENTINEL_DATE, non_interactive=True,
             )
@@ -672,9 +643,7 @@ class TestProviderErrorDemotion:
              patch('workmain.workflows.eod_workflow._keyword_note_dedup_match',
                    side_effect=_counting_keyword), \
              patch('workmain.database.repositories.task_status_repo.TaskStatusRepository.get_filtered',
-                   return_value=today_tasks), \
-             patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
-            mock_get_db.return_value.get_session.return_value = db_session
+                   return_value=today_tasks):
             result = _run_note_dedup_step(
                 dry_run=False, target_date=SENTINEL_DATE, non_interactive=True,
             )
@@ -700,9 +669,7 @@ class TestProviderErrorDemotion:
                    return_value=ProviderStatus.AVAILABLE), \
              patch('workmain.ai.intent_parser.IntentParser', return_value=mock_parser_3c), \
              patch('workmain.database.repositories.task_status_repo.TaskStatusRepository.get_filtered',
-                   return_value=[task]), \
-             patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
-            mock_get_db.return_value.get_session.return_value = db_session
+                   return_value=[task]):
             _run_task_match_step(
                 dry_run=False, target_date=SENTINEL_DATE, non_interactive=True,
             )
@@ -722,9 +689,7 @@ class TestProviderErrorDemotion:
              patch('workmain.ai.intent_parser.IntentParser', return_value=mock_parser_3d), \
              patch('workmain.workflows.eod_workflow._keyword_note_dedup_match') as mock_keyword, \
              patch('workmain.database.repositories.task_status_repo.TaskStatusRepository.get_filtered',
-                   return_value=today_tasks), \
-             patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
-            mock_get_db.return_value.get_session.return_value = db_session
+                   return_value=today_tasks):
             result = _run_note_dedup_step(
                 dry_run=False, target_date=SENTINEL_DATE, non_interactive=True,
             )
@@ -764,9 +729,7 @@ class TestCandidatePathTag:
         with patch('workmain.ai.providers.ollama.OllamaProvider.check_availability',
                    return_value=ProviderStatus.AVAILABLE), \
              patch('workmain.ai.intent_parser.IntentParser', return_value=mock_parser), \
-             patch('workmain.workflows.eod_workflow._prompt_choice', side_effect=EOFError), \
-             patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
-            mock_get_db.return_value.get_session.return_value = db_session
+             patch('workmain.workflows.eod_workflow._prompt_choice', side_effect=EOFError):
             result = _run_task_match_step(
                 dry_run=False, target_date=SENTINEL_DATE, non_interactive=False,
             )
@@ -784,9 +747,7 @@ class TestCandidatePathTag:
 
         with patch('workmain.ai.providers.ollama.OllamaProvider.check_availability',
                    return_value=ProviderStatus.UNAVAILABLE), \
-             patch('workmain.workflows.eod_workflow._prompt_choice', side_effect=EOFError), \
-             patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
-            mock_get_db.return_value.get_session.return_value = db_session
+             patch('workmain.workflows.eod_workflow._prompt_choice', side_effect=EOFError):
             result = _run_task_match_step(
                 dry_run=False, target_date=SENTINEL_DATE, non_interactive=False,
             )
@@ -811,9 +772,7 @@ class TestCandidatePathTag:
 
         with patch('workmain.ai.providers.ollama.OllamaProvider.check_availability',
                    return_value=ProviderStatus.AVAILABLE), \
-             patch('workmain.ai.intent_parser.IntentParser', return_value=mock_parser), \
-             patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
-            mock_get_db.return_value.get_session.return_value = db_session
+             patch('workmain.ai.intent_parser.IntentParser', return_value=mock_parser):
             result = _run_task_match_step(
                 dry_run=False, target_date=SENTINEL_DATE, non_interactive=True,
             )
@@ -830,9 +789,7 @@ class TestCandidatePathTag:
         self._second_note(db_session, "Deploy the XSOAR migration completed today")
 
         with patch('workmain.ai.providers.ollama.OllamaProvider.check_availability',
-                   return_value=ProviderStatus.UNAVAILABLE), \
-             patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
-            mock_get_db.return_value.get_session.return_value = db_session
+                   return_value=ProviderStatus.UNAVAILABLE):
             result = _run_task_match_step(
                 dry_run=False, target_date=SENTINEL_DATE, non_interactive=True,
             )
@@ -852,9 +809,7 @@ class TestConfigurationFaultReported:
 
         with patch('workmain.ai.intent_parser.get_provider_manager',
                    side_effect=ConfigurationError("sentinel")), \
-             patch('workmain.workflows.eod_workflow._keyword_score_match') as mock_keyword, \
-             patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
-            mock_get_db.return_value.get_session.return_value = db_session
+             patch('workmain.workflows.eod_workflow._keyword_score_match') as mock_keyword:
             result = _run_task_match_step(
                 dry_run=False, target_date=SENTINEL_DATE, non_interactive=True,
             )
@@ -874,9 +829,7 @@ class TestConfigurationFaultReported:
                    side_effect=ConfigurationError("sentinel")), \
              patch('workmain.workflows.eod_workflow._keyword_note_dedup_match') as mock_keyword, \
              patch('workmain.database.repositories.task_status_repo.TaskStatusRepository.get_filtered',
-                   return_value=today_tasks), \
-             patch('workmain.workflows.eod_workflow.get_db') as mock_get_db:
-            mock_get_db.return_value.get_session.return_value = db_session
+                   return_value=today_tasks):
             result = _run_note_dedup_step(
                 dry_run=False, target_date=SENTINEL_DATE, non_interactive=True,
             )
@@ -1438,3 +1391,25 @@ class TestCondenseStepOutcome:
         assert "'Only Meeting'" in result.message
         assert 'claude answered note_condensation because gemini failed' in result.message
         assert len(result.message.splitlines()) == 1
+
+
+class TestTaskMatchStepDatabaseFailure:
+    """A database failure inside the step is reported, not raised."""
+
+    def test_database_failure_in_the_step_reports_and_continues(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        monkeypatch.setenv('WORKMAIN_STATE_DIR', str(tmp_path))
+        _write_cf_state_file(SENTINEL_DATE)
+
+        def failing_get_filtered(self, **kwargs):
+            self.session.execute(text('SELECT 1/0'))
+
+        monkeypatch.setattr(TaskStatusRepository, 'get_filtered', failing_get_filtered)
+
+        result = _run_task_match_step(
+            dry_run=False, target_date=SENTINEL_DATE, non_interactive=True,
+        )
+
+        assert result.status == EodStepStatus.COMPLETED
+        assert 'Task match step failed' in capsys.readouterr().out
