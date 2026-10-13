@@ -271,6 +271,26 @@ class TestActionExecutorCreateTimeEntry:
         assert result.success is True
         assert result.entity_id is not None
 
+    def test_create_time_entry_failure_in_second_write_leaves_no_note(self, db_session):
+        """T1: the note is flushed before the time entry is created; a failure
+        creating the entry rolls the note back with it."""
+        from workmain.database.models import Note
+        from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+
+        description = f"Sentinel atomic create {uuid.uuid4().hex[:8]}"
+        with patch.object(
+            TimeEntriesRepository, "create", side_effect=RuntimeError("entry insert failed")
+        ):
+            result = ActionExecutor(db_session).execute({
+                "action": "create_time_entry",
+                "description": description,
+                "duration_minutes": 30,
+                "start_time": "10:00",
+            })
+
+        assert result.success is False
+        assert db_session.query(Note).filter(Note.content == description).count() == 0
+
     def test_create_time_entry_message_contains_duration(self, db_session):
         executor = ActionExecutor(db_session)
         result = executor.execute({
@@ -482,6 +502,30 @@ class TestActionExecutorTaskResolutionUncapped:
             "canonical_description": canon_content,
         })
         assert result.success is True
+
+    def test_deduplicate_task_failure_in_second_write_leaves_neither(self, db_session):
+        """T3: set_forwarding_note runs before set_dismissed; a failure in
+        set_dismissed leaves the forwarding pointer unset."""
+        run_id = uuid.uuid4().hex[:8]
+        dup_content = f"Sentinel atomic dup {run_id}"
+        canon_content = f"Sentinel atomic canon {run_id}"
+        dup_note = self._seed_target_task(db_session, dup_content)
+        self._seed_target_task(db_session, canon_content)
+
+        with patch.object(
+            TaskStatusRepository, "set_dismissed", side_effect=RuntimeError("dismiss failed")
+        ):
+            result = ActionExecutor(db_session).execute({
+                "action": "deduplicate_task",
+                "task_description": dup_content,
+                "canonical_description": canon_content,
+            })
+
+        assert result.success is False
+        db_session.expire_all()
+        task = TaskStatusRepository(db_session).get_by_note_id(dup_note.id)
+        assert task.forwarding_note_id is None
+        assert task.status == "active"
 
 
 def _seed_report_today(session, status: str = "unconfirmed", **kwargs) -> Report:

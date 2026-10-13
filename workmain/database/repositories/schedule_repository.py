@@ -34,7 +34,7 @@ class ScheduleExceptionRepository:
             name=name,
         )
         self.session.add(exception)
-        self.session.commit()
+        self.session.flush()
         self.session.refresh(exception)
         return exception
 
@@ -57,7 +57,7 @@ class ScheduleExceptionRepository:
             reason=reason,
         )
         self.session.add(exception)
-        self.session.commit()
+        self.session.flush()
         self.session.refresh(exception)
         return exception
 
@@ -131,5 +131,5 @@ class ScheduleExceptionRepository:
         if exception is None:
             return False
         self.session.delete(exception)
-        self.session.commit()
+        self.session.flush()
         return True

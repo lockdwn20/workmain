@@ -19,7 +19,10 @@ import unittest
 from datetime import datetime
 from unittest.mock import patch, MagicMock
 
+import click
+import pytest
 from click.testing import CliRunner
+from sqlalchemy import text
 
 from workmain.ai.base_provider import FinishStatus, GenerationResponse, ProviderType
 from workmain.cli.commands.notes import notes
@@ -186,3 +189,74 @@ class TestNotesLogCondenseUsesComputedTags(unittest.TestCase):
         self.assertIsNotNone(condensed_note)
         self.assertEqual(condensed_note.tags, ["internal-only"])
         self.assertNotEqual(condensed_note.tags, ["both"])
+
+
+class TestNotesLogUnitOfWork:
+    """notes log commits what it has written before it waits, and contains a
+    failed line or a failed condensation in a savepoint (#96)."""
+
+    @pytest.fixture(autouse=True)
+    def _no_editor(self, monkeypatch):
+        monkeypatch.delenv('EDITOR', raising=False)
+
+    def _contents(self, session, meeting_id):
+        rows = session.query(Note).filter(Note.meeting_id == meeting_id).all()
+        return sorted(n.content for n in rows)
+
+    def test_t13_logged_notes_persist_when_the_condense_prompt_is_cancelled(self, db_session):
+        meeting = _seed_meeting(db_session, "Sentinel Log Abort Meeting 2099-96")
+
+        with patch('click.confirm', side_effect=click.Abort()):
+            CliRunner().invoke(
+                notes, ["log", "--meeting", str(meeting.id)],
+                input="Sentinel log abort one\nSentinel log abort two\n\n",
+            )
+
+        assert self._contents(db_session, meeting.id) == [
+            "Sentinel log abort one", "Sentinel log abort two",
+        ]
+
+    def test_t16_a_failed_line_rolls_back_only_that_line(self, db_session):
+        meeting = _seed_meeting(db_session, "Sentinel Log Line Failure 2099-96")
+        real_create = NotesRepository.create
+        calls = []
+
+        def create(self, *args, **kwargs):
+            calls.append(1)
+            if len(calls) == 2:
+                self.session.execute(text("SELECT 1/0"))
+            return real_create(self, *args, **kwargs)
+
+        with patch.object(NotesRepository, "create", create):
+            result = CliRunner().invoke(
+                notes, ["log", "--meeting", str(meeting.id)],
+                input="Sentinel line one\nSentinel line two\nSentinel line three\n\nn\n",
+            )
+
+        assert result.exit_code == 0, result.output
+        assert "✗ Error:" not in result.output
+        assert self._contents(db_session, meeting.id) == [
+            "Sentinel line one", "Sentinel line three",
+        ]
+
+    @patch("workmain.ai.provider_manager.ProviderManager.generate")
+    def test_t17_a_failed_condensation_keeps_the_logged_notes(self, mock_generate, db_session):
+        from workmain.services import time_entry_service
+        mock_generate.return_value = (_fake_response(_SENTINEL_CONDENSED_SUMMARY), None)
+        meeting = _seed_meeting(db_session, "Sentinel Log Condense Failure 2099-96")
+
+        def failing_pair(session, *args, **kwargs):
+            session.execute(text("SELECT 1/0"))
+
+        with patch.object(time_entry_service, "create_paired_time_entry", failing_pair):
+            result = CliRunner().invoke(
+                notes, ["log", "--meeting", str(meeting.id)],
+                input="Sentinel condense failure note\n\ny\n",
+            )
+
+        assert result.exit_code == 0, result.output
+        assert "✗ Error:" not in result.output
+        assert "Condensation failed" in result.output
+        db_session.expire_all()
+        assert db_session.get(Meeting, meeting.id).condensed_summary is None
+        assert self._contents(db_session, meeting.id) == ["Sentinel condense failure note"]

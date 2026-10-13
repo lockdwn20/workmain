@@ -330,6 +330,7 @@ def notes_add(text: Optional[str], tags: Optional[str], meeting: Optional[str],
                 note.meeting.end_time - note.meeting.start_time
             ).total_seconds() / 3600
 
+            session.commit()
             if click.confirm(
                 f"\nCreate time entry for this meeting ({meeting_duration:.2f}h)?",
                 default=True
@@ -622,13 +623,14 @@ def notes_log(meeting: str):
                         click.echo(f"      Ignored: {', '.join(invalid)}")
 
                     try:
-                        note = notes_service.create_note(
-                            session,
-                            content=clean_text,
-                            tags=note_tags or ['internal-only'],
-                            source='meeting',
-                            meeting_id=meeting_obj.id,
-                        )
+                        with session.begin_nested():
+                            note = notes_service.create_note(
+                                session,
+                                content=clean_text,
+                                tags=note_tags or ['internal-only'],
+                                source='meeting',
+                                meeting_id=meeting_obj.id,
+                            )
                         created_count += 1
                         click.echo(f"  ✓ {note.display_tags} {clean_text[:60]}")
 
@@ -644,58 +646,59 @@ def notes_log(meeting: str):
 
             # Prompt to condense notes and create time entry
             # When no notes or only #ifo notes, condensation produces "Attended <meeting>"
+            session.commit()
             if click.confirm("Condense notes and create time entry?", default=True):
                 try:
-                    from workmain.ai.note_condenser import get_note_condenser
-                    from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+                    with session.begin_nested():
+                        from workmain.ai.note_condenser import get_note_condenser
+                        from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
 
-                    from workmain.ai.provider_manager import get_provider_manager
-                    _rc = get_provider_manager().get_report_config('note_condensation')
-                    _provider_display = _rc.primary_provider.value.capitalize() if _rc else 'AI'
-                    click.echo(f"\nSending to {_provider_display}...")
-                    condenser = get_note_condenser(session)
-                    summary, resolved_tags, notice, _ = condenser.condense_meeting(meeting_obj)
-                    click.echo(f"✓ Condensed: \"{summary}\"")
-                    if notice:
-                        click.echo(f"⚠ {notice.message}")
+                        from workmain.ai.provider_manager import get_provider_manager
+                        _rc = get_provider_manager().get_report_config('note_condensation')
+                        _provider_display = _rc.primary_provider.value.capitalize() if _rc else 'AI'
+                        click.echo(f"\nSending to {_provider_display}...")
+                        condenser = get_note_condenser(session)
+                        summary, resolved_tags, notice, _ = condenser.condense_meeting(meeting_obj)
+                        click.echo(f"✓ Condensed: \"{summary}\"")
+                        if notice:
+                            click.echo(f"⚠ {notice.message}")
 
-                    # Create note from condensed summary
-                    condensed_note = notes_service.create_note(
-                        session,
-                        content=summary,
-                        tags=resolved_tags,
-                        meeting_id=meeting_obj.id,
-                        source='condensed',
-                    )
-                    click.echo(f"✓ Note created (ID: {condensed_note.id})")
-
-                    # Update or create time entry
-                    time_repo = TimeEntriesRepository(session)
-                    existing = time_repo.get_by_meeting(meeting_obj.id)
-                    meeting_date = meeting_obj.start_time.date()
-                    existing_today = [e for e in existing if e.entry_date == meeting_date]
-
-                    if existing_today:
-                        entry = existing_today[0]
-                        entry.note_id = condensed_note.id
-                        session.commit()
-                        click.echo(f"✓ Time entry (ID: {entry.id}) linked to condensed note")
-                    else:
-                        duration_hours = (
-                            meeting_obj.end_time - meeting_obj.start_time
-                        ).total_seconds() / 3600
-
-                        entry = time_entry_service.create_paired_time_entry(
+                        # Create note from condensed summary
+                        condensed_note = notes_service.create_note(
                             session,
-                            condensed_note,
-                            duration_hours=duration_hours,
-                            entry_date=meeting_obj.start_time.date(),
-                            entry_time=meeting_obj.start_time.time(),
-                            category='meeting',
+                            content=summary,
+                            tags=resolved_tags,
+                            meeting_id=meeting_obj.id,
+                            source='condensed',
                         )
-                        click.echo(f"✓ Time entry created (ID: {entry.id}, {duration_hours:.2f}h)")
+                        click.echo(f"✓ Note created (ID: {condensed_note.id})")
 
-                    click.echo()
+                        # Update or create time entry
+                        time_repo = TimeEntriesRepository(session)
+                        existing = time_repo.get_by_meeting(meeting_obj.id)
+                        meeting_date = meeting_obj.start_time.date()
+                        existing_today = [e for e in existing if e.entry_date == meeting_date]
+
+                        if existing_today:
+                            entry = existing_today[0]
+                            entry.note_id = condensed_note.id
+                            click.echo(f"✓ Time entry (ID: {entry.id}) linked to condensed note")
+                        else:
+                            duration_hours = (
+                                meeting_obj.end_time - meeting_obj.start_time
+                            ).total_seconds() / 3600
+
+                            entry = time_entry_service.create_paired_time_entry(
+                                session,
+                                condensed_note,
+                                duration_hours=duration_hours,
+                                entry_date=meeting_obj.start_time.date(),
+                                entry_time=meeting_obj.start_time.time(),
+                                category='meeting',
+                            )
+                            click.echo(f"✓ Time entry created (ID: {entry.id}, {duration_hours:.2f}h)")
+
+                        click.echo()
 
                 except Exception as e:
                     click.echo(f"\n✗ Condensation failed: {e}")

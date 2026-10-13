@@ -2,8 +2,10 @@
 Recording service for ai_costs — the only code outside the repository that
 writes a cost row.
 
-Each function opens its own session, so a recording survives a failure in the
-caller's transaction, and neither ever fails the call it records.
+`record_reply` opens its own session through `record_scope()`, so a recording
+survives a failure in the caller's transaction
+(`docs/DEVELOPMENT_STANDARDS.md` §4.3). `link_report` writes in the caller's
+session. Neither ever fails the call it serves.
 """
 
 import logging
@@ -41,7 +43,7 @@ def record_reply(
         The new row's id, or None when recording failed.
     """
     try:
-        with get_db().session_scope() as session:
+        with get_db().record_scope() as session:
             row = AiCostRepository(session).create(
                 interaction_type=call_type,
                 provider=response.provider.value,
@@ -63,21 +65,23 @@ def record_reply(
         return None
 
 
-def link_report(cost_record_ids: List[int], report_id: int) -> None:
+def link_report(session, cost_record_ids: List[int], report_id: int) -> None:
     """
-    Link recorded cost rows to the report they produced.
+    Link recorded cost rows to the report they produced, in the caller's
+    session, so the link commits or rolls back with the report.
 
-    An empty list does nothing and opens no session. A failure is logged and
-    swallowed.
+    An empty list does nothing. A failure is contained by a savepoint,
+    logged and swallowed.
 
     Args:
+        session: The caller's session, which holds the report
         cost_record_ids: ai_costs row ids returned by record_reply
         report_id: FK to reports.id
     """
     if not cost_record_ids:
         return None
     try:
-        with get_db().session_scope() as session:
+        with session.begin_nested():
             AiCostRepository(session).link_report(cost_record_ids, report_id)
     except Exception as e:
         logger.warning("Could not link AI cost rows to report %s: %s", report_id, e)

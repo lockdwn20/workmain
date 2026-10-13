@@ -482,13 +482,15 @@ class WorkmAInDaemon:
         try:
             with db.session_scope() as session:
                 result = ActionExecutor(session).execute(action)
-                self.post_message(result.message or 'Action completed.')
-                self._maybe_post_correction_summary(result, action)
         except ActionExecutorError as e:
             self.post_message(f"Error: {e}")
+            return
         except Exception as e:
             logger.error("Unexpected execution error: %s", e)
             self.post_message("An unexpected error occurred. Please try again.")
+            return
+        self.post_message(result.message or 'Action completed.')
+        self._maybe_post_correction_summary(result, action)
 
     def _get_intent_parser(self):
         """Lazily instantiate IntentParser; returns None on init failure."""

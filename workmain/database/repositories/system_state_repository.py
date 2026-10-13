@@ -36,7 +36,7 @@ class SystemStateRepository:
         else:
             row = SystemState(key=key, value=value)
             self.session.add(row)
-        self.session.commit()
+        self.session.flush()
 
     def delete(self, key: str) -> bool:
         """Delete key. Returns True if deleted, False if not found."""
@@ -46,7 +46,7 @@ class SystemStateRepository:
         if not row:
             return False
         self.session.delete(row)
-        self.session.commit()
+        self.session.flush()
         return True
 
     def get_bool(self, key: str, default: bool = False) -> bool:

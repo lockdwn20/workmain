@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.47.0] - 2026-10-13
+
+Every repository method committed on its own, so a command that made two writes could not save them together: interrupting `time add` between the note and its time entry left an orphan note behind. Repositories now only flush. The code that opens a session owns the unit of work, commits once it is complete or before it waits on a prompt, an editor, a child process or an outside service, and contains a caught failure in a savepoint. A write that records something already done outside the database (an AI call billed, a file in Drive, a Slack post, an entry in Clockify) commits in its own session so a later failure can't undo it, and a failed record is reported on stderr without changing the exit status (issue #96).
+
+### Changed
+
+- `workmain/database/repositories/`: every `commit()` is a `flush()`. `ReportsRepository.delete`, which had no caller, is removed
+- `workmain/database/connection.py`: `record_scope()`, a `session_scope()` with a 5-second `lock_timeout`, opens every outside-action record's session
+- `workmain/orchestration/action_executor.py`: each action runs in a savepoint and no handler commits. The daemon and the Slack EOD manager post an action's result to Slack only after its session has committed
+- `meetings merge`, `meetings reschedule`, `notes add`, `notes log` and `time add` commit their writes before each follow-up prompt, so cancelling the prompt keeps them. `notes log` saves each note line, and its condensation, in a savepoint
+- `gdocs upload`, `slack post weekly` and the Clockify sync record what they did in a session of their own. A Clockify entry whose link fails to record is listed as "In Clockify but not recorded locally", not as a failed push
+- The EOD Clockify, Drive and weekly-Slack steps carry a child command's stderr warning into the step's completion message on the Slack EOD path. CLI start-up captures Python warnings into the log, so stderr carries only a command's own lines
+- `workmain/utils/ics_parser.py`: `migrate_series_uid_records`, a one-time migration with nothing left to migrate, is removed with its three tests
+- `docs/DEVELOPMENT_STANDARDS.md` §4.1, §4.3, §6.1: the unit-of-work, commit-before-wait, savepoint and outside-action rules
+
+### Fixed
+
+- A failure in the second write of a Slack `create_time_entry` action, or a Ctrl-C between the note and the time entry in `time add`, no longer leaves an orphan note
+- `ai_cost_service.link_report` links cost rows in the caller's session, so the link commits or rolls back with the report it points to
+
+Suite: 1310 passed, 0 failed, 0 skipped (baseline 1278 passed, 0 failed, 0 skipped).
+
 ## [1.46.0] - 2026-10-13
 
 Every database session application code opened was hand-written: `get_session()`, then a `try`, then `session.close()` in a `finally`. `DatabaseConnection.session_scope()`, which commits on success, rolls back on an error and always closes, existed but was never used. Every session under `workmain/` now opens through `session_scope()`, so each command and job saves its work, undoes it on an error and releases the connection in one place (issue #95).

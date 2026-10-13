@@ -16,6 +16,7 @@ from typing import Optional
 
 import click
 from rich.console import Console
+from rich.markup import escape
 from rich.rule import Rule
 from rich.table import Table
 
@@ -39,6 +40,7 @@ from workmain.utils.date_format import format_date_display
 
 
 console = Console()
+err_console = Console(stderr=True, soft_wrap=True)
 
 
 # ---------------------------------------------------------------------------
@@ -51,6 +53,30 @@ def _normalize_channel(channel: str) -> str:
     if not channel.startswith("#"):
         channel = f"#{channel}"
     return channel
+
+
+def _record_slack_post(report_id: int, message_ts: str, channel: str,
+                       workspace_name: str) -> bool:
+    """Record a posted weekly report in its own scope (DEVELOPMENT_STANDARDS §4.3).
+
+    Returns True when the record committed. A failure is reported on stderr
+    and returns False, with the command's exit status unchanged: the message
+    is in Slack, and rerunning the post would post it again.
+    """
+    try:
+        with get_db().record_scope() as session:
+            report = get_reports_repository(session).get_by_id(report_id)
+            report.slack_message_ts = message_ts
+            report.slack_channel = channel
+            report.slack_workspace_name = workspace_name
+    except Exception as exc:
+        err_console.print(
+            f"[red]✗ Posted to {channel} (ts {message_ts}), but recording the "
+            f"post failed:[/red] {escape(str(exc))}. `workmain slack post` will not see this "
+            "report as posted and will post it again."
+        )
+        return False
+    return True
 
 
 def _parse_date_arg(date_str: Optional[str]) -> date:
@@ -622,13 +648,11 @@ def slack_post(
             console.print(f"\n[red]✗ Slack post failed:[/red] {e}")
             return
 
-        report.slack_message_ts = message_ts
-        report.slack_channel = target_channel
-        report.slack_workspace_name = workspace_name
-        session.commit()
+        recorded = _record_slack_post(report.id, message_ts, target_channel, workspace_name)
 
         console.print(f"\n[green]✓ Posted to {target_channel}[/green]")
         console.print(f"  Workspace:  {workspace_name}")
         console.print(f"  Period:     {monday_display} – {anchor_display}")
         console.print(f"  Timestamp:  {message_ts}")
-        console.print("  Report record updated (reports table)")
+        if recorded:
+            console.print("  Report record updated (reports table)")

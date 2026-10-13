@@ -329,6 +329,7 @@ def time_add(description: Optional[str], duration: str, time: str,
         elif meeting_obj:
             click.echo(f"✓ Note created (ID: {note.id}) linked to meeting [#{meeting_obj.id}]")
 
+            session.commit()
             if click.confirm(f"\nAdd additional notes to this meeting?", default=False):
                 note_content = click.prompt("Enter note content")
                 extra_note = notes_service.create_note(
@@ -344,6 +345,7 @@ def time_add(description: Optional[str], duration: str, time: str,
             click.echo(f"✓ Note created (ID: {note.id})")
 
         # Prompt for Clockify sync
+        session.commit()
         click.echo()
         if click.confirm("Sync to Clockify now?", default=False):
             # Sync this entry

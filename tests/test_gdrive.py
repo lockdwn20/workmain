@@ -16,7 +16,8 @@ from click.testing import CliRunner
 
 from workmain.database.models import GDriveUpload
 from workmain.database.repositories.gdrive_repository import GDriveRepository
-from workmain.cli.commands.gdocs import gdocs, _format_notes_markdown
+from workmain.cli.commands.gdocs import gdocs, _format_notes_markdown, _record_upload
+from workmain.database.connection import DatabaseConnection, get_db
 
 
 # ---------------------------------------------------------------------------
@@ -252,3 +253,69 @@ class TestGDocsCLI:
         assert "Clockify_20260309.pdf" in result.output
         # No real DB writes — record_upload should not have been called
         assert not mock_session.add.called
+
+
+# ---------------------------------------------------------------------------
+# Outside-action record: a Drive upload's record commits in its own scope (#96)
+# ---------------------------------------------------------------------------
+
+class TestDriveUploadRecord:
+
+    def test_t18_record_survives_a_later_failed_scope(self, db_session):
+        with patch.object(
+            DatabaseConnection, 'record_scope', autospec=True,
+            side_effect=DatabaseConnection.record_scope,
+        ) as spy:
+            _record_upload(
+                Path("/staging/notes/Sentinel_96.md"), "sentinel-drive-id", "folder-id",
+                "Sentinel_96.md", "notes", date(2099, 6, 1),
+            )
+        spy.assert_called_once()
+
+        with pytest.raises(RuntimeError):
+            with get_db().session_scope() as session:
+                _make_upload(session, drive_file_id="sentinel-later-failure")
+                raise RuntimeError("later failure")
+
+        rows = db_session.query(GDriveUpload).filter(
+            GDriveUpload.drive_file_id == "sentinel-drive-id"
+        ).all()
+        assert len(rows) == 1
+
+    def _upload_notes(self, tmp_path, monkeypatch, args):
+        monkeypatch.setenv("GDRIVE_TIMECARDS_ROOT", "Timecards")
+        client = MagicMock()
+        client.ensure_period_structure.return_value = {
+            "Raw_Notes": "f1", "Reports": "f2", "Clockify": "f3",
+        }
+        client.upload_file.return_value = "sentinel-failed-record-id"
+        runner = CliRunner(mix_stderr=False)
+        with patch("workmain.cli.commands.gdocs._require_auth"), \
+             patch("workmain.cli.commands.gdocs._get_client", return_value=client), \
+             patch("workmain.cli.commands.gdocs._STAGING_NOTES", tmp_path), \
+             patch("workmain.cli.commands.gdocs._STAGING_REPORTS", tmp_path), \
+             patch("workmain.cli.commands.gdocs._STAGING_CLOCKIFY", tmp_path), \
+             patch.object(GDriveRepository, "record_upload",
+                          side_effect=RuntimeError("record insert failed")):
+            return runner.invoke(gdocs, args)
+
+    def test_t23_failed_record_is_reported_and_does_not_change_the_exit(
+        self, tmp_path, monkeypatch, db_session
+    ):
+        result = self._upload_notes(
+            tmp_path, monkeypatch, ["upload", "notes", "--date", "20990601", "--force"]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "sentinel-failed-record-id" in result.stderr
+
+    def test_t28_upload_all_exits_zero_and_names_the_file_id(
+        self, tmp_path, monkeypatch, db_session
+    ):
+        result = self._upload_notes(
+            tmp_path, monkeypatch, ["upload", "all", "--date", "20990601", "--force"]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "sentinel-failed-record-id" in result.stderr
+        assert "✓ Notes" in result.stdout

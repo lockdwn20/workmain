@@ -28,7 +28,8 @@ class ActionExecutor:
     """Executes confirmed action dicts against the database.
 
     Receives a SQLAlchemy session at construction; all methods share it.
-    Each public execute() call commits atomically or rolls back on failure.
+    Each execute() call runs its action in a savepoint: a failure rolls back
+    that action's writes and nothing else. The caller's scope commits.
     """
 
     def __init__(self, session) -> None:
@@ -67,12 +68,12 @@ class ActionExecutor:
             raise ActionExecutorError(f"Unknown action_type: '{action_type}'")
 
         try:
-            return handler(action)
+            with self.session.begin_nested():
+                return handler(action)
         except ActionExecutorError:
             raise
         except Exception as e:
             logger.error("ActionExecutor failed for '%s': %s", action_type, e)
-            self.session.rollback()
             return ActionResult(success=False, message=f"Error: {e}", error=str(e))
 
     # ------------------------------------------------------------------
@@ -177,7 +178,6 @@ class ActionExecutor:
             return ActionResult(success=True, message=f"✓ Task dismissed: '{label}'.", entity_id=task.id)
         else:
             task.status = "deferred"
-            self.session.commit()
             return ActionResult(success=True, message=f"✓ Task deferred: '{label}'.", entity_id=task.id)
 
     def _execute_defer_task(self, action: dict) -> ActionResult:
@@ -194,7 +194,6 @@ class ActionExecutor:
             )
         label = task.note.content if task.note else str(task.id)
         task.status = "deferred"
-        self.session.commit()
         return ActionResult(success=True, message=f"✓ Task deferred: '{label}'.", entity_id=task.id)
 
     def _execute_confirm_report(self, action: dict) -> ActionResult:
@@ -226,7 +225,6 @@ class ActionExecutor:
             )
         report.status = "confirmed"
         report.updated_at = datetime.now()
-        self.session.commit()
         return ActionResult(
             success=True,
             message=f"✓ {report_type.replace('_', ' ').title()} confirmed.",
@@ -277,7 +275,6 @@ class ActionExecutor:
         if report.status != "corrected":
             report.status = "corrected"
         report.updated_at = datetime.now()
-        self.session.commit()
         report_label = report_type.replace("_", " ")
         return ActionResult(
             success=True,
