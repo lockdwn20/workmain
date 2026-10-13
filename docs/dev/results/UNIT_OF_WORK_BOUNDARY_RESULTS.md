@@ -1,6 +1,6 @@
 # Unit-of-Work Boundary — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Anvil (Role 3)
 **Date:** 20261013
 **Spec:** `../specs/UNIT_OF_WORK_BOUNDARY_SPEC.md`
