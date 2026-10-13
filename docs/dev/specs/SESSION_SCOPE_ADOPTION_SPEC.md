@@ -15,7 +15,7 @@
 | Date | Source | Decision or finding | Resolution |
 | --- | --- | --- | --- |
 | 20261012 | Ray | Branch type | `feature/*`: the change touches far more than three application files (`docs/DEVELOPMENT_STANDARDS.md` §2.2). |
-| 20261013 | Ray | Study Q1: #95 writes the outside-action rule's text into §4.3, so §4.1 can cite it on the day #95 ships | Taken in Step 3. #96's sixth acceptance criterion is reworded at #96's spec, to check that §4.3 states the rule rather than to write it. |
+| 20261013 | Ray | Each issue writes only the rules its own change makes true. "A command owns its unit of work" and "a service never opens or commits a session" are not true when #95 ships: repositories commit until #96, `notes_service` and `note_condenser` commit, and `link_report` opens its own session | The issue's last criterion (§4.1 unit-of-work rule) moves to #96, and there is no AC7.1. Study Q1 is reversed: #95 doesn't write the outside-action rule into §4.3, and #96's sixth criterion stays as written. Step 3 writes only §4.1 and §4.2. |
 | 20261013 | Ray | `notes log`'s per-line handler (study F4) | No change. A database error affects every line by design. The extra error line printed when the scope exits is stated in §7. |
 | 20261013 | Spanner | Objects read after the scope (study F3) | §4.2 decides it: the two sites read their values inside the scope (Step 1 and Step 2), and the session factories keep `expire_on_commit=True`. |
 | 20261013 | Spanner | The issue's fourth criterion names `intent_parser.py:119-134`, which no longer opens a session (#191, commit `36ae559`) | AC4.1 checks the same property at the site that replaced it, `ai_cost_service.record_reply`. The issue's wording is updated at close-out. |
@@ -25,8 +25,8 @@
 | 20261013 | Caliper | §2's list of sites with their own `except` clauses names `eod_workflow.py` 971, which has none, and omits 1002, which has one. Study F4 and F6 cite the same wrong line | Accepted. The census paired each open with the first `try` at or after it, which is wrong in a function with four sessions. It was re-run, pairing each open with the `try` that follows it in the same block. §2 now reads 1002, as do study F4 and F6. The site count is unchanged at 41; the review's 45 counted others. |
 | 20261013 | Caliper | Step 3's §4.1 "only `session_scope()` calls it" contradicts `tests/conftest.py`'s `db_session` and §6.1 | Accepted, with the review's wording. |
 | 20261013 | Caliper | Step 3's §4.1 bullet names only `SystemExit`; `KeyboardInterrupt` takes the same path | Accepted, with the review's wording. |
-| 20261013 | Caliper | §7 and the Decision Log name `notes.py:647` as the only in-block handler that changes output. `notes.py:712`, around condensation in the same `notes_log` block, also catches database failures and carries on: from `notes_service.create_note`, the `session.commit()` that links the time entry, and `time_entry_service.create_paired_time_entry`. Under the scope, the exit commit then raises, and the outer handler prints an extra `✗ Error:` line after `✗ Condensation failed`. Ray's settlement of 647 doesn't cover a failure that starts in condensation | |
-| 20261013 | Caliper | `ai_cost_service.link_report` opens its own session inside a service for a write that isn't an outside action, which Step 3's §4.1 text forbids. No issue owns the fix. Its only caller, `workmain/ai/report_generator.py:176-188`, creates the report in the command's session and then calls `link_report`. Once #96 removes repository commits, `link_report`'s separate session writes a foreign key to an uncommitted report row; that fails, and `ai_cost_service.py:89-90` logs it as a warning | |
+| 20261013 | Caliper | §7 and the Decision Log name `notes.py:647` as the only in-block handler that changes output. `notes.py:712`, around condensation in the same `notes_log` block, also catches database failures and carries on: from `notes_service.create_note`, the `session.commit()` that links the time entry, and `time_entry_service.create_paired_time_entry`. Under the scope, the exit commit then raises, and the outer handler prints an extra `✗ Error:` line after `✗ Condensation failed`. Ray's settlement of `notes.py:647` doesn't cover a failure that starts in condensation | Moved to #96 (Ray, 20261013). |
+| 20261013 | Caliper | `ai_cost_service.link_report` opens its own session inside a service for a write that isn't an outside action, which Step 3's §4.1 text forbids. No issue owns the fix. Its only caller, `workmain/ai/report_generator.py:176-188`, creates the report in the command's session and then calls `link_report`. Once #96 removes repository commits, `link_report`'s separate session writes a foreign key to an uncommitted report row; that fails, and `ai_cost_service.py:89-90` logs it as a warning | Moved to #96 (Ray, 20261013). |
 | 20261013 | Caliper | AC1.4 checks DR2 at one site of the 41 | Accepted. AC1.4 adds the DR2 placement check in §5, keyed to every listed site by file, function and position. Ending-in-a-`try` was rejected as the test: `meetings.py:834` and `reports.py:623` legitimately end their body that way. |
 
 ---
@@ -38,7 +38,7 @@
 - Every `get_session()` call under `workmain/`, except `workmain/database/connection.py`, converted to `session_scope()`. §2 lists them.
 - The two sites that read ORM attributes after their block: `workmain/daemon/scheduler.py` `_schedule_today_meeting_triggers` and `workmain/cli/interface.py` `status`.
 - The tests those conversions reach, as §2 lists them, and four new tests (§6).
-- `docs/DEVELOPMENT_STANDARDS.md` §4.1, §4.2 and §4.3.
+- `docs/DEVELOPMENT_STANDARDS.md` §4.1 and §4.2.
 
 **Out of scope:**
 
@@ -49,11 +49,8 @@
 - **`_get_draft_recipients`' optional-session shape** (study F11). It is a CLI helper, not a service. Its own `get_session()` site is converted like every other.
 - **Tests that open their own session.** `tests/conftest.py` `db_session`, `tests/test_meetings_condense.py` and `tests/test_ai_arguments.py` are test code, which §6.1 and #198 govern.
 - **`connection.py`.** `session_scope()` and the session factory are unchanged.
-- **Recovering from a database failure inside a scope.** Three handlers catch a database failure inside a session and carry on: `notes.py:647` (per-line note creation in `notes_log`), `notes.py:712` (condensation in `notes_log`) and `eod_workflow.py:612` (`set_forwarding_note` in `_run_task_match_step`). Separately, `ai_cost_service.link_report` opens its own session for a write that isn't an outside action. These sites stay as they are under DR3. Where the fix goes is open in the Decision Log. The fix, wherever it goes:
-  - Wrap the database work each of the three handlers guards in `session.begin_nested()`, so a failure rolls back only to that savepoint and the rest of the command's unit of work continues.
-  - Change `link_report` to take the caller's session, so the link commits or rolls back with the report it links, and keep its log-and-continue behind a savepoint.
-  - It is blocked by #96: while repositories commit for themselves, a savepoint can't contain a failure (§2).
-  - Until it ships, `link_report` contradicts the §4.1 rule Step 3 writes, as the service commits #96 removes do.
+- **The unit-of-work rule and the outside-action rule.** #96 writes both into §4.1 and §4.3, because neither is true until #96's change ships.
+- **Recovering from a database failure inside a scope.** #96 owns these sites, and they stay as they are here under DR3. Three handlers catch a database failure inside a session and carry on: `notes.py:647` (per-line note creation in `notes_log`), `notes.py:712` (condensation in `notes_log`) and `eod_workflow.py:612` (`set_forwarding_note` in `_run_task_match_step`). Separately, `ai_cost_service.link_report` opens its own session for a write that isn't an outside action. The fix needs repositories to stop committing, because until then a savepoint can't contain a failure (§2).
 
 ## 2. Verified current state
 
@@ -112,7 +109,7 @@ Before Step 1, record the baseline `pytest` counts in the form of `docs/DEVELOPM
 | --- | --- | --- |
 | 1 | Services, daemon, integrations and workflows converted, with their tests | `workmain/services/ai_cost_service.py`, `workmain/daemon/daemon.py`, `workmain/daemon/scheduler.py`, `workmain/integrations/slack/slack_eod.py`, `workmain/workflows/eod_workflow.py`, `tests/test_ai_costs.py`, `tests/test_orchestration.py`, `tests/test_eod_workflow.py`, `tests/test_eod_task_matching.py` |
 | 2 | CLI converted, with its tests | every file under `workmain/cli/commands/` §2 lists, `workmain/cli/interface.py`, `tests/test_gdrive.py`, `tests/test_provider_foundation.py`, `tests/test_status_command.py` (new) |
-| 3 | §4.1, §4.2 and §4.3 | `docs/DEVELOPMENT_STANDARDS.md` |
+| 3 | §4.1 and §4.2 | `docs/DEVELOPMENT_STANDARDS.md` |
 | 4 | Results artifact | `docs/dev/results/SESSION_SCOPE_ADOPTION_RESULTS.md` |
 
 The suite passes at the end of each step.
@@ -244,7 +241,6 @@ After the block, replace each read of `active_client`:
   ```
 
 - `get_session()` is a method on `DatabaseConnection`, not a module-level function. In application code under `workmain/`, only `session_scope()` calls it; tests follow §6.1.
-- **A command owns its unit of work.** A CLI command, a daemon job or a workflow step opens the `session_scope()` its work runs in. A service takes the caller's session as an argument and never opens or commits one, except for a write that records an outside action (§4.3).
 - **A handler that recovers from an exception sits outside the `with`.** A handler that catches an exception and carries on wraps the `with`, so the scope has rolled back before the handler runs. A handler inside the block that swallows a database error leaves the transaction failed, and the scope's commit then raises.
 - **An exception that is not an `Exception` skips both commit and rollback.** `SystemExit` (from `sys.exit()` or `raise SystemExit`) and `KeyboardInterrupt` derive only from `BaseException`, so the scope only closes the session and its uncommitted writes are discarded. `ctx.exit()` and `click.Abort` are `Exception`s and roll the scope back.
 ~~~
@@ -253,12 +249,6 @@ After the block, replace each read of `active_client`:
 
 ```markdown
 - No ORM object is read after its `session_scope()` block exits. The exit commit expires every loaded attribute, and a read afterwards raises `DetachedInstanceError`. Read the values the code after the block needs while the block is open.
-```
-
-**§4.3.** After the code block, add:
-
-```markdown
-- **Writes that record an outside action.** A row that records an action outside WorkmAIn's database, which has already happened and which a rollback cannot undo, commits in its own `session_scope()` immediately after that action, independent of the command's unit of work. Every other write belongs to the command's unit of work, and commits or rolls back with it. A failure to commit such a row is never silent.
 ```
 
 ### Step 4 — results artifact
@@ -280,9 +270,8 @@ None. This spec runs no migration, deletes no GitHub object, merges nothing to `
 | AC2.1 | No code under `workmain/` outside `connection.py` closes a session itself; the scope closes every one | `grep -rn 'session.close()' workmain/ --include='*.py' \| grep -v connection.py` returns zero hits |
 | AC3.1 | Adopting `session_scope()` changes no test's isolation. Every converted site's session comes from the factory the #136 fixture binds, and no test hands converted code a session through a `get_session` stub that the code no longer calls | `pytest` passes with the fixture in place, and `grep -rnE "get_session(\.return_value\| *=\|\.side_effect)" tests/` returns zero hits |
 | AC4.1 | Cost recording, which replaced the `intent_parser.py` site the issue names, opens its session through `session_scope()` and closes it when `AiCostRepository.create` raises | `pytest tests/test_ai_costs.py::TestAiCostService::test_record_reply_closes_its_session_when_create_raises`, with AC1.1 |
-| AC5.1 | §4.1 documents `session_scope()` as the required pattern and names the class `DatabaseConnection`, and §4.2 states that no ORM object is read after its scope | A stated reading by Ray of §4.1 and §4.2 for exactly that |
+| AC5.1 | §4.1 states that `session_scope()` is the only way application code under `workmain/` opens a session, and names the class `DatabaseConnection`; that only `session_scope()` calls `get_session()`, with tests following §6.1; that a handler which recovers from an exception sits outside the `with`; and that `SystemExit` and `KeyboardInterrupt` skip both commit and rollback. §4.2 states that no ORM object is read after its scope | A stated reading by Ray of §4.1 and §4.2 for exactly that |
 | AC6.1 | The suite passes at or above baseline | `pytest`; counts in §6's form |
-| AC7.1 | §4.1 states that a command owns its unit of work through `session_scope()`, and that a service takes the caller's session and never opens or commits one, except for the writes §4.3 says commit on their own; §4.3 states that rule | A stated reading by Ray of §4.1 and §4.3 for exactly that |
 
 **DR2 placement check** (AC1.4). Run from the repository root with `python3 - workmain <<'EOF'`, using the script below. It keys each §2 site with its own `except` clauses by file, function and the site's position among that function's `session_scope()` blocks. It exits 1 and names any site whose `with` is not the first statement of a `try` with `except` clauses. In a prototype it passed with `_run_task_match_step`'s handler outside the `with` and failed with it inside.
 
@@ -479,5 +468,6 @@ class TestStatusCommand:
 - **A write that `close()` discarded today is now committed.** The probe in study F12 found none, but it covers only the paths the suite exercises.
 - **Visible output changes.**
   - `notes log`: after a database error in per-line note creation (`notes.py:647`) or in condensation (`notes.py:712`), the scope's exit commit fails and the command's own handler prints one more `✗ Error` line.
+  - `eod` task match (`eod_workflow.py:612`): unchanged. When `set_forwarding_note` fails with a database error, the handler swallows it, and the step's own `session.commit()` at `eod_workflow.py:613` then raises. The step reports `⚠ Task match step failed (…) — continuing` and returns `COMPLETED`, as it does today. The commit still runs before the scope exits, and the step's handler sits outside the `with` (DR2). A `ValueError` for a missing row leaves the session usable, and the task is marked complete, as today.
   - `meetings create`: a failure in its `get_int('active_client_id')` read is now reported by the command's handler instead of a traceback (DR2).
 - **Rollback.** Each step is one commit. Reverting Step 2 or Step 1 restores that area's hand-written blocks and its tests together. Step 3 is documentation only.
