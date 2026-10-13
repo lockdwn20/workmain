@@ -32,6 +32,8 @@
 | 20261013 | Caliper | In `clockify sync both`, `push_results` exists only when something was pushed, so the exit rule raises `NameError` when nothing was | Resolved by the DR4 change above: no exit rule remains. |
 | 20261013 | Caliper | The spec adds exits inside open scopes (`_record_upload`, `_record_slack_post`, the three `clockify sync` commands) and states the intent only for `time add` | Resolved by the DR4 change: the spec adds no exit. §2's exit row says so. |
 | 20261013 | Caliper | AC4.1's "fails before Step 1" is reasoned, not observed, because T1 is written in Step 2 | Accepted. T1 was run as a probe on `dev` `69552cb`: it left the action's note behind (count 1, expected 0). §2 and AC4.1 cite the run. |
+| 20261013 | Caliper | On the Slack EOD path a failed record's message never reaches the operator: the steps run in the daemon, capture the child's output, and print it to the journal, and with exit 0 Slack receives only "Step N — … complete." T27 and T29 cover only the terminal path | Accepted. A step whose captured child exits 0 with stderr returns `COMPLETED` with that stderr in its `message`, which `_handle_step_result` already posts (Step 4 item 4). It applies to the sync and Drive steps, and to `_run_slack_weekly_step`, which runs `slack post weekly` the same way and was not named. §5.6 already defines a child's stderr as the channel for a warning its caller must receive. T30–T33 test the Slack path. |
+| 20261013 | Caliper | After a failed record, the push re-raises into the loop's `except`, so the entry is counted and printed as a failed push although it is in Clockify, and `time add` prints "✗ Sync failed": the rerun prompt DR4 exists to avoid | Accepted. A record failure no longer raises. It is listed under `results['unrecorded']`, the entry counts as synced, and `clockify sync push` and `both` print it under "In Clockify but not recorded locally". T24 asserts the entry is not under "Failed entries". |
 
 ---
 
@@ -120,6 +122,7 @@
 | Outside actions and their records, found by a search for writes of `drive_file_id`, `slack_message_ts`, `slack_channel`, `clockify_id`, `synced_at`, `outlook_draft_id`, `sent_at`, and calls to `record_reply`, `record_upload`, `mark_as_synced`: `ai_cost_service.record_reply` (`provider_manager.py:210`, `providers.py:167`); `gdocs.py` 366, 455, 541 `record_upload`; `slack.py:625-628` weekly post; `sync.py:107-109` push, `184-186` pull link, `_import_clockify_entry` pull import. `slack.py:290` (`slack set channel`) records configuration, not an action. Nothing writes `outlook_draft_id` or `sent_at` | `grep -rnE '\b(outlook_draft_id\|sent_at\|slack_message_ts\|slack_channel\|clockify_id\|synced_at\|drive_file_id)\s*=' workmain/ --include='*.py'` |
 | Only one scope holds a write across an AI provider call: `notes log`, which writes notes and then prompts before condensing. The other five read only | study F15 |
 | Callers that read the exit status of a command whose record can fail: EOD `_run_sync_step` runs `clockify sync push` and, on a non-zero exit, offers `[r]etry`, which runs the push again; EOD `_run_gdocs_step` runs `gdocs upload all`, and treats a non-zero exit as not authenticated; `gdocs upload all` runs each upload through `_run_step`, which catches `SystemExit`. `_echo_workmain` always echoes a child's stderr | `eod_workflow.py:105-117,264-292,1179-1225`; `gdocs.py:589-598` |
+| On the Slack EOD path, steps run in the daemon with `non_interactive=True`, so `_run_sync_step`, `_run_gdocs_step` and `_run_slack_weekly_step` capture their child's output, and `_echo_workmain` prints it to the daemon's stdout, which goes to the journal. Slack receives only the step result: for `COMPLETED`, `result.message` or "Step N — … complete." The push loop counts any exception after `create_time_entry`, including a record failure, under `results['failed']` and prints "✗ Failed"; `time add` then prints "✗ Sync failed" and `clockify sync push` lists the entry under "Failed entries" | `slack_eod.py:233-238,278-284`; `eod_workflow.py:105-117,270,1194,1243-1247`; `deploy/workmain-notify.service:36-37`; `sync.py:116-128`; `time.py:353-357`; `clockify.py:300-313` |
 | Suite with every repository commit replaced by `flush()`: 1274 passed, 4 failed. Three are `tests/test_slack_channel_config.py` tests that seed through `db.get_session()` and `close()` without committing. The fourth is a path-length artifact of the probe's worktree | study F12 |
 | `ClockifySync._import_clockify_entry` returns the `TimeEntry`. Six tests in `tests/test_clockify_sync.py` read attributes of the returned object | `sync.py:247-305`; `tests/test_clockify_sync.py` 57, 70, 80, 88, 96, 105 |
 | `migrate_series_uid_records` has no caller under `workmain/` or `scripts/`. Its tests: `tests/test_ics_import.py` `test_17_migration_rekeys_no_counterpart`, `test_18_migration_rekeys_deletes_zero_note_counterpart`, `test_19_migration_skips_conflict_both_have_notes`. The module docstring describes it at `ics_parser.py:52-55` | `grep -rn 'migrate_series_uid_records' workmain/ scripts/ tests/` |
@@ -139,7 +142,7 @@
 
   Nothing inside the savepoint commits.
 - **DR3 — The owner commits before it waits.** If the scope has written since its last commit, the owner calls `session.commit()` immediately before a prompt, a confirmation, an editor launch or an outside action. §2 lists the sites. A message that reports a write done may come before or after that commit.
-- **DR4 — An outside action's record commits on its own.** A row that records an action already done outside WorkmAIn's database is written in its own `get_db().session_scope()` immediately after the action, not on the caller's session. It never writes or references a row the caller's open transaction has written (study P1, P6, P7). A record that reports success has committed: a write that matches nothing raises. Its failure is never silent: cost recording logs a warning and carries on, as today; every other record prints what happened outside, what was not recorded and what will repeat, on stderr. **The command's exit status is unchanged.** The outside action succeeded, and a non-zero exit invites a rerun, which repeats it: EOD's sync step retries `clockify sync push` on a non-zero exit (§2). EOD echoes a child's stderr, so the message reaches the operator on every path.
+- **DR4 — An outside action's record commits on its own.** A row that records an action already done outside WorkmAIn's database is written in its own `get_db().session_scope()` immediately after the action, not on the caller's session. It never writes or references a row the caller's open transaction has written (study P1, P6, P7). A record that reports success has committed: a write that matches nothing raises. Its failure is never silent: cost recording logs a warning and carries on, as today; every other record prints what happened outside, what was not recorded and what will repeat, on stderr. **The command's exit status is unchanged.** The outside action succeeded, and a non-zero exit invites a rerun, which repeats it: EOD's sync step retries `clockify sync push` on a non-zero exit (§2). The message reaches the operator on every EOD path: in the terminal, EOD echoes a captured child's stderr; on the Slack EOD path, the step's completion message carries it (Step 4 item 4). That is §5.6's stderr warning for a calling process.
 - **DR5 — An outside-action record is tested at the function that writes it.** The test calls the function, then opens a scope that writes and raises, then asserts through `db_session` that the record is still there. It does not touch `db_session` between the call and the assertion. Where the function is handed a session (`ClockifySync`), the test also shows the record did not go through it: a `before_flush` listener on the handed session collects every `TimeEntry` and `Note` in `session.new` and `session.dirty`, and when the function returns, that collection is empty and so are the session's own `new` and `dirty` for those classes.
 - **DR6 — Repositories flush.** Every `self.session.commit()` in a repository becomes `self.session.flush()`. A `refresh()` after it stays.
 - **DR7 — No ORM object crosses a scope** (§4.2). Where a write moves into its own scope (Step 4), the function returns plain values.
@@ -155,7 +158,7 @@ Before Step 1, record the baseline `pytest` counts in the form of `docs/DEVELOPM
 | 1 | Repositories flush; callee commits removed; `link_report` on the caller's session; dead code removed | `workmain/database/repositories/*.py`, `workmain/services/notes_service.py`, `workmain/services/ai_cost_service.py`, `workmain/ai/note_condenser.py`, `workmain/ai/report_generator.py`, `workmain/utils/ics_parser.py`, `tests/test_ics_import.py`, `tests/test_ai_costs.py`, `tests/test_slack_channel_config.py` |
 | 2 | `ActionExecutor` and its callers | `workmain/orchestration/action_executor.py`, `workmain/daemon/daemon.py`, `workmain/integrations/slack/slack_eod.py`, `tests/test_action_executor.py`, `tests/test_orchestration.py` |
 | 3 | Commits before waits; savepoints; `KeyboardInterrupt` handlers | `workmain/cli/commands/meetings.py`, `workmain/cli/commands/notes.py`, `workmain/cli/commands/time.py`, `workmain/workflows/eod_workflow.py`, and the test files §6 names |
-| 4 | Outside-action records | `workmain/cli/commands/gdocs.py`, `workmain/cli/commands/slack.py`, `workmain/integrations/clockify/sync.py`, `tests/test_clockify_sync.py`, and the test files §6 names |
+| 4 | Outside-action records, and EOD carrying a child's warning to Slack | `workmain/cli/commands/gdocs.py`, `workmain/cli/commands/slack.py`, `workmain/cli/commands/clockify.py`, `workmain/integrations/clockify/sync.py`, `workmain/workflows/eod_workflow.py`, `tests/test_clockify_sync.py`, and the test files §6 names |
 | 5 | §4.1, §4.3 and §6.1 | `docs/DEVELOPMENT_STANDARDS.md` |
 | 6 | Results artifact | `docs/dev/results/UNIT_OF_WORK_BOUNDARY_RESULTS.md` |
 
@@ -337,22 +340,28 @@ The suite passes at the end of each step.
                raise LookupError(f"time entry {entry_id} is not visible to the recording session")
    ```
 
-   - **Push** (`sync.py:106-109`): after `self.client.create_time_entry(...)`, replace the two assignments and `self.session.commit()` with:
+   - **Push** (`sync.py:106-109`): `push_entries` adds `'unrecorded': []` to the `results` dict it builds. After `self.client.create_time_entry(...)`, replace the two assignments and `self.session.commit()` with:
 
      ```python
                      try:
                          _record_clockify_link(entry.id, clockify_entry['id'])
                      except Exception as e:
+                         results['unrecorded'].append({
+                             'entry_id': entry.id,
+                             'clockify_id': clockify_entry['id'],
+                             'error': str(e),
+                         })
                          click.echo(
                              f"✗ Entry {entry.id} is in Clockify as {clockify_entry['id']}, "
                              f"but recording it failed: {e}. The next push will create it again.",
                              err=True,
                          )
-                         raise
-                     self.session.expire(entry)
+                     else:
+                         self.session.expire(entry)
      ```
 
-     The existing `except Exception` then counts the failure and continues. The `click.echo(..., err=True)` is unconditional, so `--silent` does not hide it.
+     The entry is in Clockify, so the loop goes on to count it under `results['successful']` and print its `✓ Synced` line, as for any pushed entry. The `except Exception` that follows (`sync.py:116-128`) still handles a failed Clockify call. The `click.echo(..., err=True)` is unconditional, so `--silent` does not hide it.
+   - **Push summaries.** `clockify_sync_push` (`clockify.py:300-313`) prints, after its failures list and when `results['unrecorded']` is non-empty, `"  ⚠ In Clockify but not recorded locally: {n}"` and one line per entry, `"  - ID {entry_id} → Clockify {clockify_id}: {error}"`. `clockify_sync_both` prints the same count after its push line. `time_add` (`time.py:353-357`) is unchanged: the entry counts as synced, and the stderr line has already said it was not recorded.
    - **Pull link** (`sync.py:184-186`): replace the two assignments and `self.session.commit()` with the following; `results['conflicts'] += 1` and `continue` after it stay:
 
      ```python
@@ -393,7 +402,27 @@ The suite passes at the end of each step.
 
      The return annotation and docstring say `int`, the id of the created entry. The six tests in `tests/test_clockify_sync.py` that read the returned object read the entry through `db_session.get(TimeEntry, entry_id)` instead.
    - Add `from workmain.database.connection import get_db` to `sync.py`.
-4. Tests: T8, T18–T24, T27–T29 (§6). In `tests/test_clockify_sync.py`, the tests that build `ClockifySync` keep building it on `db_session`.
+4. **EOD carries a child's warning to Slack.** Add to `eod_workflow.py`:
+
+   ```python
+   def _completed(run, label: str) -> EodStepResult:
+       """A COMPLETED result that carries a captured child's stderr as its message.
+
+       A child that exits 0 but writes to stderr is warning its caller
+       (DEVELOPMENT_STANDARDS §5.6). The terminal has already seen it through
+       _echo_workmain; the Slack EOD path sees only the result's message.
+       """
+       warning = run.stderr.strip() if run.stderr else ''
+       if warning:
+           return EodStepResult(
+               status=EodStepStatus.COMPLETED,
+               message=f"{label} complete, with a warning:\n{warning}",
+           )
+       return EodStepResult(status=EodStepStatus.COMPLETED)
+   ```
+
+   The final `return EodStepResult(status=EodStepStatus.COMPLETED)` of `_run_sync_step` (`eod_workflow.py:296`), `_run_gdocs_step` (`:1228`) and `_run_slack_weekly_step` (`:1265`) becomes `return _completed(run, "Clockify sync")`, `_completed(run, "Drive upload")` and `_completed(run, "Slack weekly post")`. In `_run_sync_step`, when the `[r]etry` branch ran, `_completed` takes `retry` instead of `run`. In pass-through mode `run.stderr` is empty and the result is unchanged. `SlackEodManager._handle_step_result` already posts `result.message` for a `COMPLETED` step (`slack_eod.py:278-284`).
+5. Tests: T8, T18–T24, T27–T33 (§6). In `tests/test_clockify_sync.py`, the tests that build `ClockifySync` keep building it on `db_session`.
 
 ### Step 5 — standards
 
@@ -441,7 +470,7 @@ None. This spec runs no migration, deletes no GitHub object, merges nothing to `
 | AC5.1 | The suite passes, at or above the baseline. | `pytest`: expected counts in §6. |
 | AC6.1 | §4.3 states the rule for writes that record an outside action. | A stated reading by Ray of §4.3. |
 | AC6.2 | Every outside-action record commits in its own `session_scope()` immediately after its action, and survives a later failure. Each is tested at the function that writes it (DR5; Decision Log). | T8 (`record_reply`), T18 (`_record_upload`), T19 (`_record_slack_post`), T20 (push), T21 (pull link), T22 (pull import). |
-| AC6.3 | A record that fails to commit is reported on stderr with what happened outside, and nothing reruns the outside action because of it, on every path that reaches the record; cost recording logs a warning. | T23 (`_record_upload`), T24 (Clockify push, `--silent`), T27 (EOD sync step), T28 (`gdocs upload all`), T29 (EOD Drive step), and the existing `test_record_reply_failure_returns_none_and_warns`. |
+| AC6.3 | A record that fails to commit is reported on stderr with what happened outside, and nothing reruns the outside action because of it, on every path that reaches the record; cost recording logs a warning. | T23 (`_record_upload`), T24 (Clockify push, `--silent`), T27 (EOD sync step), T28 (`gdocs upload all`), T29 (EOD Drive step), T30–T33 (the Slack EOD path), and the existing `test_record_reply_failure_returns_none_and_warns`. |
 | AC7.1 | §4.1 states that the code that opens a scope owns its unit of work, that nothing it hands the session to commits it except an outside-action record, and that the owner commits before it waits. | A stated reading by Ray of §4.1 and §4.3. |
 | AC7.2 | Each scope that writes and then waits on a person commits first, so cancelling the prompt keeps the write. | T10–T15. |
 | AC7.3 | A database failure caught inside a scope rolls back only its savepoint. | T16 (`notes log` line), T17 (`notes log` condensation), T25 (EOD task match). |
@@ -449,7 +478,7 @@ None. This spec runs no migration, deletes no GitHub object, merges nothing to `
 ## 6. Test plan
 
 - **Baseline before this work:** from the last `CHANGELOG.md` entry, 1278 passed, 0 failed, 0 skipped.
-- **Expected after:** 1304 passed, 0 failed, 0 skipped: the baseline, less the three `migrate_series_uid_records` tests, plus 29 new tests (T1–T29).
+- **Expected after:** 1308 passed, 0 failed, 0 skipped: the baseline, less the three `migrate_series_uid_records` tests, plus 33 new tests (T1–T33).
 
 | T | File | What it shows |
 | --- | --- | --- |
@@ -476,12 +505,16 @@ None. This spec runs no migration, deletes no GitHub object, merges nothing to `
 | T21 | `tests/test_clockify_sync.py` | `pull_entries` resolving a conflict as link, then a scope that writes and raises: the local entry's `clockify_id` remains. The DR5 listener on `db_session` saw no `TimeEntry` or `Note` change. |
 | T22 | `tests/test_clockify_sync.py` | `pull_entries` importing one entry, then a scope that writes and raises: the imported note and time entry remain. The DR5 listener on `db_session` saw no `TimeEntry` or `Note` change. |
 | T23 | `tests/test_gdrive.py` | `gdocs upload notes` with `GDriveRepository.record_upload` raising: exit code 0, and stderr names the Drive file id. |
-| T24 | `tests/test_clockify_sync.py` | `clockify sync push --silent` with `mark_as_synced` returning `None`: exit code 0, and stderr names the Clockify id. |
+| T24 | `tests/test_clockify_sync.py` | `clockify sync push` with `mark_as_synced` returning `None`: exit code 0, stderr names the Clockify id (also under `--silent`), and stdout lists the entry under "In Clockify but not recorded locally" and not under "Failed entries". |
 | T25 | `tests/test_eod_task_matching.py` | Task match, `[c]omplete`, with `set_forwarding_note` patched to run a failing SQL statement: the task is completed. |
 | T26 | `tests/test_ics_import.py` | `calendar import` of an ICS with one new event: the post-import listing prints that meeting's ID. |
 | T27 | `tests/test_eod_workflow.py` | `_run_sync_step` with `run_workmain` returning exit 0 and a record-failure line on stderr: the line is echoed and no `[r]etry` prompt is shown. |
 | T28 | `tests/test_gdrive.py` | `gdocs upload all` with `GDriveRepository.record_upload` raising: exit code 0, stderr names the Drive file id, and the summary marks the upload done. |
 | T29 | `tests/test_eod_workflow.py` | `_run_gdocs_step` with `run_workmain` returning exit 0 and a record-failure line on stderr: the line is echoed and the step completes. |
+| T30 | `tests/test_eod_workflow.py` | `_run_sync_step` with `_is_interactive` false and `run_workmain` returning exit 0 with a record-failure line on stderr: the result is `COMPLETED` and its `message` contains the line. |
+| T31 | `tests/test_eod_workflow.py` | `_run_gdocs_step`, the same. |
+| T32 | `tests/test_eod_workflow.py` | `_run_slack_weekly_step`, the same. |
+| T33 | `tests/test_orchestration.py` | `SlackEodManager._handle_step_result` with a `COMPLETED` result whose `message` holds a record-failure line: the block sent to Slack contains the line. |
 
 ## 7. Risks and rollback
 
