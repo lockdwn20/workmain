@@ -460,16 +460,18 @@ class SlackEodManager:
         from workmain.database.connection import get_db
         from workmain.orchestration.action_executor import ActionExecutor, ActionExecutorError
         db = get_db()
+        result = None
         try:
             with db.session_scope() as db_session:
                 result = ActionExecutor(db_session).execute(action)
-                self._send(session.channel_id, result.message)
-                self._daemon._maybe_post_correction_summary(result, action)
         except ActionExecutorError as e:
             self._send(session.channel_id, f"Error: {e}")
         except Exception as e:
             logger.error("EOD inline execution error: %s", e)
             self._send(session.channel_id, "An unexpected error occurred.")
+        if result is not None:
+            self._send(session.channel_id, result.message)
+            self._daemon._maybe_post_correction_summary(result, action)
 
         self._reprompt_current_step(session)
 
