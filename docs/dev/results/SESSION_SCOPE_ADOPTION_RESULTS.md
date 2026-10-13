@@ -1,10 +1,10 @@
 # Session Scope Adoption — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Anvil (Role 3)
 **Date:** 20261013
 **Spec:** `../specs/SESSION_SCOPE_ADOPTION_SPEC.md`
-**Released as:** set by `/closeout`
+**Released as:** v1.46.0 (tag `v1.46.0`)
 
 ---
 
@@ -46,7 +46,7 @@ Complete. All 120 `get_session()` calls under `workmain/` outside `connection.py
 
 - **Test suite:** 1278 passed, 0 failed, 0 skipped (baseline: 1274 passed, 0 failed, 0 skipped) — form per `docs/DEVELOPMENT_STANDARDS.md` §6.
 - **Live verification:** none run. No AC names a live check.
-- **Daemon restart:** `/closeout`'s, per `docs/DEVELOPMENT_STANDARDS.md` §2.6.
+- **Daemon restart:** not performed here; `/closeout` owns it after the merge to `dev` (`docs/DEVELOPMENT_STANDARDS.md` §2.6).
 
 ## 6. Follow-ups
 
