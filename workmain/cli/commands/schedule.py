@@ -177,22 +177,18 @@ def holiday_add(date_str: str, title: Optional[str]):
         return
 
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         repo = ScheduleExceptionRepository(session)
         repo.add_holiday(parsed, name=title)
         label = f" ({title})" if title else ""
         console.print(f"[green]Holiday added:[/green] {parsed}{label}")
-    finally:
-        session.close()
 
 
 @holiday.command('list')
 def holiday_list():
     """List all configured holidays."""
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         repo = ScheduleExceptionRepository(session)
         holidays = repo.list_by_type('holiday')
 
@@ -213,8 +209,6 @@ def holiday_list():
             )
 
         console.print(table)
-    finally:
-        session.close()
 
 
 @holiday.command('delete')
@@ -228,8 +222,7 @@ def holiday_delete(identifier: str):
       workmain schedule holiday delete "Independence Day"
     """
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         repo = ScheduleExceptionRepository(session)
         exc = _resolve_holiday(identifier, repo)
         if exc is None:
@@ -244,8 +237,6 @@ def holiday_delete(identifier: str):
 
         repo.delete(exc.id)
         console.print("[green]Holiday deleted.[/green]")
-    finally:
-        session.close()
 
 
 # ---------------------------------------------------------------------------
@@ -284,22 +275,18 @@ def timeoff_add(start_date_str: str, end_date_str: str, title: Optional[str]):
         return
 
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         repo = ScheduleExceptionRepository(session)
         repo.add_timeoff(start, end, reason=title)
         label = f" ({title})" if title else ""
         console.print(f"[green]Time off added:[/green] {start} to {end}{label}")
-    finally:
-        session.close()
 
 
 @timeoff.command('list')
 def timeoff_list():
     """List all configured time-off ranges."""
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         repo = ScheduleExceptionRepository(session)
         entries = repo.list_by_type('timeoff')
 
@@ -325,8 +312,6 @@ def timeoff_list():
             )
 
         console.print(table)
-    finally:
-        session.close()
 
 
 @timeoff.command('delete')
@@ -340,8 +325,7 @@ def timeoff_delete(identifier: str):
       workmain schedule timeoff delete "Vacation"
     """
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         repo = ScheduleExceptionRepository(session)
         exc = _resolve_timeoff(identifier, repo)
         if exc is None:
@@ -355,8 +339,6 @@ def timeoff_delete(identifier: str):
 
         repo.delete(exc.id)
         console.print("[green]Time off deleted.[/green]")
-    finally:
-        session.close()
 
 
 # ---------------------------------------------------------------------------
@@ -401,13 +383,10 @@ def set_notification_time(trigger: str, hhmm: str) -> None:
     normalized = parsed_time.strftime('%H:%M')
 
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         state = SystemStateRepository(session)
         state.set(f'trigger_time_{trigger}', normalized)
         console.print(f"[green]{trigger} trigger time set to:[/green] {normalized}")
-    finally:
-        session.close()
 
 
 @set.command(name='working-hours')
@@ -442,8 +421,7 @@ def set_working_hours(start: str, end: str) -> None:
         return
 
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         state = SystemStateRepository(session)
         state.set('working_hours_start', start_time.strftime('%H:%M'))
         state.set('working_hours_end', end_time.strftime('%H:%M'))
@@ -451,8 +429,6 @@ def set_working_hours(start: str, end: str) -> None:
             f"[green]Working hours set to:[/green] "
             f"{start_time.strftime('%H:%M')} - {end_time.strftime('%H:%M')}"
         )
-    finally:
-        session.close()
 
 
 @set.command(name='t4-interval')
@@ -472,14 +448,11 @@ def set_t4_interval(min_minutes: int, max_minutes: int) -> None:
         return
 
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         state = SystemStateRepository(session)
         state.set('t4_interval_min', str(min_minutes))
         state.set('t4_interval_max', str(max_minutes))
         console.print(f"[green]T4 interval set to:[/green] {min_minutes}-{max_minutes} minutes")
-    finally:
-        session.close()
 
 
 @set.command(name='task-match-interval')
@@ -495,13 +468,10 @@ def set_task_match_interval(seconds: int) -> None:
         return
 
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         state = SystemStateRepository(session)
         state.set('task_match_progress_interval', str(seconds))
         console.print(f"[green]Task-match progress interval set to:[/green] {seconds}s")
-    finally:
-        session.close()
 
 
 @set.command(name='note-dedup-interval')
@@ -517,13 +487,10 @@ def set_note_dedup_interval(seconds: int) -> None:
         return
 
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         state = SystemStateRepository(session)
         state.set('note_dedup_progress_interval', str(seconds))
         console.print(f"[green]Note-dedup progress interval set to:[/green] {seconds}s")
-    finally:
-        session.close()
 
 
 # ---------------------------------------------------------------------------
@@ -543,8 +510,7 @@ def config_show() -> None:
       workmain schedule config show
     """
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         state = SystemStateRepository(session)
         schedule_service = ScheduleService(session)
 
@@ -571,8 +537,6 @@ def config_show() -> None:
         console.print("\n[bold cyan]EOD Progress Intervals[/bold cyan]")
         console.print(f"  Task match:  {task_match_interval}s")
         console.print(f"  Note dedup:  {note_dedup_interval}s")
-    finally:
-        session.close()
 
 
 __all__ = ['schedule']

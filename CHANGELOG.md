@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.46.0] - 2026-10-13
+
+Every database session application code opened was hand-written: `get_session()`, then a `try`, then `session.close()` in a `finally`. `DatabaseConnection.session_scope()`, which commits on success, rolls back on an error and always closes, existed but was never used. Every session under `workmain/` now opens through `session_scope()`, so each command and job saves its work, undoes it on an error and releases the connection in one place (issue #95).
+
+### Changed
+
+- `workmain/cli/`, `workmain/daemon/`, `workmain/services/ai_cost_service.py`, `workmain/integrations/slack/slack_eod.py`, `workmain/workflows/eod_workflow.py`: every `get_session()` / `try` / `finally` block is a `with db.session_scope() as session:` block with an unchanged body. A handler that catches an error and carries on wraps the block, so the scope has rolled back before it runs
+- `docs/DEVELOPMENT_STANDARDS.md` §4.1: `session_scope()` is the only way application code opens a session, a handler that recovers sits outside the `with`, and `SystemExit` and `KeyboardInterrupt` skip both commit and rollback. §4.2: no database object is read after its scope
+
+### Fixed
+
+- Daemon T2/T3 meeting-trigger scheduling and `workmain status` read database objects after their session closed. Both now read what they need while the session is open; under `session_scope()`'s commit the old reads would have raised `DetachedInstanceError`
+
+Suite: 1278 passed, 0 failed, 0 skipped (baseline 1274 passed, 0 failed, 0 skipped).
+
 ## [1.45.2] - 2026-10-12
 
 Five test files that test no CLI command were built on `unittest.TestCase`, so their tests could not take a pytest fixture. They built their own database sessions, temporary directories and cleanup in `setUp` and `tearDown` instead, and a full `pytest` run left 32 temporary directories behind in the system temp directory. Those five files are now plain pytest classes, every test keeps its name and every assertion, and a full run leaves nothing behind (issue #200).

@@ -497,7 +497,7 @@ def test_providers_costs_known_provider_no_bad_parameter():
         # Patch DB calls to avoid test DB dependency
         with patch('workmain.cli.commands.providers.get_db') as mock_db:
             mock_session = MagicMock()
-            mock_db.return_value.get_session.return_value = mock_session
+            mock_db.return_value.session_scope.return_value.__enter__.return_value = mock_session
             with patch('workmain.cli.commands.providers.get_ai_cost_repository') as mock_repo:
                 mock_repo.return_value.get_summary.return_value = {
                     'total_calls': 0, 'total_cost': 0.0, 'total_tokens': 0,

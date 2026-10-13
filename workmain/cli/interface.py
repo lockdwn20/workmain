@@ -135,18 +135,16 @@ def status():
 
     # Active client context
     db = get_db()
-    session = db.get_session()
-    try:
+    with db.session_scope() as session:
         state_repo = SystemStateRepository(session)
         client_repo = ClientRepository(session)
         active_client_id = state_repo.get_int('active_client_id')
         active_client = client_repo.get_by_id(active_client_id) if active_client_id else None
         client_count = len(client_repo.list_all())
-    finally:
-        session.close()
+        active_client_name = active_client.name if active_client else None
 
-    if active_client:
-        console.print(f"Active Client: [bold green]{active_client.name}[/bold green] (ID: {active_client.id})")
+    if active_client_name:
+        console.print(f"Active Client: [bold green]{active_client_name}[/bold green] (ID: {active_client_id})")
     else:
         console.print("Active Client: [dim]Internal (no client set)[/dim]")
 
@@ -194,7 +192,7 @@ def status():
     table.add_row("├─ Schedule Exceptions", "✓ schedule holiday/timeoff")
     table.add_row("└─ Delivery Config", "✓ notifications set/test/status")
 
-    active_client_str = active_client.name if active_client else "Internal"
+    active_client_str = active_client_name or "Internal"
     table.add_row("Client Management", "⚙ Phase 11 In Progress")
     table.add_row("├─ Client CRUD", "✓ clients add/list/show/delete")
     table.add_row("├─ Active Context", f"✓ clients set active ({active_client_str})")

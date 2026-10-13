@@ -170,7 +170,7 @@ class TestSlackStatusCommandPath:
 
         def _record(self, *args, **kwargs):
             result = real(self, *args, **kwargs)
-            recorded.append(result)
+            recorded.append([(r.id, r.report_type) for r in result])
             return result
 
         with patch.object(ReportsRepository, 'list_slack_posted',
@@ -178,8 +178,8 @@ class TestSlackStatusCommandPath:
             slack_status.callback()
 
         spy.assert_called_once_with(ANY, limit=5)
-        assert [r.id for r in recorded[0]] == [posted[d].id for d in (25, 24, 23, 22, 21)]
-        assert {r.report_type for r in recorded[0]} == {'daily_internal', 'weekly_client'}
+        assert [rid for rid, _ in recorded[0]] == [posted[d].id for d in (25, 24, 23, 22, 21)]
+        assert {rtype for _, rtype in recorded[0]} == {'daily_internal', 'weekly_client'}
 
 
 # ---------------------------------------------------------------------------
