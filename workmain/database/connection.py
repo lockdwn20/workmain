@@ -3,7 +3,7 @@ Database connection management using SQLAlchemy
 """
 
 import os
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy.pool import NullPool
 from contextlib import contextmanager
@@ -11,6 +11,13 @@ from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
+
+# How long a write that records an outside action waits on a row lock.
+# Such a write is one short insert or update, done in milliseconds. It waits
+# only when another transaction holds the row: its own caller, which never
+# lets go (DEVELOPMENT_STANDARDS §4.3), or another process, which under §4.1
+# holds a written row only for its own database work, well under a second.
+RECORD_LOCK_TIMEOUT = '5s'
 
 # Create declarative base for models
 Base = declarative_base()
@@ -81,6 +88,20 @@ class DatabaseConnection:
         finally:
             session.close()
     
+    @contextmanager
+    def record_scope(self):
+        """
+        session_scope() for a write that records an outside action
+        (docs/DEVELOPMENT_STANDARDS.md §4.3).
+
+        lock_timeout bounds a wait on a row another transaction holds, so a
+        record that reaches a row its own caller holds raises instead of
+        hanging.
+        """
+        with self.session_scope() as session:
+            session.execute(text(f"SET LOCAL lock_timeout = '{RECORD_LOCK_TIMEOUT}'"))
+            yield session
+
     def close(self):
         """Close database connection"""
         if self.engine:

@@ -581,21 +581,18 @@ class TestAiCostService:
         db_session.flush()
         row = _insert_cost(db_session)
 
-        ai_cost_service.link_report([row.id], report.id)
+        ai_cost_service.link_report(db_session, [row.id], report.id)
         db_session.expire_all()
 
         assert db_session.get(AiCost, row.id).report_id == report.id
 
-    def test_link_report_with_no_ids_opens_no_session(self, monkeypatch):
-        """An empty list returns before get_db is reached."""
+    def test_link_report_with_no_ids_touches_no_session(self):
+        """An empty list returns before the session is reached."""
+        from unittest.mock import MagicMock
         from workmain.services import ai_cost_service
-        opened = []
-        monkeypatch.setattr(
-            'workmain.services.ai_cost_service.get_db',
-            lambda: opened.append(1),
-        )
-        assert ai_cost_service.link_report([], 5) is None
-        assert opened == []
+        session = MagicMock()
+        assert ai_cost_service.link_report(session, [], 5) is None
+        session.begin_nested.assert_not_called()
 
     def test_record_reply_failure_returns_none_and_warns(self, caplog, monkeypatch):
         """The service cannot reach the database; recording degrades to a warning."""
@@ -612,17 +609,64 @@ class TestAiCostService:
         assert result is None
         assert 'intent_parse' in caplog.text
 
-    def test_link_report_failure_logs_warning(self, caplog, monkeypatch):
-        """The service cannot reach the database; linking degrades to a warning."""
-        def _refuse():
-            raise RuntimeError("database unavailable")
-
-        monkeypatch.setattr('workmain.services.ai_cost_service.get_db', _refuse)
-
+    def test_link_report_failure_logs_warning(self, caplog):
+        """A session that cannot open a savepoint degrades to a warning."""
+        from unittest.mock import MagicMock
         from workmain.services import ai_cost_service
+        session = MagicMock()
+        session.begin_nested.side_effect = RuntimeError("database unavailable")
+
         with caplog.at_level('WARNING', logger='workmain.services.ai_cost_service'):
-            assert ai_cost_service.link_report([1, 2], 77) is None
+            assert ai_cost_service.link_report(session, [1, 2], 77) is None
         assert '77' in caplog.text
+
+    def test_link_report_database_error_is_contained_by_a_savepoint(
+        self, caplog, monkeypatch, db_session
+    ):
+        """T9: a database error in the link is contained by a savepoint, logged,
+        and leaves the caller's report in the session and committable."""
+        from workmain.database.models import Report
+        from workmain.services import ai_cost_service
+
+        def _fail(self, cost_record_ids, report_id):
+            db_session.execute(text("SELECT 1/0"))
+
+        monkeypatch.setattr(AiCostRepository, 'link_report', _fail)
+        report = Report(report_type='daily_internal', report_date=_S_DATE,
+                        content='x', report_metadata={})
+        db_session.add(report)
+        db_session.flush()
+
+        with caplog.at_level('WARNING', logger='workmain.services.ai_cost_service'):
+            assert ai_cost_service.link_report(db_session, [1, 2], report.id) is None
+
+        assert str(report.id) in caplog.text
+        db_session.commit()
+        assert db_session.get(Report, report.id) is not None
+
+    def test_record_reply_survives_a_later_failed_scope(self, db_session):
+        """T8: the cost row is committed in its own scope, so a scope that
+        writes and raises afterwards does not take it."""
+        from unittest.mock import patch
+        from workmain.database.connection import DatabaseConnection, get_db
+        from workmain.services import ai_cost_service
+
+        with patch.object(
+            DatabaseConnection, 'record_scope', autospec=True,
+            side_effect=DatabaseConnection.record_scope,
+        ) as spy:
+            record_id = ai_cost_service.record_reply(
+                _reply(), 'daily_internal', refused=False, generation_time_s=0.2,
+            )
+        assert record_id is not None
+        spy.assert_called_once()
+
+        with pytest.raises(RuntimeError):
+            with get_db().session_scope() as session:
+                _insert_cost(session)
+                raise RuntimeError("later failure")
+
+        assert db_session.get(AiCost, record_id) is not None
 
     def test_record_reply_takes_its_session_from_its_own_get_db_each_call(
         self, monkeypatch

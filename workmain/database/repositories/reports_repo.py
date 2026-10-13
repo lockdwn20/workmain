@@ -81,7 +81,7 @@ class ReportsRepository:
         )
         
         self.session.add(report)
-        self.session.commit()
+        self.session.flush()
         self.session.refresh(report)
         
         return report
@@ -255,7 +255,7 @@ class ReportsRepository:
         report.corrected_content = edited_body
         report.status = 'corrected'
         report.updated_at = datetime.now()
-        self.session.commit()
+        self.session.flush()
         if note:
             self.set_correction_note(report_id, note)
 
@@ -275,7 +275,7 @@ class ReportsRepository:
         if report is None:
             return
         report.correction_note = note
-        self.session.commit()
+        self.session.flush()
 
     def get_filtered(
         self,
@@ -310,24 +310,6 @@ class ReportsRepository:
         if limit is not None:
             q = q.limit(limit)
         return q.all()
-
-    def delete(self, report_id: int) -> bool:
-        """
-        Delete a report record.
-        
-        Args:
-            report_id: Report ID to delete
-            
-        Returns:
-            True if deleted, False if not found
-        """
-        report = self.get_by_id(report_id)
-        if not report:
-            return False
-        
-        self.session.delete(report)
-        self.session.commit()
-        return True
 
 
 # Singleton instance per session not needed - create as needed

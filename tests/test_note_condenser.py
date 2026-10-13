@@ -384,7 +384,7 @@ class TestCondensationRecording:
     def test_commit_failure_after_reply_still_leaves_the_row(
         self, tmp_path, db_session, monkeypatch
     ):
-        """AC3.3: the service commits its row through its own session; the summary commit raises."""
+        """AC3.3: the service commits its row through its own session; the summary write raises."""
         from tests.mocks.stub_providers import StubProvider, stubbed_manager
         from workmain.database.models import AiCost
         meeting = _meeting_with_note(db_session, "Sentinel Commit Failure Meeting 2099")
@@ -392,12 +392,12 @@ class TestCondensationRecording:
         condenser.provider_manager = stubbed_manager(tmp_path, {
             "gemini": StubProvider(ProviderType.GEMINI, content="Summary"),
         })
-        def summary_commit_fails():
-            raise RuntimeError("summary commit failed")
+        def summary_write_fails():
+            raise RuntimeError("summary write failed")
 
-        monkeypatch.setattr(db_session, "commit", summary_commit_fails)
+        monkeypatch.setattr(db_session, "flush", summary_write_fails)
 
-        with pytest.raises(RuntimeError, match="summary commit failed"):
+        with pytest.raises(RuntimeError, match="summary write failed"):
             condenser.condense_meeting(meeting)
 
         row = db_session.query(AiCost).filter(AiCost.meeting_id == meeting.id).one()

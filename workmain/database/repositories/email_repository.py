@@ -58,7 +58,7 @@ class EmailRepository:
 
         recipient = Recipient(email=email)
         self.session.add(recipient)
-        self.session.commit()
+        self.session.flush()
         self.session.refresh(recipient)
         return recipient
 
@@ -72,7 +72,7 @@ class EmailRepository:
         recipient = self.get_recipient_by_id(id)
         if recipient:
             self.session.delete(recipient)
-            self.session.commit()
+            self.session.flush()
 
     # ------------------------------------------------------------------
     # Assignment methods
@@ -170,7 +170,7 @@ class EmailRepository:
         if existing:
             if existing.recipient_type != role:
                 existing.recipient_type = role
-                self.session.commit()
+                self.session.flush()
             return existing
 
         assignment = ReportRecipient(
@@ -180,7 +180,7 @@ class EmailRepository:
             client_id=client_id,
         )
         self.session.add(assignment)
-        self.session.commit()
+        self.session.flush()
         self.session.refresh(assignment)
         return assignment
 
@@ -214,7 +214,7 @@ class EmailRepository:
         )
         if assignment:
             self.session.delete(assignment)
-            self.session.commit()
+            self.session.flush()
 
 
 def get_email_repository(session: Session) -> EmailRepository:

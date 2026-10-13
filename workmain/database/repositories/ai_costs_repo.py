@@ -78,7 +78,7 @@ class AiCostRepository:
             created_at=datetime.now(timezone.utc),
         )
         self.session.add(record)
-        self.session.commit()
+        self.session.flush()
         self.session.refresh(record)
         return record
 
@@ -95,7 +95,7 @@ class AiCostRepository:
         self.session.query(AiCost).filter(AiCost.id.in_(ids)).update(
             {AiCost.report_id: report_id}, synchronize_session=False
         )
-        self.session.commit()
+        self.session.flush()
 
     def get_by_ids(self, ids: List[int]) -> List[AiCost]:
         """

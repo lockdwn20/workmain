@@ -78,7 +78,7 @@ class MeetingsRepository:
         )
         
         self.session.add(meeting)
-        self.session.commit()
+        self.session.flush()
         self.session.refresh(meeting)
         
         return meeting
@@ -481,7 +481,7 @@ class MeetingsRepository:
         if is_manually_modified is not None:
             meeting.is_manually_modified = is_manually_modified
 
-        self.session.commit()
+        self.session.flush()
         self.session.refresh(meeting)
 
         return meeting
@@ -555,7 +555,7 @@ class MeetingsRepository:
             mtg.is_manually_modified = True
             count += 1
         if count:
-            self.session.commit()
+            self.session.flush()
         return count
     
     def rename(self, meeting_id: int, new_title: str) -> Optional[Meeting]:
@@ -593,7 +593,7 @@ class MeetingsRepository:
             Note.meeting_id == from_meeting_id
         ).update({Note.meeting_id: to_meeting_id})
         
-        self.session.commit()
+        self.session.flush()
         
         return True
     
@@ -620,7 +620,7 @@ class MeetingsRepository:
             ).update({Note.meeting_id: None})
         
         self.session.delete(meeting)
-        self.session.commit()
+        self.session.flush()
         
         return True
     

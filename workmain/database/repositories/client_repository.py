@@ -53,7 +53,7 @@ class ClientRepository:
             raise ValueError(f"A client named '{name}' already exists.")
         client = Client(name=name, is_active=False)
         self.session.add(client)
-        self.session.commit()
+        self.session.flush()
         self.session.refresh(client)
         return client
 
@@ -89,7 +89,7 @@ class ClientRepository:
         if client is None:
             return False
         self.session.delete(client)
-        self.session.commit()
+        self.session.flush()
         return True
 
     def update(self, client_id: int, **kwargs) -> Optional[Client]:
@@ -106,7 +106,7 @@ class ClientRepository:
             client.name = kwargs['name']
         if 'slack_channel' in kwargs:
             client.slack_channel = kwargs['slack_channel']
-        self.session.commit()
+        self.session.flush()
         self.session.refresh(client)
         return client
 
@@ -138,7 +138,7 @@ class ClientRepository:
         )
         client.is_active = True
         SystemStateRepository(self.session).set_int('active_client_id', client_id)
-        self.session.commit()
+        self.session.flush()
         self.session.refresh(client)
         return client
 
@@ -151,7 +151,7 @@ class ClientRepository:
             {Client.is_active: False}, synchronize_session='fetch'
         )
         SystemStateRepository(self.session).delete('active_client_id')
-        self.session.commit()
+        self.session.flush()
 
     def get_active(self) -> Optional[Client]:
         """Return the active client, or None if in internal mode.

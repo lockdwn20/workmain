@@ -49,11 +49,6 @@ Orphan cleanup: After a primary UID match, stale-UID duplicates (rows with the s
     title+date+time but a different outlook_id from a prior import) are automatically
     deleted if they have zero notes attached.
 
-Series UID migration: migrate_series_uid_records() performs a one-time re-key of any
-    existing records where outlook_id == outlook_recurring_id (the old format where
-    the series UID was used as the occurrence UID). After migration the invariant
-    holds: no recurring occurrence record has outlook_id == outlook_recurring_id.
-
 SUMMARY optional: RFC 5545 §3.6.1 defines SUMMARY as optional. Outlook legally omits
     it on recurrence exception VEVENTs (RECURRENCE-ID present) that change only the
     time, not the title. Pass 1 accepts a missing SUMMARY; a post-dedup title
@@ -668,85 +663,5 @@ def import_events_to_db(session: Session, events: list[ICSEvent]) -> dict:
         m.is_cancelled = True
         counts['cancelled'] += 1
 
-    session.commit()
-    return counts
-
-
-def migrate_series_uid_records(session: Session, dry_run: bool = False) -> dict:
-    """
-    One-time migration: re-key all recurring meeting records where
-    outlook_id == outlook_recurring_id (the old format where the series UID
-    was used as the occurrence UID) to synthetic UIDs.
-
-    For each qualifying record:
-    - Computes synthetic_uid = ``{series_uid}_{start_time:%Y%m%dT%H%M%S}``
-    - If a counterpart with that synthetic_uid exists:
-        - Counterpart has 0 notes → delete counterpart, re-key this record
-        - This record has 0 notes → delete this record (counterpart is canonical)
-        - Both have notes → conflict, log and skip (no data modified)
-    - If no counterpart → re-key this record directly
-
-    After migration the invariant holds for all recurring occurrences:
-    outlook_id != outlook_recurring_id (i.e. outlook_id is always a synthetic UID).
-
-    Args:
-        session: SQLAlchemy session
-        dry_run: If True, compute and log actions but do not commit any changes.
-
-    Returns:
-        dict with keys: re_keyed, deleted, conflicts, total
-    """
-    counts = {'re_keyed': 0, 'deleted': 0, 'conflicts': 0, 'total': 0}
-
-    candidates = (
-        session.query(Meeting)
-        .filter(
-            Meeting.outlook_id.isnot(None),
-            Meeting.outlook_recurring_id.isnot(None),
-            Meeting.outlook_id == Meeting.outlook_recurring_id,
-        )
-        .all()
-    )
-
-    counts['total'] = len(candidates)
-
-    for record in candidates:
-        series_uid = record.outlook_recurring_id
-        synthetic_uid = f"{series_uid}_{record.start_time.strftime('%Y%m%dT%H%M%S')}"
-
-        counterpart = (
-            session.query(Meeting)
-            .filter(Meeting.outlook_id == synthetic_uid)
-            .first()
-        )
-
-        if counterpart is not None:
-            record_notes = _note_count_for(session, record.id)
-            counterpart_notes = _note_count_for(session, counterpart.id)
-
-            if counterpart_notes == 0:
-                # Counterpart is empty — delete it, re-key this record
-                if not dry_run:
-                    session.delete(counterpart)
-                    session.flush()
-                    record.outlook_id = synthetic_uid
-                counts['deleted'] += 1
-                counts['re_keyed'] += 1
-            elif record_notes == 0:
-                # This record is the empty one — delete it, keep counterpart
-                if not dry_run:
-                    session.delete(record)
-                counts['deleted'] += 1
-            else:
-                # Both have notes — conflict, skip
-                counts['conflicts'] += 1
-        else:
-            # No counterpart — re-key directly
-            if not dry_run:
-                record.outlook_id = synthetic_uid
-            counts['re_keyed'] += 1
-
-    if not dry_run:
-        session.commit()
-
+    session.flush()
     return counts

@@ -105,7 +105,7 @@ class NotesRepository:
         )
         
         self.session.add(note)
-        self.session.commit()
+        self.session.flush()
         self.session.refresh(note)
         
         return note
@@ -350,7 +350,7 @@ class NotesRepository:
         if client_id is not None:
             note.client_id = client_id
 
-        self.session.commit()
+        self.session.flush()
         self.session.refresh(note)
 
         return note
@@ -371,7 +371,7 @@ class NotesRepository:
             return False
         
         self.session.delete(note)
-        self.session.commit()
+        self.session.flush()
         
         return True
     

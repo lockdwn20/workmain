@@ -161,7 +161,7 @@ class NoteCondenser:
             default_summary = f"Attended {db_meeting.title}"
             db_meeting.condensed_summary = default_summary
             db_meeting.condensed_at = datetime.now()
-            self.session.commit()
+            self.session.flush()
             return default_summary, resolved_tags, None, []
         
         request = self.build_condensation_request(db_meeting, notes)
@@ -177,7 +177,7 @@ class NoteCondenser:
         # Update meeting with condensed summary
         db_meeting.condensed_summary = response.content.strip()
         db_meeting.condensed_at = datetime.now()
-        self.session.commit()
+        self.session.flush()
 
         return db_meeting.condensed_summary, resolved_tags, notice, response.cost_record_ids
 

@@ -185,7 +185,7 @@ class ReportGenerator:
         )
         
         # Link the rows generate() recorded to the saved report
-        ai_cost_service.link_report(response.cost_record_ids, db_report.id)
+        ai_cost_service.link_report(self.session, response.cost_record_ids, db_report.id)
 
         # Return result
         return {
