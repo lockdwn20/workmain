@@ -39,7 +39,10 @@ from workmain.integrations.slack.client import (
     SlackClientError,
     format_for_slack,
 )
-from workmain.cli.commands.slack import get_draft_date_range, slack, slack_status
+from workmain.cli.commands.slack import (
+    _record_slack_post, get_draft_date_range, slack, slack_status,
+)
+from workmain.database.connection import DatabaseConnection, get_db
 
 
 def _weekly_posted(session, report_date) -> bool:
@@ -571,3 +574,32 @@ class TestSlackPostWeeklySharedRunner(unittest.TestCase):
         mock_client_cls.assert_not_called()
         self.assertIn('DRY RUN', result.output)
         self.assertIn('#gate4-test', result.output)
+
+
+class TestSlackPostRecord:
+
+    def test_t19_record_survives_a_later_failed_scope(self, db_session):
+        report = Report(
+            report_type="weekly_client", report_date=date(2099, 1, 3),
+            content="Sentinel record content",
+        )
+        db_session.add(report)
+        db_session.commit()
+        report_id = report.id
+
+        with patch.object(
+            DatabaseConnection, 'record_scope', autospec=True,
+            side_effect=DatabaseConnection.record_scope,
+        ) as spy:
+            recorded = _record_slack_post(report_id, "test-ts-record", "#test-channel", "Test WS")
+        spy.assert_called_once()
+
+        with pytest.raises(RuntimeError):
+            with get_db().session_scope() as session:
+                session.get(Report, report_id).content = "changed by a failing scope"
+                session.flush()
+                raise RuntimeError("later failure")
+
+        assert recorded is True
+        db_session.expire_all()
+        assert db_session.get(Report, report_id).slack_message_ts == "test-ts-record"

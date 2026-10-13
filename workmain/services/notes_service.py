@@ -20,7 +20,6 @@ def apply_cf_hook_on_create(session, note: Note) -> None:
     Relocated verbatim from notes.py:375-377 (Phase 12 Gate 3)."""
     if 'carry-forward' in (note.tags or []):
         TaskStatusRepository(session).ensure_active(note.id)
-        session.commit()
 
 
 def apply_cf_hook_on_tag_update(
@@ -33,10 +32,8 @@ def apply_cf_hook_on_tag_update(
     task_repo = TaskStatusRepository(session)
     if 'carry-forward' in new_tags and 'carry-forward' not in (old_tags or []):
         task_repo.ensure_active(note_id)
-        session.commit()
     elif 'carry-forward' not in new_tags and 'carry-forward' in (old_tags or []):
         task_repo.set_dismissed_by_tag_removal(note_id)
-        session.commit()
 
 
 def create_note(

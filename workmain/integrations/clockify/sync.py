@@ -9,10 +9,19 @@ from sqlalchemy.orm import Session
 import click
 
 from .client import ClockifyClient
+from workmain.database.connection import get_db
 from workmain.database.models import TimeEntry, Meeting
 from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
 from workmain.utils.tag_utils import parse_tags
 from workmain.services import notes_service, time_entry_service
+
+
+def _record_clockify_link(entry_id: int, clockify_id: str) -> None:
+    """Record that a local time entry is in Clockify, in its own scope
+    (DEVELOPMENT_STANDARDS §4.3)."""
+    with get_db().record_scope() as session:
+        if TimeEntriesRepository(session).mark_as_synced(entry_id, clockify_id) is None:
+            raise LookupError(f"time entry {entry_id} is not visible to the recording session")
 
 
 class SyncConflict:
@@ -79,7 +88,8 @@ class ClockifySync:
             'total': len(entries),
             'successful': 0,
             'failed': 0,
-            'failures': []
+            'failures': [],
+            'unrecorded': [],
         }
         
         for i, entry in enumerate(entries, 1):
@@ -104,9 +114,21 @@ class ClockifySync:
                 )
 
                 # Update local entry with Clockify ID
-                entry.clockify_id = clockify_entry['id']
-                entry.synced_at = datetime.now()
-                self.session.commit()
+                try:
+                    _record_clockify_link(entry.id, clockify_entry['id'])
+                except Exception as e:
+                    results['unrecorded'].append({
+                        'entry_id': entry.id,
+                        'clockify_id': clockify_entry['id'],
+                        'error': str(e),
+                    })
+                    click.echo(
+                        f"✗ Entry {entry.id} is in Clockify as {clockify_entry['id']}, "
+                        f"but recording it failed: {e}. The next push will create it again.",
+                        err=True,
+                    )
+                else:
+                    self.session.expire(entry)
 
                 results['successful'] += 1
 
@@ -181,9 +203,17 @@ class ClockifySync:
                     pass
                 elif resolution == 'link':
                     # Link existing entry to Clockify ID
-                    conflict.local_entry.clockify_id = clockify_entry['id']
-                    conflict.local_entry.synced_at = datetime.now()
-                    self.session.commit()
+                    try:
+                        _record_clockify_link(conflict.local_entry.id, clockify_entry['id'])
+                    except Exception as e:
+                        click.echo(
+                            f"✗ Local entry {conflict.local_entry.id} was not linked to Clockify "
+                            f"entry {clockify_entry['id']}: {e}. The next pull will ask again.",
+                            err=True,
+                        )
+                        results['skipped'] += 1
+                        continue
+                    self.session.expire(conflict.local_entry)
                     results['conflicts'] += 1
                     continue
             
@@ -296,7 +326,7 @@ class ClockifySync:
         self,
         clockify_entry: Dict[str, Any],
         interactive: bool = True,
-    ) -> TimeEntry:
+    ) -> int:
         """
         Import a Clockify entry into local database.
 
@@ -307,7 +337,7 @@ class ClockifySync:
                 ['internal-only'] default rather than blocking.
 
         Returns:
-            TimeEntry: Created local entry
+            int: ID of the created local entry
         """
         # Parse time data (UTC) and convert to local timezone
         start_str = clockify_entry['timeInterval']['start']
@@ -330,22 +360,22 @@ class ClockifySync:
             if invalid:
                 click.echo(f"  ⚠️  Invalid tags ignored: {', '.join(invalid)}")
 
-        new_note = notes_service.create_note(
-            self.session,
-            content=description,
-            tags=prompted_tags,
-            source='clockify',
-        )
-        entry = time_entry_service.create_paired_time_entry(
-            self.session,
-            new_note,
-            duration_hours=duration_hours,
-            entry_date=start_dt.date(),
-            entry_time=start_dt.time().replace(tzinfo=None),
-            clockify_id=clockify_entry['id'],
-        )
-
-        return entry
+        with get_db().record_scope() as session:
+            new_note = notes_service.create_note(
+                session,
+                content=description,
+                tags=prompted_tags,
+                source='clockify',
+            )
+            entry = time_entry_service.create_paired_time_entry(
+                session,
+                new_note,
+                duration_hours=duration_hours,
+                entry_date=start_dt.date(),
+                entry_time=start_dt.time().replace(tzinfo=None),
+                clockify_id=clockify_entry['id'],
+            )
+            return entry.id
     
     def _get_clockify_project_id(self, local_project_id: int) -> Optional[str]:
         """

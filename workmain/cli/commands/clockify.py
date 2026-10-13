@@ -311,6 +311,16 @@ def clockify_sync_push(all, date, silent):
                         for failure in results['failures']:
                             click.echo(f"  - ID {failure['entry_id']}: {failure['error']}")
 
+                if results['unrecorded']:
+                    click.echo(
+                        f"  ⚠ In Clockify but not recorded locally: {len(results['unrecorded'])}"
+                    )
+                    for item in results['unrecorded']:
+                        click.echo(
+                            f"  - ID {item['entry_id']} → Clockify {item['clockify_id']}: "
+                            f"{item['error']}"
+                        )
+
                 click.echo()
 
     except Exception as e:
@@ -418,7 +428,13 @@ def clockify_sync_both(date):
 
             if unsynced:
                 push_results = sync_engine.push_entries(entries=unsynced, interactive=True)
-                click.echo(f"  ✓ Pushed {push_results['successful']} entries\n")
+                click.echo(f"  ✓ Pushed {push_results['successful']} entries")
+                if push_results['unrecorded']:
+                    click.echo(
+                        f"  ⚠ In Clockify but not recorded locally: "
+                        f"{len(push_results['unrecorded'])}"
+                    )
+                click.echo()
             else:
                 click.echo("  No local entries to push\n")
 

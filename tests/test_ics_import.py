@@ -15,13 +15,16 @@ import pytest
 from datetime import date, datetime
 from pathlib import Path
 
+from click.testing import CliRunner
+
+from workmain.cli.commands.calendar import calendar_import
+
 from workmain.database.models import Meeting, Note
 from workmain.utils.ics_parser import (
     ICSEvent,
     ICSParseError,
     detect_removed_meetings,
     import_events_to_db,
-    migrate_series_uid_records,
     parse_ics_file,
 )
 
@@ -539,184 +542,6 @@ class TestICSImport:
         assert db_session.query(Meeting).filter(Meeting.id == canonical_id).first() is not None
 
     # ------------------------------------------------------------------
-    # Test 17 — Migration re-keys series-UID record with no counterpart
-    # ------------------------------------------------------------------
-
-    def test_17_migration_rekeys_no_counterpart(self, db_session):
-        """
-        migrate_series_uid_records() re-keys a series-UID record (outlook_id ==
-        outlook_recurring_id) to a synthetic UID when no counterpart exists.
-        """
-        series_uid = "series-test17@workmain"
-        occ_time = datetime(2099, 4, 1, 9, 0)
-
-        record = Meeting(
-            outlook_id=series_uid,
-            outlook_recurring_id=series_uid,
-            title="Weekly Sync",
-            start_time=occ_time,
-            end_time=datetime(2099, 4, 1, 9, 30),
-            is_recurring=True,
-        )
-        db_session.add(record)
-        db_session.commit()
-        db_session.refresh(record)
-        record_id = record.id
-
-        counts = migrate_series_uid_records(db_session)
-
-        assert counts['re_keyed'] >= 1
-        assert counts['conflicts'] == 0
-
-        db_session.expire_all()
-        row = db_session.query(Meeting).filter(Meeting.id == record_id).first()
-        assert row is not None
-        expected_uid = f"{series_uid}_{occ_time.strftime('%Y%m%dT%H%M%S')}"
-        assert row.outlook_id == expected_uid
-        assert row.outlook_recurring_id == series_uid
-
-    # ------------------------------------------------------------------
-    # Test 18 — Migration re-keys record, deletes zero-note counterpart
-    # ------------------------------------------------------------------
-
-    def test_18_migration_rekeys_deletes_zero_note_counterpart(self, db_session):
-        """
-        When a series-UID record has a zero-note synthetic counterpart, migration
-        deletes the counterpart and re-keys the series-UID record in its place.
-        Notes on the series-UID record are preserved.
-        """
-        series_uid = "series-test18@workmain"
-        occ_time = datetime(2099, 5, 5, 14, 0)
-        synthetic_uid = f"{series_uid}_{occ_time.strftime('%Y%m%dT%H%M%S')}"
-
-        # Series-UID record (the old-format one with notes)
-        old_record = Meeting(
-            outlook_id=series_uid,
-            outlook_recurring_id=series_uid,
-            title="ACME Weekly",
-            start_time=occ_time,
-            end_time=datetime(2099, 5, 5, 14, 30),
-            is_recurring=True,
-        )
-        db_session.add(old_record)
-        db_session.commit()
-        db_session.refresh(old_record)
-        old_id = old_record.id
-
-        note = Note(
-            meeting_id=old_id,
-            content="Notes from this occurrence",
-            tags=["internal-only"],
-            source="meeting",
-        )
-        db_session.add(note)
-        db_session.commit()
-
-        # Synthetic counterpart (the empty duplicate created by a later import)
-        counterpart = Meeting(
-            outlook_id=synthetic_uid,
-            outlook_recurring_id=series_uid,
-            title="ACME Weekly",
-            start_time=occ_time,
-            end_time=datetime(2099, 5, 5, 14, 30),
-            is_recurring=True,
-        )
-        db_session.add(counterpart)
-        db_session.commit()
-        db_session.refresh(counterpart)
-        counterpart_id = counterpart.id
-
-        counts = migrate_series_uid_records(db_session)
-
-        assert counts['re_keyed'] >= 1
-        assert counts['deleted'] >= 1
-        assert counts['conflicts'] == 0
-
-        db_session.expire_all()
-
-        # Counterpart deleted
-        assert db_session.query(Meeting).filter(Meeting.id == counterpart_id).first() is None
-
-        # Old record re-keyed to synthetic UID
-        row = db_session.query(Meeting).filter(Meeting.id == old_id).first()
-        assert row is not None
-        assert row.outlook_id == synthetic_uid
-
-        # Note still attached to the same meeting_id
-        note_row = db_session.query(Note).filter(Note.meeting_id == old_id).first()
-        assert note_row is not None
-
-    # ------------------------------------------------------------------
-    # Test 19 — Migration skips conflict (both records have notes)
-    # ------------------------------------------------------------------
-
-    def test_19_migration_skips_conflict_both_have_notes(self, db_session):
-        """
-        When both the series-UID record and its synthetic counterpart have notes,
-        migration counts it as a conflict and leaves both records unchanged.
-        """
-        series_uid = "series-test19@workmain"
-        occ_time = datetime(2099, 6, 10, 11, 0)
-        synthetic_uid = f"{series_uid}_{occ_time.strftime('%Y%m%dT%H%M%S')}"
-
-        old_record = Meeting(
-            outlook_id=series_uid,
-            outlook_recurring_id=series_uid,
-            title="Monthly Review",
-            start_time=occ_time,
-            end_time=datetime(2099, 6, 10, 12, 0),
-            is_recurring=True,
-        )
-        db_session.add(old_record)
-        db_session.commit()
-        db_session.refresh(old_record)
-        old_id = old_record.id
-
-        db_session.add(Note(
-            meeting_id=old_id,
-            content="Notes on the old record",
-            tags=["internal-only"],
-            source="meeting",
-        ))
-        db_session.commit()
-
-        new_record = Meeting(
-            outlook_id=synthetic_uid,
-            outlook_recurring_id=series_uid,
-            title="Monthly Review",
-            start_time=occ_time,
-            end_time=datetime(2099, 6, 10, 12, 0),
-            is_recurring=True,
-        )
-        db_session.add(new_record)
-        db_session.commit()
-        db_session.refresh(new_record)
-        new_id = new_record.id
-
-        db_session.add(Note(
-            meeting_id=new_id,
-            content="Notes on the synthetic record",
-            tags=["internal-only"],
-            source="meeting",
-        ))
-        db_session.commit()
-
-        counts = migrate_series_uid_records(db_session)
-
-        assert counts['conflicts'] >= 1
-
-        db_session.expire_all()
-
-        # Both records unchanged
-        old_row = db_session.query(Meeting).filter(Meeting.id == old_id).first()
-        assert old_row is not None
-        assert old_row.outlook_id == series_uid   # not re-keyed
-
-        new_row = db_session.query(Meeting).filter(Meeting.id == new_id).first()
-        assert new_row is not None
-        assert new_row.outlook_id == synthetic_uid  # not deleted
-
-    # ------------------------------------------------------------------
     # Test 20 — RECURRENCE-ID exception reschedules an occurrence
     # ------------------------------------------------------------------
 
@@ -1151,3 +976,27 @@ class TestICSImport:
         today = date(2026, 1, 1)
         removed = detect_removed_meetings(db_session, all_cancelled_ics, today)
         assert removed == []
+
+    # ------------------------------------------------------------------
+    # Test 30 — calendar import lists each newly imported meeting's ID
+    # ------------------------------------------------------------------
+
+    def test_30_calendar_import_lists_new_meeting_ids(self, db_session):
+        """
+        The post-import listing queries for the meetings just added. Under
+        autoflush=False that query sees them only because import_events_to_db
+        flushes before returning.
+        """
+        result = CliRunner().invoke(
+            calendar_import, [str(FIXTURES / "week_normal.ics")], input="y\n"
+        )
+
+        assert result.exit_code == 0, result.output
+        rows = (
+            db_session.query(Meeting)
+            .filter(Meeting.outlook_id.like("test-00%@workmain%"))
+            .all()
+        )
+        assert len(rows) == 3
+        for row in rows:
+            assert f"[{row.id:4d}]" in result.output

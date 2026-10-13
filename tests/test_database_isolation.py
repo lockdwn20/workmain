@@ -9,6 +9,7 @@ teardown.
 from datetime import datetime
 
 import pytest
+from sqlalchemy import text
 
 from workmain.database.connection import get_db
 from workmain.database.models import Meeting
@@ -54,3 +55,12 @@ class TestIsolatedDatabase:
     def test_closing_the_connection_during_a_test_raises(self):
         with pytest.raises(RuntimeError, match="outside the test's transaction"):
             get_db().close()
+
+
+class TestRecordScope:
+    """record_scope() is session_scope() with a bounded lock wait."""
+
+    def test_record_scope_sets_the_lock_timeout(self):
+        with get_db().record_scope() as session:
+            value = session.execute(text("SHOW lock_timeout")).scalar()
+        assert value == '5s'

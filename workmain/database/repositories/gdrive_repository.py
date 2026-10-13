@@ -56,7 +56,7 @@ class GDriveRepository:
             created_at=datetime.now(timezone.utc),
         )
         self.session.add(record)
-        self.session.commit()
+        self.session.flush()
         self.session.refresh(record)
         return record
 

@@ -1586,3 +1586,80 @@ class TestMeetingTriggersFromDatabase:
 
         ids = {c.kwargs['id'] for c in scheduler.add_job.call_args_list}
         assert {f't2_{meeting.id}', f't3_{meeting.id}'} <= ids
+
+
+class TestActionResultFollowsCommit:
+    """An action's result is posted only after its scope has committed, and
+    the write is in the database when the call returns (#96)."""
+
+    @staticmethod
+    def _record_scope_exit(monkeypatch, events):
+        """Append 'scope_exit' to events as each session_scope() exits."""
+        from contextlib import contextmanager
+        from workmain.database.connection import DatabaseConnection
+
+        real = DatabaseConnection.session_scope
+
+        @contextmanager
+        def recording(self):
+            with real(self) as session:
+                yield session
+            events.append('scope_exit')
+
+        monkeypatch.setattr(DatabaseConnection, 'session_scope', recording)
+
+    def test_t4_create_note_is_in_the_database_after_the_call(self, tmp_path, db_session):
+        from workmain.database.models import Note
+        content = 'Sentinel execute action note 2099-96'
+        daemon = _make_daemon(_make_store(tmp_path))
+
+        daemon._execute_action({'action': 'create_note', 'content': content})
+
+        assert db_session.query(Note).filter(Note.content == content).count() == 1
+
+    def test_t5_daemon_posts_after_the_scope_exits(self, tmp_path, monkeypatch):
+        events = []
+        self._record_scope_exit(monkeypatch, events)
+        daemon = _make_daemon(_make_store(tmp_path))
+        daemon.post_message = lambda text: events.append('post')
+
+        daemon._execute_action(
+            {'action': 'create_note', 'content': 'Sentinel order daemon 2099-96'}
+        )
+
+        assert events == ['scope_exit', 'post']
+
+    def test_t6_eod_posts_after_the_scope_exits(self, tmp_path, monkeypatch):
+        from workmain.integrations.slack.slack_eod import SlackEodManager
+        events = []
+        self._record_scope_exit(monkeypatch, events)
+        manager = SlackEodManager(MagicMock(), MagicMock(), _make_store(tmp_path))
+        manager._send = lambda channel, text: events.append('post')
+        manager._reprompt_current_step = lambda session: None
+        session = MagicMock(channel_id='D_TEST')
+
+        manager._execute_and_reprompt(
+            session, {'action': 'create_note', 'content': 'Sentinel order eod 2099-96'}
+        )
+
+        assert events == ['scope_exit', 'post']
+
+
+class TestStepWarningReachesSlack:
+
+    def test_t33_a_completed_step_message_is_sent_to_slack(self, tmp_path):
+        from workmain.integrations.slack.slack_eod import SlackEodManager
+        from workmain.workflows.eod_workflow import EodStepResult, EodStepStatus
+        line = "✗ Uploaded X to Drive (file id abc), but recording the upload failed: boom."
+        manager = SlackEodManager(MagicMock(), MagicMock(), _make_store(tmp_path))
+        manager._send_blocks = MagicMock()
+        session = _eod_session()
+        step = {'key': 'time_review', 'num': 3, 'desc': 'Time review'}
+
+        manager._handle_step_result(
+            session, step,
+            EodStepResult(status=EodStepStatus.COMPLETED, message=f"Drive upload complete, with a warning:\n{line}"),
+        )
+
+        blocks = manager._send_blocks.call_args.kwargs['blocks']
+        assert line in blocks[0]['text']['text']

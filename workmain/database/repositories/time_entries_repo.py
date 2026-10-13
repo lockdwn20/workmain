@@ -112,7 +112,7 @@ class TimeEntriesRepository:
         )
 
         self.session.add(time_entry)
-        self.session.commit()
+        self.session.flush()
         self.session.refresh(time_entry)
 
         return time_entry
@@ -332,7 +332,7 @@ class TimeEntriesRepository:
         if meeting_id is not None:
             entry.meeting_id = meeting_id
 
-        self.session.commit()
+        self.session.flush()
         self.session.refresh(entry)
 
         return entry
@@ -353,7 +353,7 @@ class TimeEntriesRepository:
             return False
         
         self.session.delete(entry)
-        self.session.commit()
+        self.session.flush()
         
         return True
     
@@ -511,7 +511,7 @@ class TimeEntriesRepository:
         entry.clockify_id = clockify_id
         entry.synced_at = datetime.now()
         
-        self.session.commit()
+        self.session.flush()
         self.session.refresh(entry)
         
         return entry

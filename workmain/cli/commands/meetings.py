@@ -885,7 +885,6 @@ def meetings_condense(meeting_title: str):
                     # Re-link existing time entry to the condensed note
                     entry = existing_today[0]
                     entry.note_id = condensed_note.id
-                    session.commit()
                     console.print(f"[green]✓ Time entry (ID: {entry.id}) linked to condensed note[/green]")
                 else:
                     # Create new time entry from meeting using the condensed note
@@ -982,6 +981,7 @@ def meetings_merge(from_identifier: str, to_identifier: str):
         if repo.merge(from_mtg.id, to_mtg.id):
             console.print(f"[green]✓ Moved {from_notes} note(s) to '{to_mtg.title}'[/green]")
 
+            session.commit()
             if click.confirm(f"Delete old meeting '{from_mtg.title}'?", default=True):
                 if repo.delete(from_mtg.id, delete_notes=False):
                     console.print(f"[green]✓ Old meeting deleted[/green]")
@@ -1218,6 +1218,7 @@ def meetings_reschedule(identifier: str, meeting_date: Optional[str],
             console.print("[green]✓ Rescheduled. ICS reimport will preserve this change.[/green]")
 
             # Prompt to update any linked time entry
+            session.commit()
             linked = session.query(TimeEntry).filter(TimeEntry.meeting_id == mtg.id).all()
             if linked:
                 for entry in linked:
@@ -1229,6 +1230,7 @@ def meetings_reschedule(identifier: str, meeting_date: Optional[str],
                     if click.confirm("  Update it to match the new start time?", default=False):
                         new_entry_time = updated.start_time.time() if updated.start_time else None
                         time_repo.update(entry.id, entry_time=new_entry_time)
+                        session.commit()
                         console.print("  [green]✓ Time entry updated.[/green]")
                         console.print("  [dim]Re-sync Clockify: workmain clockify sync push[/dim]")
 

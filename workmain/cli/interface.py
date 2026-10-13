@@ -90,7 +90,12 @@ def _configure_cli_logging() -> None:
 
     The daemon does the same for the systemd journal. In an EOD child, stdout
     is captured and echoed to the daemon's journal.
+
+    Python warnings are captured into the log too, so a library warning never
+    reaches stderr, which a calling process reads as the command's own warning
+    (DEVELOPMENT_STANDARDS §5.6).
     """
+    logging.captureWarnings(True)
     logging.basicConfig(
         level=logging.WARNING,
         format='%(name)s %(levelname)s %(message)s',
