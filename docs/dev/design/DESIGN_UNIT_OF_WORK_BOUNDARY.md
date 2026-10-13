@@ -67,7 +67,7 @@ Each item below follows from a stated rule or from the issue's own decisions. Th
 - **Savepoints at `notes.py:700` and `eod_workflow.py:601-603`**, as the issue states. The commits inside the condensation blocks (`notes.py:681`, `meetings.py:888`) go, so each condensation commits or rolls back whole (F13).
 - **Exits and Ctrl-C** (F11). Discarding an exiting scope's writes is intended, and there are none. Discarding an interrupted scope's uncommitted writes is intended: an interrupt is the user abandoning the command. The unreachable `KeyboardInterrupt` handlers at `eod_workflow.py:593,796` go.
 - **The three seeding tests move to `db_session`** under §6.1 (F12). The other tests that call `db.get_session()` aren't touched; their conversion is #198's.
-- **No record written in its own session ever writes, or references, a row the command's open transaction has written** (F7). This is a consequence of P1, P6 and P7, and belongs in §4.3's boundary text.
+- **No record written in its own session ever writes, or references, a row the command's open transaction has written** (F7). This is a consequence of P1, P6 and P7, and belongs in §4.3's boundary text. A record also opens its session through `record_scope()`, which sets a 5-second `lock_timeout`, so a breach of this rule fails instead of hanging; the fixture can't show the hang (Ray, 20261013; spec Decision Log).
 
 ## 5. Open questions
 

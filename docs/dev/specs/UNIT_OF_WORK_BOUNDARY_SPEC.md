@@ -34,6 +34,11 @@
 | 20261013 | Caliper | AC4.1's "fails before Step 1" is reasoned, not observed, because T1 is written in Step 2 | Accepted. T1 was run as a probe on `dev` `69552cb`: it left the action's note behind (count 1, expected 0). §2 and AC4.1 cite the run. |
 | 20261013 | Caliper | On the Slack EOD path a failed record's message never reaches the operator: the steps run in the daemon, capture the child's output, and print it to the journal, and with exit 0 Slack receives only "Step N — … complete." T27 and T29 cover only the terminal path | Accepted. A step whose captured child exits 0 with stderr returns `COMPLETED` with that stderr in its `message`, which `_handle_step_result` already posts (Step 4 item 4). It applies to the sync and Drive steps, and to `_run_slack_weekly_step`, which runs `slack post weekly` the same way and was not named. §5.6 already defines a child's stderr as the channel for a warning its caller must receive. T30–T33 test the Slack path. |
 | 20261013 | Caliper | After a failed record, the push re-raises into the loop's `except`, so the entry is counted and printed as a failed push although it is in Clockify, and `time add` prints "✗ Sync failed": the rerun prompt DR4 exists to avoid | Accepted. A record failure no longer raises. It is listed under `results['unrecorded']`, the entry counts as synced, and `clockify sync push` and `both` print it under "In Clockify but not recorded locally". T24 asserts the entry is not under "Failed entries". |
+| 20261013 | Ray | A record session that updates a row the command has written but not committed waits on that row's lock (study P6), and in one process never returns. The fixture puts every session on one connection, so no test can show the hang | Every outside-action record opens its session through one helper, `DatabaseConnection.record_scope()`: `session_scope()` plus `SET LOCAL lock_timeout = '5s'` (Step 1, DR4). A timeout raises inside the record and takes DR4's never-silent path. T34 shows the helper's session reports the timeout; the wait itself can't be reproduced under the fixture. The survival tests also show each record went through the helper (DR5). |
+| 20261013 | Ray | §7's rollback said each step reverts on its own. Steps 2–4 depend on Step 1, and reverting Step 3 alone brings back the study F9 regressions | §7 states that Steps 1–4 revert together and Step 5 reverts on its own. |
+| 20261013 | Ray | Step 4's `_completed` posts a child's stderr to Slack, and nothing captures Python's `warnings` module, so a library warning would reach Slack as "complete, with a warning" | `logging.captureWarnings(True)` in `_configure_cli_logging`, so warnings go to the log on stdout and stderr carries only a command's own lines, as §5.6 assumes (Step 4 item 5). T35. A test that only checks stderr for a warning raised inside a command passes before the change too, because pytest records warnings itself (probe, 20261013); T35 checks where `warnings.showwarning` sends a warning once the CLI has started, which fails before the change and passes after. |
+| 20261013 | Ray | Launching a child `workmain` process is a wait: a child that writes a row the parent's open transaction has written waits on the parent's lock while the parent waits on the child | DR3 and the §4.1 text name it alongside a prompt, an editor and an outside action. No site launches a child after a write: §2 lists the two scopes that launch one. Ray's note named `eod_workflow.py:387` as a third; that scope is the pre-flight inspection, which calls the AI narration and launches no child. |
+| 20261013 | Ray | The dead-code removals | Stay as specced: `ReportsRepository.delete`, and `migrate_series_uid_records` with its three tests. |
 
 ---
 
@@ -47,7 +52,9 @@
 - `ai_cost_service.link_report` and its caller.
 - The commits DR3 requires before a wait: `meetings merge`, `meetings reschedule`, `notes add`, `notes log`, `time add`.
 - Savepoints at `notes.py:635` (per line), `notes.py:700` (condensation) and `eod_workflow.py:601-603`.
-- The outside-action records: `record_reply` (unchanged), the three `gdocs upload` records, the weekly Slack post's record, and every `ClockifySync` write.
+- `DatabaseConnection.record_scope()` in `connection.py`, through which every outside-action record opens its session.
+- `logging.captureWarnings(True)` in `workmain/cli/interface.py`.
+- The outside-action records: `record_reply`, the three `gdocs upload` records, the weekly Slack post's record, and every `ClockifySync` write.
 - `migrate_series_uid_records` and its tests, and the `KeyboardInterrupt` handlers at `eod_workflow.py:593,796`.
 - The tests these changes reach, and the new tests in §6.
 - `docs/DEVELOPMENT_STANDARDS.md` §4.1, §4.3 and §6.1.
@@ -56,7 +63,7 @@
 
 - **Moving AI provider calls out of open scopes.** Five of the six scopes that reach a provider call only read before it, and `notes log` commits before its condense prompt under DR3 (study F15, Q2).
 - **Tests that call `db.get_session()` but still pass.** §6.1 forbids it, and #198's conversions own it. This issue converts only the three that break (study F12).
-- **The session factory and `session_scope()`.** `connection.py` is unchanged, including `autoflush=False` and `expire_on_commit=True`.
+- **The session factory and `session_scope()`.** Both are unchanged, including `autoflush=False` and `expire_on_commit=True`. `connection.py` gains only `record_scope()` and its constant.
 - **`scripts/`.** No script writes through a repository (study §2).
 - **Owner commits that are not required by DR3**, as the Decision Log states.
 
@@ -123,6 +130,9 @@
 | Only one scope holds a write across an AI provider call: `notes log`, which writes notes and then prompts before condensing. The other five read only | study F15 |
 | Callers that read the exit status of a command whose record can fail: EOD `_run_sync_step` runs `clockify sync push` and, on a non-zero exit, offers `[r]etry`, which runs the push again; EOD `_run_gdocs_step` runs `gdocs upload all`, and treats a non-zero exit as not authenticated; `gdocs upload all` runs each upload through `_run_step`, which catches `SystemExit`. `_echo_workmain` always echoes a child's stderr | `eod_workflow.py:105-117,264-292,1179-1225`; `gdocs.py:589-598` |
 | On the Slack EOD path, steps run in the daemon with `non_interactive=True`, so `_run_sync_step`, `_run_gdocs_step` and `_run_slack_weekly_step` capture their child's output, and `_echo_workmain` prints it to the daemon's stdout, which goes to the journal. Slack receives only the step result: for `COMPLETED`, `result.message` or "Step N — … complete." The push loop counts any exception after `create_time_entry`, including a record failure, under `results['failed']` and prints "✗ Failed"; `time add` then prints "✗ Sync failed" and `clockify sync push` lists the entry under "Failed entries" | `slack_eod.py:233-238,278-284`; `eod_workflow.py:105-117,270,1194,1243-1247`; `deploy/workmain-notify.service:36-37`; `sync.py:116-128`; `time.py:353-357`; `clockify.py:300-313` |
+| Scopes that launch a child `workmain` process: `reports.py:675` `report_resend` (`email save`, after writing a staging file and nothing to the database) and `eod_workflow.py:199` `_run_condense_step` (`meetings condense`, after reads only). No other scope launches one; `notes.py:509`, `reports.py:461` and `eod_workflow.py:978` launch `$EDITOR`, and the daemon's `deliver` launches `wsl-notify` | nested-scope census (study §2); `reports.py:675-702`; `eod_workflow.py:197-232` |
+| `SET LOCAL lock_timeout` inside a `session_scope()` reads back as set, and the next scope reads `0`. Under the §6.1 fixture the setting outlives the scope and holds until the test ends, because the scope's commit only releases a savepoint inside the test's transaction | probe, 20261013, live database and fixture |
+| Nothing under `workmain/` handles Python's `warnings` module: `grep -rnE 'import warnings\|captureWarnings\|filterwarnings' workmain/` finds none. `_configure_cli_logging` sends log records to stdout, so that stderr carries only a command's own lines | `workmain/cli/interface.py:88-98,113` |
 | Suite with every repository commit replaced by `flush()`: 1274 passed, 4 failed. Three are `tests/test_slack_channel_config.py` tests that seed through `db.get_session()` and `close()` without committing. The fourth is a path-length artifact of the probe's worktree | study F12 |
 | `ClockifySync._import_clockify_entry` returns the `TimeEntry`. Six tests in `tests/test_clockify_sync.py` read attributes of the returned object | `sync.py:247-305`; `tests/test_clockify_sync.py` 57, 70, 80, 88, 96, 105 |
 | `migrate_series_uid_records` has no caller under `workmain/` or `scripts/`. Its tests: `tests/test_ics_import.py` `test_17_migration_rekeys_no_counterpart`, `test_18_migration_rekeys_deletes_zero_note_counterpart`, `test_19_migration_skips_conflict_both_have_notes`. The module docstring describes it at `ics_parser.py:52-55` | `grep -rn 'migrate_series_uid_records' workmain/ scripts/ tests/` |
@@ -141,9 +151,9 @@
   ```
 
   Nothing inside the savepoint commits.
-- **DR3 — The owner commits before it waits.** If the scope has written since its last commit, the owner calls `session.commit()` immediately before a prompt, a confirmation, an editor launch or an outside action. §2 lists the sites. A message that reports a write done may come before or after that commit.
-- **DR4 — An outside action's record commits on its own.** A row that records an action already done outside WorkmAIn's database is written in its own `get_db().session_scope()` immediately after the action, not on the caller's session. It never writes or references a row the caller's open transaction has written (study P1, P6, P7). A record that reports success has committed: a write that matches nothing raises. Its failure is never silent: cost recording logs a warning and carries on, as today; every other record prints what happened outside, what was not recorded and what will repeat, on stderr. **The command's exit status is unchanged.** The outside action succeeded, and a non-zero exit invites a rerun, which repeats it: EOD's sync step retries `clockify sync push` on a non-zero exit (§2). The message reaches the operator on every EOD path: in the terminal, EOD echoes a captured child's stderr; on the Slack EOD path, the step's completion message carries it (Step 4 item 4). That is §5.6's stderr warning for a calling process.
-- **DR5 — An outside-action record is tested at the function that writes it.** The test calls the function, then opens a scope that writes and raises, then asserts through `db_session` that the record is still there. It does not touch `db_session` between the call and the assertion. Where the function is handed a session (`ClockifySync`), the test also shows the record did not go through it: a `before_flush` listener on the handed session collects every `TimeEntry` and `Note` in `session.new` and `session.dirty`, and when the function returns, that collection is empty and so are the session's own `new` and `dirty` for those classes.
+- **DR3 — The owner commits before it waits.** If the scope has written since its last commit, the owner calls `session.commit()` immediately before a prompt, a confirmation, an editor launch, starting a child `workmain` process or an outside action. §2 lists the sites; no scope starts a child after a write. A message that reports a write done may come before or after that commit.
+- **DR4 — An outside action's record commits on its own.** A row that records an action already done outside WorkmAIn's database is written in its own `get_db().record_scope()` immediately after the action, not on the caller's session. `record_scope()` bounds a wait on a row lock at 5 seconds, so a record that reaches a row the caller holds fails instead of hanging. It never writes or references a row the caller's open transaction has written (study P1, P6, P7). A record that reports success has committed: a write that matches nothing raises. Its failure is never silent: cost recording logs a warning and carries on, as today; every other record prints what happened outside, what was not recorded and what will repeat, on stderr. **The command's exit status is unchanged.** The outside action succeeded, and a non-zero exit invites a rerun, which repeats it: EOD's sync step retries `clockify sync push` on a non-zero exit (§2). The message reaches the operator on every EOD path: in the terminal, EOD echoes a captured child's stderr; on the Slack EOD path, the step's completion message carries it (Step 4 item 4). That is §5.6's stderr warning for a calling process.
+- **DR5 — An outside-action record is tested at the function that writes it.** The test calls the function, then opens a scope that writes and raises, then asserts through `db_session` that the record is still there. It does not touch `db_session` between the call and the assertion. A spy on `DatabaseConnection.record_scope` shows the record was written through it. Where the function is handed a session (`ClockifySync`), the test also shows the record did not go through it: a `before_flush` listener on the handed session collects every `TimeEntry` and `Note` in `session.new` and `session.dirty`, and when the function returns, that collection is empty and so are the session's own `new` and `dirty` for those classes.
 - **DR6 — Repositories flush.** Every `self.session.commit()` in a repository becomes `self.session.flush()`. A `refresh()` after it stays.
 - **DR7 — No ORM object crosses a scope** (§4.2). Where a write moves into its own scope (Step 4), the function returns plain values.
 
@@ -155,10 +165,10 @@ Before Step 1, record the baseline `pytest` counts in the form of `docs/DEVELOPM
 
 | Step | Deliverable | Files |
 | --- | --- | --- |
-| 1 | Repositories flush; callee commits removed; `link_report` on the caller's session; dead code removed | `workmain/database/repositories/*.py`, `workmain/services/notes_service.py`, `workmain/services/ai_cost_service.py`, `workmain/ai/note_condenser.py`, `workmain/ai/report_generator.py`, `workmain/utils/ics_parser.py`, `tests/test_ics_import.py`, `tests/test_ai_costs.py`, `tests/test_slack_channel_config.py` |
+| 1 | Repositories flush; callee commits removed; `link_report` on the caller's session; `record_scope()`; dead code removed | `workmain/database/connection.py`, `workmain/database/repositories/*.py`, `workmain/services/notes_service.py`, `workmain/services/ai_cost_service.py`, `workmain/ai/note_condenser.py`, `workmain/ai/report_generator.py`, `workmain/utils/ics_parser.py`, `tests/test_ics_import.py`, `tests/test_ai_costs.py`, `tests/test_slack_channel_config.py` |
 | 2 | `ActionExecutor` and its callers | `workmain/orchestration/action_executor.py`, `workmain/daemon/daemon.py`, `workmain/integrations/slack/slack_eod.py`, `tests/test_action_executor.py`, `tests/test_orchestration.py` |
 | 3 | Commits before waits; savepoints; `KeyboardInterrupt` handlers | `workmain/cli/commands/meetings.py`, `workmain/cli/commands/notes.py`, `workmain/cli/commands/time.py`, `workmain/workflows/eod_workflow.py`, and the test files §6 names |
-| 4 | Outside-action records, and EOD carrying a child's warning to Slack | `workmain/cli/commands/gdocs.py`, `workmain/cli/commands/slack.py`, `workmain/cli/commands/clockify.py`, `workmain/integrations/clockify/sync.py`, `workmain/workflows/eod_workflow.py`, `tests/test_clockify_sync.py`, and the test files §6 names |
+| 4 | Outside-action records, EOD carrying a child's warning to Slack, and warnings captured into the log | `workmain/cli/interface.py`, `workmain/cli/commands/gdocs.py`, `workmain/cli/commands/slack.py`, `workmain/cli/commands/clockify.py`, `workmain/integrations/clockify/sync.py`, `workmain/workflows/eod_workflow.py`, `tests/test_clockify_sync.py`, and the test files §6 names |
 | 5 | §4.1, §4.3 and §6.1 | `docs/DEVELOPMENT_STANDARDS.md` |
 | 6 | Results artifact | `docs/dev/results/UNIT_OF_WORK_BOUNDARY_RESULTS.md` |
 
@@ -170,7 +180,35 @@ The suite passes at the end of each step.
 2. `notes_service.py`: remove the three `session.commit()` calls (lines 23, 36, 39).
 3. `note_condenser.py`: the two `self.session.commit()` calls (lines 164, 180) become `self.session.flush()` (§2).
 4. `ics_parser.py`: `session.commit()` at line 671 becomes `session.flush()` (§2). Remove `migrate_series_uid_records` (675-753) and the docstring paragraph at 52-55 that describes it. Remove the three tests in `tests/test_ics_import.py` that §2 names, and `migrate_series_uid_records` from that file's import at line 24.
-5. `ai_cost_service.link_report` takes the caller's session:
+5. **`record_scope()`.** In `connection.py`, add `from sqlalchemy import text`, a module constant and a method beside `session_scope()`:
+
+   ```python
+   # How long a write that records an outside action waits on a row lock.
+   # Such a write is one short insert or update, done in milliseconds. It waits
+   # only when another transaction holds the row: its own caller, which never
+   # lets go (DEVELOPMENT_STANDARDS §4.3), or another process, which under §4.1
+   # holds a written row only for its own database work, well under a second.
+   RECORD_LOCK_TIMEOUT = '5s'
+   ```
+
+   ```python
+       @contextmanager
+       def record_scope(self):
+           """
+           session_scope() for a write that records an outside action
+           (docs/DEVELOPMENT_STANDARDS.md §4.3).
+
+           lock_timeout bounds a wait on a row another transaction holds, so a
+           record that reaches a row its own caller holds raises instead of
+           hanging.
+           """
+           with self.session_scope() as session:
+               session.execute(text(f"SET LOCAL lock_timeout = '{RECORD_LOCK_TIMEOUT}'"))
+               yield session
+   ```
+
+   `ai_cost_service.record_reply` opens its session with `get_db().record_scope()` in place of `get_db().session_scope()`.
+6. `ai_cost_service.link_report` takes the caller's session:
 
    ```python
    def link_report(session, cost_record_ids: List[int], report_id: int) -> None:
@@ -196,8 +234,8 @@ The suite passes at the end of each step.
        return None
    ```
 
-   The module docstring's second paragraph becomes: "`record_reply` opens its own session, so a recording survives a failure in the caller's transaction (`docs/DEVELOPMENT_STANDARDS.md` §4.3). `link_report` writes in the caller's session. Neither ever fails the call it serves." `report_generator.py:188` becomes `ai_cost_service.link_report(self.session, response.cost_record_ids, db_report.id)`.
-6. Tests. `tests/test_ai_costs.py` `test_link_report_sets_report_id` passes `db_session` as the first argument. `test_link_report_with_no_ids_opens_no_session` is renamed `test_link_report_with_no_ids_touches_no_session`, passes a `MagicMock` session, and asserts `session.begin_nested` was not called. The three seeding tests in `tests/test_slack_channel_config.py` (`test_slack_set_channel_no_active_client`, `test_slack_status_shows_client_channel`, `test_slack_status_fallback_when_no_client_channel`) and the helpers they use take `db_session` instead of `db.get_session()`, under §6.1. Add T9 and T26 (§6).
+   The module docstring's second paragraph becomes: "`record_reply` opens its own session through `record_scope()`, so a recording survives a failure in the caller's transaction (`docs/DEVELOPMENT_STANDARDS.md` §4.3). `link_report` writes in the caller's session. Neither ever fails the call it serves." `report_generator.py:188` becomes `ai_cost_service.link_report(self.session, response.cost_record_ids, db_report.id)`.
+7. Tests. `tests/test_ai_costs.py` `test_link_report_sets_report_id` passes `db_session` as the first argument. `test_link_report_with_no_ids_opens_no_session` is renamed `test_link_report_with_no_ids_touches_no_session`, passes a `MagicMock` session, and asserts `session.begin_nested` was not called. The three seeding tests in `tests/test_slack_channel_config.py` (`test_slack_set_channel_no_active_client`, `test_slack_status_shows_client_channel`, `test_slack_status_fallback_when_no_client_channel`) and the helpers they use take `db_session` instead of `db.get_session()`, under §6.1. Add T9, T26 and T34 (§6).
 
 ### Step 2 — `ActionExecutor` and its callers
 
@@ -283,7 +321,7 @@ The suite passes at the end of each step.
        would put it there again.
        """
        try:
-           with get_db().session_scope() as session:
+           with get_db().record_scope() as session:
                GDriveRepository(session).record_upload(
                    local_path=str(local_path),
                    drive_file_id=drive_file_id,
@@ -313,7 +351,7 @@ The suite passes at the end of each step.
        is in Slack, and rerunning the post would post it again.
        """
        try:
-           with get_db().session_scope() as session:
+           with get_db().record_scope() as session:
                report = get_reports_repository(session).get_by_id(report_id)
                report.slack_message_ts = message_ts
                report.slack_channel = channel
@@ -335,7 +373,7 @@ The suite passes at the end of each step.
    def _record_clockify_link(entry_id: int, clockify_id: str) -> None:
        """Record that a local time entry is in Clockify, in its own scope
        (DEVELOPMENT_STANDARDS §4.3)."""
-       with get_db().session_scope() as session:
+       with get_db().record_scope() as session:
            if TimeEntriesRepository(session).mark_as_synced(entry_id, clockify_id) is None:
                raise LookupError(f"time entry {entry_id} is not visible to the recording session")
    ```
@@ -382,7 +420,7 @@ The suite passes at the end of each step.
    - **Pull import**: `_import_clockify_entry` writes its note and time entry in its own scope and returns the new entry's id (DR7):
 
      ```python
-             with get_db().session_scope() as session:
+             with get_db().record_scope() as session:
                  new_note = notes_service.create_note(
                      session,
                      content=description,
@@ -422,14 +460,15 @@ The suite passes at the end of each step.
    ```
 
    The final `return EodStepResult(status=EodStepStatus.COMPLETED)` of `_run_sync_step` (`eod_workflow.py:296`), `_run_gdocs_step` (`:1228`) and `_run_slack_weekly_step` (`:1265`) becomes `return _completed(run, "Clockify sync")`, `_completed(run, "Drive upload")` and `_completed(run, "Slack weekly post")`. In `_run_sync_step`, when the `[r]etry` branch ran, `_completed` takes `retry` instead of `run`. In pass-through mode `run.stderr` is empty and the result is unchanged. `SlackEodManager._handle_step_result` already posts `result.message` for a `COMPLETED` step (`slack_eod.py:278-284`).
-5. Tests: T8, T18–T24, T27–T33 (§6). In `tests/test_clockify_sync.py`, the tests that build `ClockifySync` keep building it on `db_session`.
+5. **Warnings go to the log.** In `workmain/cli/interface.py` `_configure_cli_logging`, call `logging.captureWarnings(True)` before `logging.basicConfig(...)`, and add to its docstring: "Python warnings are captured into the log too, so a library warning never reaches stderr, which a calling process reads as the command's own warning (DEVELOPMENT_STANDARDS §5.6)."
+6. Tests: T8, T18–T24, T27–T33, T35 (§6). In `tests/test_clockify_sync.py`, the tests that build `ClockifySync` keep building it on `db_session`.
 
 ### Step 5 — standards
 
 1. **§4.1.** After the first bullet, insert:
 
    > - **The code that opens a scope owns its unit of work.** It may commit inside the scope. Code it hands the session to — a repository, a service, an orchestrator such as `ActionExecutor` — reads and writes through that session and never commits it, rolls it back or opens another. Two exceptions: it may contain a failure in a savepoint (`session.begin_nested()`, below), and it records an outside action in a session of its own (§4.3).
-   > - **The owner commits before it waits.** If the scope has written since its last commit, the owner commits immediately before it prompts, opens an editor or performs an outside action. No transaction holding a write stays open across user input or a call to another system.
+   > - **The owner commits before it waits.** If the scope has written since its last commit, the owner commits immediately before it prompts, opens an editor, starts a child `workmain` process or performs an outside action. No transaction holding a write stays open across user input, a child process or a call to another system.
 
    Replace the bullet that begins "**A handler that recovers from an exception sits outside the `with`.**" with:
 
@@ -438,7 +477,7 @@ The suite passes at the end of each step.
 2. **§4.3.** In the example, `self.session.commit()` becomes `self.session.flush()`. After the example, append:
 
    > - **A repository method never commits.** It flushes after a write, so the row has its id and its database defaults, and later queries in the session see it.
-   > - **A write that records an outside action commits on its own.** A row that records something already done outside WorkmAIn's database — a provider call that has been billed, a file in Drive, a Slack message, an entry in Clockify — is written in its own `session_scope()` immediately after the action, independent of the command's unit of work, so a later failure in the command can't undo the record of something that can't be undone.
+   > - **A write that records an outside action commits on its own.** A row that records something already done outside WorkmAIn's database — a provider call that has been billed, a file in Drive, a Slack message, an entry in Clockify — is written in its own session, opened with `get_db().record_scope()`, immediately after the action, independent of the command's unit of work, so a later failure in the command can't undo the record of something that can't be undone. `record_scope()` is `session_scope()` with a lock timeout, so a record that reaches a row another transaction holds fails instead of waiting.
    >   - It never writes or references a row the command's open transaction has written. A second session can't see an uncommitted row, and waits on a row the transaction has locked.
    >   - Its failure is never silent. Cost recording logs a warning and carries on. Every other record reports, on stderr, what happened outside, what was not recorded and what will repeat. The command's exit status doesn't change: the outside action succeeded, and a non-zero exit invites a rerun that would repeat it.
    >   - It is tested at the function that writes it (§6.1).
@@ -471,6 +510,8 @@ None. This spec runs no migration, deletes no GitHub object, merges nothing to `
 | AC6.1 | §4.3 states the rule for writes that record an outside action. | A stated reading by Ray of §4.3. |
 | AC6.2 | Every outside-action record commits in its own `session_scope()` immediately after its action, and survives a later failure. Each is tested at the function that writes it (DR5; Decision Log). | T8 (`record_reply`), T18 (`_record_upload`), T19 (`_record_slack_post`), T20 (push), T21 (pull link), T22 (pull import). |
 | AC6.3 | A record that fails to commit is reported on stderr with what happened outside, and nothing reruns the outside action because of it, on every path that reaches the record; cost recording logs a warning. | T23 (`_record_upload`), T24 (Clockify push, `--silent`), T27 (EOD sync step), T28 (`gdocs upload all`), T29 (EOD Drive step), T30–T33 (the Slack EOD path), and the existing `test_record_reply_failure_returns_none_and_warns`. |
+| AC6.4 | Every outside-action record opens its session through `record_scope()`, which bounds a lock wait. | T34 (the helper's session reports `lock_timeout` 5s), and the `record_scope` spy in T8 and T18–T22. A lock wait can't be reproduced under the §6.1 fixture, which puts every session on one connection. |
+| AC6.5 | A CLI command's stderr carries only its own lines: Python warnings go to the log. | T35. |
 | AC7.1 | §4.1 states that the code that opens a scope owns its unit of work, that nothing it hands the session to commits it except an outside-action record, and that the owner commits before it waits. | A stated reading by Ray of §4.1 and §4.3. |
 | AC7.2 | Each scope that writes and then waits on a person commits first, so cancelling the prompt keeps the write. | T10–T15. |
 | AC7.3 | A database failure caught inside a scope rolls back only its savepoint. | T16 (`notes log` line), T17 (`notes log` condensation), T25 (EOD task match). |
@@ -478,7 +519,7 @@ None. This spec runs no migration, deletes no GitHub object, merges nothing to `
 ## 6. Test plan
 
 - **Baseline before this work:** from the last `CHANGELOG.md` entry, 1278 passed, 0 failed, 0 skipped.
-- **Expected after:** 1308 passed, 0 failed, 0 skipped: the baseline, less the three `migrate_series_uid_records` tests, plus 33 new tests (T1–T33).
+- **Expected after:** 1310 passed, 0 failed, 0 skipped: the baseline, less the three `migrate_series_uid_records` tests, plus 35 new tests (T1–T35).
 
 | T | File | What it shows |
 | --- | --- | --- |
@@ -515,9 +556,12 @@ None. This spec runs no migration, deletes no GitHub object, merges nothing to `
 | T31 | `tests/test_eod_workflow.py` | `_run_gdocs_step`, the same. |
 | T32 | `tests/test_eod_workflow.py` | `_run_slack_weekly_step`, the same. |
 | T33 | `tests/test_orchestration.py` | `SlackEodManager._handle_step_result` with a `COMPLETED` result whose `message` holds a record-failure line: the block sent to Slack contains the line. |
+| T34 | `tests/test_database_isolation.py` | Inside `get_db().record_scope()`, `SHOW lock_timeout` returns `5s`. |
+| T35 | `tests/test_cli_logging.py` (new) | With `logging.captureWarnings(False)` first, invoke a no-op command registered on `cli` for the test through `CliRunner`, then call `warnings.showwarning(UserWarning(...), UserWarning, __file__, 1)`: the warning is a `py.warnings` log record and stderr is empty. Observed failing before the change and passing after (probe, 20261013). The test restores `captureWarnings(False)` and removes the command. |
 
 ## 7. Risks and rollback
 
 - **A write that relied on a repository's commit for visibility outside its session.** §2's search found two, `link_report` and `_maybe_post_correction_summary`, and Steps 1 and 2 change both. A third would show as a stale read or an FK failure. The suite probe found none, and Step 1's suite run with every repository flushing is the census for tests.
 - **Longer transactions.** A command's writes now commit at scope exit or at a DR3 commit, not at each repository call. Between those points a written row stays locked. DR3 removes every wait §2 found inside such a stretch. The daemon and a CLI command writing the same row at the same moment would now wait for each other, where before the second write simply followed the first.
-- **Rollback.** Each step is one commit, and reverting it restores the previous behaviour. Steps 1–4 are code and tests; Step 5 is documentation only.
+- **A 5-second lock timeout on records.** A record that meets a row another process holds for longer than 5 seconds fails, and DR4 reports it, where before it would have waited. Under §4.1 no process holds a written row across a wait, so that is a row held by something outside this rule. Under the §6.1 fixture the timeout set by a record holds until the test ends, so a later wait in the same test errors after 5 seconds instead of hanging.
+- **Rollback.** Steps 1–4 revert together. Steps 2–4 depend on Step 1: a commit inside a savepoint ends the whole transaction (#95 spec §2), so Step 2's and Step 3's savepoints need repositories that flush, and reverting Step 3 alone brings back the study F9 regressions while Step 1 stays. Step 5 is documentation and reverts on its own.
