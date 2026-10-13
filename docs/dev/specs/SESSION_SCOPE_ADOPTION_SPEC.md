@@ -1,6 +1,6 @@
 # Session Scope Adoption — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261013
 **Branch:** `feature/issue-95-session-scope` (from `dev`)
