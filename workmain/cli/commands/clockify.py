@@ -53,86 +53,82 @@ def status():
       workmain clockify status
     """
     db = get_db()
-    session = db.get_session()
-
     try:
-        # Test API connection
-        auth = ClockifyAuth()
-        client = ClockifyClient(auth)
+        with db.session_scope() as session:
+            # Test API connection
+            auth = ClockifyAuth()
+            client = ClockifyClient(auth)
 
-        console.print("\n[bold cyan]Testing Clockify Connection...[/bold cyan]")
+            console.print("\n[bold cyan]Testing Clockify Connection...[/bold cyan]")
 
-        try:
-            user_info = client.test_connection()
+            try:
+                user_info = client.test_connection()
 
-            console.print("✓ [green]Connected to Clockify[/green]\n")
+                console.print("✓ [green]Connected to Clockify[/green]\n")
 
-            # Show user info
-            info_table = Table(show_header=False, box=None)
-            info_table.add_column("Field", style="cyan")
-            info_table.add_column("Value", style="white")
+                # Show user info
+                info_table = Table(show_header=False, box=None)
+                info_table.add_column("Field", style="cyan")
+                info_table.add_column("Value", style="white")
 
-            info_table.add_row("User", user_info.get('name', 'N/A'))
-            info_table.add_row("Email", user_info.get('email', 'N/A'))
-            info_table.add_row("Workspace ID", user_info.get('workspace_id', 'N/A')[:8] + "...")
+                info_table.add_row("User", user_info.get('name', 'N/A'))
+                info_table.add_row("Email", user_info.get('email', 'N/A'))
+                info_table.add_row("Workspace ID", user_info.get('workspace_id', 'N/A')[:8] + "...")
 
-            console.print(info_table)
+                console.print(info_table)
+                console.print()
+
+            except Exception as e:
+                console.print(f"✗ [red]Connection failed: {str(e)}[/red]")
+                return
+
+            # Get sync statistics
+            repo = TimeEntriesRepository(session)
+            unsynced = repo.get_unsynced_entries()
+
+            # Get last sync time
+            from sqlalchemy import func
+            from workmain.database.models import TimeEntry
+
+            last_synced = session.query(
+                func.max(TimeEntry.synced_at)
+            ).scalar()
+
+            console.print("[bold cyan]Sync Status:[/bold cyan]\n")
+
+            sync_table = Table(show_header=False, box=None)
+            sync_table.add_column("Metric", style="cyan")
+            sync_table.add_column("Value", style="white")
+
+            sync_table.add_row(
+                "Pending sync",
+                f"{len(unsynced)} entries" if unsynced else "0 entries (all synced ✓)"
+            )
+
+            if last_synced:
+                time_ago = datetime.now() - last_synced
+                if time_ago.days > 0:
+                    ago_text = f"{time_ago.days} days ago"
+                elif time_ago.seconds > 3600:
+                    ago_text = f"{time_ago.seconds // 3600} hours ago"
+                else:
+                    ago_text = f"{time_ago.seconds // 60} minutes ago"
+
+                sync_table.add_row("Last sync", ago_text)
+            else:
+                sync_table.add_row("Last sync", "Never")
+
+            console.print(sync_table)
             console.print()
 
-        except Exception as e:
-            console.print(f"✗ [red]Connection failed: {str(e)}[/red]")
-            return
-
-        # Get sync statistics
-        repo = TimeEntriesRepository(session)
-        unsynced = repo.get_unsynced_entries()
-
-        # Get last sync time
-        from sqlalchemy import func
-        from workmain.database.models import TimeEntry
-
-        last_synced = session.query(
-            func.max(TimeEntry.synced_at)
-        ).scalar()
-
-        console.print("[bold cyan]Sync Status:[/bold cyan]\n")
-
-        sync_table = Table(show_header=False, box=None)
-        sync_table.add_column("Metric", style="cyan")
-        sync_table.add_column("Value", style="white")
-
-        sync_table.add_row(
-            "Pending sync",
-            f"{len(unsynced)} entries" if unsynced else "0 entries (all synced ✓)"
-        )
-
-        if last_synced:
-            time_ago = datetime.now() - last_synced
-            if time_ago.days > 0:
-                ago_text = f"{time_ago.days} days ago"
-            elif time_ago.seconds > 3600:
-                ago_text = f"{time_ago.seconds // 3600} hours ago"
-            else:
-                ago_text = f"{time_ago.seconds // 60} minutes ago"
-
-            sync_table.add_row("Last sync", ago_text)
-        else:
-            sync_table.add_row("Last sync", "Never")
-
-        console.print(sync_table)
-        console.print()
-
-        # Show next steps if entries pending
-        if unsynced:
-            console.print("[yellow]💡 Run 'workmain clockify sync push' to sync pending entries[/yellow]\n")
+            # Show next steps if entries pending
+            if unsynced:
+                console.print("[yellow]💡 Run 'workmain clockify sync push' to sync pending entries[/yellow]\n")
 
     except ValueError as e:
         console.print(f"\n[red]✗ Configuration error: {str(e)}[/red]")
         console.print("\n[yellow]Add CLOCKIFY_API_KEY to your .env file:[/yellow]")
         console.print(f"  {ClockifyAuth.get_env_example()}\n")
-
-    finally:
-        session.close()
 
 
 @clockify.group('report')
@@ -269,60 +265,56 @@ def clockify_sync_push(all, date, silent):
       workmain clockify sync push --all
     """
     db = get_db()
-    session = db.get_session()
-
     try:
-        sync_engine = ClockifySync(session)
-        repo = TimeEntriesRepository(session)
+        with db.session_scope() as session:
+            sync_engine = ClockifySync(session)
+            repo = TimeEntriesRepository(session)
 
-        # Get entries to push
-        if date:
-            entries = repo.get_by_date(date.date())
+            # Get entries to push
+            if date:
+                entries = repo.get_by_date(date.date())
 
-            # Filter to unsynced unless --all
-            if not all:
-                entries = [e for e in entries if not e.clockify_id]
-        elif all:
-            # Get ALL entries
-            entries = session.query(repo.model).all()
-        else:
-            # Default: unsynced entries only
-            entries = None  # sync_engine will fetch unsynced
+                # Filter to unsynced unless --all
+                if not all:
+                    entries = [e for e in entries if not e.clockify_id]
+            elif all:
+                # Get ALL entries
+                entries = session.query(repo.model).all()
+            else:
+                # Default: unsynced entries only
+                entries = None  # sync_engine will fetch unsynced
 
-        if not silent:
-            if entries is not None and len(entries) == 0:
-                click.echo("\nNo entries to sync\n")
-                return
+            if not silent:
+                if entries is not None and len(entries) == 0:
+                    click.echo("\nNo entries to sync\n")
+                    return
 
-            click.echo("\nPushing entries to Clockify...\n")
+                click.echo("\nPushing entries to Clockify...\n")
 
-        # Perform sync
-        results = sync_engine.push_entries(
-            entries=entries,
-            interactive=not silent
-        )
+            # Perform sync
+            results = sync_engine.push_entries(
+                entries=entries,
+                interactive=not silent
+            )
 
-        if not silent:
-            click.echo(f"\nSync Results:")
-            click.echo(f"  Total: {results['total']}")
-            click.echo(f"  ✓ Successful: {results['successful']}")
+            if not silent:
+                click.echo(f"\nSync Results:")
+                click.echo(f"  Total: {results['total']}")
+                click.echo(f"  ✓ Successful: {results['successful']}")
 
-            if results['failed'] > 0:
-                click.echo(f"  ✗ Failed: {results['failed']}")
+                if results['failed'] > 0:
+                    click.echo(f"  ✗ Failed: {results['failed']}")
 
-                # Show failures
-                if results['failures']:
-                    click.echo("\nFailed entries:")
-                    for failure in results['failures']:
-                        click.echo(f"  - ID {failure['entry_id']}: {failure['error']}")
+                    # Show failures
+                    if results['failures']:
+                        click.echo("\nFailed entries:")
+                        for failure in results['failures']:
+                            click.echo(f"  - ID {failure['entry_id']}: {failure['error']}")
 
-            click.echo()
+                click.echo()
 
     except Exception as e:
         click.echo(f"\n✗ Sync failed: {str(e)}\n")
-
-    finally:
-        session.close()
 
 
 @clockify_sync.command('pull')
@@ -350,49 +342,45 @@ def clockify_sync_pull(start, end, silent):
       workmain clockify sync pull -b 2026-01-01 -e 2026-01-31
     """
     db = get_db()
-    session = db.get_session()
-
     try:
-        sync_engine = ClockifySync(session)
+        with db.session_scope() as session:
+            sync_engine = ClockifySync(session)
 
-        # Determine date range
-        if not start:
-            start_date = date.today()
-        else:
-            start_date = start.date()
+            # Determine date range
+            if not start:
+                start_date = date.today()
+            else:
+                start_date = start.date()
 
-        end_date = end.date() if end else None
+            end_date = end.date() if end else None
 
-        if not silent:
-            date_range = f"{start_date}"
-            if end_date and end_date != start_date:
-                date_range += f" to {end_date}"
+            if not silent:
+                date_range = f"{start_date}"
+                if end_date and end_date != start_date:
+                    date_range += f" to {end_date}"
 
-            click.echo(f"\nPulling entries from Clockify ({date_range})...\n")
+                click.echo(f"\nPulling entries from Clockify ({date_range})...\n")
 
-        # Perform pull
-        results = sync_engine.pull_entries(
-            start_date=start_date,
-            end_date=end_date,
-            interactive=not silent
-        )
+            # Perform pull
+            results = sync_engine.pull_entries(
+                start_date=start_date,
+                end_date=end_date,
+                interactive=not silent
+            )
 
-        if not silent:
-            click.echo(f"\nPull Results:")
-            click.echo(f"  Total from Clockify: {results['total']}")
-            click.echo(f"  ✓ Imported: {results['imported']}")
-            click.echo(f"  - Skipped: {results['skipped']}")
+            if not silent:
+                click.echo(f"\nPull Results:")
+                click.echo(f"  Total from Clockify: {results['total']}")
+                click.echo(f"  ✓ Imported: {results['imported']}")
+                click.echo(f"  - Skipped: {results['skipped']}")
 
-            if results['conflicts'] > 0:
-                click.echo(f"  ⚠ Conflicts resolved: {results['conflicts']}")
+                if results['conflicts'] > 0:
+                    click.echo(f"  ⚠ Conflicts resolved: {results['conflicts']}")
 
-            click.echo()
+                click.echo()
 
     except Exception as e:
         click.echo(f"\n✗ Pull failed: {str(e)}\n")
-
-    finally:
-        session.close()
 
 
 @clockify_sync.command('both')
@@ -413,46 +401,42 @@ def clockify_sync_both(date):
       workmain clockify sync both -d 2026-01-15
     """
     db = get_db()
-    session = db.get_session()
-
     try:
-        sync_date = date.date() if date else datetime.today().date()
+        with db.session_scope() as session:
+            sync_date = date.date() if date else datetime.today().date()
 
-        click.echo(f"\nBidirectional Sync ({sync_date})\n")
+            click.echo(f"\nBidirectional Sync ({sync_date})\n")
 
-        # Step 1: Push
-        click.echo("Step 1: Pushing local entries...")
+            # Step 1: Push
+            click.echo("Step 1: Pushing local entries...")
 
-        sync_engine = ClockifySync(session)
-        repo = TimeEntriesRepository(session)
+            sync_engine = ClockifySync(session)
+            repo = TimeEntriesRepository(session)
 
-        entries = repo.get_by_date(sync_date)
-        unsynced = [e for e in entries if not e.clockify_id]
+            entries = repo.get_by_date(sync_date)
+            unsynced = [e for e in entries if not e.clockify_id]
 
-        if unsynced:
-            push_results = sync_engine.push_entries(entries=unsynced, interactive=True)
-            click.echo(f"  ✓ Pushed {push_results['successful']} entries\n")
-        else:
-            click.echo("  No local entries to push\n")
+            if unsynced:
+                push_results = sync_engine.push_entries(entries=unsynced, interactive=True)
+                click.echo(f"  ✓ Pushed {push_results['successful']} entries\n")
+            else:
+                click.echo("  No local entries to push\n")
 
-        # Step 2: Pull
-        click.echo("Step 2: Pulling from Clockify...")
+            # Step 2: Pull
+            click.echo("Step 2: Pulling from Clockify...")
 
-        pull_results = sync_engine.pull_entries(
-            start_date=sync_date,
-            interactive=True
-        )
+            pull_results = sync_engine.pull_entries(
+                start_date=sync_date,
+                interactive=True
+            )
 
-        click.echo(f"  ✓ Imported {pull_results['imported']} new entries\n")
+            click.echo(f"  ✓ Imported {pull_results['imported']} new entries\n")
 
-        # Summary
-        click.echo("✓ Bidirectional sync complete\n")
+            # Summary
+            click.echo("✓ Bidirectional sync complete\n")
 
     except Exception as e:
         click.echo(f"\n✗ Sync failed: {str(e)}\n")
-
-    finally:
-        session.close()
 
 
 # Export command group

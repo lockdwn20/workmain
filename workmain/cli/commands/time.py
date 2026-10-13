@@ -194,11 +194,10 @@ def time_add(description: Optional[str], duration: str, time: str,
         return
 
     db = get_db()
-    session = db.get_session()
-    repo = TimeEntriesRepository(session)
-    active_client_id = SystemStateRepository(session).get_int('active_client_id')
+    with db.session_scope() as session:
+        repo = TimeEntriesRepository(session)
+        active_client_id = SystemStateRepository(session).get_int('active_client_id')
 
-    try:
         # Parse duration
         try:
             duration_hours = repo.parse_duration(duration)
@@ -358,9 +357,6 @@ def time_add(description: Optional[str], duration: str, time: str,
                 if results['failures']:
                     click.echo(f"  Error: {results['failures'][0]['error']}")
 
-    finally:
-        session.close()
-
 
 @time.command('edit')
 @click.argument('identifier')
@@ -382,10 +378,9 @@ def time_edit(identifier: str, description: Optional[str], duration: Optional[st
       workmain time edit 5 -T 16:00
     """
     db = get_db()
-    session = db.get_session()
-    repo = TimeEntriesRepository(session)
+    with db.session_scope() as session:
+        repo = TimeEntriesRepository(session)
 
-    try:
         entry = _resolve_time_entry(identifier, repo)
         if not entry:
             return
@@ -433,9 +428,6 @@ def time_edit(identifier: str, description: Optional[str], duration: Optional[st
         else:
             click.echo(f"✗ Update failed")
 
-    finally:
-        session.close()
-
 
 @time.command('delete')
 @click.argument('identifier')
@@ -449,10 +441,9 @@ def time_delete(identifier: str):
       workmain time delete "Clockify sync"
     """
     db = get_db()
-    session = db.get_session()
-    repo = TimeEntriesRepository(session)
+    with db.session_scope() as session:
+        repo = TimeEntriesRepository(session)
 
-    try:
         entry = _resolve_time_entry(identifier, repo)
         if not entry:
             return
@@ -473,9 +464,6 @@ def time_delete(identifier: str):
         else:
             click.echo(f"✗ Delete failed")
 
-    finally:
-        session.close()
-
 
 @time.command('today')
 @click.option('--show-ids', is_flag=True, help='Show entry IDs')
@@ -493,10 +481,9 @@ def time_today(ctx, show_ids: bool, category: Optional[str]):
       workmain time today -c development
     """
     db = get_db()
-    session = db.get_session()
-    repo = TimeEntriesRepository(session)
+    with db.session_scope() as session:
+        repo = TimeEntriesRepository(session)
 
-    try:
         # Get entries
         entries = repo.get_today(category=category)
 
@@ -515,9 +502,6 @@ def time_today(ctx, show_ids: bool, category: Optional[str]):
         click.echo()
         click.echo(format_time_summary(entries))
 
-    finally:
-        session.close()
-
 
 @time.command('week')
 @click.option('--show-ids', is_flag=True, help='Show entry IDs')
@@ -534,10 +518,9 @@ def time_week(ctx, show_ids: bool, category: Optional[str]):
       workmain time week -c meeting
     """
     db = get_db()
-    session = db.get_session()
-    repo = TimeEntriesRepository(session)
+    with db.session_scope() as session:
+        repo = TimeEntriesRepository(session)
 
-    try:
         # Get week entries
         entries = repo.get_week(category=category)
 
@@ -572,9 +555,6 @@ def time_week(ctx, show_ids: bool, category: Optional[str]):
         click.echo()
         click.echo(format_time_summary(entries))
 
-    finally:
-        session.close()
-
 
 @time.command('date')
 @click.argument('target_date', required=False)
@@ -592,10 +572,9 @@ def time_date(ctx, target_date: Optional[str], show_ids: bool, category: Optiona
       workmain time date today
     """
     db = get_db()
-    session = db.get_session()
-    repo = TimeEntriesRepository(session)
+    with db.session_scope() as session:
+        repo = TimeEntriesRepository(session)
 
-    try:
         # Parse date
         if not target_date or target_date == 'today':
             query_date = date.today()
@@ -625,9 +604,6 @@ def time_date(ctx, target_date: Optional[str], show_ids: bool, category: Optiona
         # Show summary
         click.echo()
         click.echo(format_time_summary(entries))
-
-    finally:
-        session.close()
 
 
 # Export command group

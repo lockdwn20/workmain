@@ -181,168 +181,165 @@ def create(title: str, start: str, end: str, meeting_date: Optional[str],
       workmain meetings create "Weekly Review" -b 10:00 -e 11:00 -r weekly
     """
     db = get_db()
-    session = db.get_session()
-    repo = MeetingsRepository(session)
-    active_client_id = SystemStateRepository(session).get_int('active_client_id')
-
     try:
-        # Validate recurring parameters and set default --until
-        if recurring and not until:
-            # Default to 90 days from start date
+        with db.session_scope() as session:
+            repo = MeetingsRepository(session)
+            active_client_id = SystemStateRepository(session).get_int('active_client_id')
+
+            # Validate recurring parameters and set default --until
+            if recurring and not until:
+                # Default to 90 days from start date
+                if meeting_date:
+                    start_date = datetime.strptime(meeting_date, '%Y-%m-%d').date()
+                else:
+                    start_date = date.today()
+
+                until_date = start_date + timedelta(days=90)
+                until = datetime.combine(until_date, datetime.min.time())
+
+                console.print(f"[dim]No --until specified, defaulting to {until_date.strftime('%Y-%m-%d')} (+90 days)[/dim]")
+                console.print()
+        
+            if until and not recurring:
+                console.print("[yellow]⚠ Warning: --until specified but --recurring not set.[/yellow]")
+                console.print("[yellow]Creating one-time meeting only.[/yellow]\n")
+        
+            # Parse date
             if meeting_date:
-                start_date = datetime.strptime(meeting_date, '%Y-%m-%d').date()
+                try:
+                    parsed_date = datetime.strptime(meeting_date, '%Y-%m-%d').date()
+                except ValueError:
+                    console.print(f"[red]✗ Invalid date format: {meeting_date}. Use YYYY-MM-DD[/red]")
+                    return
             else:
-                start_date = date.today()
-
-            until_date = start_date + timedelta(days=90)
-            until = datetime.combine(until_date, datetime.min.time())
-
-            console.print(f"[dim]No --until specified, defaulting to {until_date.strftime('%Y-%m-%d')} (+90 days)[/dim]")
-            console.print()
+                parsed_date = date.today()
         
-        if until and not recurring:
-            console.print("[yellow]⚠ Warning: --until specified but --recurring not set.[/yellow]")
-            console.print("[yellow]Creating one-time meeting only.[/yellow]\n")
-        
-        # Parse date
-        if meeting_date:
+            # Parse times using TimeEntriesRepository for consistent parsing
+            # Supports: 14:30, 1430, 2:30pm, 230pm
+            from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+            time_repo = TimeEntriesRepository(session)
+
             try:
-                parsed_date = datetime.strptime(meeting_date, '%Y-%m-%d').date()
-            except ValueError:
-                console.print(f"[red]✗ Invalid date format: {meeting_date}. Use YYYY-MM-DD[/red]")
+                # Check if full datetime provided
+                if ' ' in start:
+                    start_dt = datetime.strptime(start, '%Y-%m-%d %H:%M')
+                else:
+                    # Just time, combine with date - supports military format
+                    start_time = time_repo.parse_time(start)
+                    start_dt = datetime.combine(parsed_date, start_time)
+
+                if ' ' in end:
+                    end_dt = datetime.strptime(end, '%Y-%m-%d %H:%M')
+                else:
+                    end_time = time_repo.parse_time(end)
+                    end_dt = datetime.combine(parsed_date, end_time)
+
+            except ValueError as e:
+                console.print(f"[red]✗ Invalid time format: {e}[/red]")
+                console.print("\n[dim]Use HH:MM, HHMM (military), or HH:MMam/pm[/dim]")
                 return
-        else:
-            parsed_date = date.today()
         
-        # Parse times using TimeEntriesRepository for consistent parsing
-        # Supports: 14:30, 1430, 2:30pm, 230pm
-        from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
-        time_repo = TimeEntriesRepository(session)
-
-        try:
-            # Check if full datetime provided
-            if ' ' in start:
-                start_dt = datetime.strptime(start, '%Y-%m-%d %H:%M')
-            else:
-                # Just time, combine with date - supports military format
-                start_time = time_repo.parse_time(start)
-                start_dt = datetime.combine(parsed_date, start_time)
-
-            if ' ' in end:
-                end_dt = datetime.strptime(end, '%Y-%m-%d %H:%M')
-            else:
-                end_time = time_repo.parse_time(end)
-                end_dt = datetime.combine(parsed_date, end_time)
-
-        except ValueError as e:
-            console.print(f"[red]✗ Invalid time format: {e}[/red]")
-            console.print("\n[dim]Use HH:MM, HHMM (military), or HH:MMam/pm[/dim]")
-            return
+            # Validate times
+            if end_dt <= start_dt:
+                console.print("[red]✗ End time must be after start time[/red]")
+                return
         
-        # Validate times
-        if end_dt <= start_dt:
-            console.print("[red]✗ End time must be after start time[/red]")
-            return
-        
-        # Handle recurring meetings
-        if recurring:
-            until_date = until.date()
-            recurring_id = str(uuid.uuid4())  # Generate series ID
+            # Handle recurring meetings
+            if recurring:
+                until_date = until.date()
+                recurring_id = str(uuid.uuid4())  # Generate series ID
             
-            meetings_created = []
-            current_date = start_dt.date()
+                meetings_created = []
+                current_date = start_dt.date()
             
-            # Create occurrences
-            while current_date <= until_date:
-                # Calculate times for this occurrence
-                occurrence_start = datetime.combine(current_date, start_dt.time())
-                occurrence_end = datetime.combine(current_date, end_dt.time())
+                # Create occurrences
+                while current_date <= until_date:
+                    # Calculate times for this occurrence
+                    occurrence_start = datetime.combine(current_date, start_dt.time())
+                    occurrence_end = datetime.combine(current_date, end_dt.time())
                 
-                # Create meeting
+                    # Create meeting
+                    meeting = repo.create(
+                        title=title,
+                        start_time=occurrence_start,
+                        end_time=occurrence_end,
+                        attendees=[],
+                        is_recurring=True,
+                        outlook_recurring_id=recurring_id,
+                        client_id=active_client_id,
+                    )
+                    meetings_created.append(meeting)
+                
+                    # Calculate next occurrence
+                    if recurring == 'daily':
+                        current_date += timedelta(days=1)
+
+                        # Skip weekends unless --include-weekends specified
+                        if not include_weekends:
+                            while current_date.weekday() >= 5 and current_date <= until_date:
+                                current_date += timedelta(days=1)
+                    elif recurring == 'weekly':
+                        current_date += timedelta(weeks=1)
+                    elif recurring == 'monthly':
+                        # Add one month (handle month boundaries)
+                        if current_date.month == 12:
+                            current_date = current_date.replace(year=current_date.year + 1, month=1)
+                        else:
+                            try:
+                                current_date = current_date.replace(month=current_date.month + 1)
+                            except ValueError:
+                                # Handle day overflow (e.g., Jan 31 -> Feb 31 doesn't exist)
+                                # Move to last day of next month
+                                next_month = current_date.month + 1
+                                next_year = current_date.year
+                                if next_month > 12:
+                                    next_month = 1
+                                    next_year += 1
+                                # Get last day of next month
+                                if next_month == 12:
+                                    last_day = 31
+                                else:
+                                    from calendar import monthrange
+                                    last_day = monthrange(next_year, next_month)[1]
+                                current_date = date(next_year, next_month, min(current_date.day, last_day))
+            
+                duration = (end_dt - start_dt).total_seconds() / 3600
+            
+                console.print()
+                console.print(f"[green]✓ Created {len(meetings_created)} recurring meetings:[/green]")
+                console.print(f"  Series: {title}")
+                console.print(f"  Frequency: {recurring}")
+                console.print(f"  From: {start_dt.date()}")
+                console.print(f"  Until: {until_date}")
+                console.print(f"  Time: {start_dt.strftime('%H:%M')} - {end_dt.strftime('%H:%M')}")
+                console.print(f"  Duration: {duration:.1f} hours each")
+                console.print(f"  Series ID: {recurring_id[:8]}...")
+                console.print()
+
+            else:
+                # Create single meeting
                 meeting = repo.create(
                     title=title,
-                    start_time=occurrence_start,
-                    end_time=occurrence_end,
+                    start_time=start_dt,
+                    end_time=end_dt,
                     attendees=[],
-                    is_recurring=True,
-                    outlook_recurring_id=recurring_id,
+                    is_recurring=False,
                     client_id=active_client_id,
                 )
-                meetings_created.append(meeting)
-                
-                # Calculate next occurrence
-                if recurring == 'daily':
-                    current_date += timedelta(days=1)
 
-                    # Skip weekends unless --include-weekends specified
-                    if not include_weekends:
-                        while current_date.weekday() >= 5 and current_date <= until_date:
-                            current_date += timedelta(days=1)
-                elif recurring == 'weekly':
-                    current_date += timedelta(weeks=1)
-                elif recurring == 'monthly':
-                    # Add one month (handle month boundaries)
-                    if current_date.month == 12:
-                        current_date = current_date.replace(year=current_date.year + 1, month=1)
-                    else:
-                        try:
-                            current_date = current_date.replace(month=current_date.month + 1)
-                        except ValueError:
-                            # Handle day overflow (e.g., Jan 31 -> Feb 31 doesn't exist)
-                            # Move to last day of next month
-                            next_month = current_date.month + 1
-                            next_year = current_date.year
-                            if next_month > 12:
-                                next_month = 1
-                                next_year += 1
-                            # Get last day of next month
-                            if next_month == 12:
-                                last_day = 31
-                            else:
-                                from calendar import monthrange
-                                last_day = monthrange(next_year, next_month)[1]
-                            current_date = date(next_year, next_month, min(current_date.day, last_day))
-            
-            duration = (end_dt - start_dt).total_seconds() / 3600
-            
-            console.print()
-            console.print(f"[green]✓ Created {len(meetings_created)} recurring meetings:[/green]")
-            console.print(f"  Series: {title}")
-            console.print(f"  Frequency: {recurring}")
-            console.print(f"  From: {start_dt.date()}")
-            console.print(f"  Until: {until_date}")
-            console.print(f"  Time: {start_dt.strftime('%H:%M')} - {end_dt.strftime('%H:%M')}")
-            console.print(f"  Duration: {duration:.1f} hours each")
-            console.print(f"  Series ID: {recurring_id[:8]}...")
-            console.print()
+                duration = (end_dt - start_dt).total_seconds() / 3600
 
-        else:
-            # Create single meeting
-            meeting = repo.create(
-                title=title,
-                start_time=start_dt,
-                end_time=end_dt,
-                attendees=[],
-                is_recurring=False,
-                client_id=active_client_id,
-            )
-
-            duration = (end_dt - start_dt).total_seconds() / 3600
-
-            console.print()
-            console.print(f"[green]✓ Meeting created:[/green]")
-            console.print(f"  Title: {meeting.title}")
-            console.print(f"  ID: {meeting.id}")
-            console.print(f"  Date: {start_dt.strftime('%Y-%m-%d')}")
-            console.print(f"  Time: {start_dt.strftime('%H:%M')} - {end_dt.strftime('%H:%M')}")
-            console.print(f"  Duration: {duration:.1f} hours")
-            console.print()
+                console.print()
+                console.print(f"[green]✓ Meeting created:[/green]")
+                console.print(f"  Title: {meeting.title}")
+                console.print(f"  ID: {meeting.id}")
+                console.print(f"  Date: {start_dt.strftime('%Y-%m-%d')}")
+                console.print(f"  Time: {start_dt.strftime('%H:%M')} - {end_dt.strftime('%H:%M')}")
+                console.print(f"  Duration: {duration:.1f} hours")
+                console.print()
         
     except Exception as e:
         console.print(f"[red]✗ Failed to create meeting: {e}[/red]")
-    
-    finally:
-        session.close()
 
 
 @meetings.command()
@@ -367,10 +364,9 @@ def list(search: Optional[str], limit: int, target_date: Optional[str], cancelle
       workmain meetings upcoming
     """
     db = get_db()
-    session = db.get_session()
-    repo = MeetingsRepository(session)
+    with db.session_scope() as session:
+        repo = MeetingsRepository(session)
 
-    try:
         # Parse --date if provided
         parsed_date = None
         if target_date:
@@ -429,9 +425,6 @@ def list(search: Optional[str], limit: int, target_date: Optional[str], cancelle
             console.print(format_meeting_display(meeting, repo))
             console.print("-" * 60)
 
-    finally:
-        session.close()
-
 
 @meetings.command()
 @click.argument('title_or_id')
@@ -451,10 +444,9 @@ def show(title_or_id: str, date: Optional[datetime]):
       workmain meetings show "Team Standup" --date 2026-01-25
     """
     db = get_db()
-    session = db.get_session()
-    repo = MeetingsRepository(session)
+    with db.session_scope() as session:
+        repo = MeetingsRepository(session)
 
-    try:
         meeting = None
 
         # Try parsing as ID first
@@ -550,9 +542,6 @@ def show(title_or_id: str, date: Optional[datetime]):
         
         console.print(f"\nCreated: {meeting.created_at.strftime('%Y-%m-%d %H:%M')}")
 
-    finally:
-        session.close()
-
 
 @meetings.command()
 @click.argument('identifier')
@@ -567,10 +556,9 @@ def delete(identifier: str, delete_notes: bool):
       workmain meetings delete "Daily Standup"
     """
     db = get_db()
-    session = db.get_session()
-    repo = MeetingsRepository(session)
+    with db.session_scope() as session:
+        repo = MeetingsRepository(session)
 
-    try:
         mtg = _resolve_meeting(identifier, repo)
         if not mtg:
             return
@@ -600,9 +588,6 @@ def delete(identifier: str, delete_notes: bool):
         else:
             console.print(f"[red]✗ Delete failed[/red]")
 
-    finally:
-        session.close()
-
 
 @meetings.command()
 @click.argument('title_or_id')
@@ -622,10 +607,9 @@ def track(title_or_id: str, date: Optional[datetime]):
       workmain meetings track "Daily Standup" --date 2026-01-20
     """
     db = get_db()
-    session = db.get_session()
-    repo = MeetingsRepository(session)
+    with db.session_scope() as session:
+        repo = MeetingsRepository(session)
 
-    try:
         meeting = None
 
         # Try parsing as ID first
@@ -724,9 +708,6 @@ def track(title_or_id: str, date: Optional[datetime]):
         console.print(f"  Date: {meeting.start_time.strftime('%Y-%m-%d %H:%M')}")
         console.print()
 
-    finally:
-        session.close()
-
 
 @meetings.command('today')
 @click.option('--search', '-s', help='Search meetings by title')
@@ -740,10 +721,9 @@ def meetings_today_cmd(search: Optional[str]):
       workmain meetings today -s "standup"
     """
     db = get_db()
-    session = db.get_session()
-    repo = MeetingsRepository(session)
+    with db.session_scope() as session:
+        repo = MeetingsRepository(session)
 
-    try:
         all_today = repo.get_today()
         if search:
             meeting_list = [m for m in all_today if search.lower() in m.title.lower()]
@@ -765,9 +745,6 @@ def meetings_today_cmd(search: Optional[str]):
             console.print(format_meeting_display(mtg, repo))
             console.print("-" * 60)
 
-    finally:
-        session.close()
-
 
 @meetings.command('upcoming')
 @click.option('--days', '-n', default='7d',
@@ -786,10 +763,9 @@ def meetings_upcoming(days: str):
     from workmain.utils.duration_parser import parse_duration
 
     db = get_db()
-    session = db.get_session()
-    repo = MeetingsRepository(session)
+    with db.session_scope() as session:
+        repo = MeetingsRepository(session)
 
-    try:
         try:
             delta = parse_duration(days)
         except ValueError as e:
@@ -813,9 +789,6 @@ def meetings_upcoming(days: str):
             console.print(format_meeting_display(mtg, repo))
             console.print("-" * 60)
 
-    finally:
-        session.close()
-
 
 @meetings.command('condense')
 @click.argument('meeting_title')
@@ -831,117 +804,114 @@ def meetings_condense(meeting_title: str):
       workmain meetings condense 42
     """
     db = get_db()
-    session = db.get_session()
-    meetings_repo = MeetingsRepository(session)
-
     try:
-        meeting = _resolve_meeting(meeting_title, meetings_repo)
-        if not meeting:
-            console.print()
-            return
+        with db.session_scope() as session:
+            meetings_repo = MeetingsRepository(session)
 
-        # Check if meeting has notes (include ifo so ifo-only meetings aren't blocked;
-        # the condenser handles them by returning "Attended <Meeting>" default).
-        # Scope to meeting date to avoid counting notes from other recurring occurrences.
-        occurrence_date = meeting.start_time.date() if meeting.start_time else None
-        total_count = meetings_repo.get_note_count(meeting.id, exclude_ifo=False, meeting_date=occurrence_date)
-        if total_count == 0:
-            console.print(f"\n[yellow]✗ Meeting '{meeting.title}' has no notes to condense[/yellow]")
-            console.print()
-            console.print("[dim]Add notes first with:[/dim]")
-            console.print(f"  workmain notes log -m \"{meeting.title}\"")
-            console.print()
-            return
+            meeting = _resolve_meeting(meeting_title, meetings_repo)
+            if not meeting:
+                console.print()
+                return
 
-        non_ifo_count = meetings_repo.get_note_count(meeting.id, meeting_date=occurrence_date)
-        if non_ifo_count == 0:
-            console.print()
-            console.print(f"[bold]Condensing for:[/bold] {meeting.title} [dim](ifo-only notes → will use default summary)[/dim]")
-        else:
-            console.print()
-            console.print(f"[bold]Condensing {non_ifo_count} note(s) for:[/bold] {meeting.title}")
-        from workmain.ai.provider_manager import get_provider_manager
-        _rc = get_provider_manager().get_report_config('note_condensation')
-        _provider_display = _rc.primary_provider.value.capitalize() if _rc else 'AI'
-        console.print(f"[dim]Sending to {_provider_display}...[/dim]")
-        console.print()
+            # Check if meeting has notes (include ifo so ifo-only meetings aren't blocked;
+            # the condenser handles them by returning "Attended <Meeting>" default).
+            # Scope to meeting date to avoid counting notes from other recurring occurrences.
+            occurrence_date = meeting.start_time.date() if meeting.start_time else None
+            total_count = meetings_repo.get_note_count(meeting.id, exclude_ifo=False, meeting_date=occurrence_date)
+            if total_count == 0:
+                console.print(f"\n[yellow]✗ Meeting '{meeting.title}' has no notes to condense[/yellow]")
+                console.print()
+                console.print("[dim]Add notes first with:[/dim]")
+                console.print(f"  workmain notes log -m \"{meeting.title}\"")
+                console.print()
+                return
 
-        # Condense using AI
-        condenser = get_note_condenser(session)
-
-        try:
-            summary, resolved_tags, notice, cost_record_ids = condenser.condense_meeting(meeting)
-
-            # Cost and tokens come from the rows generate() recorded for this call.
-            recorded = get_ai_cost_repository(session).get_by_ids(cost_record_ids)
-            totals = sum_rows(recorded)
-
-            console.print("[green]✓ Condensed summary:[/green]")
-            console.print(f"  \"{summary}\"")
-            console.print()
-            console.print(f"[dim]Cost: ${totals['cost']:.6f}[/dim]")
-            console.print(
-                "[dim]" + format_token_line(
-                    totals['prompt_tokens'], totals['answer_tokens'],
-                    totals['thinking_tokens'],
-                ) + "[/dim]"
-            )
-            if notice:
-                err_console.print(f"[yellow]⚠[/yellow] {escape(notice.message)}")
-
-            # Create a note from the condensed summary
-            from workmain.services import notes_service, time_entry_service
-            condensed_note = notes_service.create_note(
-                session,
-                content=summary,
-                tags=resolved_tags,
-                meeting_id=meeting.id,
-                source='condensed',
-            )
-            console.print(f"[green]✓ Note created (ID: {condensed_note.id})[/green]")
-
-            # Update or create time entry with condensed summary
-            from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
-            time_repo = TimeEntriesRepository(session)
-
-            existing = time_repo.get_by_meeting(meeting.id)
-            meeting_date = meeting.start_time.date()
-            existing_today = [e for e in existing if e.entry_date == meeting_date]
-
-            if existing_today:
-                # Re-link existing time entry to the condensed note
-                entry = existing_today[0]
-                entry.note_id = condensed_note.id
-                session.commit()
-                console.print(f"[green]✓ Time entry (ID: {entry.id}) linked to condensed note[/green]")
+            non_ifo_count = meetings_repo.get_note_count(meeting.id, meeting_date=occurrence_date)
+            if non_ifo_count == 0:
+                console.print()
+                console.print(f"[bold]Condensing for:[/bold] {meeting.title} [dim](ifo-only notes → will use default summary)[/dim]")
             else:
-                # Create new time entry from meeting using the condensed note
-                duration_hours = (
-                    meeting.end_time - meeting.start_time
-                ).total_seconds() / 3600
-
-                entry = time_entry_service.create_paired_time_entry(
-                    session,
-                    condensed_note,
-                    duration_hours=duration_hours,
-                    entry_date=meeting.start_time.date(),
-                    entry_time=meeting.start_time.time(),
-                    category='meeting',
-                )
-                console.print(f"[green]✓ Time entry created (ID: {entry.id}, {duration_hours:.2f}h)[/green]")
-
+                console.print()
+                console.print(f"[bold]Condensing {non_ifo_count} note(s) for:[/bold] {meeting.title}")
+            from workmain.ai.provider_manager import get_provider_manager
+            _rc = get_provider_manager().get_report_config('note_condensation')
+            _provider_display = _rc.primary_provider.value.capitalize() if _rc else 'AI'
+            console.print(f"[dim]Sending to {_provider_display}...[/dim]")
             console.print()
 
-        except ValueError as e:
-            err_console.print(f"[red]✗ Condensation failed:[/red] {escape(str(e))}")
-            sys.exit(failure_exit_code(e))
+            # Condense using AI
+            condenser = get_note_condenser(session)
+
+            try:
+                summary, resolved_tags, notice, cost_record_ids = condenser.condense_meeting(meeting)
+
+                # Cost and tokens come from the rows generate() recorded for this call.
+                recorded = get_ai_cost_repository(session).get_by_ids(cost_record_ids)
+                totals = sum_rows(recorded)
+
+                console.print("[green]✓ Condensed summary:[/green]")
+                console.print(f"  \"{summary}\"")
+                console.print()
+                console.print(f"[dim]Cost: ${totals['cost']:.6f}[/dim]")
+                console.print(
+                    "[dim]" + format_token_line(
+                        totals['prompt_tokens'], totals['answer_tokens'],
+                        totals['thinking_tokens'],
+                    ) + "[/dim]"
+                )
+                if notice:
+                    err_console.print(f"[yellow]⚠[/yellow] {escape(notice.message)}")
+
+                # Create a note from the condensed summary
+                from workmain.services import notes_service, time_entry_service
+                condensed_note = notes_service.create_note(
+                    session,
+                    content=summary,
+                    tags=resolved_tags,
+                    meeting_id=meeting.id,
+                    source='condensed',
+                )
+                console.print(f"[green]✓ Note created (ID: {condensed_note.id})[/green]")
+
+                # Update or create time entry with condensed summary
+                from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+                time_repo = TimeEntriesRepository(session)
+
+                existing = time_repo.get_by_meeting(meeting.id)
+                meeting_date = meeting.start_time.date()
+                existing_today = [e for e in existing if e.entry_date == meeting_date]
+
+                if existing_today:
+                    # Re-link existing time entry to the condensed note
+                    entry = existing_today[0]
+                    entry.note_id = condensed_note.id
+                    session.commit()
+                    console.print(f"[green]✓ Time entry (ID: {entry.id}) linked to condensed note[/green]")
+                else:
+                    # Create new time entry from meeting using the condensed note
+                    duration_hours = (
+                        meeting.end_time - meeting.start_time
+                    ).total_seconds() / 3600
+
+                    entry = time_entry_service.create_paired_time_entry(
+                        session,
+                        condensed_note,
+                        duration_hours=duration_hours,
+                        entry_date=meeting.start_time.date(),
+                        entry_time=meeting.start_time.time(),
+                        category='meeting',
+                    )
+                    console.print(f"[green]✓ Time entry created (ID: {entry.id}, {duration_hours:.2f}h)[/green]")
+
+                console.print()
+
+            except ValueError as e:
+                err_console.print(f"[red]✗ Condensation failed:[/red] {escape(str(e))}")
+                sys.exit(failure_exit_code(e))
 
     except Exception as e:
         err_console.print(f"[red]✗ Error:[/red] {escape(str(e))}")
         sys.exit(failure_exit_code(e))
-
-    finally:
-        session.close()
 
 
 @meetings.command('rename')
@@ -957,10 +927,9 @@ def meetings_rename(identifier: str, title: str):
       workmain meetings rename "Old Standup" -l "Daily Standup"
     """
     db = get_db()
-    session = db.get_session()
-    repo = MeetingsRepository(session)
+    with db.session_scope() as session:
+        repo = MeetingsRepository(session)
 
-    try:
         mtg = _resolve_meeting(identifier, repo)
         if not mtg:
             return
@@ -971,9 +940,6 @@ def meetings_rename(identifier: str, title: str):
             console.print(f"[green]✓ Renamed:[/green] '{old_title}' → '{title}'")
         else:
             console.print(f"[red]✗ Rename failed[/red]")
-
-    finally:
-        session.close()
 
 
 @meetings.command('merge')
@@ -992,10 +958,9 @@ def meetings_merge(from_identifier: str, to_identifier: str):
       workmain meetings merge 12 15
     """
     db = get_db()
-    session = db.get_session()
-    repo = MeetingsRepository(session)
+    with db.session_scope() as session:
+        repo = MeetingsRepository(session)
 
-    try:
         from_mtg = _resolve_meeting(from_identifier, repo)
         if not from_mtg:
             return
@@ -1022,9 +987,6 @@ def meetings_merge(from_identifier: str, to_identifier: str):
                     console.print(f"[green]✓ Old meeting deleted[/green]")
         else:
             console.print(f"[red]✗ Merge failed[/red]")
-
-    finally:
-        session.close()
 
 
 @meetings.command('edit')
@@ -1056,101 +1018,98 @@ def meetings_edit(identifier: str, title: Optional[str], start: Optional[str],
         return
 
     db = get_db()
-    session = db.get_session()
-    repo = MeetingsRepository(session)
-
     try:
-        mtg = _resolve_meeting(identifier, repo)
-        if not mtg:
-            return
-        meeting_id = mtg.id
+        with db.session_scope() as session:
+            repo = MeetingsRepository(session)
 
-        # Block Outlook-managed meetings
-        if mtg.outlook_id is not None:
-            console.print(f"[red]✗ Meeting (ID: {meeting_id}) '{mtg.title}' is Outlook-managed and cannot be edited here.[/red]")
-            console.print("[dim]To update it, reimport the updated ICS file:[/dim]")
-            console.print("[dim]  workmain calendar import <file.ics>[/dim]")
-            return
-
-        # Resolve the date to shift onto (explicit --date or keep existing)
-        if meeting_date:
-            try:
-                new_date = datetime.strptime(meeting_date, '%Y-%m-%d').date()
-            except ValueError:
-                console.print(f"[red]✗ Invalid date format: {meeting_date}. Use YYYY-MM-DD[/red]")
+            mtg = _resolve_meeting(identifier, repo)
+            if not mtg:
                 return
-        else:
-            new_date = mtg.start_time.date()
+            meeting_id = mtg.id
 
-        # Parse start/end times if provided
-        from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
-        time_repo = TimeEntriesRepository(session)
-
-        new_start_dt = None
-        new_end_dt = None
-
-        if start:
-            try:
-                if ' ' in start:
-                    new_start_dt = datetime.strptime(start, '%Y-%m-%d %H:%M')
-                else:
-                    new_start_dt = datetime.combine(new_date, time_repo.parse_time(start))
-            except ValueError as e:
-                console.print(f"[red]✗ Invalid start time: {e}[/red]")
-                console.print("[dim]Use HH:MM, HHMM, or YYYY-MM-DD HH:MM[/dim]")
+            # Block Outlook-managed meetings
+            if mtg.outlook_id is not None:
+                console.print(f"[red]✗ Meeting (ID: {meeting_id}) '{mtg.title}' is Outlook-managed and cannot be edited here.[/red]")
+                console.print("[dim]To update it, reimport the updated ICS file:[/dim]")
+                console.print("[dim]  workmain calendar import <file.ics>[/dim]")
                 return
-        elif meeting_date:
-            # --date only: shift existing start wall-clock time onto new date
-            new_start_dt = datetime.combine(new_date, mtg.start_time.time())
 
-        if end:
-            try:
-                if ' ' in end:
-                    new_end_dt = datetime.strptime(end, '%Y-%m-%d %H:%M')
-                else:
-                    end_date = new_start_dt.date() if new_start_dt else new_date
-                    new_end_dt = datetime.combine(end_date, time_repo.parse_time(end))
-            except ValueError as e:
-                console.print(f"[red]✗ Invalid end time: {e}[/red]")
-                console.print("[dim]Use HH:MM, HHMM, or YYYY-MM-DD HH:MM[/dim]")
+            # Resolve the date to shift onto (explicit --date or keep existing)
+            if meeting_date:
+                try:
+                    new_date = datetime.strptime(meeting_date, '%Y-%m-%d').date()
+                except ValueError:
+                    console.print(f"[red]✗ Invalid date format: {meeting_date}. Use YYYY-MM-DD[/red]")
+                    return
+            else:
+                new_date = mtg.start_time.date()
+
+            # Parse start/end times if provided
+            from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+            time_repo = TimeEntriesRepository(session)
+
+            new_start_dt = None
+            new_end_dt = None
+
+            if start:
+                try:
+                    if ' ' in start:
+                        new_start_dt = datetime.strptime(start, '%Y-%m-%d %H:%M')
+                    else:
+                        new_start_dt = datetime.combine(new_date, time_repo.parse_time(start))
+                except ValueError as e:
+                    console.print(f"[red]✗ Invalid start time: {e}[/red]")
+                    console.print("[dim]Use HH:MM, HHMM, or YYYY-MM-DD HH:MM[/dim]")
+                    return
+            elif meeting_date:
+                # --date only: shift existing start wall-clock time onto new date
+                new_start_dt = datetime.combine(new_date, mtg.start_time.time())
+
+            if end:
+                try:
+                    if ' ' in end:
+                        new_end_dt = datetime.strptime(end, '%Y-%m-%d %H:%M')
+                    else:
+                        end_date = new_start_dt.date() if new_start_dt else new_date
+                        new_end_dt = datetime.combine(end_date, time_repo.parse_time(end))
+                except ValueError as e:
+                    console.print(f"[red]✗ Invalid end time: {e}[/red]")
+                    console.print("[dim]Use HH:MM, HHMM, or YYYY-MM-DD HH:MM[/dim]")
+                    return
+            elif meeting_date:
+                # --date only: shift existing end wall-clock time onto new date
+                new_end_dt = datetime.combine(new_date, mtg.end_time.time())
+
+            # Validate ordering if both sides known
+            effective_start = new_start_dt or mtg.start_time
+            effective_end = new_end_dt or mtg.end_time
+            if effective_end <= effective_start:
+                console.print("[red]✗ End time must be after start time[/red]")
                 return
-        elif meeting_date:
-            # --date only: shift existing end wall-clock time onto new date
-            new_end_dt = datetime.combine(new_date, mtg.end_time.time())
 
-        # Validate ordering if both sides known
-        effective_start = new_start_dt or mtg.start_time
-        effective_end = new_end_dt or mtg.end_time
-        if effective_end <= effective_start:
-            console.print("[red]✗ End time must be after start time[/red]")
-            return
+            # Show before state
+            console.print(f"\n[bold]Meeting (ID: {mtg.id}) — \"{mtg.title}\"[/bold]")
+            console.print(f"  Before: {mtg.start_time.strftime('%Y-%m-%d %H:%M')} → {mtg.end_time.strftime('%H:%M')}")
 
-        # Show before state
-        console.print(f"\n[bold]Meeting (ID: {mtg.id}) — \"{mtg.title}\"[/bold]")
-        console.print(f"  Before: {mtg.start_time.strftime('%Y-%m-%d %H:%M')} → {mtg.end_time.strftime('%H:%M')}")
+            # Apply updates
+            updated = repo.update(
+                meeting_id=meeting_id,
+                title=title,
+                start_time=new_start_dt,
+                end_time=new_end_dt,
+            )
 
-        # Apply updates
-        updated = repo.update(
-            meeting_id=meeting_id,
-            title=title,
-            start_time=new_start_dt,
-            end_time=new_end_dt,
-        )
+            if not updated:
+                console.print("[red]✗ Update failed[/red]")
+                return
 
-        if not updated:
-            console.print("[red]✗ Update failed[/red]")
-            return
-
-        console.print(f"  After:  {updated.start_time.strftime('%Y-%m-%d %H:%M')} → {updated.end_time.strftime('%H:%M')}")
-        if title:
-            console.print(f"  Title:  \"{updated.title}\"")
-        console.print("[green]✓ Updated.[/green]\n")
+            console.print(f"  After:  {updated.start_time.strftime('%Y-%m-%d %H:%M')} → {updated.end_time.strftime('%H:%M')}")
+            if title:
+                console.print(f"  Title:  \"{updated.title}\"")
+            console.print("[green]✓ Updated.[/green]\n")
 
     except Exception as e:
         console.print(f"[red]✗ Error: {e}[/red]")
-
-    finally:
-        session.close()
 
 
 # ---------------------------------------------------------------------------
@@ -1182,104 +1141,101 @@ def meetings_reschedule(identifier: str, meeting_date: Optional[str],
         return
 
     db = get_db()
-    session = db.get_session()
-
     try:
-        from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
-        from workmain.database.models import TimeEntry
+        with db.session_scope() as session:
+            from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+            from workmain.database.models import TimeEntry
 
-        repo = MeetingsRepository(session)
-        time_repo = TimeEntriesRepository(session)
+            repo = MeetingsRepository(session)
+            time_repo = TimeEntriesRepository(session)
 
-        mtg = _resolve_meeting(identifier, repo)
-        if not mtg:
-            return
-
-        # Block single non-recurring Outlook meetings (allow recurring Outlook instances)
-        if mtg.outlook_id is not None and not mtg.is_recurring:
-            console.print(f"[red]✗ Meeting (ID: {mtg.id}) '{mtg.title}' is a non-recurring Outlook-managed meeting.[/red]")
-            console.print("[dim]To update it, reimport the updated ICS file:[/dim]")
-            console.print("[dim]  workmain calendar import <file.ics>[/dim]")
-            return
-
-        # Resolve new date (explicit --date or keep existing)
-        if meeting_date:
-            try:
-                new_date = datetime.strptime(meeting_date, '%Y-%m-%d').date()
-            except ValueError:
-                console.print(f"[red]✗ Invalid date format: {meeting_date}. Use YYYY-MM-DD[/red]")
+            mtg = _resolve_meeting(identifier, repo)
+            if not mtg:
                 return
-        else:
-            new_date = mtg.start_time.date()
 
-        # Parse new start time
-        new_start_dt = None
-        if start:
-            try:
-                new_start_dt = datetime.combine(new_date, time_repo.parse_time(start))
-            except ValueError as e:
-                console.print(f"[red]✗ Invalid start time: {e}[/red]")
+            # Block single non-recurring Outlook meetings (allow recurring Outlook instances)
+            if mtg.outlook_id is not None and not mtg.is_recurring:
+                console.print(f"[red]✗ Meeting (ID: {mtg.id}) '{mtg.title}' is a non-recurring Outlook-managed meeting.[/red]")
+                console.print("[dim]To update it, reimport the updated ICS file:[/dim]")
+                console.print("[dim]  workmain calendar import <file.ics>[/dim]")
                 return
-        elif meeting_date:
-            new_start_dt = datetime.combine(new_date, mtg.start_time.time())
 
-        # Parse new end time
-        new_end_dt = None
-        if end:
-            try:
-                end_date = new_start_dt.date() if new_start_dt else new_date
-                new_end_dt = datetime.combine(end_date, time_repo.parse_time(end))
-            except ValueError as e:
-                console.print(f"[red]✗ Invalid end time: {e}[/red]")
+            # Resolve new date (explicit --date or keep existing)
+            if meeting_date:
+                try:
+                    new_date = datetime.strptime(meeting_date, '%Y-%m-%d').date()
+                except ValueError:
+                    console.print(f"[red]✗ Invalid date format: {meeting_date}. Use YYYY-MM-DD[/red]")
+                    return
+            else:
+                new_date = mtg.start_time.date()
+
+            # Parse new start time
+            new_start_dt = None
+            if start:
+                try:
+                    new_start_dt = datetime.combine(new_date, time_repo.parse_time(start))
+                except ValueError as e:
+                    console.print(f"[red]✗ Invalid start time: {e}[/red]")
+                    return
+            elif meeting_date:
+                new_start_dt = datetime.combine(new_date, mtg.start_time.time())
+
+            # Parse new end time
+            new_end_dt = None
+            if end:
+                try:
+                    end_date = new_start_dt.date() if new_start_dt else new_date
+                    new_end_dt = datetime.combine(end_date, time_repo.parse_time(end))
+                except ValueError as e:
+                    console.print(f"[red]✗ Invalid end time: {e}[/red]")
+                    return
+            elif meeting_date:
+                new_end_dt = datetime.combine(new_date, mtg.end_time.time())
+
+            # Validate ordering
+            effective_start = new_start_dt or mtg.start_time
+            effective_end = new_end_dt or mtg.end_time
+            if effective_end <= effective_start:
+                console.print("[red]✗ End time must be after start time[/red]")
                 return
-        elif meeting_date:
-            new_end_dt = datetime.combine(new_date, mtg.end_time.time())
 
-        # Validate ordering
-        effective_start = new_start_dt or mtg.start_time
-        effective_end = new_end_dt or mtg.end_time
-        if effective_end <= effective_start:
-            console.print("[red]✗ End time must be after start time[/red]")
-            return
+            # Show before/after diff
+            console.print(f"\n[bold]Reschedule: (ID: {mtg.id}) \"{mtg.title}\"[/bold]")
+            console.print(f"  Old: {mtg.start_time.strftime('%Y-%m-%d %H:%M')} → {mtg.end_time.strftime('%H:%M')}")
 
-        # Show before/after diff
-        console.print(f"\n[bold]Reschedule: (ID: {mtg.id}) \"{mtg.title}\"[/bold]")
-        console.print(f"  Old: {mtg.start_time.strftime('%Y-%m-%d %H:%M')} → {mtg.end_time.strftime('%H:%M')}")
+            updated = repo.update(
+                meeting_id=mtg.id,
+                start_time=new_start_dt,
+                end_time=new_end_dt,
+                is_manually_modified=True,
+            )
+            if not updated:
+                console.print("[red]✗ Update failed[/red]")
+                return
 
-        updated = repo.update(
-            meeting_id=mtg.id,
-            start_time=new_start_dt,
-            end_time=new_end_dt,
-            is_manually_modified=True,
-        )
-        if not updated:
-            console.print("[red]✗ Update failed[/red]")
-            return
+            console.print(f"  New: {updated.start_time.strftime('%Y-%m-%d %H:%M')} → {updated.end_time.strftime('%H:%M')}")
+            console.print("[green]✓ Rescheduled. ICS reimport will preserve this change.[/green]")
 
-        console.print(f"  New: {updated.start_time.strftime('%Y-%m-%d %H:%M')} → {updated.end_time.strftime('%H:%M')}")
-        console.print("[green]✓ Rescheduled. ICS reimport will preserve this change.[/green]")
+            # Prompt to update any linked time entry
+            linked = session.query(TimeEntry).filter(TimeEntry.meeting_id == mtg.id).all()
+            if linked:
+                for entry in linked:
+                    time_str = entry.entry_time.strftime('%H:%M') if entry.entry_time else 'no time'
+                    console.print(
+                        f"\n  Linked time entry found: "
+                        f"{entry.entry_date} {time_str} ({entry.duration_hours}h)"
+                    )
+                    if click.confirm("  Update it to match the new start time?", default=False):
+                        new_entry_time = updated.start_time.time() if updated.start_time else None
+                        time_repo.update(entry.id, entry_time=new_entry_time)
+                        console.print("  [green]✓ Time entry updated.[/green]")
+                        console.print("  [dim]Re-sync Clockify: workmain clockify sync push[/dim]")
 
-        # Prompt to update any linked time entry
-        linked = session.query(TimeEntry).filter(TimeEntry.meeting_id == mtg.id).all()
-        if linked:
-            for entry in linked:
-                time_str = entry.entry_time.strftime('%H:%M') if entry.entry_time else 'no time'
-                console.print(
-                    f"\n  Linked time entry found: "
-                    f"{entry.entry_date} {time_str} ({entry.duration_hours}h)"
-                )
-                if click.confirm("  Update it to match the new start time?", default=False):
-                    new_entry_time = updated.start_time.time() if updated.start_time else None
-                    time_repo.update(entry.id, entry_time=new_entry_time)
-                    console.print("  [green]✓ Time entry updated.[/green]")
-                    console.print("  [dim]Re-sync Clockify: workmain clockify sync push[/dim]")
-
-        console.print()
+            console.print()
 
     except Exception as e:
         console.print(f"[red]✗ Error: {e}[/red]")
-    finally:
-        session.close()
 
 
 # ---------------------------------------------------------------------------
@@ -1318,81 +1274,78 @@ def meetings_series_edit(identifier: str, start: Optional[str], end: Optional[st
         return
 
     db = get_db()
-    session = db.get_session()
-
     try:
-        from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
-        repo = MeetingsRepository(session)
-        time_repo = TimeEntriesRepository(session)
+        with db.session_scope() as session:
+            from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+            repo = MeetingsRepository(session)
+            time_repo = TimeEntriesRepository(session)
 
-        mtg = _resolve_meeting(identifier, repo)
-        if not mtg:
-            return
-
-        if not mtg.is_recurring or not mtg.outlook_recurring_id:
-            console.print(f"[red]✗ Meeting (ID: {mtg.id}) '{mtg.title}' is not part of a recurring series.[/red]")
-            return
-
-        # Parse from_date
-        if from_date:
-            try:
-                cutoff = datetime.strptime(from_date, '%Y-%m-%d').date()
-            except ValueError:
-                console.print(f"[red]✗ Invalid from-date format: {from_date}. Use YYYY-MM-DD[/red]")
-                return
-        else:
-            cutoff = date.today()
-
-        # Parse new times
-        new_start_time = None
-        new_end_time = None
-        if start:
-            try:
-                new_start_time = time_repo.parse_time(start)
-            except ValueError as e:
-                console.print(f"[red]✗ Invalid start time: {e}[/red]")
-                return
-        if end:
-            try:
-                new_end_time = time_repo.parse_time(end)
-            except ValueError as e:
-                console.print(f"[red]✗ Invalid end time: {e}[/red]")
+            mtg = _resolve_meeting(identifier, repo)
+            if not mtg:
                 return
 
-        # Count how many occurrences will be updated
-        future = repo.get_future_occurrences(mtg.outlook_recurring_id, cutoff)
-        if not future:
-            console.print(f"[yellow]No occurrences found from {cutoff} forward.[/yellow]")
-            return
+            if not mtg.is_recurring or not mtg.outlook_recurring_id:
+                console.print(f"[red]✗ Meeting (ID: {mtg.id}) '{mtg.title}' is not part of a recurring series.[/red]")
+                return
 
-        last_date = future[-1].start_time.strftime('%Y-%m-%d')
-        changes = []
-        if new_start_time:
-            changes.append(f"start → {new_start_time.strftime('%H:%M')}")
-        if new_end_time:
-            changes.append(f"end → {new_end_time.strftime('%H:%M')}")
+            # Parse from_date
+            if from_date:
+                try:
+                    cutoff = datetime.strptime(from_date, '%Y-%m-%d').date()
+                except ValueError:
+                    console.print(f"[red]✗ Invalid from-date format: {from_date}. Use YYYY-MM-DD[/red]")
+                    return
+            else:
+                cutoff = date.today()
 
-        console.print(f"\n[bold]Series edit: \"{mtg.title}\"[/bold]")
-        console.print(f"  Occurrences: {len(future)} (from {cutoff} → {last_date})")
-        console.print(f"  Changes:     {', '.join(changes)}")
+            # Parse new times
+            new_start_time = None
+            new_end_time = None
+            if start:
+                try:
+                    new_start_time = time_repo.parse_time(start)
+                except ValueError as e:
+                    console.print(f"[red]✗ Invalid start time: {e}[/red]")
+                    return
+            if end:
+                try:
+                    new_end_time = time_repo.parse_time(end)
+                except ValueError as e:
+                    console.print(f"[red]✗ Invalid end time: {e}[/red]")
+                    return
 
-        if not click.confirm("\nProceed?", default=True):
-            console.print("Cancelled.")
-            return
+            # Count how many occurrences will be updated
+            future = repo.get_future_occurrences(mtg.outlook_recurring_id, cutoff)
+            if not future:
+                console.print(f"[yellow]No occurrences found from {cutoff} forward.[/yellow]")
+                return
 
-        count = repo.bulk_update_series_from_date(
-            outlook_recurring_id=mtg.outlook_recurring_id,
-            from_date=cutoff,
-            new_start_time=new_start_time,
-            new_end_time=new_end_time,
-        )
-        console.print(f"[green]✓ Updated {count} occurrence(s) ({cutoff} → {last_date}).[/green]")
-        console.print("[dim]Each occurrence marked as manually modified — ICS reimport will preserve these changes.[/dim]\n")
+            last_date = future[-1].start_time.strftime('%Y-%m-%d')
+            changes = []
+            if new_start_time:
+                changes.append(f"start → {new_start_time.strftime('%H:%M')}")
+            if new_end_time:
+                changes.append(f"end → {new_end_time.strftime('%H:%M')}")
+
+            console.print(f"\n[bold]Series edit: \"{mtg.title}\"[/bold]")
+            console.print(f"  Occurrences: {len(future)} (from {cutoff} → {last_date})")
+            console.print(f"  Changes:     {', '.join(changes)}")
+
+            if not click.confirm("\nProceed?", default=True):
+                console.print("Cancelled.")
+                return
+
+            count = repo.bulk_update_series_from_date(
+                outlook_recurring_id=mtg.outlook_recurring_id,
+                from_date=cutoff,
+                new_start_time=new_start_time,
+                new_end_time=new_end_time,
+            )
+            console.print(f"[green]✓ Updated {count} occurrence(s) ({cutoff} → {last_date}).[/green]")
+            console.print("[dim]Each occurrence marked as manually modified — ICS reimport will preserve these changes.[/dim]\n")
 
     except Exception as e:
         console.print(f"[red]✗ Error: {e}[/red]")
-    finally:
-        session.close()
 
 
 # ---------------------------------------------------------------------------
@@ -1417,63 +1370,60 @@ def meetings_skip(identifier: str, meeting_date: Optional[str]):
       workmain meetings skip 42
     """
     db = get_db()
-    session = db.get_session()
-
     try:
-        repo = MeetingsRepository(session)
+        with db.session_scope() as session:
+            repo = MeetingsRepository(session)
 
-        mtg = _resolve_meeting(identifier, repo)
-        if not mtg:
-            return
-
-        if not mtg.is_recurring:
-            console.print(f"[red]✗ Meeting (ID: {mtg.id}) '{mtg.title}' is not a recurring meeting.[/red]")
-            console.print("[dim]To delete a one-off meeting, use: workmain meetings delete[/dim]")
-            return
-
-        # If --date was given, try to find the specific occurrence on that date
-        if meeting_date:
-            try:
-                target_date = datetime.strptime(meeting_date, '%Y-%m-%d').date()
-            except ValueError:
-                console.print(f"[red]✗ Invalid date format: {meeting_date}. Use YYYY-MM-DD[/red]")
+            mtg = _resolve_meeting(identifier, repo)
+            if not mtg:
                 return
 
-            if mtg.start_time.date() != target_date:
-                # Resolve to the occurrence on the requested date
-                day_meetings = repo.get_by_date(target_date)
-                candidates = [m for m in day_meetings
-                              if m.title.lower() == mtg.title.lower() and m.is_recurring]
-                if not candidates:
-                    console.print(f"[red]✗ No occurrence of \"{mtg.title}\" found on {target_date}[/red]")
+            if not mtg.is_recurring:
+                console.print(f"[red]✗ Meeting (ID: {mtg.id}) '{mtg.title}' is not a recurring meeting.[/red]")
+                console.print("[dim]To delete a one-off meeting, use: workmain meetings delete[/dim]")
+                return
+
+            # If --date was given, try to find the specific occurrence on that date
+            if meeting_date:
+                try:
+                    target_date = datetime.strptime(meeting_date, '%Y-%m-%d').date()
+                except ValueError:
+                    console.print(f"[red]✗ Invalid date format: {meeting_date}. Use YYYY-MM-DD[/red]")
                     return
-                mtg = candidates[0]
 
-        time_str = mtg.start_time.strftime('%Y-%m-%d %H:%M')
-        end_str = mtg.end_time.strftime('%H:%M')
-        note_count = repo.get_note_count(mtg.id)
+                if mtg.start_time.date() != target_date:
+                    # Resolve to the occurrence on the requested date
+                    day_meetings = repo.get_by_date(target_date)
+                    candidates = [m for m in day_meetings
+                                  if m.title.lower() == mtg.title.lower() and m.is_recurring]
+                    if not candidates:
+                        console.print(f"[red]✗ No occurrence of \"{mtg.title}\" found on {target_date}[/red]")
+                        return
+                    mtg = candidates[0]
 
-        console.print(f"\n[bold]Skip occurrence: \"{mtg.title}\"[/bold]")
-        console.print(f"  Date/time: {time_str} → {end_str}")
-        if note_count:
-            console.print(f"  Notes: {note_count} note(s) will be unlinked and preserved")
+            time_str = mtg.start_time.strftime('%Y-%m-%d %H:%M')
+            end_str = mtg.end_time.strftime('%H:%M')
+            note_count = repo.get_note_count(mtg.id)
 
-        if not click.confirm("\nSkip this occurrence? (removes it from the series)", default=False):
-            console.print("Cancelled.")
-            return
-
-        if repo.delete(mtg.id, delete_notes=False):
+            console.print(f"\n[bold]Skip occurrence: \"{mtg.title}\"[/bold]")
+            console.print(f"  Date/time: {time_str} → {end_str}")
             if note_count:
-                console.print(f"[green]✓ Occurrence removed. {note_count} note(s) unlinked and preserved.[/green]\n")
+                console.print(f"  Notes: {note_count} note(s) will be unlinked and preserved")
+
+            if not click.confirm("\nSkip this occurrence? (removes it from the series)", default=False):
+                console.print("Cancelled.")
+                return
+
+            if repo.delete(mtg.id, delete_notes=False):
+                if note_count:
+                    console.print(f"[green]✓ Occurrence removed. {note_count} note(s) unlinked and preserved.[/green]\n")
+                else:
+                    console.print("[green]✓ Occurrence removed.[/green]\n")
             else:
-                console.print("[green]✓ Occurrence removed.[/green]\n")
-        else:
-            console.print("[red]✗ Delete failed[/red]")
+                console.print("[red]✗ Delete failed[/red]")
 
     except Exception as e:
         console.print(f"[red]✗ Error: {e}[/red]")
-    finally:
-        session.close()
 
 
 # ---------------------------------------------------------------------------
@@ -1650,67 +1600,64 @@ def meetings_template_use(name: str, start_str: Optional[str], end_str: Optional
     attendees = tmpl.get('attendees', [])
 
     db = get_db()
-    session = db.get_session()
-
     try:
-        repo = MeetingsRepository(session)
-        recurring_id = str(uuid.uuid4())
-        meetings_created = []
-        current_date = start_date
+        with db.session_scope() as session:
+            repo = MeetingsRepository(session)
+            recurring_id = str(uuid.uuid4())
+            meetings_created = []
+            current_date = start_date
 
-        while current_date <= until_date:
-            occurrence_start = datetime.combine(current_date, start_time_obj)
-            occurrence_end = datetime.combine(current_date, end_time_obj)
+            while current_date <= until_date:
+                occurrence_start = datetime.combine(current_date, start_time_obj)
+                occurrence_end = datetime.combine(current_date, end_time_obj)
 
-            mtg = repo.create(
-                title=name,
-                start_time=occurrence_start,
-                end_time=occurrence_end,
-                attendees=attendees or [],
-                is_recurring=True,
-                outlook_recurring_id=recurring_id,
-            )
-            meetings_created.append(mtg)
+                mtg = repo.create(
+                    title=name,
+                    start_time=occurrence_start,
+                    end_time=occurrence_end,
+                    attendees=attendees or [],
+                    is_recurring=True,
+                    outlook_recurring_id=recurring_id,
+                )
+                meetings_created.append(mtg)
 
-            if frequency == 'daily':
-                current_date += timedelta(days=1)
-                if not include_weekends:
-                    while current_date.weekday() >= 5 and current_date <= until_date:
-                        current_date += timedelta(days=1)
-            elif frequency == 'weekly':
-                current_date += timedelta(weeks=1)
-            elif frequency == 'monthly':
-                if current_date.month == 12:
-                    current_date = current_date.replace(year=current_date.year + 1, month=1)
-                else:
-                    try:
-                        current_date = current_date.replace(month=current_date.month + 1)
-                    except ValueError:
-                        next_month = current_date.month + 1
-                        next_year = current_date.year
-                        if next_month > 12:
-                            next_month = 1
-                            next_year += 1
-                        last_day = monthrange(next_year, next_month)[1]
-                        current_date = date(next_year, next_month, min(current_date.day, last_day))
+                if frequency == 'daily':
+                    current_date += timedelta(days=1)
+                    if not include_weekends:
+                        while current_date.weekday() >= 5 and current_date <= until_date:
+                            current_date += timedelta(days=1)
+                elif frequency == 'weekly':
+                    current_date += timedelta(weeks=1)
+                elif frequency == 'monthly':
+                    if current_date.month == 12:
+                        current_date = current_date.replace(year=current_date.year + 1, month=1)
+                    else:
+                        try:
+                            current_date = current_date.replace(month=current_date.month + 1)
+                        except ValueError:
+                            next_month = current_date.month + 1
+                            next_year = current_date.year
+                            if next_month > 12:
+                                next_month = 1
+                                next_year += 1
+                            last_day = monthrange(next_year, next_month)[1]
+                            current_date = date(next_year, next_month, min(current_date.day, last_day))
 
-        duration = (
-            datetime.combine(date.today(), end_time_obj) -
-            datetime.combine(date.today(), start_time_obj)
-        ).total_seconds() / 3600
+            duration = (
+                datetime.combine(date.today(), end_time_obj) -
+                datetime.combine(date.today(), start_time_obj)
+            ).total_seconds() / 3600
 
-        console.print()
-        console.print(f"[green]✓ Created {len(meetings_created)} recurring meetings from template '{name}':[/green]")
-        console.print(f"  Frequency: {frequency}")
-        console.print(f"  From: {start_date}  |  Until: {until_date}")
-        console.print(f"  Time: {tmpl['start']} – {tmpl['end']}  ({duration:.1f}h each)")
-        console.print(f"  Series ID: {recurring_id[:8]}...")
-        console.print()
+            console.print()
+            console.print(f"[green]✓ Created {len(meetings_created)} recurring meetings from template '{name}':[/green]")
+            console.print(f"  Frequency: {frequency}")
+            console.print(f"  From: {start_date}  |  Until: {until_date}")
+            console.print(f"  Time: {tmpl['start']} – {tmpl['end']}  ({duration:.1f}h each)")
+            console.print(f"  Series ID: {recurring_id[:8]}...")
+            console.print()
 
     except Exception as e:
         console.print(f"[red]✗ Failed to create meetings: {e}[/red]")
-    finally:
-        session.close()
 
 
 @meetings.command('costs')
@@ -1759,28 +1706,24 @@ def meetings_costs(
         return
 
     db = get_db()
-    session = db.get_session()
-
     try:
-        repo = get_ai_cost_repository(session)
-        render_condensation_costs(
-            console, repo,
-            provider=provider_type.value if provider_type else None,
-            start_date=start_date,
-            end_date=end_date,
-            limit=limit,
-            label=format_date_window_label(start_date, end_date),
-            title="Meeting Condensation Costs",
-            detail_heading="Meeting Detail",
-            filters=[f"Provider: {provider}"] if provider else [],
-        )
+        with db.session_scope() as session:
+            repo = get_ai_cost_repository(session)
+            render_condensation_costs(
+                console, repo,
+                provider=provider_type.value if provider_type else None,
+                start_date=start_date,
+                end_date=end_date,
+                limit=limit,
+                label=format_date_window_label(start_date, end_date),
+                title="Meeting Condensation Costs",
+                detail_heading="Meeting Detail",
+                filters=[f"Provider: {provider}"] if provider else [],
+            )
 
     except Exception as e:
         console.print(f"[red]✗ Failed to get costs: {e}[/red]")
         console.print()
-
-    finally:
-        session.close()
 
 
 # Export command group

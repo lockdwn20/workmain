@@ -240,7 +240,7 @@ class TestGDocsCLI:
             # mock_db should not be called in dry-run for upload-notes
             # (upload-report and upload-clockify dry-run also skip DB)
             mock_session = MagicMock()
-            mock_db.return_value.get_session.return_value = mock_session
+            mock_db.return_value.session_scope.return_value.__enter__.return_value = mock_session
 
             result = runner.invoke(gdocs, ["upload", "all", "--dry-run",
                                            "--date", "20260309"])

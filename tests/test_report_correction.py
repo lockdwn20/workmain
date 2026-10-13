@@ -356,12 +356,12 @@ class TestResolveReport:
 
 
 def _spy_on(method: str, recorded: list):
-    """Patch ReportsRepository.<method> with a spy that runs the real method and records its result."""
+    """Patch ReportsRepository.<method> with a spy that runs the real method and records the ids of the rows it returns."""
     real = getattr(ReportsRepository, method)
 
     def _record(self, *args, **kwargs):
         result = real(self, *args, **kwargs)
-        recorded.append(result)
+        recorded.append([r.id for r in result])
         return result
 
     return patch.object(ReportsRepository, method, autospec=True, side_effect=_record)
@@ -378,7 +378,7 @@ class TestReportListCommandPath:
         with _spy_on('list_by_report_date', recorded) as spy:
             _report_list_impl(2, None, 'all')
         spy.assert_called_once_with(ANY, report_type=None, status=None, limit=2)
-        assert [r.id for r in recorded[0]] == [confirmed.id, unconfirmed.id]
+        assert recorded[0] == [confirmed.id, unconfirmed.id]
 
     def test_no_status_lists_every_status(self, db_session):
         unconfirmed = _seed_report(db_session, 'zz_issue157', date(2100, 8, 12))
@@ -388,7 +388,7 @@ class TestReportListCommandPath:
         with _spy_on('list_by_report_date', recorded) as spy:
             _report_list_impl(2, None, None)
         spy.assert_called_once_with(ANY, report_type=None, status=None, limit=2)
-        assert [r.id for r in recorded[0]] == [confirmed.id, unconfirmed.id]
+        assert recorded[0] == [confirmed.id, unconfirmed.id]
 
     def test_status_filters_rows(self, db_session):
         confirmed = _seed_report(db_session, 'zz_issue157', date(2100, 8, 14),
@@ -398,7 +398,7 @@ class TestReportListCommandPath:
         with _spy_on('list_by_report_date', recorded) as spy:
             _report_list_impl(1, None, 'confirmed')
         spy.assert_called_once_with(ANY, report_type=None, status='confirmed', limit=1)
-        assert [r.id for r in recorded[0]] == [confirmed.id]
+        assert recorded[0] == [confirmed.id]
 
 
 # ---------------------------------------------------------------------------
