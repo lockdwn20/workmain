@@ -135,3 +135,40 @@ The pilot sets one length for every command (#58 body, Tables). It does not depe
 
 - Promoted to: —
 - Superseded by: —
+
+## Appendix A — Every table the CLI prints
+
+Census of every `Table(` under `workmain/`, on `feature/issue-58-cli-output-module` at `2bf8480`, 20261014. "Row" is what one table row stands for. Column options are as declared. A column with no options takes Rich's defaults: it wraps at spaces and cuts a word longer than the column with `…`. "Cut in code" is a slice applied to a value before Rich sees it.
+
+| # | Command | Where | Row | Columns as declared | Cut in code |
+| --- | --- | --- | --- | --- | --- |
+| T1 | `tasks list` | `tasks.py:215` | a task | ID (`no_wrap`, right), Status (`no_wrap`), Created (`no_wrap`), Tags, Content | Content 80 + `…` |
+| T2 | `reports list`, `reports history` | `reports.py:327`, shared by both through `_report_list_impl` | a report | ID (right), Type, Date, Status (`no_wrap`), Created, Slack (center), Preview | Preview: leading `#`, space and newline stripped, then 50, no `…` |
+| T3 | `email list` | `email.py:370` | a saved draft | # (`width=4`), Template, Saved, File | — |
+| T4 | `email recipients list` | `email.py:465` | a recipient | ID (`width=4`), Email, then one column per template (`width=max(6, len(name))`, center) | — |
+| T5 | `clients list` | `clients.py:83` | a client | ID (`width=6`), Name, Active (`width=8`) | — |
+| T6 | `schedule holiday list` | `schedule.py:199` | a holiday | ID (`width=4`), Date (`width=12`), Title | — |
+| T7 | `schedule timeoff list` | `schedule.py:297` | a time-off range | ID (`width=4`), Start (`width=12`), End (`width=12`), Days (`width=5`), Title | — |
+| T8 | `meetings template list` | `meetings.py:1507` | a meeting template | Name, Frequency, Start, End, Until (days), Weekends | — |
+| T9 | `providers list` | `providers.py:66` | a provider | Provider (`width=14`), Model (`min_width=28`), Status (`width=14`), Cost Structure (`min_width=42`) | error text 40 in the Cost Structure cell, no `…` |
+| T10 | `providers config show` | `providers.py:393` | a provider | Provider (`width=10`), Enabled (`width=8`), Model (`min_width=28`), API Key Env (`width=24`), Cost Structure | — |
+| T11 | `providers config show` | `providers.py:413` | a report type | Report Type (`min_width=20`), Primary (`width=12`), Fallback (`width=12`) | — |
+| T12 | `slack status` | `slack.py:260` | a recent post | Date, Channel, Workspace, Timestamp (ts) | ts 20, no `…` |
+| T13 | `reports costs`; `meetings costs` and `notes costs` through `render_condensation_costs` | `cost_display.py:87` (`render_cost_rows`) | an AI call | Date (`no_wrap`), label (`min_width=6`, `max_width=24`, `overflow="ellipsis"`), Provider (`no_wrap`), Prompt, Answer, Thinking, Total, Cost (all `no_wrap`, right) | — |
+| T14 | `providers costs` (twice: by provider, by call type); `meetings costs` and `notes costs` through `render_condensation_costs` | `cost_display.py:125` (`render_cost_breakdown`) | a provider or call type | name (`no_wrap`, `min_width=10`), Calls, Prompt, Answer, Thinking, Total, Cost, Avg Cost (all `no_wrap`, right) | — |
+| T15 | `schedule config show` | `schedule.py:517` | a trigger | Trigger, Time | — |
+| T16 | `clockify status` | `clockify.py:70` | a field of the connection | Field, Value (no header) | workspace ID 8 + `...` |
+| T17 | `clockify status` | `clockify.py:99` | a sync metric | Metric, Value (no header) | — |
+| T18 | `eod` | `eod.py:172` | a planned step | Step (`width=7`), Key (`width=14`), Action, unnamed (`width=8`) | — |
+| T19 | `eod` | `eod.py:222` | a status group | Status (`width=12`), Steps (no header) | — |
+| T20 | `status` | `interface.py:156` | a component | Component, Status | — |
+
+What the census shows:
+
+- **20 commands print tables, from 20 constructions.** T13 and T14 are built in `cost_display.py` and shared by four `costs` commands.
+- **Two shapes.** T1–T14 list records: one row per item, and the list grows with the data. T15–T20 show one thing's properties, a label and a value per row (T15, T16, T17 and T20), or a fixed, short set (T18 and T19). In §5.6's terms the second shape is a single record, which §5.6 prints as a `Panel`.
+- **Two tables carry a long free-text value.** T1's Content (task text, 114–665 characters across the 8 active tasks, 20261014) and T2's Preview (a report body). Every other text column holds a name, title, model, path, email address or cost structure.
+- **Four values are cut in code**, three of them without `…` (T2, T9, T12). T13's label column is cut by Rich (`max_width=24`, ellipsis).
+- **Fixed `width` is the most common key declaration** (T3–T7, T9–T11, T18, T19). A fixed width cuts with `…` any value longer than it, and so do `max_width` and a `no_wrap` column that loses the width contest (F8).
+
+Collection commands that print lines, not a table: `calendar today`, `calendar week`, `meetings list`, `meetings today`, `meetings upcoming`, `notes list`, `notes today`, `notes date`, `notes search`, `notes meeting`, `tasks today`, `templates list`, `time today`, `time week`, `time date`. Under §5.6 each of these is a collection, and a collection is a `rich.Table`.
