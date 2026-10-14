@@ -286,7 +286,7 @@ None. This spec runs no migration, deletes no GitHub object, merges nothing to `
 - **Baseline:** the counts Step 0 records after merging `dev`. On `dev` `a7621c2`, before #220 and #221, they are 1310 passed, 0 failed, 0 skipped.
 - **Expected after:** the baseline, less the 13 tests removed from `tests/test_task_lifecycle.py`, plus 65 new tests: S1–S21, P1–P4, O1–O24 and C1–C16. On `a7621c2` that comes to 1362 passed, 0 failed, 0 skipped. C14 and C15 carry over two of the removed tests.
 
-The test method names below are the spec's. AC node IDs cite the four that the ACs run directly: `test_statement_count_does_not_grow_with_rows`, `test_bracketed_values_print_verbatim` and `test_capped_candidates_say_so`. Anvil names the rest.
+The test method names below are the spec's. AC node IDs cite the three that the ACs run directly: `test_statement_count_does_not_grow_with_rows`, `test_bracketed_values_print_verbatim` and `test_capped_candidates_say_so`. Anvil names the rest.
 
 **`tests/test_tasks_service.py`.** Every test takes `db_session`, and each uses its own sentinel date in 2099.
 
