@@ -59,6 +59,14 @@ Not read: the other fifteen command files beyond their resolvers and prompts, wh
 | F17 | **§5.3 still lists `tasks carryover` as a deprecated alias.** The command no longer exists (`test_carryover_removed`). This issue edits `docs/DEVELOPMENT_STANDARDS.md`, but not §5.3. | `DEVELOPMENT_STANDARDS.md:546`; `tests/test_task_lifecycle.py:425-429`. | Low |
 | F18 | **`--search` does not escape SQL wildcards.** `ilike(f'%{search}%')` treats `%` and `_` typed by the user as wildcards. | `task_status_repo.py:264`. | Low |
 | F19 | **Rich reads text in square brackets as markup and drops it.** `tasks today` prints `[dim][#{note.id}][/dim]`, and Rich takes `[#85019]` as a style tag, so the ID never appears: the line renders as the content alone. `tasks show` loses its meeting ID (`[#{note.meeting.id}]`) the same way, and its tags line prints empty, because `Note.display_tags` returns `[internal-only] [carry-forward]`. Note content that contains brackets is altered wherever it goes through `console.print` as a string. | `tasks.py:280`, `318`, `320`; `models.py:212` (`display_tags`); probe in Rich 13.7.0: `console.print("x [#85019] y [red]z[/red] [both, cf]")` renders `x  y z`, while `console.print(Text(...))` renders it verbatim. | High |
+| F20 | **The draft spec's render functions are per-command printing in a new place.** DR8 of `docs/dev/specs/CLI_OUTPUT_MODULE_SPEC.md` (draft, `06f4c0d`) puts five `tasks` render functions in `output.py`, and every conversion would add its own group's. Ray, 20261014: that moves each group's printing out of its command file without making it one shared way to render. | Spec DR8, Step 2 | High |
+| F21 | **Shared CLI state lives in module globals.** `workmain/` has 21 module-level `console = Console(...)` objects. Click's mechanism for an object every command shares is the context: the root group stores it on `ctx.obj`, commands receive it with `@click.pass_obj` or a `click.make_pass_decorator` decorator, and `make_pass_decorator(T, ensure=True)` creates one when a group is run on its own, as a test does. A test hands in its own with `CliRunner().invoke(cmd, args, obj=...)`, verified on Click 8.1.7. The root group already calls `ctx.ensure_object(dict)` (`interface.py:119`) and nothing reads the dict. `time` stores `show_ids` in it (`time.py:154-155`). The draft spec reaches the output module through module functions, and its command tests replace them with `patch.object`. | `git grep -nE '^(console\|err_console)\s*=\s*Console\(' workmain` (21); `git grep -nE 'ctx\.obj\|pass_obj\|ensure_object\|make_pass_decorator' workmain`; probe 20261014 | Medium |
+| F22 | **No command can print anything but its human layout, and nothing reads its output as data.** No command has a format option. The EOD workflow never parses a child's stdout. It echoes stdout and stderr (`eod_workflow.py:114-117`), relays stderr as warnings (`240-241`, `270`), and decides success by `returncode != 0` (`237`, `294`, `915`, `937`, `1106`, `1127`, `1160`, `1178`). Machine-readable output therefore has no caller today. Its users would be scripts and tests. | `git grep -nE "run\.(stdout\|stderr)\|returncode" workmain/workflows/eod_workflow.py` | Low |
+| F23 | **Errors are hand-printed and exited in each command.** There are 30 `sys.exit(`/`raise SystemExit` sites under `workmain/cli/`, and 9 raises of a Click exception: `clockify.py:227`, `233`; `gdocs.py:90`; `slack.py:89`; `interface.py`'s `_StubCommandError`. `click.ClickException` prints `Error: <message>` to stderr and exits 1, which is the §5.6 Error row word for word. `ClickException.show` writes `Error: {message}` to `get_text_stderr()`, and `exit_code` is 1 (verified). The draft spec has every command catch, print through `output.error` and call `sys.exit`. | `git grep -nE 'sys\.exit\(\|raise SystemExit' workmain/cli` (30); `git grep -nE 'raise click\.(ClickException\|BadParameter\|UsageError)\|raise _StubCommandError' workmain` (9); Click 8.1.7 source | Medium |
+| F24 | **Exit code 2 already means a usage error in every command.** Click exits 2 for every usage error: an unknown option, a missing argument, a `click.Choice` rejection (verified: `--status bogus` under `Choice` exits 2). §5.6 says 2 is an integration error. Six sites exit 2 for an integration error: `providers.py:146`, `185`, `193`; `failure_exit_code` at `meetings.py:909`, `913` and `reports.py:225`. No caller tells 1 from 2. EOD tests `returncode != 0` (F22), and `WorkmainRun.ok` is `returncode == 0` (`self_invoke.py:75`). | `git grep -nE 'sys\.exit\(2\)\|failure_exit_code' workmain`; probe 20261014 | Medium |
+| F25 | **Arguments are validated by hand where Click has a type for it.** `click.Choice` appears 9 times in 5 files, and `IntRange`/`DateTime`/`Path`/`File` 10 times. No custom `click.ParamType` exists. `tasks` checks `--status` against `VALID_STATUSES` by hand (`tasks.py:168-173`) and parses `--date` by hand (`tasks.py:90-102`). Each command parses dates its own way, which is #140. | `git grep -cE 'click\.Choice\(' workmain/cli`; `git grep -nE 'class \w+\(click\.ParamType\)' workmain` (none) | Medium |
+| F26 | **The picker's input loop is hand-written six times (F5).** `click.prompt(type=click.IntRange(1, N))` asks again by itself on Enter, `0`, `-1` and text, and prints its own `Error:` line for each (verified). Only `q` to cancel is not built in. A `click.ParamType` that accepts `q` or an integer in range covers it. F3's defect is the hand-written version getting the bound wrong. | Probe 20261014 | Medium |
+| F27 | **No standard says to use the framework's mechanism first.** F3, F5, F19, F23, F24, F25 and F26 each come from a command writing its own version of something Python, Click, Rich or SQLAlchemy provides. `docs/DEVELOPMENT_STANDARDS.md` §3 has no rule against it. Caliper's criterion 6 asks whether a spec adds a new path where an existing service, orchestrator or workflow covers the case, not where a library mechanism does (`.claude/skills/session-start/SKILL.md` § Role 2). | `DEVELOPMENT_STANDARDS.md` §3.1–§3.7; `SKILL.md` § Role 2 criterion 6 | High |
 
 Out of scope, already tracked: `ActionExecutor._execute_update_task` and `_execute_defer_task` write `status = "deferred"` on a `TaskStatus` directly (`action_executor.py:180`, `196`). That is #169.
 
@@ -122,6 +130,56 @@ The pilot sets one length for every command (#58 body, Tables). It does not depe
 - **F17.** The `carryover` row comes out of §5.3's approved-verbs table. It is one line in a document this issue already edits. Placement: this issue, or a `chore/*` of its own.
 - **F18.** `--search` has to escape `%` and `_` before building the `ilike` pattern. `NotesRepository.find_by_content_like` has the same shape, and Q4 Option B's new method would inherit it. Placement: this issue, or its own issue covering every `ilike`/`contains` search.
 
+### 4.7 Framework mechanisms (F20–F27)
+
+Each option below is judged on whether it uses the mechanism Click, Rich or SQLAlchemy already provides, not on the issue's acceptance criteria. Whatever is decided here, this issue writes it into `docs/DEVELOPMENT_STANDARDS.md`, and #201–#216 inherit it.
+
+**Renderer shape (Q7).**
+- **A — one generic renderer.** It provides a collection (the Q2 rule), a single record (panel), the picker, and success, warning, error and plain lines. It formats values by one rule: a date as `YYYY-MM-DD`, a datetime as `YYYY-MM-DD HH:MM`, `None` as `—`, anything else as text. A command declares its view: title, columns, rows built from the service's result, and the empty-result line. The renderer holds no group's name and grows only when a new kind of output is needed. A command test asserts that the rows it passed match the service's result.
+- **B — per-result render functions** (draft spec DR8). The cons are F20's.
+
+**Recommendation: A.** It is Ray's direction of 20261014, and the only one of the two in which printing is written once.
+
+**How a command reaches the renderer (Q8).**
+- **A — an object on Click's context.** A `Renderer` class holds the two consoles and the Q7 functions as methods. `workmain/cli/output.py` defines a `pass_renderer = click.make_pass_decorator(Renderer, ensure=True)`. The root group creates the renderer, and `ensure=True` creates one when a group runs on its own. Commands take it as an argument. A test passes `obj=Renderer(console=Console(file=io.StringIO(), width=N))` to `CliRunner.invoke`, which is the Click-documented way to inject one, and asserts on what was rendered, or on what was passed to it, without patching modules. `ctx.obj` changes from an unused `dict` to the renderer. `time`'s `show_ids` (F21) moves when `time` converts (#216).
+  - Cons: every converted command gains a decorator and a parameter.
+- **B — module functions and module consoles** (draft spec). Tests patch module attributes.
+  - Cons: F21. The state is global, and tests rely on patching what Click would inject.
+
+**Recommendation: A.** It is Click's own mechanism for exactly this, and it gives each invocation its own renderer.
+
+**A format option (Q9).**
+- **A — a global `--format auto|table|list|json` now.** `auto` is the Q2 rule. `json` prints the rows as JSON objects keyed by column label.
+- **B — not in this issue.** The Q8 renderer holds the layout choice as one attribute, so a format option is one change to the renderer and the root group later. Nothing reads command output as data today (F22), and the list layout already serves grep and export, which was the reason for Q2.
+
+**Recommendation: B.** A format option has no caller yet. If Ray wants one, it is its own issue, blocked by this one.
+
+**Errors (Q10).**
+- **A — Click's exception path.** A `ServiceValidationError` reaches Click as a `click.ClickException`, which prints `Error: <message>` on stderr and exits with the exception's `exit_code`. The translation is written once. Every group is built with `cls=WorkmainGroup`, a `click.Group` subclass in `workmain/cli/output.py` whose `invoke` re-raises a `ServiceValidationError` as a `ClickException`. An integration error is a `ClickException` subclass with its own `exit_code` (Q11). A bad argument raises `click.BadParameter`. Commands catch nothing they only report. `failure_exit_code` and the per-command `output.error` + `sys.exit` disappear.
+  - Cons: Click prints the line with `click.echo`, not Rich. It is the same text, unstyled.
+- **B — per-command catch, print and exit** (draft spec). The cons are F23's: 30 exits written by hand.
+
+**Recommendation: A.** Click already produces §5.6's error line and exit. A hand-written copy in every command is what produced the four error styles #199 counted.
+
+**What exit code 2 means (Q11).**
+- **A — Click's meaning.** 2 is a usage error, as Click already makes it for every command (F24). An integration error takes 3. The six sites in F24 change, along with §5.6's list. No caller tells 1 from 2, so the change breaks nothing (F24).
+- **B — keep 2 as an integration error, and make Click's usage errors exit 1.** This means overriding `UsageError.exit_code` for the whole CLI, against Click's documented behaviour.
+- **C — leave 2 meaning both.** That is the state today, and a caller can't tell a mistyped option from a provider outage.
+
+**Recommendation: A.** It follows the framework and the Unix convention that 2 is misuse, and costs six sites. Placement: this issue writes §5.6 and changes the six sites, as a contract change with its callers enumerated (§1.2), because #58 rewrites §5.6 anyway.
+
+**Argument types and the picker (Q12).**
+- **A — Click types.** `--status` takes `click.Choice(VALID_STATUSES)`. A bad value is then a usage error, exit 2 under Q11. `--date` takes a `DateParamType(click.ParamType)` that accepts `today`, `yesterday` and `YYYY-MM-DD`, in a new `workmain/cli/params.py`. The picker prompts with a `PickParamType(click.ParamType)` that accepts `q` or an integer from 1 to N, in the same module. #140 then unifies date formats into `DateParamType` rather than inventing a home.
+- **B — hand validation** (draft spec). The cons are F25 and F26.
+
+**Recommendation: A.**
+
+**Capturing the rule (Q13).**
+- **A — a standard and a review question.** `docs/DEVELOPMENT_STANDARDS.md` §3 gains §3.8: before writing a helper, use the mechanism Python, Click, Rich or SQLAlchemy provides for it. A spec that writes its own states which mechanism it set aside and why. Caliper's criterion 6 is extended to ask about a library mechanism as well as an existing service, orchestrator or workflow. That criterion lives in `SKILL.md`, which Ray approves.
+- **B — the standard only.**
+
+**Recommendation: A, in this issue.** A fix ships its standard. The review question is what catches a hand-written version before it reaches implementation, which is the stage at which this issue's draft spec would have shipped five of them.
+
 ## 5. Open questions
 
 | Q | Question | Answer |
@@ -132,6 +190,13 @@ The pilot sets one length for every command (#58 body, Tables). It does not depe
 | Q4 | When `tasks show`, `complete` or `dismiss` is given text instead of an ID, should the picker offer only notes that are tracked as tasks, in every status, and say when the list is capped, or keep today's search over every note, which can offer a note that then fails as "not a task" (§4.4)? | Answered 20261014 (Ray): Option B. Candidates are notes tracked as tasks, in every status, with status shown, and the picker says when the list is capped. |
 | Q5 | Where does each out-of-scope finding in §4.6 go: the carry-forward hook tests, the stale `carryover` row in §5.3, and unescaped `%`/`_` in content search? For each: into this issue, into an existing issue, or into its own issue. | Partly answered 20261014 (Ray). F17: the `carryover` row comes out of §5.3 in this issue. F18: its own issue. F16: Ray asked whether the pattern is suite-wide. Checked 20261014. The four tests duplicate coverage `tests/test_notes_service.py` already has: `TestCreateNoteCfHook` (create) and `TestUpdateNote` (add and remove transitions) call the hook through the service. A phrase grep of `tests/` for simulate/mirror finds two more tests that perform the application's work themselves instead of calling it: `tests/test_meetings_edit.py:55-66` and `tests/test_slack.py:105-125` (`test_04_upsert_updates_existing_row`). Those files are rewritten by #208 and #214. A phrase grep cannot prove there are no others. Answered 20261014 (Ray): the four `TestNotesCarryForwardHook` tests are deleted in this issue, and the other two tests were added to #208 and #214, each under its Tests section. F18 opened as #219. |
 | Q6 | How does each `tasks` output look under Q1–Q4? | Answered 20261014 (Ray), on mockups. A list's title is a line above it. A labelled list aligns its labels, leaves a blank line between records, and keeps the title line. Each picker candidate is opened by a `[n]` line in list form, or carries a `#` column in table form. A `10 of M shown — refine the search` line prints above the prompt when the candidates are capped. `tasks show` is a panel titled `Task #<id> — <status>`, holding Created, Tags, Meeting and "Forwards to: note #N" when set, then the full content. `complete` and `dismiss` print one soft-wrapped line, `✓ Completed task #<id>: <full content>` (or `Dismissed`). An error is `Error: <message>` on stderr, exit 1. `tasks today` follows the same table-or-list rule as `tasks list`. |
+| Q7 | Should the output module be one generic renderer — a collection, a single record, the picker, and success, warning, error and plain lines — with each command declaring its own title, columns, rows and empty-result line, and no group's name ever in the renderer? Or should it hold per-result render functions, as the draft spec does (§4.7)? | |
+| Q8 | Should commands receive the renderer as an object through Click's context (`make_pass_decorator`, with tests injecting it with `CliRunner.invoke(obj=...)`), or call module-level functions that tests patch (§4.7)? | |
+| Q9 | Should this issue add a global `--format auto\|table\|list\|json` option, or leave a format option to its own issue, given that nothing reads command output as data today (§4.7)? | |
+| Q10 | Should a service's validation error reach the user through Click's own exception path, translated once in a shared group class, or should every command catch it, print it and exit by hand (§4.7)? | |
+| Q11 | Click already exits 2 for every usage error, and §5.6 says 2 is an integration error. Should 2 mean a usage error, with integration errors moving to 3; should Click's usage errors be forced to 1; or should 2 keep meaning both (§4.7)? | |
+| Q12 | Should `--status`, `--date` and the picker's input use Click parameter types (`click.Choice` and two custom types in a new `workmain/cli/params.py`), or keep validating by hand (§4.7)? | |
+| Q13 | Should the rule "use the framework's mechanism before writing your own" be written into `docs/DEVELOPMENT_STANDARDS.md` §3 and added to Caliper's review criterion 6 in `SKILL.md`, or into the standards only (§4.7)? | |
 
 ## 6. Disposition
 
