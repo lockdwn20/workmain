@@ -20,6 +20,14 @@
 | 20261014 | Ray | Study Q14–Q17: what a view can declare | The service returns the filters it applied, and the renderer writes the title and empty line from them. A record leaves out a field with no value (`None`, `""` or `()`, never `0` or `False`), and a label that depends on another field becomes two fields. Domain values format through `fmt`. DR4–DR6. |
 | 20261014 | Ray | Study Q18: which standards #58 writes | Only what its change makes true. §4.3 states the eager-load rule for `TaskStatusRepository.get_filtered`; #223 generalises it. §5.6 and §6.2 describe the renderer, a converted command and each layer's tests; #224 writes the universal sentence. The existing §5.6 Error row is left as it is. Step 5. |
 | 20261014 | Ray | Order | #220 and #221 land before this spec's Step 1, and `dev` is merged into this branch first. Step 0. |
+| 20261014 | Caliper | `interface.py:74-85` already defines `WorkmAInGroup`, which `cli` uses (`interface.py:106`) and whose `invoke` turns `NotImplementedError` into `_StubCommandError`. The spec added a second class, `WorkmainGroup`, differing only in capitalisation. | Accepted. `WorkmAInGroup` and `_StubCommandError` move into `output.py` unchanged in behaviour, and `invoke` gains the `ServiceValidationError` branch. `cli` and `tasks` both use it. `_StubCommandError.show` builds its `Console` locally, because the module holds no console (DR8). O24 now covers the `NotImplementedError` path, which no test covered. DR8, Step 3. |
+| 20261014 | Caliper | S6 can pass without `contains_eager`, because a lazy many-to-one resolves from the identity map when the test still holds the seeded notes. | Accepted. S6 calls `db_session.expunge_all()` after seeding. Observed 20261014 under the test fixture (§2): with `expunge_all`, the lazy query gives 2 statements for one task and 6 for five, and `contains_eager` gives 1 and 1. S6 fails without the fix and passes with it. |
+| 20261014 | Caliper | C16 passes without the `interface.py` change, because `pass_renderer`'s `ensure=True` creates a `Renderer` on the command's own context. | Accepted. C16 asserts that `click.get_current_context().find_root().obj` is a `Renderer` from inside the patched `collection`. Under `ctx.ensure_object(dict)` the root's obj is a `dict`, so the test fails. |
+| 20261014 | Caliper | `ctx.obj = Renderer()` replaces an `obj` passed to `CliRunner.invoke(cli, ..., obj=...)`. | Accepted. The root calls `ctx.ensure_object(Renderer)`, Click's mechanism, which creates a renderer only when none was passed. DR8. |
+| 20261014 | Caliper | The spec didn't say where a picker test reads the prompt and its `Error:` lines, and P2 reads stderr from a runner that merges it into stdout. | Accepted. O15 and O17 read the stdout stream `CliRunner().isolation(...)` yields. P2 uses `CliRunner(mix_stderr=False)`. |
+| 20261014 | Caliper | C9, C10 and C12 depend on `renderer.pick`'s return value but don't set it. | Accepted. Every command test sets `renderer.pick.return_value` to a `TaskRow` with `note_id` 42 unless it states `None`. |
+| 20261014 | Caliper | `TaskDetail.created_at` had no named source. `Note.created_at` is nullable and `TaskStatus.created_at` isn't. | Accepted. It is `Note.created_at`, which `tasks show` prints today (`tasks.py:311`). Step 1.4. |
+| 20261014 | Caliper | AC2.5's "after the command's scope has rolled back" is checked by O24, which nothing this spec builds can fail. The rollback is `session_scope()`'s own, and the test factory has `autoflush=False`. | Accepted. The clause leaves AC2.5 and the rollback test is dropped. O24 now tests the `NotImplementedError` path (finding 1). |
 | 20261014 | Spanner | Where a result's render function lives (first draft) | Superseded by study Q7 (Ray). There are no per-result render functions. |
 | 20261014 | Spanner | The tasks candidate search | `get_filtered(status='all', search=..., limit=10)` and `count_filtered(status='all', search=...)`, both existing. No new repository method. |
 | 20261014 | Spanner | A list's lines are unwrapped | Each `Label: value` line prints with `soft_wrap=True`, so piped output carries one field per line, which is what makes a list greppable (study Q2). |
@@ -37,8 +45,8 @@
 - `workmain/services/exceptions.py`: two new exceptions.
 - `workmain/database/repositories/task_status_repo.py`: `get_filtered` loads each task's note with the rows.
 - `workmain/cli/params.py`, new: `DateParamType` and `PickParamType`.
-- `workmain/cli/output.py`, new: `Column`, `Field`, `CollectionView`, `RecordView`, `Renderer`, `pass_renderer` and `WorkmainGroup`.
-- `workmain/cli/interface.py`: the root group puts a `Renderer` on `ctx.obj`.
+- `workmain/cli/output.py`, new: `Column`, `Field`, `CollectionView`, `RecordView`, `Renderer` and `pass_renderer`, and `WorkmAInGroup` with `_StubCommandError`, moved from `interface.py`.
+- `workmain/cli/interface.py`: the root group ensures a `Renderer` on `ctx.obj`, and imports `WorkmAInGroup` from `output.py`.
 - `workmain/cli/commands/tasks.py`: every command converted.
 - Tests:
   - `tests/test_tasks_service.py`, `tests/test_cli_params.py` and `tests/test_output.py`, new;
@@ -68,6 +76,10 @@ Verified on `feature/issue-58-cli-output-module` at `51639df`, 20261014. Study f
 | Code that imports from `tasks.py`: `interface.py:28`, `interface.py:299`, `tests/test_task_lifecycle.py:33`. `_resolve_task`, `_parse_date_filter`, `_format_task_row` and `VALID_STATUSES` are used only inside `tasks.py`. | `git grep -nE '_format_task_row\|_resolve_task\|_parse_date_filter\|VALID_STATUSES\|commands\.tasks' -- . ':!docs'` |
 | Callers of `TaskStatusRepository.get_filtered`, every one of which reads `.note` per row. In `tasks.py` the calls are at `188` and `265`. Elsewhere they are `scheduler.py:65`; `action_executor.py:162`, `187`, `292`; and `eod_workflow.py:471`, `632`, `676`. The result is the same rows; only the query count changes. | `git grep -nE '\.get_filtered\(' workmain`; F6, F7 |
 | `get_filtered` joins `Note` and returns `TaskStatus` rows with a lazy `note`. `TaskStatus.note_id` is `nullable=False`. With `.options(contains_eager(TaskStatus.note))`, reading `.note` on 10 rows is 1 statement; without it, 11. | `task_status_repo.py:191-216`, `255-258`; `models.py:326-327`; read-only probe, 20261014 |
+| `interface.py:61-85` defines `_StubCommandError(click.ClickException)`, whose `show` prints two lines to stdout through the module console, and `WorkmAInGroup(click.Group)`, whose `invoke` re-raises `NotImplementedError` as `_StubCommandError`. `cli` is declared `cls=WorkmAInGroup` (`interface.py:106`). No test covers that path; `tests/test_email.py:246` calls the stub function directly. | `git grep -nE "WorkmAInGroup\|_StubCommandError" -- . ':!docs'`; `git grep -n NotImplementedError tests` |
+| `Note.created_at` is `nullable` (`models.py:194`), and `tasks show` prints it (`tasks.py:311`). `TaskStatus.created_at` is `nullable=False` (`models.py:330`). | `models.py`, `tasks.py` |
+| Under the test fixture, with notes and tasks seeded in `db_session` and `db_session.expunge_all()` before the query, reading `.note` costs 2 statements for one task and 6 for five through today's lazy relationship, and 1 and 1 with `contains_eager`. Without `expunge_all` the lazy counts depend on which objects the identity map still holds. | Temporary test under `tests/`, run and deleted, 20261014 |
+| The test session factory has `autoflush=False`. | `tests/conftest.py:37` |
 | `ctx.obj` today: the root group calls `ctx.ensure_object(dict)` and nothing reads it (`interface.py:119`). `time` stores `show_ids` in a `dict` (`time.py:154-155`). Once the root sets `ctx.obj` to a `Renderer`, a group that calls `ensure_object(dict)` gets its own `dict`, and `make_pass_decorator(Renderer)` still finds the root's renderer up the context chain. Run on its own, a group gets a fresh `Renderer` from `ensure=True`. | `git grep -nE 'ctx\.obj\|ensure_object' workmain`; probe, 20261014 |
 | A `Mock(spec=Renderer)` passed as `CliRunner.invoke(..., obj=...)` reaches a command through `make_pass_decorator(Renderer)`. | Probe, 20261014 |
 | A `click.Group` subclass whose `invoke` re-raises a caught exception as `click.ClickException` makes the command exit 1 with `Error: <message>` on stderr and nothing on stdout. | Probe, 20261014 |
@@ -121,8 +133,8 @@ Verified on `feature/issue-58-cli-output-module` at `51639df`, 20261014. Study f
   - **`cancelled()`.** It prints `Cancelled.`.
   - **`warning(text, stderr=False)`.** It prints a yellow `⚠` and the text, on `err_console` when `stderr` is `True`.
   - **`pass_renderer`.** It is `click.make_pass_decorator(Renderer, ensure=True)`.
-  - **The root group.** It sets `ctx.obj = Renderer()` in place of `ctx.ensure_object(dict)`.
-  - **`WorkmainGroup(click.Group)`.** Its `invoke` re-raises a `ServiceValidationError` as `click.ClickException(str(exc))`, chained `from` it. `tasks` is declared `@click.group(cls=WorkmainGroup)`.
+  - **The root group.** It calls `ctx.ensure_object(Renderer)` in place of `ctx.ensure_object(dict)`, so a renderer passed with `CliRunner.invoke(cli, ..., obj=...)` is kept and one is created otherwise.
+  - **`WorkmAInGroup(click.Group)`** and **`_StubCommandError`** move from `interface.py` to `output.py`. `invoke` keeps its `NotImplementedError` branch, and gains one that re-raises a `ServiceValidationError` as `click.ClickException(str(exc))`, chained `from` it. `_StubCommandError.show` prints the same two lines as today through a `Console()` it builds in the method. `cli` and `tasks` are both declared `cls=WorkmAInGroup`.
   - **The command.** It catches nothing it only reports, and has no `sys.exit`. A cancelled pick returns normally, so it exits 0.
 - **DR9 — Arguments.** `workmain/cli/params.py`:
   - **`DateParamType(click.ParamType)`** (`name = "date"`) converts `today`, `yesterday` and `YYYY-MM-DD` to a `date`, and calls `self.fail` otherwise.
@@ -160,7 +172,7 @@ Issues #220 and #221 are closed and on `dev`. Merge `dev` into this branch (`git
    - `TaskRow`: `note_id: int`, `status: str`, `created_date: Optional[date]`, `tags: Tuple[str, ...]`, `content: str`
    - `TaskDetail`: `note_id`, `status`, `created_at: Optional[datetime]`, `completed_at: Optional[datetime]`, `dismissed_at: Optional[datetime]`, `forwarding_note_id: Optional[int]`, `tags`, `meeting_id: Optional[int]`, `meeting_title: Optional[str]`, `content`
 
-   `TaskStatus.completed_at` goes to `completed_at` when the status is `completed`, and to `dismissed_at` when it is `dismissed` (study Q16).
+   `created_at` is `Note.created_at`. `TaskStatus.completed_at` goes to `completed_at` when the status is `completed`, and to `dismissed_at` when it is `dismissed` (study Q16).
 
    Functions:
    - `list_tasks(session, status, search, created, limit) -> Page[TaskRow]`. Filters: `status` unless it is `all`, then `search` and `created` when given.
@@ -176,9 +188,9 @@ Issues #220 and #221 are closed and on `dev`. Merge `dev` into this branch (`git
 
 ### Step 3 — renderer
 
-`workmain/cli/output.py` per DR4–DR8: `Column`, `Field`, `CollectionView`, `RecordView`, `TABLE_MAX_LINES`, `Renderer`, `pass_renderer` and `WorkmainGroup`. It names no command group, opens no session and imports no repository or service module except `workmain.services.exceptions` and `workmain.services.results`.
+`workmain/cli/output.py` per DR4–DR8: `Column`, `Field`, `CollectionView`, `RecordView`, `TABLE_MAX_LINES`, `Renderer`, `pass_renderer`, and `WorkmAInGroup` with `_StubCommandError` moved from `interface.py`. It names no command group, opens no session and imports no repository or service module except `workmain.services.exceptions` and `workmain.services.results`.
 
-In `interface.py`, `ctx.ensure_object(dict)` becomes `ctx.obj = Renderer()`.
+In `interface.py`, `ctx.ensure_object(dict)` becomes `ctx.ensure_object(Renderer)`, the two classes are removed, and `WorkmAInGroup` is imported from `output.py`.
 
 `tests/test_output.py`: O1–O24.
 
@@ -197,7 +209,7 @@ In `interface.py`, `ctx.ensure_object(dict)` becomes `ctx.obj = Renderer()`.
 | `tasks show` | — | `find_tasks`, then `renderer.pick(TASK_LIST, page)`, then (unless `None`) `get_task(session, row.note_id)` in a new scope, then `renderer.record(TASK_RECORD, detail)`; `None` calls `renderer.cancelled()` |
 | `tasks complete` / `dismiss` | — | as `show`, with `complete_task` / `dismiss_task` and `renderer.changed(TASK_RECORD, row, "Completed" \| "Dismissed")` |
 
-The group is `@click.group(cls=WorkmainGroup)`, and each command takes `renderer` through `@pass_renderer`. Remove:
+The group is `@click.group(cls=WorkmAInGroup)`, and each command takes `renderer` through `@pass_renderer`. Remove:
 
 - `_resolve_task`, `_parse_date_filter` and `_format_task_row`;
 - the `console`, and every Rich, repository and `get_db().get_session` import.
@@ -222,7 +234,7 @@ Write against the text `dev` holds after #220 and #221. Neither changes the sect
 
 3. **§5.6.** After the bullet "Raw `print()` is not permitted in command files.", insert:
 
-   > - **A command converted to the renderer** (`workmain/cli/output.py`) parses its arguments with Click types (`workmain/cli/params.py`), calls a function in `workmain/services/` inside a `session_scope()` it owns, closes the scope, and passes the service's result, unchanged, to the `Renderer` it receives through `@pass_renderer`, with a view it declares as a module constant. It builds no rows and formats no values. It imports no Rich, calls no `click.echo` or `print()`, and has no `sys.exit`. Its group is declared with `cls=WorkmainGroup`, so a `ServiceValidationError` reaches the user as Click's `Error: <message>` on stderr with exit 1. A cancelled pick returns normally.
+   > - **A command converted to the renderer** (`workmain/cli/output.py`) parses its arguments with Click types (`workmain/cli/params.py`), calls a function in `workmain/services/` inside a `session_scope()` it owns, closes the scope, and passes the service's result, unchanged, to the `Renderer` it receives through `@pass_renderer`, with a view it declares as a module constant. It builds no rows and formats no values. It imports no Rich, calls no `click.echo` or `print()`, and has no `sys.exit`. Its group is declared with `cls=WorkmAInGroup`, so a `ServiceValidationError` reaches the user as Click's `Error: <message>` on stderr with exit 1. A cancelled pick returns normally.
    > - **A view.** A `CollectionView` names its noun, its columns and an optional hint shown when it is empty. A `Column` names a field of the result's row, a label, a kind and an optional `fmt`. A `RecordView` names its resource, the fields that give its id and descriptor, its `Field`s, and an optional body field. `fmt` is a pure function from the module that owns the value's domain, used only in human layouts.
    > - **Column kinds.** A **key** holds a value of bounded length (an ID, date, time, status, count or amount) and is printed at full width, never wrapped or shortened. A **text** column holds everything else, names and paths included, and wraps at spaces, folding a word longer than the column. No value is cut. A value too long to scan in a collection, such as a report body, is not a column; the item's `show` command prints it.
    > - **Table or list.** The renderer prints a collection as a table while every key column fits at full width and the whole table is at most 30 lines. Otherwise it prints a list: one record per row, a blank line between records, one unwrapped `Label: value` line per column with the labels aligned. The limit is fixed rather than the terminal's height, so captured output lays out as a terminal does. A long list is read through `less` or `grep`.
@@ -244,7 +256,7 @@ Write against the text `dev` holds after #220 and #221. Neither changes the sect
 
 5. **§7.** After the `CLI commands` row, insert:
 
-   > `| CLI output: the renderer, views and the group class | workmain/cli/output.py |`
+   > `| CLI output: the renderer, views and the group class (WorkmAInGroup) | workmain/cli/output.py |`
    > `| CLI argument types | workmain/cli/params.py |`
 
 ### Step 6 — results artifact
@@ -267,7 +279,7 @@ None. This spec runs no migration, deletes no GitHub object, merges nothing to `
 | AC2.2 | A value in square brackets prints as written in every layout. | `pytest "tests/test_output.py::TestCollectionText::test_bracketed_values_print_verbatim"` |
 | AC2.3 | The picker takes a number or `q`, and asks again on Enter, `0`, `-1`, a number past the list, or other text. | `pytest tests/test_output.py::TestPick tests/test_cli_params.py::TestPickParamType` |
 | AC2.4 | A record prints every field that has a value, never a cut line, and keeps `0` and `False`. | `pytest tests/test_output.py::TestRecord` |
-| AC2.5 | A service error reaches the user as `Error: <message>` on stderr with exit 1, after the command's scope has rolled back. | `pytest tests/test_output.py::TestWiring` |
+| AC2.5 | A service error reaches the user as `Error: <message>` on stderr with exit 1, and a stub command's `NotImplementedError` still prints its `Not implemented:` message with exit 1. | `pytest tests/test_output.py::TestWiring` |
 | AC3.1 | A command author knows from `docs/DEVELOPMENT_STANDARDS.md` §5.6 how a converted command declares a view, how a column, a line, a record and the picker behave, and how its errors reach the user. | A stated reading by Ray of §5.6 for exactly that. |
 | AC4.1 | A test author knows from `docs/DEVELOPMENT_STANDARDS.md` §6.2 how to test a service, the renderer, a parameter type and a command, and that a command run as an EOD child process is also covered at its EOD step. | A stated reading by Ray of §6.2 for exactly that. |
 | AC5.1 | `docs/DEVELOPMENT_STANDARDS.md` §4.3 states that `TaskStatusRepository.get_filtered` loads each task's note with the rows. | A stated reading by Ray of §4.3. |
@@ -297,7 +309,7 @@ The test method names below are the spec's. AC node IDs cite the three that the 
 | S3 | `TestListTasks` | `status='all'` on a date holding an active, a completed and a dismissed task: all three. |
 | S4 | `TestListTasks` | `status='completed'` on that date: only the completed one. |
 | S5 | `TestListTasks` | A row's `note_id`, `status`, `created_date`, `tags` and `content` equal what was seeded. |
-| S6 | `TestListTasks` | `test_statement_count_does_not_grow_with_rows`. A `before_cursor_execute` listener on `db_session.connection()` counts statements during `list_tasks`, and the count is equal for one task and for five, each set on its own date. |
+| S6 | `TestListTasks` | `test_statement_count_does_not_grow_with_rows`. Seed, then `db_session.expunge_all()`, then a `before_cursor_execute` listener on `db_session.connection()` counts the statements of `list_tasks`. The count is equal for one task and for five, each set on its own date. Observed to fail without `contains_eager` (§2). |
 | S7 | `TestListTasks` | `filters` is `(("status", "active"), ("search", "x"), ("created", <date>))` when all three are given, and `()` for `status='all'` with no search or date. |
 | S8 | `TestListToday` | `list_today(session, None, <sentinel>)` returns the active tasks on that date and not a completed one, with `filters` `(("status", "active"), ("created", <sentinel>))`. |
 | S9 | `TestFindTasks` | `find_tasks(str(note_id))` for a task: one row, `filters` `()`. |
@@ -319,7 +331,7 @@ The test method names below are the spec's. AC node IDs cite the three that the 
 | T | Class | What it shows |
 | --- | --- | --- |
 | P1 | `TestDateParamType` | `convert` gives `date.today()` for `today`, the day before for `yesterday`, and the date for `2099-01-01`. |
-| P2 | `TestDateParamType` | A throwaway command with a `DateParamType` option, run with `notadate`: exit 2, and `Error:` on stderr. |
+| P2 | `TestDateParamType` | A throwaway command with a `DateParamType` option, run through `CliRunner(mix_stderr=False)` with `notadate`: exit 2, and `Error:` in `result.stderr`. |
 | P3 | `TestPickParamType` | `PickParamType(3)` converts `q` and `Q` to `None`, and `2` to `2`. |
 | P4 | `TestPickParamType` | `0`, `-1`, `4` and `x` each raise `click.BadParameter` carrying `Enter a number from 1 to 3, or q.` |
 
@@ -341,18 +353,18 @@ The test method names below are the spec's. AC node IDs cite the three that the 
 | O12 | `TestRecord` | Fields that are `None`, `""` and `()` are left out, and fields that are `0` and `False` print. |
 | O13 | `TestRecord` | The title is `Task #<id> — <status>`, the labels are aligned, and a blank line comes before the body. |
 | O14 | `TestRecord` | A 40-word body at width 40: all 40 words appear (F28). |
-| O15 | `TestPick` | One row: it is returned, and no prompt is printed. |
+| O15 | `TestPick` | One row: it is returned, and the stdout stream yielded by `CliRunner().isolation(input="")` holds no `Select`. |
 | O16 | `TestPick` | Input `q`: `None`. |
-| O17 | `TestPick` | Three rows, with the inputs empty, `0`, `-1`, `4` and `x`, then `2`: the second row, and four `Enter a number from 1 to 3, or q.` lines. |
+| O17 | `TestPick` | Three rows, with the inputs empty, `0`, `-1`, `4` and `x`, then `2`: the second row. The stdout stream yielded by `CliRunner().isolation(...)` holds four `Error: Enter a number from 1 to 3, or q.` lines. |
 | O18 | `TestPick` | `test_capped_candidates_say_so`: 10 rows with `total=14` print `10 of 14 shown — refine the search`. |
 | O19 | `TestPick` | At width 120, a `#` column numbered 1–3. At width 30, records opened by `[1]`, `[2]` and `[3]`. |
 | O20 | `TestLines` | `changed(view, row, "Completed")` at width 20: one line, `✓ Completed task #<id>: <content>`. |
 | O21 | `TestLines` | `cancelled()` prints `Cancelled.`, and `warning("w", stderr=True)` writes only to `err_console`. |
 | O22 | `TestWiring` | A command with `@pass_renderer`, run with no `obj`, receives a `Renderer`; run with `obj=<Renderer>`, receives that one. |
-| O23 | `TestWiring` | A throwaway `WorkmainGroup` whose command raises `ServiceValidationError("no such task")`: exit 1, stderr `Error: no such task`, stdout empty. |
-| O24 | `TestWiring` | The same command first adds a note on a sentinel date inside `get_db().session_scope()` and raises inside the scope: the note is absent through `db_session`. |
+| O23 | `TestWiring` | A throwaway group declared `cls=WorkmAInGroup` whose command raises `ServiceValidationError("no such task")`, run through `CliRunner(mix_stderr=False)`: exit 1, `result.stderr` is `Error: no such task`, and stdout is empty. |
+| O24 | `TestWiring` | The same group with a command that raises `NotImplementedError("needs OAuth")`: exit 1, and stdout holds `Not implemented: needs OAuth`. |
 
-**`tests/test_task_lifecycle.py`, command tests.** Each test runs `CliRunner(mix_stderr=False).invoke(tasks, [...], obj=renderer)`, with `renderer = Mock(spec=Renderer)` and the named `tasks_service` functions patched with `patch.object(..., autospec=True)`.
+**`tests/test_task_lifecycle.py`, command tests.** Each test runs `CliRunner(mix_stderr=False).invoke(tasks, [...], obj=renderer)`, with `renderer = Mock(spec=Renderer)` and the named `tasks_service` functions patched with `patch.object(..., autospec=True)`. `renderer.pick.return_value` is a `TaskRow` with `note_id` 42 unless the test sets it to `None`.
 
 | T | Class | What it shows |
 | --- | --- | --- |
@@ -371,11 +383,12 @@ The test method names below are the spec's. AC node IDs cite the three that the 
 | C13 | `TestTasksCompleteDismissCommand` | `dismiss` with `find_tasks` raising `NotATaskError`: exit 1, and `dismiss_task` not called. |
 | C14 | `TestTasksGroup` | `list --help`: exit 0, and `--status` in the output. |
 | C15 | `TestTasksGroup` | `carryover`: a non-zero exit and `no such command`. |
-| C16 | `TestTasksGroup` | `cli` (the root group) with `["tasks", "list"]`, `list_tasks` patched and `Renderer.collection` patched with `patch.object(Renderer, "collection", autospec=True)`: called once, so the root wires a `Renderer` onto `ctx.obj`. |
+| C16 | `TestTasksGroup` | `cli` (the root group) with `["tasks", "list"]` and no `obj`, `list_tasks` patched, and `Renderer.collection` patched with `patch.object(Renderer, "collection", autospec=True)` whose side effect records `click.get_current_context().find_root().obj`: the recorded object is a `Renderer`, so the root put it there. |
 
 ## 7. Risks and rollback
 
 - **What `tasks` prints changes.** Errors move to stderr through Click. A bad `--status` or `--date` exits 2 instead of 1. Content is no longer cut, titles and empty lines follow the generic rule, and `show` becomes a panel. §2 found no caller other than the terminal. Each change is a study answer or a Decision Log row.
+- **`WorkmAInGroup` moves.** The stub path's output is unchanged and O24 now pins it. `interface.py` imports the class instead of defining it.
 - **`ctx.obj` changes type.** The root's unused `dict` becomes a `Renderer`. `time`'s own `dict` still works (§2). #216 has to move `show_ids` before `time`'s commands take `@pass_renderer`, or a `time` command run on its own would find a `Renderer` where it expects a `dict`.
 - **Rich's column behaviour was measured on 13.7.0.** O2–O5 and O14 hold the thresholds and the panel fix to it, so an upgrade that changes them fails those tests rather than the display.
 - **`contains_eager` depends on the one join `_filtered_query` makes.** A second join to `Note` added later would populate the relationship from the wrong alias. S5 and S6 run every filter path that exists today, and #223 revisits the method.
