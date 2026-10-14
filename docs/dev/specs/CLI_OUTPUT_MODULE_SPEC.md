@@ -28,6 +28,9 @@
 | 20261014 | Caliper | C9, C10 and C12 depend on `renderer.pick`'s return value but don't set it. | Accepted. Every command test sets `renderer.pick.return_value` to a `TaskRow` with `note_id` 42 unless it states `None`. |
 | 20261014 | Caliper | `TaskDetail.created_at` had no named source. `Note.created_at` is nullable and `TaskStatus.created_at` isn't. | Accepted. It is `Note.created_at`, which `tasks show` prints today (`tasks.py:311`). Step 1.4. |
 | 20261014 | Caliper | AC2.5's "after the command's scope has rolled back" is checked by O24, which nothing this spec builds can fail. The rollback is `session_scope()`'s own, and the test factory has `autoflush=False`. | Accepted. The clause leaves AC2.5 and the rollback test is dropped. O24 now tests the `NotImplementedError` path (finding 1). |
+| 20261014 | Caliper | O24 depends on terminal width. `_StubCommandError.show` prints through a plain `Console()` without `soft_wrap` (`interface.py:69-71`), so at `COLUMNS=20` the 28-character line wraps, AC10.1 fails, and the print breaks the §5.6 lines rule Step 5 writes. | Accepted. Both `show` lines print with `soft_wrap=True`. The message reaches Rich as `Text`, not inside a markup string, because a bracketed message would otherwise be dropped (F19). These are the only changes to the stub path, and DR8 records them. |
+| 20261014 | Caliper | C15 reads `result.output`, but under `CliRunner(mix_stderr=False)` Click's `No such command 'carryover'.` is on stderr. C14 reads `--status` from help text on stdout, which §6.2's new text forbids. | Accepted. C15 reads `result.stderr`. C14 asserts exit 0 for `list --help` and that `task_list.params` holds an option whose `opts` include `--status`, so it reads no printed text. §6.2 is unchanged. |
+| 20261014 | Caliper | `workmain/services/__init__.py` was out of scope, though §3.4 requires a package whose callers write `from workmain.services import <name>` to import that name and list it in `__all__`. | Accepted. Step 1 adds `tasks_service` to its imports and `__all__`. `ai_cost_service` is already imported that way (`providers.py`, `report_generator.py`, `tests/test_ai_costs.py`) and is not in `__all__`. That is an existing gap outside this change, and its placement is put to Ray. |
 | 20261014 | Spanner | Where a result's render function lives (first draft) | Superseded by study Q7 (Ray). There are no per-result render functions. |
 | 20261014 | Spanner | The tasks candidate search | `get_filtered(status='all', search=..., limit=10)` and `count_filtered(status='all', search=...)`, both existing. No new repository method. |
 | 20261014 | Spanner | A list's lines are unwrapped | Each `Label: value` line prints with `soft_wrap=True`, so piped output carries one field per line, which is what makes a list greppable (study Q2). |
@@ -43,6 +46,7 @@
 - `workmain/services/results.py`, new: `Page`, the result of every collection query.
 - `workmain/services/tasks_service.py`, new: the tasks dataclasses and functions.
 - `workmain/services/exceptions.py`: two new exceptions.
+- `workmain/services/__init__.py`: `tasks_service` imported and listed in `__all__` (`docs/DEVELOPMENT_STANDARDS.md` §3.4).
 - `workmain/database/repositories/task_status_repo.py`: `get_filtered` loads each task's note with the rows.
 - `workmain/cli/params.py`, new: `DateParamType` and `PickParamType`.
 - `workmain/cli/output.py`, new: `Column`, `Field`, `CollectionView`, `RecordView`, `Renderer` and `pass_renderer`, and `WorkmAInGroup` with `_StubCommandError`, moved from `interface.py`.
@@ -134,7 +138,7 @@ Verified on `feature/issue-58-cli-output-module` at `51639df`, 20261014. Study f
   - **`warning(text, stderr=False)`.** It prints a yellow `⚠` and the text, on `err_console` when `stderr` is `True`.
   - **`pass_renderer`.** It is `click.make_pass_decorator(Renderer, ensure=True)`.
   - **The root group.** It calls `ctx.ensure_object(Renderer)` in place of `ctx.ensure_object(dict)`, so a renderer passed with `CliRunner.invoke(cli, ..., obj=...)` is kept and one is created otherwise.
-  - **`WorkmAInGroup(click.Group)`** and **`_StubCommandError`** move from `interface.py` to `output.py`. `invoke` keeps its `NotImplementedError` branch, and gains one that re-raises a `ServiceValidationError` as `click.ClickException(str(exc))`, chained `from` it. `_StubCommandError.show` prints the same two lines as today through a `Console()` it builds in the method. `cli` and `tasks` are both declared `cls=WorkmAInGroup`.
+  - **`WorkmAInGroup(click.Group)`** and **`_StubCommandError`** move from `interface.py` to `output.py`. `invoke` keeps its `NotImplementedError` branch, and gains one that re-raises a `ServiceValidationError` as `click.ClickException(str(exc))`, chained `from` it. `_StubCommandError.show` prints the same two lines as today through a `Console()` it builds in the method, with two changes: each line prints with `soft_wrap=True`, and the message reaches Rich as `Text` (DR6). `cli` and `tasks` are both declared `cls=WorkmAInGroup`.
   - **The command.** It catches nothing it only reports, and has no `sys.exit`. A cancelled pick returns normally, so it exits 0.
 - **DR9 — Arguments.** `workmain/cli/params.py`:
   - **`DateParamType(click.ParamType)`** (`name = "date"`) converts `today`, `yesterday` and `YYYY-MM-DD` to a `date`, and calls `self.fail` otherwise.
@@ -149,7 +153,7 @@ Verified on `feature/issue-58-cli-output-module` at `51639df`, 20261014. Study f
 | Step | Deliverable | Files |
 | --- | --- | --- |
 | 0 | `dev` merged in, carrying #220 and #221 | — |
-| 1 | `Page`, the tasks service and exceptions, `get_filtered` eager load, service tests | `workmain/services/results.py`, `workmain/services/tasks_service.py`, `workmain/services/exceptions.py`, `workmain/database/repositories/task_status_repo.py`, `tests/test_tasks_service.py` |
+| 1 | `Page`, the tasks service and exceptions, `get_filtered` eager load, service tests | `workmain/services/results.py`, `workmain/services/tasks_service.py`, `workmain/services/exceptions.py`, `workmain/services/__init__.py`, `workmain/database/repositories/task_status_repo.py`, `tests/test_tasks_service.py` |
 | 2 | Click parameter types and their tests | `workmain/cli/params.py`, `tests/test_cli_params.py` |
 | 3 | The renderer, views, group class and root wiring, and their tests | `workmain/cli/output.py`, `workmain/cli/interface.py`, `tests/test_output.py` |
 | 4 | `tasks` converted, with command tests | `workmain/cli/commands/tasks.py`, `tests/test_task_lifecycle.py` |
@@ -180,7 +184,8 @@ Issues #220 and #221 are closed and on `dev`. Merge `dev` into this branch (`git
    - `find_tasks` per DR3.
    - `get_task(session, note_id) -> TaskDetail`.
    - `complete_task(session, note_id) -> TaskRow` and `dismiss_task(session, note_id) -> TaskRow`.
-5. `tests/test_tasks_service.py`: S1–S21.
+5. `workmain/services/__init__.py` imports `tasks_service` and lists it in `__all__`.
+6. `tests/test_tasks_service.py`: S1–S21.
 
 ### Step 2 — parameter types
 
@@ -362,7 +367,7 @@ The test method names below are the spec's. AC node IDs cite the three that the 
 | O21 | `TestLines` | `cancelled()` prints `Cancelled.`, and `warning("w", stderr=True)` writes only to `err_console`. |
 | O22 | `TestWiring` | A command with `@pass_renderer`, run with no `obj`, receives a `Renderer`; run with `obj=<Renderer>`, receives that one. |
 | O23 | `TestWiring` | A throwaway group declared `cls=WorkmAInGroup` whose command raises `ServiceValidationError("no such task")`, run through `CliRunner(mix_stderr=False)`: exit 1, `result.stderr` is `Error: no such task`, and stdout is empty. |
-| O24 | `TestWiring` | The same group with a command that raises `NotImplementedError("needs OAuth")`: exit 1, and stdout holds `Not implemented: needs OAuth`. |
+| O24 | `TestWiring` | The same group with a command that raises `NotImplementedError("needs [OAuth]")`: exit 1, and stdout holds the single line `Not implemented: needs [OAuth]`, at any `COLUMNS` value. |
 
 **`tests/test_task_lifecycle.py`, command tests.** Each test runs `CliRunner(mix_stderr=False).invoke(tasks, [...], obj=renderer)`, with `renderer = Mock(spec=Renderer)` and the named `tasks_service` functions patched with `patch.object(..., autospec=True)`. `renderer.pick.return_value` is a `TaskRow` with `note_id` 42 unless the test sets it to `None`.
 
@@ -381,14 +386,14 @@ The test method names below are the spec's. AC node IDs cite the three that the 
 | C11 | `TestTasksCompleteDismissCommand` | `complete` with `renderer.pick` returning `None`: `complete_task` not called, exit 0. |
 | C12 | `TestTasksCompleteDismissCommand` | `complete_task` raising `NotATaskError`: exit 1, and the message on stderr. |
 | C13 | `TestTasksCompleteDismissCommand` | `dismiss` with `find_tasks` raising `NotATaskError`: exit 1, and `dismiss_task` not called. |
-| C14 | `TestTasksGroup` | `list --help`: exit 0, and `--status` in the output. |
-| C15 | `TestTasksGroup` | `carryover`: a non-zero exit and `no such command`. |
+| C14 | `TestTasksGroup` | `list --help` exits 0, and `task_list.params` holds an option whose `opts` include `--status`. No printed text is read. |
+| C15 | `TestTasksGroup` | `carryover`: a non-zero exit, and `no such command` in `result.stderr.lower()`. |
 | C16 | `TestTasksGroup` | `cli` (the root group) with `["tasks", "list"]` and no `obj`, `list_tasks` patched, and `Renderer.collection` patched with `patch.object(Renderer, "collection", autospec=True)` whose side effect records `click.get_current_context().find_root().obj`: the recorded object is a `Renderer`, so the root put it there. |
 
 ## 7. Risks and rollback
 
 - **What `tasks` prints changes.** Errors move to stderr through Click. A bad `--status` or `--date` exits 2 instead of 1. Content is no longer cut, titles and empty lines follow the generic rule, and `show` becomes a panel. §2 found no caller other than the terminal. Each change is a study answer or a Decision Log row.
-- **`WorkmAInGroup` moves.** The stub path's output is unchanged and O24 now pins it. `interface.py` imports the class instead of defining it.
+- **`WorkmAInGroup` moves.** The stub path prints the same text, now unwrapped and with bracketed messages intact, and O24 pins it. `interface.py` imports the class instead of defining it.
 - **`ctx.obj` changes type.** The root's unused `dict` becomes a `Renderer`. `time`'s own `dict` still works (§2). #216 has to move `show_ids` before `time`'s commands take `@pass_renderer`, or a `time` command run on its own would find a `Renderer` where it expects a `dict`.
 - **Rich's column behaviour was measured on 13.7.0.** O2–O5 and O14 hold the thresholds and the panel fix to it, so an upgrade that changes them fails those tests rather than the display.
 - **`contains_eager` depends on the one join `_filtered_query` makes.** A second join to `Note` added later would populate the relationship from the wrong alias. S5 and S6 run every filter path that exists today, and #223 revisits the method.
