@@ -99,4 +99,4 @@ Each needs an owner. Ray decides whether it gets its own issue, joins an existin
 
 ## 6. Disposition
 
-- Promoted to: —
+- Promoted to: `../specs/INTEGRATION_EXIT_CODE_SPEC.md`
