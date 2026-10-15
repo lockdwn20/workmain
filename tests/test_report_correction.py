@@ -444,6 +444,41 @@ class TestReportListStatusCLI:
         assert 'IDENTIFIER' in result.output
 
 
+class TestReportConfirmCommandPath:
+    """reports confirm routes through ReportsRepository.confirm (Issue 167)."""
+
+    def _run(self, db_session, report_date, status):
+        row = Report(report_type='zz_issue167', report_date=report_date,
+                     content='test content', status=status)
+        db_session.add(row)
+        db_session.commit()
+        db_session.refresh(row)
+        before = row.updated_at
+        real = ReportsRepository.confirm
+        with patch.object(ReportsRepository, 'confirm', autospec=True,
+                          side_effect=real) as spy:
+            result = CliRunner().invoke(reports, ['confirm', str(row.id)])
+        assert result.exit_code == 0
+        spy.assert_called_once_with(ANY, row.id)
+        db_session.refresh(row)
+        return row, before
+
+    def test_confirms_unconfirmed_and_stamps_updated_at(self, db_session):
+        row, before = self._run(db_session, date(2100, 9, 10), 'unconfirmed')
+        assert row.status == 'confirmed'
+        assert row.updated_at > before
+
+    def test_leaves_confirmed_unchanged(self, db_session):
+        row, before = self._run(db_session, date(2100, 9, 11), 'confirmed')
+        assert row.status == 'confirmed'
+        assert row.updated_at == before
+
+    def test_leaves_corrected_unchanged(self, db_session):
+        row, before = self._run(db_session, date(2100, 9, 12), 'corrected')
+        assert row.status == 'corrected'
+        assert row.updated_at == before
+
+
 # ---------------------------------------------------------------------------
 # CLI — reports confirm (using real session for data visibility)
 # ---------------------------------------------------------------------------
