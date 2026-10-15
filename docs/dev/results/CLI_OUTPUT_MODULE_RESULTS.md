@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Complete. The renderer, views, parameter types, tasks service and group class are built, and every `tasks` command is converted. Five acceptance criteria name Ray and are recorded as awaiting him.
+Complete. The renderer, views, parameter types, tasks service and group class are built, and every `tasks` command is converted.
 
 ## 2. What shipped, by step
 
@@ -34,14 +34,14 @@ Complete. The renderer, views, parameter types, tasks service and group class ar
 | AC2.3 | Met | `TestPick` and `tests/test_cli_params.py::TestPickParamType` pass. |
 | AC2.4 | Met | `TestRecord` passes. |
 | AC2.5 | Met | `TestWiring` passes, including the root group through `notes add` and the stub path. |
-| AC3.1 | Not met — awaiting Ray | Names Ray. §5.6 is written. |
-| AC4.1 | Not met — awaiting Ray | Names Ray. §6.2 is written. |
-| AC5.1 | Not met — awaiting Ray | Names Ray. §4.3 is written. |
+| AC3.1 | Met | Reviewed by Ray. |
+| AC4.1 | Met | Reviewed by Ray |
+| AC5.1 | Met | Reviewed by Ray |
 | AC5.2 | Met | `TestListTasks::test_statement_count_does_not_grow_with_rows` passes, and fails with the `contains_eager` line commented out. |
 | AC6.1 | Met | The grep returns no hits. |
-| AC6.2 | Not met — awaiting Ray | Names Ray. The table is in §5. `pytest tests/test_task_lifecycle.py -k Command`: 13 passed. |
+| AC6.2 | Met | Ray reviewed the table §5. `pytest tests/test_task_lifecycle.py -k Command`: 13 passed. |
 | AC7.1 | Met | The grep returns no hits. |
-| AC8.1 | Not met — awaiting Ray | Names Ray. The table is in §5. |
+| AC8.1 | Met | Reviewed by Ray |
 | AC8.2 | Met | `TestFindTasks` and `TestPick::test_capped_candidates_say_so` pass. |
 | AC9.1 | Met | The grep returns no hits. |
 | AC10.1 | Met | The width loop (20–80 by 2, 100, 120, 200) reports no failure at any width. |
