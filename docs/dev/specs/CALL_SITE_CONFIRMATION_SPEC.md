@@ -1,6 +1,6 @@
 # Call Site Confirmation — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261015
 **Branch:** `chore/issue-232-call-site-confirmation` (from `main`, merges to `main` and `dev`)
@@ -19,6 +19,7 @@
 | 20261015 | Caliper | 4: AC1.2 checks the template, a property issue AC1 does not cover; under §1.2 an unmapped sub-AC verifies nothing the issue asked for. Renumber it AC2.1 and record that issue AC2 is added at close-out | Accepted. AC2.1, and the Spanner row above names issue AC2 |
 | 20261015 | Caliper | 7: AC1.1's grep covers only the bullet's first sentence; omitting the second would still return 1 | Accepted. The check also greps the second sentence |
 | 20261015 | Caliper | 7: AC1.2's check only proves the old text is gone; deleting the row, or rewording it without the §1.2 citation, also passes | Accepted, with the pattern changed. A positive grep for the new row text now leads the check. Caliper's pattern ended in a literal `\|`, which splits a §5 row for `closeout_acs.py`; the check drops the pipe and counts the shared prefix as 1 instead of the old text as 0 |
+| 20261015 | Ray | **Approved** | Status Draft → Approved. Implementation may begin at step 1 |
 
 ---
 
