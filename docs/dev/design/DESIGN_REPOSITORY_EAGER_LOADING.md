@@ -48,9 +48,9 @@ Rows already loaded eagerly are marked **done**. In the loader column, "join pre
 | `TaskStatusRepository.get_filtered` | `tasks_service.py:86`, `99`, `126` (`tasks list/today/find`); `action_executor.py:162`, `187`, `287` via `_find_task` (Slack); `scheduler.py:65` via `build_morning_briefing` (T1); `eod_workflow.py:471`, `632`, `676` (EOD steps 3c, 3d) | `TaskStatus.note` | yes | `contains_eager` — **done** (#58) |
 | `TimeEntriesRepository.get_unsynced_entries` | `sync.py:85` → `push_entries` reads at `97`, `110`, `142` (`clockify sync push`) | `TimeEntry.note` (and `project_id`, F6) | no | `joinedload` |
 | `TimeEntriesRepository.get_by_date` | `clockify.py:275` → `push_entries` (`clockify sync push -d`) | `TimeEntry.note` | no | `joinedload` |
-|  | `clockify.py:426` → `push_entries` (`clockify sync both`) | `TimeEntry.note` |  |  |
-|  | `eod_workflow.py:335`, read at `345` (EOD review step, non-interactive) | `TimeEntry.note` |  |  |
-|  | `time.py:593` and, through `get_today`, `time.py:490` → `format_time_entry_display` at `48`, `55-56` (`time date`, `time today`) | `TimeEntry.note`, `TimeEntry.project` |  |  |
+| `get_by_date`, continued | `clockify.py:426` → `push_entries` (`clockify sync both`) | `TimeEntry.note` | no | `joinedload` |
+| `get_by_date`, continued | `eod_workflow.py:335`, read at `345` (EOD review step, non-interactive) | `TimeEntry.note` | no | `joinedload` |
+| `get_by_date`, continued | `time.py:593` and, through `get_today`, `time.py:490` → `format_time_entry_display` at `48`, `55-56` (`time date`, `time today`) | `TimeEntry.note`, `TimeEntry.project` | no | `joinedload` |
 | `TimeEntriesRepository.get_date_range` | through `get_week`, `time.py:527` → `format_time_entry_display` (`time week`); `field_manager.py:148` → `_time_entry_to_dict` at `223`, `228`, `230` (`templates preview`) | `TimeEntry.note`, `TimeEntry.project` | no | `joinedload` |
 | `TimeEntriesRepository.get_for_date_client` | `prompt_builder.py:427` → read at `435`, `438` (daily and weekly report generation, when a section declares `time_entries`) | `TimeEntry.note`, `TimeEntry.project` | no | `joinedload` |
 | `TimeEntriesRepository.get_by_meeting` | `meetings.py:658`, read at `665` (`meetings track`, existing-entry warning) | `TimeEntry.note` | no | `joinedload` |
