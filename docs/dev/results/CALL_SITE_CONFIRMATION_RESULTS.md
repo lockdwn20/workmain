@@ -24,8 +24,8 @@ Complete. `docs/DEVELOPMENT_STANDARDS.md` §1.2 has a new bullet, applied verbat
 
 | AC | Status | Evidence |
 | --- | --- | --- |
-| AC1.1 | Not met | Awaiting Ray. Both greps return 1 at `8c03b40`; output in §5 |
-| AC2.1 | Not met | Awaiting Ray. Both greps return 1 at `8c03b40`; output in §5 |
+| AC1.1 | Met | Reviewed by Ray. Both greps return 1 at `8c03b40`; output in §5 |
+| AC2.1 | Met | Reviewed by Ray. Both greps return 1 at `8c03b40`; output in §5 |
 
 ## 4. Deviations from spec
 
