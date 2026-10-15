@@ -604,6 +604,21 @@ class TestSlackPostRecord:
         db_session.expire_all()
         assert db_session.get(Report, report_id).slack_message_ts == "test-ts-record"
 
+    def test_missing_report_is_not_reported_as_recorded(self, db_session):
+        row = Report(report_type="zz_issue167", report_date=date(2100, 9, 13),
+                     content="test content")
+        db_session.add(row)
+        db_session.commit()
+        report_id = row.id
+        db_session.delete(row)
+        db_session.commit()
+
+        with patch("workmain.cli.commands.slack.err_console") as mock_console:
+            recorded = _record_slack_post(report_id, "test-ts-missing", "#test-channel", "Test WS")
+
+        assert recorded is False
+        mock_console.print.assert_called_once()
+
 
 # ---------------------------------------------------------------------------
 # TestSlackFailureExits — a failed auth or post exits non-zero on stderr

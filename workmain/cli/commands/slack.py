@@ -66,10 +66,10 @@ def _record_slack_post(report_id: int, message_ts: str, channel: str,
     """
     try:
         with get_db().record_scope() as session:
-            report = get_reports_repository(session).get_by_id(report_id)
-            report.slack_message_ts = message_ts
-            report.slack_channel = channel
-            report.slack_workspace_name = workspace_name
+            if not get_reports_repository(session).record_slack_post(
+                report_id, message_ts, channel, workspace_name
+            ):
+                raise LookupError(f"report {report_id} not found")
     except Exception as exc:
         err_console.print(
             f"[red]✗ Posted to {channel} (ts {message_ts}), but recording the "
