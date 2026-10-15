@@ -21,6 +21,8 @@
 | 20261014 | Caliper | 7: AC4.1 passes on current code, because T10 builds its own `WorkmainRun`; nothing ties the Slack command's exit to the step. | Accepted. T10 builds its `WorkmainRun` from a CliRunner run of T4's scenario, so the command's real exit code and stderr reach the step. |
 | 20261014 | Caliper | 3: two more statements become false under DR4 — the comment at `provider_manager.py:463-465` and the `_load_provider_policy` docstring at `391-394`, both saying a failure is "absorbed into _disabled". | Accepted. Step 1 names all four sites with their replacement wording (DR4a). |
 | 20261014 | Caliper | 2: an operator abort at the post prompt (`click.prompt`, `slack.py:632`) raises Click's `Abort` and exits `1`, so not every non-zero exit is a failure. | Accepted. §2 row corrected; DR5's line states the exit code without calling it a failure. |
+| 20261014 | Caliper | 3: §7 says each step reverts on its own, but T10 runs the real Slack command, so reverting step 2 alone fails step 3's T10. | Accepted. §7 states that step 3 depends on step 2. |
+| 20261014 | Caliper | 3: §1's `provider_manager.py` bullet names two statements to update; DR4a names four. | Accepted. §1 cites DR4a. |
 
 ---
 
@@ -28,7 +30,7 @@
 
 **In scope:**
 
-- `workmain/ai/provider_manager.py`: a provider whose constructor raises is recorded only in `_disabled_reasons`, not in `_disabled`. The `_load_config` docstring and the construction comment are updated to match.
+- `workmain/ai/provider_manager.py`: a provider whose constructor raises is recorded only in `_disabled_reasons`, not in `_disabled`. The four statements DR4a lists are reworded to match.
 - `workmain/cli/commands/slack.py`: five failure sites move to the §5.6 Error-row form and exit non-zero. They are the no-token and token-rejected failures in `slack_auth`, and the no-channel, no-token and post-refused failures in `slack_post`.
 - `workmain/workflows/eod_workflow.py`: the line `_run_slack_weekly_step` prints on a non-zero exit, which is false today (study F9).
 - The tests listed in §6.
@@ -155,4 +157,4 @@ New tests follow `docs/DEVELOPMENT_STANDARDS.md` §6.2: methods of plain classes
 
 - **A test that relies on a failed-construction provider being in `_disabled`.** The §2 census found none: every direct `_disabled` use is a config-disabled provider, or a `discard`/`clear` that becomes a no-op. A miss would show as a failure in AC7.1's full run.
 - **A caller that reads the old exit `0` as success.** The only caller in the repository that reads these commands' exit codes is `_run_slack_weekly_step` (§2), and AC4.1 and AC4.2 cover it. An operator's shell script would now see a non-zero exit where it saw `0`, which is the intended correction.
-- **Rollback:** each step is one commit and reverts on its own. Step 1 is independent of steps 2 and 3. Reverting step 2 leaves step 3's message accurate, since it describes any non-zero exit.
+- **Rollback:** each step is one commit. Step 1 is independent of steps 2 and 3 and reverts on its own. Step 3 depends on step 2, because T10 runs the real `slack post weekly` command and fails without step 2's fix, so reverting step 2 means reverting step 3 with it. Step 3 reverts on its own.
