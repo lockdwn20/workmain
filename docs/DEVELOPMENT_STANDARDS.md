@@ -462,6 +462,7 @@ Confirm the new `ActiveEnterTimestamp` postdates the merge commit before calling
   ```
 
 - **A repository method never commits.** It flushes after a write, so the row has its id and its database defaults, and later queries in the session see it.
+- **`TaskStatusRepository.get_filtered` loads each task's note with the rows**, through `contains_eager` on the join it already makes, because every caller reads `.note` on each row and a lazy read costs a query per row.
 - **A write that records an outside action commits on its own.** A row that records something already done outside WorkmAIn's database — a provider call that has been billed, a file in Drive, a Slack message, an entry in Clockify — is written in its own session, opened with `get_db().record_scope()`, immediately after the action, independent of the command's unit of work, so a later failure in the command can't undo the record of something that can't be undone. `record_scope()` is `session_scope()` with a lock timeout, so a record that reaches a row another transaction holds fails instead of waiting.
   - It never writes or references a row the command's open transaction has written. A second session can't see an uncommitted row, and waits on a row the transaction has locked.
   - Its failure is never silent. Cost recording logs a warning and carries on. Every other record reports, on stderr, what happened outside, what was not recorded and what will repeat. The command's exit status doesn't change: the outside action succeeded, and a non-zero exit invites a rerun that would repeat it.
@@ -556,7 +557,6 @@ Confirm the new `ActiveEnterTimestamp` postdates the merge commit before calling
 | `dismiss` | `tasks dismiss` | Deliberate non-completion |
 | `confirm` | `reports confirm` | Attestation without modification |
 | `correct` | `reports correct` | Targeted correction with audit trail; distinct write target |
-| `carryover` | `tasks carryover` | **DEPRECATED (v1.16.0)** — alias for `tasks list`; retires Phase 15 |
 
 - Aliases are permitted for discoverability but must be documented in `--help`.
   - The canonical name must match the standard.
@@ -639,6 +639,15 @@ Reserved across all commands — no flag may reuse these:
 
 - Rich is required.
 - Raw `print()` is not permitted in command files.
+- **A command converted to the renderer** (`workmain/cli/output.py`) parses its arguments with Click types (`workmain/cli/params.py`), calls a function in `workmain/services/` inside a `session_scope()` it owns, closes the scope, and passes the service's result, unchanged, to the `Renderer` it receives through `@pass_renderer`, with a view it declares as a module constant. It builds no rows and formats no values. It imports no Rich, calls no `click.echo` or `print()`, and has no `sys.exit`. Its group is declared with `cls=WorkmAInGroup`, so a `ServiceValidationError` reaches the user as Click's `Error: <message>` on stderr with exit 1. **A converted command that reports an error never exits `0`.** A cancelled pick and a warning are not errors, and exit `0`.
+- **A view.** A `CollectionView` names its noun, its columns and an optional hint shown when it is empty. A `Column` names a field of the result's row, a label, a kind and an optional `fmt`. A `RecordView` names its resource, the fields that give its id and descriptor, its `Field`s, and an optional body field. `fmt` is a pure function from the module that owns the value's domain, used only in human layouts.
+- **Column kinds.** A **key** holds a value of bounded length (an ID, date, time, status, count or amount) and is printed at full width, never wrapped or shortened. A **text** column holds everything else, names and paths included, and wraps at spaces, folding a word longer than the column. No value is cut. A value too long to scan in a collection, such as a report body, is not a column; the item's `show` command prints it.
+- **Table or list.** The renderer prints a collection as a table while every key column fits at full width and the whole table is at most 30 lines. Otherwise it prints a list: one record per row, a blank line between records, one unwrapped `Label: value` line per column with the labels aligned. The limit is fixed rather than the terminal's height, so captured output lays out as a terminal does. A long list is read through `less` or `grep`.
+- **Titles and empty results** are written by the renderer from the filters the service applied: `Tasks (20 of 25 found, status=active)`, and `No tasks found (status=active).` followed by the view's hint.
+- **A record** is a panel titled `<Resource> #<id> — <descriptor>`, showing each field that has a value. `None`, `""` and an empty tuple are no value; `0` and `False` are values.
+- **Values** reach Rich as `Text`, never as markup, because Rich reads `[#85019]` as a style and drops it. A `datetime` prints `YYYY-MM-DD HH:MM`, a `date` `YYYY-MM-DD`, and an empty value `—`.
+- **Lines** that are not a table or panel print with `soft_wrap=True`: Rich inserts no break, so a caller capturing the output receives each line whole. A panel prints without it, because a panel under `soft_wrap` cuts its content.
+- **The picker.** When text matches several records, `Renderer.pick` numbers them by the table-or-list rule (a `#` column, or a `[n]` line opening each record), says `<n> of <total> shown — refine the search` when the service capped them, and asks `Select [1-N, or q to cancel]` through `PickParamType`. `q` cancels. Enter with nothing typed, a number outside the list or other text asks again. The service finds the candidates in one call and acts on the chosen ID in another, which re-reads the record.
 
 | Situation | Pattern |
 | --- | --- |
@@ -740,6 +749,14 @@ Rules:
 6. **A test is a method of a plain class, and it takes what it needs as arguments.** It takes `db_session` for a session (rule 1), `tmp_path` for a directory (rule 7) and `caplog` for log records; anything else it needs, it builds in its own body. pytest hands a fixture only to a test that names it as an argument, so this is the one form in which every test can reach every fixture.
 7. **A test's directory is `tmp_path`.** pytest creates it for the test and keeps only its last three runs, so a test has no directory to clean up and the suite leaves nothing behind.
 
+**Each layer has one kind of test.**
+
+- **Service.** All behaviour is tested here. The test takes `db_session`, seeds rows on sentinel dates (rule 2), calls the service function, and asserts the result's fields or the exception it raises.
+- **Renderer.** These are the only tests that read printed text, and they are in `tests/test_output.py`. The test builds a view and a result by hand and renders them through `Renderer(console=Console(file=io.StringIO(), width=N))`, with the width written in the test, so `COLUMNS` cannot change the outcome. A picker test feeds its answers through `CliRunner().isolation(input=...)`.
+- **Click parameter types** are tested in `tests/test_cli_params.py`, by calling `convert` and by a usage-error exit through `CliRunner`.
+- **Command.** The test runs the command through `CliRunner(mix_stderr=False).invoke(group, args, obj=renderer)`, where `renderer` is a `Mock(spec=Renderer)`, and with the service function patched (`patch.object(<service module>, "<function>", autospec=True)`). It asserts the arguments the service received, that the renderer received the declared view and the service's return value, and the exit code. It reads no printed text except an `Error:` line on `result.stderr`.
+- **A command the EOD workflow runs as a child process has a second entry path, `run_workmain`.** §6.1 has a test patch the launch, so the command test covers only the `CliRunner` path. The EOD step that runs the command is covered by that step's own test in `tests/test_eod_workflow.py`, which asserts what the step does with the command's exit code and output.
+
 ### 6.3 Placement
 
 | Goes in | What |
@@ -765,6 +782,8 @@ Rules:
 | Content | Location |
 | --- | --- |
 | CLI commands | `workmain/cli/commands/` |
+| CLI output: the renderer, views and the group class (`WorkmAInGroup`) | `workmain/cli/output.py` |
+| CLI argument types | `workmain/cli/params.py` |
 | Repositories | `workmain/database/repositories/` |
 | Models | `workmain/database/models.py` |
 | Migrations | `workmain/database/migrations/NNN_name.sql` |

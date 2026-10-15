@@ -4,9 +4,10 @@ entry creation. Both the CLI and action_executor delegate to these services,
 following the same pattern as eod_workflow.py relative to eod.py/slack_eod.py.
 """
 
-from workmain.services import notes_service, time_entry_service
+from workmain.services import notes_service, tasks_service, time_entry_service
 
 __all__ = [
     "notes_service",
+    "tasks_service",
     "time_entry_service",
 ]

@@ -24,3 +24,21 @@ class InvalidTagsError(ServiceValidationError):
         self.invalid_tags = invalid_tags
         self.valid_tags = valid_tags
         super().__init__(f"Invalid tags: {invalid_tags}")
+
+
+class TaskNotFoundError(ServiceValidationError):
+    """Raised when a task identifier matches no note, or no task."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+
+
+class NotATaskError(ServiceValidationError):
+    """Raised when a note exists but has no task_status row."""
+
+    def __init__(self, note_id: int) -> None:
+        self.note_id = note_id
+        super().__init__(
+            f"Note {note_id} exists but is not tracked as a task. "
+            "Use 'workmain notes edit' to add the carry-forward tag first."
+        )
