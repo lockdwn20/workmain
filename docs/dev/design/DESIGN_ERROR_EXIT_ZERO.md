@@ -64,9 +64,9 @@ The `Run: workmain slack setup` hint and the channel-setup hint stay with their 
 
 | Q | Question | Answer |
 | --- | --- | --- |
-| Q1 | The issue names three Slack sites. The same two commands have two more failures that exit `0`: a post that Slack refuses in `slack post weekly` (F2) and a token that Slack rejects in `slack auth` (F3). Should #225 fix them too (A), or leave them to #214's conversion (B)? **Recommendation: A.** F2 is the likeliest way for a live EOD to record a missed weekly post as `COMPLETED`, which is the defect in the issue's title, and both sites sit in files the fix already edits. Under B, #214 cannot fix them: a conversion moves each decision unchanged (#220 study F11), so both would need their own issue. The issue's acceptance criteria gain two rows, written to match the existing ones. | |
+| Q1 | The issue names three Slack sites. The same two commands have two more failures that exit `0`: a post that Slack refuses in `slack post weekly` (F2) and a token that Slack rejects in `slack auth` (F3). Should #225 fix them too (A), or leave them to #214's conversion (B)? **Recommendation: A.** F2 is the likeliest way for a live EOD to record a missed weekly post as `COMPLETED`, which is the defect in the issue's title, and both sites sit in files the fix already edits. Under B, #214 cannot fix them: a conversion moves each decision unchanged (#220 study F11), so both would need their own issue. The issue's acceptance criteria gain two rows, written to match the existing ones. | Answered 20261014 (Ray): A. #225 fixes F2 and F3 with the issue's three Slack sites. |
 
 ## 6. Disposition
 
-- Promoted to:
+- Promoted to: `../specs/ERROR_EXIT_ZERO_SPEC.md`
 - Superseded by:
