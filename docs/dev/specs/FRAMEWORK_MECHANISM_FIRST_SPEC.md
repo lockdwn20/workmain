@@ -15,17 +15,18 @@
 | Date | Source | Decision or finding | Resolution |
 | --- | --- | --- | --- |
 | 20261014 | Ray | #221 is a `chore/*` on the direct path, landing before #58 so the pilot and #201–#216 are written and reviewed under the rule. Ray approves the `SKILL.md` wording | Accepted. Branch and path as in the header; the `SKILL.md` wording is quoted in full in §4 step 2 for that approval |
-| 20261014 | Spanner | §3.8 names its scope as the Python standard library and the packages `requirements.txt` declares, not the four libraries the issue names (Python, Click, Rich, SQLAlchemy) | A fixed list of four is a hand-maintained copy of the dependency set, and it would leave out APScheduler, slack-sdk, python-dotenv and pytest, which the project already depends on. `requirements.txt` is the declared set, so the rule reads it rather than copying it. **Withdrawn** after Caliper's review. Ray decided the scope as those four, and widening it was not Spanner's call. The wider set also brought in packages that conflict with §5.6 (`tabulate` against `rich.Table`) or with each other (`requests` and `httpx`), and dev tooling and deferred-phase packages that no command uses. §3.8 names the four; the issue's wording stands |
+| 20261014 | Spanner | §3.8 names its scope as the Python standard library and the packages `requirements.txt` declares, not the four libraries the issue names (Python, Click, Rich, SQLAlchemy) | A fixed list of four is a hand-maintained copy of the dependency set, and it would leave out APScheduler, slack-sdk, python-dotenv and pytest, which the project already depends on. `requirements.txt` is the declared set, so the rule reads it rather than copying it. **Withdrawn** after Caliper's review. The wider set also brought in packages that conflict with §5.6 (`tabulate` against `rich.Table`) or with each other (`requests` and `httpx`), and dev tooling and deferred-phase packages that no command uses. §3.8 names the four; the issue's wording stands |
 | 20261014 | Spanner | Caliper's criterion 6 cites §3.8 for what counts as a library mechanism instead of naming the libraries itself | §3.8 is the rule's one home (AC3). A criterion that listed the libraries would be a second statement of the rule's scope. This follows criterion 7, which asks its question and cites §1.2 for the rule behind it |
 | 20261014 | Spanner | A spec that writes its own version records the mechanism it set aside in its Decision Log | Choosing not to use the mechanism is a design decision, and the Decision Log is where a spec records one (§1.5). It is the one place Caliper is already reading, so no new template field is created |
 | 20261014 | Ray | The first §3.8 draft did not read clearly, its examples did not read as examples, and its reason cited an issue number and a design study no reader outside this session will know | Accepted. §3.8 now gives its reason in plain terms with no issue or study reference, and its examples are a table: the job, the hand-written version, the mechanism to use |
 | 20261014 | Spanner | §3.8 does not use `click.ClickException` as an example | `docs/DEVELOPMENT_STANDARDS.md` §5.6's Error row still prescribes `err_console.print(...)` then `sys.exit()`, so that example would contradict a standing rule. Changing §5.6 is #58's work, not #221's |
 | 20261014 | Caliper | 3: §3.8 does not say what to do when two in-scope mechanisms both do the job — `tabulate` against §5.6's `rich.Table`, `requests` against `httpx`, `datetime.strptime` (27 command sites) against the table's `click.DateTime` | Accepted. The scope goes back to the four (row 2), which removes `tabulate`, `requests` and `httpx`. §3.8 now says any of their mechanisms meets the rule unless another section names one, so `strptime` meets it and §5.6's `rich.Table` still governs. The date example is now `date.fromisoformat` |
-| 20261014 | Caliper | 4: row 2 widens the scope Ray decided, with no Ray row approving it, and plans to edit the issue's AC wording | Accepted. Row 2 withdrawn; the issue is not edited |
+| 20261014 | Caliper | 4: row 2 widens the scope Ray decided, with no Ray row approving it, and plans to edit the issue's AC wording | Withdrawal accepted, on finding 3's grounds; the issue is not edited. **The authority claim is not taken** — scoping the rule was Spanner's call to make (Ray, 20261014) |
 | 20261014 | Caliper | 1/7: AC3.1's `\|` is a literal pipe in the raw file, so the grep matches nothing whatever the files hold; and a word search cannot see the rule restated in other words | Accepted. The grep uses `-e` per term, with no pipe. The check adds the branch diff, which is what shows this change put the rule nowhere but §3.8 and criterion 6 |
 | 20261014 | Caliper | 2: the Why bullet says `-1` selects the last item; the code it describes indexes `matches[choice - 1]`, so `-1` selects the second-to-last | Accepted. The Why bullet now says a negative number counts from the end of the list, which holds for any index arithmetic |
 | 20261014 | Caliper | 2: `click.DateTime` returns `datetime.datetime`, not `date`, so it is not a drop-in replacement for code that builds a `date` | Accepted. The row now uses `date.fromisoformat(value)`, which returns a `date` |
 | 20261014 | Caliper | 2: the out-of-scope bullet calls seven findings "seven sites", and cites a study that exists only on the #58 branch | Accepted. The bullet no longer counts or cites the study |
+| 20261014 | Ray | §3.8 wording supplied by Ray: the four libraries, bold rule statements, the reason stated without a label, the `-1` case moved into the prompt example's row, and the markup-escape row replaced by a `pathlib` row | Accepted. Step 1 quotes it verbatim |
 
 ---
 
@@ -68,18 +69,16 @@ Insert after §3.7's last bullet (`- Nothing encrypts secrets at rest; `.env` mu
 
 ### 3.8 Framework mechanisms first
 
-- Before writing code of your own, check whether Python's standard library, Click, Rich or SQLAlchemy already does the job. If one does, use it. Where more than one of them does, any of them meets this rule, unless another section of this document names which one to use.
-- When a spec writes its own code for a job one of them already does, its Decision Log names the mechanism it set aside and says why.
-- Why: the library's version is already tested and behaves the same way in every command that uses it. Code that does the same job by hand has to get every edge case right by itself, and it often misses some. A selection prompt that only rejects `0` and numbers above the list's length accepts `-1`. Python reads a negative list index as counting from the end, so the command acts on the wrong item instead of refusing the input.
-
-Examples:
+- **Use the mechanism Python's standard library, Click, Rich or SQLAlchemy provides before writing your own.** Where two of them do the job, either meets this rule, unless another section names one.
+- **A spec that writes its own records why.** Its Decision Log names the mechanism it set aside and the reason it does not fit.
+- The library's version is tested and behaves the same in every caller. A hand-written version has to get every edge case right on its own, and each copy can get a different one wrong.
 
 | Job | Written by hand | Use instead |
 | --- | --- | --- |
-| Ask for a number between 1 and `n` | A loop that reads the input, converts it and checks the bounds itself | `click.prompt("Select", type=click.IntRange(1, n))` |
-| Accept an option from a fixed set of values | An `if value not in (...)` check in the command body | `type=click.Choice([...])` on the option |
-| Parse a `YYYY-MM-DD` date | Splitting the string on `-` and building a `date` from the parts | `date.fromisoformat(value)` |
-| Print text that may contain `[` | Passing it straight to `console.print`, where Rich reads `[...]` as markup and drops it | `console.print(rich.markup.escape(text))` |
+| Ask for a number from 1 to `n` | A loop that converts and bounds-checks the input. One that rejects only `0` and values above `n` accepts `-1`, which Python reads as an index from the end of the list. | `click.prompt(..., type=click.IntRange(1, n))` |
+| Restrict an option to fixed values | An `if value not in (...)` check in the command body | `type=click.Choice([...])` on the option |
+| Parse a `YYYY-MM-DD` date | Splitting on `-` and building a `date` from the parts | `date.fromisoformat(value)` |
+| Build a file path | Joining strings with `/` | `pathlib.Path(base) / name` |
 ```
 
 ### Step 2 — Caliper criterion 6
