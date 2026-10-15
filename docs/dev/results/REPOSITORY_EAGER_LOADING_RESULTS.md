@@ -26,18 +26,18 @@ Complete. Eleven repository methods load the relationships their callers read on
 
 | AC | Status | Evidence |
 | --- | --- | --- |
-| AC1.1 | **Awaiting Ray** | The §5 census table below. The spec's check names Ray's reading. |
+| AC1.1 | **Not met** | Awaiting Ray. The §5 census table below; the spec's check names Ray's reading. |
 | AC1.2 | Met | The four classes pass (13 tests). §5 records each of T1–T10 and T12 failing with its loader removed. |
 | AC2.1 | Met | `tests/test_clockify_sync.py::TestPushLoading::test_push_statement_count_does_not_grow_with_entries` passes. |
 | AC2.2 | Met | `test_push_sends_each_entry_project_clockify_id` passes. `grep -rn "_get_clockify_project_id\|query(Project" workmain/integrations/clockify/` returns no hits. |
-| AC3.1 | **Awaiting Ray** | `docs/DEVELOPMENT_STANDARDS.md` §4.3 and §6.2. The spec's check names Ray's reading. |
+| AC3.1 | **Not met** | Awaiting Ray. `docs/DEVELOPMENT_STANDARDS.md` §4.3 and §6.2; the spec's check names Ray's reading. |
 | AC4.1 | Met | `pytest`: 1411 passed, 0 failed, 0 skipped. |
 
 ## 4. Deviations from spec
 
 | # | Deviation | Reason | Approved by |
 | --- | --- | --- | --- |
-| 1 | T10 and T12 fail without the loader at 7 then 15, not 6 then 14. | The live database holds four unsynced entries (`clockify_id IS NULL`) where §2 counted three. With the loader the count is the same for both runs. | Not a design change; no approval needed. |
+| 1 | T10 and T12 fail without the loader at 7 then 15, not the spec's 6 then 14. | The spec gave fixed failing counts that depend on how many live unsynced entries exist: four today, three when the spec was written. The equality the tests assert does not depend on that number. | Awaiting Ray |
 
 ## 5. Verification
 
@@ -65,7 +65,7 @@ Complete. Eleven repository methods load the relationships their callers read on
   | Method | Caller (file:line, entry path) | Relationship read | Loader |
   | --- | --- | --- | --- |
   | `TaskStatusRepository.get_filtered` | `tasks_service.py:86`, `99`, `126`; `action_executor.py:162`, `187`, `287`; `scheduler.py:65`; `eod_workflow.py:471`, `632`, `676` | `TaskStatus.note` | `contains_eager`, already done by #58 |
-  | `TimeEntriesRepository.get_unsynced_entries` | `sync.py:85` → `push_entries`, reads at `97`, `110`, `142`, and `entry.project` at `100` (`clockify sync push`) | `TimeEntry.note`, `TimeEntry.project` | `joinedload` |
+  | `TimeEntriesRepository.get_unsynced_entries` | `sync.py:85` → `push_entries`, reads at `97`, `107`, `139`, and `entry.project` at `100` (`clockify sync push`) | `TimeEntry.note`, `TimeEntry.project` | `joinedload` |
   | `TimeEntriesRepository.get_by_date` | `clockify.py:275`, `426` → `push_entries`; `eod_workflow.py:335`, read at `345`; `time.py:593`, and through `get_today` `time.py:490` → `format_time_entry_display` at `48`, `55-56` | `TimeEntry.note`, `TimeEntry.project` | `joinedload` |
   | `TimeEntriesRepository.get_date_range` | through `get_week`, `time.py:527`; `field_manager.py:148`, read at `223`, `228`, `230` | `TimeEntry.note`, `TimeEntry.project` | `joinedload` |
   | `TimeEntriesRepository.get_for_date_client` | `prompt_builder.py:427`, read at `435`, `438` | `TimeEntry.note`, `TimeEntry.project` | `joinedload` |
