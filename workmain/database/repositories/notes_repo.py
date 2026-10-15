@@ -7,7 +7,7 @@ from datetime import date, datetime
 from typing import List, Optional, Tuple
 
 from sqlalchemy import func, and_, or_, any_, desc
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from workmain.database.models import Note, Meeting, Project
 
@@ -139,7 +139,9 @@ class NotesRepository:
         Returns:
             List of Note objects
         """
-        query = self.session.query(Note).filter(Note.created_date == target_date)
+        query = self.session.query(Note).options(
+            joinedload(Note.meeting), joinedload(Note.project)
+        ).filter(Note.created_date == target_date)
         
         # Apply tag filters using PostgreSQL array operators
         if include_tags:
@@ -189,7 +191,9 @@ class NotesRepository:
         Returns:
             List of Note objects
         """
-        query = self.session.query(Note).filter(
+        query = self.session.query(Note).options(
+            joinedload(Note.meeting), joinedload(Note.project)
+        ).filter(
             and_(
                 Note.created_date >= start_date,
                 Note.created_date <= end_date
@@ -567,7 +571,9 @@ class NotesRepository:
         Returns:
             List of Note objects ordered by created_at descending.
         """
-        query = self.session.query(Note)
+        query = self.session.query(Note).options(
+            joinedload(Note.meeting), joinedload(Note.project)
+        )
 
         if date_filter is not None:
             query = query.filter(Note.created_date == date_filter)

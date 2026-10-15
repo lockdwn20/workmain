@@ -6,6 +6,9 @@ and get_most_recent_since() added for Item #58.
 from datetime import date, datetime
 
 import pytest
+from sqlalchemy import event
+
+from workmain.database.models import Meeting, Project
 
 from workmain.database.repositories.notes_repo import NotesRepository
 
@@ -108,3 +111,78 @@ class TestNotesRepoGetMostRecentSince:
 
         assert result is not None
         assert result.content == 'Later sentinel note'
+
+
+def _count_statements(db_session, call, read):
+    """SQL statements issued by call() plus read(rows), from an empty session."""
+    db_session.flush()
+    db_session.expunge_all()
+    seen = []
+    conn = db_session.connection()
+
+    def listener(*args):
+        seen.append(1)
+
+    event.listen(conn, "before_cursor_execute", listener)
+    try:
+        for row in call():
+            read(row)
+    finally:
+        event.remove(conn, "before_cursor_execute", listener)
+    return len(seen)
+
+
+class TestNotesRepoLoading:
+    """Each method loads the meeting and project its callers read on each note."""
+
+    @staticmethod
+    def _seed(db_session, day, n):
+        repo = NotesRepository(db_session)
+        for i in range(n):
+            meeting = Meeting(
+                title=f'notes loading {day} {i}',
+                start_time=datetime(day.year, day.month, day.day, 9, 0),
+                end_time=datetime(day.year, day.month, day.day, 10, 0),
+            )
+            project = Project(name=f'notes-loading-{day}-{i}')
+            db_session.add_all([meeting, project])
+            db_session.flush()
+            repo.create(
+                content=f'notes loading {day} {i}',
+                tags=['internal-only'],
+                meeting_id=meeting.id,
+                project_id=project.id,
+                created_at=datetime(day.year, day.month, day.day, 12, 0),
+            )
+
+    @staticmethod
+    def _read(note):
+        note.meeting.title
+        note.project.name
+
+    def _assert_flat(self, db_session, day_one, day_five, call):
+        self._seed(db_session, day_one, 1)
+        one = _count_statements(db_session, lambda: call(day_one), self._read)
+        self._seed(db_session, day_five, 5)
+        five = _count_statements(db_session, lambda: call(day_five), self._read)
+        assert one == five
+
+    def test_get_filtered_count_does_not_grow(self, db_session):
+        repo = NotesRepository(db_session)
+        self._assert_flat(
+            db_session, date(2099, 8, 1), date(2099, 8, 2),
+            lambda d: repo.get_filtered(date_filter=d, limit=0),
+        )
+
+    def test_get_by_date_count_does_not_grow(self, db_session):
+        repo = NotesRepository(db_session)
+        self._assert_flat(
+            db_session, date(2099, 8, 3), date(2099, 8, 4), repo.get_by_date
+        )
+
+    def test_get_date_range_count_does_not_grow(self, db_session):
+        repo = NotesRepository(db_session)
+        self._assert_flat(
+            db_session, date(2099, 8, 5), date(2099, 8, 6),
+            lambda d: repo.get_date_range(d, d),
+        )

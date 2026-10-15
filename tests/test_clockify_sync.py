@@ -25,7 +25,7 @@ from sqlalchemy import event
 
 from workmain.cli.commands.clockify import clockify
 from workmain.database.connection import DatabaseConnection, get_db
-from workmain.database.models import Client, Note, TimeEntry
+from workmain.database.models import Client, Note, Project, TimeEntry
 from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
 from workmain.database.repositories.task_status_repo import TaskStatusRepository
@@ -266,3 +266,74 @@ class TestClockifyRecordsCommitInTheirOwnScope:
         assert 'clockify-unrecorded-id' in silent.stderr
         assert 'In Clockify but not recorded locally' in loud.stdout
         assert 'Failed entries' not in loud.stdout
+
+
+class TestPushLoading:
+    """The default push builds each payload from rows loaded with their note and project."""
+
+    @staticmethod
+    def _seed(db_session, n, tag, with_project=True):
+        from workmain.database.repositories.notes_repo import NotesRepository
+        notes = NotesRepository(db_session)
+        repo = TimeEntriesRepository(db_session)
+        ids = []
+        for i in range(n):
+            project_id = None
+            if with_project:
+                project = Project(
+                    name=f"push-loading-{tag}-{i}",
+                    clockify_project_id=f"cf-project-{tag}-{i}",
+                )
+                db_session.add(project)
+                db_session.flush()
+                project_id = project.id
+            note = notes.create(
+                content=f"push loading {tag} {i}", tags=['internal-only'], source='task'
+            )
+            repo.create(
+                note_id=note.id,
+                duration_hours=1.0,
+                entry_date=date(2099, 7, 1),
+                entry_time=time(9, 0),
+                project_id=project_id,
+            )
+            ids.append(project_id)
+        db_session.flush()
+
+    @staticmethod
+    def _push_count(db_session):
+        client = MagicMock()
+        client.create_time_entry.return_value = {'id': 'clockify-push-loading-id'}
+        engine = ClockifySync(db_session, client=client)
+        db_session.expunge_all()
+        seen = []
+        conn = db_session.connection()
+
+        def listener(*args):
+            seen.append(1)
+
+        with patch('workmain.integrations.clockify.sync._record_clockify_link'):
+            event.listen(conn, "before_cursor_execute", listener)
+            try:
+                engine.push_entries(entries=None, interactive=False)
+            finally:
+                event.remove(conn, "before_cursor_execute", listener)
+        return len(seen), client
+
+    def test_push_statement_count_does_not_grow_with_entries(self, db_session):
+        self._seed(db_session, 1, "a")
+        one, _ = self._push_count(db_session)
+        self._seed(db_session, 4, "b")
+        five, _ = self._push_count(db_session)
+        assert one == five
+
+    def test_push_sends_each_entry_project_clockify_id(self, db_session):
+        self._seed(db_session, 1, "with")
+        self._seed(db_session, 1, "without", with_project=False)
+        _, client = self._push_count(db_session)
+        sent = {
+            c.kwargs['description']: c.kwargs['project_id']
+            for c in client.create_time_entry.call_args_list
+        }
+        assert sent["push loading with 0"] == "cf-project-with-0"
+        assert sent["push loading without 0"] is None

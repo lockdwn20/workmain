@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.51.0] - 2026-10-15
+
+Repository methods returned rows whose related records were loaded lazily, so a caller that read a note, project, meeting or recipient on each row issued one query per row. Nothing was wrong with the result, so it went unnoticed, but the cost grew with the data. Every repository method whose callers read a related record on each row now loads it with the rows, and `docs/DEVELOPMENT_STANDARDS.md` §4.3 states the rule for every repository, with §6.2 stating how it is tested (issue #223).
+
+### Changed
+
+- `TimeEntriesRepository.get_unsynced_entries`, `get_by_date`, `get_date_range`, `get_for_date_client`, `get_by_meeting` and `find_by_description_like`, `NotesRepository.get_filtered`, `get_by_date` and `get_date_range`, and `EmailRepository.get_all_recipients` and `list_for_client` load the related records their callers read on each row
+- `clockify sync push` builds each entry's Clockify payload from the entry's loaded project, instead of querying the project once per entry
+
+### Removed
+
+- `ClockifySync._get_clockify_project_id`
+
+Suite: 1411 passed, 0 failed, 0 skipped (baseline 1398 passed, 0 failed, 0 skipped).
+
 ## [1.50.0] - 2026-10-15
 
 Five places outside the repository layer set columns on a report row themselves, and the rule for confirming a report was written once per caller. The EOD review step had no guard, so pressing `[c]` on a corrected report it reopened turned it into a confirmed one and dropped it from `reports corrections`. Every report write now goes through `ReportsRepository`, and one confirm rule covers `reports confirm`, the EOD review and the Slack `confirm_report` intent (issue #167).
