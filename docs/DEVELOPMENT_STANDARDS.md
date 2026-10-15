@@ -640,7 +640,8 @@ Reserved across all commands — no flag may reuse these:
 - Exit codes:
   - `0` success
   - `1` user-facing error or unhandled exception (after logging)
-  - `2` integration error (API, auth).
+  - `2` usage error: an unknown option, a missing argument or a rejected value. Click exits `2` for these itself; no command chooses it.
+  - `3` integration error (API, auth).
     - Never expose a raw stack trace — catch at the command level and emit a clean message.
 
 - Destructive or externally-sending commands must confirm unless `--force` is passed, and the prompt must state exactly what will happen.

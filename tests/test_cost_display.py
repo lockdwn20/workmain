@@ -243,3 +243,14 @@ class TestOldTrackerRemoved:
             capture_output=True, text=True,
         )
         assert hits.stdout == ''
+
+
+@pytest.mark.parametrize('group', [meetings, notes, providers, reports])
+def test_costs_usage_error_exits_2_on_stderr(group):
+    """A usage error in a costs command is Click's: exit 2, the error on stderr."""
+    result = CliRunner(mix_stderr=False).invoke(
+        group, ['costs', '--date', '2026-01-01', '--month', '2026-01'],
+    )
+    assert result.exit_code == 2
+    assert '--date and --month are mutually exclusive.' in result.stderr
+    assert result.stdout == ''
