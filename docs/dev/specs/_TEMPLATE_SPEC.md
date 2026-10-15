@@ -45,7 +45,7 @@ What exists today, verified against source at authoring time. Cite file and symb
 
 | Claim | Evidence (file:line, symbol) |
 | --- | --- |
-| Call sites of `<symbol>`, found by `grep -rn '<pattern>' --include='*.py' .` | every `file:line` the search returns |
+| Call sites of `<symbol>`, found by `grep -rn '<pattern>' --include='*.py' .` | every `file:line` the search returns that is confirmed a call site — `docs/DEVELOPMENT_STANDARDS.md` §1.2 |
 
 Anything not verified here is a guess, and an implementer will treat it as fact. If a claim was carried in from an earlier document rather than re-checked, say so.
 
