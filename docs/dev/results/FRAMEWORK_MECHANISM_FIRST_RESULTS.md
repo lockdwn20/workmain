@@ -1,6 +1,6 @@
 # Framework Mechanism First — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261014
 **Spec:** `../specs/FRAMEWORK_MECHANISM_FIRST_SPEC.md`
@@ -34,7 +34,9 @@ None.
 
 ## 5. Verification
 
-- **Test suite:** not run on this branch. No file under `tests/`, `automation/`, `workmain/`, `config/` or `templates/` changed (spec §6); close-out runs the suites.
+- **Test suite:** 1316 passed, 0 failed, 0 skipped (baseline: 1316 passed, 0 failed, 0 skipped, v1.48.0 `CHANGELOG.md`), run at close-out on the branch tip. `pytest automation/` not run: the branch changes no path under `automation/`.
+- **Live verification:** n/a — the branch changes documents only; no command or service behaviour changed.
+- **Daemon restart:** n/a — `chore/*`, which `docs/DEVELOPMENT_STANDARDS.md` §2.6 requires no restart for.
 - **AC3.1 grep**, `git grep -n -i -e framework -e mechanism -e '§3\.8' -- docs/DEVELOPMENT_STANDARDS.md .claude CLAUDE.md`, at `1271cb2`:
 
   ```text

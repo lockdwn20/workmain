@@ -1,6 +1,6 @@
 # Framework Mechanism First — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261014
 **Branch:** `chore/issue-221-framework-mechanism-first` (from `main`, merges to `main` and `dev`)
