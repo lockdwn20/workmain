@@ -35,6 +35,10 @@
 | 20261015 | Spanner | `docs/DEVELOPMENT_STANDARDS.md` §3.8 (#221) names `click.IntRange` for asking for a number from 1 to `n`. | `PickParamType` subclasses `click.IntRange(1, n)` and overrides `convert` only to return `None` for `q`, so IntRange does the bounds check and the error lines. Plain `IntRange` is set aside because it can't express `q` to cancel (study Q3). `name = "choice"`, so Click's message for text reads "'x' is not a valid choice." Probed 20261015. DR9, P3, P4, O17. |
 | 20261015 | Spanner | §3.8 names `date.fromisoformat` for parsing `YYYY-MM-DD`. `click.DateTime` is the Click type for dates. | `DateParamType` handles `today` and `yesterday`, and passes anything else to `date.fromisoformat`. `click.DateTime` is set aside because it returns a `datetime` and has no `today` or `yesterday`. On Python 3.12, `fromisoformat` also accepts `20261014` and `2026-W42-3`, which today's `%Y-%m-%d` parse rejects. That is a broadening, and #140 owns date formats. DR9, P1. |
 | 20261015 | Spanner | #220 and #221 have landed, and #225 (v1.48.1) also merged to `dev`. | §2 re-checked against `dev` `5880216`: none of the three touches a file this spec changes, the `get_filtered` caller lines are unchanged, and every Step 5 anchor is present. The worked baseline in §6 is now v1.48.1's. |
+| 20261015 | Caliper | Step 3 adds the `ServiceValidationError` branch to the root `cli` group, so every unconverted group changes when one escapes. §2 and §7 said the changes reach only `tasks`, and no AC covers the root path for another group. | Accepted. §2 lists the fourteen call sites in `notes`, `time` and `meetings` that reach a raising service. None can raise past the CLI today: tags pass through `parse_tags`, which returns only valid names, `MissingStartTimeError` is reachable only from `time add`, whose `-T` is required, and `meetings condense` catches `Exception`. The branch therefore changes only an unexpected escape: the exit stays 1 on stderr, and a traceback becomes one `Error:` line. O25 covers the root path through `notes add`, and §7 states the change. AC2.5. |
+| 20261015 | Caliper | DR7 didn't say whether the picker prints the collection title, which would repeat the cap line's count. | Accepted. The picker prints no title, so the cap line is the only count. O18 asserts that no `found` title line is printed. |
+| 20261015 | Caliper | AC1.1's grep also matches Step 5's §5.6 bullet, so it passes without the §7 row. | Accepted. The check matches only the table row (`grep -nF`), and Step 5 gives the §7 rows as rendered table text with the path in backticks, as §7's other rows have it. |
+| 20261015 | Caliper | Issue #58's body says the §5.6 Error row this issue writes states that a command which reports an error never exits `0` (Ray, 20261014, from #220's study F15). The spec drops it without a decision, and the Q18 row says the Error row is left as it is. | Open: two Ray decisions conflict, and the resolution is put to Ray. |
 | 20261014 | Spanner | Where a result's render function lives (first draft) | Superseded by study Q7 (Ray). There are no per-result render functions. |
 | 20261014 | Spanner | The tasks candidate search | `get_filtered(status='all', search=..., limit=10)` and `count_filtered(status='all', search=...)`, both existing. No new repository method. |
 | 20261014 | Spanner | A list's lines are unwrapped | Each `Label: value` line prints with `soft_wrap=True`, so piped output carries one field per line, which is what makes a list greppable (study Q2). |
@@ -88,6 +92,7 @@ Verified on `feature/issue-58-cli-output-module` at `51639df`, 20261014, and re-
 | `Note.created_at` is `nullable` (`models.py:194`), and `tasks show` prints it (`tasks.py:311`). `TaskStatus.created_at` is `nullable=False` (`models.py:330`). | `models.py`, `tasks.py` |
 | Under the test fixture, with notes and tasks seeded in `db_session` and `db_session.expunge_all()` before the query, reading `.note` costs 2 statements for one task and 6 for five through today's lazy relationship, and 1 and 1 with `contains_eager`. Without `expunge_all` the lazy counts depend on which objects the identity map still holds. | Temporary test under `tests/`, run and deleted, 20261014 |
 | The test session factory has `autoflush=False`. | `tests/conftest.py:37` |
+| The root `cli` group's `invoke` wraps every subcommand (`interface.py:84-85`, `106`). Fourteen unconverted call sites reach a service that raises `InvalidTagsError` or `MissingStartTimeError`: `notes.py:313`, `349`, `429`, `627`, `667`, `691`; `time.py:287`, `295`, `306`, `335`; `meetings.py:689`, `696`, `867`, `895`. No file under `workmain/cli` catches either exception. Neither can be raised from those sites today. Each passes tags from `parse_tags`, which returns only valid full names (`tag_utils.py:354-362`). `MissingStartTimeError` is raised only by `create_time_entry` when `entry_time` is `None` (`time_entry_service.py:52-53`), reached only from `time.py:306`, whose `--time` is `required=True` (`time.py:161`). `meetings condense` catches `Exception` (`meetings.py:911-913`). | `git grep -nE "InvalidTagsError\|MissingStartTimeError" -- workmain`; the cited lines |
 | `ctx.obj` today: the root group calls `ctx.ensure_object(dict)` and nothing reads it (`interface.py:119`). `time` stores `show_ids` in a `dict` (`time.py:154-155`). Once the root sets `ctx.obj` to a `Renderer`, a group that calls `ensure_object(dict)` gets its own `dict`, and `make_pass_decorator(Renderer)` still finds the root's renderer up the context chain. Run on its own, a group gets a fresh `Renderer` from `ensure=True`. | `git grep -nE 'ctx\.obj\|ensure_object' workmain`; probe, 20261014 |
 | A `Mock(spec=Renderer)` passed as `CliRunner.invoke(..., obj=...)` reaches a command through `make_pass_decorator(Renderer)`. | Probe, 20261014 |
 | A `click.Group` subclass whose `invoke` re-raises a caught exception as `click.ClickException` makes the command exit 1 with `Error: <message>` on stderr and nothing on stdout. | Probe, 20261014 |
@@ -133,7 +138,7 @@ Verified on `feature/issue-58-cli-output-module` at `51639df`, 20261014, and re-
   - **Rich.** Every value reaches Rich as `rich.text.Text`, never as markup (F19).
 - **DR7 — The picker.** `Renderer.pick(view: CollectionView, page: Page) -> Optional[row]`.
   - **One row.** It returns that row without prompting.
-  - **Several rows.** It prints them by DR4 with a leading key column `#` numbered from 1. In list form, a `[n]` line opens each record instead. When `page.total > len(page.rows)`, the line `<n> of <total> shown — refine the search` follows.
+  - **Several rows.** It prints them by DR4's layout rule, with no title line, and with a leading key column `#` numbered from 1. In list form, a `[n]` line opens each record instead. When `page.total > len(page.rows)`, the line `<n> of <total> shown — refine the search` follows. That line is the only count the picker prints.
   - **The prompt.** It calls `click.prompt(f"Select [1-{n}, or q to cancel]", type=PickParamType(n))` and returns the chosen row, or `None` for `q`.
 - **DR8 — Lines, consoles and wiring.**
   - **Consoles.** `Renderer(console=None, err_console=None)` defaults to `Console()` and `Console(stderr=True)`, neither with `soft_wrap` set. Lines pass `soft_wrap=True` on each `print`; panels and tables do not.
@@ -201,7 +206,7 @@ Issues #220 and #221 are closed and on `dev`. Merge `dev` into this branch (`git
 
 In `interface.py`, `ctx.ensure_object(dict)` becomes `ctx.ensure_object(Renderer)`, the two classes are removed, and `WorkmAInGroup` is imported from `output.py`.
 
-`tests/test_output.py`: O1–O24.
+`tests/test_output.py`: O1–O25.
 
 ### Step 4 — `tasks`
 
@@ -265,8 +270,8 @@ Write against the text `dev` holds after #220 and #221. Neither changes the sect
 
 5. **§7.** After the `CLI commands` row, insert:
 
-   > `| CLI output: the renderer, views and the group class (WorkmAInGroup) | workmain/cli/output.py |`
-   > `| CLI argument types | workmain/cli/params.py |`
+   > | CLI output: the renderer, views and the group class (`WorkmAInGroup`) | `workmain/cli/output.py` |
+   > | CLI argument types | `workmain/cli/params.py` |
 
 ### Step 6 — results artifact
 
@@ -283,12 +288,12 @@ None. This spec runs no migration, deletes no GitHub object, merges nothing to `
 
 | AC | Criterion | How it is checked |
 | --- | --- | --- |
-| AC1.1 | The output module exists, and `docs/DEVELOPMENT_STANDARDS.md` §7 names it as the place CLI output is built. | `test -f workmain/cli/output.py`, and `grep -n 'workmain/cli/output.py' docs/DEVELOPMENT_STANDARDS.md` finds the §7 row. |
+| AC1.1 | The output module exists, and `docs/DEVELOPMENT_STANDARDS.md` §7 names it as the place CLI output is built. | `test -f workmain/cli/output.py`, and ``grep -nF '\| `workmain/cli/output.py` \|' docs/DEVELOPMENT_STANDARDS.md`` finds exactly one line, inside §7's table. |
 | AC2.1 | The renderer applies the key and text rule, the list layout below the key width and above 30 lines, unwrapped lines and titles written from the filters, each verified at a width the test sets. | `pytest tests/test_output.py::TestCollectionLayout tests/test_output.py::TestCollectionText` passes, and every `Console(` in `tests/test_output.py` passes `width=` (`grep -n 'Console(' tests/test_output.py`). |
 | AC2.2 | A value in square brackets prints as written in every layout. | `pytest "tests/test_output.py::TestCollectionText::test_bracketed_values_print_verbatim"` |
 | AC2.3 | The picker takes a number or `q`, and asks again on Enter, `0`, `-1`, a number past the list, or other text. | `pytest tests/test_output.py::TestPick tests/test_cli_params.py::TestPickParamType` |
 | AC2.4 | A record prints every field that has a value, never a cut line, and keeps `0` and `False`. | `pytest tests/test_output.py::TestRecord` |
-| AC2.5 | A service error reaches the user as `Error: <message>` on stderr with exit 1, and a stub command's `NotImplementedError` still prints its `Not implemented:` message with exit 1. | `pytest tests/test_output.py::TestWiring` |
+| AC2.5 | A service error reaches the user as `Error: <message>` on stderr with exit 1, from a converted group and, through the root group, from one not yet converted, and a stub command's `NotImplementedError` still prints its `Not implemented:` message with exit 1. | `pytest tests/test_output.py::TestWiring` |
 | AC3.1 | A command author knows from `docs/DEVELOPMENT_STANDARDS.md` §5.6 how a converted command declares a view, how a column, a line, a record and the picker behave, and how its errors reach the user. | A stated reading by Ray of §5.6 for exactly that. |
 | AC4.1 | A test author knows from `docs/DEVELOPMENT_STANDARDS.md` §6.2 how to test a service, the renderer, a parameter type and a command, and that a command run as an EOD child process is also covered at its EOD step. | A stated reading by Ray of §6.2 for exactly that. |
 | AC5.1 | `docs/DEVELOPMENT_STANDARDS.md` §4.3 states that `TaskStatusRepository.get_filtered` loads each task's note with the rows. | A stated reading by Ray of §4.3. |
@@ -305,7 +310,7 @@ None. This spec runs no migration, deletes no GitHub object, merges nothing to `
 ## 6. Test plan
 
 - **Baseline:** the counts Step 0 records after merging `dev`. On `dev` `5880216` (v1.48.1, after #220, #221 and #225) they are 1327 passed, 0 failed, 0 skipped.
-- **Expected after:** the baseline, less the 13 tests removed from `tests/test_task_lifecycle.py`, plus 65 new tests: S1–S21, P1–P4, O1–O24 and C1–C16. On `5880216` that comes to 1379 passed, 0 failed, 0 skipped. C14 and C15 carry over two of the removed tests.
+- **Expected after:** the baseline, less the 13 tests removed from `tests/test_task_lifecycle.py`, plus 66 new tests: S1–S21, P1–P4, O1–O25 and C1–C16. On `5880216` that comes to 1380 passed, 0 failed, 0 skipped. C14 and C15 carry over two of the removed tests.
 
 The test method names below are the spec's. AC node IDs cite the three that the ACs run directly: `test_statement_count_does_not_grow_with_rows`, `test_bracketed_values_print_verbatim` and `test_capped_candidates_say_so`. Anvil names the rest.
 
@@ -365,13 +370,14 @@ The test method names below are the spec's. AC node IDs cite the three that the 
 | O15 | `TestPick` | One row: it is returned, and the stdout stream yielded by `CliRunner().isolation(input="")` holds no `Select`. |
 | O16 | `TestPick` | Input `q`: `None`. |
 | O17 | `TestPick` | Three rows, with the inputs empty, `0`, `-1`, `4` and `x`, then `2`: the second row. The stdout stream yielded by `CliRunner().isolation(...)` holds four `Error:` lines, one for each rejected input. |
-| O18 | `TestPick` | `test_capped_candidates_say_so`: 10 rows with `total=14` print `10 of 14 shown — refine the search`. |
+| O18 | `TestPick` | `test_capped_candidates_say_so`: 10 rows with `total=14` print `10 of 14 shown — refine the search`, and no line containing `found`. |
 | O19 | `TestPick` | At width 120, a `#` column numbered 1–3. At width 30, records opened by `[1]`, `[2]` and `[3]`. |
 | O20 | `TestLines` | `changed(view, row, "Completed")` at width 20: one line, `✓ Completed task #<id>: <content>`. |
 | O21 | `TestLines` | `cancelled()` prints `Cancelled.`, and `warning("w", stderr=True)` writes only to `err_console`. |
 | O22 | `TestWiring` | A command with `@pass_renderer`, run with no `obj`, receives a `Renderer`; run with `obj=<Renderer>`, receives that one. |
 | O23 | `TestWiring` | A throwaway group declared `cls=WorkmAInGroup` whose command raises `ServiceValidationError("no such task")`, run through `CliRunner(mix_stderr=False)`: exit 1, `result.stderr` is `Error: no such task`, and stdout is empty. |
 | O24 | `TestWiring` | The same group with a command that raises `NotImplementedError("needs [#85019]")`, the F19 form: exit 1, and stdout holds the single line `Not implemented: needs [#85019]`, at any `COLUMNS` value. |
+| O25 | `TestWiring` | `cli` (the root group) with `["notes", "add", "x"]`, run through `CliRunner(mix_stderr=False)` with `notes_service.create_note` patched to raise `InvalidTagsError(["bogus"], ["internal-only"])`: exit 1, `result.stderr` holds `Error: Invalid tags: ['bogus']`, and neither stream holds `Traceback`. |
 
 **`tests/test_task_lifecycle.py`, command tests.** Each test runs `CliRunner(mix_stderr=False).invoke(tasks, [...], obj=renderer)`, with `renderer = Mock(spec=Renderer)` and the named `tasks_service` functions patched with `patch.object(..., autospec=True)`. `renderer.pick.return_value` is a `TaskRow` with `note_id` 42 unless the test sets it to `None`.
 
@@ -396,6 +402,7 @@ The test method names below are the spec's. AC node IDs cite the three that the 
 
 ## 7. Risks and rollback
 
+- **The root group now reports a service error cleanly for every group.** An unconverted group whose service raises a `ServiceValidationError` prints Click's `Error:` line instead of a traceback, with the same exit 1 on stderr. §2 found no site that can raise one today.
 - **What `tasks` prints changes.** Errors move to stderr through Click. A bad `--status` or `--date` exits 2 instead of 1. Content is no longer cut, titles and empty lines follow the generic rule, and `show` becomes a panel. §2 found no caller other than the terminal. Each change is a study answer or a Decision Log row.
 - **`WorkmAInGroup` moves.** The stub path prints the same text, now unwrapped and with bracketed messages intact, and O24 pins it. `interface.py` imports the class instead of defining it.
 - **`ctx.obj` changes type.** The root's unused `dict` becomes a `Renderer`. `time`'s own `dict` still works (§2). #216 has to move `show_ids` before `time`'s commands take `@pass_renderer`, or a `time` command run on its own would find a `Renderer` where it expects a `dict`.
