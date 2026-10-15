@@ -1,6 +1,6 @@
 # CLI Output Module — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261014
 **Branch:** `feature/issue-58-cli-output-module` (from `dev`)

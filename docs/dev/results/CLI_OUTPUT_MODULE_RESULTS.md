@@ -1,10 +1,10 @@
 # CLI Output Module — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Anvil (Role 3)
 **Date:** 20261015
 **Spec:** `../specs/CLI_OUTPUT_MODULE_SPEC.md`
-**Released as:** set by `/closeout`
+**Released as:** v1.49.0 (tag v1.49.0)
 
 ---
 
