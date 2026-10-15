@@ -24,6 +24,7 @@
 | 20261015 | Caliper 4 | Step 3 tests 2 and 3 name no report type, and `_run_report_step` loads only `daily_internal` | Accepted. All three seed `daily_internal`. |
 | 20261015 | Caliper 5 | Step 1 says every call uses `zz_issue167`, but `TestRecordSlackPost` test 1 seeds `weekly_client` | Accepted. It seeds `zz_issue167`; `record_slack_post` does not read the type. |
 | 20261015 | Caliper 6 | AC4.1's test asserts only `False`, so a `_record_slack_post` that returns `False` silently passes | Accepted. The test patches `workmain.cli.commands.slack.err_console` and asserts `print` was called once, without reading the text (DR7). |
+| 20261015 | Caliper r2 1 | DR7's seed default and its type-only exception do not cover Step 3's date, Step 4's date, or Step 5's `weekly_client` on `2099-01-04`, which `_record_slack_post`'s id-only lookup does not need | Accepted, both remedies. DR7 names each exception and why. Step 5 seeds `zz_issue167` on `2100-09-13`. |
 
 ---
 
@@ -74,7 +75,7 @@ Study §3 holds findings F1–F12 with evidence. The claims below are the ones t
 - **DR4 — A Slack post record never fails silently** (§4.3). `record_slack_post` returns `False` for a missing row. `_record_slack_post` turns that into an exception inside its `record_scope()` block, so the handler that reports every other recording failure reports this one too.
 - **DR5 — Repository methods take a report id,** as `apply_correction` and `set_correction_note` do. Each one flushes after writing and never commits (§4.3).
 - **DR6 — No text says a daily report's status affects the weekly report** (study F12).
-- **DR7 — Tests.** Every new test is a plain pytest test that takes `db_session` (§6.1, §6.2), seeds its own rows and asserts on the row as the database returns it after `db_session.refresh`. No test reads printed text. Tests seed on `date(2100, 9, d)` with report type `zz_issue167`, except where the path under test selects by type: EOD loads only `daily_internal`, and the Slack intent loads today's `daily_internal`.
+- **DR7 — Tests.** Every new test is a plain pytest test that takes `db_session` (§6.1, §6.2), seeds its own rows and asserts on the row as the database returns it after `db_session.refresh`. No test reads printed text. Tests seed on `date(2100, 9, d)` with report type `zz_issue167`, except where the path under test selects by date or type. Each exception is named in its step: the EOD tests (Step 3) seed `daily_internal` on `GATE1_SENTINEL_DATE`, because `_run_report_step` loads only `daily_internal` and that is the date the neighbouring EOD classes use; the Slack intent test (Step 4) seeds through `_seed_report_today`, because the intent loads today's `daily_internal`.
   - **The `confirm` spy.** A test that proves a path confirms through the repository keeps the original, `real = ReportsRepository.confirm`, then patches with `patch.object(ReportsRepository, 'confirm', autospec=True, side_effect=real)`. The real method runs, so the row outcome is real, and the test asserts `spy.assert_called_once_with(ANY, <seeded id>)`. `ANY` is from `unittest.mock`.
 
 Anything this spec does not cover stops at the current step per `.claude/skills/session-start/SKILL.md` § Role 3.
@@ -198,7 +199,7 @@ with get_db().record_scope() as session:
 
 The handler, its message and the return values are unchanged.
 
-**Tests, `tests/test_slack.py`:** add `test_missing_report_is_not_reported_as_recorded` to `TestSlackPostRecord`. It seeds a `weekly_client` row on `date(2099, 1, 4)` (the class uses `2099-01-03`), deletes it, and commits. With `workmain.cli.commands.slack.err_console` patched, it asserts that `_record_slack_post(<that id>, "test-ts-missing", "#test-channel", "Test WS")` returns `False` and that the patched console's `print` was called once. It does not read the text (DR7).
+**Tests, `tests/test_slack.py`:** add `test_missing_report_is_not_reported_as_recorded` to `TestSlackPostRecord`. It seeds a `zz_issue167` row on `date(2100, 9, 13)`, deletes it, and commits. `_record_slack_post` looks the row up by id only, so the default date and type apply (DR7). With `workmain.cli.commands.slack.err_console` patched, it asserts that `_record_slack_post(<that id>, "test-ts-missing", "#test-channel", "Test WS")` returns `False` and that the patched console's `print` was called once. It does not read the text (DR7).
 
 ### Step 6 — results artifact
 
