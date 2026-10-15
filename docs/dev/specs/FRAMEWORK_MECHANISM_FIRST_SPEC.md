@@ -18,6 +18,8 @@
 | 20261014 | Spanner | §3.8 names its scope as the Python standard library and the packages `requirements.txt` declares, not the four libraries the issue names (Python, Click, Rich, SQLAlchemy) | A fixed list of four is a hand-maintained copy of the dependency set, and it would leave out APScheduler, slack-sdk, python-dotenv and pytest, which the project already depends on. `requirements.txt` is the declared set, so the rule reads it rather than copying it. The issue's four are all inside that set, so AC1 and AC2 are met as their property reads; the issue's wording is edited to match at close-out |
 | 20261014 | Spanner | Caliper's criterion 6 cites §3.8 for what counts as a library mechanism instead of naming the libraries itself | §3.8 is the rule's one home (AC3). A criterion that listed the libraries would be a second statement of the rule's scope. This follows criterion 7, which asks its question and cites §1.2 for the rule behind it |
 | 20261014 | Spanner | A spec that writes its own version records the mechanism it set aside in its Decision Log | Choosing not to use the mechanism is a design decision, and the Decision Log is where a spec records one (§1.5). It is the one place Caliper is already reading, so no new template field is created |
+| 20261014 | Ray | The first §3.8 draft did not read clearly, its examples did not read as examples, and its reason cited an issue number and a design study no reader outside this session will know | Accepted. §3.8 now gives its reason in plain terms with no issue or study reference, and its examples are a table: the job, the hand-written version, the mechanism to use |
+| 20261014 | Spanner | §3.8 does not use `click.ClickException` as an example | `docs/DEVELOPMENT_STANDARDS.md` §5.6's Error row still prescribes `err_console.print(...)` then `sys.exit()`, so that example would contradict a standing rule. Changing §5.6 is #58's work, not #221's |
 
 ---
 
@@ -60,9 +62,18 @@ Insert after §3.7's last bullet (`- Nothing encrypts secrets at rest; `.env` mu
 
 ### 3.8 Framework mechanisms first
 
-- Before writing your own version of something, find out whether the Python standard library or a package `requirements.txt` declares already provides it, and use that. A bounded number prompt is `click.prompt(type=click.IntRange(...))`, not a loop that checks its own bounds. An error that ends a command is `raise click.ClickException(...)`, which prints `Error: <message>` to stderr and exits; it is not a hand-printed line followed by `sys.exit`.
-- A spec that writes its own version of a mechanism one of those provides names the mechanism it set aside, and why, in its Decision Log. "It was not known" is not a reason.
-- Why: #58's recon traced seven CLI defects to commands that hand-wrote what Click, Rich or SQLAlchemy already did, among them a picker that accepted `-1` and selected the wrong record, and an exit code that collided with Click's own. Its draft spec passed review with five more (#221).
+- Before writing code of your own, check whether Python's standard library or one of the packages in `requirements.txt` already does the job. If one does, use it.
+- When a spec writes its own code for a job one of those packages already does, its Decision Log names the package's mechanism and says why it was not used.
+- Why: the library's version is already tested and behaves the same way in every command that uses it. Code that does the same job by hand has to get every edge case right by itself, and it often misses some. A number prompt that checks its own bounds can accept `-1`, and Python then reads `-1` as the last item in the list.
+
+Examples:
+
+| Job | Written by hand | Use instead |
+| --- | --- | --- |
+| Ask for a number between 1 and `n` | A loop that reads the input, converts it and checks the bounds itself | `click.prompt("Select", type=click.IntRange(1, n))` |
+| Accept an option from a fixed set of values | An `if value not in (...)` check in the command body | `type=click.Choice([...])` on the option |
+| Accept a date | Splitting the string and building a `date` from its parts | `type=click.DateTime(formats=["%Y-%m-%d"])` on the option |
+| Print text that may contain `[` | Passing it straight to `console.print`, where Rich reads `[...]` as markup and drops it | `console.print(rich.markup.escape(text))` |
 ```
 
 ### Step 2 — Caliper criterion 6
