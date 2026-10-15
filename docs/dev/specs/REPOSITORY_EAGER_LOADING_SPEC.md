@@ -1,6 +1,6 @@
 # Repository Eager Loading — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261015
 **Branch:** `feature/issue-223-repository-eager-loading` (from `dev`)
