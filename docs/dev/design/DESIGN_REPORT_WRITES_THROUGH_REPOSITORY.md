@@ -1,6 +1,6 @@
 # Report Writes Through ReportsRepository — Design Study
 
-**Status:** Active
+**Status:** Shipped
 **Kind:** Design study
 **Author:** Spanner (Role 1)
 **Date:** 20261015
@@ -88,5 +88,5 @@ Bundled into #167 (Q2). Both texts sit in code #167 rewrites. The EOD skip messa
 
 ## 6. Disposition
 
-- Promoted to:
+- Promoted to: `../specs/REPORT_WRITES_THROUGH_REPOSITORY_SPEC.md`
 - Superseded by:

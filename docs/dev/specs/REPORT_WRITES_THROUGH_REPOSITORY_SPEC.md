@@ -1,6 +1,6 @@
 # Report Writes Through ReportsRepository — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261015
 **Branch:** `feature/issue-167-report-writes-through-repository` (from `dev`)

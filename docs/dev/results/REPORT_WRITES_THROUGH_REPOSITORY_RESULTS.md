@@ -1,10 +1,10 @@
 # Report Writes Through ReportsRepository — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Anvil (Role 3)
 **Date:** 20261015
 **Spec:** `../specs/REPORT_WRITES_THROUGH_REPOSITORY_SPEC.md`
-**Released as:** v1.50.0
+**Released as:** v1.50.0 (tag v1.50.0)
 
 ---
 
