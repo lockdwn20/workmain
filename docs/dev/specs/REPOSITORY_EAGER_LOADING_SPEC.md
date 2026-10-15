@@ -1,10 +1,10 @@
 # Repository Eager Loading — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261015
 **Branch:** `feature/issue-223-repository-eager-loading` (from `dev`)
-**Target release:** set by `/closeout`
+**Target release:** v1.51.0
 **Originating item:** Issue #223
 **Design study:** `../design/DESIGN_REPOSITORY_EAGER_LOADING.md`
 

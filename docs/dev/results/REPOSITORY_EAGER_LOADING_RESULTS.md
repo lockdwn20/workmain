@@ -1,10 +1,10 @@
 # Repository Eager Loading — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Anvil (Role 3)
 **Date:** 20261015
 **Spec:** `../specs/REPOSITORY_EAGER_LOADING_SPEC.md`
-**Released as:** set by `/closeout`
+**Released as:** v1.51.0 (tag `v1.51.0`)
 
 ---
 
@@ -41,7 +41,7 @@ Complete. Eleven repository methods load the relationships their callers read on
 
 ## 5. Verification
 
-- **Test suite:** 1411 passed, 0 failed, 0 skipped (baseline: 1398 passed, 0 failed, 0 skipped) — form per `docs/DEVELOPMENT_STANDARDS.md` §6.
+- **Test suite:** 1411 passed, 0 failed, 0 skipped (baseline: 1398 passed, 0 failed, 0 skipped) — form per `docs/DEVELOPMENT_STANDARDS.md` §6. Re-run at close-out, 20261015: 1411 passed, 0 failed, 0 skipped.
 - **Count tests, loader removed.** Each test was run with only its method's loader removed. Counts are statements for the one-row run, then the five-row run:
 
   | Test | Method | Without loader | With loader |
@@ -78,7 +78,7 @@ Complete. Eleven repository methods load the relationships their callers read on
   | `EmailRepository.list_for_client` | `email.py:122`, read at `126` | `ReportRecipient.recipient` | `joinedload` |
 
 - **Live verification:** none. No CLI AC names a live run.
-- **Daemon restart:** `/closeout`'s.
+- **Daemon restart:** performed by `/closeout` after the merge to `dev`; its `ActiveEnterTimestamp` is in issue #223's closing comment.
 
 ## 6. Follow-ups
 
