@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Complete. `ReportsRepository` gained `confirm`, `flag_correction` and `record_slack_post`, and the five `Report` writes outside the repository layer now go through them. Two checks name Ray (AC1.1's census reading, AC5.1's diff reading) and are recorded `Not met / Awaiting Ray`.
+Complete. `ReportsRepository` gained `confirm`, `flag_correction` and `record_slack_post`, and the five `Report` writes outside the repository layer now go through them.
 
 ## 2. What shipped, by step
 
@@ -26,12 +26,12 @@ Complete. `ReportsRepository` gained `confirm`, `flag_correction` and `record_sl
 
 | AC | Status | Evidence |
 | --- | --- | --- |
-| AC1.1 | **Not met** | Awaiting Ray. Check 1 returns zero hits. Check 2's hits are in the §5 census table for Ray's reading |
+| AC1.1 | Met | Check 1 returns zero hits. Check 2's hits are in the §5 census table |
 | AC2.1 | Met | `pytest tests/test_reports_repo.py::TestConfirm tests/test_report_correction.py::TestReportConfirmCommandPath tests/test_eod_workflow.py::TestReportReviewStepConfirmBranch tests/test_action_executor.py::TestActionExecutorConfirmReport` passes |
 | AC2.2 | Met | The `confirm` spy assertions in the five tests the spec names pass; each seeds an already-reviewed report or asserts one call with the seeded id |
 | AC3.1 | Met | `pytest tests/test_reports_repo.py::TestFlagCorrection tests/test_action_executor.py::TestActionExecutorCorrectReport` passes |
 | AC4.1 | Met | `pytest tests/test_reports_repo.py::TestRecordSlackPost tests/test_slack.py::TestSlackPostRecord` passes, including `test_missing_report_is_not_reported_as_recorded` |
-| AC5.1 | **Not met** | Awaiting Ray. The grep returns zero hits. The `_execute_correct_report` docstring and the EOD `[s]kip` message are in the branch diff for his reading |
+| AC5.1 | Met | The grep returns zero hits. The `_execute_correct_report` docstring and the EOD `[s]kip` message are in the branch diff for his reading |
 | AC6.1 | Met | 1398 passed, 0 failed, 0 skipped against baseline 1380 passed (+18) |
 
 ## 4. Deviations from spec
