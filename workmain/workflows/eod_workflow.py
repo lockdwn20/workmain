@@ -12,7 +12,7 @@ import sys
 import threading
 import time
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date
 from enum import Enum
 from pathlib import Path
 from typing import Any, Optional
@@ -1050,21 +1050,16 @@ def _run_report_review_step(
                     break
 
                 elif choice == 'c':
-                    report.status = 'confirmed'
-                    report.updated_at = datetime.now()
-                    session.commit()
-                    print(f"  ✓ {label} report confirmed.")
+                    if repo.confirm(report.id):
+                        session.commit()
+                        print(f"  ✓ {label} report confirmed.")
+                    else:
+                        print(f"  {label} report is already {report.status} — no change made.")
                     break
 
                 else:  # s or any other input
                     print()
-                    if report_type == 'daily_internal':
-                        print(
-                            "  ⚠ Daily report left unconfirmed — it will not appear "
-                            "in the weekly draft until confirmed."
-                        )
-                    else:
-                        print(f"  ⚠ {label} report left unconfirmed.")
+                    print(f"  ⚠ {label} report left unconfirmed.")
                     break
 
             return EodStepResult(status=EodStepStatus.COMPLETED)
