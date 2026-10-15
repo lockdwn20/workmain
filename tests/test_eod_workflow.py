@@ -1491,3 +1491,38 @@ class TestRecordFailureReachesTheOperator:
 
         assert result.status == EodStepStatus.COMPLETED
         assert _RECORD_FAILURE_LINE in result.message
+
+
+class TestSlackWeeklyStepFailure:
+    """A failed `slack post weekly` child is a FAILED step unattended and names its exit code."""
+
+    def test_unattended_nonzero_is_failed_with_stderr(self):
+        from click.testing import CliRunner
+        from workmain.cli.commands.slack import slack
+        from workmain.integrations.slack.auth import SlackAuthError
+
+        with patch('workmain.cli.commands.slack.get_token',
+                   side_effect=SlackAuthError("SLACK_BOT_TOKEN not set in .env")):
+            result = CliRunner(mix_stderr=False).invoke(
+                slack, ['post', 'weekly', '-d', '20981012', '--channel', '#t'],
+            )
+        run = WorkmainRun(returncode=result.exit_code, stderr=result.stderr)
+
+        with patch('workmain.workflows.eod_workflow.run_workmain', return_value=run), \
+             patch('workmain.workflows.eod_workflow._is_interactive', return_value=False):
+            step = _run_slack_weekly_step(dry_run=False, target_date=SENTINEL_DATE)
+
+        assert step.status == EodStepStatus.FAILED
+        assert 'exit code 3' in step.error
+        assert 'SLACK_BOT_TOKEN not set' in step.error
+
+    def test_interactive_nonzero_reports_exit_code(self, capsys):
+        run = WorkmainRun(returncode=3, stderr='Error: SLACK_BOT_TOKEN not set in .env')
+        with patch('workmain.workflows.eod_workflow.run_workmain', return_value=run), \
+             patch('workmain.workflows.eod_workflow._is_interactive', return_value=True):
+            step = _run_slack_weekly_step(dry_run=False, target_date=SENTINEL_DATE)
+
+        out = capsys.readouterr().out
+        assert step.status == EodStepStatus.COMPLETED
+        assert 'Slack post weekly exited with code 3' in out
+        assert 'user aborted' not in out
