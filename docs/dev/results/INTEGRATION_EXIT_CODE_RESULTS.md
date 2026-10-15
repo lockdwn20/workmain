@@ -1,6 +1,6 @@
 # Integration Exit Code — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Anvil (Role 3)
 **Date:** 20261014
 **Spec:** `../specs/INTEGRATION_EXIT_CODE_SPEC.md`
