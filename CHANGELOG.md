@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.49.0] - 2026-10-15
+
+Each `tasks` command queried, decided and printed in one function, so its tests could only search printed text whose layout depended on terminal width, and a table could cut a value or drop it: Rich read a bracketed ID such as `[#85019]` as a style and printed nothing, so `tasks today` showed no IDs. Commands now parse their arguments with Click types, call a service that returns typed values, and hand the result to one renderer that prints it by a written rule (issue #58).
+
+### Added
+
+- `workmain/cli/output.py`: one `Renderer`, reached through Click's context, that prints a collection as a table while its key columns fit and it is at most 30 lines, and otherwise as a labelled `Label: value` list, with nothing cut; a record as a panel; and a numbered picker that takes a number or `q`
+- `workmain/cli/params.py`: `DateParamType` (`today`, `yesterday`, ISO dates) and `PickParamType`, built on `click.IntRange`
+- `workmain/services/tasks_service.py` and `workmain/services/results.py`: the tasks service and the `Page` every collection query returns
+
+### Changed
+
+- The `tasks` commands print through the renderer. Task content is shown in full, titles and empty results name the filters applied (`No tasks found (status=active).`), `tasks show` is a panel, and the picker offers only notes tracked as tasks, in every status, and says when the list was capped
+- A bad `--status` or `--date` is a Click usage error: it exits 2 with the error on stderr, where it exited 1 on stdout. Other `tasks` errors print `Error: <message>` on stderr and exit 1
+- `WorkmAInGroup` moved to `workmain/cli/output.py` and turns a service validation error into Click's `Error:` line for every group, where an unconverted group would have printed a traceback. Its "Not implemented" message prints unwrapped
+- `TaskStatusRepository.get_filtered` loads each task's note in the same query
+- `docs/DEVELOPMENT_STANDARDS.md` §4.3, §5.6, §6.2 and §7 describe the renderer, a converted command, and how a service, the renderer, a parameter type and a command are each tested. The retired `carryover` verb leaves §5.3
+
+### Fixed
+
+- `tasks today` printed no task IDs, and `tasks show` printed no meeting ID and an empty Tags line, because Rich dropped bracketed text
+- The `tasks` picker selected the second-to-last match when given `-1`
+
+Suite: 1380 passed, 0 failed, 0 skipped (baseline 1327 passed, 0 failed, 0 skipped).
+
 ## [1.48.1] - 2026-10-14
 
 Several Slack and provider failures printed an error and exited 0, so a caller reading the exit code took the failure for a success. The EOD Thursday step treats only a non-zero exit as a failure, so a weekly Slack post that was never made was recorded as completed. `providers test` also reported an enabled provider that failed to construct, such as one with no API key, as disabled (issue #225).
