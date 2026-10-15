@@ -1,6 +1,6 @@
 # Report Writes Through ReportsRepository — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261015
 **Branch:** `feature/issue-167-report-writes-through-repository` (from `dev`)
@@ -25,6 +25,7 @@
 | 20261015 | Caliper 5 | Step 1 says every call uses `zz_issue167`, but `TestRecordSlackPost` test 1 seeds `weekly_client` | Accepted. It seeds `zz_issue167`; `record_slack_post` does not read the type. |
 | 20261015 | Caliper 6 | AC4.1's test asserts only `False`, so a `_record_slack_post` that returns `False` silently passes | Accepted. The test patches `workmain.cli.commands.slack.err_console` and asserts `print` was called once, without reading the text (DR7). |
 | 20261015 | Caliper r2 1 | DR7's seed default and its type-only exception do not cover Step 3's date, Step 4's date, or Step 5's `weekly_client` on `2099-01-04`, which `_record_slack_post`'s id-only lookup does not need | Accepted, both remedies. DR7 names each exception and why. Step 5 seeds `zz_issue167` on `2100-09-13`. |
+| 20261015 | Ray | Spec approved for implementation after Caliper rounds 1–2 | Approved. |
 
 ---
 
