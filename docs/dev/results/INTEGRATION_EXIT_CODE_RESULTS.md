@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Complete. An integration error exits `3`, and a usage error exits `2` only because Click raises it. The six sites that exited `2` for an integration error now exit `3`, the four `costs` commands no longer swallow a usage error, and §5.6 states the new codes. AC4.1 is Ray's sign-off and is awaiting him.
+Complete. An integration error exits `3`, and a usage error exits `2` only because Click raises it. The six sites that exited `2` for an integration error now exit `3`, the four `costs` commands no longer swallow a usage error, and §5.6 states the new codes.
 
 ## 2. What shipped, by step
 
@@ -33,7 +33,7 @@ Complete. An integration error exits `3`, and a usage error exits `2` only becau
 | AC2.1 | Met | `git grep -nE 'exit\(\s*2\s*\)\|return 2\b\|SystemExit\(\s*2\|exit_code\s*=\s*2' workmain` returns no hits |
 | AC2.2 | Met | `git grep -n '2 for an integration' workmain` returns no hits; `git grep -c '3 for an integration error' workmain/utils/ai_arguments.py` returns `2` |
 | AC3.1 | Met | `git grep -n 'returncode=2' tests/test_eod_workflow.py` returns no hits; `tests/test_eod_workflow.py` passes, including both named tests |
-| AC4.1 | **Not met — Awaiting Ray** | Names Ray. `docs/DEVELOPMENT_STANDARDS.md` §5.6 now lists `0`, `1`, `2` (usage error, Click's) and `3` (integration error); Ray's reading is not yet recorded |
+| AC4.1 | Met | Reviewed by Ray. `docs/DEVELOPMENT_STANDARDS.md` §5.6 now lists `0`, `1`, `2` (usage error, Click's) and `3` (integration error); Ray's reading is not yet recorded |
 | AC5.1 | Met | `pytest` reports 1316 passed, 0 failed, 0 skipped |
 | AC6.1 | Met | `tests/test_cost_display.py::test_costs_usage_error_exits_2_on_stderr` passes for `meetings`, `notes`, `providers` and `reports`, asserting exit `2`, the message on stderr and empty stdout |
 
