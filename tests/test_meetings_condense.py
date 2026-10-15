@@ -217,13 +217,13 @@ class TestMeetingsCondenseRefusal(unittest.TestCase):
         with patch.object(pm_module, "_provider_manager_instance", manager):
             return CliRunner(mix_stderr=False).invoke(meetings, ["condense", str(meeting.id)])
 
-    def test_refused_condensation_exits_2_with_cause_on_stderr(self):
+    def test_refused_condensation_exits_3_with_cause_on_stderr(self):
         from tests.mocks.stub_providers import cut_off
         result = self._invoke({
             "gemini": cut_off(ProviderType.GEMINI),
             "claude": cut_off(ProviderType.CLAUDE),
         })
-        self.assertEqual(result.exit_code, 2, result.output)
+        self.assertEqual(result.exit_code, 3, result.output)
         self.assertIn("note_condensation", result.stderr)
         self.assertIn("4000", result.stderr)
         self.assertEqual(len(result.stderr.strip().splitlines()), 1)
