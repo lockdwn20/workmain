@@ -143,7 +143,7 @@ def test_provider(provider: str):
 
         if status != ProviderStatus.AVAILABLE:
             err_console.print(f"[red]✗ Provider status: {status.value}[/red]")
-            sys.exit(2)
+            sys.exit(3)
 
         console.print(f"[green]✓ Provider available[/green]")
         console.print("[dim]Sending test request...[/dim]")
@@ -182,7 +182,7 @@ def test_provider(provider: str):
 
     except IncompleteResponseError as e:
         err_console.print(f"[red]✗ Test failed:[/red] {escape(str(e))}")
-        sys.exit(2)
+        sys.exit(3)
     except Exception as e:
         err_console.print(f"[red]✗ Test failed:[/red] {escape(str(e))}")
         cfg = pm.get_all_provider_configs().get(provider_lower, {})
@@ -190,7 +190,7 @@ def test_provider(provider: str):
         if api_key_env:
             err_console.print("[dim]Check your API key in .env file:[/dim]")
             err_console.print(f"  {api_key_env}=...")
-        sys.exit(2)
+        sys.exit(3)
 
 
 @providers.command('costs')

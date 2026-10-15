@@ -24,6 +24,7 @@ from workmain.ai.base_provider import (
     ProviderUnavailableError,
     ConfigurationError,
     FinishStatus,
+    GenerationError,
     GenerationResponse,
     IncompleteResponseError,
     require_complete,
@@ -1222,7 +1223,7 @@ def _invoke_providers_test(finish, reason, content):
 def test_providers_test_fails_on_cut_off_reply():
     """AC4.1."""
     result = _invoke_providers_test(FinishStatus.CUT_OFF, "MAX_TOKENS", "partial")
-    assert result.exit_code == 2
+    assert result.exit_code == 3
     assert "API test successful" not in result.output
     assert "providers test" in result.stderr
     assert "512" in result.stderr
@@ -1232,9 +1233,42 @@ def test_providers_test_fails_on_cut_off_reply():
 def test_providers_test_fails_on_empty_reply():
     """AC4.2."""
     result = _invoke_providers_test(FinishStatus.COMPLETE, "STOP", "")
-    assert result.exit_code == 2
+    assert result.exit_code == 3
     assert "API test successful" not in result.output
     assert "was empty" in result.stderr
+
+
+def _invoke_providers_test_with(provider):
+    """Run 'providers test gemini' against the given provider mock."""
+    manager = MagicMock()
+    manager.get_configured_provider_names.return_value = ['claude', 'gemini', 'ollama']
+    manager.is_disabled.return_value = False
+    manager.get_provider.return_value = provider
+    manager.get_all_provider_configs.return_value = {'gemini': {'api_key_env': 'GOOGLE_API_KEY'}}
+    with patch('workmain.cli.commands.providers.get_provider_manager', return_value=manager), \
+            patch('workmain.utils.ai_arguments.get_provider_manager', return_value=manager):
+        return CliRunner(mix_stderr=False).invoke(providers, ['test', 'gemini'])
+
+
+def test_providers_test_exits_3_when_provider_unavailable():
+    """T1: an unavailable status is an integration error, and no request is made."""
+    provider = MagicMock()
+    provider.check_availability.return_value = ProviderStatus.UNAVAILABLE
+    result = _invoke_providers_test_with(provider)
+    assert result.exit_code == 3
+    assert "Provider status: unavailable" in result.stderr
+    provider.generate.assert_not_called()
+
+
+def test_providers_test_exits_3_on_other_provider_failure():
+    """T2: any other failure of the test request is an integration error."""
+    provider = MagicMock()
+    provider.check_availability.return_value = ProviderStatus.AVAILABLE
+    provider.generate.side_effect = GenerationError("boom")
+    result = _invoke_providers_test_with(provider)
+    assert result.exit_code == 3
+    assert "Test failed" in result.stderr
+    assert "boom" in result.stderr
 
 
 def test_providers_test_succeeds_on_complete_reply():
@@ -1434,6 +1468,6 @@ class TestProvidersTestRecording:
             ProviderType.CLAUDE, FinishStatus.CUT_OFF, "max_tokens", content="partial",
         ))
 
-        assert result.exit_code == 2
+        assert result.exit_code == 3
         assert query.count() == before + 1
         assert query.order_by(AiCost.id.desc()).first().refused is True

@@ -1304,7 +1304,7 @@ class TestReportStepOutcome:
 
     def test_interactive_skip_after_failure_returns_failed(self):
         """AC3.5."""
-        run = WorkmainRun(returncode=2, stderr='Error: cut off at 16000')
+        run = WorkmainRun(returncode=3, stderr='Error: cut off at 16000')
         with patch('workmain.workflows.eod_workflow._is_interactive', return_value=True), \
              patch('workmain.workflows.eod_workflow.run_workmain', return_value=run), \
              patch('workmain.workflows.eod_workflow._prompt_choice', return_value='s'), \
@@ -1316,8 +1316,8 @@ class TestReportStepOutcome:
 
     def test_interactive_failed_retry_returns_failed_with_cause(self):
         """AC3.5."""
-        run = WorkmainRun(returncode=2, stderr='Error: first')
-        retry = WorkmainRun(returncode=2, stderr='Error: retry cut off at 16000')
+        run = WorkmainRun(returncode=3, stderr='Error: first')
+        retry = WorkmainRun(returncode=3, stderr='Error: retry cut off at 16000')
         with patch('workmain.workflows.eod_workflow._is_interactive', return_value=True), \
              patch('workmain.workflows.eod_workflow.run_workmain', side_effect=[run, retry]), \
              patch('workmain.workflows.eod_workflow._prompt_choice', return_value='r'), \
