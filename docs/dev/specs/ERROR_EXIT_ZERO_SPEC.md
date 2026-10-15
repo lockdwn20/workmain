@@ -1,6 +1,6 @@
 # Slack and providers failures that exit 0 — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261014
 **Branch:** `hotfix/issue-225-error-exit-zero` (from `main`)
