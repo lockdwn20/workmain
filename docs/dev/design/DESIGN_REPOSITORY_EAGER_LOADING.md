@@ -107,5 +107,5 @@ The live `recipients` and `report_recipients` tables are empty, and so is `proje
 
 ## 6. Disposition
 
-- Promoted to:
+- Promoted to: `../specs/REPOSITORY_EAGER_LOADING_SPEC.md`
 - Superseded by:
