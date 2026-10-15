@@ -1,6 +1,6 @@
 # Framework Mechanism First — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261014
 **Branch:** `chore/issue-221-framework-mechanism-first` (from `main`, merges to `main` and `dev`)
@@ -27,6 +27,7 @@
 | 20261014 | Caliper | 2: `click.DateTime` returns `datetime.datetime`, not `date`, so it is not a drop-in replacement for code that builds a `date` | Accepted. The row now uses `date.fromisoformat(value)`, which returns a `date` |
 | 20261014 | Caliper | 2: the out-of-scope bullet calls seven findings "seven sites", and cites a study that exists only on the #58 branch | Accepted. The bullet no longer counts or cites the study |
 | 20261014 | Ray | §3.8 wording supplied by Ray: the four libraries, bold rule statements, the reason stated without a label, the `-1` case moved into the prompt example's row, and the markup-escape row replaced by a `pathlib` row | Accepted. Step 1 quotes it verbatim |
+| 20261014 | Ray | **Approved**, including the `SKILL.md` criterion 6 wording in step 2 | Status Draft → Approved. Implementation may begin at step 1 |
 
 ---
 
