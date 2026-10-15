@@ -4,33 +4,30 @@ and tasks CLI command group.
 
 Covers TaskStatusRepository's create_active, ensure_active, set_completed,
 set_dismissed, set_dismissed_by_tag_removal, get_by_note_id, get_filtered and
-count_filtered; the CLI's error paths for an invalid status filter and for
-showing or completing a nonexistent task; the CLI's all-tasks view removing
-the row cap independent of the status filter, the status-all view showing
-every lifecycle state with a truncation-honest header, and tasks carryover
-no longer resolving; and the notes carry-forward hook calling ensure_active
-and set_dismissed_by_tag_removal at the right points (tested at the repo
-level).
+count_filtered, and the tasks command group: each command's arguments, the
+service call it makes, and the view and result it hands the renderer.
 
 Uses db_session fixture from conftest.py for full transaction isolation.
 Sentinel dates (2099-xx-xx) prevent collisions with production data.
 """
 
-import re
-import unittest
-import uuid
 from datetime import date, datetime
-from typing import Optional
-from unittest.mock import patch
+from unittest.mock import ANY, Mock, patch
 
+import click
 import pytest
 from click.testing import CliRunner
-from rich.table import Table
 
+from workmain.cli.commands.tasks import TASK_LIST, TASK_RECORD, TASK_TODAY, tasks
+from workmain.cli.commands.tasks import task_list
+from workmain.cli.interface import cli
+from workmain.cli.output import Renderer
 from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.task_status_repo import TaskStatusRepository
-from workmain.database.models import Note
-from workmain.cli.commands.tasks import tasks
+from workmain.services import tasks_service
+from workmain.services.exceptions import NotATaskError, TaskNotFoundError
+from workmain.services.results import Page
+from workmain.services.tasks_service import TaskDetail, TaskRow
 
 
 # ---------------------------------------------------------------------------
@@ -275,218 +272,197 @@ class TestQueries:
 
 
 # ---------------------------------------------------------------------------
-# CLI — error and validation paths (no committed data needed)
+# Commands — arguments, service calls and what the renderer receives
 # ---------------------------------------------------------------------------
 
-class TestTasksCLIErrors:
-    """CLI error paths that do not require seeded DB data."""
+def _row(note_id: int = 42) -> TaskRow:
+    return TaskRow(note_id, "active", date(2099, 1, 1), (), "content")
 
-    def test_list_invalid_status_prints_error(self):
-        """tasks list --status <invalid> prints an error message."""
-        runner = CliRunner()
-        result = runner.invoke(tasks, ['list', '--status', 'xyzzy_invalid_status'])
-        assert 'Invalid status' in result.output or 'invalid' in result.output.lower()
 
-    def test_show_nonexistent_id_prints_not_found(self):
-        """tasks show 999999999 prints not-found and exits."""
-        runner = CliRunner()
-        result = runner.invoke(tasks, ['show', '999999999'])
-        assert '999999999' in result.output or 'not found' in result.output.lower()
+def _detail(note_id: int = 42) -> TaskDetail:
+    return TaskDetail(note_id, "active", None, None, None, None, (), None, None, "content")
 
-    def test_complete_nonexistent_id_prints_not_found(self):
-        """tasks complete 999999999 prints not-found and exits."""
-        runner = CliRunner()
-        result = runner.invoke(tasks, ['complete', '999999999'])
-        output_lower = result.output.lower()
-        assert 'not found' in output_lower or 'no note' in output_lower
 
-    def test_show_nonexistent_keyword_prints_not_found(self):
-        """tasks show <sentinel keyword> with no match prints not-found."""
-        runner = CliRunner()
-        result = runner.invoke(tasks, ['show', 'xyzzy_sentinel_no_match_2099'])
-        output_lower = result.output.lower()
-        assert 'not found' in output_lower or 'no notes' in output_lower
+def _run(args, renderer, **patches):
+    """Run `tasks <args>` with each named tasks_service function patched."""
+    runner = CliRunner(mix_stderr=False)
+    mocks = {}
+    stack = []
+    try:
+        for name, kwargs in patches.items():
+            p = patch.object(tasks_service, name, autospec=True, **kwargs)
+            mocks[name] = p.start()
+            stack.append(p)
+        result = runner.invoke(tasks, args, obj=renderer)
+    finally:
+        for p in stack:
+            p.stop()
+    return result, mocks
 
-    def test_list_help_flag_exits_cleanly(self):
-        """tasks list --help exits 0 and shows --status option."""
-        runner = CliRunner()
-        result = runner.invoke(tasks, ['list', '--help'])
+
+def _renderer(pick=None):
+    renderer = Mock(spec=Renderer)
+    renderer.pick.return_value = _row() if pick is None else pick
+    return renderer
+
+
+class TestTasksListCommand:
+    def test_defaults(self):
+        renderer = _renderer()
+        page = Page((), 0)
+        result, m = _run(["list"], renderer, list_tasks={"return_value": page})
         assert result.exit_code == 0
-        assert '--status' in result.output
+        m["list_tasks"].assert_called_once_with(ANY, "active", None, None, 20)
+        renderer.collection.assert_called_once_with(TASK_LIST, page)
 
-
-# ---------------------------------------------------------------------------
-# CLI — tasks list --all/--status decoupling, truncation-honest header,
-# carryover retirement (Gate 1, Item 67)
-# ---------------------------------------------------------------------------
-
-class TestTasksListCapAndCarryoverRetirement(unittest.TestCase):
-    """--all is a pure row-cap override, independent of --status (Design Rule 1);
-    header never overstates (Design Rule 3); carryover no longer exists
-    (Design Rule 2). Seeds rows through its own get_db() session."""
-
-    def setUp(self):
-        from dotenv import load_dotenv
-        load_dotenv()
-        from workmain.database.connection import get_db
-        db = get_db()
-        self.session = db.get_session()
-        self.notes_repo = NotesRepository(self.session)
-        self.task_repo = TaskStatusRepository(self.session)
-        self._seeded_note_ids: list[int] = []
-        self.runner = CliRunner()
-        self.run_id = uuid.uuid4().hex[:8]
-
-    def tearDown(self):
-        if self._seeded_note_ids:
-            self.session.query(Note).filter(
-                Note.id.in_(self._seeded_note_ids)
-            ).delete(synchronize_session=False)
-            self.session.commit()
-        self.session.close()
-
-    def _seed_task(self, marker: str, status: str, created_at: datetime) -> int:
-        note = self.notes_repo.create(
-            content=f"Sentinel {marker} 2099",
-            tags=['carry-forward'],
-            source='task',
-            created_at=created_at,
+    def test_every_option(self):
+        renderer = _renderer()
+        result, m = _run(
+            ["list", "--all", "--status", "all", "-s", "x", "-d", "2099-01-01"],
+            renderer,
+            list_tasks={"return_value": Page((), 0)},
         )
-        self._seeded_note_ids.append(note.id)
-        self.task_repo.create_active(note.id)
-        if status == 'completed':
-            self.task_repo.set_completed(note.id)
-        elif status == 'dismissed':
-            self.task_repo.set_dismissed(note.id)
-        self.session.commit()
-        return note.id
+        assert result.exit_code == 0
+        m["list_tasks"].assert_called_once_with(ANY, "all", "x", date(2099, 1, 1), 0)
 
-    def _list_rows(self, args):
-        """Invoke ``tasks list`` and return the result and the cells of each row it passed to the table."""
-        with patch.object(Table, 'add_row', autospec=True, side_effect=Table.add_row) as add_row:
-            result = self.runner.invoke(tasks, ['list', *args])
-        return result, [call.args[1:] for call in add_row.call_args_list]
+    def test_bad_status_is_a_usage_error(self):
+        result, m = _run(
+            ["list", "--status", "bogus"], _renderer(),
+            list_tasks={"return_value": Page((), 0)},
+        )
+        assert result.exit_code == 2
+        m["list_tasks"].assert_not_called()
 
-    def test_list_all_removes_cap(self):
-        """tasks list --all returns all rows; default --limit still caps at 20."""
-        markers = []
-        for i in range(25):
-            marker = f"gate1allcap_{self.run_id}_{i:02d}"
-            markers.append(marker)
-            self._seed_task(marker, 'active', datetime(2099, 7, 1, 9, i))
-
-        default_result, default_rows = self._list_rows([])
-        self.assertEqual(default_result.exit_code, 0, default_result.output)
-        default_contents = [row[4] for row in default_rows]
-        default_hits = sum(1 for m in markers if f"Sentinel {m} 2099" in default_contents)
-        self.assertEqual(default_hits, 20, default_result.output)
-
-        all_result, all_rows = self._list_rows(['--all'])
-        self.assertEqual(all_result.exit_code, 0, all_result.output)
-        all_contents = [row[4] for row in all_rows]
-        all_hits = sum(1 for m in markers if f"Sentinel {m} 2099" in all_contents)
-        self.assertEqual(all_hits, 25, all_result.output)
-
-    def test_list_status_all_value(self):
-        """tasks list --status all shows active, completed, and dismissed rows together."""
-        active_marker = f"gate1statusall_active_{self.run_id}"
-        completed_marker = f"gate1statusall_completed_{self.run_id}"
-        dismissed_marker = f"gate1statusall_dismissed_{self.run_id}"
-        self._seed_task(active_marker, 'active', datetime(2099, 8, 1, 9, 0))
-        self._seed_task(completed_marker, 'completed', datetime(2099, 8, 1, 9, 1))
-        self._seed_task(dismissed_marker, 'dismissed', datetime(2099, 8, 1, 9, 2))
-
-        result, rows = self._list_rows(['--status', 'all'])
-        self.assertEqual(result.exit_code, 0, result.output)
-        contents = [row[4] for row in rows]
-        self.assertIn(f"Sentinel {active_marker} 2099", contents)
-        self.assertIn(f"Sentinel {completed_marker} 2099", contents)
-        self.assertIn(f"Sentinel {dismissed_marker} 2099", contents)
-
-    def test_list_header_truncation_honest(self):
-        """Header reads 'N of M found' when truncated, 'N found' (no 'of') when not."""
-        for i in range(25):
-            self._seed_task(
-                f"gate1header_{self.run_id}_{i}", 'active', datetime(2099, 9, 1, 9, i)
-            )
-
-        default_result = self.runner.invoke(tasks, ['list'])
-        self.assertEqual(default_result.exit_code, 0, default_result.output)
-        self.assertRegex(default_result.output, r"\(20 of \d+ found")
-
-        all_result = self.runner.invoke(tasks, ['list', '--all'])
-        self.assertEqual(all_result.exit_code, 0, all_result.output)
-        # Scope the "no truncation" check to the title line itself — note
-        # content in the table body legitimately contains the word "of".
-        title_match = re.search(r"Tasks \([^)]*\)", all_result.output)
-        self.assertIsNotNone(title_match, all_result.output)
-        self.assertNotIn(" of ", title_match.group(0))
-
-    def test_carryover_removed(self):
-        """tasks carryover no longer resolves as a command."""
-        result = self.runner.invoke(tasks, ['carryover'])
-        self.assertNotEqual(result.exit_code, 0)
-        self.assertIn('no such command', result.output.lower())
+    def test_bad_date_is_a_usage_error(self):
+        result, m = _run(
+            ["list", "-d", "notadate"], _renderer(),
+            list_tasks={"return_value": Page((), 0)},
+        )
+        assert result.exit_code == 2
+        m["list_tasks"].assert_not_called()
 
 
-# ---------------------------------------------------------------------------
-# Notes carry-forward hook — repo-level simulation
-# ---------------------------------------------------------------------------
+class TestTasksTodayCommand:
+    def test_today(self):
+        renderer = _renderer()
+        page = Page((), 0)
+        result, m = _run(["today", "-s", "x"], renderer, list_today={"return_value": page})
+        assert result.exit_code == 0
+        m["list_today"].assert_called_once_with(ANY, "x", date.today())
+        renderer.collection.assert_called_once_with(TASK_TODAY, page)
 
-class TestNotesCarryForwardHook:
-    """Simulate the carry-forward hooks that notes.add and notes.edit invoke.
 
-    These tests call TaskStatusRepository directly with the same pattern
-    used in notes.py, verifying the hook logic produces correct state.
-    They do not go through the CLI — isolation is simpler this way and
-    the DB-integration path is fully exercised.
-    """
+class TestTasksShowCommand:
+    def test_show_finds_picks_gets_and_records(self):
+        renderer = _renderer(pick=_row(42))
+        page = Page((_row(42),), 1)
+        detail = _detail()
+        result, m = _run(
+            ["show", "42"], renderer,
+            find_tasks={"return_value": page}, get_task={"return_value": detail},
+        )
+        assert result.exit_code == 0
+        m["find_tasks"].assert_called_once_with(ANY, "42")
+        renderer.pick.assert_called_once_with(TASK_LIST, page)
+        m["get_task"].assert_called_once_with(ANY, 42)
+        renderer.record.assert_called_once_with(TASK_RECORD, detail)
 
-    def test_cf_note_creates_active_task_status(self, db_session):
-        """After adding a note with carry-forward tag, ensure_active creates an active record."""
-        note = _make_cf_note(db_session, "Sentinel hook add CF 2099",
-                             created_at=datetime(2099, 6, 1, 9, 0))
-        task_repo = TaskStatusRepository(db_session)
-        # Simulate what notes.py notes_add does:
-        task_repo.ensure_active(note.id)
+    def test_cancelled_pick_exits_zero_and_gets_nothing(self):
+        renderer = _renderer()
+        renderer.pick.return_value = None
+        result, m = _run(
+            ["show", "x"], renderer,
+            find_tasks={"return_value": Page((), 0)},
+            get_task={"return_value": _detail()},
+        )
+        assert result.exit_code == 0
+        m["get_task"].assert_not_called()
+        renderer.cancelled.assert_called_once_with()
 
-        ts = task_repo.get_by_note_id(note.id)
-        assert ts is not None
-        assert ts.status == 'active'
+    def test_service_error_reaches_stderr_with_exit_1(self):
+        result, _ = _run(
+            ["show", "x"], _renderer(),
+            find_tasks={"side_effect": TaskNotFoundError("No tasks found matching 'x'.")},
+        )
+        assert result.exit_code == 1
+        assert result.stderr == "Error: No tasks found matching 'x'.\n"
 
-    def test_non_cf_note_does_not_create_task_status(self, db_session):
-        """A note without carry-forward tag has no task_status record unless explicitly created."""
-        note = _make_note(db_session, "Sentinel no-cf note 2099",
-                          tags=['internal-only'],
-                          created_at=datetime(2099, 6, 2, 9, 0))
-        task_repo = TaskStatusRepository(db_session)
-        # notes.py does NOT call ensure_active for non-cf notes
-        ts = task_repo.get_by_note_id(note.id)
-        assert ts is None
 
-    def test_edit_to_add_cf_creates_task_status(self, db_session):
-        """Adding carry-forward tag via notes edit creates an active task_status record."""
-        note = _make_note(db_session, "Sentinel edit add CF 2099",
-                          tags=['internal-only'],
-                          created_at=datetime(2099, 6, 3, 9, 0))
-        task_repo = TaskStatusRepository(db_session)
-        # Simulate what notes.py notes_edit does when cf tag is added:
-        task_repo.ensure_active(note.id)
+class TestTasksCompleteDismissCommand:
+    def test_complete(self):
+        renderer = _renderer()
+        done = _row()
+        result, m = _run(
+            ["complete", "42"], renderer,
+            find_tasks={"return_value": Page((_row(),), 1)},
+            complete_task={"return_value": done},
+        )
+        assert result.exit_code == 0
+        m["complete_task"].assert_called_once_with(ANY, 42)
+        renderer.changed.assert_called_once_with(TASK_RECORD, done, "Completed")
 
-        ts = task_repo.get_by_note_id(note.id)
-        assert ts is not None
-        assert ts.status == 'active'
+    def test_dismiss(self):
+        renderer = _renderer()
+        gone = _row()
+        result, m = _run(
+            ["dismiss", "42"], renderer,
+            find_tasks={"return_value": Page((_row(),), 1)},
+            dismiss_task={"return_value": gone},
+        )
+        assert result.exit_code == 0
+        m["dismiss_task"].assert_called_once_with(ANY, 42)
+        renderer.changed.assert_called_once_with(TASK_RECORD, gone, "Dismissed")
 
-    def test_edit_to_remove_cf_dismisses_task_status(self, db_session):
-        """Removing carry-forward tag via notes edit dismisses the task_status record."""
-        note = _make_cf_note(db_session, "Sentinel edit remove CF 2099",
-                             created_at=datetime(2099, 6, 4, 9, 0))
-        task_repo = TaskStatusRepository(db_session)
-        task_repo.ensure_active(note.id)
+    def test_cancelled_pick_changes_nothing(self):
+        renderer = _renderer()
+        renderer.pick.return_value = None
+        result, m = _run(
+            ["complete", "x"], renderer,
+            find_tasks={"return_value": Page((), 0)},
+            complete_task={"return_value": _row()},
+        )
+        assert result.exit_code == 0
+        m["complete_task"].assert_not_called()
 
-        # Simulate what notes.py notes_edit does when cf tag is removed:
-        task_repo.set_dismissed_by_tag_removal(note.id)
+    def test_service_error_on_change(self):
+        result, _ = _run(
+            ["complete", "42"], _renderer(),
+            find_tasks={"return_value": Page((_row(),), 1)},
+            complete_task={"side_effect": NotATaskError(42)},
+        )
+        assert result.exit_code == 1
+        assert "Error: Note 42 exists but is not tracked as a task." in result.stderr
 
-        ts = task_repo.get_by_note_id(note.id)
-        assert ts is not None
-        assert ts.status == 'dismissed'
+    def test_dismiss_with_find_error_dismisses_nothing(self):
+        result, m = _run(
+            ["dismiss", "42"], _renderer(),
+            find_tasks={"side_effect": NotATaskError(42)},
+            dismiss_task={"return_value": _row()},
+        )
+        assert result.exit_code == 1
+        m["dismiss_task"].assert_not_called()
+
+
+class TestTasksGroup:
+    def test_list_help_and_status_option(self):
+        result = CliRunner(mix_stderr=False).invoke(tasks, ["list", "--help"])
+        assert result.exit_code == 0
+        assert any("--status" in p.opts for p in task_list.params)
+
+    def test_carryover_no_longer_resolves(self):
+        result = CliRunner(mix_stderr=False).invoke(tasks, ["carryover"])
+        assert result.exit_code != 0
+        assert "no such command" in result.stderr.lower()
+
+    def test_root_group_puts_a_renderer_on_the_context(self):
+        seen = []
+
+        def record(self, view, page):
+            seen.append(click.get_current_context().find_root().obj)
+
+        with patch.object(
+            tasks_service, "list_tasks", autospec=True, return_value=Page((), 0)
+        ), patch.object(Renderer, "collection", autospec=True, side_effect=record):
+            result = CliRunner(mix_stderr=False).invoke(cli, ["tasks", "list"])
+        assert result.exit_code == 0
+        assert isinstance(seen[0], Renderer)
