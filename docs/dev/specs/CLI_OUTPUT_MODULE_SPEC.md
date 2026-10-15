@@ -32,6 +32,9 @@
 | 20261014 | Caliper | C15 reads `result.output`, but under `CliRunner(mix_stderr=False)` Click's `No such command 'carryover'.` is on stderr. C14 reads `--status` from help text on stdout, which §6.2's new text forbids. | Accepted. C15 reads `result.stderr`. C14 asserts exit 0 for `list --help` and that `task_list.params` holds an option whose `opts` include `--status`, so it reads no printed text. §6.2 is unchanged. |
 | 20261014 | Caliper | `workmain/services/__init__.py` was out of scope, though §3.4 requires a package whose callers write `from workmain.services import <name>` to import that name and list it in `__all__`. | Accepted. Step 1 adds `tasks_service` to its imports and `__all__`. `ai_cost_service` is already imported that way (`providers.py`, `report_generator.py`, `tests/test_ai_costs.py`) and is not in `__all__`. That is an existing gap outside this change: Ray placed it in #201, 20261014, as a context bullet and an AC. |
 | 20261014 | Caliper | O24's `[OAuth]` passes even if the message stays inside a markup string, because Rich reads a bracket as a tag only when it starts with a lowercase letter, `#`, `/` or `@`. | Accepted, and re-run 20261014: `[OAuth]` prints intact through markup, while `[oauth]` and `[#85019]` are dropped. O24 raises `NotImplementedError("needs [#85019]")` and asserts that line. |
+| 20261015 | Spanner | `docs/DEVELOPMENT_STANDARDS.md` §3.8 (#221) names `click.IntRange` for asking for a number from 1 to `n`. | `PickParamType` subclasses `click.IntRange(1, n)` and overrides `convert` only to return `None` for `q`, so IntRange does the bounds check and the error lines. Plain `IntRange` is set aside because it can't express `q` to cancel (study Q3). `name = "choice"`, so Click's message for text reads "'x' is not a valid choice." Probed 20261015. DR9, P3, P4, O17. |
+| 20261015 | Spanner | §3.8 names `date.fromisoformat` for parsing `YYYY-MM-DD`. `click.DateTime` is the Click type for dates. | `DateParamType` handles `today` and `yesterday`, and passes anything else to `date.fromisoformat`. `click.DateTime` is set aside because it returns a `datetime` and has no `today` or `yesterday`. On Python 3.12, `fromisoformat` also accepts `20261014` and `2026-W42-3`, which today's `%Y-%m-%d` parse rejects. That is a broadening, and #140 owns date formats. DR9, P1. |
+| 20261015 | Spanner | #220 and #221 have landed, and #225 (v1.48.1) also merged to `dev`. | §2 re-checked against `dev` `5880216`: none of the three touches a file this spec changes, the `get_filtered` caller lines are unchanged, and every Step 5 anchor is present. The worked baseline in §6 is now v1.48.1's. |
 | 20261014 | Spanner | Where a result's render function lives (first draft) | Superseded by study Q7 (Ray). There are no per-result render functions. |
 | 20261014 | Spanner | The tasks candidate search | `get_filtered(status='all', search=..., limit=10)` and `count_filtered(status='all', search=...)`, both existing. No new repository method. |
 | 20261014 | Spanner | A list's lines are unwrapped | Each `Label: value` line prints with `soft_wrap=True`, so piped output carries one field per line, which is what makes a list greppable (study Q2). |
@@ -73,7 +76,7 @@
 
 ## 2. Verified current state
 
-Verified on `feature/issue-58-cli-output-module` at `51639df`, 20261014. Study findings are cited as F*n*; their evidence is in the study's §3.
+Verified on `feature/issue-58-cli-output-module` at `51639df`, 20261014, and re-checked 20261015 against `dev` `5880216`, which carries #220, #221 and #225. None of the three changes a file this spec touches, and the line numbers below hold there. Study findings are cited as F*n*; their evidence is in the study's §3.
 
 | Claim | Evidence |
 | --- | --- |
@@ -142,8 +145,8 @@ Verified on `feature/issue-58-cli-output-module` at `51639df`, 20261014. Study f
   - **`WorkmAInGroup(click.Group)`** and **`_StubCommandError`** move from `interface.py` to `output.py`. `invoke` keeps its `NotImplementedError` branch, and gains one that re-raises a `ServiceValidationError` as `click.ClickException(str(exc))`, chained `from` it. `_StubCommandError.show` prints the same two lines as today through a `Console()` it builds in the method, with two changes: each line prints with `soft_wrap=True`, and the message reaches Rich as `Text` (DR6). `cli` and `tasks` are both declared `cls=WorkmAInGroup`.
   - **The command.** It catches nothing it only reports, and has no `sys.exit`. A cancelled pick returns normally, so it exits 0.
 - **DR9 — Arguments.** `workmain/cli/params.py`:
-  - **`DateParamType(click.ParamType)`** (`name = "date"`) converts `today`, `yesterday` and `YYYY-MM-DD` to a `date`, and calls `self.fail` otherwise.
-  - **`PickParamType(click.ParamType)`** (`name = "choice"`, constructed with `n`) returns `None` for `q` in any case, or an `int` from 1 to `n`. Anything else calls `self.fail(f"Enter a number from 1 to {n}, or q.")`.
+  - **`DateParamType(click.ParamType)`** (`name = "date"`) converts `today` and `yesterday` to a `date`, and anything else through `date.fromisoformat`, calling `self.fail` on a `ValueError` (§3.8).
+  - **`PickParamType(click.IntRange)`** (`name = "choice"`, constructed with `n` as `IntRange(1, n)`) returns `None` for `q` in any case and otherwise defers to `IntRange.convert`, which rejects anything that isn't an integer from 1 to `n` (§3.8).
   - **`--status`** takes `click.Choice(VALID_STATUSES)`.
 
   A rejected argument is a Click usage error, exit 2 (#220).
@@ -301,8 +304,8 @@ None. This spec runs no migration, deletes no GitHub object, merges nothing to `
 
 ## 6. Test plan
 
-- **Baseline:** the counts Step 0 records after merging `dev`. On `dev` `a7621c2`, before #220 and #221, they are 1310 passed, 0 failed, 0 skipped.
-- **Expected after:** the baseline, less the 13 tests removed from `tests/test_task_lifecycle.py`, plus 65 new tests: S1–S21, P1–P4, O1–O24 and C1–C16. On `a7621c2` that comes to 1362 passed, 0 failed, 0 skipped. C14 and C15 carry over two of the removed tests.
+- **Baseline:** the counts Step 0 records after merging `dev`. On `dev` `5880216` (v1.48.1, after #220, #221 and #225) they are 1327 passed, 0 failed, 0 skipped.
+- **Expected after:** the baseline, less the 13 tests removed from `tests/test_task_lifecycle.py`, plus 65 new tests: S1–S21, P1–P4, O1–O24 and C1–C16. On `5880216` that comes to 1379 passed, 0 failed, 0 skipped. C14 and C15 carry over two of the removed tests.
 
 The test method names below are the spec's. AC node IDs cite the three that the ACs run directly: `test_statement_count_does_not_grow_with_rows`, `test_bracketed_values_print_verbatim` and `test_capped_candidates_say_so`. Anvil names the rest.
 
@@ -338,8 +341,8 @@ The test method names below are the spec's. AC node IDs cite the three that the 
 | --- | --- | --- |
 | P1 | `TestDateParamType` | `convert` gives `date.today()` for `today`, the day before for `yesterday`, and the date for `2099-01-01`. |
 | P2 | `TestDateParamType` | A throwaway command with a `DateParamType` option, run through `CliRunner(mix_stderr=False)` with `notadate`: exit 2, and `Error:` in `result.stderr`. |
-| P3 | `TestPickParamType` | `PickParamType(3)` converts `q` and `Q` to `None`, and `2` to `2`. |
-| P4 | `TestPickParamType` | `0`, `-1`, `4` and `x` each raise `click.BadParameter` carrying `Enter a number from 1 to 3, or q.` |
+| P3 | `TestPickParamType` | `PickParamType(3)` converts `q` and `Q` to `None`, and `2` to `2`, and is a `click.IntRange`. |
+| P4 | `TestPickParamType` | `0`, `-1` and `4` each raise `click.BadParameter`, and so does `x`, with "'x' is not a valid choice." |
 
 **`tests/test_output.py`.** Every renderer is built with `Console(file=io.StringIO(), width=N)` at the width the test names.
 
@@ -361,7 +364,7 @@ The test method names below are the spec's. AC node IDs cite the three that the 
 | O14 | `TestRecord` | A 40-word body at width 40: all 40 words appear (F28). |
 | O15 | `TestPick` | One row: it is returned, and the stdout stream yielded by `CliRunner().isolation(input="")` holds no `Select`. |
 | O16 | `TestPick` | Input `q`: `None`. |
-| O17 | `TestPick` | Three rows, with the inputs empty, `0`, `-1`, `4` and `x`, then `2`: the second row. The stdout stream yielded by `CliRunner().isolation(...)` holds four `Error: Enter a number from 1 to 3, or q.` lines. |
+| O17 | `TestPick` | Three rows, with the inputs empty, `0`, `-1`, `4` and `x`, then `2`: the second row. The stdout stream yielded by `CliRunner().isolation(...)` holds four `Error:` lines, one for each rejected input. |
 | O18 | `TestPick` | `test_capped_candidates_say_so`: 10 rows with `total=14` print `10 of 14 shown — refine the search`. |
 | O19 | `TestPick` | At width 120, a `#` column numbered 1–3. At width 30, records opened by `[1]`, `[2]` and `[3]`. |
 | O20 | `TestLines` | `changed(view, row, "Completed")` at width 20: one line, `✓ Completed task #<id>: <content>`. |
