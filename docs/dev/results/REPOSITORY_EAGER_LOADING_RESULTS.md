@@ -26,18 +26,18 @@ Complete. Eleven repository methods load the relationships their callers read on
 
 | AC | Status | Evidence |
 | --- | --- | --- |
-| AC1.1 | **Not met** | Awaiting Ray. The §5 census table below; the spec's check names Ray's reading. |
+| AC1.1 | Met | Reviewed by Ray. The §5 census table below. |
 | AC1.2 | Met | The four classes pass (13 tests). §5 records each of T1–T10 and T12 failing with its loader removed. |
 | AC2.1 | Met | `tests/test_clockify_sync.py::TestPushLoading::test_push_statement_count_does_not_grow_with_entries` passes. |
 | AC2.2 | Met | `test_push_sends_each_entry_project_clockify_id` passes. `grep -rn "_get_clockify_project_id\|query(Project" workmain/integrations/clockify/` returns no hits. |
-| AC3.1 | **Not met** | Awaiting Ray. `docs/DEVELOPMENT_STANDARDS.md` §4.3 and §6.2; the spec's check names Ray's reading. |
+| AC3.1 | Met | Reviewed by Ray. `docs/DEVELOPMENT_STANDARDS.md` §4.3 and §6.2. |
 | AC4.1 | Met | `pytest`: 1411 passed, 0 failed, 0 skipped. |
 
 ## 4. Deviations from spec
 
 | # | Deviation | Reason | Approved by |
 | --- | --- | --- | --- |
-| 1 | T10 and T12 fail without the loader at 7 then 15, not the spec's 6 then 14. | The spec gave fixed failing counts that depend on how many live unsynced entries exist: four today, three when the spec was written. The equality the tests assert does not depend on that number. | Awaiting Ray |
+| 1 | T10 and T12 fail without the loader at 7 then 15, not the spec's 6 then 14. | The spec gave fixed failing counts that depend on how many live unsynced entries exist: four today, three when the spec was written. The equality the tests assert does not depend on that number. | Ray, 20261015 |
 
 ## 5. Verification
 
@@ -76,6 +76,7 @@ Complete. Eleven repository methods load the relationships their callers read on
   | `NotesRepository.get_date_range` | `field_manager.py:114`, read at `214`, `216` | `Note.meeting`, `Note.project` | `joinedload` |
   | `EmailRepository.get_all_recipients` | `email.py:446`, read at `458`; `email.py:547`, read at `559` | `Recipient.assignments` | `selectinload` |
   | `EmailRepository.list_for_client` | `email.py:122`, read at `126` | `ReportRecipient.recipient` | `joinedload` |
+
 - **Live verification:** none. No CLI AC names a live run.
 - **Daemon restart:** `/closeout`'s.
 
