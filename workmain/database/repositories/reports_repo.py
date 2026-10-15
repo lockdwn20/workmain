@@ -2,8 +2,8 @@
 Repository for managing generated reports in the database.
 
 Provides methods to create report records with metadata, query reports by
-type, date or status, get cost summaries and analytics, and link reports to
-files on disk.
+type, date or status, get cost summaries and analytics, link reports to
+files on disk, and confirm, flag and record Slack posts on reports.
 """
 
 from datetime import date, datetime
@@ -276,6 +276,76 @@ class ReportsRepository:
             return
         report.correction_note = note
         self.session.flush()
+
+    def confirm(self, report_id: int) -> bool:
+        """Confirm an unconfirmed report.
+
+        This is the only confirm rule. A report that is already confirmed or
+        corrected is left unchanged, including its updated_at.
+
+        Args:
+            report_id: ID of the report to confirm.
+
+        Returns:
+            True when the report was confirmed; False when no row has the id
+            or the report was already confirmed or corrected.
+        """
+        report = self.get_by_id(report_id)
+        if report is None or report.status in ('confirmed', 'corrected'):
+            return False
+        report.status = 'confirmed'
+        report.updated_at = datetime.now()
+        self.session.flush()
+        return True
+
+    def flag_correction(self, report_id: int, note: str) -> None:
+        """Flag a report as corrected with a correction description.
+
+        Writes correction_note through set_correction_note() and sets
+        status = 'corrected'. Never writes corrected_content, which only
+        apply_correction() writes (CLAUDE.md § Report Correction Fields).
+        Writes nothing when the stripped note is empty or no row has the id.
+
+        Args:
+            report_id: ID of the report to flag.
+            note: Description of the correction.
+        """
+        if not note.strip():
+            return
+        report = self.get_by_id(report_id)
+        if report is None:
+            return
+        self.set_correction_note(report_id, note)
+        report.status = 'corrected'
+        report.updated_at = datetime.now()
+        self.session.flush()
+
+    def record_slack_post(
+        self,
+        report_id: int,
+        message_ts: str,
+        channel: str,
+        workspace_name: str,
+    ) -> bool:
+        """Record the Slack message a report was posted as.
+
+        Args:
+            report_id: ID of the posted report.
+            message_ts: Slack message timestamp.
+            channel: Channel the report was posted to.
+            workspace_name: Slack workspace name.
+
+        Returns:
+            True when recorded; False when no row has the id.
+        """
+        report = self.get_by_id(report_id)
+        if report is None:
+            return False
+        report.slack_message_ts = message_ts
+        report.slack_channel = channel
+        report.slack_workspace_name = workspace_name
+        self.session.flush()
+        return True
 
     def get_filtered(
         self,
