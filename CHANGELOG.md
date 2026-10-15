@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.50.0] - 2026-10-15
+
+Five places outside the repository layer set columns on a report row themselves, and the rule for confirming a report was written once per caller. The EOD review step had no guard, so pressing `[c]` on a corrected report it reopened turned it into a confirmed one and dropped it from `reports corrections`. Every report write now goes through `ReportsRepository`, and one confirm rule covers `reports confirm`, the EOD review and the Slack `confirm_report` intent (issue #167).
+
+### Added
+
+- `ReportsRepository.confirm`, `flag_correction` and `record_slack_post`
+
+### Changed
+
+- `reports confirm`, the EOD `[c]onfirm` branch and the Slack `confirm_report` intent confirm through `ReportsRepository.confirm`, which leaves a confirmed or corrected report unchanged
+- The Slack `correct_report` intent flags the correction through `flag_correction`, and `slack post weekly` records the post through `record_slack_post`. A post record whose report is missing is reported on stderr as a failed record
+
+### Fixed
+
+- EOD `[c]` on a report already confirmed or corrected made a change: it re-stamped a confirmed report and turned a corrected one into confirmed. It now prints that the report is already reviewed and makes no change
+- The EOD skip message and the Slack correction handler's docstring said a daily report's status controls the weekly report. The weekly is built from notes, and both texts are corrected
+
+Suite: 1398 passed, 0 failed, 0 skipped (baseline 1380 passed, 0 failed, 0 skipped).
+
 ## [1.49.0] - 2026-10-15
 
 Each `tasks` command queried, decided and printed in one function, so its tests could only search printed text whose layout depended on terminal width, and a table could cut a value or drop it: Rich read a bracketed ID such as `[#85019]` as a style and printed nothing, so `tasks today` showed no IDs. Commands now parse their arguments with Click types, call a service that returns typed values, and hand the result to one renderer that prints it by a written rule (issue #58).
