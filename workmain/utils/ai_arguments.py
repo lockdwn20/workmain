@@ -8,7 +8,7 @@ valid names and exits 1; a configuration that will not load exits 1 with the
 load error.
 
 failure_exit_code is the one owner of the exit code a failed command takes:
-2 for an integration error (a ProviderError that is not a ConfigurationError),
+3 for an integration error (a ProviderError that is not a ConfigurationError),
 1 otherwise (docs/DEVELOPMENT_STANDARDS.md §5.6).
 """
 
@@ -25,13 +25,13 @@ console = Console()
 
 
 def failure_exit_code(exc: BaseException) -> int:
-    """Return the exit code for a failed command: 2 for an integration error, else 1.
+    """Return the exit code for a failed command: 3 for an integration error, else 1.
 
     An integration error is a ProviderError that is not a ConfigurationError
     (docs/DEVELOPMENT_STANDARDS.md §5.6).
     """
     if isinstance(exc, ProviderError) and not isinstance(exc, ConfigurationError):
-        return 2
+        return 3
     return 1
 
 

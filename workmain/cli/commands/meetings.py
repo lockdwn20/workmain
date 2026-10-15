@@ -1700,12 +1700,7 @@ def meetings_costs(
     """
     provider_type = require_provider(provider)
 
-    try:
-        start_date, end_date = resolve_date_window(date_str, start_str, end_str, month_str, show_all)
-    except click.UsageError as e:
-        console.print(f"[red]✗ {e}[/red]")
-        console.print()
-        return
+    start_date, end_date = resolve_date_window(date_str, start_str, end_str, month_str, show_all)
 
     db = get_db()
     try:

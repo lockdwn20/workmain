@@ -350,7 +350,7 @@ class TestReportTypeFiltersRows(unittest.TestCase):
 class TestReportsFailureOutput:
     """Issue #148 — reports save and preview report a failure on stderr, non-zero."""
 
-    def test_save_shows_refusal_on_stderr_and_exits_2(self):
+    def test_save_shows_refusal_on_stderr_and_exits_3(self):
         """AC3.3."""
         from workmain.ai.base_provider import ProviderError
         message = (
@@ -365,7 +365,7 @@ class TestReportsFailureOutput:
                 patch('workmain.cli.commands.reports.get_db'), \
                 patch('workmain.cli.commands.reports.SystemStateRepository'):
             result = CliRunner(mix_stderr=False).invoke(reports, ['save', 'daily_internal'])
-        assert result.exit_code == 2, result.output
+        assert result.exit_code == 3, result.output
         assert 'daily_internal' in result.stderr
         assert '16000' in result.stderr
         assert 'Generation Details' not in result.stdout

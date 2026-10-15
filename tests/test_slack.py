@@ -603,3 +603,88 @@ class TestSlackPostRecord:
         assert recorded is True
         db_session.expire_all()
         assert db_session.get(Report, report_id).slack_message_ts == "test-ts-record"
+
+
+# ---------------------------------------------------------------------------
+# TestSlackFailureExits — a failed auth or post exits non-zero on stderr
+# ---------------------------------------------------------------------------
+
+class TestSlackFailureExits:
+    """slack auth and slack post weekly report failures on stderr and exit non-zero."""
+
+    TOKEN_MISSING = SlackAuthError("SLACK_BOT_TOKEN not set in .env")
+
+    @staticmethod
+    def _invoke(args, **kwargs):
+        return CliRunner(mix_stderr=False).invoke(slack, args, **kwargs)
+
+    def test_auth_no_token_exits_3(self):
+        with patch('workmain.cli.commands.slack.load_slack_config', return_value={}), \
+             patch('workmain.cli.commands.slack.get_token', side_effect=self.TOKEN_MISSING):
+            result = self._invoke(['auth'])
+
+        assert result.exit_code == 3
+        assert 'SLACK_BOT_TOKEN not set' in result.stderr
+        assert 'workmain slack setup' in result.stderr
+
+    def test_auth_token_rejected_exits_3(self):
+        with patch('workmain.cli.commands.slack.load_slack_config', return_value={}), \
+             patch('workmain.cli.commands.slack.get_token', return_value='xoxb-fake'), \
+             patch('workmain.cli.commands.slack.SlackClient') as client_cls:
+            client_cls.return_value.test_connection.side_effect = SlackClientError("invalid_auth")
+            result = self._invoke(['auth'])
+
+        assert result.exit_code == 3
+        assert 'Token validation failed' in result.stderr
+        assert 'invalid_auth' in result.stderr
+
+    def test_post_weekly_no_channel_exits_1(self):
+        with patch('workmain.cli.commands.slack._resolve_slack_channel', return_value=None), \
+             patch('workmain.cli.commands.slack.get_token') as get_token_mock:
+            result = self._invoke(['post', 'weekly', '-d', '20981012'])
+
+        assert result.exit_code == 1
+        assert 'No Slack channel configured.' in result.stderr
+        get_token_mock.assert_not_called()
+
+    def test_post_weekly_no_token_exits_3(self):
+        with patch('workmain.cli.commands.slack.get_token', side_effect=self.TOKEN_MISSING):
+            result = self._invoke(['post', 'weekly', '-d', '20981012', '--channel', '#t'])
+
+        assert result.exit_code == 3
+        assert 'SLACK_BOT_TOKEN not set' in result.stderr
+
+    def test_post_weekly_refused_exits_3(self, db_session):
+        row = Report(
+            report_type='weekly_client',
+            report_date=date(2098, 10, 12),
+            content='Weekly content.',
+            status='confirmed',
+        )
+        db_session.add(row)
+        db_session.commit()
+        row_id = row.id
+        try:
+            with patch('workmain.cli.commands.slack.get_token', return_value='xoxb-fake'), \
+                 patch('workmain.workflows.eod_workflow._run_report_review_step'), \
+                 patch('workmain.cli.commands.slack.load_slack_config',
+                       return_value={'workspace_name': 'Test WS'}), \
+                 patch('workmain.cli.commands.slack.SlackClient') as client_cls:
+                client_cls.return_value.post_message.side_effect = SlackClientError(
+                    "channel_not_found"
+                )
+                result = self._invoke(
+                    ['post', 'weekly', '-d', '20981012', '--channel', '#t'], input='y\n',
+                )
+
+            assert result.exit_code == 3
+            assert 'Slack post failed' in result.stderr
+            assert 'channel_not_found' in result.stderr
+            db_session.expire_all()
+            assert db_session.get(Report, row_id).slack_message_ts is None
+        finally:
+            db_session.expire_all()
+            leftover = db_session.get(Report, row_id)
+            if leftover is not None:
+                db_session.delete(leftover)
+                db_session.commit()

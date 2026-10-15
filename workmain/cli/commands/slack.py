@@ -10,6 +10,7 @@ through the shared runner, then post it, for a weekly, daily or monthly
 period.
 """
 
+import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
@@ -180,22 +181,24 @@ def slack_auth(reauth: bool):
     try:
         token = get_token()
     except SlackAuthError as e:
-        console.print(f"\n[red]✗ {e}[/red]")
-        console.print("  Run: [bold]workmain slack setup[/bold]")
-        return
+        err_console.print(f"[red]Error:[/red] {escape(str(e))}")
+        err_console.print("  Run: [bold]workmain slack setup[/bold]")
+        sys.exit(3)
 
     # Call auth.test
     try:
         client = SlackClient(token)
         info = client.test_connection()
     except SlackClientError as e:
-        console.print(f"\n[red]✗ Token validation failed:[/red] {e}")
-        console.print("  Your token may be revoked or incorrect.")
-        console.print(
+        err_console.print(
+            f"[red]Error:[/red] Token validation failed: {escape(str(e))}"
+        )
+        err_console.print("  Your token may be revoked or incorrect.")
+        err_console.print(
             "  Edit .env and replace SLACK_BOT_TOKEN, then run: "
             "[bold]workmain slack auth --reauth[/bold]"
         )
-        return
+        sys.exit(3)
 
     # Cache workspace name
     cfg["workspace_name"] = info["team"]
@@ -545,13 +548,13 @@ def slack_post(
             target_channel = _resolve_slack_channel(_ch_session)
 
         if not target_channel:
-            console.print(
-                "\n[red]✗ No Slack channel configured.[/red]"
+            err_console.print("[red]Error:[/red] No Slack channel configured.")
+            err_console.print("  Run:")
+            err_console.print("    [bold]workmain slack set channel <channel>[/bold]")
+            err_console.print(
+                "  or set a default in ~/.workmain/integrations/slack/config.json"
             )
-            console.print("  Run:")
-            console.print("    [bold]workmain slack set channel <channel>[/bold]")
-            console.print("  or set a default in ~/.workmain/integrations/slack/config.json")
-            return
+            sys.exit(1)
 
     # -----------------------------------------------------------------------
     # Auth check
@@ -559,9 +562,9 @@ def slack_post(
     try:
         token = get_token()
     except SlackAuthError as e:
-        console.print(f"\n[red]✗ {e}[/red]")
-        console.print("  Run: [bold]workmain slack setup[/bold]")
-        return
+        err_console.print(f"[red]Error:[/red] {escape(str(e))}")
+        err_console.print("  Run: [bold]workmain slack setup[/bold]")
+        sys.exit(3)
 
     # -----------------------------------------------------------------------
     # Date range
@@ -645,8 +648,10 @@ def slack_post(
             client = SlackClient(token)
             message_ts = client.post_message(target_channel, slack_content)
         except SlackClientError as e:
-            console.print(f"\n[red]✗ Slack post failed:[/red] {e}")
-            return
+            err_console.print(
+                f"[red]Error:[/red] Slack post failed: {escape(str(e))}"
+            )
+            sys.exit(3)
 
         recorded = _record_slack_post(report.id, message_ts, target_channel, workspace_name)
 

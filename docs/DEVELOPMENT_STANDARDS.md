@@ -401,6 +401,19 @@ Confirm the new `ActiveEnterTimestamp` postdates the merge commit before calling
 - All secrets are stored as KV pairs in the .env and utilized through python-dotenv
 - Nothing encrypts secrets at rest; `.env` must be `chmod 600`.
 
+### 3.8 Framework mechanisms first
+
+- **Use the mechanism Python's standard library, Click, Rich or SQLAlchemy provides before writing your own.** Where two of them do the job, either meets this rule, unless another section names one.
+- **A spec that writes its own records why.** Its Decision Log names the mechanism it set aside and the reason it does not fit.
+- The library's version is tested and behaves the same in every caller. A hand-written version has to get every edge case right on its own, and each copy can get a different one wrong.
+
+| Job | Written by hand | Use instead |
+| --- | --- | --- |
+| Ask for a number from 1 to `n` | A loop that converts and bounds-checks the input. One that rejects only `0` and values above `n` accepts `-1`, which Python reads as an index from the end of the list. | `click.prompt(..., type=click.IntRange(1, n))` |
+| Restrict an option to fixed values | An `if value not in (...)` check in the command body | `type=click.Choice([...])` on the option |
+| Parse a `YYYY-MM-DD` date | Splitting on `-` and building a `date` from the parts | `date.fromisoformat(value)` |
+| Build a file path | Joining strings with `/` | `pathlib.Path(base) / name` |
+
 ---
 
 ## 4. Database Standards
@@ -640,7 +653,8 @@ Reserved across all commands — no flag may reuse these:
 - Exit codes:
   - `0` success
   - `1` user-facing error or unhandled exception (after logging)
-  - `2` integration error (API, auth).
+  - `2` usage error: an unknown option, a missing argument or a rejected value. Click exits `2` for these itself; no command chooses it.
+  - `3` integration error (API, auth).
     - Never expose a raw stack trace — catch at the command level and emit a clean message.
 
 - Destructive or externally-sending commands must confirm unless `--force` is passed, and the prompt must state exactly what will happen.

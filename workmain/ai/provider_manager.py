@@ -390,8 +390,9 @@ class ProviderManager:
         checks it against the provider class's REQUIRED_POLICY_KEYS. An absent
         file, unparseable JSON, or a missing required key each raises
         ConfigurationError naming the file — the failure must reach the caller
-        rather than being absorbed into _disabled, so a payload typo cannot
-        silently reproduce the request shape this policy exists to fix.
+        rather than being recorded as a construction failure by the blanket
+        except in _load_config, so a payload typo cannot silently reproduce
+        the request shape this policy exists to fix.
 
         Args:
             name: Provider name (e.g. 'claude').
@@ -429,7 +430,8 @@ class ProviderManager:
         """Load provider and report-type configuration from ai_settings.json.
 
         Instantiates enabled providers from PROVIDER_REGISTRY.
-        Tracks disabled providers in _disabled (no connectivity check).
+        Tracks providers disabled in config in _disabled, and construction
+        failures in _disabled_reasons (no connectivity check).
         """
         from pathlib import Path
 
@@ -461,18 +463,17 @@ class ProviderManager:
                 self._disabled.add(name)
                 continue
             # Load the payload policy BEFORE construction, so an unusable
-            # policy raises out of here rather than being absorbed into
-            # _disabled by the blanket except below.
+            # policy raises out of here rather than being recorded as a
+            # construction failure by the blanket except below.
             policy = self._load_provider_policy(name, cls)
             try:
                 instance = cls(provider_cfg, policy)
                 self._providers[name] = instance
             except Exception as exc:
                 # Provider instantiation failed (e.g. missing API key in env).
-                # Mark as disabled so callers get a clear error rather than
-                # an unhandled exception at import time; keep the reason so
-                # get_provider can report it.
-                self._disabled.add(name)
+                # Record the reason only: the provider is enabled in config,
+                # so is_disabled stays False and get_provider raises with
+                # this reason.
                 self._disabled_reasons[name] = str(exc)
 
         report_types_cfg = self._settings.get('report_types', {})
