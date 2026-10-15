@@ -87,7 +87,7 @@ Read on this branch at `29e8336`, from `origin/main` `c3323c3`, which includes #
 
   | Site | Replacement |
   | --- | --- |
-  | `_load_provider_policy` docstring sentence, `provider_manager.py:390-395` | "An absent file, unparseable JSON, or a missing required key each raises ConfigurationError naming the file — the failure must reach the caller rather than being recorded as a construction failure by the blanket except in _load_config, so a payload typo cannot silently reproduce the request shape this policy exists to fix." |
+  | `_load_provider_policy` docstring sentence, `provider_manager.py:390-394` | "An absent file, unparseable JSON, or a missing required key each raises ConfigurationError naming the file — the failure must reach the caller rather than being recorded as a construction failure by the blanket except in _load_config, so a payload typo cannot silently reproduce the request shape this policy exists to fix." |
   | `_load_config` docstring line, `provider_manager.py:432` | "Tracks providers disabled in config in _disabled, and construction failures in _disabled_reasons (no connectivity check)." |
   | Comment, `provider_manager.py:463-465` | "Load the payload policy BEFORE construction, so an unusable policy raises out of here rather than being recorded as a construction failure by the blanket except below." |
   | Comment, `provider_manager.py:470-474` | "Provider instantiation failed (e.g. missing API key in env). Record the reason only: the provider is enabled in config, so is_disabled stays False and get_provider raises with this reason." |
