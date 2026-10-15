@@ -1,6 +1,6 @@
 # Slack and providers failures that exit 0 — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Anvil (Role 3)
 **Date:** 20261014
 **Spec:** `../specs/ERROR_EXIT_ZERO_SPEC.md`
