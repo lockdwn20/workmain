@@ -18,6 +18,8 @@
 | 20261014 | Ray | Study Q1: #220 moves only the six sites that exit `2` for an integration error today. §5.6 keeps "integration error (API, auth)" with the code changed to `3`. | DR1, Step 2. |
 | 20261014 | Ray | Study Q2: `providers test`'s three literals become `3`; its classification is not changed. | DR2, Step 1. |
 | 20261014 | Ray | Study Q3: the four costs commands' swallowed usage error (study F8) is fixed in #220, with a criterion of its own because the `exit(2)` grep cannot detect it. | DR3, Step 3, AC6. Issue #220's AC list gains AC6 at close-out. |
+| 20261014 | Caliper | Criterion 7: AC1.6 and AC2.1 are meant to show that no code exits `2` by hand (DR1), but their checks are narrower — `sys\.exit\(2\)` alone, and `exit\(2\)\|return 2\b` over `workmain/cli` and `workmain/utils` only. A `raise SystemExit(2)`, an `exit_code = 2` or a `return 2` elsewhere under `workmain/` passes both. AC1.6's check is a subset of AC2.1's. | Accepted. AC1.6 removed; AC2.1 checks DR1 once with §2's producer pattern, less the `failure_exit_code` alternative, over all of `workmain`. Verified 20261014: today the pattern matches exactly the four lines Step 1 changes (`providers.py:146`, `185`, `193`; `ai_arguments.py:34`), so it has no other hit to explain away. |
+| 20261014 | Caliper | Criterion 3: T3–T6 are placed in `tests/test_ai_arguments.py`, though nothing they test is in `ai_arguments.py`. Under `docs/DEVELOPMENT_STANDARDS.md` §6.3 a test lives in `test_<component>.py`; `tests/test_cost_display.py` already covers all four costs commands through `CliRunner`. | Accepted. T3–T6 go in `tests/test_cost_display.py`; Step 3's Files column follows. |
 
 ---
 
@@ -75,7 +77,7 @@ Each step ends with a commit.
 | --- | --- | --- |
 | 1 | The integration exit is `3`. | `workmain/utils/ai_arguments.py`, `workmain/cli/commands/providers.py`, `tests/test_ai_arguments.py`, `tests/test_meetings_condense.py`, `tests/test_provider_foundation.py`, `tests/test_eod_workflow.py` |
 | 2 | §5.6 states the new exit codes. | `docs/DEVELOPMENT_STANDARDS.md` |
-| 3 | A costs command's usage error exits `2`. | `workmain/cli/commands/meetings.py`, `notes.py`, `providers.py`, `reports.py`, `tests/test_ai_arguments.py` |
+| 3 | A costs command's usage error exits `2`. | `workmain/cli/commands/meetings.py`, `notes.py`, `providers.py`, `reports.py`, `tests/test_cost_display.py` |
 | 4 | The results artifact. | `docs/dev/results/INTEGRATION_EXIT_CODE_RESULTS.md` |
 
 ### Step 1 — the integration exit is `3`
@@ -138,8 +140,7 @@ None. No migration, no GitHub object deleted, no merge, no force-push, no servic
 | AC1.3 | `providers test` exits `3` for a refused or incomplete reply | `pytest tests/test_provider_foundation.py::test_providers_test_fails_on_cut_off_reply tests/test_provider_foundation.py::test_providers_test_fails_on_empty_reply tests/test_provider_foundation.py::TestProvidersTestRecording::test_cut_off_reply_is_recorded_refused` passes, each asserting exit `3` |
 | AC1.4 | `providers test` exits `3` when the provider reports itself unavailable | T1 passes |
 | AC1.5 | `providers test` exits `3` for any other provider failure | T2 passes |
-| AC1.6 | No code under `workmain/` exits `2` by hand | `git grep -nE 'sys\.exit\(2\)' workmain` returns no hits |
-| AC2.1 | Exit `2` is left to Click's usage errors: nothing in the command or utility code chooses it | `git grep -nE 'exit\(2\)\|return 2\b' workmain/cli workmain/utils` returns no hits |
+| AC2.1 | Exit `2` is left to Click's usage errors: no code under `workmain/` chooses it (DR1) | `git grep -nE 'exit\(\s*2\s*\)\|return 2\b\|SystemExit\(\s*2\|exit_code\s*=\s*2' workmain` returns no hits |
 | AC2.2 | `failure_exit_code`'s docstrings state `3` for an integration error | `git grep -n '2 for an integration' workmain` returns no hits, and `git grep -c '3 for an integration error' workmain/utils/ai_arguments.py` returns `2` |
 | AC3.1 | The EOD tests that stand in for a child's integration failure use `3`, and still record the step as failed | `git grep -n 'returncode=2' tests/test_eod_workflow.py` returns no hits, and `pytest tests/test_eod_workflow.py -k 'test_interactive_skip_after_failure_returns_failed or test_interactive_failed_retry_returns_failed_with_cause'` passes |
 | AC4.1 | §5.6 lists `0` success, `1` user-facing error, `2` usage error, `3` integration error (API, auth) | A stated reading by Ray of `docs/DEVELOPMENT_STANDARDS.md` §5.6's exit-code list, for those four codes and that `2` is described as Click's, not a command's |
@@ -155,7 +156,7 @@ None. No migration, no GitHub object deleted, no merge, no force-push, no servic
 | --- | --- | --- |
 | T1 | `tests/test_provider_foundation.py` | `providers test gemini` through `CliRunner(mix_stderr=False)`, with the manager mocked as in `_invoke_providers_test` and `check_availability` returning `ProviderStatus.UNAVAILABLE`: exit `3`, `Provider status: unavailable` in stderr, and `generate` not called. |
 | T2 | `tests/test_provider_foundation.py` | the same, with `check_availability` returning `AVAILABLE` and `generate` raising `GenerationError("boom")`: exit `3`, and `Test failed` and `boom` in stderr. |
-| T3–T6 | `tests/test_ai_arguments.py` | one test parametrized over `meetings`, `notes`, `providers` and `reports`: `costs --date 2026-01-01 --month 2026-01` through `CliRunner(mix_stderr=False)` exits `2`, stderr contains `--date and --month are mutually exclusive.`, and stdout is empty. The command raises before it opens a session, so the test needs no database fixture. |
+| T3–T6 | `tests/test_cost_display.py` | one test parametrized over `meetings`, `notes`, `providers` and `reports`: `costs --date 2026-01-01 --month 2026-01` through `CliRunner(mix_stderr=False)` exits `2`, stderr contains `--date and --month are mutually exclusive.`, and stdout is empty. The command raises before it opens a session, so the test needs no database fixture. |
 
 ## 7. Risks and rollback
 
