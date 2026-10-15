@@ -51,8 +51,8 @@ Complete. The renderer, views, parameter types, tasks service and group class ar
 
 | # | Deviation | Reason | Approved by |
 | --- | --- | --- | --- |
-| 1 | `_StubCommandError.show(self, file=None)` takes Click's `file` argument, which the spec's `show` does not name. | Click's `ClickException.show` has that signature; a subclass that drops it breaks a caller that passes it. Output is as DR8 states. | Not asked |
-| 2 | `NotATaskError` takes a `note_id` and builds its own message, and `TaskNotFoundError` takes the message. | Step 1.2 lists the three messages without saying which class builds them. Messages are as listed. | Not asked |
+| 1 | `_StubCommandError.show(self, file=None)` takes Click's `file` argument, which the spec's `show` does not name. | Click's `ClickException.show` has that signature; a subclass that drops it breaks a caller that passes it. Output is as DR8 states. | Ray & Spanner |
+| 2 | `NotATaskError` takes a `note_id` and builds its own message, and `TaskNotFoundError` takes the message. | Step 1.2 lists the three messages without saying which class builds them. Messages are as listed. | Ray & Spanner |
 
 ## 5. Verification
 
