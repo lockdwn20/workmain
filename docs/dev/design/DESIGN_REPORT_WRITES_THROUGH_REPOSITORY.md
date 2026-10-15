@@ -77,14 +77,14 @@ Rules already settle each of these:
 
 ### D5 — the weekly-aggregation claims (F12)
 
-Out of #167's scope. An issue for it needs to correct the two texts in F12, or make weekly generation honour daily report status if that was the intent. Which of the two is the open question. Ray decides whether it gets its own issue, joins an existing one, or is bundled here.
+Bundled into #167 (Q2). Both texts sit in code #167 rewrites. The EOD skip message in `_run_report_review_step` and the `_execute_correct_report` docstring are corrected to say what is true since `12add0c`: a daily report's status does not affect the weekly report. Weekly generation keeps building from notes, and making it read daily reports again is not part of #167.
 
 ## 5. Open questions
 
 | Q | Question | Answer |
 | --- | --- | --- |
 | Q1 | When the EOD review reopens a report that is already confirmed or corrected and the user presses `[c]`, should confirming leave it unchanged, as `reports confirm` and the Slack intent do (Option A), or keep today's behaviour of setting it to `confirmed`, which takes a corrected report out of `reports corrections` (Option B)? | Answered 20261015 by Ray: Option A. |
-| Q2 | Two texts say a daily report's status controls the weekly report, which it does not (F12). Should this get its own issue, join an existing issue, or be bundled into #167? | |
+| Q2 | Two texts say a daily report's status controls the weekly report, which it does not (F12). Should this get its own issue, join an existing issue, or be bundled into #167? | Answered 20261015 by Ray: bundled into #167, as D5 states. |
 
 ## 6. Disposition
 
