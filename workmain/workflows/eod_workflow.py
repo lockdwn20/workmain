@@ -1264,8 +1264,7 @@ def _run_slack_weekly_step(dry_run: bool, target_date: date) -> EodStepResult:
 
         if run.returncode != 0:
             print()
-            print("  ⚠ Slack post weekly returned non-zero "
-                  "(user aborted or already posted)")
+            print(f"  ⚠ Slack post weekly exited with code {run.returncode}")
             if not _is_interactive():
                 return EodStepResult(
                     status=EodStepStatus.FAILED,

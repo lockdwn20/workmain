@@ -415,17 +415,58 @@ def test_is_disabled_true_when_enabled_false():
     assert manager.is_disabled('ollama') is True
 
 
-def test_is_disabled_false_when_enabled_but_failed_api_key():
-    """is_disabled('claude') returns False when enabled — even if instantiation failed."""
-    # claude has enabled: false in test settings — all three are disabled in test settings
-    # Use a setting where claude is marked enabled but will fail to instantiate
+def _failed_construction_manager(enabled):
+    """Real manager with claude enabled/disabled and its API key unset."""
     settings = _make_temp_settings()
-    settings['providers']['claude']['enabled'] = True
-    # No api key env set → will fail → goes into _disabled
-    manager = _manager_from_dict(settings)
-    # Either in _disabled (failed instantiation) or providers — both valid outcomes
-    # The key assertion: registry knows it
-    assert 'claude' in manager.get_all_provider_configs()
+    settings['providers']['claude']['enabled'] = enabled
+    settings['providers']['claude']['api_key_env'] = 'WORKMAIN_TEST_UNSET_API_KEY'
+    with patch.dict(os.environ):
+        os.environ.pop('WORKMAIN_TEST_UNSET_API_KEY', None)
+        return _manager_from_dict(settings)
+
+
+def test_is_disabled_false_when_enabled_but_failed_api_key():
+    """An enabled provider that failed to construct is not disabled; get_provider reports why."""
+    manager = _failed_construction_manager(True)
+    assert manager.is_disabled('claude') is False
+    assert 'claude' in manager._disabled_reasons
+    with pytest.raises(ProviderUnavailableError) as exc_info:
+        manager.get_provider('claude')
+    assert 'Claude API key required' in str(exc_info.value)
+
+
+class TestFailedConstruction:
+    """providers test / providers list on a failed-construction vs config-disabled provider."""
+
+    @staticmethod
+    def _invoke(manager, args):
+        with patch('workmain.cli.commands.providers.get_provider_manager', return_value=manager), \
+                patch('workmain.utils.ai_arguments.get_provider_manager', return_value=manager):
+            return CliRunner(mix_stderr=False).invoke(providers, args)
+
+    def test_providers_test_reports_construction_error(self):
+        result = self._invoke(_failed_construction_manager(True), ['test', 'claude'])
+        assert result.exit_code == 3
+        assert 'Claude API key required' in result.stderr
+        assert 'is disabled' not in result.stdout
+        assert 'is disabled' not in result.stderr
+
+    def test_providers_test_config_disabled_exits_0(self):
+        result = self._invoke(_failed_construction_manager(False), ['test', 'claude'])
+        assert result.exit_code == 0
+        assert 'is disabled' in result.stdout
+        assert 'enabled: true' in result.stdout
+
+    def test_providers_list_shows_error_not_disabled(self):
+        result = self._invoke(_failed_construction_manager(True), ['list'])
+        row = next(l for l in result.stdout.splitlines() if 'Claude' in l)
+        assert 'error' in row
+        assert 'disabled' not in row
+
+    def test_providers_list_shows_config_disabled(self):
+        result = self._invoke(_failed_construction_manager(False), ['list'])
+        row = next(l for l in result.stdout.splitlines() if 'Claude' in l)
+        assert 'disabled' in row
 
 
 def test_ollama_provider_enabled_and_active():
