@@ -1,0 +1,281 @@
+# CLI Output Module — Design Study
+
+**Status:** Shipped
+**Kind:** Design study
+**Author:** Spanner (Role 1)
+**Date:** 20261013
+**Originating item:** Issue #58
+
+---
+
+## 1. Purpose
+
+Issue #58 builds `workmain/cli/output.py`, converts the `tasks` group onto it, and writes the `docs/DEVELOPMENT_STANDARDS.md` rules every later conversion cites (§4.3, §5.6, §6.2, §7). Issue #58's body already settles the design: the result dataclass, session ownership, failures, the find/apply split, argument parsing, the contract rule, the three column kinds, soft-wrapped lines and the test forms. Those points are not re-opened here. This study does three things. It measures what the `tasks` group and its tests do on `dev` `a7621c2` after #95 and #96. It measures how Rich 13.7.0 behaves against the column rule. It then puts to Ray the decisions the issue leaves for the pilot: the preview length, when the stacked layout starts, the picker convention, and which records the tasks picker offers. §4.7, added 20261014, does re-open two of the body's points, Failure (`failure_exit_code` in each command) and the command-test form (patching the render call), because both hand-write what Click already provides (F23, F21).
+
+## 2. Scope of the read
+
+Read:
+
+- `workmain/cli/commands/tasks.py`, in full.
+- `workmain/database/repositories/task_status_repo.py`, in full.
+- `NotesRepository.find_by_content_like`.
+- The `Note` and `TaskStatus` models.
+- `workmain/services/`, in full.
+- `failure_exit_code` in `workmain/utils/ai_arguments.py`.
+- Every name-or-ID resolver and `click.prompt` call under `workmain/cli/commands/`, by grep.
+- Every caller of `TaskStatusRepository.get_filtered`, `count_filtered`, `get_by_note_id`, `set_completed` and `set_dismissed` under `workmain/`.
+- Every `run_workmain`, `ctx.invoke` and text reference to a `tasks` command under `workmain/`, `scripts/`, `automation/`, `.claude/`, `config/` and `templates/`.
+- `tests/test_task_lifecycle.py`, in full.
+- `docs/DEVELOPMENT_STANDARDS.md` §3–§7.
+- The #199 study `docs/archive/design/DESIGN_COMMAND_OUTPUT_SEPARATION.md` §4.2–§4.4 and §5.
+
+Run:
+
+- `tests/test_task_lifecycle.py` at every even `COLUMNS` value from 20 to 80, then 100, 120 and 200.
+- A Rich probe that renders a five-column table at every even width from 20 to 80.
+
+Not read: the other fifteen command files beyond their resolvers and prompts, which #201–#216 own; `cost_display.py` rendering and `ai_arguments.py` error printing, which the #199 study assigns to the output module but which only the AI-costs conversion (#201) moves; and the Slack and EOD rendering paths.
+
+## 3. Findings
+
+| # | Finding | Evidence | Severity |
+| --- | --- | --- | --- |
+| F1 | **No other process runs a `tasks` command.** No `run_workmain`, `ctx.invoke` or script names one. The EOD workflow, the daemon and `ActionExecutor` reach tasks through `TaskStatusRepository` directly. The §1.2 call-site enumeration for this issue's contract changes therefore has one caller: the person at the terminal. | `git grep` for `run_workmain(`, `'tasks'` and `workmain tasks` under `workmain/`, `scripts/`, `automation/`, `.claude/`, `config/` and `templates/`: the only hits are in `tasks.py` itself, plus `templates.py:446`, which is a data-source choice, not an invocation. | — |
+| F2 | **Every error goes to stdout, prefixed `✗`.** The invalid `--status` and invalid `--date` errors, not found by ID, no content match, and note not tracked as a task all print through the module `console` and `raise SystemExit(1)`. §5.6 requires `Error:` on a stderr `Console(stderr=True, soft_wrap=True)`. A cancelled picker exits 0. Converting to §5.6 moves five error lines from stdout to stderr and keeps every exit code. | `tasks.py:52-53`, `57-59`, `79-85`, `101-102`, `169-173`; cancel at `72-74`. | Medium |
+| F3 | **The picker selects the wrong note on a negative number.** `click.prompt(..., default=0)` infers an `int`. The guard is `choice == 0 or choice > len(matches)`, so `-1` passes and `matches[choice - 1]` is `matches[-2]`, the second-to-last candidate. `tasks complete` and `tasks dismiss` then write to that task. | `tasks.py:71-75`. | High |
+| F4 | **The tasks picker offers records that cannot be tasks.** `_resolve_task` searches every note with `find_by_content_like`, then rejects the chosen note if it has no `task_status` row. A user can pick from the list and be told the pick is not a task. The search is capped at 10, newest first, and the picker does not say so. | `tasks.py:55-85`; `notes_repo.py:514-534` (`limit: int = 10`). | Medium |
+| F5 | **Pickers follow two conventions.** `q` cancels, with default `1`, in `notes._resolve_note`, `meetings._resolve_meeting`, `schedule._resolve_holiday`, `schedule._resolve_timeoff` and `email` (`email.py:563`). `0` cancels in `tasks._resolve_task` (default `0`) and in the `notes` meeting picker (`notes.py:550`, default `1`). On invalid input, `notes` prints "Invalid selection." and returns `None`, while `tasks` treats any out-of-range number above the list as a cancel. The shared picker sets one convention for all sixteen conversions. | The lines cited; resolver census #199 F7. | Medium |
+| F6 | **`tasks list` loads each task's note with one query per row.** `get_filtered` joins `Note` only to filter and order by it, and returns `TaskStatus` objects whose `note` relationship is lazy (the default, `lazy='select'`). The command reads `ts.note` once per row. No repository under `workmain/` uses `joinedload`, `selectinload` or `contains_eager`. | `task_status_repo.py:191-216`, `244-269`; `models.py:337`; `git grep` for the loader names. | Medium |
+| F7 | **Every other `get_filtered` caller also reads `.note` per row.** Eager loading inside `get_filtered` changes their query count, not their results. The callers are `scheduler.py:65`, `action_executor.py:162`, `187` and `292`, and `eod_workflow.py:471`, `632` and `676`. These are the §1.2 call sites for the repository change. | Those lines; for example `action_executor.py:173` reads `task.note.content` and `eod_workflow.py:685` reads `ts.note.content`. | — |
+| F8 | **Rich hides key values as the table narrows, and `min_width` does not prevent it.** With today's `tasks list` declaration, the Status value disappears at every width from 20 to 32, and the ID and Created values from 20 to 34. Declaring the keys as `no_wrap` with `min_width` set to their longest value keeps them intact down to the summed width. Below that width, Rich crops the table at the edge with no marker: at width 20 to 30 the Created value is cut. The module therefore has to calculate the threshold and switch to the stacked layout itself. Rich will not do it. | Probe in Rich 13.7.0, five columns (ID, Status and Created as keys; Tags and Content as text with `overflow="fold"`), every even width from 20 to 80. | High |
+| F9 | **Just above the key threshold, text columns shrink to a few characters.** At width 46, the two text columns are 3 characters wide. The headers fold ("Tag/s", "Con/ten/t"), and an 80-character content cell takes about 35 lines. No value is hidden, but the table is unusable. Where the stacked layout begins is therefore a real choice (Q2). | Same probe, width 46. | Medium |
+| F10 | **`overflow="fold"` is needed for the text rule.** A Rich column defaults to `overflow="ellipsis"`, which cuts a word longer than the column with `…`. `fold` breaks the word onto the next line, and the probe shows the whole token is kept. | Rich `Column` default; probe output at width 46. | — |
+| F11 | **The one width-dependent test fails because of the table title.** `test_list_header_truncation_honest` checks the title with `\(20 of \d+ found`. The title is the Rich `Table(title=...)`, which wraps to the table's width, so at `COLUMNS=20` the phrase breaks across lines. Reproduced: `1 failed, 30 passed` at 20; `31 passed` at every other width swept. | `tasks.py:215-220`; `tests/test_task_lifecycle.py:406-423`. | Medium |
+| F12 | **Preview lengths differ by surface.** `tasks list` cuts content at 80 characters with `…`. `tasks complete`/`dismiss` cut at 60 with `…`. The tasks and notes pickers cut at 70 with `...`. `_format_task_row` cuts at 80 and has no caller. #199 F6 measured `reports list` at 50. | `tasks.py:68`, `105-125`, `230`, `350`, `378`; `notes.py:214`. | Low |
+| F13 | **`tasks today` and `tasks show` do not follow §5.6's patterns.** `today` is a collection printed as Rich lines under a `"=" * 70` rule. §5.6 says a collection is a `rich.Table`. `show` is a single record printed as lines. §5.6 says a single record is a `rich.Panel` titled `"<Resource> #<id> — <descriptor>"`. `complete` prints `[green]✓ Task marked complete:[/green]` and `dismiss` prints `[yellow]✓ Task dismissed:[/yellow]`. §5.6's success pattern is `[green]✓[/green] <past-tense action>`. | `tasks.py:276-283`, `308-323`, `351`, `379`; §5.6 table. | Low |
+| F14 | **`complete` and `dismiss` resolve and write in one scope, and prompt inside it before any write.** That satisfies §4.1 today, because no write happens before the prompt. The explicit `session.commit()` before the scope exits is redundant with the scope's own commit. | `tasks.py:343-351`, `371-379`; §4.1. | — |
+| F15 | **Services take two shapes.** `notes_service` and `time_entry_service` are module functions taking `session` first. `ScheduleService` is a class taking `session` in its constructor. Issue #58 settles "takes the session as its first argument", which is the module-function shape. `exceptions.py` holds `ServiceValidationError` and two subclasses; none of them covers not-found. | `workmain/services/*.py`. | — |
+| F16 | **What `tests/test_task_lifecycle.py` holds.** 31 tests in 7 classes. 18 repository tests (`TestCreateActive`, `TestEnsureActive`, `TestStatusTransitions`, `TestQueries`) are already plain classes taking `db_session`. 5 CLI error tests (`TestTasksCLIErrors`) assert with `or`-joined text matches and never check the exit code. 4 tests in `TestTasksListCapAndCarryoverRetirement` are a `unittest.TestCase` that calls `get_db().get_session()`, commits, and deletes in `tearDown`. 4 tests in `TestNotesCarryForwardHook` call `TaskStatusRepository` directly "to simulate" `notes_service.apply_cf_hook_on_create` and `apply_cf_hook_on_tag_update`, so the hook functions themselves are not called. | `tests/test_task_lifecycle.py:65-492`. | Medium |
+| F17 | **§5.3 still lists `tasks carryover` as a deprecated alias.** The command no longer exists (`test_carryover_removed`). This issue edits `docs/DEVELOPMENT_STANDARDS.md`, but not §5.3. | `DEVELOPMENT_STANDARDS.md:546`; `tests/test_task_lifecycle.py:425-429`. | Low |
+| F18 | **`--search` does not escape SQL wildcards.** `ilike(f'%{search}%')` treats `%` and `_` typed by the user as wildcards. | `task_status_repo.py:264`. | Low |
+| F19 | **Rich reads text in square brackets as markup and drops it.** `tasks today` prints `[dim][#{note.id}][/dim]`, and Rich takes `[#85019]` as a style tag, so the ID never appears: the line renders as the content alone. `tasks show` loses its meeting ID (`[#{note.meeting.id}]`) the same way, and its tags line prints empty, because `Note.display_tags` returns `[internal-only] [carry-forward]`. Note content that contains brackets is altered wherever it goes through `console.print` as a string. | `tasks.py:280`, `318`, `320`; `models.py:212` (`display_tags`); probe in Rich 13.7.0: `console.print("x [#85019] y [red]z[/red] [both, cf]")` renders `x  y z`, while `console.print(Text(...))` renders it verbatim. | High |
+| F20 | **The draft spec's render functions are per-command printing in a new place.** DR8 of `docs/dev/specs/CLI_OUTPUT_MODULE_SPEC.md` (draft, `06f4c0d`) puts five `tasks` render functions in `output.py`, and every conversion would add its own group's. Ray, 20261014: that moves each group's printing out of its command file without making it one shared way to render. | Spec DR8, Step 2 | High |
+| F21 | **Shared CLI state lives in module globals.** `workmain/` has 21 module-level `console = Console(...)` objects. Click's mechanism for an object every command shares is the context: the root group stores it on `ctx.obj`, commands receive it with `@click.pass_obj` or a `click.make_pass_decorator` decorator, and `make_pass_decorator(T, ensure=True)` creates one when a group is run on its own, as a test does. A test hands in its own with `CliRunner().invoke(cmd, args, obj=...)`, verified on Click 8.1.7. The root group already calls `ctx.ensure_object(dict)` (`interface.py:119`) and nothing reads the dict. `time` stores `show_ids` in it (`time.py:154-155`). The draft spec reaches the output module through module functions, and its command tests replace them with `patch.object`. | `git grep -nE '^(console\|err_console)\s*=\s*Console\(' workmain` (21); `git grep -nE 'ctx\.obj\|pass_obj\|ensure_object\|make_pass_decorator' workmain`; probe 20261014 | Medium |
+| F22 | **No command can print anything but its human layout, and nothing reads its output as data.** No command has a format option. The EOD workflow never parses a child's stdout. It echoes stdout and stderr (`eod_workflow.py:114-117`), relays stderr as warnings (`240-241`, `270`), and decides success by `returncode != 0` (`237`, `294`, `915`, `937`, `1106`, `1127`, `1160`, `1178`). Machine-readable output therefore has no caller today. Its users would be scripts and tests. | `git grep -nE "run\.(stdout\|stderr)\|returncode" workmain/workflows/eod_workflow.py` | Low |
+| F23 | **Errors are hand-printed and exited in each command.** There are 30 `sys.exit(`/`raise SystemExit` sites under `workmain/cli/`, and 9 raises of a Click exception: `clockify.py:227`, `233`; `gdocs.py:90`; `slack.py:89`; `interface.py`'s `_StubCommandError`. `click.ClickException` prints `Error: <message>` to stderr and exits 1, which is the §5.6 Error row word for word. `ClickException.show` writes `Error: {message}` to `get_text_stderr()`, and `exit_code` is 1 (verified). The draft spec has every command catch, print through `output.error` and call `sys.exit`. | `git grep -nE 'sys\.exit\(\|raise SystemExit' workmain/cli` (30); `git grep -nE 'raise click\.(ClickException\|BadParameter\|UsageError)\|raise _StubCommandError' workmain` (9); Click 8.1.7 source | Medium |
+| F24 | **Exit code 2 already means a usage error in every command.** Click exits 2 for every usage error: an unknown option, a missing argument, a `click.Choice` rejection (verified: `--status bogus` under `Choice` exits 2). §5.6 says 2 is an integration error. Six sites exit 2 for an integration error: `providers.py:146`, `185`, `193`; `failure_exit_code` at `meetings.py:909`, `913` and `reports.py:225`. No application code tells 1 from 2. EOD tests `returncode != 0` (F22), and `WorkmainRun.ok` is `returncode == 0` (`self_invoke.py:75`). Tests do. Corrected 20261014 after Ray's review found callers this finding missed: `tests/test_ai_arguments.py:368` and `tests/test_provider_foundation.py:1225`, `1235` and `1437` assert that an integration error exits 2. `tests/test_eod_workflow.py:1307`, `1319` and `1320` build `WorkmainRun(returncode=2)` to stand in for an integration failure. `tests/test_self_invoke.py:81` checks only that a return code passes through, so its value is arbitrary. | `git grep -nE 'sys\.exit\(2\)\|failure_exit_code' workmain`; `git grep -nE 'exit_code == 2\|returncode == 2\|returncode=2' tests`; probe 20261014 | Medium |
+| F25 | **Arguments are validated by hand where Click has a type for it.** `click.Choice` appears 9 times in 5 files, and `IntRange`/`DateTime`/`Path`/`File` 10 times. No custom `click.ParamType` exists. `tasks` checks `--status` against `VALID_STATUSES` by hand (`tasks.py:168-173`) and parses `--date` by hand (`tasks.py:90-102`). Each command parses dates its own way, which is #140. | `git grep -cE 'click\.Choice\(' workmain/cli`; `git grep -nE 'class \w+\(click\.ParamType\)' workmain` (none) | Medium |
+| F26 | **The picker's input loop is hand-written six times (F5).** `click.prompt(type=click.IntRange(1, N))` asks again by itself on Enter, `0`, `-1` and text, and prints its own `Error:` line for each (verified). Only `q` to cancel is not built in. A `click.ParamType` that accepts `q` or an integer in range covers it. F3's defect is the hand-written version getting the bound wrong. | Probe 20261014 | Medium |
+| F27 | **No standard says to use the framework's mechanism first.** F3, F5, F19, F23, F24, F25 and F26 each come from a command writing its own version of something Python, Click, Rich or SQLAlchemy provides. `docs/DEVELOPMENT_STANDARDS.md` §3 has no rule against it. Caliper's criterion 6 asks whether a spec adds a new path where an existing service, orchestrator or workflow covers the case, not where a library mechanism does (`.claude/skills/session-start/SKILL.md` § Role 2). | `DEVELOPMENT_STANDARDS.md` §3.1–§3.7; `SKILL.md` § Role 2 criterion 6 | High |
+| F28 | **A panel printed on a `soft_wrap=True` console cuts its content.** Under `Console(soft_wrap=True)`, `print` passes `no_wrap=True` and `overflow="ignore"`, and a `Panel` hands that to its `Text`. At width 40, a 40-word panel printed 7 words; on a console without `soft_wrap` it printed all 40 over 8 lines. Table cells set their own wrapping and are not affected. Found in Ray's review, 20261014. | Probe in Rich 13.7.0, 20261014 | High |
+| F29 | **A title depends on the filters applied.** `tasks list` titles itself `Tasks (<n> of <m> found, status=<s>, search='<q>')`. `status=` is left out when the status is `all`, and `search=` when there is no search (`tasks.py:205-213`). A view declared as a module constant can't produce that alone. | `tasks.py:205-213` | Medium |
+| F30 | **An empty result's text depends on the state.** `tasks list` says `No <status> tasks found.` and adds the `notes add … --tags cf` hint only for `active` (`tasks.py:195-203`). For `all` it says "No any tasks found." (study Q6 answer). `tasks today` has its own sentence (`tasks.py:272-274`). | `tasks.py:195-203`, `272-274` | Medium |
+| F31 | **A single record has lines that appear only when set, and a label chosen by another field.** `tasks show` labels `completed_at` as `Completed:` or `Dismissed:` by status, and prints Forwards to, Tags and Meeting only when they have a value (`tasks.py:312-320`). `Created:` with no `created_at` prints `—` (`tasks.py:311`). | `tasks.py:308-323` | Medium |
+| F32 | **Tags are the first value the type rule doesn't cover.** A date, a datetime, a number and `None` each format one way for every command. Tags are a tuple of full names that display as short aliases in a collection (`format_tags_short`, `tasks.py:232`) and as full names in a record (`format_tags`, through `display_tags`, `tasks.py:318`). Other groups will bring their own such values: a duration, an amount, a provider. | `tasks.py:232`, `318`; `tag_utils.py:379-382` | Medium |
+
+Out of scope, already tracked: `ActionExecutor._execute_update_task` and `_execute_defer_task` write `status = "deferred"` on a `TaskStatus` directly (`action_executor.py:180`, `196`). That is #169.
+
+## 4. Options
+
+### 4.1 Preview length (Q1)
+
+The pilot sets one length for every command (#58 body, Tables). It does not depend on the terminal.
+
+- **Option A — 80.** The longest cut in use today (F12).
+  - Pros: no current preview shows less than it does now, and `tasks list` is unchanged.
+  - Cons: at 80 columns, `tasks list`'s content column is about 30 characters wide, so a preview wraps to about three lines.
+- **Option B — 60.**
+  - Pros: about two lines at 80 columns.
+  - Cons: `tasks list`, the tasks and notes pickers, and the `reports list` preview at 50 would shorten or change.
+
+**Recommendation: A.** A preview exists so a list stays scannable without hiding what identifies the row. Every cut in use today is 80 or shorter, so 80 is the only length at which no existing list loses content. Wrapping is the text rule's job, not the preview's.
+
+### 4.2 When the stacked layout starts (Q2)
+
+- **Option A — the key columns alone.** Stack when the width is less than the key columns' full width plus the table borders and padding. That is the literal reading of #58's body.
+  - Cons: just above the threshold, text columns can be 1–3 characters wide (F9). Nothing is hidden, but nothing is readable.
+- **Option B — the keys plus a fixed minimum per text column.** Stack when the width is less than the keys' full width, plus the table borders and padding, plus a constant minimum for each text and preview column. The constant lives in `output.py` and is the same for every table. Recommended value: 10 characters.
+  - Pros: a table either reads as a table or becomes records. The threshold is still calculated from the declaration alone, so a test can name the exact width.
+  - Cons: one more constant in the rule.
+
+**Recommendation: B.** The rule promises no hidden values. B keeps that promise and also prevents a table that technically shows everything but can't be read. It adds one constant and no case-by-case judgement.
+
+### 4.3 The shared picker convention (Q3)
+
+- **Option A — number or `q`, no default, invalid input asks again.** The prompt reads `Select [1-N, or q to cancel]`. A number outside `1..N`, a negative number or text other than `q` prints one line and asks again. Pressing Enter selects nothing. Cancelling prints `Cancelled.` and the command exits 0. Each candidate line shows the ID, then the key fields the result supplies, then the preview.
+  - Pros: four of the six pickers already use `q` (F5). There is no default for Enter to choose by accident, which matters before `complete` or `dismiss` writes. F3 cannot happen.
+  - Cons: `tasks` users who type `0` get asked again instead of cancelling.
+- **Option B — number or `0`, default `0`.** Keeps the `tasks` convention.
+  - Cons: four of the six pickers convert away from what they do now.
+
+**Recommendation: A.** It is the majority convention. It removes the accidental-Enter selection for a picker that precedes a write, and it closes F3 by rule rather than by a bounds check in each command.
+
+### 4.4 Which records the tasks picker offers (Q4)
+
+- **Option A — unchanged.** Search every note's content, cap at 10, and reject a non-task afterwards (F4).
+- **Option B — tasks only.** The candidate search runs over `task_status` joined to `note`, in every status, newest first, capped at 10. The result carries the total number of matches, so the picker can print `10 of M shown — refine the search` when it is capped. A digit identifier still resolves by note ID. A note ID with no `task_status` row is still the "not tracked as a task" error.
+  - Pros: every candidate offered can be acted on. The status shows in the picker line, so the user can tell an active task from a completed one. The cap is visible.
+  - Cons: the matching rule changes. The #199 study said each resolver's matching rule stays as it is, unless Ray decides otherwise for that resolver.
+
+**Recommendation: B.** Under A the picker offers choices that can only end in an error, which is F4's defect, not a matching preference. B needs one repository method alongside `get_filtered`, reusing `_filtered_query` with `status='all'`.
+
+### 4.5 Decided by existing rules and #58's body, stated so the spec inherits them
+
+- **Service shape.** Module functions taking `session` first (F15), in `workmain/services/tasks_service.py`, named after the group as `notes_service` is. New `ServiceValidationError` subclasses go in `workmain/services/exceptions.py`, for not found and for not a task.
+- **Two scopes around the picker.** The command finds candidates in one `session_scope()` and closes it. It prompts. It then carries out the action in a second scope, by note ID, and that call re-reads the records (#58 body, Asking the user). No transaction stays open across user input, whether or not it has written.
+- **Eager loading.** §4.3 gains the rule from #58's ACs. `get_filtered` already joins `Note`, so it loads the relationship from that join with `contains_eager(TaskStatus.note)` rather than adding a second join through `joinedload`. The seven callers in F7 are the §1.2 call sites, and their results do not change.
+- **The table title becomes a line.** The "N of M found" title is a non-table line, so §5.6's `soft_wrap=True` rule applies to it. The output module prints it above the table, not as Rich's `Table(title=...)`, and that removes F11's cause. The service returns the shown and total counts. The output module composes the words.
+- **§5.6 patterns apply on conversion (F13).** `tasks today` becomes a table with ID as a key and tags and full content as text. `tasks show` becomes a panel titled `Task #<id> — <status>`. Success lines take `[green]✓[/green] <past-tense action>`.
+- **Errors (F2).** Superseded by Q10–Q12. An error reaches stderr through Click's exception path. `--status` and `--date` take Click parameter types, so a bad value is a usage error and exits 2 under the exit-code issue (Q11). Date formats are not unified here; that is #140.
+- **Tests.** Repository tests stay at the repository. `TestTasksCLIErrors` and the command half of `TestTasksListCapAndCarryoverRetirement` become command tests with the service and render call patched. The cap, status-all and total-count behaviour becomes service tests in `tests/test_tasks_service.py`. The title wording becomes output tests in `tests/test_output.py`.
+
+### 4.6 Out-of-scope findings — each needs Ray's placement
+
+- **F16 hook tests.** The four `TestNotesCarryForwardHook` tests have to call `notes_service.apply_cf_hook_on_create` and `apply_cf_hook_on_tag_update` rather than repeat the repository calls those functions make. They sit in the file this issue rewrites, but they test `notes`, not `tasks`. Placement: this issue, the `notes` conversion (#209), or an issue of their own.
+- **F17.** The `carryover` row comes out of §5.3's approved-verbs table. It is one line in a document this issue already edits. Placement: this issue, or a `chore/*` of its own.
+- **F18.** `--search` has to escape `%` and `_` before building the `ilike` pattern. `NotesRepository.find_by_content_like` has the same shape, and Q4 Option B's new method would inherit it. Placement: this issue, or its own issue covering every `ilike`/`contains` search.
+
+### 4.7 Framework mechanisms (F20–F27)
+
+Each option below is judged on whether it uses the mechanism Click, Rich or SQLAlchemy already provides, not on the issue's acceptance criteria. Whatever is decided here, this issue writes it into `docs/DEVELOPMENT_STANDARDS.md`, and #201–#216 inherit it.
+
+**Renderer shape (Q7).**
+- **A — one generic renderer.** It provides a collection (the Q2 rule), a single record (panel), the picker, and success, warning, error and plain lines. It formats values by one rule: a date as `YYYY-MM-DD`, a datetime as `YYYY-MM-DD HH:MM`, `None` as `—`, anything else as text. A command declares its view: title, columns, rows built from the service's result, and the empty-result line. The renderer holds no group's name and grows only when a new kind of output is needed. A command test asserts that the rows it passed match the service's result.
+- **B — per-result render functions** (draft spec DR8). The cons are F20's.
+
+- **C — the command declares a view, and the renderer reads the service's result.** The command file holds a `View` as a module constant: its columns, noun and empty text. A `Column(field, label, kind, fmt=None)` names a field of the row dataclass. The command passes the service's result to the renderer unchanged and never builds rows. The renderer reads each field, formats it by type (and by `fmt` in a human layout), lays out the collection and composes the shown-of-total count. A command test asserts that the renderer received the declared view and the service's result object, which is #58's test form as written. Because the renderer holds typed values and field names, a later `--format json` changes only the renderer and the root group.
+
+**Recommendation: C**, Ray's design of 20261014. Under A every command still writes the code that turns its result into rows, which is printing logic in the command file. Under B that code moves into the renderer under each group's name (F20).
+
+**How a command reaches the renderer (Q8).**
+- **A — an object on Click's context.** A `Renderer` class holds the two consoles and the Q7 functions as methods. `workmain/cli/output.py` defines a `pass_renderer = click.make_pass_decorator(Renderer, ensure=True)`. The root group creates the renderer, and `ensure=True` creates one when a group runs on its own. Commands take it as an argument. A test passes `obj=Renderer(console=Console(file=io.StringIO(), width=N))` to `CliRunner.invoke`, which is the Click-documented way to inject one, and asserts on what was rendered, or on what was passed to it, without patching modules. `ctx.obj` changes from an unused `dict` to the renderer. `time`'s `show_ids` (F21) moves when `time` converts (#216).
+  - Cons: every converted command gains a decorator and a parameter.
+- **B — module functions and module consoles** (draft spec). Tests patch module attributes.
+  - Cons: F21. The state is global, and tests rely on patching what Click would inject.
+
+**Recommendation: A.** It is Click's own mechanism for exactly this, and it gives each invocation its own renderer.
+
+**A format option (Q9).**
+- **A — a global `--format auto|table|list|json` now.** `auto` is the Q2 rule. `json` prints the rows as JSON objects keyed by column label.
+- **B — not in this issue.** The Q8 renderer holds the layout choice as one attribute, so a format option is one change to the renderer and the root group later. Nothing reads command output as data today (F22), and the list layout already serves grep and export, which was the reason for Q2.
+
+**Recommendation: B.** A format option has no caller yet. If Ray wants one, it is its own issue, blocked by this one.
+
+**Errors (Q10).**
+- **A — Click's exception path.** A `ServiceValidationError` reaches Click as a `click.ClickException`, which prints `Error: <message>` on stderr and exits with the exception's `exit_code`. The translation is written once. Every group is built with `cls=WorkmainGroup`, a `click.Group` subclass in `workmain/cli/output.py` whose `invoke` re-raises a `ServiceValidationError` as a `ClickException`. An integration error is a `ClickException` subclass with its own `exit_code` (Q11). A bad argument raises `click.BadParameter`. Commands catch nothing they only report. `failure_exit_code` and the per-command `output.error` + `sys.exit` disappear.
+  - Cons: Click prints the line with `click.echo`, not Rich. It is the same text, unstyled.
+- **B — per-command catch, print and exit** (draft spec). The cons are F23's: 30 exits written by hand.
+
+**Recommendation: A.** Click already produces §5.6's error line and exit. A hand-written copy in every command is what produced the four error styles #199 counted.
+
+**What exit code 2 means (Q11).**
+- **A — Click's meaning.** 2 is a usage error, as Click already makes it for every command (F24). An integration error takes 3. The six sites in F24 change, along with §5.6's list. No caller tells 1 from 2, so the change breaks nothing (F24).
+- **B — keep 2 as an integration error, and make Click's usage errors exit 1.** This means overriding `UsageError.exit_code` for the whole CLI, against Click's documented behaviour.
+- **C — leave 2 meaning both.** That is the state today, and a caller can't tell a mistyped option from a provider outage.
+
+**Recommendation: A.** It follows the framework and the Unix convention that 2 is misuse, and costs six sites. Placement: this issue writes §5.6 and changes the six sites, as a contract change with its callers enumerated (§1.2), because #58 rewrites §5.6 anyway.
+
+**Argument types and the picker (Q12).**
+- **A — Click types.** `--status` takes `click.Choice(VALID_STATUSES)`. A bad value is then a usage error, exit 2 under Q11. `--date` takes a `DateParamType(click.ParamType)` that accepts `today`, `yesterday` and `YYYY-MM-DD`, in a new `workmain/cli/params.py`. The picker prompts with a `PickParamType(click.ParamType)` that accepts `q` or an integer from 1 to N, in the same module. #140 then unifies date formats into `DateParamType` rather than inventing a home.
+- **B — hand validation** (draft spec). The cons are F25 and F26.
+
+**Recommendation: A.**
+
+**Capturing the rule (Q13).**
+- **A — a standard and a review question.** `docs/DEVELOPMENT_STANDARDS.md` §3 gains §3.8: before writing a helper, use the mechanism Python, Click, Rich or SQLAlchemy provides for it. A spec that writes its own states which mechanism it set aside and why. Caliper's criterion 6 is extended to ask about a library mechanism as well as an existing service, orchestrator or workflow. That criterion lives in `SKILL.md`, which Ray approves.
+- **B — the standard only.**
+
+**Recommendation: A, in this issue.** A fix ships its standard. The review question is what catches a hand-written version before it reaches implementation, which is the stage at which this issue's draft spec would have shipped five of them.
+
+### 4.8 What a view can declare (F28–F32)
+
+The renderer's view has to express four things the `tasks` commands do today without turning back into per-command code.
+
+**Filter-dependent titles (Q14).**
+- **A — the result carries the filters it applied, and the renderer writes them.** The service returns `filters: Tuple[Tuple[str, str], ...]` holding only the filters that narrowed the query. `status='all'` narrows nothing, so it is not there. The renderer's title is `<Noun> (<n>[ of <m>] found[, <name>=<value>…])`, the same for every collection. Deciding which filters apply is a decision, so it stays in the service, and how they read is formatting, so it stays in the renderer.
+- **B — the view holds a title function.** `title(result) -> str`, written in the command file. That is printing code in the command again, one function per command.
+
+**Recommendation: A.** It needs no code in a command, and the title reads the same way for every group.
+
+**State-dependent empty text (Q15).**
+- **A — one generic empty line, plus an optional hint on the view.** When there are no rows, the renderer prints `No <noun> found[ (<name>=<value>…)].` from the same filters as Q14, then the view's `empty_hint`, if any, as a dim line. For `tasks list` that reads `No tasks found (status=active).` with the hint `Add carry-forward tasks with: workmain notes add 'Task text' --tags cf`. The hint always shows when the list is empty: it says how tasks are created, which holds whichever filter emptied the list. This replaces the Q6 wording `No active tasks found.`, and "No any tasks found." goes with it.
+- **B — the view holds per-state text.** A mapping or function from filter values to sentences. It is the same cons as Q14 B.
+
+**Recommendation: A.**
+
+**Records with conditional lines (Q16).**
+- **A — the service returns each line as its own field, and the renderer leaves out an empty one.** A `RecordView` lists `Field(field, label, fmt=None)`. The renderer prints a field only when its value is not `None` or empty, so a record never shows a blank or `—` line. A label that depends on another field becomes two fields: the service returns `completed_at` or `dismissed_at`, setting whichever matches the status. Which one applies is a decision, and it belongs to the service. `Created:` with no value is left out, like any other empty field, which closes Ray's review gap.
+- **B — the view holds conditions.** For example `Field("completed_at", label=lambda d: ...)`. That is again code in the command.
+
+**Recommendation: A.** A collection still prints `—` for an empty cell, because a table can't drop one cell of a row, and a list keeps the line so records stay aligned. Only a record drops the line.
+
+**Domain formatting (Q17).**
+- **A — `fmt` is the general mechanism.** A `Column` or `Field` may name `fmt`, a pure function of the value that returns text and touches no database or I/O. It lives in the module that owns the value's domain, such as `tag_utils.format_tags_short`, never in the renderer. The renderer applies it in a human layout only. A later JSON layout prints the raw value. Tags take `format_tags_short` in a collection and `format_tags` in a record.
+- **B — the renderer learns each domain type.** Tags, durations, amounts and providers would each get a case in the renderer, which then knows every group's values.
+
+**Recommendation: A.** The renderer stays generic, and each value's display lives with its domain.
+
+## 5. Open questions
+
+| Q | Question | Answer |
+| --- | --- | --- |
+| Q1 | Every preview in every list and picker is cut to one fixed length and ended with `…`. Should that length be 80 characters, the longest cut in use today, so no existing list shows less, or 60 characters, so a preview wraps to fewer lines (§4.1)? | Answered 20261014 (Ray): neither length. There is no preview column kind. Task content cut at 80 characters made `tasks list` unusable, and the `reports list` preview is no use either, because generated reports open with inconsistent headings. Those are the only two long-text columns in the CLI (Appendix A). A value too long for a list row is left out of the list and read with the item's `show` command. `tasks list` prints content in full as text, and `reports list` loses its Preview column. This reverses #199 study Q4 (20261012), which #58's body carries; the body and its ACs are corrected at close-out. |
+| Q2 | A table switches to stacked `Label: value` records when the terminal is too narrow. Should the threshold be the key columns' full width alone, or that plus a fixed minimum width (10 characters recommended) for every text and preview column, so a table never prints with text columns a few characters wide (§4.2)? | Answered 20261014 (Ray): neither threshold as asked. A table is printed only when its key columns fit the width and the whole rendered table, header and borders included, is 30 lines or fewer. A fixed number, not the terminal height, so piped output and tests are the same everywhere. Otherwise the rows print as a list: one record per item, one `Label: value` line per column, every value in full. A list has no length limit, because it can be piped to `less`, and it greps and exports cleanly. The compact `notes list` form (key fields on one header line) was rejected: it drops information. The same rule applies to every command. |
+| Q3 | The one picker every command will share: should it take a number or `q`, with no default, asking again on invalid input, or keep the `tasks` form of a number or `0` with `0` as the default (§4.3)? | Answered 20261014 (Ray): `q` cancels, a number outside the list asks again, and Enter with nothing typed selects nothing and asks again. The candidates are numbered and printed by the Q1/Q2 rule like any other collection: a table with full content when it fits in 30 lines, otherwise a labelled list. |
+| Q4 | When `tasks show`, `complete` or `dismiss` is given text instead of an ID, should the picker offer only notes that are tracked as tasks, in every status, and say when the list is capped, or keep today's search over every note, which can offer a note that then fails as "not a task" (§4.4)? | Answered 20261014 (Ray): Option B. Candidates are notes tracked as tasks, in every status, with status shown, and the picker says when the list is capped. |
+| Q5 | Where does each out-of-scope finding in §4.6 go: the carry-forward hook tests, the stale `carryover` row in §5.3, and unescaped `%`/`_` in content search? For each: into this issue, into an existing issue, or into its own issue. | Partly answered 20261014 (Ray). F17: the `carryover` row comes out of §5.3 in this issue. F18: its own issue. F16: Ray asked whether the pattern is suite-wide. Checked 20261014. The four tests duplicate coverage `tests/test_notes_service.py` already has: `TestCreateNoteCfHook` (create) and `TestUpdateNote` (add and remove transitions) call the hook through the service. A phrase grep of `tests/` for simulate/mirror finds two more tests that perform the application's work themselves instead of calling it: `tests/test_meetings_edit.py:55-66` and `tests/test_slack.py:105-125` (`test_04_upsert_updates_existing_row`). Those files are rewritten by #208 and #214. A phrase grep cannot prove there are no others. Answered 20261014 (Ray): the four `TestNotesCarryForwardHook` tests are deleted in this issue, and the other two tests were added to #208 and #214, each under its Tests section. F18 opened as #219. |
+| Q6 | How does each `tasks` output look under Q1–Q4? | Answered 20261014 (Ray), on mockups. A list's title is a line above it. A labelled list aligns its labels, leaves a blank line between records, and keeps the title line. Each picker candidate is opened by a `[n]` line in list form, or carries a `#` column in table form. A `10 of M shown — refine the search` line prints above the prompt when the candidates are capped. `tasks show` is a panel titled `Task #<id> — <status>`, holding Created, Tags, Meeting and "Forwards to: note #N" when set, then the full content. `complete` and `dismiss` print one soft-wrapped line, `✓ Completed task #<id>: <full content>` (or `Dismissed`). An error is `Error: <message>` on stderr, exit 1. `tasks today` follows the same table-or-list rule as `tasks list`. |
+| Q7 | Should the output module be one generic renderer — a collection, a single record, the picker, and success, warning, error and plain lines — with each command declaring its own title, columns, rows and empty-result line, and no group's name ever in the renderer? Or should it hold per-result render functions, as the draft spec does (§4.7)? | Answered 20261014 (Ray): option C, added to §4.7. The command declares a `View` and passes the service's result unchanged. The renderer reads the fields, formats them and lays them out. A and B are considered and set aside. |
+| Q8 | Should commands receive the renderer as an object through Click's context (`make_pass_decorator`, with tests injecting it with `CliRunner.invoke(obj=...)`), or call module-level functions that tests patch (§4.7)? | Answered 20261014 (Ray): A. The renderer is on `ctx.obj`, reached through `make_pass_decorator(Renderer, ensure=True)`, and tests inject it with `CliRunner.invoke(obj=...)`. |
+| Q9 | Should this issue add a global `--format auto\|table\|list\|json` option, or leave a format option to its own issue, given that nothing reads command output as data today (§4.7)? | Answered 20261014 (Ray) by placement: a `--format` option is its own issue, opened now and not scheduled, as #222, blocked by #58. It is worked when time allows, or sooner if a caller appears. |
+| Q10 | Should a service's validation error reach the user through Click's own exception path, translated once in a shared group class, or should every command catch it, print it and exit by hand (§4.7)? | Answered 20261014 (Ray): A. One group class whose `invoke` raises a `ServiceValidationError` as a `click.ClickException`. A `ClickException` is an `Exception`, so the `session_scope()` rolls back before the line prints (§4.1). |
+| Q11 | Click already exits 2 for every usage error, and §5.6 says 2 is an integration error. Should 2 mean a usage error, with integration errors moving to 3; should Click's usage errors be forced to 1; or should 2 keep meaning both (§4.7)? | Answered 20261014 (Ray) by placement: its own issue, #220, blocking #58. 2 is a usage error and an integration error is 3. It is a §1.2 contract change in its own right, and F24's corrected caller list is that issue's §2. |
+| Q12 | Should `--status`, `--date` and the picker's input use Click parameter types (`click.Choice` and two custom types in a new `workmain/cli/params.py`), or keep validating by hand (§4.7)? | Answered 20261014 (Ray): A. It holds because the exit-code issue lands first, so a `Choice` rejection exiting 2 is a usage error by then. |
+| Q13 | Should the rule "use the framework's mechanism before writing your own" be written into `docs/DEVELOPMENT_STANDARDS.md` §3 and added to Caliper's review criterion 6 in `SKILL.md`, or into the standards only (§4.7)? | Answered 20261014 (Ray) by placement: a `chore/*` on the direct path, #221, blocking #58, with §3.8 in `docs/DEVELOPMENT_STANDARDS.md` and Caliper's criterion 6 in `.claude/skills/session-start/SKILL.md`. Ray approves the `SKILL.md` wording. |
+| Q14 | A collection's title names the filters that narrowed it, such as `status=active, search='x'`. Should the service return the filters it applied and the renderer write them the same way for every command, or should each view carry its own title function (§4.8)? | Answered 20261014 (Ray): A. The service returns only the filters that narrowed the query, and the renderer writes the title the same way for every collection. |
+| Q15 | When a collection is empty, should the renderer print one generic line, `No <noun> found (<filters>).`, followed by an optional hint the view declares and always shows when empty, or should each view carry text for each state (§4.8)? | Answered 20261014 (Ray): A. This changes the wording approved in Q6: "No active tasks found." becomes "No tasks found (status=active)." |
+| Q16 | In a single record, should the service return each line as its own field, using `completed_at` or `dismissed_at` rather than one field whose label depends on the status, and the renderer leave out any line with no value? Or should the view hold conditions and label functions (§4.8)? | Answered 20261014 (Ray): A. "No value" means `None`, an empty string or an empty tuple. It never means `0` or `False`, so a record never drops a count of zero. |
+| Q17 | For values like tags that need domain-specific display, should a column or field name a formatting function from the value's own module (`fmt=format_tags_short`), applied only in human layouts, or should the renderer learn each such type (§4.8)? | Answered 20261014 (Ray): A. |
+| Q18 | Should the rules #58 writes be stated for every command and repository, while fifteen command files and the other repositories don't yet meet them, or only for what #58's change makes true? | Answered 20261014 (Ray): B. #58 writes only what its change makes true. §5.6 and §6.2 state how the renderer works, how a converted command declares and uses a view, and how each layer is tested, all of which `output.py` and `tasks.py` meet. No sentence says every command file prints only through the output module. §4.3 states the eager-load rule for the method #58 changes, `TaskStatusRepository.get_filtered`, not for every repository. The universal §5.6 rule is written by the change that makes it true, the last of #201–#216 to land. It is held by #224, a `chore/*` that is a child of #198 and blocked by #201–#216 (Ray, 20261014). Eager loading in the other repositories is #223, a census blocked by #58. #223 blocks #201–#216 and #168, because all seventeen cite a general §4.3 rule, and #223 writes it, replacing #58's `get_filtered` sentence. #223 also fixes `ClockifySync.push_entries`' lazy `entry.note` read in `TimeEntriesRepository.get_unsynced_entries`. #168 was narrowed to the rest of its work (Ray, 20261014). The existing §5.6 Error row, already universal and already unmet, is left as it is. |
+
+## 6. Disposition
+
+- Promoted to: —
+- Superseded by: —
+
+## Appendix A — Every table the CLI prints
+
+Census of every `Table(` under `workmain/`, on `feature/issue-58-cli-output-module` at `2bf8480`, 20261014. "Row" is what one table row stands for. Column options are as declared. A column with no options takes Rich's defaults: it wraps at spaces and cuts a word longer than the column with `…`. "Cut in code" is a slice applied to a value before Rich sees it.
+
+| # | Command | Where | Row | Columns as declared | Cut in code |
+| --- | --- | --- | --- | --- | --- |
+| T1 | `tasks list` | `tasks.py:215` | a task | ID (`no_wrap`, right), Status (`no_wrap`), Created (`no_wrap`), Tags, Content | Content 80 + `…` |
+| T2 | `reports list`, `reports history` | `reports.py:327`, shared by both through `_report_list_impl` | a report | ID (right), Type, Date, Status (`no_wrap`), Created, Slack (center), Preview | Preview: leading `#`, space and newline stripped, then 50, no `…` |
+| T3 | `email list` | `email.py:370` | a saved draft | # (`width=4`), Template, Saved, File | — |
+| T4 | `email recipients list` | `email.py:465` | a recipient | ID (`width=4`), Email, then one column per template (`width=max(6, len(name))`, center) | — |
+| T5 | `clients list` | `clients.py:83` | a client | ID (`width=6`), Name, Active (`width=8`) | — |
+| T6 | `schedule holiday list` | `schedule.py:199` | a holiday | ID (`width=4`), Date (`width=12`), Title | — |
+| T7 | `schedule timeoff list` | `schedule.py:297` | a time-off range | ID (`width=4`), Start (`width=12`), End (`width=12`), Days (`width=5`), Title | — |
+| T8 | `meetings template list` | `meetings.py:1507` | a meeting template | Name, Frequency, Start, End, Until (days), Weekends | — |
+| T9 | `providers list` | `providers.py:66` | a provider | Provider (`width=14`), Model (`min_width=28`), Status (`width=14`), Cost Structure (`min_width=42`) | error text 40 in the Cost Structure cell, no `…` |
+| T10 | `providers config show` | `providers.py:393` | a provider | Provider (`width=10`), Enabled (`width=8`), Model (`min_width=28`), API Key Env (`width=24`), Cost Structure | — |
+| T11 | `providers config show` | `providers.py:413` | a report type | Report Type (`min_width=20`), Primary (`width=12`), Fallback (`width=12`) | — |
+| T12 | `slack status` | `slack.py:260` | a recent post | Date, Channel, Workspace, Timestamp (ts) | ts 20, no `…` |
+| T13 | `reports costs`; `meetings costs` and `notes costs` through `render_condensation_costs` | `cost_display.py:87` (`render_cost_rows`) | an AI call | Date (`no_wrap`), label (`min_width=6`, `max_width=24`, `overflow="ellipsis"`), Provider (`no_wrap`), Prompt, Answer, Thinking, Total, Cost (all `no_wrap`, right) | — |
+| T14 | `providers costs` (twice: by provider, by call type); `meetings costs` and `notes costs` through `render_condensation_costs` | `cost_display.py:125` (`render_cost_breakdown`) | a provider or call type | name (`no_wrap`, `min_width=10`), Calls, Prompt, Answer, Thinking, Total, Cost, Avg Cost (all `no_wrap`, right) | — |
+| T15 | `schedule config show` | `schedule.py:517` | a trigger | Trigger, Time | — |
+| T16 | `clockify status` | `clockify.py:70` | a field of the connection | Field, Value (no header) | workspace ID 8 + `...` |
+| T17 | `clockify status` | `clockify.py:99` | a sync metric | Metric, Value (no header) | — |
+| T18 | `eod` | `eod.py:172` | a planned step | Step (`width=7`), Key (`width=14`), Action, unnamed (`width=8`) | — |
+| T19 | `eod` | `eod.py:222` | a status group | Status (`width=12`), Steps (no header) | — |
+| T20 | `status` | `interface.py:156` | a component | Component, Status | — |
+
+What the census shows:
+
+- **20 commands print tables, from 20 constructions.** T13 and T14 are built in `cost_display.py` and shared by four `costs` commands.
+- **Two shapes.** T1–T14 list records: one row per item, and the list grows with the data. T15–T20 show one thing's properties, a label and a value per row (T15, T16, T17 and T20), or a fixed, short set (T18 and T19). In §5.6's terms the second shape is a single record, which §5.6 prints as a `Panel`.
+- **Two tables carry a long free-text value.** T1's Content (task text, 114–665 characters across the 8 active tasks, 20261014) and T2's Preview (a report body). Every other text column holds a name, title, model, path, email address or cost structure.
+- **Four values are cut in code**, three of them without `…` (T2, T9, T12). T13's label column is cut by Rich (`max_width=24`, ellipsis).
+- **Fixed `width` is the most common key declaration** (T3–T7, T9–T11, T18, T19). A fixed width cuts with `…` any value longer than it, and so do `max_width` and a `no_wrap` column that loses the width contest (F8).
+
+Collection commands that print lines, not a table: `calendar today`, `calendar week`, `meetings list`, `meetings today`, `meetings upcoming`, `notes list`, `notes today`, `notes date`, `notes search`, `notes meeting`, `tasks today`, `templates list`, `time today`, `time week`, `time date`. Under §5.6 each of these is a collection, and a collection is a `rich.Table`.
