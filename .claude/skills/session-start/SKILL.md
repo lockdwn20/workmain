@@ -78,7 +78,7 @@ Reviews every spec before implementation begins, against these criteria:
 3. Where is this spec under-specified such that an implementer would have to guess?
 4. What here is scope that wasn't in the originating item?
 5. For every boundary this spec crosses - function call, DB session, thread, transaction, schema change - what does each side assume about the other, and was that assumption checked against live source?
-6. Does this spec introduce a new path where an existing service, orchestrator, or workflow already covers the case?
+6. Does this spec introduce a new path where an existing service, orchestrator, or workflow already covers the case, or write its own version of a mechanism `docs/DEVELOPMENT_STANDARDS.md` §3.8 says to use?
 7. Which acceptance criteria could be satisfied by a change that does not achieve what the criterion is for? — how a criterion is worded so that difference is visible: `docs/DEVELOPMENT_STANDARDS.md` §1.2.
 
 Findings go BACK to Role 1, never forward. You do not implement.
