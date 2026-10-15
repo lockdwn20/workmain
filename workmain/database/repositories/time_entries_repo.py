@@ -8,7 +8,7 @@ from decimal import Decimal
 from typing import List, Optional, Tuple, Dict
 
 from sqlalchemy import func, and_, or_, desc
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, contains_eager, joinedload
 
 from workmain.database.models import Note, TimeEntry, Project
 from workmain.utils.time_parser import parse_time as _parse_time
@@ -157,7 +157,9 @@ class TimeEntriesRepository:
         Returns:
             List of TimeEntry objects
         """
-        return self.session.query(TimeEntry).filter(
+        return self.session.query(TimeEntry).options(
+            joinedload(TimeEntry.note)
+        ).filter(
             TimeEntry.meeting_id == meeting_id
         ).order_by(TimeEntry.entry_date, TimeEntry.entry_time).all()
     
@@ -188,7 +190,9 @@ class TimeEntriesRepository:
         Returns:
             List of TimeEntry objects
         """
-        query = self.session.query(TimeEntry).filter(
+        query = self.session.query(TimeEntry).options(
+            joinedload(TimeEntry.note), joinedload(TimeEntry.project)
+        ).filter(
             TimeEntry.entry_date == target_date
         )
         
@@ -214,7 +218,9 @@ class TimeEntriesRepository:
         Returns:
             List of TimeEntry objects
         """
-        query = self.session.query(TimeEntry).filter(
+        query = self.session.query(TimeEntry).options(
+            joinedload(TimeEntry.note), joinedload(TimeEntry.project)
+        ).filter(
             and_(
                 TimeEntry.entry_date >= start_date,
                 TimeEntry.entry_date <= end_date
@@ -249,7 +255,9 @@ class TimeEntriesRepository:
         Returns:
             List of TimeEntry objects
         """
-        query = self.session.query(TimeEntry).filter(
+        query = self.session.query(TimeEntry).options(
+            joinedload(TimeEntry.note), joinedload(TimeEntry.project)
+        ).filter(
             and_(
                 TimeEntry.entry_date >= start_date,
                 TimeEntry.entry_date <= end_date
@@ -484,7 +492,9 @@ class TimeEntriesRepository:
         Returns:
             List of TimeEntry objects without clockify_id
         """
-        return self.session.query(TimeEntry).filter(
+        return self.session.query(TimeEntry).options(
+            joinedload(TimeEntry.note), joinedload(TimeEntry.project)
+        ).filter(
             TimeEntry.clockify_id.is_(None)
         ).order_by(TimeEntry.entry_date, TimeEntry.entry_time).all()
     
@@ -533,6 +543,7 @@ class TimeEntriesRepository:
         return (
             self.session.query(TimeEntry)
             .join(Note, TimeEntry.note_id == Note.id)
+            .options(contains_eager(TimeEntry.note))
             .filter(func.lower(Note.content).contains(query.lower()))
             .order_by(TimeEntry.entry_date.desc(), TimeEntry.entry_time.desc())
             .limit(limit)

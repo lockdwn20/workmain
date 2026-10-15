@@ -6,7 +6,9 @@ get_most_recent_since() added for Item #58 (T4 activity-gap suppression).
 from datetime import date, datetime
 
 import pytest
+from sqlalchemy import event
 
+from workmain.database.models import Meeting, Project
 from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
 
@@ -110,3 +112,127 @@ class TestTimeEntriesRepoGetMostRecentSince:
 
         assert result is not None
         assert result.id == later.id
+
+
+def _count_statements(db_session, call, read):
+    """SQL statements issued by call() plus read(rows), from an empty session."""
+    db_session.flush()
+    db_session.expunge_all()
+    seen = []
+    conn = db_session.connection()
+
+    def listener(*args):
+        seen.append(1)
+
+    event.listen(conn, "before_cursor_execute", listener)
+    try:
+        for row in call():
+            read(row)
+    finally:
+        event.remove(conn, "before_cursor_execute", listener)
+    return len(seen)
+
+
+class TestTimeEntriesRepoLoading:
+    """Each method loads what its callers read, so statements don't grow with rows."""
+
+    @staticmethod
+    def _seed(db_session, day, n, *, meeting_id=None, marker=None, unsynced=False):
+        notes_repo = NotesRepository(db_session)
+        repo = TimeEntriesRepository(db_session)
+        for i in range(n):
+            project = Project(name=f'loading-{day}-{i}-{marker}')
+            db_session.add(project)
+            db_session.flush()
+            note = notes_repo.create(
+                content=f'loading note {marker or day} {i}',
+                tags=['internal-only'],
+                source='task',
+            )
+            repo.create(
+                note_id=note.id,
+                duration_hours=1.0,
+                entry_date=day,
+                project_id=project.id,
+                meeting_id=meeting_id,
+            )
+
+    @staticmethod
+    def _read(entry):
+        entry.note.content
+        if entry.project is not None:
+            entry.project.name
+
+    def _assert_flat(self, db_session, day_one, day_five, call):
+        self._seed(db_session, day_one, 1)
+        one = _count_statements(db_session, lambda: call(day_one), self._read)
+        self._seed(db_session, day_five, 5)
+        five = _count_statements(db_session, lambda: call(day_five), self._read)
+        assert one == five
+
+    def test_get_by_date_count_does_not_grow(self, db_session):
+        repo = TimeEntriesRepository(db_session)
+        self._assert_flat(
+            db_session, date(2099, 6, 1), date(2099, 6, 2), repo.get_by_date
+        )
+
+    def test_get_date_range_count_does_not_grow(self, db_session):
+        repo = TimeEntriesRepository(db_session)
+        self._assert_flat(
+            db_session, date(2099, 6, 3), date(2099, 6, 4),
+            lambda d: repo.get_date_range(d, d),
+        )
+
+    def test_get_for_date_client_count_does_not_grow(self, db_session):
+        repo = TimeEntriesRepository(db_session)
+        self._assert_flat(
+            db_session, date(2099, 6, 5), date(2099, 6, 6),
+            lambda d: repo.get_for_date_client(d, d, filter_client=False),
+        )
+
+    def test_get_by_meeting_count_does_not_grow(self, db_session):
+        repo = TimeEntriesRepository(db_session)
+        meetings = []
+        for title in ('loading meeting one', 'loading meeting five'):
+            m = Meeting(
+                title=title,
+                start_time=datetime(2099, 6, 7, 9, 0),
+                end_time=datetime(2099, 6, 7, 10, 0),
+            )
+            db_session.add(m)
+            db_session.flush()
+            meetings.append(m.id)
+        self._seed(db_session, date(2099, 6, 7), 1, meeting_id=meetings[0])
+        one = _count_statements(
+            db_session, lambda: repo.get_by_meeting(meetings[0]),
+            lambda e: e.note.content,
+        )
+        self._seed(db_session, date(2099, 6, 7), 5, meeting_id=meetings[1])
+        five = _count_statements(
+            db_session, lambda: repo.get_by_meeting(meetings[1]),
+            lambda e: e.note.content,
+        )
+        assert one == five
+
+    def test_find_by_description_like_count_does_not_grow(self, db_session):
+        repo = TimeEntriesRepository(db_session)
+        self._seed(db_session, date(2099, 6, 8), 1, marker='zzloadone')
+        one = _count_statements(
+            db_session, lambda: repo.find_by_description_like('zzloadone'),
+            lambda e: e.note.content,
+        )
+        self._seed(db_session, date(2099, 6, 8), 5, marker='zzloadfive')
+        five = _count_statements(
+            db_session, lambda: repo.find_by_description_like('zzloadfive'),
+            lambda e: e.note.content,
+        )
+        assert one == five
+
+    def test_get_unsynced_entries_count_does_not_grow(self, db_session):
+        repo = TimeEntriesRepository(db_session)
+        day = date(2099, 6, 9)
+        self._seed(db_session, day, 1)
+        one = _count_statements(db_session, repo.get_unsynced_entries, self._read)
+        self._seed(db_session, day, 4, marker='more')
+        five = _count_statements(db_session, repo.get_unsynced_entries, self._read)
+        assert one == five
