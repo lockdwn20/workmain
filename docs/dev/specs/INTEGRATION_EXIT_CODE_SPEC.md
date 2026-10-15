@@ -1,6 +1,6 @@
 # Integration Exit Code — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261014
 **Branch:** `feature/issue-220-integration-exit-code` (from `dev`)
