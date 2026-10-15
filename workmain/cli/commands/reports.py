@@ -429,13 +429,11 @@ def report_confirm(identifier: str):
     db = get_db()
     with db.session_scope() as session:
         report = _resolve_report(session, identifier)
-        if report.status in ('confirmed', 'corrected'):
+        if not get_reports_repository(session).confirm(report.id):
             console.print(
                 f"[yellow]Report is already {report.status} — no change made.[/yellow]"
             )
             return
-        report.status = 'confirmed'
-        report.updated_at = datetime.now()
         session.commit()
         console.print(
             f"[green]✓ Report confirmed:[/green] {report.report_type} {report.report_date}"

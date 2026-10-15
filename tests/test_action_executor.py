@@ -8,12 +8,13 @@ ConfirmationGate tests are pure-unit (no DB required).
 
 import uuid
 from datetime import date, datetime
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import pytest
 
 from workmain.database.models import Client, Report
 from workmain.database.repositories.notes_repo import NotesRepository
+from workmain.database.repositories.reports_repo import ReportsRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
 from workmain.database.repositories.task_status_repo import TaskStatusRepository
 from workmain.orchestration.action_executor import (
@@ -593,6 +594,17 @@ class TestActionExecutorConfirmReport:
         assert "already corrected" in result.message
         assert report.status == "corrected"
         mock_commit.assert_not_called()
+
+    def test_confirm_report_goes_through_repository(self, db_session):
+        report = _seed_report_today(db_session, status="confirmed")
+        real = ReportsRepository.confirm
+        with patch.object(ReportsRepository, "confirm", autospec=True,
+                          side_effect=real) as spy:
+            result = ActionExecutor(db_session).execute(
+                {"action": "confirm_report", "report_type": "daily_internal"}
+            )
+        spy.assert_called_once_with(ANY, report.id)
+        assert result.success is True
 
     def test_confirm_report_no_report_today(self, db_session):
         executor = ActionExecutor(db_session)

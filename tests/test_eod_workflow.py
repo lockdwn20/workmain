@@ -9,7 +9,7 @@ extraction).
 
 import threading
 from datetime import date, datetime
-from unittest.mock import patch, MagicMock
+from unittest.mock import ANY, patch, MagicMock
 
 import pytest
 from sqlalchemy import text
@@ -19,6 +19,7 @@ from workmain.daemon.models import Observation, ObservationType
 from workmain.daemon import state_io
 from workmain.database.models import Report
 from workmain.database.repositories.notes_repo import NotesRepository
+from workmain.database.repositories.reports_repo import ReportsRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
 from workmain.database.repositories.task_status_repo import TaskStatusRepository
 from workmain.workflows.eod_workflow import (
@@ -1162,6 +1163,55 @@ class TestReportReviewStepEditBranch:
         db_session.refresh(report)
         assert report.status == 'unconfirmed'
         assert report.corrected_content is None
+
+
+class TestReportReviewStepConfirmBranch:
+    """Issue #167 — the [c]onfirm branch writes through
+    ReportsRepository.confirm, the one confirm rule: a confirmed or corrected
+    report is left unchanged.
+    """
+
+    def _seed(self, db_session, status):
+        r = Report(report_type='daily_internal', report_date=GATE1_SENTINEL_DATE,
+                   content='Original content for Issue 167 confirm-branch tests.',
+                   status=status)
+        db_session.add(r)
+        db_session.commit()
+        db_session.refresh(r)
+        return r
+
+    def _confirm(self, db_session, status):
+        report = self._seed(db_session, status)
+        before = report.updated_at
+        real = ReportsRepository.confirm
+        with patch('workmain.workflows.eod_workflow._is_interactive', return_value=True), \
+             patch('workmain.workflows.eod_workflow.run_workmain',
+                   return_value=WorkmainRun(returncode=0)), \
+             patch('workmain.workflows.eod_workflow._prompt_choice',
+                   return_value='c') as mock_choice, \
+             patch.object(ReportsRepository, 'confirm', autospec=True,
+                          side_effect=real) as spy:
+            result = _run_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)
+        assert result.status == EodStepStatus.COMPLETED
+        mock_choice.assert_called_once()
+        spy.assert_called_once_with(ANY, report.id)
+        db_session.refresh(report)
+        return report, before
+
+    def test_confirm_sets_unconfirmed_report_confirmed(self, db_session):
+        report, before = self._confirm(db_session, 'unconfirmed')
+        assert report.status == 'confirmed'
+        assert report.updated_at > before
+
+    def test_confirm_leaves_confirmed_report_unchanged(self, db_session):
+        report, before = self._confirm(db_session, 'confirmed')
+        assert report.status == 'confirmed'
+        assert report.updated_at == before
+
+    def test_confirm_leaves_corrected_report_unchanged(self, db_session):
+        report, before = self._confirm(db_session, 'corrected')
+        assert report.status == 'corrected'
+        assert report.updated_at == before
 
 
 class TestSubprocessHardening:

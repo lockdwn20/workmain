@@ -6,7 +6,7 @@ ConfirmationGate first — that is the caller's responsibility.
 
 import logging
 from dataclasses import dataclass, field
-from datetime import date, datetime, time as time_type
+from datetime import date, time as time_type
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -199,13 +199,14 @@ class ActionExecutor:
     def _execute_confirm_report(self, action: dict) -> ActionResult:
         """Confirm today's most recent report of the given type.
 
-        Matches CLI behaviour (report_confirm in reports.py):
-        - Idempotency guard: no-op if already confirmed or corrected.
-        - Explicit updated_at stamp (does not rely on ORM onupdate trigger).
+        Confirms through ReportsRepository.confirm(), the one confirm rule:
+        a confirmed or corrected report is left unchanged.
 
         Does not accept a report_date — the intent schema has no such field
         and the Slack path is designed for today's report only.
         """
+        from workmain.database.repositories.reports_repo import ReportsRepository
+
         report_type = action.get("report_type", "daily_internal")
         report = self._get_latest_report(report_type)
         if report is None:
@@ -214,7 +215,7 @@ class ActionExecutor:
                 message=f"No {report_type.replace('_', ' ')} found for today.",
                 error="no_report",
             )
-        if report.status in ("confirmed", "corrected"):
+        if not ReportsRepository(self.session).confirm(report.id):
             return ActionResult(
                 success=True,
                 message=(
@@ -223,8 +224,6 @@ class ActionExecutor:
                 ),
                 entity_id=report.id,
             )
-        report.status = "confirmed"
-        report.updated_at = datetime.now()
         return ActionResult(
             success=True,
             message=f"✓ {report_type.replace('_', ' ').title()} confirmed.",
@@ -243,12 +242,9 @@ class ActionExecutor:
         write to corrected_content — doing so would corrupt the pre-populate
         behaviour of 'workmain reports correct today'.
 
-        Sets status = 'corrected' to:
-        - Prevent EOD from regenerating the report on a subsequent run
-          (eod_workflow pre-check skips reports where status IN
-          ('confirmed', 'corrected')).
-        - Exclude this daily from weekly aggregation until the CLI edit
-          is applied and the report is re-confirmed.
+        Sets status = 'corrected' so EOD does not regenerate the report on a
+        later run: the eod_workflow pre-check reopens a confirmed or corrected
+        report for review instead.
 
         Status transition table:
           unconfirmed → corrected  : normal flagging path
@@ -256,6 +252,8 @@ class ActionExecutor:
           corrected   → corrected  : already flagged; correction_note
                                      overwritten with most recent description
         """
+        from workmain.database.repositories.reports_repo import ReportsRepository
+
         report_type = action.get("report_type", "daily_internal")
         correction = action.get("correction", "").strip()
         if not correction:
@@ -271,10 +269,7 @@ class ActionExecutor:
                 message=f"No {report_type.replace('_', ' ')} found for today.",
                 error="no_report",
             )
-        report.correction_note = correction
-        if report.status != "corrected":
-            report.status = "corrected"
-        report.updated_at = datetime.now()
+        ReportsRepository(self.session).flag_correction(report.id, correction)
         report_label = report_type.replace("_", " ")
         return ActionResult(
             success=True,
