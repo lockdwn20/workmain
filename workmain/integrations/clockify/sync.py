@@ -97,10 +97,7 @@ class ClockifySync:
                 print(f"[{i}/{results['total']}] Syncing: {entry.note.content[:50]}...")
 
             try:
-                # Get project ID if linked
-                project_id = None
-                if entry.project_id:
-                    project_id = self._get_clockify_project_id(entry.project_id)
+                project_id = entry.project.clockify_project_id if entry.project else None
 
                 # Create in Clockify
                 # WorkmAIn tags (internal-only, client-report, etc.) are internal
@@ -376,21 +373,3 @@ class ClockifySync:
                 clockify_id=clockify_entry['id'],
             )
             return entry.id
-    
-    def _get_clockify_project_id(self, local_project_id: int) -> Optional[str]:
-        """
-        Get Clockify project ID from local project ID.
-        
-        Args:
-            local_project_id: Local project ID
-            
-        Returns:
-            str: Clockify project ID if found
-        """
-        from workmain.database.models import Project
-        
-        project = self.session.query(Project).filter(
-            Project.id == local_project_id
-        ).first()
-        
-        return project.clockify_project_id if project else None
