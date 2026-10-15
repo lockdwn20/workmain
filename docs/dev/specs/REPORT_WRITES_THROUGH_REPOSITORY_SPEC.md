@@ -18,6 +18,12 @@
 | 20261015 | Ray | Study Q2: correct the two texts that say a daily report's status affects the weekly report, in this issue | DR6, Steps 3 and 4, AC5.1. |
 | 20261015 | Spanner | The issue's table puts the Slack write in `slack_post`. #96 moved it into `_record_slack_post` (study F6) | Step 5 changes `_record_slack_post`. The issue's table is edited at close-out. |
 | 20261015 | Spanner | The issue's AC1 check matches only a variable named `report` (study F11) | AC1.1 adds a second check over every `Report` column name, read from the model at check time, with each remaining hit named by its model in the results artifact for Ray's reading. |
+| 20261015 | Caliper 1 | DR2's "none repeats the guard" has no check. A path that keeps its own status check in front of `confirm()` passes AC1.1 and AC2.1. Recommended patching `confirm` with `return_value=True` and asserting each path calls it once with the report's id | Accepted; remedy adjusted. The spy wraps the real method (DR7), as #157's command-path tests did under Ray's rule of no fake rows or values, so the row outcome stays real. Each path gets a test that seeds an already-confirmed or corrected report and asserts `confirm` was called once with its id. A path with its own guard never makes the call. Steps 2, 3 and 4; AC2.2. |
+| 20261015 | Caliper 2 | `TestReportConfirmCLI` checks neither `updated_at` nor a corrected report, so the CLI path's stamp and corrected case are unchecked | Accepted. Step 2 adds `TestReportConfirmCommandPath`, a plain pytest class in `tests/test_report_correction.py`, that runs `reports confirm` through `CliRunner` against seeded rows. It covers the stamp, the confirmed case and the corrected case, each with the spy. `TestReportConfirmCLI` stays unedited for #212. |
+| 20261015 | Caliper 3 | EOD confirm tests 2 and 3 pass without the `[c]` branch running: the review block's `except Exception` returns COMPLETED and leaves the row unchanged | Accepted. Each Step 3 test asserts `_prompt_choice` was called once and the `confirm` spy was called once with the seeded id. |
+| 20261015 | Caliper 4 | Step 3 tests 2 and 3 name no report type, and `_run_report_step` loads only `daily_internal` | Accepted. All three seed `daily_internal`. |
+| 20261015 | Caliper 5 | Step 1 says every call uses `zz_issue167`, but `TestRecordSlackPost` test 1 seeds `weekly_client` | Accepted. It seeds `zz_issue167`; `record_slack_post` does not read the type. |
+| 20261015 | Caliper 6 | AC4.1's test asserts only `False`, so a `_record_slack_post` that returns `False` silently passes | Accepted. The test patches `workmain.cli.commands.slack.err_console` and asserts `print` was called once, without reading the text (DR7). |
 
 ---
 
@@ -31,7 +37,7 @@
   - `workmain/workflows/eod_workflow.py`: `_run_report_review_step`, `[c]onfirm` branch and the `[s]kip` message
   - `workmain/orchestration/action_executor.py`: `_execute_confirm_report`, `_execute_correct_report` (code and docstring)
   - `workmain/cli/commands/slack.py`: `_record_slack_post`
-- **Tests:** `tests/test_reports_repo.py` (three new classes), `tests/test_eod_workflow.py` (one new class), `tests/test_slack.py` (one test added to `TestSlackPostRecord`).
+- **Tests:** `tests/test_reports_repo.py` (three new classes), `tests/test_report_correction.py` (one new plain pytest class), `tests/test_eod_workflow.py` (one new class), `tests/test_action_executor.py` (one test added to `TestActionExecutorConfirmReport`), `tests/test_slack.py` (one test added to `TestSlackPostRecord`).
 
 **Out of scope:**
 
@@ -68,7 +74,8 @@ Study §3 holds findings F1–F12 with evidence. The claims below are the ones t
 - **DR4 — A Slack post record never fails silently** (§4.3). `record_slack_post` returns `False` for a missing row. `_record_slack_post` turns that into an exception inside its `record_scope()` block, so the handler that reports every other recording failure reports this one too.
 - **DR5 — Repository methods take a report id,** as `apply_correction` and `set_correction_note` do. Each one flushes after writing and never commits (§4.3).
 - **DR6 — No text says a daily report's status affects the weekly report** (study F12).
-- **DR7 — Tests.** Every new test is a plain pytest test that takes `db_session` (§6.1, §6.2), seeds its own rows and asserts on the row as the database returns it after `db_session.refresh`. No test reads printed text. Repository tests seed on `date(2100, 9, d)` with report type `zz_issue167`, unless the case needs a specific type.
+- **DR7 — Tests.** Every new test is a plain pytest test that takes `db_session` (§6.1, §6.2), seeds its own rows and asserts on the row as the database returns it after `db_session.refresh`. No test reads printed text. Tests seed on `date(2100, 9, d)` with report type `zz_issue167`, except where the path under test selects by type: EOD loads only `daily_internal`, and the Slack intent loads today's `daily_internal`.
+  - **The `confirm` spy.** A test that proves a path confirms through the repository keeps the original, `real = ReportsRepository.confirm`, then patches with `patch.object(ReportsRepository, 'confirm', autospec=True, side_effect=real)`. The real method runs, so the row outcome is real, and the test asserts `spy.assert_called_once_with(ANY, <seeded id>)`. `ANY` is from `unittest.mock`.
 
 Anything this spec does not cover stops at the current step per `.claude/skills/session-start/SKILL.md` § Role 3.
 
@@ -79,9 +86,9 @@ Each step ends with a commit, and the suite is green at each.
 | Step | Deliverable | Files |
 | --- | --- | --- |
 | 1 | Three repository methods and their tests | `reports_repo.py`, `tests/test_reports_repo.py` |
-| 2 | `reports confirm` writes through `confirm` | `cli/commands/reports.py` |
+| 2 | `reports confirm` writes through `confirm` | `cli/commands/reports.py`, `tests/test_report_correction.py` |
 | 3 | EOD `[c]` writes through `confirm`; the `[s]kip` message corrected | `workflows/eod_workflow.py`, `tests/test_eod_workflow.py` |
-| 4 | Slack confirm and correct intents write through the repository; the correct handler's docstring corrected | `orchestration/action_executor.py` |
+| 4 | Slack confirm and correct intents write through the repository; the correct handler's docstring corrected | `orchestration/action_executor.py`, `tests/test_action_executor.py` |
 | 5 | Slack post record writes through `record_slack_post` | `cli/commands/slack.py`, `tests/test_slack.py` |
 | 6 | Results artifact | `docs/dev/results/REPORT_WRITES_THROUGH_REPOSITORY_RESULTS.md` |
 
@@ -115,7 +122,7 @@ Add to `ReportsRepository`, after `set_correction_note`, with Google docstrings 
   3. `test_overwrites_note_and_keeps_corrected_content`: seed `corrected` with `corrected_content='edited body'` and `correction_note='old note'` on 09-06. `flag_correction(id, 'new note')`. After refresh, `correction_note` is `'new note'` and `corrected_content` is `'edited body'`.
   4. `test_empty_note_writes_nothing`: seed `unconfirmed` on 09-07. `flag_correction(id, '   ')`. After refresh, the status is `unconfirmed`, `correction_note` is `None` and `updated_at` is equal.
 - `class TestRecordSlackPost`:
-  1. `test_records_message_channel_and_workspace`: seed `weekly_client` on 09-08. `record_slack_post(id, 'test-ts-167', '#test-channel', 'Test WS')` returns `True`. After refresh, the three columns hold those values.
+  1. `test_records_message_channel_and_workspace`: seed on 09-08. `record_slack_post(id, 'test-ts-167', '#test-channel', 'Test WS')` returns `True`. After refresh, the three columns hold those values.
   2. `test_missing_report_returns_false`: `record_slack_post(_missing_id(db_session), 'test-ts-167', '#test-channel', 'Test WS')` returns `False`.
 
 ### Step 2 — `reports confirm`
@@ -133,6 +140,12 @@ session.commit()
 
 The success message is unchanged. `datetime` stays imported, because `reports.py` uses it elsewhere (study F9).
 
+**Tests, `tests/test_report_correction.py`:** add `class TestReportConfirmCommandPath`, a plain pytest class after `TestResolveReport`. Each test seeds one `zz_issue167` row through `db_session`, keeps its `updated_at`, installs the `confirm` spy (DR7), runs `CliRunner().invoke(reports, ['confirm', str(row.id)])`, asserts exit code 0 and `spy.assert_called_once_with(ANY, row.id)`, and checks the row after `db_session.refresh`.
+
+1. `test_confirms_unconfirmed_and_stamps_updated_at`: seed `unconfirmed` on 2100-09-10. The status is `confirmed` and `updated_at` is later.
+2. `test_leaves_confirmed_unchanged`: seed `confirmed` on 09-11. The status is `confirmed` and `updated_at` is equal.
+3. `test_leaves_corrected_unchanged`: seed `corrected` on 09-12. The status is `corrected` and `updated_at` is equal.
+
 ### Step 3 — EOD review step
 
 - **`[c]` branch:**
@@ -149,10 +162,10 @@ The success message is unchanged. `datetime` stays imported, because `reports.py
 
 - **`[s]kip` branch:** replace the `if report_type == 'daily_internal': … else: …` block with the single line `print(f"  ⚠ {label} report left unconfirmed.")`. The `print()` before it stays.
 - **Imports:** `from datetime import date, datetime` becomes `from datetime import date` (study F9).
-- **Tests, `tests/test_eod_workflow.py`:** add `class TestReportReviewStepConfirmBranch` after `TestReportReviewStepEditBranch`, with the same `_seed` helper. Each test patches `_is_interactive` to `True` and `_prompt_choice` to `'c'`, and patches `run_workmain` with `return_value=WorkmainRun(returncode=0)`. It calls `_run_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)`, asserts `result.status == EodStepStatus.COMPLETED`, and checks the row after `db_session.refresh`.
-  1. `test_confirm_sets_unconfirmed_report_confirmed`: seed `daily_internal` `unconfirmed` and keep its `updated_at`. The status is `confirmed` and `updated_at` is later.
+- **Tests, `tests/test_eod_workflow.py`:** add `class TestReportReviewStepConfirmBranch` after `TestReportReviewStepEditBranch`, with the same `_seed` helper. Each test seeds one `daily_internal` row on `GATE1_SENTINEL_DATE` and keeps its `updated_at`. It patches `_is_interactive` to `True`, `_prompt_choice` to `'c'`, and `run_workmain` with `return_value=WorkmainRun(returncode=0)`, and installs the `confirm` spy (DR7). It calls `_run_report_step(dry_run=False, target_date=GATE1_SENTINEL_DATE)`. It asserts `result.status == EodStepStatus.COMPLETED`, that `_prompt_choice` was called once, and `spy.assert_called_once_with(ANY, row.id)`, which together show the `[c]` branch ran on the seeded row, then checks the row after `db_session.refresh`.
+  1. `test_confirm_sets_unconfirmed_report_confirmed`: seed `unconfirmed`. The status is `confirmed` and `updated_at` is later.
   2. `test_confirm_leaves_confirmed_report_unchanged`: seed `confirmed`. The status is `confirmed` and `updated_at` is equal.
-  3. `test_confirm_leaves_corrected_report_unchanged`: seed `corrected`. The status is `corrected` and `updated_at` is equal. Today's code fails this test.
+  3. `test_confirm_leaves_corrected_report_unchanged`: seed `corrected`. The status is `corrected` and `updated_at` is equal. Today's code fails this test: Spanner ran it against `dev` `862b19e` and the status came back `confirmed`.
 
 ### Step 4 — action executor
 
@@ -169,7 +182,7 @@ The success message is unchanged. `datetime` stays imported, because `reports.py
   The import goes at the top of the method, as in `_execute_write_correction_note`. In the docstring, replace the `Matches CLI behaviour …` bullet pair with: `Confirms through ReportsRepository.confirm(), the one confirm rule: a confirmed or corrected report is left unchanged.`
 - **`_execute_correct_report`:** replace the three writes with `ReportsRepository(self.session).flag_correction(report.id, correction)`, importing `ReportsRepository` at the top of the method. In the docstring, the `Sets status = 'corrected' to:` list loses its second bullet (`Exclude this daily from weekly aggregation …`). The sentence becomes: `Sets status = 'corrected' so EOD does not regenerate the report on a later run: the eod_workflow pre-check reopens a confirmed or corrected report for review instead.` The status transition table is unchanged.
 - **Imports:** `from datetime import date, datetime, time as time_type` becomes `from datetime import date, time as time_type` (study F9).
-- No test changes. `TestActionExecutorConfirmReport` and `TestActionExecutorCorrectReport` cover both handlers, and every case the issue names, through `ActionExecutor.execute` on `db_session`.
+- **Tests, `tests/test_action_executor.py`:** add `test_confirm_report_goes_through_repository` to `TestActionExecutorConfirmReport`. It seeds `_seed_report_today(db_session, status="confirmed")`, installs the `confirm` spy (DR7), runs `ActionExecutor(db_session).execute({"action": "confirm_report", "report_type": "daily_internal"})`, and asserts `spy.assert_called_once_with(ANY, report.id)` and `result.success is True`. Every other test in `TestActionExecutorConfirmReport` and `TestActionExecutorCorrectReport` is unedited. Together they cover every case the issue names, through `ActionExecutor.execute` on `db_session`.
 
 ### Step 5 — Slack post record
 
@@ -185,7 +198,7 @@ with get_db().record_scope() as session:
 
 The handler, its message and the return values are unchanged.
 
-**Tests, `tests/test_slack.py`:** add `test_missing_report_is_not_reported_as_recorded` to `TestSlackPostRecord`. It seeds a `weekly_client` row on `date(2099, 1, 4)` (the class uses `2099-01-03`), deletes it, commits, and asserts that `_record_slack_post(<that id>, "test-ts-missing", "#test-channel", "Test WS")` returns `False`.
+**Tests, `tests/test_slack.py`:** add `test_missing_report_is_not_reported_as_recorded` to `TestSlackPostRecord`. It seeds a `weekly_client` row on `date(2099, 1, 4)` (the class uses `2099-01-03`), deletes it, and commits. With `workmain.cli.commands.slack.err_console` patched, it asserts that `_record_slack_post(<that id>, "test-ts-missing", "#test-channel", "Test WS")` returns `False` and that the patched console's `print` was called once. It does not read the text (DR7).
 
 ### Step 6 — results artifact
 
@@ -200,23 +213,24 @@ None. No migration, no GitHub deletion, no merge to `main`, no force-push and no
 | AC | Criterion | How it is checked |
 | --- | --- | --- |
 | AC1.1 | No module outside `workmain/database/repositories/` sets a column on a `Report` row except through `ReportsRepository` | `grep -rnE '\breport\.[a-z_]+ = ' workmain/ --include=*.py \| grep -v workmain/database/repositories/` returns zero hits. Then `cols=$(python -c "from workmain.database.models import Report; print('\|'.join(c.key for c in Report.__mapper__.column_attrs))")` and `grep -rnE "\.($cols)\s*=[^=]" workmain/ --include=*.py \| grep -v workmain/database/repositories/`, where every hit writes a model other than `Report`, as the results artifact's census table shows hit by hit. That reading is Ray's |
-| AC2.1 | `reports confirm`, the EOD confirm branch and the Slack `confirm_report` intent still set status to confirmed and stamp `updated_at`, and leave a report that is already confirmed or corrected unchanged | `pytest tests/test_reports_repo.py::TestConfirm tests/test_eod_workflow.py::TestReportReviewStepConfirmBranch tests/test_action_executor.py::TestActionExecutorConfirmReport tests/test_report_correction.py::TestReportConfirmCLI`: the rule at the repository, then each path through its own entry point |
+| AC2.1 | `reports confirm`, the EOD confirm branch and the Slack `confirm_report` intent still set status to confirmed and stamp `updated_at`, and leave a report that is already confirmed or corrected unchanged | `pytest tests/test_reports_repo.py::TestConfirm tests/test_report_correction.py::TestReportConfirmCommandPath tests/test_eod_workflow.py::TestReportReviewStepConfirmBranch tests/test_action_executor.py::TestActionExecutorConfirmReport`: the rule at the repository, then each path through its own entry point (`CliRunner`, `_run_report_step`, `ActionExecutor.execute`) |
+| AC2.2 | The confirm rule is written once: each of the three paths confirms through `ReportsRepository.confirm` and none decides for itself that a report is already confirmed or corrected | The `confirm` spy assertions in `TestReportConfirmCommandPath::test_leaves_confirmed_unchanged`, `test_leaves_corrected_unchanged`, `TestReportReviewStepConfirmBranch::test_confirm_leaves_confirmed_report_unchanged`, `test_confirm_leaves_corrected_report_unchanged` and `TestActionExecutorConfirmReport::test_confirm_report_goes_through_repository`, each seeding an already-reviewed report, which a path with its own guard never passes to `confirm` |
 | AC3.1 | The Slack `correct_report` intent still writes `correction_note`, sets status to corrected and stamps `updated_at`, and never writes `corrected_content` | `pytest tests/test_reports_repo.py::TestFlagCorrection tests/test_action_executor.py::TestActionExecutorCorrectReport` |
 | AC4.1 | `slack post weekly` still records the message timestamp, channel and workspace name on the report it posted, and a record that cannot be written is reported, never counted as recorded | `pytest tests/test_reports_repo.py::TestRecordSlackPost tests/test_slack.py::TestSlackPostRecord` |
 | AC5.1 | No text in the application says a daily report's status affects the weekly report | `grep -rnE 'weekly aggregation\|weekly draft until confirmed' workmain/ --include=*.py` returns zero hits, and Ray reads the `_execute_correct_report` docstring and the EOD `[s]kip` message in the branch diff for that claim |
-| AC6.1 | Full suite passes with no net test loss from the baseline | `pytest` reports baseline + 14 passed, 0 failed, with skipped stated |
+| AC6.1 | Full suite passes with no net test loss from the baseline | `pytest` reports baseline + 18 passed, 0 failed, with skipped stated |
 
 ## 6. Test plan
 
 - **Baseline before this work:** the v1.49.0 entry in `CHANGELOG.md`.
-- **Expected after:** baseline + 14 passed, 0 failed, 0 skipped.
+- **Expected after:** baseline + 18 passed, 0 failed, 0 skipped.
 
   | Step | Change | Net |
   | --- | --- | --- |
   | 1 | `TestConfirm` (4), `TestFlagCorrection` (4), `TestRecordSlackPost` (2) | +10 |
-  | 2 | None; `TestReportConfirmCLI` and `TestConfirm` | 0 |
+  | 2 | `TestReportConfirmCommandPath` (3) | +3 |
   | 3 | `TestReportReviewStepConfirmBranch` (3) | +3 |
-  | 4 | None; the two executor classes, unedited | 0 |
+  | 4 | `TestActionExecutorConfirmReport` (+1) | +1 |
   | 5 | `TestSlackPostRecord` (+1) | +1 |
 
 - **Existing tests that must stay green unedited:** every class in §2's last row.
