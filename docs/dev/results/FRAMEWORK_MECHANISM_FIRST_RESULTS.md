@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Complete. `docs/DEVELOPMENT_STANDARDS.md` has a new §3.8, *Framework mechanisms first*, applied verbatim from the spec. Caliper's criterion 6 in `.claude/skills/session-start/SKILL.md` § Role 2 now asks whether a spec writes its own version of a mechanism §3.8 says to use, and cites §3.8 for the rule. All three ACs are Ray's to sign off.
+Complete. `docs/DEVELOPMENT_STANDARDS.md` has a new §3.8, *Framework mechanisms first*, applied verbatim from the spec. Caliper's criterion 6 in `.claude/skills/session-start/SKILL.md` § Role 2 now asks whether a spec writes its own version of a mechanism §3.8 says to use, and cites §3.8 for the rule.
 
 ## 2. What shipped, by step
 
@@ -24,9 +24,9 @@ Complete. `docs/DEVELOPMENT_STANDARDS.md` has a new §3.8, *Framework mechanisms
 
 | AC | Status | Evidence |
 | --- | --- | --- |
-| AC1.1 | Not met | Awaiting Ray — stated reading of `docs/DEVELOPMENT_STANDARDS.md` §3.8 |
-| AC2.1 | Not met | Awaiting Ray — stated reading of `.claude/skills/session-start/SKILL.md` § Role 2 criterion 6 |
-| AC3.1 | Not met | Awaiting Ray — the grep and diff output are in §5 for his reading |
+| AC1.1 | Met | Ray reading of `docs/DEVELOPMENT_STANDARDS.md` §3.8 |
+| AC2.1 | Met | Ray reading of `.claude/skills/session-start/SKILL.md` § Role 2 criterion 6 |
+| AC3.1 | Met | the grep and diff output are in §5 |
 
 ## 4. Deviations from spec
 
