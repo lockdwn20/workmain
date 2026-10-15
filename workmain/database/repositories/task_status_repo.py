@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import List, Optional
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, contains_eager
 
 from workmain.database.models import Note, TaskStatus
 
@@ -208,6 +208,7 @@ class TaskStatusRepository:
             List of TaskStatus objects ordered by note created_at DESC.
         """
         q = self._filtered_query(status=status, search=search, date_filter=date_filter)
+        q = q.options(contains_eager(TaskStatus.note))
         q = q.order_by(Note.created_at.desc())
 
         if limit:
