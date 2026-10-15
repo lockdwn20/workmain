@@ -26,6 +26,7 @@ from workmain.cli.commands.notes import notes
 from workmain.cli.commands.meetings import meetings
 from workmain.cli.commands.time import time
 from workmain.cli.commands.tasks import tasks
+from workmain.cli.output import Renderer, WorkmAInGroup
 
 # Import Phase 3 commands
 from workmain.cli.commands.templates import templates
@@ -56,33 +57,6 @@ from workmain.cli.commands.notifications import notifications
 
 # Initialize console
 console = Console()
-
-
-class _StubCommandError(click.ClickException):
-    """
-    Raised when a stub command (OAuth-required) is invoked.
-    Converts NotImplementedError into a ClickException so Click's
-    main() dispatches display and exit exactly once.
-    """
-    exit_code = 1
-
-    def show(self):
-        console.print(f"\n[yellow]Not implemented:[/yellow] {self.format_message()}")
-        console.print("\n[dim]See docs/OAUTH_SETUP.md for OAuth setup requirements.[/dim]\n")
-
-
-class WorkmAInGroup(click.Group):
-    """
-    Custom Click Group that provides a clean user-facing message for
-    NotImplementedError — used by OAuth stub commands (report send,
-    email send, calendar sync) instead of a raw Python traceback.
-    """
-
-    def invoke(self, ctx):
-        try:
-            return super().invoke(ctx)
-        except NotImplementedError as e:
-            raise _StubCommandError(str(e)) from e
 
 
 def _configure_cli_logging() -> None:
@@ -116,7 +90,7 @@ def cli(ctx):
     Use 'workmain COMMAND --help' for more information on a specific command.
     """
     _configure_cli_logging()
-    ctx.ensure_object(dict)
+    ctx.ensure_object(Renderer)
 
 
 @cli.command()
