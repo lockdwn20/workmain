@@ -5,7 +5,7 @@ Handles all CRUD operations for the recipients and report_recipients tables.
 
 from typing import Optional, List
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload, joinedload
 
 from workmain.database.models import Recipient, ReportRecipient
 
@@ -29,7 +29,12 @@ class EmailRepository:
 
     def get_all_recipients(self) -> list[Recipient]:
         """Return all recipients ordered by ID."""
-        return self.session.query(Recipient).order_by(Recipient.id).all()
+        return (
+            self.session.query(Recipient)
+            .options(selectinload(Recipient.assignments))
+            .order_by(Recipient.id)
+            .all()
+        )
 
     def get_recipient_by_id(self, id: int) -> Optional[Recipient]:
         """Return recipient by primary key, or None if not found."""
@@ -120,7 +125,9 @@ class EmailRepository:
         Returns:
             List of ReportRecipient records.
         """
-        query = self.session.query(ReportRecipient).filter(
+        query = self.session.query(ReportRecipient).options(
+            joinedload(ReportRecipient.recipient)
+        ).filter(
             ReportRecipient.report_type == template_name
         )
         if client_id is not None:

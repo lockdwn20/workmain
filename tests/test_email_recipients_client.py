@@ -10,6 +10,7 @@ production data.
 """
 
 import pytest
+from sqlalchemy import event
 from workmain.database.models import Recipient, ReportRecipient, Client
 from workmain.database.repositories.email_repository import EmailRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
@@ -253,3 +254,64 @@ class TestGetDraftRecipients:
         to_list, cc_list = _get_draft_recipients("no_recipients_tmpl_2099", session=db_session)
         assert to_list == []
         assert cc_list == []
+
+
+def _count_statements(session, call, read):
+    """SQL statements issued by call() plus read(rows), from an empty session."""
+    session.flush()
+    session.expunge_all()
+    seen = []
+    conn = session.connection()
+
+    def listener(*args):
+        seen.append(1)
+
+    event.listen(conn, "before_cursor_execute", listener)
+    try:
+        for row in call():
+            read(row)
+    finally:
+        event.remove(conn, "before_cursor_execute", listener)
+    return len(seen)
+
+
+class TestEmailRepoLoading:
+    """list_for_client and get_all_recipients load what their callers read."""
+
+    def test_list_for_client_count_does_not_grow(self, db_session):
+        repo = EmailRepository(db_session)
+
+        def seed(template, n):
+            for i in range(n):
+                r = _make_recipient(db_session, f"loading-{template}-{i}@2099.test")
+                repo.assign_recipient(r.id, template, "to")
+
+        seed("loading_one_2099", 1)
+        one = _count_statements(
+            db_session, lambda: repo.list_for_client("loading_one_2099", None),
+            lambda a: a.recipient.email,
+        )
+        seed("loading_five_2099", 5)
+        five = _count_statements(
+            db_session, lambda: repo.list_for_client("loading_five_2099", None),
+            lambda a: a.recipient.email,
+        )
+        assert one == five
+
+    def test_get_all_recipients_count_does_not_grow(self, db_session):
+        repo = EmailRepository(db_session)
+
+        def seed(tag, n):
+            for i in range(n):
+                r = _make_recipient(db_session, f"loading-all-{tag}-{i}@2099.test")
+                repo.assign_recipient(r.id, "loading_all_2099", "to")
+
+        seed("a", 1)
+        one = _count_statements(
+            db_session, repo.get_all_recipients, lambda r: len(r.assignments)
+        )
+        seed("b", 4)
+        five = _count_statements(
+            db_session, repo.get_all_recipients, lambda r: len(r.assignments)
+        )
+        assert one == five
