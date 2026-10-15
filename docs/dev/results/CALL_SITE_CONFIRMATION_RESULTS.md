@@ -1,6 +1,6 @@
 # Call Site Confirmation — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261015
 **Spec:** `../specs/CALL_SITE_CONFIRMATION_SPEC.md`
@@ -33,7 +33,7 @@ None.
 
 ## 5. Verification
 
-- **Test suite:** not run during implementation; close-out runs the suites on the branch tip. The branch changes no file under `tests/`, `automation/`, `workmain/`, `config/` or `templates/`.
+- **Test suite:** 1411 passed, 0 failed, 0 skipped (baseline: 1411 passed, 0 failed, 0 skipped, v1.51.0 `CHANGELOG.md`), run at close-out on the branch tip. `pytest automation/` not run: the branch changes no path under `automation/`.
 - **Live verification:** n/a — the branch changes documents only; no command or service behaviour changed.
 - **Daemon restart:** n/a — `chore/*`, which `docs/DEVELOPMENT_STANDARDS.md` §2.6 requires no restart for.
 - **AC1.1 greps**, at `8c03b40`:

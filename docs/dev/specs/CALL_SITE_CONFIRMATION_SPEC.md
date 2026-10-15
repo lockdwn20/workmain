@@ -1,6 +1,6 @@
 # Call Site Confirmation — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261015
 **Branch:** `chore/issue-232-call-site-confirmation` (from `main`, merges to `main` and `dev`)
