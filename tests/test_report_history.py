@@ -8,14 +8,15 @@ import os
 import unittest
 from datetime import date
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 from click.testing import CliRunner
 from rich.table import Table
 
 from workmain.cli.commands.reports import reports
 from workmain.database.models import Report
-from workmain.utils.self_invoke import WorkmainRun
+from workmain.services import email_service
+from workmain.services.exceptions import NoReportFoundError
 
 # Staging dir relative to project root
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -261,10 +262,11 @@ class TestReportResend(unittest.TestCase):
         staging = self._staging_path('daily_internal', date(2099, 6, 15))
         self._staging_files.append(staging)
 
-        # Mock the email call so we don't actually invoke it
-        with patch('workmain.cli.commands.reports.run_workmain',
-                   return_value=WorkmainRun(returncode=0)):
+        # Patch the draft service so no draft file is written
+        with patch.object(email_service, "save_draft", autospec=True) as save_draft:
             result = self.runner.invoke(reports, ['resend', str(r.id)])
+
+        save_draft.assert_called_once_with(ANY, 'daily_internal')
 
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertTrue(staging.exists(), f"Staging file not created: {staging}")
@@ -288,23 +290,24 @@ class TestReportResend(unittest.TestCase):
         staging.parent.mkdir(parents=True, exist_ok=True)
         staging.write_text("existing content")
 
-        with patch('workmain.cli.commands.reports.run_workmain',
-                   return_value=WorkmainRun(returncode=0)):
+        with patch.object(email_service, "save_draft", autospec=True) as save_draft:
             # Provide 'y' to the overwrite prompt
             result = self.runner.invoke(reports, ['resend', str(r.id)], input='y\n')
+
+        save_draft.assert_called_once_with(ANY, 'daily_internal')
 
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn('already exists', result.output)
 
     def test_resend_reports_failed_draft_without_raising(self):
-        """AC4.3 — a non-zero exit from the email child is reported, not raised."""
+        """AC4.3 — a failed draft is reported, not raised."""
         content = "## Nonzero exit resend test"
         r = self._seed('daily_internal', date(2099, 9, 2), content)
         staging = self._staging_path('daily_internal', date(2099, 9, 2))
         self._staging_files.append(staging)
 
-        with patch('workmain.cli.commands.reports.run_workmain',
-                   return_value=WorkmainRun(returncode=1, stderr='no recipients configured')):
+        with patch.object(email_service, "save_draft", autospec=True,
+                          side_effect=NoReportFoundError('daily_internal')):
             result = self.runner.invoke(reports, ['resend', str(r.id)])
 
         self.assertEqual(result.exit_code, 0, result.output)

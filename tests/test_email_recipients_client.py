@@ -1,7 +1,7 @@
 """
 Tests for Phase 11.5 email recipient client dimension: assign_recipient()
 client_id scoping, unassign_recipient() client_id filtering, list_for_client()
-global + client-scoped merge, and _get_draft_recipients() client-aware
+global + client-scoped merge, and email_service.build_draft() client-aware
 resolution and deduplication.
 
 All DB tests use db_session fixture from conftest.py for full transaction
@@ -9,11 +9,14 @@ isolation. Sentinel client IDs and dates used to avoid colliding with
 production data.
 """
 
+from unittest.mock import patch
+
 import pytest
 from sqlalchemy import event
 from workmain.database.models import Recipient, ReportRecipient, Client
 from workmain.database.repositories.email_repository import EmailRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
+from workmain.services import email_service
 
 
 # Sentinel report type — far-future unique value to avoid prod collisions
@@ -184,13 +187,18 @@ class TestListForClient:
         assert results == []
 
 
-class TestGetDraftRecipients:
-    """_get_draft_recipients() client-aware resolution and deduplication."""
+class TestDraftRecipients:
+    """email_service.build_draft client-aware recipient resolution and deduplication."""
 
-    def test_uses_list_for_client_with_active_client(self, db_session):
+    @staticmethod
+    def _draft(session, tmp_path, template):
+        """Build a draft for template from a report written into tmp_path."""
+        (tmp_path / f"{template}_2099-01-05.md").write_text("body", encoding="utf-8")
+        with patch.object(email_service, "REPORTS_DIR", tmp_path):
+            return email_service.build_draft(session, template)
+
+    def test_uses_list_for_client_with_active_client(self, db_session, tmp_path):
         """With active client, client-scoped recipients appear in the result."""
-        from workmain.cli.commands.email import _get_draft_recipients
-
         client = _make_client(db_session, "_T11_5_DraftClient_A")
         r_global = _make_recipient(db_session, "draft_global@test.invalid")
         r_scoped = _make_recipient(db_session, "draft_scoped@test.invalid")
@@ -202,15 +210,13 @@ class TestGetDraftRecipients:
         # Set active client in system_state
         SystemStateRepository(db_session).set_int('active_client_id', client.id)
 
-        to_list, cc_list = _get_draft_recipients(_TMPL, session=db_session)
-        all_emails = to_list + cc_list
+        draft = self._draft(db_session, tmp_path, _TMPL)
+        all_emails = draft.to + draft.cc
         assert r_global.email in all_emails
         assert r_scoped.email in all_emails
 
-    def test_uses_list_for_client_global_only_no_active_client(self, db_session):
+    def test_uses_list_for_client_global_only_no_active_client(self, db_session, tmp_path):
         """With no active client, only global recipients appear."""
-        from workmain.cli.commands.email import _get_draft_recipients
-
         client = _make_client(db_session, "_T11_5_DraftClient_B")
         r_global = _make_recipient(db_session, "draft2_global@test.invalid")
         r_scoped = _make_recipient(db_session, "draft2_scoped@test.invalid")
@@ -223,15 +229,13 @@ class TestGetDraftRecipients:
         state_repo = SystemStateRepository(db_session)
         state_repo.delete('active_client_id')
 
-        to_list, cc_list = _get_draft_recipients(_TMPL, session=db_session)
-        all_emails = to_list + cc_list
+        draft = self._draft(db_session, tmp_path, _TMPL)
+        all_emails = draft.to + draft.cc
         assert r_global.email in all_emails
         assert r_scoped.email not in all_emails
 
-    def test_deduplication_client_scoped_wins(self, db_session):
+    def test_deduplication_client_scoped_wins(self, db_session, tmp_path):
         """Same email in global (to) and scoped (cc) — client-scoped role wins."""
-        from workmain.cli.commands.email import _get_draft_recipients
-
         client = _make_client(db_session, "_T11_5_DedupClient")
         recipient = _make_recipient(db_session, "dedup@test.invalid")
         repo = EmailRepository(db_session)
@@ -242,18 +246,16 @@ class TestGetDraftRecipients:
 
         SystemStateRepository(db_session).set_int('active_client_id', client.id)
 
-        to_list, cc_list = _get_draft_recipients(_TMPL, session=db_session)
+        draft = self._draft(db_session, tmp_path, _TMPL)
         # Email should appear exactly once, as 'cc' (client-scoped wins)
-        assert recipient.email not in to_list
-        assert recipient.email in cc_list
+        assert recipient.email not in draft.to
+        assert recipient.email in draft.cc
 
-    def test_no_recipients_returns_empty_lists(self, db_session):
-        """No assignments → both lists empty."""
-        from workmain.cli.commands.email import _get_draft_recipients
-
-        to_list, cc_list = _get_draft_recipients("no_recipients_tmpl_2099", session=db_session)
-        assert to_list == []
-        assert cc_list == []
+    def test_no_recipients_returns_empty_lists(self, db_session, tmp_path):
+        """No assignments → both recipient tuples empty."""
+        draft = self._draft(db_session, tmp_path, "no_recipients_tmpl_2099")
+        assert draft.to == ()
+        assert draft.cc == ()
 
 
 def _count_statements(session, call, read):
