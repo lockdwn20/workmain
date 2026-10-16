@@ -23,6 +23,10 @@
 | 20261016 | Spanner | Issue AC2 says condensing repoints "every time entry of the condensed meeting". The live behaviour, which Ray confirmed as intended (Q1), repoints the earliest entry on the meeting's date. | AC2.1 states the live behaviour. The issue's AC2 is edited to match at close-out. |
 | 20261016 | Spanner | `CLAUDE.md` § Note Write-Path Convergence maps the functions that create a note or a paired `TimeEntry`. `link_condensed_note` creates only by calling `create_paired_time_entry`, and repoints only through `TimeEntriesRepository.update()`. | No `CLAUDE.md` change. Every statement in that section still holds. |
 | 20261016 | Spanner | A repointed entry keeps its own `client_id`, while the condensed note carries the active client at the time of condensing (study F10). | Out of scope. #168 keeps every column write as it is today. Raised to Ray as a possible issue on 20261015. |
+| 20261016 | Caliper | AC1.1's pattern needs a bare name before the dot, so `existing_today[0].note_id = …` passes it while still writing outside the repository. A bulk `query(TimeEntry)…update(…)` or `update(TimeEntry)` statement is not searched at all. | Accepted. AC1.1 now excludes only a `self.` receiver, so any expression before the dot matches. Re-checked 20261016: `existing_today[0].note_id = x` and `foo().client_id = 1` match, `self.note_id = 2` does not, and the live tree returns `notes.py:684` and `meetings.py:887` only. Two further checks are added. A chained `.update(`/`.delete(` outside the repositories must be on a repository; the live tree returns `notes_service.py:132` and `time.py:412`, both `NotesRepository(session).update(`. A core `update(TimeEntry` or `delete(TimeEntry` returns no hits. §2 records the same three searches. |
+| 20261016 | Caliper | AC1.2 says a repoint "changes no other column", but T1 checks five of the columns, not `client_id`, `project_id`, `clockify_id`, `synced_at` or `created_at`. | Accepted. T1 snapshots every column of `TimeEntry.__table__` before the call and asserts that only `note_id` and `updated_at` differ afterwards. `updated_at` is the model's `onupdate=datetime.now` (`models.py:286`), so every update changes it, and AC1.2 says so. |
+| 20261016 | Caliper | T7 reads the entry back after `notes log` has run in its own session. Without `db_session.expire_all()` it reads the cached seeded `note_id` and fails against correct code. `test_t17` (`test_notes_log.py:260`) and the `meetings condense` relink test (`test_meetings_condense.py:154`) both expire first. | Accepted. T7 calls `db_session.expire_all()` before its assertions. |
+| 20261016 | Caliper | DR2's block breaks `docs/DEVELOPMENT_STANDARDS.md` §3.5: `session` has no type hint, and the docstring has no `Args:` or `Returns:`. | Accepted. DR2 types `session: Session`, adds `from sqlalchemy.orm import Session` to the module, and gives the docstring `Args:`, `Returns:` and `Raises:` (the `ValueError` §7 describes). `create_paired_time_entry`'s own gap is left as it is: it is not in scope. |
 
 ---
 
@@ -50,7 +54,7 @@ Verified on `feature/issue-168-time-entry-repository-writes` at `8398bae`, which
 
 | Claim | Evidence |
 | --- | --- |
-| Outside `workmain/database/repositories/`, the only assignments to a `TimeEntry` column on an object other than `self` are the two repoints. There is no `setattr(` on a `TimeEntry`, and no `query(TimeEntry)…update(` or `…delete(`. | `grep -rnP '\b(?!self\b)\w+\.(note_id\|duration_hours\|entry_date\|entry_time\|category\|project_id\|meeting_id\|client_id\|clockify_id\|synced_at\|created_at\|updated_at)\s*=(?!=)' workmain/ scripts/ automation/ --include='*.py'`, excluding `workmain/database/repositories/` → `notes.py:684`, `meetings.py:887`. The same search without the `self` exclusion adds `outlook/client.py:64` (`OutlookClient.client_id`) and `services/exceptions.py:40` (an exception's `note_id`), neither of which is a `TimeEntry`. |
+| Outside `workmain/database/repositories/`, the only assignments to a `TimeEntry` column on an object other than `self` are the two repoints. There is no `setattr(` on a `TimeEntry`. No bulk update or delete is made on a `TimeEntry` query or statement. | `grep -rnP '(?<!\bself)\.(note_id\|duration_hours\|entry_date\|entry_time\|category\|project_id\|meeting_id\|client_id\|clockify_id\|synced_at\|created_at\|updated_at)\s*=(?!=)' workmain/ scripts/ automation/ --include='*.py'`, excluding `workmain/database/repositories/` → `notes.py:684`, `meetings.py:887`. The same search without the `self` exclusion adds `outlook/client.py:64` (`OutlookClient.client_id`) and `services/exceptions.py:40` (an exception's `note_id`), neither of which is a `TimeEntry`. `grep -rn 'setattr(' workmain/ scripts/ --include='*.py'` → no hits. `grep -rnE '(\)\s*\|^\s*)\.(update\|delete)\(' workmain/ scripts/ automation/ --include='*.py'`, excluding the repositories → `notes_service.py:132` and `time.py:412`, both `NotesRepository(session).update(`. `grep -rnE '\b(update\|delete)\(\s*TimeEntry\b' workmain/ scripts/ automation/ --include='*.py'` → no hits. The two `query(TimeEntry)` sites outside the repositories, `meetings.py:1222` and `inspection_engine.py:79`, end in `.all()` and `.first()`: reads, which #160 covers. |
 | The two repoint blocks are the same logic. Each calls `TimeEntriesRepository(session).get_by_meeting(meeting.id)` and keeps the entries whose `entry_date == meeting.start_time.date()`. If there are any, it sets `note_id` on the first and prints `✓ Time entry (ID: {entry.id}) linked to condensed note`. Otherwise it calls `time_entry_service.create_paired_time_entry(session, condensed_note, duration_hours=(end_time - start_time).total_seconds() / 3600, entry_date=start_time.date(), entry_time=start_time.time(), category='meeting')` and prints `✓ Time entry created (ID: {entry.id}, {duration_hours:.2f}h)`. `notes_log` prints with `click.echo`, and `meetings_condense` with `console.print` wrapped in `[green]…[/green]`. | `notes.py:676-699`; `meetings.py:876-903` |
 | `get_by_meeting` orders by `entry_date, entry_time`, so the first matching entry is the earliest on the date. It loads `TimeEntry.note`. | `time_entries_repo.py:150-164` |
 | `notes_log` runs the block inside `with session.begin_nested():` (`notes.py:652`), and its handler at `703-707` prints `✗ Condensation failed`. `meetings_condense` runs it inside `session_scope()` (`meetings.py:808`) and catches `ValueError` at `907-909`. Neither block commits. | The files |
@@ -70,14 +74,26 @@ Verified on `feature/issue-168-time-entry-repository-writes` at `8398bae`, which
 
   ```python
   def link_condensed_note(
-      session,
+      session: Session,
       meeting: Meeting,
       condensed_note: Note,
   ) -> Tuple[TimeEntry, bool]:
-      """Point the meeting's time entry on its date at the condensed note, or
+      """
+      Point the meeting's time entry on its date at the condensed note, or
       create one from the meeting when it has none. Where the meeting has
       more than one entry on its date, only the earliest is repointed.
-      Returns the entry and whether it was created."""
+
+      Args:
+          session: The caller's session; this function never commits it
+          meeting: The condensed meeting
+          condensed_note: The note created from the condensed summary
+
+      Returns:
+          The repointed or created TimeEntry, and True if it was created
+
+      Raises:
+          ValueError: The existing entry's project belongs to another client
+      """
       repo = TimeEntriesRepository(session)
       meeting_date = meeting.start_time.date()
       existing_today = [
@@ -97,7 +113,7 @@ Verified on `feature/issue-168-time-entry-repository-writes` at `8398bae`, which
       return entry, True
   ```
 
-  `Meeting` is added to the module's `workmain.database.models` import, and `Tuple` to its `typing` import. The function never commits, rolls back or opens a session (`docs/DEVELOPMENT_STANDARDS.md` §4.1).
+  `Meeting` is added to the module's `workmain.database.models` import and `Tuple` to its `typing` import, and `from sqlalchemy.orm import Session` is added with the third-party imports (`docs/DEVELOPMENT_STANDARDS.md` §3.2). The function never commits, rolls back or opens a session (`docs/DEVELOPMENT_STANDARDS.md` §4.1).
 - **DR3 — Same writes as today.** For every meeting, both commands write the same columns with the same values as before. Only the earliest entry on the meeting's date is repointed. An entry of the same meeting on another date, a later entry on the same date, and every other meeting's entries are left unchanged.
 - **DR4 — Same output.** Each command keeps its own lines, with the text and markup quoted in §2. The duration in the "created" line is printed from `entry.duration_hours`, formatted `:.2f`. That is the stored `DECIMAL(5, 2)` of the same float. A meeting whose length is a whole number of minutes has a length in hours that is never exactly halfway between two hundredths (minutes / 60 × 1000 is never an integer ending in 5), so the printed value matches today's.
 - **DR5 — Failures are handled as today.** An exception from `link_condensed_note` propagates to the same handler as before: `notes_log`'s savepoint handler, or `meetings_condense`'s `ValueError` handler and outer handler.
@@ -162,8 +178,8 @@ None. This spec has no migration, GitHub deletion, merge to `main`, force-push o
 
 | AC | Criterion | How it is checked |
 | --- | --- | --- |
-| AC1.1 | No module outside `workmain/database/repositories/` sets a column on a `TimeEntry` row except through `TimeEntriesRepository`. | `grep -rnP '\b(?!self\b)\w+\.(note_id\|duration_hours\|entry_date\|entry_time\|category\|project_id\|meeting_id\|client_id\|clockify_id\|synced_at\|created_at\|updated_at)\s*=(?!=)' workmain/ scripts/ automation/ --include='*.py' \| grep -v '^workmain/database/repositories/'` returns no hits, and `grep -rn 'setattr(' workmain/ scripts/ --include='*.py'` returns no hit on a `TimeEntry`. |
-| AC1.2 | `TimeEntriesRepository.update()` repoints an entry to another note when given `note_id`, changes no other column, and keeps the note when `note_id` is not given. | `pytest tests/test_time_entries_repo.py::TestTimeEntriesRepoUpdate` |
+| AC1.1 | No module outside `workmain/database/repositories/` sets a column on a `TimeEntry` row, or updates or deletes `TimeEntry` rows in bulk, except through `TimeEntriesRepository`. | All four, each piped through `grep -v '^workmain/database/repositories/'`: `grep -rnP '(?<!\bself)\.(note_id\|duration_hours\|entry_date\|entry_time\|category\|project_id\|meeting_id\|client_id\|clockify_id\|synced_at\|created_at\|updated_at)\s*=(?!=)' workmain/ scripts/ automation/ --include='*.py'` returns no hits. `grep -rn 'setattr(' workmain/ scripts/ --include='*.py'` returns no hit on a `TimeEntry`. `grep -rnE '(\)\s*\|^\s*)\.(update\|delete)\(' workmain/ scripts/ automation/ --include='*.py'` returns only calls on a repository object. `grep -rnE '\b(update\|delete)\(\s*TimeEntry\b' workmain/ scripts/ automation/ --include='*.py'` returns no hits. |
+| AC1.2 | `TimeEntriesRepository.update()` repoints an entry to another note when given `note_id`. No other column changes, except `updated_at`, which the model sets on every update. It keeps the note when `note_id` is not given. | `pytest tests/test_time_entries_repo.py::TestTimeEntriesRepoUpdate` |
 | AC2.1 | Condensing repoints the earliest time entry of the condensed meeting on its date to the condensed note. It leaves that meeting's later entries on the date, its entries on other dates, and other meetings' entries unchanged, and creates an entry from the meeting when it has none on its date. | `pytest tests/test_time_entry_service.py::TestLinkCondensedNote` |
 | AC2.2 | `notes log` and `meetings condense` both reach the repoint through `link_condensed_note`, and each repoints a meeting's existing entry on its date without creating a second. | `grep -n 'link_condensed_note(' workmain/cli/commands/notes.py workmain/cli/commands/meetings.py` returns one hit in each file, and `pytest "tests/test_notes_log.py::TestNotesLogUnitOfWork::test_t18_condense_repoints_the_existing_entry" "tests/test_meetings_condense.py::TestMeetingsCondenseUsesComputedTags::test_condense_existing_today_relinks_not_recreates"` passes. |
 | AC3.1 | `clockify sync push` records the Clockify id and the sync time on each entry it pushed. | `pytest "tests/test_clockify_sync.py::TestClockifyRecordsCommitInTheirOwnScope::test_t20_push_link_survives_a_later_failed_scope"`, which asserts both `clockify_id` and `synced_at` after T8. |
@@ -179,13 +195,13 @@ Every new test takes `db_session` and seeds on its own 2099 sentinel date. Meeti
 
 | T | File::Class | What it shows |
 | --- | --- | --- |
-| T1 | `test_time_entries_repo.py::TestTimeEntriesRepoUpdate::test_update_repoints_note_id` | `update(entry.id, note_id=other.id)` returns the entry with `note_id == other.id`. Its `duration_hours`, `entry_date`, `entry_time`, `category` and `meeting_id` are as seeded. |
+| T1 | `test_time_entries_repo.py::TestTimeEntriesRepoUpdate::test_update_repoints_note_id` | The entry is seeded with a non-null value in every nullable column it can carry without a client: `entry_time`, `category`, `meeting_id`, `project_id` (a `Project` added with `db_session.add` and no client), `clockify_id` and `synced_at`. Before the call, the test snapshots `{c.name: getattr(entry, c.name) for c in TimeEntry.__table__.columns}`. `update(entry.id, note_id=other.id)` returns the entry with `note_id == other.id`. A fresh snapshot equals the first in every column except `note_id` and `updated_at`. |
 | T2 | same `::test_update_without_note_id_keeps_note` | `update(entry.id, duration_hours=2.0)` keeps the seeded `note_id`. |
 | T3 | `test_time_entry_service.py::TestLinkCondensedNote::test_creates_an_entry_when_the_meeting_has_none` | A meeting 09:00–09:30 with no entry: returns `created is True` and an entry with `note_id == condensed.id`, `meeting_id == meeting.id`, `entry_date` and `entry_time` from the meeting's start, `duration_hours == Decimal('0.50')`, and `category == 'meeting'`. |
 | T4 | same `::test_repoints_the_existing_entry` | A meeting with one entry on its date: returns that entry's id, `created is False`, and `note_id == condensed.id`. `get_by_meeting` still returns one entry. |
 | T5 | same `::test_repoints_only_the_earliest_entry_of_that_meeting` | Meeting A has entries at 09:00 and 09:15 on its date. Meeting B has an entry on the same date. Only A's 09:00 entry points at the condensed note. A's 09:15 entry and B's entry keep their seeded notes. |
 | T6 | same `::test_ignores_the_meeting_entries_on_other_dates` | The meeting's only entry is dated the day before its start. That entry keeps its note, and a new entry is created on the meeting's date with `created is True`. |
-| T7 | `test_notes_log.py::TestNotesLogUnitOfWork::test_t18_condense_repoints_the_existing_entry` | With `ProviderManager.generate` patched to return a sentinel summary, as `test_t17` does: a meeting with one existing entry on its date runs `notes log --meeting <id>` with input `"Sentinel repoint note\n\ny\n"`. Exit code is 0, the meeting still has one entry, and that entry's `note_id` is the condensed note's id (`Note.source == 'condensed'`). |
+| T7 | `test_notes_log.py::TestNotesLogUnitOfWork::test_t18_condense_repoints_the_existing_entry` | With `ProviderManager.generate` patched to return a sentinel summary, as `test_t17` does: a meeting with one existing entry on its date runs `notes log --meeting <id>` with input `"Sentinel repoint note\n\ny\n"`. The test then calls `db_session.expire_all()`, because the command wrote through its own session, as `test_t17` does. Exit code is 0, the meeting still has one entry, and that entry's `note_id` is the condensed note's id (`Note.source == 'condensed'`). |
 | T8 | `test_clockify_sync.py::TestClockifyRecordsCommitInTheirOwnScope::test_t20_push_link_survives_a_later_failed_scope` | Adds `assert db_session.get(TimeEntry, entry_id).synced_at is not None` after the existing `clockify_id` assertion. |
 
 ## 7. Risks and rollback
