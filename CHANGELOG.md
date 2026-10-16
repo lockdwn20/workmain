@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.52.1] - 2026-10-16
+
+EOD step 4b, `reports resend` and `email save` each made an email draft by running `workmain email save` as a child process, because no function made one. A failure inside the child reached the step only as an exit code, and `email save` exited 0 when it found no report, so the step reported a draft that was never made. The draft logic is now a service the three callers call directly. Step 4b reports the draft's path, or the error that stopped it (issue #104).
+
+### Added
+
+- `email_service.build_draft` and `email_service.save_draft`, holding the draft logic moved from `email.py`
+- `NoReportFoundError`, raised when no saved report matches the template
+
+### Changed
+
+- EOD step 4b saves the daily draft in process. Its result carries the draft's path and says when the draft has no recipients, and a failure carries the error's message
+- `reports resend` saves its draft through `email_service.save_draft`, and says when the draft has no recipients
+- `email save` and `email preview` print `Error: …` and exit 1 when no saved report matches the template. The Friday EOD step 8, which still runs `email save weekly_client`, now fails on that exit when not interactive
+
+Suite: 1429 passed, 0 failed, 0 skipped (baseline 1418 passed, 0 failed, 0 skipped).
+
 ## [1.52.0] - 2026-10-16
 
 `notes log` and `meetings condense` each set a time entry's `note_id` themselves when repointing the meeting's entry to the condensed note, outside `TimeEntriesRepository`, with the same block copied into both commands. Both now call one service function, which repoints through the repository or creates the entry when the meeting has none. What either command writes and prints is unchanged (issue #168).
