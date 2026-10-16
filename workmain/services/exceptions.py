@@ -42,3 +42,14 @@ class NotATaskError(ServiceValidationError):
             f"Note {note_id} exists but is not tracked as a task. "
             "Use 'workmain notes edit' to add the carry-forward tag first."
         )
+
+
+class NoReportFoundError(ServiceValidationError):
+    """Raised when no saved report exists for an email draft's template."""
+
+    def __init__(self, template: str) -> None:
+        self.template = template
+        super().__init__(
+            f"No report found for template '{template}'. "
+            f"Generate one first: workmain reports save {template}"
+        )

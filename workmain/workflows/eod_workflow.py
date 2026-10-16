@@ -21,6 +21,7 @@ from workmain.daemon import state_io
 from workmain.database.connection import get_db
 from workmain.database.repositories.meetings_repo import MeetingsRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
+from workmain.services import email_service
 from workmain.utils.editor import edit_in_editor
 from workmain.utils.self_invoke import (
     TIMEOUT_AI,
@@ -1082,51 +1083,40 @@ def _run_report_step(dry_run: bool, target_date: date) -> EodStepResult:
     )
 
 
+def _save_daily_draft() -> email_service.SavedDraft:
+    """Save the daily_internal email draft in a unit of work of its own."""
+    with get_db().session_scope() as session:
+        return email_service.save_draft(session, 'daily_internal')
+
+
 def _run_email_step(dry_run: bool, target_date: date) -> EodStepResult:
     """Step 4b: Create email draft."""
     if dry_run:
-        print("  Would run: workmain email save daily_internal")
+        print("  Would save the daily_internal email draft")
         print("  Output: staging/email/daily_internal_YYYYMMDD_HHMMSS.txt")
         return EodStepResult(status=EodStepStatus.COMPLETED)
 
     try:
-        run = run_workmain(['email', 'save', 'daily_internal'], timeout=TIMEOUT_NETWORK)
-        _echo_workmain(run, stdout=True)
-        if run.timed_out:
-            return EodStepResult(
-                status=EodStepStatus.FAILED,
-                error=run.failure_message("Email draft"),
-            )
-
-        if run.returncode != 0:
-            print()
-            print(f"  ⚠ Email draft returned exit code {run.returncode}")
-            print("  No recipients configured? Run: workmain email recipients add <email>")
-            if not _is_interactive():
-                return EodStepResult(
-                    status=EodStepStatus.FAILED,
-                    error=run.failure_message("Email draft"),
-                )
-            action = _prompt_choice("  Continue? [r]etry / [s]kip", default='s')
-
-            if action == 'r':
-                retry = run_workmain(
-                    ['email', 'save', 'daily_internal'], timeout=TIMEOUT_NETWORK
-                )
-                _echo_workmain(retry, stdout=True)
-                if retry.timed_out:
-                    return EodStepResult(
-                        status=EodStepStatus.FAILED,
-                        error=retry.failure_message("Email draft retry"),
-                    )
-                if retry.returncode != 0:
-                    print("  ⚠ Retry failed — skipping email draft")
-
-        return EodStepResult(status=EodStepStatus.COMPLETED)
-
+        saved = _save_daily_draft()
     except Exception as e:
-        print(f"  ✗ Email step error: {e}")
-        return EodStepResult(status=EodStepStatus.FAILED, error=str(e))
+        print()
+        print(f"  ⚠ Email draft failed: {e}")
+        if not _is_interactive():
+            return EodStepResult(status=EodStepStatus.FAILED, error=f"Email draft failed: {e}")
+        action = _prompt_choice("  Continue? [r]etry / [s]kip", default='s')
+        if action != 'r':
+            return EodStepResult(status=EodStepStatus.COMPLETED)
+        try:
+            saved = _save_daily_draft()
+        except Exception as retry_error:
+            print(f"  ⚠ Retry failed: {retry_error} — skipping email draft")
+            return EodStepResult(status=EodStepStatus.COMPLETED)
+
+    message = f"Email draft saved: {saved.path}"
+    if not saved.draft.to and not saved.draft.cc:
+        message += " (no recipients assigned — add with: workmain email assign)"
+    print(f"  ✓ {message}")
+    return EodStepResult(status=EodStepStatus.COMPLETED, message=message)
 
 
 def _run_clockify_step(dry_run: bool, target_date: date) -> EodStepResult:

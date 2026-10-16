@@ -28,13 +28,13 @@ from workmain.database.repositories.system_state_repository import SystemStateRe
 from workmain.database.repositories.ai_costs_repo import get_ai_cost_repository, summarize
 from workmain.database.repositories.reports_repo import get_reports_repository
 from workmain.ai import get_report_generator, ReportFormat, ProviderType
+from workmain.services import email_service
 from workmain.utils.ai_arguments import failure_exit_code, require_eligible_provider, require_provider, require_report_type
 from workmain.utils.cost_display import (
     format_call_tokens, render_cost_rows, render_cost_summary,
 )
 from workmain.utils.date_utils import resolve_date_window, format_date_window_label
 from workmain.utils.editor import edit_in_editor
-from workmain.utils.self_invoke import TIMEOUT_NETWORK, run_workmain
 
 VALID_REPORT_STATUSES = ('unconfirmed', 'confirmed', 'corrected', 'all')
 
@@ -696,17 +696,17 @@ def report_resend(id: int):
             staging_path.write_text(report.content or "", encoding='utf-8')
             console.print(f"[green]✓ Report #{id} staged to {staging_path.relative_to(project_root)}[/green]")
 
-            # Invoke email pipeline via the workmain binary (no get_email_generator() API exists)
-            run = run_workmain(['email', 'save', report_type], timeout=TIMEOUT_NETWORK)
-            if run.stdout.strip():
-                console.print(run.stdout.rstrip())
-            if run.stderr.strip():
-                console.print(run.stderr.rstrip())
-            if run.ok:
-                console.print(f"[green]✓ Email draft created. View with: workmain email list[/green]")
-            else:
-                console.print(f"[red]✗ Email draft failed: {run.failure_message('Email draft')}[/red]")
+            try:
+                with session.begin_nested():
+                    saved = email_service.save_draft(session, report_type)
+            except Exception as e:
+                console.print(f"[red]✗ Email draft failed: {e}[/red]")
                 console.print(f"[dim]Note: staging file written. Retry with: workmain email save {report_type}[/dim]")
+            else:
+                notice = ""
+                if not saved.draft.to and not saved.draft.cc:
+                    notice = " (no recipients assigned — add with: workmain email assign)"
+                console.print(f"[green]✓ Email draft created: {saved.path.name}{notice}. View with: workmain email list[/green]")
 
     except SystemExit:
         raise

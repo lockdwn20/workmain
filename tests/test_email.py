@@ -4,38 +4,23 @@ Tests for the email repository, draft pipeline, and recipient management
 """
 
 import pytest
-from datetime import date, datetime
-from pathlib import Path
+from datetime import date
+from unittest.mock import ANY, patch
 
+from click.testing import CliRunner
+
+from workmain.cli.commands.email import email_send
+from workmain.cli.interface import cli
 from workmain.database.models import Recipient, ReportRecipient
 from workmain.database.repositories.email_repository import get_email_repository
-from workmain.cli.commands.email import (
-    _build_subject,
-    _generate_draft,
-    _REPORTS_DIR,
-    _EMAIL_DIR,
-    email_send,
-)
+from workmain.services import email_service
+from workmain.services.email_service import EmailDraft, SavedDraft
+from workmain.services.exceptions import NoReportFoundError
 
 # Test email pattern — cleaned up by conftest db_session fixture
 _TEST_EMAIL = "test-email@workmain-test.com"
 _TEST_EMAIL_2 = "test-email2@workmain-test.com"
 _TEST_TEMPLATE = "daily_test_template"
-
-# Test report fixture — created/removed per test that needs it
-_TEST_REPORT_PATH = _REPORTS_DIR / f"{_TEST_TEMPLATE}_2026-03-05.md"
-_TEST_REPORT_BODY = "# Test Report\n\nTest report body content."
-
-
-def _create_test_report():
-    """Create minimal test report file in staging/reports/."""
-    _REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-    _TEST_REPORT_PATH.write_text(_TEST_REPORT_BODY, encoding="utf-8")
-
-
-def _remove_test_report():
-    """Remove test report file."""
-    _TEST_REPORT_PATH.unlink(missing_ok=True)
 
 
 class TestEmailRepository:
@@ -154,88 +139,7 @@ class TestEmailRepository:
 
 
 class TestDraftPipeline:
-    """Draft generation and save pipeline tests."""
-
-    # ------------------------------------------------------------------
-    # Test 6 — Draft generation: subject + recipients from assignments
-    # ------------------------------------------------------------------
-
-    def test_06_draft_generation(self, db_session):
-        """
-        Subject line derived from template name; recipients pulled from DB.
-        """
-        # Verify subject builder for daily/weekly/monthly templates
-        from workmain.cli.commands.email import _build_subject
-        assert _build_subject("daily_internal", date(2026, 3, 5)) == \
-            "Daily Report \u2014 05 Mar 2026"
-        assert _build_subject("weekly_client", date(2026, 3, 9)) == \
-            "Weekly Report \u2014 Week of 09 Mar 2026"
-        assert _build_subject("monthly_summary", date(2026, 3, 1)) == \
-            "Monthly Report \u2014 March 2026"
-
-        # Full draft generation with report file + assigned recipient
-        _create_test_report()
-        repo = get_email_repository(db_session)
-        r = repo.add_recipient(_TEST_EMAIL)
-        repo.assign_recipient(r.id, _TEST_TEMPLATE, "to")
-
-        try:
-            result = _generate_draft(_TEST_TEMPLATE, session=db_session)
-            assert result is not None
-
-            subject, content, to_list, cc_list, report_date = result
-
-            # Subject uses 'daily' prefix pattern
-            assert subject == f"Daily Report \u2014 05 Mar 2026"
-            # Recipients populated from assignments
-            assert _TEST_EMAIL in to_list
-            assert cc_list == []
-            # Report body included in draft content
-            assert _TEST_REPORT_BODY in content
-
-        finally:
-            _remove_test_report()
-            repo.remove_recipient(r.id)
-
-    # ------------------------------------------------------------------
-    # Test 7 — Draft save: file created at correct path with permissions
-    # ------------------------------------------------------------------
-
-    def test_07_draft_save(self, db_session):
-        """Draft save writes file to staging/email/ with correct content."""
-        _create_test_report()
-        repo = get_email_repository(db_session)
-        r = repo.add_recipient(_TEST_EMAIL)
-        repo.assign_recipient(r.id, _TEST_TEMPLATE, "to")
-
-        saved_path = None
-        try:
-            result = _generate_draft(_TEST_TEMPLATE, session=db_session)
-            assert result is not None
-
-            subject, content, to_list, cc_list, report_date = result
-
-            _EMAIL_DIR.mkdir(parents=True, exist_ok=True)
-            filename = f"{_TEST_TEMPLATE}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
-            saved_path = _EMAIL_DIR / filename
-            saved_path.write_text(content, encoding="utf-8")
-            saved_path.chmod(0o644)
-
-            # File exists at correct path
-            assert saved_path.exists()
-            assert saved_path.parent == _EMAIL_DIR
-
-            # Content includes key headers
-            written = saved_path.read_text(encoding="utf-8")
-            assert f"To: {_TEST_EMAIL}" in written
-            assert f"Subject: {subject}" in written
-            assert _TEST_REPORT_BODY in written
-
-        finally:
-            _remove_test_report()
-            if saved_path and saved_path.exists():
-                saved_path.unlink()
-            repo.remove_recipient(r.id)
+    """Email send stub."""
 
     # ------------------------------------------------------------------
     # Test 8 — Send stub raises NotImplementedError
@@ -249,3 +153,44 @@ class TestDraftPipeline:
         err = str(exc_info.value)
         assert "OAuth" in err
         assert "docs/OAUTH_SETUP.md" in err
+
+
+class TestEmailCommands:
+    """email preview and save reach the draft logic only through the service."""
+
+    @staticmethod
+    def _draft() -> EmailDraft:
+        return EmailDraft(
+            template="daily_internal",
+            subject="Daily Report — 05 Jan 2099",
+            to=("a@test.invalid",),
+            cc=(),
+            report_date=date(2099, 1, 5),
+            content="To: a@test.invalid\n\nbody",
+        )
+
+    def test_t7_save_calls_the_service(self, tmp_path):
+        saved = SavedDraft(draft=self._draft(), path=tmp_path / "daily_internal_20990105_120000.txt")
+        with patch.object(email_service, "save_draft", autospec=True, return_value=saved) as mock:
+            result = CliRunner(mix_stderr=False).invoke(cli, ["email", "save", "daily_internal"])
+
+        mock.assert_called_once_with(ANY, "daily_internal")
+        assert result.exit_code == 0
+
+    def test_t8_save_without_report_exits_1(self):
+        with patch.object(
+            email_service, "save_draft", autospec=True,
+            side_effect=NoReportFoundError("daily_internal"),
+        ):
+            result = CliRunner(mix_stderr=False).invoke(cli, ["email", "save", "daily_internal"])
+
+        assert result.exit_code == 1
+        assert result.stderr.startswith("Error: No report found for template 'daily_internal'")
+        assert result.stdout == ""
+
+    def test_t9_preview_calls_the_service(self):
+        with patch.object(email_service, "build_draft", autospec=True, return_value=self._draft()) as mock:
+            result = CliRunner(mix_stderr=False).invoke(cli, ["email", "preview", "weekly_client"])
+
+        mock.assert_called_once_with(ANY, "weekly_client")
+        assert result.exit_code == 0
