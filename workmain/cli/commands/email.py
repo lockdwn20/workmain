@@ -21,7 +21,7 @@ Send command requires Azure AD OAuth -- see docs/OAUTH_SETUP.md
 
 import re
 import click
-from datetime import date, datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -31,124 +31,19 @@ from rich import box
 
 from workmain.database.connection import get_db
 from workmain.database.repositories.email_repository import get_email_repository
+from workmain.services import email_service
 from workmain.utils.ai_arguments import require_report_type
 
 console = Console()
-
-# Project root: workmain/cli/commands/email.py -> 4 parents up
-_PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
-_REPORTS_DIR = _PROJECT_ROOT / "staging" / "reports"
-_EMAIL_DIR = _PROJECT_ROOT / "staging" / "email"
-
 
 # ------------------------------------------------------------------
 # Draft helpers
 # ------------------------------------------------------------------
 
-def _find_latest_report(template: str) -> Optional[Path]:
-    """Return the most recently modified report file for the given template."""
-    matches = list(_REPORTS_DIR.glob(f"{template}_*.md"))
-    if not matches:
-        return None
-    return max(matches, key=lambda p: p.stat().st_mtime)
-
-
-def _extract_report_date(report_path: Path) -> date:
-    """Extract date from report filename (<template>_<YYYY-MM-DD>.md)."""
-    m = re.search(r'_(\d{4}-\d{2}-\d{2})\.', report_path.name)
-    if m:
-        return date.fromisoformat(m.group(1))
-    return date.today()
-
-
-def _build_subject(template: str, report_date: date) -> str:
-    """Build email subject line from template name and report date."""
-    name = template.lower()
-    if 'daily' in name:
-        return f"Daily Report — {report_date.strftime('%d %b %Y')}"
-    elif 'weekly' in name:
-        week_start = report_date - timedelta(days=report_date.weekday())
-        return f"Weekly Report — Week of {week_start.strftime('%d %b %Y')}"
-    elif 'monthly' in name:
-        return f"Monthly Report — {report_date.strftime('%B %Y')}"
-    else:
-        title = template.replace('_', ' ').title()
-        return f"{title} — {report_date.strftime('%d %b %Y')}"
-
-
-def _build_draft_content(
-    subject: str,
-    to_list: list[str],
-    cc_list: list[str],
-    body: str,
-    draft_date: datetime,
-) -> str:
-    """Build draft file content in standard format."""
-    lines = []
-    if to_list:
-        lines.append(f"To: {', '.join(to_list)}")
-    if cc_list:
-        lines.append(f"CC: {', '.join(cc_list)}")
-    lines.append(f"Subject: {subject}")
-    lines.append(f"Date: {draft_date.strftime('%Y-%m-%d %H:%M:%S')}")
-    lines.append("")
-    lines.append("---")
-    lines.append("")
-    lines.append(body)
-    return "\n".join(lines)
-
-
-def _get_draft_recipients(
-    template: str,
-    session=None,
-) -> tuple[list[str], list[str]]:
-    """
-    Look up recipients for a template using client-aware resolution.
-
-    Merges global recipients (NULL client_id) with client-scoped recipients
-    for the active client. Deduplicates by email address (client-scoped role
-    wins on conflict).
-
-    Returns (to_list, cc_list) of email addresses.
-
-    Args:
-        template: Report template name.
-        session: Optional existing session (used by tests for transaction isolation).
-                 When None a fresh session is opened and closed internally.
-    """
-    from workmain.database.repositories.system_state_repository import SystemStateRepository
-
-    def _build_lists(repo, active_client_id):
-        assignments = repo.list_for_client(template, active_client_id)
-        # Deduplicate by email: client-scoped record wins over global on conflict.
-        seen: dict[str, str] = {}  # email -> role
-        for a in assignments:
-            email = a.recipient.email
-            if email not in seen:
-                seen[email] = a.recipient_type
-            elif a.client_id is not None:
-                # Client-scoped record overrides global
-                seen[email] = a.recipient_type
-        to_list = [e for e, r in seen.items() if r == 'to']
-        cc_list = [e for e, r in seen.items() if r == 'cc']
-        return to_list, cc_list
-
-    if session is not None:
-        active_client_id = SystemStateRepository(session).get_int('active_client_id')
-        repo = get_email_repository(session)
-        return _build_lists(repo, active_client_id)
-
-    db = get_db()
-    with db.session_scope() as _session:
-        active_client_id = SystemStateRepository(_session).get_int('active_client_id')
-        repo = get_email_repository(_session)
-        return _build_lists(repo, active_client_id)
-
-
 def _resolve_draft_file(n: str) -> Optional[Path]:
     """Resolve draft #n (1-based) or filename to a Path."""
     drafts = sorted(
-        _EMAIL_DIR.glob("*.txt"),
+        email_service.EMAIL_DIR.glob("*.txt"),
         key=lambda p: p.stat().st_mtime,
         reverse=True,
     )
@@ -160,55 +55,19 @@ def _resolve_draft_file(n: str) -> Optional[Path]:
         return None
     except ValueError:
         # Treat as filename
-        candidate = _EMAIL_DIR / n
+        candidate = email_service.EMAIL_DIR / n
         return candidate if candidate.exists() else None
 
 
-# ------------------------------------------------------------------
-# Draft pipeline (shared by preview and save)
-# ------------------------------------------------------------------
-
-def _generate_draft(
-    template: str,
-    session=None,
-) -> Optional[tuple[str, str, list, list, date]]:
-    """
-    Generate a draft for the given template.
-
-    Returns (subject, content, to_list, cc_list, report_date) or None on error.
-    Prints error messages directly if something is missing.
-
-    Args:
-        template: Report template name.
-        session: Optional existing session forwarded to _get_draft_recipients
-                 (used by tests for transaction isolation).
-    """
-    report_path = _find_latest_report(template)
-    if report_path is None:
-        console.print(
-            f"\n[red]✗ No report found for template '{template}'[/red]"
-        )
-        console.print(
-            f"[dim]Generate one first: workmain reports save {template}[/dim]\n"
-        )
-        return None
-
-    report_date = _extract_report_date(report_path)
-    body = report_path.read_text(encoding='utf-8')
-    subject = _build_subject(template, report_date)
-    to_list, cc_list = _get_draft_recipients(template, session=session)
-
-    if not to_list and not cc_list:
+def _warn_if_no_recipients(draft: email_service.EmailDraft) -> None:
+    """Print the no-recipients warning when a draft has no to or cc."""
+    if not draft.to and not draft.cc:
         console.print(
             "[yellow]⚠ No recipients configured for this template.[/yellow]"
         )
         console.print(
             "[dim]  Use 'workmain email assign' to add recipients.[/dim]"
         )
-
-    draft_date = datetime.now()
-    content = _build_draft_content(subject, to_list, cc_list, body, draft_date)
-    return subject, content, to_list, cc_list, report_date
 
 
 # ------------------------------------------------------------------
@@ -269,21 +128,19 @@ def email_preview(template: str):
       workmain email preview daily_internal
       workmain email preview weekly_client
     """
-    result = _generate_draft(template)
-    if result is None:
-        return
+    with get_db().session_scope() as session:
+        draft = email_service.build_draft(session, template)
 
-    subject, content, to_list, cc_list, report_date = result
-
+    _warn_if_no_recipients(draft)
     console.print(f"\n[bold cyan]Email Draft Preview -- {template}[/bold cyan]\n")
-    console.print(f"  [dim]Subject:[/dim]  {subject}")
-    console.print(f"  [dim]To:[/dim]       {', '.join(to_list) if to_list else '[yellow](no recipients assigned)[/yellow]'}")
-    if cc_list:
-        console.print(f"  [dim]CC:[/dim]       {', '.join(cc_list)}")
+    console.print(f"  [dim]Subject:[/dim]  {draft.subject}")
+    console.print(f"  [dim]To:[/dim]       {', '.join(draft.to) if draft.to else '[yellow](no recipients assigned)[/yellow]'}")
+    if draft.cc:
+        console.print(f"  [dim]CC:[/dim]       {', '.join(draft.cc)}")
     console.print()
     console.print("[dim]" + "─" * 60 + "[/dim]")
     console.print()
-    console.print(content)
+    console.print(draft.content)
     console.print()
 
 
@@ -302,23 +159,16 @@ def email_save(template: str):
       workmain email save daily_internal
       workmain email save weekly_client
     """
-    result = _generate_draft(template)
-    if result is None:
-        return
+    with get_db().session_scope() as session:
+        saved = email_service.save_draft(session, template)
 
-    subject, content, to_list, cc_list, report_date = result
-
-    _EMAIL_DIR.mkdir(parents=True, exist_ok=True)
-    filename = f"{template}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
-    draft_path = _EMAIL_DIR / filename
-    draft_path.write_text(content, encoding='utf-8')
-    draft_path.chmod(0o644)
-
-    console.print(f"\n[bold green]✓ Draft saved:[/bold green] {filename}")
-    console.print(f"  [dim]Subject:[/dim]  {subject}")
-    console.print(f"  [dim]To:[/dim]       {', '.join(to_list) if to_list else '(no recipients assigned)'}")
-    if cc_list:
-        console.print(f"  [dim]CC:[/dim]       {', '.join(cc_list)}")
+    draft = saved.draft
+    _warn_if_no_recipients(draft)
+    console.print(f"\n[bold green]✓ Draft saved:[/bold green] {saved.path.name}")
+    console.print(f"  [dim]Subject:[/dim]  {draft.subject}")
+    console.print(f"  [dim]To:[/dim]       {', '.join(draft.to) if draft.to else '(no recipients assigned)'}")
+    if draft.cc:
+        console.print(f"  [dim]CC:[/dim]       {', '.join(draft.cc)}")
     console.print(
         f"\n[dim]View with: workmain email show 1[/dim]"
         f"\n[dim]Send with: workmain email send {template} (requires OAuth)[/dim]\n"
@@ -353,9 +203,9 @@ def email_list():
     Example:
       workmain email list
     """
-    _EMAIL_DIR.mkdir(parents=True, exist_ok=True)
+    email_service.EMAIL_DIR.mkdir(parents=True, exist_ok=True)
     drafts = sorted(
-        _EMAIL_DIR.glob("*.txt"),
+        email_service.EMAIL_DIR.glob("*.txt"),
         key=lambda p: p.stat().st_mtime,
         reverse=True,
     )
