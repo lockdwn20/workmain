@@ -48,7 +48,7 @@ Open issues read for overlap: #192, #205, #212, #115.
 - **Step 4b keeps its policy, with the service's error in place of the exit code.** The step opens a `session_scope()`, calls `save_draft` and returns COMPLETED. Its `message` names the draft path and says when no recipients are assigned, which is what the issue's fifth acceptance criterion asks for and what Slack shows (F6). When the service raises, the step uses the same branch a non-zero exit uses today (F5). Non-interactive returns FAILED with the error's message. Interactive asks retry or skip. The wrong recipients hint (F4) is replaced by the error's own message. The timeout test (F10) is removed, since an in-process call has no timeout, and the other two are rewritten against the service.
 - **Date selection is unchanged.** `_find_latest_report`'s newest-by-mtime choice moves as it is (#192, F13).
 - **The Friday step 8 stays a child process**, as #104's body says (F13). It keeps working, because `email save` calls the same service.
-- **F12's five lines are corrected in this issue.** They describe the site being changed.
+- **Only F12's dry-run line is corrected.** It says the step "would run" `email save daily_internal`, which is no longer true. The other four lines name `email save daily_internal` as the command that does what the step does, and that is still true, so they stay.
 - **`reports resend` calls `save_draft` on its own session** and keeps its ✓/✗ output and exit 0. Converting it further is #212's work. Its three tests patch the service instead of `run_workmain` (F9).
 
 ## 4. Options
@@ -93,12 +93,12 @@ F11: the staging directories are module constants, and §6.2 rule 7 wants the te
 
 | Q | Question | Answer |
 | --- | --- | --- |
-| Q1 | The change touches four application files, six counting the help text, against `hotfix/*`'s limit of three (F14). It has one root cause: there is no function for creating an email draft. §2.2 says file count is a proxy and the root cause is the test. Does `hotfix/*` stand (recommended: yes, it is one root cause), or does the work move to a `feature/*` branch cut from `dev`? | |
-| Q2 | When no report exists, does `email save` exit 1 with Click's error line (Option A, recommended), or keep exit 0 until #192 (Option B)? Under A, the Friday step 8 fails under the daemon on a day with no weekly report. | |
-| Q3 | Do the service tests patch the staging-directory constants (Option A, recommended), or does the service take optional directory parameters (Option B)? | |
-| Q4 | This issue takes over #205's `session`-parameter removal and its two test files, and #212's `reports resend` child-process removal. At close-out, are both issue bodies edited to drop those items (recommended), or kept as written? | |
+| Q1 | The change touches four application files, six counting the help text, against `hotfix/*`'s limit of three (F14). It has one root cause: there is no function for creating an email draft. §2.2 says file count is a proxy and the root cause is the test. Does `hotfix/*` stand (recommended: yes, it is one root cause), or does the work move to a `feature/*` branch cut from `dev`? | Answered 20261016 (Ray): `hotfix/*` stands. |
+| Q2 | When no report exists, does `email save` exit 1 with Click's error line (Option A, recommended), or keep exit 0 until #192 (Option B)? Under A, the Friday step 8 fails under the daemon on a day with no weekly report. | Answered 20261016 (Ray): Option A. |
+| Q3 | Do the service tests patch the staging-directory constants (Option A, recommended), or does the service take optional directory parameters (Option B)? | Answered 20261016 (Ray): Option A. |
+| Q4 | This issue takes over #205's `session`-parameter removal and its two test files, and #212's `reports resend` child-process removal. At close-out, are both issue bodies edited to drop those items (recommended), or kept as written? | Answered 20261016 (Ray): edited at close-out. |
 
 ## 6. Disposition
 
-- Promoted to:
+- Promoted to: `../specs/EMAIL_DRAFT_SERVICE_SPEC.md`
 - Superseded by:
