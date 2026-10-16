@@ -1,6 +1,6 @@
 # Email Draft Service — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261016
 **Branch:** `hotfix/issue-104-daily-internal-email-service` (from `main`)

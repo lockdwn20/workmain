@@ -1,10 +1,10 @@
 # Email Draft Service — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Anvil (Role 3)
 **Date:** 20261016
 **Spec:** `../specs/EMAIL_DRAFT_SERVICE_SPEC.md`
-**Released as:** v1.52.1
+**Released as:** v1.52.1 (tag v1.52.1)
 
 ---
 
@@ -44,9 +44,9 @@ Complete. Draft logic moved from `email.py` into `workmain/services/email_servic
 
 ## 5. Verification
 
-- **Test suite:** 1429 passed, 0 failed, 0 skipped (baseline: 1418 passed, 0 failed, 0 skipped) — form per `docs/DEVELOPMENT_STANDARDS.md` §6. Intermediate counts after each step: 1426, 1427, 1427, 1429.
+- **Test suite:** 1429 passed, 0 failed, 0 skipped (baseline: 1418 passed, 0 failed, 0 skipped) — form per `docs/DEVELOPMENT_STANDARDS.md` §6. Intermediate counts after each step: 1426, 1427, 1427, 1429. Close-out preflight re-ran the suite on the branch: 1429 passed, 0 failed, 0 skipped.
 - **Live verification:** none run. Every check is automated; no AC names Ray.
-- **Daemon restart:** not done here. Close-out owns it.
+- **Daemon restart:** close-out's.
 
 ## 6. Follow-ups
 
