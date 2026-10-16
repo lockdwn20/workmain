@@ -651,7 +651,6 @@ def notes_log(meeting: str):
                 try:
                     with session.begin_nested():
                         from workmain.ai.note_condenser import get_note_condenser
-                        from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
 
                         from workmain.ai.provider_manager import get_provider_manager
                         _rc = get_provider_manager().get_report_config('note_condensation')
@@ -673,30 +672,13 @@ def notes_log(meeting: str):
                         )
                         click.echo(f"✓ Note created (ID: {condensed_note.id})")
 
-                        # Update or create time entry
-                        time_repo = TimeEntriesRepository(session)
-                        existing = time_repo.get_by_meeting(meeting_obj.id)
-                        meeting_date = meeting_obj.start_time.date()
-                        existing_today = [e for e in existing if e.entry_date == meeting_date]
-
-                        if existing_today:
-                            entry = existing_today[0]
-                            entry.note_id = condensed_note.id
-                            click.echo(f"✓ Time entry (ID: {entry.id}) linked to condensed note")
+                        entry, created = time_entry_service.link_condensed_note(
+                            session, meeting_obj, condensed_note,
+                        )
+                        if created:
+                            click.echo(f"✓ Time entry created (ID: {entry.id}, {entry.duration_hours:.2f}h)")
                         else:
-                            duration_hours = (
-                                meeting_obj.end_time - meeting_obj.start_time
-                            ).total_seconds() / 3600
-
-                            entry = time_entry_service.create_paired_time_entry(
-                                session,
-                                condensed_note,
-                                duration_hours=duration_hours,
-                                entry_date=meeting_obj.start_time.date(),
-                                entry_time=meeting_obj.start_time.time(),
-                                category='meeting',
-                            )
-                            click.echo(f"✓ Time entry created (ID: {entry.id}, {duration_hours:.2f}h)")
+                            click.echo(f"✓ Time entry (ID: {entry.id}) linked to condensed note")
 
                         click.echo()
 

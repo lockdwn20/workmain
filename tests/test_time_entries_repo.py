@@ -3,12 +3,12 @@ Tests for time_entries_repo.py — created_at override and
 get_most_recent_since() added for Item #58 (T4 activity-gap suppression).
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, time
 
 import pytest
 from sqlalchemy import event
 
-from workmain.database.models import Meeting, Project
+from workmain.database.models import Meeting, Project, TimeEntry
 from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
 
@@ -236,3 +236,53 @@ class TestTimeEntriesRepoLoading:
         self._seed(db_session, day, 4, marker='more')
         five = _count_statements(db_session, repo.get_unsynced_entries, self._read)
         assert one == five
+
+
+class TestTimeEntriesRepoUpdate:
+    """TimeEntriesRepository.update() note_id argument (Issue #168)."""
+
+    def test_update_repoints_note_id(self, db_session):
+        """note_id repoints the entry; no other column changes but updated_at."""
+        note = _make_note(db_session)
+        other = _make_note(db_session)
+        meeting = Meeting(
+            title="Sentinel repoint meeting 2099",
+            start_time=datetime(2099, 3, 1, 9, 0),
+            end_time=datetime(2099, 3, 1, 9, 30),
+        )
+        project = Project(name="Sentinel repoint project 2099")
+        db_session.add_all([meeting, project])
+        db_session.flush()
+        repo = TimeEntriesRepository(db_session)
+        entry = repo.create(
+            note_id=note.id,
+            duration_hours=1.5,
+            entry_date=date(2099, 3, 1),
+            entry_time=time(9, 0),
+            category='meeting',
+            meeting_id=meeting.id,
+            project_id=project.id,
+            clockify_id='sentinel-clockify-id',
+            synced_at=datetime(2099, 3, 1, 10, 0),
+        )
+        before = {c.name: getattr(entry, c.name) for c in TimeEntry.__table__.columns}
+
+        result = repo.update(entry.id, note_id=other.id)
+
+        assert result.note_id == other.id
+        after = {c.name: getattr(result, c.name) for c in TimeEntry.__table__.columns}
+        changed = {k for k in before if before[k] != after[k]}
+        assert changed <= {'note_id', 'updated_at'}
+        assert 'note_id' in changed
+
+    def test_update_without_note_id_keeps_note(self, db_session):
+        """Omitting note_id leaves the entry pointing at its note."""
+        note = _make_note(db_session)
+        repo = TimeEntriesRepository(db_session)
+        entry = repo.create(
+            note_id=note.id, duration_hours=1.0, entry_date=date(2099, 3, 2),
+        )
+
+        result = repo.update(entry.id, duration_hours=2.0)
+
+        assert result.note_id == note.id

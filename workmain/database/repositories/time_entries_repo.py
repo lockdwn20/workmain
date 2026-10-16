@@ -302,11 +302,14 @@ class TimeEntriesRepository:
         category: Optional[str] = None,
         project_id: Optional[int] = None,
         meeting_id: Optional[int] = None,
+        note_id: Optional[int] = None,
     ) -> Optional[TimeEntry]:
         """
         Update an existing time entry.
 
         Description edits route through NotesRepository.update(note_id, content=...).
+        Passing note_id changes which note the entry points to; it does not edit
+        either note's text.
 
         Args:
             entry_id: Time entry ID to update
@@ -315,6 +318,7 @@ class TimeEntriesRepository:
             category: New category (None to keep existing)
             project_id: New project ID (None to keep existing)
             meeting_id: New meeting ID (None to keep existing)
+            note_id: New note ID (None to keep existing)
 
         Returns:
             Updated TimeEntry object or None if not found
@@ -339,6 +343,8 @@ class TimeEntriesRepository:
             entry.project_id = project_id
         if meeting_id is not None:
             entry.meeting_id = meeting_id
+        if note_id is not None:
+            entry.note_id = note_id
 
         self.session.flush()
         self.session.refresh(entry)
