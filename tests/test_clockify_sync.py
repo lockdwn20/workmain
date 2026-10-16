@@ -206,6 +206,7 @@ class TestClockifyRecordsCommitInTheirOwnScope:
         watch.assert_untouched()
         db_session.expire_all()
         assert db_session.get(TimeEntry, entry_id).clockify_id == 'clockify-push-id'
+        assert db_session.get(TimeEntry, entry_id).synced_at is not None
 
     def test_t21_pull_link_survives_a_later_failed_scope(self, db_session):
         entry_id = _seed_entry(db_session, "Sentinel pull link 2099-96")

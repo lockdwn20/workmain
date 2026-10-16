@@ -6,9 +6,11 @@ required by the note-first pattern (v1.20.0).
 """
 
 from datetime import date, datetime, time as time_type
-from typing import Optional, List
+from typing import Optional, List, Tuple
 
-from workmain.database.models import Note, TimeEntry
+from sqlalchemy.orm import Session
+
+from workmain.database.models import Meeting, Note, TimeEntry
 from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
@@ -122,3 +124,43 @@ def create_paired_time_entry(
         clockify_id=clockify_id,
         synced_at=datetime.now() if clockify_id else None,
     )
+
+
+def link_condensed_note(
+    session: Session,
+    meeting: Meeting,
+    condensed_note: Note,
+) -> Tuple[TimeEntry, bool]:
+    """
+    Point the meeting's time entry on its date at the condensed note, or
+    create one from the meeting when it has none. Where the meeting has
+    more than one entry on its date, only the earliest is repointed.
+
+    Args:
+        session: The caller's session; this function never commits it
+        meeting: The condensed meeting
+        condensed_note: The note created from the condensed summary
+
+    Returns:
+        The repointed or created TimeEntry, and True if it was created
+
+    Raises:
+        ValueError: The existing entry's project belongs to another client
+    """
+    repo = TimeEntriesRepository(session)
+    meeting_date = meeting.start_time.date()
+    existing_today = [
+        e for e in repo.get_by_meeting(meeting.id) if e.entry_date == meeting_date
+    ]
+    if existing_today:
+        return repo.update(existing_today[0].id, note_id=condensed_note.id), False
+    duration_hours = (meeting.end_time - meeting.start_time).total_seconds() / 3600
+    entry = create_paired_time_entry(
+        session,
+        condensed_note,
+        duration_hours=duration_hours,
+        entry_date=meeting_date,
+        entry_time=meeting.start_time.time(),
+        category='meeting',
+    )
+    return entry, True

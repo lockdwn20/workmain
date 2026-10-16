@@ -260,3 +260,33 @@ class TestNotesLogUnitOfWork:
         db_session.expire_all()
         assert db_session.get(Meeting, meeting.id).condensed_summary is None
         assert self._contents(db_session, meeting.id) == ["Sentinel condense failure note"]
+
+    @patch("workmain.ai.provider_manager.ProviderManager.generate")
+    def test_t18_condense_repoints_the_existing_entry(self, mock_generate, db_session):
+        from workmain.services import notes_service, time_entry_service
+        mock_generate.return_value = (_fake_response(_SENTINEL_CONDENSED_SUMMARY), None)
+        meeting = _seed_meeting(db_session, "Sentinel Log Repoint 2099-96")
+        existing_note = notes_service.create_note(
+            db_session, content="Sentinel repoint seeded detail",
+            meeting_id=meeting.id, source='meeting',
+        )
+        existing = time_entry_service.create_paired_time_entry(
+            db_session, existing_note, duration_hours=0.5,
+            entry_date=meeting.start_time.date(), entry_time=meeting.start_time.time(),
+            category='meeting',
+        )
+        db_session.commit()
+        entry_id = existing.id
+
+        result = CliRunner().invoke(
+            notes, ["log", "--meeting", str(meeting.id)],
+            input="Sentinel repoint note\n\ny\n",
+        )
+
+        assert result.exit_code == 0, result.output
+        db_session.expire_all()
+        entries = db_session.query(TimeEntry).filter(TimeEntry.meeting_id == meeting.id).all()
+        assert [e.id for e in entries] == [entry_id]
+        condensed = db_session.query(Note).filter(
+            Note.meeting_id == meeting.id, Note.source == 'condensed').one()
+        assert entries[0].note_id == condensed.id
