@@ -78,5 +78,5 @@ Issue #168 names three places that set columns on a `TimeEntry` outside `TimeEnt
 
 ## 6. Disposition
 
-- Promoted to:
+- Promoted to: `../specs/TIME_ENTRY_REPOSITORY_WRITES_SPEC.md`
 - Superseded by:
