@@ -40,7 +40,11 @@ from workmain.workflows.eod_workflow import (
 )
 from workmain.workflows.eod_workflow import (
     _run_condense_step, _run_sync_step, _run_email_step, _run_gdocs_step, _run_slack_weekly_step,
+    _run_weekly_email_step,
 )
+from workmain.services import email_service
+from workmain.services.email_service import EmailDraft, SavedDraft
+from workmain.services.exceptions import NoReportFoundError
 from workmain.utils.self_invoke import TIMEOUT_LOCAL, WorkmainRun
 
 MONDAY    = 0
@@ -1250,22 +1254,7 @@ class TestSubprocessHardening:
         assert result.status == EodStepStatus.FAILED
         assert '120' in result.error
 
-    def test_email_timeout_returns_failed_with_value_named(self):
-        with patch('workmain.workflows.eod_workflow.run_workmain',
-                   return_value=WorkmainRun(returncode=None, timed_out=True, timeout=300)):
-            result = _run_email_step(dry_run=False, target_date=date(2099, 1, 1))
-        assert result.status == EodStepStatus.FAILED
-        assert '300' in result.error
-
     # --- AC4.1: a non-zero exit at a FAILED site carries captured stderr ---
-
-    def test_email_nonzero_stderr_in_failed_message(self):
-        with patch('workmain.workflows.eod_workflow._is_interactive', return_value=False), \
-             patch('workmain.workflows.eod_workflow.run_workmain',
-                   return_value=WorkmainRun(returncode=1, stderr='no recipients configured')):
-            result = _run_email_step(dry_run=False, target_date=date(2099, 1, 1))
-        assert result.status == EodStepStatus.FAILED
-        assert 'no recipients configured' in result.error
 
     # --- AC4.2: a non-zero exit changes no site's existing policy ---
 
@@ -1289,20 +1278,77 @@ class TestSubprocessHardening:
         assert result.status == EodStepStatus.COMPLETED
         assert m.call_count == 2
 
-    # --- AC4.4: captured stderr reaches the operator at a warn-and-continue site ---
 
-    def test_email_retry_stderr_echoed_when_warn_and_continue(self):
-        import contextlib
-        import io
-        buf = io.StringIO()
-        with patch('workmain.workflows.eod_workflow._is_interactive', return_value=True), \
-             patch('workmain.workflows.eod_workflow.run_workmain',
-                   return_value=WorkmainRun(returncode=1, stderr='SMTP down')), \
-             patch('workmain.workflows.eod_workflow._prompt_choice', return_value='r'), \
-             contextlib.redirect_stdout(buf):
-            result = _run_email_step(dry_run=False, target_date=date(2099, 1, 1))
+class TestEmailStepService:
+    """Step 4b saves the daily draft in process through email_service."""
+
+    @staticmethod
+    def _saved(tmp_path, to=("a@test.invalid",), cc=()):
+        draft = EmailDraft(
+            template="daily_internal", subject="Daily Report", to=to, cc=cc,
+            report_date=date(2099, 1, 1), content="body",
+        )
+        return SavedDraft(draft=draft, path=tmp_path / "daily_internal_20990101_120000.txt")
+
+    def test_t10_step_saves_the_draft_in_process(self, tmp_path):
+        reports = tmp_path / "reports"
+        drafts = tmp_path / "email"
+        reports.mkdir()
+        (reports / "daily_internal_2099-01-01.md").write_text("report body text", encoding="utf-8")
+        step = next(s for s in get_step_sequence(0, []) if s['key'] == 'email')
+
+        with patch.object(email_service, "REPORTS_DIR", reports), \
+             patch.object(email_service, "EMAIL_DIR", drafts), \
+             patch('workmain.workflows.eod_workflow.run_workmain', side_effect=AssertionError), \
+             patch('workmain.workflows.eod_workflow._is_interactive', return_value=False):
+            result = run_step(step, dry_run=False, target_date=date(2099, 1, 1), non_interactive=True)
+
         assert result.status == EodStepStatus.COMPLETED
-        assert 'SMTP down' in buf.getvalue()
+        files = list(drafts.iterdir())
+        assert len(files) == 1
+        assert "report body text" in files[0].read_text(encoding="utf-8")
+        assert str(files[0]) in result.message
+
+    def test_t11_non_interactive_failure_carries_the_error(self):
+        with patch.object(email_service, "save_draft", autospec=True,
+                          side_effect=NoReportFoundError("daily_internal")), \
+             patch('workmain.workflows.eod_workflow._is_interactive', return_value=False):
+            result = _run_email_step(dry_run=False, target_date=date(2099, 1, 1))
+
+        assert result.status == EodStepStatus.FAILED
+        assert "No report found for template 'daily_internal'" in result.error
+
+    def test_t12_interactive_retry_then_skip_completes(self, capsys):
+        with patch.object(email_service, "save_draft", autospec=True,
+                          side_effect=NoReportFoundError("daily_internal")) as save, \
+             patch('workmain.workflows.eod_workflow._is_interactive', return_value=True), \
+             patch('workmain.workflows.eod_workflow._prompt_choice', return_value='r'):
+            result = _run_email_step(dry_run=False, target_date=date(2099, 1, 1))
+
+        assert result.status == EodStepStatus.COMPLETED
+        assert save.call_count == 2
+        assert "Retry failed" in capsys.readouterr().out
+
+    def test_t13_message_names_missing_recipients(self, tmp_path):
+        saved = self._saved(tmp_path, to=(), cc=())
+        with patch.object(email_service, "save_draft", autospec=True, return_value=saved):
+            result = _run_email_step(dry_run=False, target_date=date(2099, 1, 1))
+
+        assert result.status == EodStepStatus.COMPLETED
+        assert str(saved.path) in result.message
+        assert "no recipients assigned" in result.message
+
+    def test_t14_weekly_step_fails_on_exit_1(self):
+        run = WorkmainRun(
+            returncode=1,
+            stderr="Error: No report found for template 'weekly_client'. Generate one first: workmain reports save weekly_client",
+        )
+        with patch('workmain.workflows.eod_workflow.run_workmain', return_value=run), \
+             patch('workmain.workflows.eod_workflow._is_interactive', return_value=False):
+            result = _run_weekly_email_step(dry_run=False, target_date=date(2099, 1, 2))
+
+        assert result.status == EodStepStatus.FAILED
+        assert "No report found" in result.error
 
 
 # ---------------------------------------------------------------------------
