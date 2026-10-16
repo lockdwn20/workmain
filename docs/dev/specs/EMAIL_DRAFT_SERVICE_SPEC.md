@@ -24,6 +24,9 @@
 | 20261016 | Spanner | The step descriptions in `eod_workflow.py:1351`, `eod.py:13,88` and `interface.py:227` name `email save daily_internal` as the command that does what step 4b does, which stays true. | They are unchanged. Only the dry-run line, which says the step "would run" the command, changes (DR5). The study's settled list is corrected to match. |
 | 20261016 | Spanner | A failure inside the child, whether no report, a database error or a write error, used to reach step 4b as a non-zero exit, which takes the retry-or-skip branch. | Step 4b sends every exception from the draft call down that branch, so each failure is handled as before (DR5). Before, the step's outer `except Exception` caught only failures to launch the child. The step's own code now has no other call that can raise. |
 | 20261016 | Spanner | `reports resend` calls the service inside its own open `session_scope()`, and must report a failed draft without failing the command. | The call runs inside `session.begin_nested()`, so a database error rolls back to the savepoint and the scope can still commit (`docs/DEVELOPMENT_STANDARDS.md` §4.1). DR6. |
+| 20261016 | Caliper | Step 1 has each `TestGetDraftRecipients` test write `{_TMPL}_2099-01-05.md` and assert "exactly as it now asserts". `test_no_recipients_returns_empty_lists` uses `"no_recipients_tmpl_2099"`, so `build_draft` would raise `NoReportFoundError`, and it asserts `== []`, which a tuple never equals. | Accepted. Each test writes the report for the template it passes, and the empty-list comparisons become `== ()`. |
+| 20261016 | Caliper | T10 says the directories are patched to `tmp_path` and asserts `EMAIL_DIR` holds one file. Patched to the same directory, it would hold the report and the draft. §6's `reports`/`email` split covers only the service tests. | Accepted. §6's rule covers the `TestEmailStepService` tests that reach the real service, and T10 names both subdirectories. |
+| 20261016 | Caliper | DR6 drops the echo of `email save`'s output from `reports resend`, which carried the no-recipients warning, while DR3 and DR5 keep a no-recipients notice. | Accepted. `resend`'s created line says when the draft has no recipients, in step 4b's words. The Subject/To/CC lines are dropped, and DR6 says so. |
 
 ---
 
@@ -187,8 +190,13 @@ Verified on `hotfix/issue-104-daily-internal-email-service` at `d5ef00c`, which 
                   console.print(f"[red]✗ Email draft failed: {e}[/red]")
                   console.print(f"[dim]Note: staging file written. Retry with: workmain email save {report_type}[/dim]")
               else:
-                  console.print(f"[green]✓ Email draft created: {saved.path.name}. View with: workmain email list[/green]")
+                  notice = ""
+                  if not saved.draft.to and not saved.draft.cc:
+                      notice = " (no recipients assigned — add with: workmain email assign)"
+                  console.print(f"[green]✓ Email draft created: {saved.path.name}{notice}. View with: workmain email list[/green]")
   ```
+
+  The child's echoed `Draft saved`, Subject, To and CC lines are not reproduced. The created line names the file, and says when it has no recipients in the same words step 4b uses (DR5).
 
   `from workmain.utils.self_invoke import TIMEOUT_NETWORK, run_workmain` is removed and `from workmain.services import email_service` is added. Everything else in `report_resend` is unchanged.
 - **DR7 — One patch target.** Every caller reaches the service as `email_service.<function>(…)` on the module, so a test patches `patch.object(email_service, "<function>", autospec=True)` once, whichever caller it drives.
@@ -208,7 +216,7 @@ Verified on `hotfix/issue-104-daily-internal-email-service` at `d5ef00c`, which 
 
 Apply DR1 and DR2. Write `tests/test_email_service.py` with T1–T6.
 
-In `tests/test_email_recipients_client.py`, rewrite the four `TestGetDraftRecipients` tests against `email_service.build_draft`. Each test also takes `tmp_path`. In its body it patches `email_service.REPORTS_DIR` to `tmp_path` and writes `tmp_path / f"{_TMPL}_2099-01-05.md"`, keeps its current seeding, calls `email_service.build_draft(db_session, _TMPL)`, and asserts on `draft.to` and `draft.cc` exactly as it now asserts on `to_list` and `cc_list`. Rename the class `TestDraftRecipients` and update the module docstring's reference to `_get_draft_recipients()`.
+In `tests/test_email_recipients_client.py`, rewrite the four `TestGetDraftRecipients` tests against `email_service.build_draft`. Each test also takes `tmp_path`. In its body it patches `email_service.REPORTS_DIR` to `tmp_path` and writes `tmp_path / f"{template}_2099-01-05.md"`, where `template` is the name the test passes today: `_TMPL` in the first three, and `"no_recipients_tmpl_2099"` in `test_no_recipients_returns_empty_lists`. It keeps its current seeding and calls `email_service.build_draft(db_session, template)`. It asserts on `draft.to` and `draft.cc` as it now asserts on `to_list` and `cc_list`, except that the comparisons with an empty list become `== ()`, since the fields are tuples (DR1). Rename the class `TestDraftRecipients` and update the module docstring's reference to `_get_draft_recipients()`.
 
 At this step `email.py` still has its own helpers, so the suite stays green.
 
@@ -220,7 +228,7 @@ Apply DR3. In `tests/test_email.py`, delete `test_06_draft_generation` and `test
 
 Apply DR6. In `TestReportResend`, replace each `patch('workmain.cli.commands.reports.run_workmain', …)` with `patch.object(email_service, "save_draft", autospec=True)`:
 
-- `test_resend_writes_staging_file` and `test_resend_prompts_on_existing_file`: the patch's default return value. Each also asserts the mock was called once with `(ANY, 'daily_internal')`.
+- `test_resend_writes_staging_file` and `test_resend_prompts_on_existing_file`: the patch's default return value. Each also asserts the mock was called once with `(ANY, 'daily_internal')`. The default return value's `draft.to` and `draft.cc` are mocks, and a mock is truthy, so the no-recipients notice is not printed.
 - `test_resend_reports_failed_draft_without_raising`: `side_effect=NoReportFoundError('daily_internal')`. Its assertions are unchanged.
 
 Drop the `WorkmainRun` import if nothing else in the file uses it.
@@ -257,7 +265,7 @@ None. This spec has no migration, GitHub deletion, merge to `main`, force-push o
 - **Baseline:** 1418 passed, 0 failed, 0 skipped (`main` `7135fae`, v1.52.0). Re-run at Step 1 and record it in the results artifact.
 - **Expected after:** 1429 passed, 0 failed, 0 skipped. That is the baseline, plus T1–T6 (8 collected, since T2 has 3 cases), T7–T9 (3) and T10–T14 (5), minus the 2 tests removed from `test_email.py` and the 3 removed from `test_eod_workflow.py`. The four rewritten recipient tests and the three repatched resend tests are counted in the baseline.
 
-Every new service test takes `tmp_path`. In its body it patches `email_service.REPORTS_DIR` to `tmp_path / "reports"` and `email_service.EMAIL_DIR` to `tmp_path / "email"` with `patch.object`, and writes its report files there. A test that needs recipients takes `db_session`, seeds them with `get_email_repository(db_session)` on a sentinel template name that ends `_2099_test`, and sets or deletes `active_client_id` as `test_email_recipients_client.py` does.
+Every new service test, and every `TestEmailStepService` test that reaches the real service, takes `tmp_path`. In its body it patches `email_service.REPORTS_DIR` to `tmp_path / "reports"` and `email_service.EMAIL_DIR` to `tmp_path / "email"` with `patch.object`, and writes its report files there. A test that needs recipients takes `db_session`, seeds them with `get_email_repository(db_session)` on a sentinel template name that ends `_2099_test`, and sets or deletes `active_client_id` as `test_email_recipients_client.py` does.
 
 | T | File::Class::test | What it shows |
 | --- | --- | --- |
@@ -270,7 +278,7 @@ Every new service test takes `tmp_path`. In its body it patches `email_service.R
 | T7 | `test_email.py::TestEmailCommands::test_t7_save_calls_the_service` | `CliRunner(mix_stderr=False).invoke(cli, ["email", "save", "daily_internal"])`, with `save_draft` patched (DR7) to return a hand-built `SavedDraft` under `tmp_path`. The mock is called once with `(ANY, "daily_internal")`, and the exit code is 0. |
 | T8 | `same::test_t8_save_without_report_exits_1` | The same invocation with `side_effect=NoReportFoundError("daily_internal")` exits 1, stderr starts `Error: No report found for template 'daily_internal'`, and stdout is empty. |
 | T9 | `same::test_t9_preview_calls_the_service` | `invoke(cli, ["email", "preview", "weekly_client"])`, with `build_draft` patched to return a hand-built `EmailDraft`. The mock is called once with `(ANY, "weekly_client")`, and the exit code is 0. |
-| T10 | `test_eod_workflow.py::TestEmailStepService::test_t10_step_saves_the_draft_in_process` | The directories are patched to `tmp_path`, and `daily_internal_2099-01-01.md` is written there. `eod_workflow.run_workmain` is patched with `side_effect=AssertionError` and `_is_interactive` to `False`. `run_step(<the 'email' step from get_step_sequence(0, [])>, dry_run=False, target_date=date(2099, 1, 1), non_interactive=True)` returns COMPLETED. `EMAIL_DIR` holds one file, which contains the report body, and `str(path)` is in `result.message`. |
+| T10 | `test_eod_workflow.py::TestEmailStepService::test_t10_step_saves_the_draft_in_process` | `email_service.REPORTS_DIR` is patched to `tmp_path / "reports"` and `email_service.EMAIL_DIR` to `tmp_path / "email"`, and `daily_internal_2099-01-01.md` is written to the reports directory. `eod_workflow.run_workmain` is patched with `side_effect=AssertionError` and `_is_interactive` to `False`. `run_step(<the 'email' step from get_step_sequence(0, [])>, dry_run=False, target_date=date(2099, 1, 1), non_interactive=True)` returns COMPLETED. `EMAIL_DIR` holds one file, which contains the report body, and `str(path)` is in `result.message`. |
 | T11 | `same::test_t11_non_interactive_failure_carries_the_error` | `save_draft` is patched with `side_effect=NoReportFoundError("daily_internal")` and `_is_interactive` to `False`. `_run_email_step` returns FAILED, and `result.error` contains `No report found for template 'daily_internal'`. |
 | T12 | `same::test_t12_interactive_retry_then_skip_completes` | The same side effect, with `_is_interactive` patched to `True` and `_prompt_choice` to `'r'`. The step returns COMPLETED, `save_draft` is called twice, and captured stdout contains `Retry failed`. |
 | T13 | `same::test_t13_message_names_missing_recipients` | `save_draft` is patched to return a `SavedDraft` with `to == cc == ()`. The step returns COMPLETED, and `result.message` contains the path and `no recipients assigned`. |
