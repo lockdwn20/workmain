@@ -1,6 +1,6 @@
 ---
 name: closeout
-description: Perform an issue's close-out — merge the branch where its type requires, bump the version, cut the tag and Release, restart the daemon, mark the spec and design artifact Shipped, and complete the docs/dev/results/ artifact. Re-enterable: the resume point is read from the repository, not from a marker. Stops only at the merge to main.
+description: "Perform an issue's close-out — merge the branch where its type requires, bump the version, cut the tag and Release, restart the daemon, mark the spec and design artifact Shipped, and complete the docs/dev/results/ artifact. Re-enterable: the resume point is read from the repository, not from a marker. Stops only at the merge to main."
 disable-model-invocation: true
 user-invocable: true
 ---
