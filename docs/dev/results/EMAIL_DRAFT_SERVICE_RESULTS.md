@@ -40,7 +40,7 @@ Complete. Draft logic moved from `email.py` into `workmain/services/email_servic
 
 | # | Deviation | Reason | Approved by |
 | --- | --- | --- | --- |
-| 1 | `email.py` gained a private `_warn_if_no_recipients(draft)` helper that `preview` and `save` both call. | DR3 requires both commands to print the same two warning lines. One helper avoids two copies. | Not asked. Within DR3's wording. |
+| 1 | `email.py` gained a private `_warn_if_no_recipients(draft)` helper that `preview` and `save` both call. | DR3 requires both commands to print the same two warning lines. One helper avoids two copies. | Ray, 20261016. Within DR3's wording. |
 
 ## 5. Verification
 
