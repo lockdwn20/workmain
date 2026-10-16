@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.52.0] - 2026-10-16
+
+`notes log` and `meetings condense` each set a time entry's `note_id` themselves when repointing the meeting's entry to the condensed note, outside `TimeEntriesRepository`, with the same block copied into both commands. Both now call one service function, which repoints through the repository or creates the entry when the meeting has none. What either command writes and prints is unchanged (issue #168).
+
+### Added
+
+- `time_entry_service.link_condensed_note`: repoints the earliest time entry of the condensed meeting on its date to the condensed note, or creates one from the meeting
+
+### Changed
+
+- `TimeEntriesRepository.update()` takes an optional `note_id`
+- `notes log` and `meetings condense` repoint or create the condensed meeting's time entry through `link_condensed_note`
+
+Suite: 1418 passed, 0 failed, 0 skipped (baseline 1411 passed, 0 failed, 0 skipped).
+
 ## [1.51.0] - 2026-10-15
 
 Repository methods returned rows whose related records were loaded lazily, so a caller that read a note, project, meeting or recipient on each row issued one query per row. Nothing was wrong with the result, so it went unnoticed, but the cost grew with the data. Every repository method whose callers read a related record on each row now loads it with the rows, and `docs/DEVELOPMENT_STANDARDS.md` §4.3 states the rule for every repository, with §6.2 stating how it is tested (issue #223).
