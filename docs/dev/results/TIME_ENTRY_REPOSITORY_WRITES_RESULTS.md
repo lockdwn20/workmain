@@ -1,6 +1,6 @@
 # TimeEntry Writes Through TimeEntriesRepository — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Anvil (Role 3)
 **Date:** 20261016
 **Spec:** `../specs/TIME_ENTRY_REPOSITORY_WRITES_SPEC.md`

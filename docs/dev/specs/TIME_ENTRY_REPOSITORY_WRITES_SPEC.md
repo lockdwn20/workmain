@@ -1,6 +1,6 @@
 # TimeEntry Writes Through TimeEntriesRepository — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261016
 **Branch:** `feature/issue-168-time-entry-repository-writes` (from `dev`)
