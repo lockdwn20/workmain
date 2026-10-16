@@ -72,9 +72,9 @@ Issue #168 names three places that set columns on a `TimeEntry` outside `TimeEnt
 
 | Q | Question | Answer |
 | --- | --- | --- |
-| Q1 | When a meeting already has more than one time entry on its date, which ones does condensing repoint to the condensed note? Today it repoints only the earliest (F3). Issue AC2 says every one. Recommendation: keep the earliest only. The issue's Direction says each command writes the same columns with the same values as today. A second entry exists because the user chose to create it, with its own description (F4), and repointing it would replace that description in every report built from the entry. AC2 is restated in the spec and the issue edited at close-out. | |
-| Q2 | Which repository method writes the repoint: an optional `note_id` argument on the existing `TimeEntriesRepository.update()`, or a new method? Recommendation: `update()` (§4 Option A). | |
-| Q3 | Does the repoint-or-create step move into one `time_entry_service` function that both commands call, or does each command keep its copy and call the repository method itself? Recommendation: one service function (§4 Option C). | |
+| Q1 | When a meeting already has more than one time entry on its date, which ones does condensing repoint to the condensed note? Today it repoints only the earliest (F3). Issue AC2 says every one. Recommendation: keep the earliest only. The issue's Direction says each command writes the same columns with the same values as today. A second entry exists because the user chose to create it, with its own description (F4), and repointing it would replace that description in every report built from the entry. AC2 is restated in the spec and the issue edited at close-out. | Answered 20261016 by Ray: keep the earliest only. Condensing works as intended today. |
+| Q2 | Which repository method writes the repoint: an optional `note_id` argument on the existing `TimeEntriesRepository.update()`, or a new method? Recommendation: `update()` (§4 Option A). | Answered 20261016 by Ray: an optional `note_id` argument on `TimeEntriesRepository.update()`. |
+| Q3 | Does the repoint-or-create step move into one `time_entry_service` function that both commands call, or does each command keep its copy and call the repository method itself? Recommendation: one service function (§4 Option C). | Answered 20261016 by Ray: one `time_entry_service` function that both commands call. |
 
 ## 6. Disposition
 
