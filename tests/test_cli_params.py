@@ -1,5 +1,5 @@
 """
-Tests for workmain.cli.params: the date and picker parameter types.
+Tests for workmain.cli.params: the date, month and picker parameter types.
 """
 
 from datetime import date, timedelta
@@ -8,7 +8,7 @@ import click
 import pytest
 from click.testing import CliRunner
 
-from workmain.cli.params import DateParamType, PickParamType
+from workmain.cli.params import DateParamType, MonthParamType, PickParamType
 
 
 class TestDateParamType:
@@ -27,6 +27,20 @@ class TestDateParamType:
         result = CliRunner(mix_stderr=False).invoke(cmd, ["--d", "notadate"])
         assert result.exit_code == 2
         assert "Error:" in result.stderr
+
+
+class TestMonthParamType:
+    def test_convert_gives_first_of_month_and_passes_a_date_through(self):
+        """P1"""
+        t = MonthParamType()
+        assert t.convert("2026-05", None, None) == date(2026, 5, 1)
+        assert t.convert(date(2026, 5, 1), None, None) == date(2026, 5, 1)
+
+    @pytest.mark.parametrize("text", ["2026-13", "May"])
+    def test_bad_month_is_rejected(self, text):
+        """P2"""
+        with pytest.raises(click.BadParameter, match="is not a valid month"):
+            MonthParamType().convert(text, None, None)
 
 
 class TestPickParamType:

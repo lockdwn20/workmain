@@ -343,26 +343,26 @@ class TestResolveDateWindow:
         assert start is None and end is None
 
     def test_single_date(self):
-        start, end = resolve_date_window('2026-05-15', None, None, None, show_all=False)
+        start, end = resolve_date_window(date(2026, 5, 15), None, None, None, show_all=False)
         assert start == end == date(2026, 5, 15)
 
     def test_explicit_range(self):
-        start, end = resolve_date_window(None, '2026-05-01', '2026-05-15', None, show_all=False)
+        start, end = resolve_date_window(None, date(2026, 5, 1), date(2026, 5, 15), None, show_all=False)
         assert start == date(2026, 5, 1)
         assert end == date(2026, 5, 15)
 
     def test_start_without_end_uses_today(self):
-        start, end = resolve_date_window(None, '2026-05-01', None, None, show_all=False)
+        start, end = resolve_date_window(None, date(2026, 5, 1), None, None, show_all=False)
         assert start == date(2026, 5, 1)
         assert end == date.today()
 
     def test_month_flag(self):
-        start, end = resolve_date_window(None, None, None, '2026-05', show_all=False)
+        start, end = resolve_date_window(None, None, None, date(2026, 5, 1), show_all=False)
         assert start == date(2026, 5, 1)
         assert end == date(2026, 5, 31)
 
     def test_month_flag_february_non_leap(self):
-        start, end = resolve_date_window(None, None, None, '2025-02', show_all=False)
+        start, end = resolve_date_window(None, None, None, date(2025, 2, 1), show_all=False)
         assert start == date(2025, 2, 1)
         assert end == date(2025, 2, 28)
 
@@ -374,20 +374,20 @@ class TestResolveDateWindow:
         assert start <= end
 
     def test_show_all_overrides_month(self):
-        start, end = resolve_date_window(None, None, None, '2026-05', show_all=True)
+        start, end = resolve_date_window(None, None, None, date(2026, 5, 1), show_all=True)
         assert start is None and end is None
 
     def test_mutual_exclusion_date_and_start(self):
         with pytest.raises(click.UsageError, match="mutually exclusive"):
-            resolve_date_window('2026-05-01', '2026-05-01', None, None, show_all=False)
+            resolve_date_window(date(2026, 5, 1), date(2026, 5, 1), None, None, show_all=False)
 
     def test_mutual_exclusion_date_and_month(self):
         with pytest.raises(click.UsageError, match="mutually exclusive"):
-            resolve_date_window('2026-05-01', None, None, '2026-05', show_all=False)
+            resolve_date_window(date(2026, 5, 1), None, None, date(2026, 5, 1), show_all=False)
 
     def test_end_without_start_raises(self):
         with pytest.raises(click.UsageError, match="--end requires --start"):
-            resolve_date_window(None, None, '2026-05-15', None, show_all=False)
+            resolve_date_window(None, None, date(2026, 5, 15), None, show_all=False)
 
 
 # ---------------------------------------------------------------------------
