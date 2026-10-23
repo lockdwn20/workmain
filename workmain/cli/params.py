@@ -2,11 +2,11 @@
 Click parameter types shared by command groups.
 
 Holds the types that turn command-line text into values before a command
-body runs, so a rejected argument is a Click usage error. Dates and the
-picker's numbered choice live here because more than one group uses them.
+body runs, so a rejected argument is a Click usage error. Dates, months and
+the picker's numbered choice live here because more than one group uses them.
 """
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Optional
 
 import click
@@ -34,6 +34,20 @@ class DateParamType(click.ParamType):
                 param,
                 ctx,
             )
+
+
+class MonthParamType(click.ParamType):
+    """A month given as YYYY-MM, converted to the first day of that month."""
+
+    name = "month"
+
+    def convert(self, value, param, ctx) -> date:
+        if isinstance(value, date):
+            return value
+        try:
+            return datetime.strptime(str(value).strip(), "%Y-%m").date()
+        except ValueError:
+            self.fail(f"'{value}' is not a valid month. Use YYYY-MM.", param, ctx)
 
 
 class PickParamType(click.IntRange):

@@ -6,12 +6,16 @@ with the service's result unchanged, to the Renderer it receives through
 pass_renderer. The renderer decides the layout: a collection is a table while
 every key column fits at full width and the table is at most
 TABLE_MAX_LINES lines, otherwise a list. Every value reaches Rich as Text,
-never as markup, so a value such as [#85019] prints as written. WorkmAInGroup
-turns a service validation error or a stub command's NotImplementedError into
-a Click exception, so Click prints it and sets the exit code once.
+never as markup, so a value such as [#85019] prints as written. A ReportView
+names a result in parts (a title, totals and sections) and the renderer prints
+each section as a collection. WorkmAInGroup turns a service validation error or
+a stub command's NotImplementedError into a Click exception, so Click prints it
+and sets the exit code once. Its third branch does the same for an exception no
+command handled, as one Error line, and logs the traceback at DEBUG.
 """
 
 import io
+import logging
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any, Callable, List, Optional, Sequence, Tuple
@@ -26,6 +30,8 @@ from rich.text import Text
 from workmain.cli.params import PickParamType
 from workmain.services.exceptions import ServiceValidationError
 from workmain.services.results import Page
+
+logger = logging.getLogger(__name__)
 
 TABLE_MAX_LINES = 30
 NO_VALUE = "—"
@@ -72,6 +78,30 @@ class RecordView:
     descriptor_field: str
     fields: Tuple[Field, ...]
     body_field: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class Section:
+    """One part of a report: a field of the result holding a Page, and its view."""
+
+    field: str
+    view: CollectionView
+
+
+@dataclass(frozen=True)
+class ReportView:
+    """How a result in parts is shown.
+
+    The result has a `filters` attribute shaped as Page.filters. `totals_field`
+    names the attribute holding the totals, and `totals` are the Fields read
+    from it.
+    """
+
+    noun: str
+    totals_field: str
+    totals: Tuple[Field, ...]
+    sections: Tuple[Section, ...]
+    empty_hint: Optional[str] = None
 
 
 def _format_value(value: Any) -> str:
@@ -151,15 +181,23 @@ class Renderer:
     # Collections
     # ------------------------------------------------------------------
 
+    def _empty(
+        self,
+        noun: str,
+        filters: Sequence[Tuple[str, object]],
+        hint: Optional[str],
+    ) -> None:
+        empty = f"No {noun} found"
+        if filters:
+            empty += f" ({_filter_text(filters)})"
+        self._line(Text(empty + "."))
+        if hint:
+            self._line(Text(hint, style="dim"))
+
     def collection(self, view: CollectionView, page: Page) -> None:
         """Print a title and the rows, as a table or a list."""
         if not page.rows:
-            empty = f"No {view.noun} found"
-            if page.filters:
-                empty += f" ({_filter_text(page.filters)})"
-            self._line(Text(empty + "."))
-            if view.empty_hint:
-                self._line(Text(view.empty_hint, style="dim"))
+            self._empty(view.noun, page.filters, view.empty_hint)
             return
 
         n = len(page.rows)
@@ -267,6 +305,28 @@ class Renderer:
     # Records
     # ------------------------------------------------------------------
 
+    def report(self, view: ReportView, result: Any) -> None:
+        """Print a result in parts: a title, the totals, then each section with rows."""
+        pages = [(s, getattr(result, s.field)) for s in view.sections]
+        if not any(page.rows for _, page in pages):
+            self._empty(view.noun, result.filters, view.empty_hint)
+            return
+
+        title = view.noun[:1].upper() + view.noun[1:]
+        if result.filters:
+            title += f" ({_filter_text(result.filters)})"
+        self._line(Text(title))
+
+        totals = getattr(result, view.totals_field)
+        width = max(len(f.label) for f in view.totals) + 2
+        for f in view.totals:
+            self._line(Text(f"{f.label}:".ljust(width) + _cell(totals, f.field, f.fmt)))
+
+        for section, page in pages:
+            if page.rows:
+                self._line(Text(""))
+                self.collection(section.view, page)
+
     def record(self, view: RecordView, row: Any) -> None:
         """Print one record as a titled panel."""
         shown = []
@@ -332,7 +392,8 @@ class WorkmAInGroup(click.Group):
     Click Group that gives a clean user-facing message for the two errors a
     command raises on purpose: NotImplementedError (OAuth stub commands) and
     ServiceValidationError (a request a service cannot carry out), instead
-    of a raw Python traceback.
+    of a raw Python traceback. An exception no command handled becomes one
+    "Error: <type>: <message>" line, and its traceback is logged at DEBUG.
     """
 
     def invoke(self, ctx):
@@ -342,3 +403,8 @@ class WorkmAInGroup(click.Group):
             raise _StubCommandError(str(e)) from e
         except ServiceValidationError as e:
             raise click.ClickException(str(e)) from e
+        except (click.ClickException, click.exceptions.Exit, click.Abort):
+            raise
+        except Exception as e:
+            logger.debug("Unhandled %s in command", type(e).__name__, exc_info=True)
+            raise click.ClickException(f"{type(e).__name__}: {e}") from e

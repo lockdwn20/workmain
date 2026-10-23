@@ -20,8 +20,13 @@ from workmain.database.repositories.system_state_repository import SystemStateRe
 from workmain.database.repositories.ai_costs_repo import get_ai_cost_repository
 from workmain.ai.note_condenser import get_note_condenser
 from workmain.utils.ai_arguments import failure_exit_code, require_provider
-from workmain.utils.cost_display import format_token_line, render_condensation_costs, sum_rows
-from workmain.utils.date_utils import resolve_date_window, format_date_window_label
+from workmain.cli.output import Renderer, ReportView, Section, WorkmAInGroup, pass_renderer
+from workmain.cli.params import DateParamType, MonthParamType
+from workmain.services import ai_cost_service
+from workmain.utils.cost_display import (
+    BY_PROVIDER, detail_view, format_token_line, sum_rows, totals_fields,
+)
+from workmain.utils.date_utils import resolve_date_window
 
 
 console = Console()
@@ -151,7 +156,7 @@ def _resolve_meeting(identifier: str, repo: MeetingsRepository):
         return None
 
 
-@click.group()
+@click.group(cls=WorkmAInGroup)
 def meetings():
     """Meeting management commands."""
     pass
@@ -1641,26 +1646,38 @@ def meetings_template_use(name: str, start_str: Optional[str], end_str: Optional
         console.print(f"[red]✗ Failed to create meetings: {e}[/red]")
 
 
+MEETING_COSTS = ReportView(
+    "meeting condensation costs",
+    "totals",
+    totals_fields("Condensations"),
+    (Section("by_provider", BY_PROVIDER), Section("detail", detail_view("Meeting"))),
+    empty_hint="Condense a meeting with: workmain meetings condense <title>",
+)
+
+
 @meetings.command('costs')
 @click.option('--provider', '-P', help='Filter by AI provider')
-@click.option('--limit', '-n', type=int, default=20, help='Max rows to display')
-@click.option('--date', '-d', 'date_str', metavar='YYYY-MM-DD', default=None,
-              help='Show costs for a single day')
-@click.option('--start', '-b', 'start_str', metavar='YYYY-MM-DD', default=None,
-              help='Range start date (inclusive)')
-@click.option('--end', '-e', 'end_str', metavar='YYYY-MM-DD', default=None,
-              help='Range end date (requires --start)')
-@click.option('--month', '-M', 'month_str', metavar='YYYY-MM', default=None,
-              help='Filter by calendar month')
+@click.option('--limit', '-n', type=click.IntRange(min=1), default=20,
+              help='Max rows to display')
+@click.option('--date', '-d', 'on_date', type=DateParamType(), metavar='YYYY-MM-DD',
+              default=None, help='Show costs for a single day')
+@click.option('--start', '-b', 'start', type=DateParamType(), metavar='YYYY-MM-DD',
+              default=None, help='Range start date (inclusive)')
+@click.option('--end', '-e', 'end', type=DateParamType(), metavar='YYYY-MM-DD',
+              default=None, help='Range end date (requires --start)')
+@click.option('--month', '-M', 'month', type=MonthParamType(), metavar='YYYY-MM',
+              default=None, help='Filter by calendar month')
 @click.option('--all', 'show_all', is_flag=True, default=False,
               help='Show all history (no date filter)')
+@pass_renderer
 def meetings_costs(
+    renderer: Renderer,
     provider: Optional[str],
     limit: int,
-    date_str: Optional[str],
-    start_str: Optional[str],
-    end_str: Optional[str],
-    month_str: Optional[str],
+    on_date: Optional[date],
+    start: Optional[date],
+    end: Optional[date],
+    month: Optional[date],
     show_all: bool,
 ):
     """
@@ -1679,27 +1696,14 @@ def meetings_costs(
     """
     provider_type = require_provider(provider)
 
-    start_date, end_date = resolve_date_window(date_str, start_str, end_str, month_str, show_all)
+    start_date, end_date = resolve_date_window(on_date, start, end, month, show_all)
 
-    db = get_db()
-    try:
-        with db.session_scope() as session:
-            repo = get_ai_cost_repository(session)
-            render_condensation_costs(
-                console, repo,
-                provider=provider_type.value if provider_type else None,
-                start_date=start_date,
-                end_date=end_date,
-                limit=limit,
-                label=format_date_window_label(start_date, end_date),
-                title="Meeting Condensation Costs",
-                detail_heading="Meeting Detail",
-                filters=[f"Provider: {provider}"] if provider else [],
-            )
-
-    except Exception as e:
-        console.print(f"[red]✗ Failed to get costs: {e}[/red]")
-        console.print()
+    with get_db().session_scope() as session:
+        result = ai_cost_service.condensation_costs(
+            session, provider_type.value if provider_type else None,
+            start_date, end_date, limit,
+        )
+    renderer.report(MEETING_COSTS, result)
 
 
 # Export command group

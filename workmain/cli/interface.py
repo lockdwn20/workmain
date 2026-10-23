@@ -3,6 +3,7 @@ Main CLI interface using the Click framework.
 """
 
 import logging
+import os
 import sys
 
 import click
@@ -68,10 +69,19 @@ def _configure_cli_logging() -> None:
     Python warnings are captured into the log too, so a library warning never
     reaches stderr, which a calling process reads as the command's own warning
     (DEVELOPMENT_STANDARDS §5.6).
+
+    The level is the environment variable LOG_LEVEL. Unset, empty, unknown and
+    NOTSET all give WARNING, so a bad value never stops a command and NOTSET
+    never lets every record through to the stdout a caller captures.
     """
+    level = logging.getLevelNamesMapping().get(
+        os.environ.get('LOG_LEVEL', '').strip().upper()
+    )
+    if not level:
+        level = logging.WARNING
     logging.captureWarnings(True)
     logging.basicConfig(
-        level=logging.WARNING,
+        level=level,
         format='%(name)s %(levelname)s %(message)s',
         handlers=[logging.StreamHandler(sys.stdout)],
     )

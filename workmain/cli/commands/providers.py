@@ -11,6 +11,7 @@ full ai_settings.json detail view.
 import json
 import sys
 import time
+from datetime import date
 from pathlib import Path
 from typing import Optional
 import click
@@ -21,7 +22,6 @@ from rich.panel import Panel
 from rich import box
 
 from workmain.database.connection import get_db
-from workmain.database.repositories.ai_costs_repo import get_ai_cost_repository
 from workmain.ai.provider_manager import get_provider_manager, report_type_names
 from workmain.ai.base_provider import (
     GenerationRequest,
@@ -32,10 +32,12 @@ from workmain.ai.base_provider import (
 )
 from workmain.services import ai_cost_service
 from workmain.utils.ai_arguments import require_eligible_provider, require_provider, require_report_type
+from workmain.cli.output import Renderer, ReportView, Section, WorkmAInGroup, pass_renderer
+from workmain.cli.params import DateParamType, MonthParamType
 from workmain.utils.cost_display import (
-    format_call_tokens, render_cost_breakdown, render_cost_summary,
+    BY_PROVIDER, BY_TYPE, format_call_tokens, totals_fields,
 )
-from workmain.utils.date_utils import resolve_date_window, format_date_window_label
+from workmain.utils.date_utils import resolve_date_window
 
 
 console = Console()
@@ -44,7 +46,7 @@ err_console = Console(stderr=True, soft_wrap=True)
 _SETTINGS_PATH = Path(__file__).parent.parent.parent.parent / 'config' / 'ai_settings.json'
 
 
-@click.group()
+@click.group(cls=WorkmAInGroup)
 def providers():
     """Manage AI providers."""
     pass
@@ -193,25 +195,36 @@ def test_provider(provider: str):
         sys.exit(3)
 
 
+PROVIDER_COSTS = ReportView(
+    "AI costs",
+    "totals",
+    totals_fields("Total Calls"),
+    (Section("by_provider", BY_PROVIDER), Section("by_type", BY_TYPE)),
+    empty_hint="Generate a report with: workmain reports save daily_internal",
+)
+
+
 @providers.command('costs')
 @click.option('--provider', '-P', default=None, metavar='PROVIDER',
               help='Filter by specific provider')
-@click.option('--date', '-d', 'date_str', metavar='YYYY-MM-DD', default=None,
-              help='Show costs for a single day')
-@click.option('--start', '-b', 'start_str', metavar='YYYY-MM-DD', default=None,
-              help='Range start date (inclusive)')
-@click.option('--end', '-e', 'end_str', metavar='YYYY-MM-DD', default=None,
-              help='Range end date (requires --start)')
-@click.option('--month', '-M', 'month_str', metavar='YYYY-MM', default=None,
-              help='Filter by calendar month')
+@click.option('--date', '-d', 'on_date', type=DateParamType(), metavar='YYYY-MM-DD',
+              default=None, help='Show costs for a single day')
+@click.option('--start', '-b', 'start', type=DateParamType(), metavar='YYYY-MM-DD',
+              default=None, help='Range start date (inclusive)')
+@click.option('--end', '-e', 'end', type=DateParamType(), metavar='YYYY-MM-DD',
+              default=None, help='Range end date (requires --start)')
+@click.option('--month', '-M', 'month', type=MonthParamType(), metavar='YYYY-MM',
+              default=None, help='Filter by calendar month')
 @click.option('--all', 'show_all', is_flag=True, default=False,
               help='Show all history (no date filter)')
+@pass_renderer
 def show_costs(
+    renderer: Renderer,
     provider: Optional[str],
-    date_str: Optional[str],
-    start_str: Optional[str],
-    end_str: Optional[str],
-    month_str: Optional[str],
+    on_date: Optional[date],
+    start: Optional[date],
+    end: Optional[date],
+    month: Optional[date],
     show_all: bool,
 ):
     """
@@ -232,50 +245,14 @@ def show_costs(
     """
     provider_type = require_provider(provider)
 
-    start_date, end_date = resolve_date_window(date_str, start_str, end_str, month_str, show_all)
+    start_date, end_date = resolve_date_window(on_date, start, end, month, show_all)
 
-    db = get_db()
-    try:
-        with db.session_scope() as session:
-            repo = get_ai_cost_repository(session)
-            summary = repo.get_summary(
-                provider=provider_type.value if provider_type else None,
-                start_date=start_date,
-                end_date=end_date,
-            )
-
-            label = format_date_window_label(start_date, end_date)
-            console.print()
-            console.print(f"[bold cyan]AI Cost Summary — {label}[/bold cyan]")
-            console.print()
-
-            if summary['total_calls'] == 0:
-                console.print("[yellow]No AI interactions found for this period.[/yellow]")
-                console.print()
-                console.print("[dim]Generate a report with: workmain reports save daily_internal[/dim]")
-                console.print()
-                return
-
-            render_cost_summary(console, summary, "Total Calls")
-
-            if summary['by_provider']:
-                render_cost_breakdown(
-                    console, "By Provider",
-                    {p.title(): b for p, b in summary['by_provider'].items()},
-                )
-
-            if summary['by_type']:
-                render_cost_breakdown(console, "By Call Type", summary['by_type'])
-
-            active_filters = [f"Period: {label}"]
-            if provider:
-                active_filters.append(f"Provider: {provider}")
-            console.print("[dim]" + "  |  ".join(active_filters) + "[/dim]")
-            console.print()
-
-    except Exception as e:
-        console.print(f"[red]✗ Failed to get costs: {e}[/red]")
-        console.print()
+    with get_db().session_scope() as session:
+        result = ai_cost_service.cost_summary(
+            session, provider_type.value if provider_type else None,
+            start_date, end_date,
+        )
+    renderer.report(PROVIDER_COSTS, result)
 
 
 @providers.group('set')
