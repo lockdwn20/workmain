@@ -29,6 +29,8 @@
 | 20261023 | Caliper | 3: DR11's "not a level name" is ambiguous for `NOTSET`, which `getLevelName` maps to 0, letting every record onto stdout. | Accepted. DR11 looks the name up in `logging.getLevelNamesMapping()` (§3.8) and treats `NOTSET` like an unknown name, so the level is `WARNING`. L1 covers `NOTSET`. |
 | 20261023 | Caliper | 3: DR2 doesn't state `detail.filters`. If it carried the period, the detail title would repeat it, which the study's Option B rejected. | Accepted. DR2: every section page has `filters` `()`, and the provider, type and window are on `CostReport.filters` only. S5 asserts it. |
 | 20261023 | Caliper | 4: `report_costs` builds `by_provider` and `by_type`, which no view reads. | Accepted, and applied to the same pattern in the other two functions: each fills only the sections its commands show, and the others are `Page((), 0)`. `condensation_costs` no longer fills `by_type`. DR2, DR3; S1, S8 and S10 assert the empty sections. |
+| 20261023 | Caliper | 4: §1's Tests bullet omits `tests/test_cli_logging.py`, where Step 3, L1, L2 and AC8.4 put tests. | Accepted. §1 lists it. |
+| 20261023 | Caliper | 3: §6 doesn't say how L1 and L2 collect: as one loop each (2) or as parametrized cases (7), which changes AC7.1's count. | Accepted. Parametrized, by §6.2 rule 3 (one assertion focus per test): L1 collects 5, L2 2. Expected after is 1472. |
 | 20261023 | Spanner | Placement of the read functions | `workmain/services/ai_cost_service.py`, the module that already owns the cost domain (§3.6). |
 
 ---
@@ -45,7 +47,7 @@
 - `workmain/utils/cost_display.py`: the four `render_*` functions and every Rich import removed. It gains `format_count`, `format_cost`, `format_refused`, `format_provider_name`, and the shared views.
 - `workmain/utils/date_utils.py`: `resolve_date_window` takes parsed values. `format_date_window_label` is removed.
 - The four command functions `meetings_costs`, `notes_costs`, `show_costs` and `report_costs`, their options, and the declarations of their four groups (`cls=WorkmAInGroup`). The imports each file no longer needs go too.
-- Tests: `tests/test_ai_costs.py`, `tests/test_cost_display.py`, `tests/test_output.py`, `tests/test_cli_params.py`, `tests/test_ai_arguments.py`, `tests/test_provider_foundation.py`, as §6 states.
+- Tests: `tests/test_ai_costs.py`, `tests/test_cost_display.py`, `tests/test_output.py`, `tests/test_cli_params.py`, `tests/test_ai_arguments.py`, `tests/test_provider_foundation.py`, `tests/test_cli_logging.py`, as §6 states.
 - `docs/DEVELOPMENT_STANDARDS.md` §5.6.
 
 **Out of scope:**
@@ -233,8 +235,8 @@ None. This spec runs no migration, deletes no GitHub object, merges nothing to `
 - **Baseline:** the counts Step 0 records. On this branch at `51cefe8`, 20261023, after #236: 1434 passed, 0 failed, 0 skipped.
 - **Expected after:** the baseline, less 13 removed tests, plus 46 new, as collected:
   - **Removed:** the 3 tests of `TestProvidersCosts`, `TestCondensationCosts` and `TestReportsCosts`; the 5 of `TestFormatDateWindowLabel`; `test_configured_provider_is_accepted_by_cost_filters`, which collects as 4; and `test_providers_costs_known_provider_no_bad_parameter`.
-  - **New:** S1–S14, P1–P2, R1–R6, W1–W3, L1–L2 and F1–F4, which is 31. C1 and C2 collect as 4 each, and C3–C9 as 7.
-  - On the baseline above: 1467 passed, 0 failed, 0 skipped.
+  - **New:** S1–S14, P1–P2, R1–R6, W1–W3 and F1–F4, which is 29. L1 is parametrized over its five values and L2 over its two, collecting as 7 (§6.2 rule 3). C1 and C2 collect as 4 each, and C3–C9 as 7. That is 51 in all.
+  - On the baseline above: 1472 passed, 0 failed, 0 skipped.
 
 Test method names are the spec's where an AC cites the node; Anvil names the rest.
 
@@ -276,8 +278,8 @@ Test method names are the spec's where an AC cites the node; Anvil names the res
 | R6 | `TestReport` | No filters: the title is the noun alone, with no parentheses. |
 | W1 | `TestWiring` | A `WorkmAInGroup` command raising `RuntimeError("boom [#1]")`: exit 1, `result.stderr == "Error: RuntimeError: boom [#1]\n"`, and `Traceback` in neither stream. |
 | W2 | `TestWiring` | Commands raising `click.Abort()`, calling `ctx.exit(3)`, and raising `click.UsageError("x")` exit 1, 3 and 2, as without the branch. |
-| L1 | `tests/test_cli_logging.py` | A subprocess, run as the existing probe in that file is, calls `_configure_cli_logging()` and prints the root level. Run with `LOG_LEVEL` set to `debug`, `WARNING`, `` (empty), `BOGUS` and `NOTSET` in the subprocess's environment, it prints 10, 30, 30, 30 and 30, and exits 0. An unset variable is not a case: `load_dotenv()` finds the repository's `.env` from the module's own directory, whatever the working directory, and does not override a variable already set, so an empty value is the reliable default case. |
-| L2 | `tests/test_cli_logging.py` | A subprocess builds a `WorkmAInGroup` with a command raising `RuntimeError("boom")`, calls `_configure_cli_logging()`, then the group's `main(["boom"])`. With `LOG_LEVEL=DEBUG`, it exits 1, stderr is `Error: RuntimeError: boom\n`, and stdout holds `Traceback` and `RuntimeError: boom`. With `LOG_LEVEL=WARNING`, it exits 1, stderr is the same, and stdout holds no `Traceback`. |
+| L1 | `tests/test_cli_logging.py`, parametrized over the five values | A subprocess, run as the existing probe in that file is, calls `_configure_cli_logging()` and prints the root level. Run with `LOG_LEVEL` set to `debug`, `WARNING`, `` (empty), `BOGUS` and `NOTSET` in the subprocess's environment, it prints 10, 30, 30, 30 and 30, and exits 0. An unset variable is not a case: `load_dotenv()` finds the repository's `.env` from the module's own directory, whatever the working directory, and does not override a variable already set, so an empty value is the reliable default case. |
+| L2 | `tests/test_cli_logging.py`, parametrized over `DEBUG` and `WARNING` | A subprocess builds a `WorkmAInGroup` with a command raising `RuntimeError("boom")`, calls `_configure_cli_logging()`, then the group's `main(["boom"])`. With `LOG_LEVEL=DEBUG`, it exits 1, stderr is `Error: RuntimeError: boom\n`, and stdout holds `Traceback` and `RuntimeError: boom`. With `LOG_LEVEL=WARNING`, it exits 1, stderr is the same, and stdout holds no `Traceback`. |
 | W3 | `TestWiring` | Through `cli`, `clients list` with `workmain.cli.commands.clients.ClientRepository` patched to raise `RuntimeError("boom")`: exit 1, `Error: RuntimeError: boom` on stderr, and no `Traceback`. |
 
 **`tests/test_cost_display.py`**
