@@ -1,7 +1,6 @@
 """
 Shared date-window resolution for costs commands.
-Converts CLI date filter flags into (start_date, end_date) tuples
-and formats them for display.
+Converts parsed CLI date filter flags into (start_date, end_date) tuples.
 """
 
 from __future__ import annotations
@@ -14,10 +13,10 @@ import click
 
 
 def resolve_date_window(
-    date_str: Optional[str],
-    start_str: Optional[str],
-    end_str: Optional[str],
-    month_str: Optional[str],
+    on: Optional[date],
+    start: Optional[date],
+    end: Optional[date],
+    month: Optional[date],
     show_all: bool,
 ) -> Tuple[Optional[date], Optional[date]]:
     """
@@ -31,10 +30,10 @@ def resolve_date_window(
       (default)          → current month
 
     Args:
-        date_str: ISO date string from --date flag
-        start_str: ISO date string from --start flag
-        end_str: ISO date string from --end flag
-        month_str: 'YYYY-MM' string from --month flag
+        on: Parsed --date value
+        start: Parsed --start value
+        end: Parsed --end value
+        month: Parsed --month value; any day in the month
         show_all: True when --all flag is set
 
     Returns:
@@ -43,58 +42,25 @@ def resolve_date_window(
     Raises:
         click.UsageError: On mutually exclusive flag combinations or --end without --start.
     """
-    if date_str and start_str:
+    if on and start:
         raise click.UsageError("--date and --start are mutually exclusive.")
-    if date_str and month_str:
+    if on and month:
         raise click.UsageError("--date and --month are mutually exclusive.")
-    if (start_str or end_str) and month_str:
+    if (start or end) and month:
         raise click.UsageError("--start/--end and --month are mutually exclusive.")
-    if end_str and not start_str:
+    if end and not start:
         raise click.UsageError("--end requires --start.")
 
     if show_all:
         return None, None
-    if date_str:
-        d = date.fromisoformat(date_str)
-        return d, d
-    if start_str:
-        start = date.fromisoformat(start_str)
-        end = date.fromisoformat(end_str) if end_str else date.today()
-        return start, end
-    if month_str:
-        year, mon = int(month_str[:4]), int(month_str[5:7])
-        last_day = calendar.monthrange(year, mon)[1]
-        return date(year, mon, 1), date(year, mon, last_day)
+    if on:
+        return on, on
+    if start:
+        return start, end or date.today()
+    if month:
+        last_day = calendar.monthrange(month.year, month.month)[1]
+        return date(month.year, month.month, 1), date(month.year, month.month, last_day)
 
     today = date.today()
     last_day = calendar.monthrange(today.year, today.month)[1]
     return date(today.year, today.month, 1), date(today.year, today.month, last_day)
-
-
-def format_date_window_label(
-    start_date: Optional[date],
-    end_date: Optional[date],
-) -> str:
-    """
-    Format the active date window as a human-readable label.
-
-    Args:
-        start_date: Window start, or None for all-time.
-        end_date: Window end, or None for all-time.
-
-    Returns:
-        "All Time", "2026-05-15", "May 2026", or "2026-05-01 to 2026-05-15".
-    """
-    if start_date is None:
-        return "All Time"
-    if start_date == end_date:
-        return start_date.isoformat()
-    last_of_month = calendar.monthrange(start_date.year, start_date.month)[1]
-    if (
-        start_date.day == 1
-        and end_date.day == last_of_month
-        and start_date.year == end_date.year
-        and start_date.month == end_date.month
-    ):
-        return start_date.strftime("%B %Y")
-    return f"{start_date.isoformat()} to {end_date.isoformat()}"

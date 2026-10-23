@@ -1,18 +1,35 @@
 """
-Rendering for AI cost figures: the thinking rule (the answer rule lives in
-the repository module), the per-call token line, and the summary, row and breakdown tables the four cost commands
-share.
+Formatting for AI cost figures: the count, cost, refused and provider-name
+formatters, the thinking rule (the answer rule lives in the repository
+module), the per-call token line, and the views the cost commands share.
 """
 
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, Optional, Tuple
 
-from rich import box
-from rich.console import Console
-from rich.table import Table
-
+from workmain.cli.output import CollectionView, Column, Field
 from workmain.database.repositories.ai_costs_repo import answer_tokens
 
 NO_COUNT = "—"
+
+
+def format_count(n: int) -> str:
+    """A count with thousands separators."""
+    return f"{n:,}"
+
+
+def format_cost(x: float) -> str:
+    """A cost in dollars to six places."""
+    return f"${x:.6f}"
+
+
+def format_refused(b: bool) -> str:
+    """'refused' for a refused reply, blank otherwise."""
+    return "refused" if b else ""
+
+
+def format_provider_name(name: str) -> str:
+    """A provider's stored name, title-cased."""
+    return name.title()
 
 
 def format_thinking(thinking_tokens: Optional[int]) -> str:
@@ -20,6 +37,60 @@ def format_thinking(thinking_tokens: Optional[int]) -> str:
     if thinking_tokens is None:
         return NO_COUNT
     return f"{thinking_tokens:,}"
+
+
+def totals_fields(calls_label: str) -> Tuple[Field, ...]:
+    """The totals lines of a cost report, in the order the commands print them."""
+    return (
+        Field("calls", calls_label, fmt=format_count),
+        Field("prompt_tokens", "Prompt Tokens", fmt=format_count),
+        Field("answer_tokens", "Answer Tokens", fmt=format_count),
+        Field("thinking_tokens", "Thinking Tokens", fmt=format_thinking),
+        Field("total_tokens", "Total Tokens", fmt=format_count),
+        Field("cost", "Total Cost", fmt=format_cost),
+    )
+
+
+def _token_cells() -> Tuple[Column, ...]:
+    return (
+        Column("prompt_tokens", "Prompt", "key", format_count),
+        Column("answer_tokens", "Answer", "key", format_count),
+        Column("thinking_tokens", "Thinking", "key", format_thinking),
+        Column("total_tokens", "Total", "key", format_count),
+        Column("cost", "Cost", "key", format_cost),
+    )
+
+
+def _breakdown(noun: str, name_column: Column) -> CollectionView:
+    return CollectionView(
+        noun,
+        (
+            name_column,
+            Column("calls", "Calls", "key", format_count),
+            *_token_cells(),
+            Column("avg_cost", "Avg Cost", "key", format_cost),
+        ),
+    )
+
+
+BY_PROVIDER = _breakdown(
+    "providers", Column("name", "Provider", "text", format_provider_name)
+)
+BY_TYPE = _breakdown("call types", Column("name", "Call Type", "text"))
+
+
+def detail_view(label: str) -> CollectionView:
+    """The per-call list; `label` heads the column naming what the call was for."""
+    return CollectionView(
+        "calls",
+        (
+            Column("day", "Date", "key"),
+            Column("label", label, "text"),
+            Column("provider", "Provider", "key"),
+            Column("refused", "Refused", "key", format_refused),
+            *_token_cells(),
+        ),
+    )
 
 
 def format_token_line(
@@ -55,168 +126,3 @@ def sum_rows(rows: Iterable[Any]) -> Dict[str, Any]:
             thinking = (thinking or 0) + r.thinking_tokens
     return {"cost": cost, "prompt_tokens": prompt, "answer_tokens": answer,
             "thinking_tokens": thinking}
-
-
-def render_cost_summary(console: Console, summary: Dict[str, Any], label: str) -> None:
-    """Print the summary block: the call count under `label`, then the five totals."""
-    console.print(f"  {label}: {summary['total_calls']}")
-    console.print(f"  Prompt Tokens:   {summary['prompt_tokens']:,}")
-    console.print(f"  Answer Tokens:   {summary['answer_tokens']:,}")
-    console.print(f"  Thinking Tokens: {format_thinking(summary['thinking_tokens'])}")
-    console.print(f"  Total Tokens:    {summary['total_tokens']:,}")
-    console.print(f"  Total Cost:      [green]${summary['total_cost']:.6f}[/green]")
-    console.print()
-
-
-def _table() -> Table:
-    """A table compact enough to keep every count visible at 80 columns."""
-    return Table(
-        show_header=True, header_style="bold cyan", box=box.SIMPLE,
-        padding=(0, 1), collapse_padding=True, pad_edge=False, show_edge=False,
-    )
-
-
-def _token_columns(table: Table) -> None:
-    table.add_column("Prompt", justify="right", style="dim", no_wrap=True)
-    table.add_column("Answer", justify="right", style="dim", no_wrap=True)
-    table.add_column("Thinking", justify="right", style="dim", no_wrap=True)
-    table.add_column("Total", justify="right", style="dim", no_wrap=True)
-    table.add_column("Cost", justify="right", style="green", no_wrap=True)
-
-
-def render_cost_rows(
-    console: Console,
-    items: List[Tuple[Any, str, Any]],
-    heading: str,
-    label_column: str,
-) -> None:
-    """
-    Print one table row per cost row.
-
-    Args:
-        console: Rich console
-        items: (date, label, ai_costs row) triples, in display order
-        heading: Line printed above the table
-        label_column: Header of the identifying column (e.g. "Meeting", "Type")
-    """
-    console.print(heading)
-    table = _table()
-    table.add_column("Date", style="cyan", no_wrap=True)
-    table.add_column(label_column, min_width=6, max_width=24, overflow="ellipsis")
-    table.add_column("Provider", no_wrap=True)
-    _token_columns(table)
-
-    for when, label, r in items:
-        provider = f"{r.provider} (refused)" if r.refused else r.provider
-        table.add_row(
-            str(when),
-            label or "",
-            provider,
-            f"{r.prompt_tokens:,}",
-            f"{answer_tokens(r.completion_tokens, r.thinking_tokens):,}",
-            format_thinking(r.thinking_tokens),
-            f"{r.total_tokens:,}",
-            f"${float(r.cost_usd):.6f}",
-        )
-    console.print(table)
-    console.print()
-
-
-def render_cost_breakdown(
-    console: Console, title: str, breakdown: Dict[str, Dict[str, Any]]
-) -> None:
-    """
-    Print a table with one row per bucket of a summary's by_provider / by_type.
-
-    Args:
-        console: Rich console
-        title: Header of the first column, also printed above the table
-        breakdown: name -> bucket dict as `summarize` returns; names print as given
-    """
-    console.print(f"[bold]{title}:[/bold]")
-    table = _table()
-    table.add_column(title.removeprefix("By "), style="cyan", no_wrap=True, min_width=10)
-    table.add_column("Calls", justify="right", style="dim", no_wrap=True)
-    _token_columns(table)
-    table.add_column("Avg Cost", justify="right", style="dim", no_wrap=True)
-
-    for name, b in sorted(breakdown.items()):
-        avg = b['cost'] / b['calls'] if b['calls'] > 0 else 0.0
-        table.add_row(
-            name,
-            str(b['calls']),
-            f"{b['prompt_tokens']:,}",
-            f"{b['answer_tokens']:,}",
-            format_thinking(b['thinking_tokens']),
-            f"{b['tokens']:,}",
-            f"${b['cost']:.6f}",
-            f"${avg:.6f}",
-        )
-    console.print(table)
-    console.print()
-
-
-def render_condensation_costs(
-    console: Console,
-    repo: Any,
-    *,
-    provider: Optional[str],
-    start_date: Any,
-    end_date: Any,
-    limit: int,
-    label: str,
-    title: str,
-    detail_heading: str,
-    filters: List[str],
-) -> None:
-    """
-    Print the condensation cost report `meetings costs` and `notes costs` share.
-
-    Args:
-        console: Rich console
-        repo: AiCostRepository bound to the command's session
-        provider: Provider value to filter on, or None
-        start_date: Inclusive window start, or None
-        end_date: Inclusive window end, or None
-        limit: Maximum detail rows
-        label: Date-window label
-        title: Report title, without the window
-        detail_heading: Heading above the detail table
-        filters: Active filter strings printed on the closing line
-    """
-    summary = repo.get_summary(
-        interaction_type='note_condensation',
-        provider=provider, start_date=start_date, end_date=end_date,
-    )
-    rows = repo.get_filtered(
-        interaction_type='note_condensation',
-        provider=provider, start_date=start_date, end_date=end_date, limit=limit,
-    )
-
-    console.print()
-    console.print(f"[bold cyan]{title} — {label}[/bold cyan]")
-    console.print()
-
-    if summary['total_calls'] == 0:
-        console.print("[yellow]No condensation costs found for this period.[/yellow]")
-        console.print()
-        console.print("[dim]Condense a meeting with: workmain meetings condense <title>[/dim]")
-        console.print()
-        return
-
-    render_cost_summary(console, summary, "Condensations")
-    if summary['by_provider']:
-        render_cost_breakdown(
-            console, "By Provider",
-            {p.title(): b for p, b in summary['by_provider'].items()},
-        )
-    if rows:
-        render_cost_rows(
-            console,
-            [(r.created_at.strftime('%Y-%m-%d'), r.context_label, r) for r in rows],
-            f"[bold]{detail_heading}:[/bold] (showing {len(rows)})",
-            "Meeting",
-        )
-
-    console.print("[dim]" + "  |  ".join([f"Period: {label}"] + filters) + "[/dim]")
-    console.print()

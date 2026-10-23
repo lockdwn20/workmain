@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.53.0] - 2026-10-23
+
+The four AI cost commands (`meetings costs`, `notes costs`, `providers costs`, `reports costs`) queried, decided and printed in one function, through a renderer in `workmain/utils/cost_display.py` that ran its own queries. Their tests could only search printed text. They now read through `ai_cost_service` and print through the CLI output module's new report view, so behaviour is tested at the service. An exception no command handles is now one `Error:` line instead of a traceback, and the CLI's log level follows `LOG_LEVEL` (issue #201).
+
+### Added
+
+- `ai_cost_service.cost_summary`, `condensation_costs` and `report_costs`, returning a `CostReport` of totals, breakdowns and detail
+- `ReportView`, `Section` and `Renderer.report` in `workmain/cli/output.py`: a title from the filters, aligned totals lines, then each section with rows as a collection
+- `MonthParamType` in `workmain/cli/params.py`
+- `format_count`, `format_cost`, `format_refused`, `format_provider_name` and the shared cost views in `workmain/utils/cost_display.py`
+
+### Changed
+
+- The four cost commands print the period as `from=…, to=…` in their title, show a refused reply in its own `Refused` column, and print a list instead of a table where a table would not fit
+- A bad `--date`, `--start`, `--end`, `--month` or `--limit` on a cost command is a usage error, exit 2. A failure inside one exits 1 with `Error:` on stderr, where it printed a red line and exited 0
+- `WorkmAInGroup` reports an exception no command handled as `Error: <type>: <message>` on stderr, exit 1, and logs the traceback at `DEBUG`. This reaches every command through the root group
+- The CLI's log level is read from `LOG_LEVEL`, defaulting to `WARNING`; `.env.example` sets `WARNING`
+- `resolve_date_window` takes parsed dates
+- `workmain/services/__init__.py` exports `ai_cost_service`
+- `docs/DEVELOPMENT_STANDARDS.md` §5.6 describes the report view and how an unhandled exception is reported
+
+### Removed
+
+- `render_cost_summary`, `render_cost_rows`, `render_cost_breakdown` and `render_condensation_costs` from `workmain/utils/cost_display.py`, which no longer imports Rich
+- `format_date_window_label`
+
+Suite: 1472 passed, 0 failed, 0 skipped (baseline 1434 passed, 0 failed, 0 skipped).
+
 ## [1.52.2] - 2026-10-23
 
 Tests that drive refusal, fallback and cost recording built their `ProviderManager` from a copy of the live `config/ai_settings.json`, so they took the operator's provider routing as a hidden premise. Routing reports to Claude first turned the suite red, and a test whose stub was not on the routed path called the real vendor API and was billed. `stubbed_manager` now takes each test's routing as a required argument, and a provider the test does not stub raises instead of being called (issue #236).

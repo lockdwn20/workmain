@@ -1,7 +1,7 @@
 """
 Tests for the cost tracking persistence sprint: AiCostRepository (create,
-get_filtered, get_summary with provider filter), resolve_date_window and
-format_date_window_label (date_utils), and ProviderManager config loading
+get_filtered, get_summary with provider filter), resolve_date_window
+(date_utils), and ProviderManager config loading
 from ai_settings.json.
 """
 
@@ -13,7 +13,7 @@ from sqlalchemy import text
 
 from workmain.database.models import AiCost
 from workmain.database.repositories.ai_costs_repo import AiCostRepository
-from workmain.utils.date_utils import resolve_date_window, format_date_window_label
+from workmain.utils.date_utils import resolve_date_window
 from workmain.ai.provider_manager import ProviderManager
 
 
@@ -343,26 +343,26 @@ class TestResolveDateWindow:
         assert start is None and end is None
 
     def test_single_date(self):
-        start, end = resolve_date_window('2026-05-15', None, None, None, show_all=False)
+        start, end = resolve_date_window(date(2026, 5, 15), None, None, None, show_all=False)
         assert start == end == date(2026, 5, 15)
 
     def test_explicit_range(self):
-        start, end = resolve_date_window(None, '2026-05-01', '2026-05-15', None, show_all=False)
+        start, end = resolve_date_window(None, date(2026, 5, 1), date(2026, 5, 15), None, show_all=False)
         assert start == date(2026, 5, 1)
         assert end == date(2026, 5, 15)
 
     def test_start_without_end_uses_today(self):
-        start, end = resolve_date_window(None, '2026-05-01', None, None, show_all=False)
+        start, end = resolve_date_window(None, date(2026, 5, 1), None, None, show_all=False)
         assert start == date(2026, 5, 1)
         assert end == date.today()
 
     def test_month_flag(self):
-        start, end = resolve_date_window(None, None, None, '2026-05', show_all=False)
+        start, end = resolve_date_window(None, None, None, date(2026, 5, 1), show_all=False)
         assert start == date(2026, 5, 1)
         assert end == date(2026, 5, 31)
 
     def test_month_flag_february_non_leap(self):
-        start, end = resolve_date_window(None, None, None, '2025-02', show_all=False)
+        start, end = resolve_date_window(None, None, None, date(2025, 2, 1), show_all=False)
         assert start == date(2025, 2, 1)
         assert end == date(2025, 2, 28)
 
@@ -374,43 +374,20 @@ class TestResolveDateWindow:
         assert start <= end
 
     def test_show_all_overrides_month(self):
-        start, end = resolve_date_window(None, None, None, '2026-05', show_all=True)
+        start, end = resolve_date_window(None, None, None, date(2026, 5, 1), show_all=True)
         assert start is None and end is None
 
     def test_mutual_exclusion_date_and_start(self):
         with pytest.raises(click.UsageError, match="mutually exclusive"):
-            resolve_date_window('2026-05-01', '2026-05-01', None, None, show_all=False)
+            resolve_date_window(date(2026, 5, 1), date(2026, 5, 1), None, None, show_all=False)
 
     def test_mutual_exclusion_date_and_month(self):
         with pytest.raises(click.UsageError, match="mutually exclusive"):
-            resolve_date_window('2026-05-01', None, None, '2026-05', show_all=False)
+            resolve_date_window(date(2026, 5, 1), None, None, date(2026, 5, 1), show_all=False)
 
     def test_end_without_start_raises(self):
         with pytest.raises(click.UsageError, match="--end requires --start"):
-            resolve_date_window(None, None, '2026-05-15', None, show_all=False)
-
-
-# ---------------------------------------------------------------------------
-# format_date_window_label
-# ---------------------------------------------------------------------------
-
-class TestFormatDateWindowLabel:
-    def test_all_time(self):
-        assert format_date_window_label(None, None) == "All Time"
-
-    def test_single_day(self):
-        d = date(2026, 5, 15)
-        assert format_date_window_label(d, d) == "2026-05-15"
-
-    def test_full_month(self):
-        assert format_date_window_label(date(2026, 5, 1), date(2026, 5, 31)) == "May 2026"
-
-    def test_full_month_february_non_leap(self):
-        assert format_date_window_label(date(2026, 2, 1), date(2026, 2, 28)) == "February 2026"
-
-    def test_arbitrary_range(self):
-        label = format_date_window_label(date(2026, 5, 3), date(2026, 5, 17))
-        assert label == "2026-05-03 to 2026-05-17"
+            resolve_date_window(None, None, date(2026, 5, 15), None, show_all=False)
 
 
 # ---------------------------------------------------------------------------
@@ -730,3 +707,226 @@ class TestAiCostService:
             _reply(), 'intent_parse', refused=False, generation_time_s=0.1,
         ) is None
         assert len(closed) == 1
+
+
+# ---------------------------------------------------------------------------
+# ai_cost_service reads
+# ---------------------------------------------------------------------------
+
+def _seed(db_session, day, interaction_type='note_condensation', provider='gemini',
+          prompt=10, completion=202, thinking=196, total=212, cost=0.5,
+          refused=False, label=None, hour=12, report=None):
+    """Insert an AiCost row on `day`, optionally linked to a report."""
+    row = AiCost(
+        interaction_type=interaction_type, provider=provider, model='test-model',
+        prompt_tokens=prompt, completion_tokens=completion, thinking_tokens=thinking,
+        total_tokens=total, cost_usd=cost, refused=refused, context_label=label,
+        report_id=report.id if report else None,
+        created_at=datetime(day.year, day.month, day.day, hour, 0, 0),
+    )
+    db_session.add(row)
+    db_session.flush()
+    return row
+
+
+def _seed_report(db_session, day, report_type='daily_internal', metadata=None):
+    from workmain.database.models import Report
+    report = Report(report_type=report_type, report_date=day, content='x',
+                    report_metadata=metadata or {})
+    db_session.add(report)
+    db_session.flush()
+    return report
+
+
+class TestCostReads:
+    """The cost commands never write (#191): the recording paths raise."""
+
+    @pytest.fixture(autouse=True)
+    def _no_writes(self, monkeypatch):
+        def _raise(*args, **kwargs):
+            raise AssertionError("a cost read wrote")
+        monkeypatch.setattr(AiCostRepository, 'create', _raise)
+        monkeypatch.setattr(AiCostRepository, 'link_report', _raise)
+
+    def _two_condensations(self, db_session, day):
+        _seed(db_session, day, label='Standup', hour=12)
+        _seed(db_session, day, provider='ollama', prompt=7, completion=3,
+              thinking=None, total=10, cost=0.0, label='Retro', hour=13)
+        _seed(db_session, day, interaction_type='daily_internal')
+
+    def test_condensation_totals_only_count_condensations(self, db_session):
+        """S1"""
+        from workmain.services import ai_cost_service as svc
+        day = date(2099, 1, 11)
+        self._two_condensations(db_session, day)
+
+        result = svc.condensation_costs(db_session, None, day, day, 20)
+
+        assert result.totals == svc.CostTotals(2, 17, 9, 196, 222, 0.5)
+        assert result.by_type == svc.Page((), 0)
+
+    def test_condensation_by_provider_is_sorted_buckets(self, db_session):
+        """S2"""
+        from workmain.services import ai_cost_service as svc
+        day = date(2099, 1, 12)
+        self._two_condensations(db_session, day)
+
+        rows = svc.condensation_costs(db_session, None, day, day, 20).by_provider.rows
+
+        assert [b.name for b in rows] == ['gemini', 'ollama']
+        assert rows[1].thinking_tokens is None
+        assert rows[0].avg_cost == pytest.approx(0.5)
+
+    def test_condensation_detail_is_newest_first(self, db_session):
+        """S3"""
+        from workmain.services import ai_cost_service as svc
+        day = date(2099, 1, 13)
+        self._two_condensations(db_session, day)
+
+        lines = svc.condensation_costs(db_session, None, day, day, 20).detail.rows
+
+        assert lines == (
+            svc.CostLine(day, 'Retro', 'ollama', False, 7, 3, None, 10, 0.0),
+            svc.CostLine(day, 'Standup', 'gemini', False, 10, 6, 196, 212, 0.5),
+        )
+
+    def test_condensation_limit_caps_rows_not_total(self, db_session):
+        """S4"""
+        from workmain.services import ai_cost_service as svc
+        day = date(2099, 1, 14)
+        for hour in (10, 11, 12):
+            _seed(db_session, day, hour=hour)
+
+        detail = svc.condensation_costs(db_session, None, day, day, 2).detail
+
+        assert len(detail.rows) == 2
+        assert detail.total == 3
+
+    def test_condensation_provider_filter_and_section_filters(self, db_session):
+        """S5"""
+        from workmain.services import ai_cost_service as svc
+        day = date(2099, 1, 15)
+        self._two_condensations(db_session, day)
+
+        result = svc.condensation_costs(db_session, 'gemini', day, day, 20)
+
+        assert result.totals.calls == 1
+        assert result.filters == (('provider', 'gemini'), ('from', day), ('to', day))
+        for page in (result.by_provider, result.by_type, result.detail):
+            assert page.filters == ()
+
+    def test_unbounded_window_has_no_date_filters(self, db_session):
+        """S6"""
+        from workmain.services import ai_cost_service as svc
+
+        result = svc.condensation_costs(db_session, None, None, None, 1)
+
+        assert result.filters == ()
+
+    def test_empty_day_has_empty_pages(self, db_session):
+        """S7"""
+        from workmain.services import ai_cost_service as svc
+        day = date(2099, 1, 17)
+
+        result = svc.condensation_costs(db_session, None, day, day, 20)
+
+        assert result.totals.calls == 0
+        for page in (result.by_provider, result.by_type, result.detail):
+            assert page.rows == ()
+
+    def test_summary_breaks_down_by_provider_and_type(self, db_session):
+        """S8"""
+        from workmain.services import ai_cost_service as svc
+        day = date(2099, 1, 18)
+        _seed(db_session, day, interaction_type='daily_internal')
+        _seed(db_session, day, interaction_type='intent_parse', provider='ollama')
+
+        result = svc.cost_summary(db_session, None, day, day)
+
+        assert [b.name for b in result.by_type.rows] == ['daily_internal', 'intent_parse']
+        assert result.detail == svc.Page((), 0)
+
+    def test_summary_provider_filter(self, db_session):
+        """S9"""
+        from workmain.services import ai_cost_service as svc
+        day = date(2099, 1, 19)
+        _seed(db_session, day, interaction_type='daily_internal')
+        _seed(db_session, day, interaction_type='intent_parse', provider='ollama')
+
+        result = svc.cost_summary(db_session, 'ollama', day, day)
+
+        assert result.totals.calls == 1
+        assert ('provider', 'ollama') in result.filters
+
+    def test_report_lines_carry_cost_rows_not_metadata(self, db_session):
+        """S10"""
+        from workmain.services import ai_cost_service as svc
+        day = date(2099, 1, 20)
+        report = _seed_report(
+            db_session, day, metadata={'cost': 9.9, 'tokens': 99999})
+        first = _seed(db_session, day, interaction_type='daily_internal',
+                      report=report, cost=0.25, prompt=5, completion=5,
+                      thinking=None, total=10)
+        second = _seed(db_session, day, interaction_type='daily_internal',
+                       report=report, cost=0.5, refused=True)
+
+        result = svc.report_costs(db_session, None, None, day, day, 20)
+
+        assert result.detail.rows == (
+            svc.CostLine(day, 'daily_internal', 'gemini', True, 10, 6, 196, 212, 0.5),
+            svc.CostLine(day, 'daily_internal', 'gemini', False, 5, 5, None, 10, 0.25),
+        )
+        assert second.id > first.id
+        assert result.by_provider == svc.Page((), 0)
+        assert result.by_type == svc.Page((), 0)
+
+    def test_report_type_filter(self, db_session):
+        """S11"""
+        from workmain.services import ai_cost_service as svc
+        day = date(2099, 1, 21)
+        daily = _seed_report(db_session, day, 'daily_internal')
+        weekly = _seed_report(db_session, day, 'weekly_client')
+        _seed(db_session, day, report=daily)
+        _seed(db_session, day, report=weekly)
+
+        result = svc.report_costs(db_session, None, 'weekly_client', day, day, 20)
+
+        assert [l.label for l in result.detail.rows] == ['weekly_client']
+        assert ('type', 'weekly_client') in result.filters
+
+    def test_report_limit_caps_rows_not_totals(self, db_session):
+        """S12"""
+        from workmain.services import ai_cost_service as svc
+        day = date(2099, 1, 22)
+        report = _seed_report(db_session, day)
+        for _ in range(3):
+            _seed(db_session, day, report=report)
+
+        result = svc.report_costs(db_session, None, None, day, day, 2)
+
+        assert result.totals.calls == 3
+        assert result.detail.total == 3
+        assert len(result.detail.rows) == 2
+
+    def test_report_costs_filter_on_report_date(self, db_session):
+        """S13"""
+        from workmain.services import ai_cost_service as svc
+        day = date(2099, 1, 23)
+        report = _seed_report(db_session, day)
+        _seed(db_session, date(2099, 2, 20), report=report)
+
+        result = svc.report_costs(db_session, None, None, day, day, 20)
+
+        assert result.totals.calls == 1
+
+    def test_bucket_average_is_cost_over_calls(self, db_session):
+        """S14"""
+        from workmain.services import ai_cost_service as svc
+        day = date(2099, 1, 24)
+        _seed(db_session, day, interaction_type='daily_internal', cost=0.5)
+        _seed(db_session, day, interaction_type='daily_internal', cost=0.25)
+
+        bucket = svc.cost_summary(db_session, None, day, day).by_type.rows[0]
+
+        assert bucket.calls == 2
+        assert bucket.avg_cost == pytest.approx(0.375)

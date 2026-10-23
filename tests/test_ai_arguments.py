@@ -120,12 +120,6 @@ class _SentinelStop(Exception):
     """Raised by the recorder's generate() once the request is recorded."""
 
 
-_COST_SUMMARY = {
-    'total_calls': 0, 'total_cost': 0.0, 'total_tokens': 0,
-    'by_provider': {}, 'by_type': {},
-}
-
-
 def _settings_file(tmp_path, report_types):
     """Write an ai_settings.json holding claude and ollama; return its path."""
     path = tmp_path / 'ai_settings.json'
@@ -160,25 +154,6 @@ class TestProviderArguments:
         assert result.exit_code == 1, result.output
         assert "Unknown provider 'gemini'" in result.output
         assert 'ollama' in result.output
-
-    @pytest.mark.parametrize('module, group', [
-        ('workmain.cli.commands.reports', reports),
-        ('workmain.cli.commands.notes', notes),
-        ('workmain.cli.commands.meetings', meetings),
-        ('workmain.cli.commands.providers', providers),
-    ])
-    def test_configured_provider_is_accepted_by_cost_filters(self, module, group):
-        repo = MagicMock()
-        repo.get_summary.return_value = _COST_SUMMARY
-        repo.get_filtered.return_value = []
-        repo.list_reports.return_value = []
-        with patch(_PATCH_TARGET, return_value=_manager()), \
-                patch(f'{module}.get_db'), \
-                patch(f'{module}.get_ai_cost_repository', create=True, return_value=repo), \
-                patch(f'{module}.get_reports_repository', create=True, return_value=repo):
-            result = CliRunner().invoke(group, ['costs', '--provider', 'ollama', '--all'])
-        assert result.exit_code == 0, result.output
-        assert 'Unknown provider' not in result.output
 
     @staticmethod
     def _run_override(routed, override):
@@ -339,12 +314,6 @@ class TestReportTypeFiltersRows(unittest.TestCase):
             reports, ['corrections', '--type', 'zz_issue154_type', '--date', '2099-01-01'])
         self.assertEqual(corrections.exit_code, 0, corrections.output)
         self.assertIn('zz154 marker', corrections.output)
-
-        costs = runner.invoke(
-            reports, ['costs', '--type', 'zz_issue154_type', '--date', '2099-01-01'])
-        self.assertEqual(costs.exit_code, 0, costs.output)
-        self.assertIn('zz_issue154_type', costs.output)
-        self.assertNotIn('No report costs found', costs.output)
 
 
 class TestReportsFailureOutput:
