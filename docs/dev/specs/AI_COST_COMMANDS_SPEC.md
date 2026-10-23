@@ -24,6 +24,7 @@
 | 20261023 | Spanner | How the period prints | The service returns `("from", start)` and `("to", end)` as filters when the window has them, and the renderer writes them by §5.6's title rule (`from=2026-10-01, to=2026-10-31`). `format_date_window_label` then has no caller, so it is removed with its tests in this change. |
 | 20261023 | Spanner | Where the views shared by several command files live | The `CollectionView`s and totals `Field`s shared by more than one command go in `workmain/utils/cost_display.py`, next to the `fmt` functions they use. Each command file declares its own `ReportView` as a module constant from them. Declaring each table four times would make one table four copies. |
 | 20261023 | Ray | Order | #236 (provider tests take their routing from the live config) blocks #201: every conversion's baseline is a full `pytest` run against the routing in use. Step 0 merges `dev` once #236 is on it. |
+| 20261023 | Spanner | #236 shipped (v1.52.2) and `dev` was merged into this branch (`51cefe8`). | Re-verified. #236 changed no file under `workmain/` except `__version__.py`, so every application citation in §2 holds. It changed the tests this spec keeps or removes only inside `TestMeetingsCondenseTokenLine` and `TestManagerRecording`, and every test node §4 and §5 name still collects. Its new §6.2 rule 8 binds a test that builds a real `ProviderManager`. No test this spec adds builds one: C1–C9 patch the provider manager `ai_arguments` reads, as `TestProviderArguments` does. Baseline re-measured (§6). |
 | 20261023 | Spanner | Placement of the read functions | `workmain/services/ai_cost_service.py`, the module that already owns the cost domain (§3.6). |
 
 ---
@@ -145,7 +146,7 @@ Verified on `dev` `036ad12`. Findings from the study are cited as F-numbers and 
 
 ### Step 0 — prerequisite
 
-Issue #236 is closed and on `dev`. Merge `dev` into this branch (`git merge dev`), run `pytest`, and record the counts as the baseline in the results artifact. If #236 is still open, stop (DR10).
+Issue #236 is closed and on `dev`, and `dev` was merged into this branch at `51cefe8`. If `dev` has moved since, merge it again (`git merge dev`). Run `pytest` and record the counts as the baseline in the results artifact.
 
 ### Step 1 — service
 
@@ -223,11 +224,11 @@ None. This spec runs no migration, deletes no GitHub object, merges nothing to `
 
 ## 6. Test plan
 
-- **Baseline:** the counts Step 0 records after merging `dev`. Before #236, on this branch at `2f64799`, 20261023, with the committed config: 1429 passed, 0 failed, 0 skipped. #236 changes that count by its own tests.
+- **Baseline:** the counts Step 0 records. On this branch at `51cefe8`, 20261023, after #236: 1434 passed, 0 failed, 0 skipped.
 - **Expected after:** the baseline, less 13 removed tests, plus 46 new, as collected:
   - **Removed:** the 3 tests of `TestProvidersCosts`, `TestCondensationCosts` and `TestReportsCosts`; the 5 of `TestFormatDateWindowLabel`; `test_configured_provider_is_accepted_by_cost_filters`, which collects as 4; and `test_providers_costs_known_provider_no_bad_parameter`.
   - **New:** S1–S14, P1–P2, R1–R6, W1–W3, L1–L2 and F1–F4, which is 31. C1 and C2 collect as 4 each, and C3–C9 as 7.
-  - On the pre-#236 count above: 1462 passed, 0 failed, 0 skipped.
+  - On the baseline above: 1467 passed, 0 failed, 0 skipped.
 
 Test method names are the spec's where an AC cites the node; Anvil names the rest.
 
@@ -296,6 +297,6 @@ Test method names are the spec's where an AC cites the node; Anvil names the res
 - **The group branch reaches every command.** DR7 changes only an exception no command catches. The exit stays 1 and the stream stays stderr, and Click's own exceptions pass through (W2). A caller that wanted the traceback now gets one line (§2, `failure_message` is better for it). Rollback: revert Step 3's `invoke` change.
 - **Output wording changes.** Titles, the empty line, the filter line (now `from=`/`to=` in the title), the Refused column and the list layout at narrow widths follow §5.6. The numbers and which rows appear do not change: S1–S14 pin them against today's values.
 - **`ai_cost_service` grows a second role.** Recording and reading are both the cost domain's. Recording keeps its own sessions (§4.3), and reading takes the caller's. Each function's docstring states which it does.
-- **`LOG_LEVEL` in the live `.env`.** It reads `INFO` today and has had no effect. Once DR11 lands, `INFO` makes every CLI command print `INFO` records on stdout, and EOD would capture them. Ray changes his `.env` to `LOG_LEVEL=WARNING`, or removes the line, before this merges. `.env` is untracked and not this branch's to edit. Rollback: revert Step 3's `interface.py` change.
-- **Live configuration.** `config/ai_settings.json` is edited in the working tree during daily use. Before #236, 17 provider tests failed under any routing other than the committed one, because `stubbed_manager` copied the live file. Step 0 waits for #236, which removes that dependency and commits Ray's routing of 20261023. No test in this spec reads the routing.
+- **`LOG_LEVEL` in the live `.env`.** Until DR11 lands nothing reads it. A `.env` that sets `INFO` would make every CLI command print `INFO` records on stdout, where EOD captures them. Ray's `.env` reads `WARNING` (20261023). `.env` is untracked and not this branch's to edit. Rollback: revert Step 3's `interface.py` change.
+- **Live configuration.** `config/ai_settings.json` is edited in the working tree during daily use. Since #236, no test reads its routing (§6.2 rule 8), and no test in this spec does either.
 - Each step is one commit and reverts alone. Step 5 depends on Steps 1–4.
