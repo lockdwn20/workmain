@@ -1,10 +1,10 @@
 # Provider Tests State Their Routing — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Anvil (Role 3)
 **Date:** 20261023
 **Spec:** `../specs/PROVIDER_TEST_ROUTING_SPEC.md`
-**Released as:** v1.52.2
+**Released as:** v1.52.2 (tag v1.52.2)
 
 ---
 
@@ -41,8 +41,10 @@ Complete. `stubbed_manager` takes its routing as a required argument and makes e
 ## 5. Verification
 
 - **Test suite:** 1434 passed, 0 failed, 0 skipped (baseline: 1429 passed, 0 failed, 0 skipped) — form per `docs/DEVELOPMENT_STANDARDS.md` §6.
+- **Close-out suite run (P8), 20261023:** bare `pytest` on the branch with the committed routing: 1434 passed, 0 failed, 0 skipped.
 - **Swapped-routing and real-call runs:** as AC1.1 and AC1.2. `PYTHONPATH` resolution was confirmed from inside the copy; from the repository root `python -c` resolves the live package because `-c` puts the working directory first.
-- **Daemon restart:** close-out's.
+- **Live verification:** the committed routing is the one production has run on since Ray set it: `ai_costs` rows 27117 (`daily_internal`) and 27118 (`weekly_client`) on 20261022 and 27468 (`note_condensation`) on 20261023 were answered by `claude` as primary. The test changes touch no running code.
+- **Daemon restart:** close-out step 8 restarts `workmain-notify.service` after the `dev` merge; the confirmed `ActiveEnterTimestamp` is carried by the issue's closing comment.
 
 ## 6. Follow-ups
 
