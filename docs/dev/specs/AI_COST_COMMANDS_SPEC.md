@@ -25,6 +25,10 @@
 | 20261023 | Spanner | Where the views shared by several command files live | The `CollectionView`s and totals `Field`s shared by more than one command go in `workmain/utils/cost_display.py`, next to the `fmt` functions they use. Each command file declares its own `ReportView` as a module constant from them. Declaring each table four times would make one table four copies. |
 | 20261023 | Ray | Order | #236 (provider tests take their routing from the live config) blocks #201: every conversion's baseline is a full `pytest` run against the routing in use. Step 0 merges `dev` once #236 is on it. |
 | 20261023 | Spanner | #236 shipped (v1.52.2) and `dev` was merged into this branch (`51cefe8`). | Re-verified. #236 changed no file under `workmain/` except `__version__.py`, so every application citation in §2 holds. It changed the tests this spec keeps or removes only inside `TestMeetingsCondenseTokenLine` and `TestManagerRecording`, and every test node §4 and §5 name still collects. Its new §6.2 rule 8 binds a test that builds a real `ProviderManager`. No test this spec adds builds one: C1–C9 patch the provider manager `ai_arguments` reads, as `TestProviderArguments` does. Baseline re-measured (§6). |
+| 20261023 | Caliper | 3: L1 and L2 cannot pass as specified. `_configure_cli_logging` calls `basicConfig` without `force`, which does nothing when the root logger already has handlers, and under pytest it holds four. Probe: `basicConfig(level=DEBUG)` left the level at 30. DR11 doesn't say `force=True` or clear the handlers. | Accepted, and re-run 20261023: the same no-op with one `NullHandler` on the root. In a fresh CLI process the root has no handlers when `_configure_cli_logging` runs, and `basicConfig` sets the level (probe). So the production code keeps `basicConfig` without `force`, and the tests move out of process: L1 and L2 are subprocess tests in `tests/test_cli_logging.py`, the method that file already uses for #148 and states in its docstring. `force=True` is set aside: it would close pytest's capture handlers whenever a test invokes `cli`. DR11, Step 3, AC8.4. |
+| 20261023 | Caliper | 3: DR11's "not a level name" is ambiguous for `NOTSET`, which `getLevelName` maps to 0, letting every record onto stdout. | Accepted. DR11 looks the name up in `logging.getLevelNamesMapping()` (§3.8) and treats `NOTSET` like an unknown name, so the level is `WARNING`. L1 covers `NOTSET`. |
+| 20261023 | Caliper | 3: DR2 doesn't state `detail.filters`. If it carried the period, the detail title would repeat it, which the study's Option B rejected. | Accepted. DR2: every section page has `filters` `()`, and the provider, type and window are on `CostReport.filters` only. S5 asserts it. |
+| 20261023 | Caliper | 4: `report_costs` builds `by_provider` and `by_type`, which no view reads. | Accepted, and applied to the same pattern in the other two functions: each fills only the sections its commands show, and the others are `Page((), 0)`. `condensation_costs` no longer fills `by_type`. DR2, DR3; S1, S8 and S10 assert the empty sections. |
 | 20261023 | Spanner | Placement of the read functions | `workmain/services/ai_cost_service.py`, the module that already owns the cost domain (§3.6). |
 
 ---
@@ -91,12 +95,14 @@ Verified on `dev` `036ad12`. Findings from the study are cited as F-numbers and 
   - `CostLine`: `day: date`, `label: Optional[str]`, `provider: str`, `refused: bool`, `prompt_tokens: int`, `answer_tokens: int`, `thinking_tokens: Optional[int]`, `total_tokens: int`, `cost: float`.
   - `CostReport`: `filters: Tuple[Tuple[str, object], ...]`, `totals: CostTotals`, `by_provider: Page[CostBucket]`, `by_type: Page[CostBucket]`, `detail: Page[CostLine]`.
   - Values come from `summarize`'s keys: `calls` from `total_calls`/`calls`, `total_tokens` from `total_tokens`/`tokens`, and `cost` from `total_cost`/`cost`. A line's `answer_tokens` is `answer_tokens(completion_tokens, thinking_tokens)`, and its `cost` is `float(cost_usd)`.
-  - A breakdown `Page` holds one `CostBucket` per key, sorted by name, with `total` its row count and `filters` `()`. Names are as stored, lowercase.
+  - A breakdown `Page` holds one `CostBucket` per key, sorted by name, with `total` its row count. Names are as stored, lowercase.
+  - Every section `Page`, breakdown or detail, has `filters` `()`. The provider, type and window are on `CostReport.filters` only, so the report's title carries them once and no section title repeats them.
+  - A function fills only the sections its commands show (DR6). Every other section is `Page((), 0)`.
   - `filters` is, in this order and only when set: `("provider", provider)`, `("type", report_type)`, `("from", start_date)`, `("to", end_date)`.
 - **DR3 — The service functions.** Each takes `session` first, and never opens, commits or rolls back a session.
-  - `cost_summary(session, provider, start_date, end_date) -> CostReport`. It calls `get_summary(provider=..., start_date=..., end_date=...)`. `detail` is `Page((), 0)`.
-  - `condensation_costs(session, provider, start_date, end_date, limit) -> CostReport`. It calls `get_summary` and `get_filtered`, both with `interaction_type='note_condensation'`. A detail line's `day` is `created_at.date()` and its `label` is `context_label`. `detail.total` is `totals.calls` (study F5).
-  - `report_costs(session, provider, report_type, start_date, end_date, limit) -> CostReport`. It calls `get_report_costs`, and builds `totals`, `by_provider` and `by_type` from `summarize` over every pair's cost row. `detail.rows` is the first `limit` pairs, each line with `day` `report.report_date` and `label` `report.report_type`. `detail.total` is the number of pairs.
+  - `cost_summary(session, provider, start_date, end_date) -> CostReport`. It calls `get_summary(provider=..., start_date=..., end_date=...)`. It fills `by_provider` and `by_type`. `detail` is empty.
+  - `condensation_costs(session, provider, start_date, end_date, limit) -> CostReport`. It calls `get_summary` and `get_filtered`, both with `interaction_type='note_condensation'`. It fills `by_provider` and `detail`, and `by_type` is empty. A detail line's `day` is `created_at.date()` and its `label` is `context_label`. `detail.total` is `totals.calls` (study F5).
+  - `report_costs(session, provider, report_type, start_date, end_date, limit) -> CostReport`. It calls `get_report_costs`, and builds `totals` from `summarize` over every pair's cost row. It fills `detail`, and `by_provider` and `by_type` are empty. `detail.rows` is the first `limit` pairs, each line with `day` `report.report_date` and `label` `report.report_type`. `detail.total` is the number of pairs.
 - **DR4 — The report view.** In `output.py`:
   - `Section(field: str, view: CollectionView)`: `field` names an attribute of the result holding a `Page`.
   - `ReportView(noun: str, totals_field: str, totals: Tuple[Field, ...], sections: Tuple[Section, ...], empty_hint: Optional[str] = None)`. The result has a `filters` attribute shaped as `Page.filters`.
@@ -128,7 +134,7 @@ Verified on `dev` `036ad12`. Findings from the study are cited as F-numbers and 
 - **DR7 — An exception no command handles.** `WorkmAInGroup.invoke` keeps its two branches. It then re-raises `click.ClickException`, `click.exceptions.Exit` and `click.Abort` unchanged. Any other `Exception` is logged at `DEBUG` with `exc_info=True` on the module logger (DR11 says how to see it), and re-raised as `click.ClickException(f"{type(exc).__name__}: {exc}")`, chained `from` it. A `BaseException` that is not an `Exception` passes through untouched.
 - **DR8 — Arguments.** `MonthParamType(click.ParamType)`, `name = "month"`: a `date` passes through. Anything else converts with `datetime.strptime(text, "%Y-%m").date()`, the first of the month, and calls `self.fail` on `ValueError`, with the message `'<value>' is not a valid month. Use YYYY-MM.` (§3.8).
 - **DR9 — The date window.** `resolve_date_window(on: Optional[date], start: Optional[date], end: Optional[date], month: Optional[date], show_all: bool)` keeps today's precedence, its four `click.UsageError`s and their messages. It returns `(on, on)` for a day, `(start, end or date.today())` for a range, and `(month, <last day of month>)` for a month.
-- **DR11 — The CLI's log level.** `_configure_cli_logging` (`workmain/cli/interface.py`) takes its level from the environment variable `LOG_LEVEL`. That is a `logging` level name, matched case-insensitively. When it is unset, empty or not a level name, the level is `WARNING`, so a bad value never stops a command. Records still go to stdout. `.env.example` sets `LOG_LEVEL=WARNING`. The daemon's `_configure_logging` is unchanged.
+- **DR11 — The CLI's log level.** `_configure_cli_logging` (`workmain/cli/interface.py`) takes its level from the environment variable `LOG_LEVEL`, upper-cased and looked up in `logging.getLevelNamesMapping()` (§3.8). When it is unset, empty, not in the mapping, or `NOTSET`, the level is `WARNING`. A bad value never stops a command, and `NOTSET`, which would let every record through to the stdout callers capture, is not accepted. It keeps `basicConfig` without `force`: in a CLI process the root logger has no handlers when the root group configures it (probe, 20261023), and `force` would close pytest's capture handlers whenever a test invokes `cli`. Records still go to stdout. `.env.example` sets `LOG_LEVEL=WARNING`. The daemon's `_configure_logging` is unchanged.
 - **DR10 — Not covered here.** Anything this spec doesn't settle stops at the current step (`.claude/skills/session-start/SKILL.md` § Role 3).
 
 ## 4. Steps
@@ -138,7 +144,7 @@ Verified on `dev` `036ad12`. Findings from the study are cited as F-numbers and 
 | 0 | `dev` merged in, carrying #236 | — |
 | 1 | Read service, package export, service tests | `workmain/services/ai_cost_service.py`, `workmain/services/__init__.py`, `tests/test_ai_costs.py` |
 | 2 | `MonthParamType`, `resolve_date_window` on parsed values, their tests | `workmain/cli/params.py`, `workmain/utils/date_utils.py`, `tests/test_cli_params.py`, `tests/test_ai_costs.py` |
-| 3 | Report view, the group's exception branch and the CLI log level, with renderer, wiring and logging tests | `workmain/cli/output.py`, `workmain/cli/interface.py`, `.env.example`, `tests/test_output.py` |
+| 3 | Report view, the group's exception branch and the CLI log level, with renderer, wiring and logging tests | `workmain/cli/output.py`, `workmain/cli/interface.py`, `.env.example`, `tests/test_output.py`, `tests/test_cli_logging.py` |
 | 4 | Formatters and shared views | `workmain/utils/cost_display.py`, `tests/test_cost_display.py` |
 | 5 | The four commands converted, with command tests | `workmain/cli/commands/meetings.py`, `notes.py`, `providers.py`, `reports.py`, `workmain/utils/cost_display.py`, `workmain/utils/date_utils.py`, `tests/test_cost_display.py`, `tests/test_ai_arguments.py`, `tests/test_provider_foundation.py`, `tests/test_ai_costs.py` |
 | 6 | Standards | `docs/DEVELOPMENT_STANDARDS.md` |
@@ -164,7 +170,7 @@ Issue #236 is closed and on `dev`, and `dev` was merged into this branch at `51c
 
 1. `output.py`: `Section`, `ReportView` and `Renderer.report` per DR4, and DR7 in `WorkmAInGroup.invoke`. The module docstring adds the report view and the group's third branch.
 2. `interface.py`: `_configure_cli_logging` per DR11, and its docstring names `LOG_LEVEL`. `.env.example`: `LOG_LEVEL=WARNING`.
-3. `tests/test_output.py`: R1–R6 in `TestReport`, W1–W3 in `TestWiring`, and L1–L2 in `TestCliLogLevel` (§6).
+3. `tests/test_output.py`: R1–R6 in `TestReport` and W1–W3 in `TestWiring`. `tests/test_cli_logging.py`: L1–L2 (§6).
 
 ### Step 4 — formatters and views
 
@@ -218,7 +224,7 @@ None. This spec runs no migration, deletes no GitHub object, merges nothing to `
 | AC7.1 | The full suite passes. | `pytest`, with the counts expected in §6. |
 | AC8.1 | A report renders its title, totals and non-empty sections, and its empty line and hint when every section is empty, whole at a width the test sets, with bracketed values intact. | `pytest tests/test_output.py::TestReport` |
 | AC8.2 | An exception no command handled reaches the user as one `Error: <type>: <message>` line on stderr with exit 1, and no traceback, from a converted group and through the root from an unconverted one. Click's own exceptions keep their exits. | `pytest tests/test_output.py::TestWiring` |
-| AC8.4 | The CLI's log level follows `LOG_LEVEL`, defaults to `WARNING`, and survives a bad value. At `DEBUG`, the traceback of an unhandled exception is written to the log while stderr still carries only the `Error:` line. | `pytest tests/test_output.py::TestCliLogLevel` |
+| AC8.4 | The CLI's log level follows `LOG_LEVEL`, defaults to `WARNING`, and survives a bad value. At `DEBUG`, the traceback of an unhandled exception is written to the log while stderr still carries only the `Error:` line. | `pytest tests/test_cli_logging.py` |
 | AC8.3 | A bad `--date`, `--start`, `--end`, `--month` or `--limit` on a costs command is a usage error, exit 2 on stderr. | `pytest tests/test_cli_params.py::TestMonthParamType "tests/test_cost_display.py::TestCostCommands::test_bad_values_are_usage_errors"` |
 | AC9.1 | A command author knows from `docs/DEVELOPMENT_STANDARDS.md` §5.6 how a result in parts is declared and printed, and what happens to an exception their command does not handle. | A stated reading by Ray of §5.6 for exactly that. |
 
@@ -236,16 +242,16 @@ Test method names are the spec's where an AC cites the node; Anvil names the res
 
 | T | What it shows |
 | --- | --- |
-| S1 | `condensation_costs`, with a Gemini row (prompt 10, completion 202, thinking 196, total 212, cost 0.5), an Ollama row (7, 3, `None`, 10, 0.0) and a `daily_internal` row: `totals` is `CostTotals(2, 17, 9, 196, 222, 0.5)`. |
+| S1 | `condensation_costs`, with a Gemini row (prompt 10, completion 202, thinking 196, total 212, cost 0.5), an Ollama row (7, 3, `None`, 10, 0.0) and a `daily_internal` row: `totals` is `CostTotals(2, 17, 9, 196, 222, 0.5)`. `by_type` is `Page((), 0)`. |
 | S2 | The same: `by_provider.rows` is two `CostBucket`s named `gemini` and `ollama`, in that order, with Ollama's `thinking_tokens` `None` and Gemini's `avg_cost` 0.5. |
 | S3 | The same: `detail.rows` holds both lines, newest first, each with `day` the sentinel, `label` the seeded `context_label`, `provider`, `refused`, and the token and cost values. |
 | S4 | Three condensation rows with `limit=2`: two lines, `detail.total` 3. |
-| S5 | `provider='gemini'`: only Gemini's rows are counted, and `filters` is `(("provider", "gemini"), ("from", day), ("to", day))`. |
+| S5 | `provider='gemini'`: only Gemini's rows are counted, and `filters` is `(("provider", "gemini"), ("from", day), ("to", day))`. Every section page's `filters` is `()`. |
 | S6 | `start_date` and `end_date` `None`: `filters` holds no `from` or `to`. |
 | S7 | A day with no condensation rows: `totals.calls` 0, and all three pages have no rows. |
 | S8 | `cost_summary` over a `daily_internal` and an `intent_parse` row: `by_type.rows` names both, and `detail` is `Page((), 0)`. |
 | S9 | `cost_summary` with `provider`: only that provider's rows are counted, and the filter is present. |
-| S10 | `report_costs`, with a report on the sentinel day whose `report_metadata` holds a different cost and token count, and two cost rows linked to it, one refused: the lines carry `day` `report_date`, `label` the report type, the refused flag, and the cost rows' values, never the metadata's. Ordered by `report_date` descending, then id descending. |
+| S10 | `report_costs`, with a report on the sentinel day whose `report_metadata` holds a different cost and token count, and two cost rows linked to it, one refused: the lines carry `day` `report_date`, `label` the report type, the refused flag, and the cost rows' values, never the metadata's. Ordered by `report_date` descending, then id descending. `by_provider` and `by_type` are `Page((), 0)`. |
 | S11 | `report_costs` with `report_type` set: only that type's pairs, and `("type", report_type)` in `filters`. |
 | S12 | `report_costs` with three pairs and `limit=2`: `totals.calls` 3 and `detail.total` 3, with two lines. |
 | S13 | `report_costs` filters on `report_date`: a cost row created on another day but linked to a report on the sentinel day is counted. |
@@ -270,8 +276,8 @@ Test method names are the spec's where an AC cites the node; Anvil names the res
 | R6 | `TestReport` | No filters: the title is the noun alone, with no parentheses. |
 | W1 | `TestWiring` | A `WorkmAInGroup` command raising `RuntimeError("boom [#1]")`: exit 1, `result.stderr == "Error: RuntimeError: boom [#1]\n"`, and `Traceback` in neither stream. |
 | W2 | `TestWiring` | Commands raising `click.Abort()`, calling `ctx.exit(3)`, and raising `click.UsageError("x")` exit 1, 3 and 2, as without the branch. |
-| L1 | `TestCliLogLevel` | With the root logger's handlers and level saved and restored around it, `_configure_cli_logging()` under `LOG_LEVEL` `debug`, `WARNING`, unset, empty and `BOGUS` (via `monkeypatch`) sets the root level to `DEBUG`, `WARNING`, `WARNING`, `WARNING` and `WARNING`, without raising. |
-| L2 | `TestCliLogLevel` | With the level at `DEBUG`, a W1-style failure writes the traceback through the log handler, and `result.stderr` is still the one `Error:` line. With the level at `WARNING`, no traceback is written. |
+| L1 | `tests/test_cli_logging.py` | A subprocess, run as the existing probe in that file is, calls `_configure_cli_logging()` and prints the root level. Run with `LOG_LEVEL` set to `debug`, `WARNING`, `` (empty), `BOGUS` and `NOTSET` in the subprocess's environment, it prints 10, 30, 30, 30 and 30, and exits 0. An unset variable is not a case: `load_dotenv()` finds the repository's `.env` from the module's own directory, whatever the working directory, and does not override a variable already set, so an empty value is the reliable default case. |
+| L2 | `tests/test_cli_logging.py` | A subprocess builds a `WorkmAInGroup` with a command raising `RuntimeError("boom")`, calls `_configure_cli_logging()`, then the group's `main(["boom"])`. With `LOG_LEVEL=DEBUG`, it exits 1, stderr is `Error: RuntimeError: boom\n`, and stdout holds `Traceback` and `RuntimeError: boom`. With `LOG_LEVEL=WARNING`, it exits 1, stderr is the same, and stdout holds no `Traceback`. |
 | W3 | `TestWiring` | Through `cli`, `clients list` with `workmain.cli.commands.clients.ClientRepository` patched to raise `RuntimeError("boom")`: exit 1, `Error: RuntimeError: boom` on stderr, and no `Traceback`. |
 
 **`tests/test_cost_display.py`**
