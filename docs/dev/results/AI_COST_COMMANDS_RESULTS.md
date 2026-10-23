@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Complete. The four AI cost commands (`meetings costs`, `notes costs`, `providers costs`, `reports costs`) read through three `ai_cost_service` functions and print through `Renderer.report`. `cost_display.py` holds formatters and views and no Rich. `WorkmAInGroup` reports an exception no command handled as one `Error:` line on stderr, the CLI reads `LOG_LEVEL`, and `docs/DEVELOPMENT_STANDARDS.md` §5.6 states both rules. Five ACs name Ray and are awaiting his reading (§3).
+Complete. The four AI cost commands (`meetings costs`, `notes costs`, `providers costs`, `reports costs`) read through three `ai_cost_service` functions and print through `Renderer.report`. `cost_display.py` holds formatters and views and no Rich. `WorkmAInGroup` reports an exception no command handled as one `Error:` line on stderr, the CLI reads `LOG_LEVEL`, and `docs/DEVELOPMENT_STANDARDS.md` §5.6 states both rules. The five ACs that name Ray are met on his reading (§3).
 
 ## 2. What shipped, by step
 
@@ -29,12 +29,12 @@ Complete. The four AI cost commands (`meetings costs`, `notes costs`, `providers
 
 | AC | Status | Evidence |
 | --- | --- | --- |
-| AC1.1 | **Not met** — Awaiting Ray | Names Ray's reading of the first table in §5. `pytest tests/test_cost_display.py::TestCostCommands` passes. |
+| AC1.1 | Met | Ray reviewed the first table in §5, 20261023. `pytest tests/test_cost_display.py::TestCostCommands` passes. |
 | AC1.2 | Met | `git grep -nE 'get_db\|session\|Repository\|query\(' workmain/utils/cost_display.py` returns no hits. |
 | AC2.1 | Met | `git grep -nE '\brich\b\|click\.echo\|console\.\|\bprint\(' workmain/utils/cost_display.py` returns no hits. |
-| AC2.2 | **Not met** — Awaiting Ray | Names Ray's reading of the four functions against the first table in §5. |
-| AC3.1 | **Not met** — Awaiting Ray | Names Ray's reading of the second table in §5. `pytest tests/test_ai_costs.py::TestCostReads` passes. |
-| AC4.1 | **Not met** — Awaiting Ray | Names Ray's reading of the third table in §5. `pytest tests/test_cost_display.py::TestCostCommands` passes. |
+| AC2.2 | Met | Ray reviewed the four functions against the first table in §5, 20261023. |
+| AC3.1 | Met | Ray reviewed the second table in §5, 20261023. `pytest tests/test_ai_costs.py::TestCostReads` passes. |
+| AC4.1 | Met | Ray reviewed the third table in §5, 20261023. `pytest tests/test_cost_display.py::TestCostCommands` passes. |
 | AC5.1 | Met | The spec's width loop (20 to 80 step 2, then 100, 120, 200) reports 0 failed at every width. |
 | AC6.1 | Met | `python -c "import workmain.services as s; assert 'ai_cost_service' in s.__all__"` exits 0. |
 | AC7.1 | Met | `pytest`: 1472 passed, 0 failed, 0 skipped, the count §6 expects. |
@@ -42,14 +42,14 @@ Complete. The four AI cost commands (`meetings costs`, `notes costs`, `providers
 | AC8.2 | Met | `pytest tests/test_output.py::TestWiring`: W1, W2 and W3 pass. |
 | AC8.3 | Met | `pytest tests/test_cli_params.py::TestMonthParamType "tests/test_cost_display.py::TestCostCommands::test_bad_values_are_usage_errors"` passes. Live: `workmain meetings costs -n 0` and `workmain providers costs -M 2026-13` exit 2 with `Error:` on stderr. |
 | AC8.4 | Met | `pytest tests/test_cli_logging.py`: 9 passed, L1 over its five values and L2 over `DEBUG` and `WARNING`. |
-| AC9.1 | **Not met** — Awaiting Ray | Names Ray's reading of `docs/DEVELOPMENT_STANDARDS.md` §5.6. |
+| AC9.1 | Met | Ray reviewed `docs/DEVELOPMENT_STANDARDS.md` §5.6. |
 
 ## 4. Deviations from spec
 
 | # | Deviation | Reason | Approved by |
 | --- | --- | --- | --- |
-| 1 | The commands' Python parameters are `on_date`, `start`, `end` and `month`, not `date_str`, `start_str`, `end_str` and `month_str`. The flags, short forms, defaults, metavars and help text are unchanged. | The values are `date` objects now, and a `_str` name would mislead. DR6 says options keep their names; I read that as the flags. | Awaiting Ray |
-| 2 | Between the Step 2 and Step 5 commits, four tests fail: `TestProvidersCosts`, `TestCondensationCosts`, `TestReportsCosts` and `TestReportTypeFiltersRows::test_configured_type_filters_reports`. | Step 2 changes `resolve_date_window` before Step 5 converts the commands that call it with strings. Step 5 removes or edits all four. The suite is green at Step 1 and from Step 5. | None. The step order is the spec's. |
+| 1 | The commands' Python parameters are `on_date`, `start`, `end` and `month`, not `date_str`, `start_str`, `end_str` and `month_str`. The flags, short forms, defaults, metavars and help text are unchanged. | The values are `date` objects now, and a `_str` name would mislead. DR6 says options keep their names; I read that as the flags. | Ray, 20261023 |
+| 2 | Between the Step 2 and Step 5 commits, four tests fail: `TestProvidersCosts`, `TestCondensationCosts`, `TestReportsCosts` and `TestReportTypeFiltersRows::test_configured_type_filters_reports`. | Step 2 changes `resolve_date_window` before Step 5 converts the commands that call it with strings. Step 5 removes or edits all four. The suite is green at Step 1 and from Step 5. | None needed: a defect in the spec's step order, recorded in the spec's Decision Log. |
 
 ## 5. Verification
 
