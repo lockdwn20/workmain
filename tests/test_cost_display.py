@@ -60,6 +60,23 @@ def _no_writes(monkeypatch):
 
 
 class TestAnswerAndThinkingRules:
+    def test_count_has_thousands_separators(self):
+        """F1"""
+        assert cost_display.format_count(1703685) == "1,703,685"
+
+    def test_cost_has_six_places(self):
+        """F2"""
+        assert cost_display.format_cost(0.5) == "$0.500000"
+
+    def test_refused_marker(self):
+        """F3"""
+        assert cost_display.format_refused(True) == "refused"
+        assert cost_display.format_refused(False) == ""
+
+    def test_provider_name_is_title_cased(self):
+        """F4"""
+        assert cost_display.format_provider_name("gemini") == "Gemini"
+
     def test_answer_is_completion_less_thinking(self):
         assert cost_display.answer_tokens(202, 196) == 6
 
