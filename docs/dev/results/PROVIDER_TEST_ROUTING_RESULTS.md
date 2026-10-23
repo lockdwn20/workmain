@@ -1,0 +1,49 @@
+# Provider Tests State Their Routing — Implementation Results
+
+**Status:** Active
+**Author:** Anvil (Role 3)
+**Date:** 20261023
+**Spec:** `../specs/PROVIDER_TEST_ROUTING_SPEC.md`
+**Released as:** v1.52.2
+
+---
+
+## 1. Summary
+
+Complete. `stubbed_manager` takes its routing as a required argument and makes every unstubbed configured provider raise `UnstubbedProviderCall`. All 28 call sites pass the DR5 routing. `edit` and `drop_fallback` are gone. §6.2 has rule 8. Ray's working-tree change to `config/ai_settings.json` is committed in two commits.
+
+## 2. What shipped, by step
+
+| Step | Delivered | Files changed | Tests |
+| --- | --- | --- | --- |
+| 1 | `chore(config)` commit with the five CLI-written hunks, then `fix(config)` commit with the `notes` trim | `config/ai_settings.json` | +0 |
+| 2 | DR1–DR7, the `TestStubbedManager` tests, and the DR6 rewrite of `test_default_types_follow_routing` | `tests/mocks/stub_providers.py`, `tests/test_cost_display.py`, `tests/test_eod_workflow.py`, `tests/test_intent_parser.py`, `tests/test_meetings_condense.py`, `tests/test_narration.py`, `tests/test_note_condenser.py`, `tests/test_provider_foundation.py`, `tests/test_report_generator.py`, `tests/test_compare_providers.py` | +5 |
+| 3 | §6.2 rule 8, verbatim | `docs/DEVELOPMENT_STANDARDS.md` | +0 |
+
+## 3. Acceptance criteria
+
+| AC | Status | Evidence |
+| --- | --- | --- |
+| AC1.1 | Met | Bare `pytest` with the committed routing: 1434 passed, 0 failed, 0 skipped. Swapped copy: 1433 passed, 1 failed, 0 skipped. The failure is `tests/test_report_history.py::TestReportResend::test_resend_prompts_on_existing_file`; the swap path wraps in Rich so `already exists` is split across lines. The spec calls this a probe artifact. The same test passes in the repository (17 passed in `tests/test_report_history.py`). |
+| AC1.2 | Met | Real-call trap, committed routing and swapped copy: every hit is in `tests/test_ai_providers_offline.py` or `tests/test_ai_providers_live.py`; no other test is recorded. The trap makes those two files' tests fail by design (37 and 38 failed), and the 38th is the same Rich-wrapping test as AC1.1. |
+| AC1.3 | Met | `pytest tests/test_provider_foundation.py -k TestStubbedManager`: 5 passed, 0 failed, 0 skipped. |
+| AC2.1 | Met | The `inspect.signature` command exits 0; `git grep -n 'shipped ones\|drop_fallback' -- tests` returns no hits. |
+| AC2.2 | **Not met** | Awaiting Ray |
+| AC3.1 | **Not met** | Awaiting Ray |
+| AC4.1 | Met | 1434 passed, 0 failed, 0 skipped. |
+
+## 4. Deviations from spec
+
+| # | Deviation | Reason | Approved by |
+| --- | --- | --- | --- |
+| 1 | `test_intent_parser.py` binds the DR5 routing for its three sites once, as module constant `_INTENT_ROUTING`, instead of writing it at each site. | The same three-entry mapping appears at all three sites. The routing each site passes is unchanged. | none required; routing values are DR5's |
+
+## 5. Verification
+
+- **Test suite:** 1434 passed, 0 failed, 0 skipped (baseline: 1429 passed, 0 failed, 0 skipped) — form per `docs/DEVELOPMENT_STANDARDS.md` §6.
+- **Swapped-routing and real-call runs:** as AC1.1 and AC1.2. `PYTHONPATH` resolution was confirmed from inside the copy; from the repository root `python -c` resolves the live package because `-c` puts the working directory first.
+- **Daemon restart:** close-out's.
+
+## 6. Follow-ups
+
+None.
