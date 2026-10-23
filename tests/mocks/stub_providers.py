@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from typing import Callable, Dict, Optional
+from typing import Dict, Optional, Tuple
 
 from workmain.ai.base_provider import (
     FinishStatus,
@@ -58,34 +58,65 @@ def complete(provider_type: ProviderType, content: str = "stub reply") -> StubPr
     return StubProvider(provider_type, content=content)
 
 
+class UnstubbedProviderCall(BaseException):
+    """A test reached a provider it did not stub.
+
+    Derives from BaseException so that neither ProviderManager.generate's
+    fallback nor an ``except Exception`` in the application can turn the call
+    into a passing result.
+    """
+
+
+class _UnstubbedProvider:
+    """Stands in for every provider a test did not stub; any call raises."""
+
+    def __init__(self, name: str):
+        self.name = name
+
+    def _refuse(self):
+        raise UnstubbedProviderCall(
+            f"provider {self.name!r} was reached but the test did not stub it"
+        )
+
+    def check_availability(self):
+        self._refuse()
+
+    def generate(self, request):
+        self._refuse()
+
+
 def stubbed_manager(
     tmp_path: Path,
     stubs: Dict[str, StubProvider],
-    edit: Optional[Callable[[dict], None]] = None,
+    routing: Dict[str, Tuple[str, Optional[str]]],
 ) -> ProviderManager:
     """A real ProviderManager loaded from a copy of config/ai_settings.json.
 
-    Each stub replaces the provider of the same name in manager._providers, as
-    tests/test_ai_foundation.py does. The routing, caps and fallback modes are
-    the shipped ones unless ``edit`` changes the settings dict, so the manager's
-    own refusal path runs.
+    The routing comes from ``routing``: each call type maps to (primary,
+    fallback), and a fallback of None removes the entry's fallback. Caps,
+    ``accepts`` and the provider set come from the copied file. Each stub
+    replaces the provider of the same name in manager._providers, as
+    tests/test_ai_foundation.py does; every other configured provider raises
+    UnstubbedProviderCall on ``generate`` and ``check_availability``.
     """
     settings = json.loads(Path("config/ai_settings.json").read_text())
-    if edit:
-        edit(settings)
+    for call_type, (primary, fallback) in routing.items():
+        for block in ("report_types", "application_functions"):
+            if call_type in settings.get(block, {}):
+                entry = settings[block][call_type]
+                break
+        else:
+            raise KeyError(call_type)
+        entry["primary_provider"] = primary
+        if fallback is None:
+            entry.pop("fallback_provider", None)
+        else:
+            entry["fallback_provider"] = fallback
     path = tmp_path / "ai_settings.json"
     path.write_text(json.dumps(settings))
     manager = ProviderManager(config_path=str(path))
-    for name, stub in stubs.items():
-        manager._providers[name] = stub
+    for name in manager.get_configured_provider_names():
+        manager._providers[name] = stubs.get(name) or _UnstubbedProvider(name)
         manager._disabled.discard(name)
+        manager._disabled_reasons.pop(name, None)
     return manager
-
-
-def drop_fallback(*call_types: str) -> Callable[[dict], None]:
-    """An ``edit`` that removes the fallback provider from each call type."""
-    def _edit(settings: dict) -> None:
-        for call_type in call_types:
-            for block in ("report_types", "application_functions"):
-                settings.get(block, {}).get(call_type, {}).pop("fallback_provider", None)
-    return _edit

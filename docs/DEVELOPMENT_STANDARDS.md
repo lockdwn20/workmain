@@ -749,6 +749,7 @@ Rules:
 5. Group related tests in `class Test<Topic>` so `-k TestTopic` works.
 6. **A test is a method of a plain class, and it takes what it needs as arguments.** It takes `db_session` for a session (rule 1), `tmp_path` for a directory (rule 7) and `caplog` for log records; anything else it needs, it builds in its own body. pytest hands a fixture only to a test that names it as an argument, so this is the one form in which every test can reach every fixture.
 7. **A test's directory is `tmp_path`.** pytest creates it for the test and keeps only its last three runs, so a test has no directory to clean up and the suite leaves nothing behind.
+8. **A test that builds a real `ProviderManager` states the routing it needs.** It passes the primary and fallback of every call type it exercises, and never relies on the routing in `config/ai_settings.json`, which `workmain providers set default` changes in ordinary use. A provider the test does not stub must not be reachable: `tests/mocks/stub_providers.py`'s `stubbed_manager` takes the routing as a required argument and makes every unstubbed provider raise.
 
 **Each layer has one kind of test.**
 

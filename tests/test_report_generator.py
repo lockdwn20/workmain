@@ -24,7 +24,7 @@ from click.testing import CliRunner
 from workmain.ai.base_provider import ProviderError, ProviderType
 from workmain.ai.provider_manager import ProviderManager
 from workmain.ai.report_generator import ReportGenerator
-from tests.mocks.stub_providers import complete, cut_off, drop_fallback, stubbed_manager
+from tests.mocks.stub_providers import complete, cut_off, stubbed_manager
 
 _SENTINEL_TOKENS = 7001
 
@@ -261,7 +261,7 @@ class TestReportRefusal:
         """AC2.1: a cut-off report with no fallback."""
         pm = stubbed_manager(
             tmp_path, {"gemini": cut_off(ProviderType.GEMINI)},
-            edit=drop_fallback("daily_internal"),
+            routing={"daily_internal": ("gemini", None)},
         )
         generator = ReportGenerator(db_session, provider_manager=pm)
         generator.reports_repo = MagicMock()
@@ -282,7 +282,7 @@ class TestReportRefusal:
         pm = stubbed_manager(tmp_path, {
             "gemini": cut_off(ProviderType.GEMINI),
             "claude": complete(ProviderType.CLAUDE, content="Fallback report body"),
-        })
+        }, {"daily_internal": ("gemini", "claude")})
         generator = ReportGenerator(db_session, provider_manager=pm)
         real_create = generator.reports_repo.create
         generator.reports_repo.create = MagicMock(side_effect=real_create)
@@ -315,7 +315,7 @@ class TestReportRecording:
                 prompt_tokens=9, completion_tokens=202, thinking_tokens=196,
                 tokens_used=211, cost=0.0123,
             ),
-        })
+        }, {"daily_internal": ("gemini", "claude")})
         generator = ReportGenerator(db_session, provider_manager=pm)
 
         result = generator.generate_report(
@@ -350,7 +350,7 @@ class TestReportRecording:
                 prompt_tokens=9, completion_tokens=202, thinking_tokens=196,
                 tokens_used=211, cost=0.0123,
             ),
-        })
+        }, {"daily_internal": ("gemini", "claude")})
         generator = ReportGenerator(db_session, provider_manager=pm)
         generator.reports_repo = MagicMock()
         generator.reports_repo.create.side_effect = RuntimeError("save failed")

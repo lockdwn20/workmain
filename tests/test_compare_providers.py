@@ -174,16 +174,21 @@ class TestCompareProviders:
                 )
             return {r.call_type for r in runs}
 
-        pm = _manager(tmp_path)
-        expected = {
-            n for n in pm.get_report_type_names()
-            if pm.get_report_config(n).primary_provider == ProviderType.GEMINI
+        base = _manager(tmp_path)
+        routing = {n: "claude" for n in base.get_report_type_names()}
+        routing.update({
+            "daily_internal": "gemini",
+            "weekly_client": "gemini",
+            "note_condensation": "gemini",
+        })
+        assert types_for(_manager(tmp_path, routing=routing)) == {
+            "daily_internal", "weekly_client", "note_condensation",
         }
-        assert expected >= {"daily_internal", "weekly_client", "note_condensation"}
-        assert types_for(pm) == expected
 
-        changed = _manager(tmp_path, routing={"daily_internal": "claude"})
-        assert types_for(changed) == expected - {"daily_internal"}
+        routing["daily_internal"] = "claude"
+        assert types_for(_manager(tmp_path, routing=routing)) == {
+            "weekly_client", "note_condensation",
+        }
 
 
 def test_render_prints_the_responses_own_thinking_count():

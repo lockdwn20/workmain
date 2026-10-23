@@ -1,7 +1,7 @@
 {
   "version": "1.3",
   "description": "WorkmAIn AI Provider Configuration",
-  "last_updated": "20261007",
+  "last_updated": "20261023",
   "providers": {
     "claude": {
       "enabled": true,
@@ -17,7 +17,7 @@
       "timeout_seconds": 60,
       "retry_attempts": 3,
       "retry_delay_seconds": 1.0,
-      "notes": "Claude Sonnet 5 - fallback provider for all report types and note condensation."
+      "notes": "Claude Sonnet 5"
     },
     "gemini": {
       "enabled": true,
@@ -28,12 +28,12 @@
       "api_key_env": "GOOGLE_API_KEY",
       "cost_per_1k_prompt_tokens": 0.002,
       "cost_per_1k_completion_tokens": 0.012,
-      "cost_structure": "$2.00/MTok prompt, $12.00/MTok completion (prompts ≤ 200k tokens)",
+      "cost_structure": "$2.00/MTok prompt, $12.00/MTok completion (prompts \u2264 200k tokens)",
       "rate_limit_rpm": 60,
       "timeout_seconds": 60,
       "retry_attempts": 3,
       "retry_delay_seconds": 1.0,
-      "notes": "Gemini 3.1 Pro Preview - $2.00/MTok input, $12.00/MTok output at ≤ 200k-token prompts; $4.00/$18.00 above, not modelled"
+      "notes": "Gemini 3.1 Pro Preview"
     },
     "ollama": {
       "enabled": true,
@@ -51,8 +51,8 @@
   "report_types": {
     "daily_internal": {
       "instructions": "system_prompt",
-      "primary_provider": "gemini",
-      "fallback_provider": "claude",
+      "primary_provider": "claude",
+      "fallback_provider": "gemini",
       "fallback_mode": "auto",
       "max_cost_per_report": 1.0,
       "max_tokens": 16000,
@@ -60,8 +60,8 @@
     },
     "weekly_client": {
       "instructions": "system_prompt",
-      "primary_provider": "gemini",
-      "fallback_provider": "claude",
+      "primary_provider": "claude",
+      "fallback_provider": "gemini",
       "fallback_mode": "auto",
       "max_cost_per_report": 2.0,
       "max_tokens": 16000,
@@ -78,8 +78,8 @@
     },
     "note_condensation": {
       "instructions": "system_prompt",
-      "primary_provider": "gemini",
-      "fallback_provider": "claude",
+      "primary_provider": "claude",
+      "fallback_provider": "gemini",
       "fallback_mode": "auto",
       "max_cost_per_report": 0.1,
       "max_tokens": 4000,

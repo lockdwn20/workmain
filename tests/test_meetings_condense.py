@@ -213,7 +213,7 @@ class TestMeetingsCondenseRefusal(unittest.TestCase):
             content="Discussed refusal", tags=["client-report"],
             meeting_id=meeting.id, source="meeting", created_at=_MEETING_DATE,
         )
-        manager = stubbed_manager(Path(self._tmp.name), stubs)
+        manager = stubbed_manager(Path(self._tmp.name), stubs, {"note_condensation": ("gemini", "claude")})
         with patch.object(pm_module, "_provider_manager_instance", manager):
             return CliRunner(mix_stderr=False).invoke(meetings, ["condense", str(meeting.id)])
 
