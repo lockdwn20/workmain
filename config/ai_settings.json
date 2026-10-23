@@ -17,7 +17,7 @@
       "timeout_seconds": 60,
       "retry_attempts": 3,
       "retry_delay_seconds": 1.0,
-      "notes": "Claude Sonnet 5 - fallback provider for all report types and note condensation."
+      "notes": "Claude Sonnet 5"
     },
     "gemini": {
       "enabled": true,
@@ -33,7 +33,7 @@
       "timeout_seconds": 60,
       "retry_attempts": 3,
       "retry_delay_seconds": 1.0,
-      "notes": "Gemini 3.1 Pro Preview - $2.00/MTok input, $12.00/MTok output at ≤ 200k-token prompts; $4.00/$18.00 above, not modelled"
+      "notes": "Gemini 3.1 Pro Preview"
     },
     "ollama": {
       "enabled": true,
