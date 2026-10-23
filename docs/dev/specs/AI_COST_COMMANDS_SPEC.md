@@ -23,6 +23,7 @@
 | 20261023 | Spanner | How the refused marker prints (study F13). A `Column` reads one field, and today's cell joins `provider` and `refused`. | `refused` is its own key column, `Refused`, printed through `format_refused`: `refused` when true, and blank when false. One field per column is how §5.6 describes a view. Joining the two in the service would make it format a display string, and a row property would hide a second field inside one column. |
 | 20261023 | Spanner | How the period prints | The service returns `("from", start)` and `("to", end)` as filters when the window has them, and the renderer writes them by §5.6's title rule (`from=2026-10-01, to=2026-10-31`). `format_date_window_label` then has no caller, so it is removed with its tests in this change. |
 | 20261023 | Spanner | Where the views shared by several command files live | The `CollectionView`s and totals `Field`s shared by more than one command go in `workmain/utils/cost_display.py`, next to the `fmt` functions they use. Each command file declares its own `ReportView` as a module constant from them. Declaring each table four times would make one table four copies. |
+| 20261023 | Ray | Order | #236 (provider tests take their routing from the live config) blocks #201: every conversion's baseline is a full `pytest` run against the routing in use. Step 0 merges `dev` once #236 is on it. |
 | 20261023 | Spanner | Placement of the read functions | `workmain/services/ai_cost_service.py`, the module that already owns the cost domain (§3.6). |
 
 ---
@@ -133,6 +134,7 @@ Verified on `dev` `036ad12`. Findings from the study are cited as F-numbers and 
 
 | Step | Deliverable | Files |
 | --- | --- | --- |
+| 0 | `dev` merged in, carrying #236 | — |
 | 1 | Read service, package export, service tests | `workmain/services/ai_cost_service.py`, `workmain/services/__init__.py`, `tests/test_ai_costs.py` |
 | 2 | `MonthParamType`, `resolve_date_window` on parsed values, their tests | `workmain/cli/params.py`, `workmain/utils/date_utils.py`, `tests/test_cli_params.py`, `tests/test_ai_costs.py` |
 | 3 | Report view, the group's exception branch and the CLI log level, with renderer, wiring and logging tests | `workmain/cli/output.py`, `workmain/cli/interface.py`, `.env.example`, `tests/test_output.py` |
@@ -140,6 +142,10 @@ Verified on `dev` `036ad12`. Findings from the study are cited as F-numbers and 
 | 5 | The four commands converted, with command tests | `workmain/cli/commands/meetings.py`, `notes.py`, `providers.py`, `reports.py`, `workmain/utils/cost_display.py`, `workmain/utils/date_utils.py`, `tests/test_cost_display.py`, `tests/test_ai_arguments.py`, `tests/test_provider_foundation.py`, `tests/test_ai_costs.py` |
 | 6 | Standards | `docs/DEVELOPMENT_STANDARDS.md` |
 | 7 | Results artifact | `docs/dev/results/AI_COST_COMMANDS_RESULTS.md` |
+
+### Step 0 — prerequisite
+
+Issue #236 is closed and on `dev`. Merge `dev` into this branch (`git merge dev`), run `pytest`, and record the counts as the baseline in the results artifact. If #236 is still open, stop (DR10).
 
 ### Step 1 — service
 
@@ -217,11 +223,11 @@ None. This spec runs no migration, deletes no GitHub object, merges nothing to `
 
 ## 6. Test plan
 
-- **Baseline:** the counts of the first `pytest` run on this branch, recorded in the results artifact. The run uses the committed `config/ai_settings.json`. An uncommitted routing edit in the working tree changes which provider the report tests reach (§7). On this branch at `2f64799`, 20261023, with the committed config: 1429 passed, 0 failed, 0 skipped.
+- **Baseline:** the counts Step 0 records after merging `dev`. Before #236, on this branch at `2f64799`, 20261023, with the committed config: 1429 passed, 0 failed, 0 skipped. #236 changes that count by its own tests.
 - **Expected after:** the baseline, less 13 removed tests, plus 46 new, as collected:
   - **Removed:** the 3 tests of `TestProvidersCosts`, `TestCondensationCosts` and `TestReportsCosts`; the 5 of `TestFormatDateWindowLabel`; `test_configured_provider_is_accepted_by_cost_filters`, which collects as 4; and `test_providers_costs_known_provider_no_bad_parameter`.
   - **New:** S1–S14, P1–P2, R1–R6, W1–W3, L1–L2 and F1–F4, which is 31. C1 and C2 collect as 4 each, and C3–C9 as 7.
-  - On the baseline above: 1462 passed, 0 failed, 0 skipped.
+  - On the pre-#236 count above: 1462 passed, 0 failed, 0 skipped.
 
 Test method names are the spec's where an AC cites the node; Anvil names the rest.
 
@@ -291,5 +297,5 @@ Test method names are the spec's where an AC cites the node; Anvil names the res
 - **Output wording changes.** Titles, the empty line, the filter line (now `from=`/`to=` in the title), the Refused column and the list layout at narrow widths follow §5.6. The numbers and which rows appear do not change: S1–S14 pin them against today's values.
 - **`ai_cost_service` grows a second role.** Recording and reading are both the cost domain's. Recording keeps its own sessions (§4.3), and reading takes the caller's. Each function's docstring states which it does.
 - **`LOG_LEVEL` in the live `.env`.** It reads `INFO` today and has had no effect. Once DR11 lands, `INFO` makes every CLI command print `INFO` records on stdout, and EOD would capture them. Ray changes his `.env` to `LOG_LEVEL=WARNING`, or removes the line, before this merges. `.env` is untracked and not this branch's to edit. Rollback: revert Step 3's `interface.py` change.
-- **Live configuration.** `config/ai_settings.json` is edited in the working tree during daily use. `tests/mocks/stub_providers.py::stubbed_manager` loads its routing from the live file, and 17 tests in seven files assume the committed routing, with Gemini as primary. With Ray's routing of 20261023 (Claude primary, Gemini fallback), those 17 fail, and they pass with the committed file. No test in this spec reads the routing. Anvil records the baseline and the final counts with the committed file, and reports the working tree's state separately if it differs.
+- **Live configuration.** `config/ai_settings.json` is edited in the working tree during daily use. Before #236, 17 provider tests failed under any routing other than the committed one, because `stubbed_manager` copied the live file. Step 0 waits for #236, which removes that dependency and commits Ray's routing of 20261023. No test in this spec reads the routing.
 - Each step is one commit and reverts alone. Step 5 depends on Steps 1–4.
