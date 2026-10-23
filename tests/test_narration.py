@@ -18,7 +18,7 @@ from workmain.ai.base_provider import ProviderType
 from workmain.ai.provider_manager import ProviderManager
 from workmain.daemon import narration
 from workmain.daemon.models import Observation, ObservationType
-from tests.mocks.stub_providers import cut_off, drop_fallback, stubbed_manager
+from tests.mocks.stub_providers import cut_off, stubbed_manager
 
 _SENTINEL_TOKENS = 7001
 
@@ -130,7 +130,7 @@ class TestNarrationRefusal:
         pm = stubbed_manager(
             tmp_path,
             {"claude": cut_off(ProviderType.CLAUDE, content="TRUNCATED NARRATIO")},
-            edit=drop_fallback("daemon_narration"),
+            routing={"daemon_narration": ("claude", None)},
         )
         monkeypatch.setattr(provider_manager_module, "_provider_manager_instance", pm)
 
@@ -154,7 +154,7 @@ class TestNarrationRecording:
                 prompt_tokens=9, completion_tokens=202, thinking_tokens=196,
                 tokens_used=211, cost=0.0123,
             ),
-        })
+        }, {"daemon_narration": ("claude", "gemini")})
         monkeypatch.setattr(provider_manager_module, "_provider_manager_instance", pm)
         query = db_session.query(AiCost).filter(
             AiCost.interaction_type == "daemon_narration"

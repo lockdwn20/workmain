@@ -425,6 +425,13 @@ class TestIntentRouting:
         assert asked == ["claude"]
 
 
+_INTENT_ROUTING = {
+    "intent_parse": ("ollama", None),
+    "task_match": ("ollama", None),
+    "note_dedup": ("ollama", None),
+}
+
+
 class TestIntentParserRefusal:
     """AC2.4, AC2.5 — a cut-off Ollama reply never reaches a parser."""
 
@@ -432,6 +439,7 @@ class TestIntentParserRefusal:
         from tests.mocks.stub_providers import cut_off, stubbed_manager
         pm = stubbed_manager(
             tmp_path, {"ollama": cut_off(ProviderType.OLLAMA, content='{"action": "log_n')},
+            _INTENT_ROUTING,
         )
         monkeypatch.setattr(_provider_manager_module, "_provider_manager_instance", pm)
         return pm
@@ -471,7 +479,7 @@ class TestIntentParseThinkingTokens:
                 ProviderType.OLLAMA, content='{"action": "create_note"}',
                 tokens_used=33,
             ),
-        })
+        }, _INTENT_ROUTING)
         query = db_session.query(AiCost).filter(AiCost.interaction_type == "intent_parse")
         before = query.count()
 
@@ -494,7 +502,7 @@ class TestIntentCallRecording:
                 ProviderType.OLLAMA, content=content,
                 prompt_tokens=15, completion_tokens=5, tokens_used=20, cost=0.0,
             ),
-        })
+        }, _INTENT_ROUTING)
         monkeypatch.setattr(_provider_manager_module, "_provider_manager_instance", pm)
 
     def _query(self, db_session, call_type):
