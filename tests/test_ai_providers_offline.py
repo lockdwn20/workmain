@@ -49,8 +49,10 @@ import types
 from unittest.mock import MagicMock, patch
 
 import httpx
+import httpx2
 import pytest
 import anthropic
+
 
 from workmain.ai.provider_manager import ProviderManager
 
@@ -166,6 +168,39 @@ class TestGenerationRequestContract:
 
 class TestClaudeRetryPolicy:
     """DR4 — permanent 4xx fails on the first attempt; transient errors retry."""
+
+    def test_retry_attempts_equal_http_requests(self):
+        request_count = 0
+
+        def fail_with_500(request):
+            nonlocal request_count
+            request_count += 1
+            return httpx.Response(500, request=request)
+
+        transport_client = httpx2.Client(
+            transport=httpx2.MockTransport(fail_with_500)
+        )
+        def make_sdk_client(**kwargs):
+            return anthropic.Anthropic(**kwargs, http_client=transport_client)
+        configured_attempts = 2
+        with patch.dict(os.environ, _FAKE_ANTHROPIC_ENV), \
+             patch("workmain.ai.providers.claude.Anthropic", side_effect=make_sdk_client):
+            provider = ClaudeProvider(
+                _offline_claude_config(retry_attempts=configured_attempts),
+                dict(_CLAUDE_POLICY),
+            )
+            with pytest.raises(ProviderError):
+                provider.generate(GenerationRequest(prompt="hi", max_tokens=20))
+        transport_client.close()
+        assert request_count == configured_attempts
+
+    def test_claude_disables_sdk_retries(self):
+        with patch.dict(os.environ, _FAKE_ANTHROPIC_ENV), \
+             patch("workmain.ai.providers.claude.Anthropic") as fake_cls:
+            fake_cls.return_value = MagicMock()
+            ClaudeProvider(_offline_claude_config(), dict(_CLAUDE_POLICY))
+        assert fake_cls.call_args.kwargs["max_retries"] == 0
+
 
     def test_claude_no_retry_on_4xx(self):
         provider, client = _build_claude()
