@@ -1,6 +1,6 @@
 # Provider Tests State Their Routing — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261023
 **Branch:** `hotfix/issue-236-provider-test-routing` (from `main`)
