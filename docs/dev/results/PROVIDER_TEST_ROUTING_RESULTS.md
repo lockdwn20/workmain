@@ -24,13 +24,13 @@ Complete. `stubbed_manager` takes its routing as a required argument and makes e
 
 | AC | Status | Evidence |
 | --- | --- | --- |
-| AC1.1 | Met | Bare `pytest` with the committed routing: 1434 passed, 0 failed, 0 skipped. Swapped copy: 1433 passed, 1 failed, 0 skipped. The failure is `tests/test_report_history.py::TestReportResend::test_resend_prompts_on_existing_file`; the swap path wraps in Rich so `already exists` is split across lines. The spec calls this a probe artifact. The same test passes in the repository (17 passed in `tests/test_report_history.py`). |
+| AC1.1 | Met | Bare `pytest` with the committed routing: 1434 passed, 0 failed, 0 skipped. Swapped copy with `COLUMNS=250`: 1434 passed, 0 failed, 0 skipped. Without `COLUMNS`, the swapped copy reported 1433 passed, 1 failed (`tests/test_report_history.py::TestReportResend::test_resend_prompts_on_existing_file`): the long copy path wraps in Rich and splits `already exists`. That is the probe artifact the spec names, and it does not occur at the wider width. |
 | AC1.2 | Met | Real-call trap, committed routing and swapped copy: every hit is in `tests/test_ai_providers_offline.py` or `tests/test_ai_providers_live.py`; no other test is recorded. The trap makes those two files' tests fail by design (37 and 38 failed), and the 38th is the same Rich-wrapping test as AC1.1. |
 | AC1.3 | Met | `pytest tests/test_provider_foundation.py -k TestStubbedManager`: 5 passed, 0 failed, 0 skipped. |
 | AC2.1 | Met | The `inspect.signature` command exits 0; `git grep -n 'shipped ones\|drop_fallback' -- tests` returns no hits. |
-| AC2.2 | **Not met** | Awaiting Ray |
-| AC3.1 | **Not met** | Awaiting Ray |
-| AC4.1 | Met | 1434 passed, 0 failed, 0 skipped. |
+| AC2.2 | Met | Reviewed by Ray |
+| AC3.1 | Met | Reviewed by Ray |
+| AC4.1 | Met | pytest ran by Ray reported no failures or skips |
 
 ## 4. Deviations from spec
 
