@@ -37,7 +37,6 @@ Tests that drive refusal, fallback and cost recording build a real `ProviderMana
 | F9 | The working-tree change to `config/ai_settings.json` carries the marks of `workmain providers set default`, not a hand edit: `last_updated` moved to `20261023`, and both `≤` characters were rewritten as `≤`, which `json.dump(data, f, indent=2)` with its default `ensure_ascii=True` produces (`providers.py:349-350`). Only `report_types` primary/fallback changed. #236's body calls it a hand edit and makes committing it an AC; `docs/DEVELOPMENT_STANDARDS.md` §2.2 § Operational changes from live use makes a CLI-written change a separate `chore(config)` commit that needs no AC and is not the issue's scope. | `git diff config/ai_settings.json`; `workmain/cli/commands/providers.py:340-350` | Medium |
 | F10 | `providers.claude.notes` in the working tree reads "fallback provider for all report types and note condensation", which no longer matches the routing. | `config/ai_settings.json:20` | Low |
 | F11 | #236's first AC check swaps the live `config/ai_settings.json` "for the run and restored after". During that window any `workmain` command, or a daemon restart, reads the swapped routing. The swapped run in §2 shows the same check can be made against an isolated copy of the tree without touching the live file. | `workmain/ai/provider_manager.py:438-440`; §2 Runs | Medium |
-| F12 | Out of scope: `test_report_history::TestReportResend::test_resend_prompts_on_existing_file` fails when the repository path is long enough that Rich wraps "already exists" onto a new line — the terminal-width class #198 names. Seen only in the scratchpad copy. | `tests/test_report_history.py:300` | Low |
 
 ## 4. Options
 
@@ -69,14 +68,13 @@ The standard #236's fourth AC asks for, as suggested wording for `docs/DEVELOPME
 
 | Q | Question | Answer |
 | --- | --- | --- |
-| Q1 | Option A, B or C? | |
-| Q2 | Should `stubbed_manager` make every provider the test does not stub raise on `generate()`, so a test can never call a real vendor through it? Recommended: yes — without it a misrouted test bills the vendor and can pass (F4). | |
-| Q3 | Ray's routing change was written by `workmain providers set default` (F9). Is it committed as a §2.2 operational `chore(config)` commit, with #236's third AC removed from the issue, or committed as this issue's scope with the AC kept? Recommended: the §2.2 commit and remove the AC, because §2.2 states that a CLI-written change needs no AC and is not the issue's scope. | |
-| Q4 | Is the stale `providers.claude.notes` text (F10) corrected on this branch? It is a hand edit to `config/`, so under §2.2 it is development and would be this issue's scope. | |
-| Q5 | #236's first AC check swaps the live `config/ai_settings.json` during a run (F11). Should the spec run that check against an isolated copy of the tree with `PYTHONPATH` set to it, as §2 did, and the issue's check wording be changed to match? Recommended: yes — the live file is read by every `workmain` command run in that window. | |
-| Q6 | The terminal-width failure in F12 needs an issue under #198 unless one of #198's children already covers `test_report_history`. Own issue, add to an existing child, or leave it to #198's conversions? | |
+| Q1 | Option A, B or C? | Q1 answered 20261023: Option A. |
+| Q2 | Should `stubbed_manager` make every provider the test does not stub raise on `generate()`, so a test can never call a real vendor through it? Recommended: yes — without it a misrouted test bills the vendor and can pass (F4). | Q2 answered 20261023: yes. |
+| Q3 | Ray's routing change was written by `workmain providers set default` (F9). Is it committed as a §2.2 operational `chore(config)` commit, with #236's third AC removed from the issue, or committed as this issue's scope with the AC kept? Recommended: the §2.2 commit and remove the AC, because §2.2 states that a CLI-written change needs no AC and is not the issue's scope. | Q3 answered 20261023: the §2.2 commit; the AC is removed from #236. §2.2 is not changed. |
+| Q4 | Is the stale `providers.claude.notes` text (F10) corrected on this branch? It is a hand edit to `config/`, so under §2.2 it is development and would be this issue's scope. | Q4 answered 20261023: Ray cut `providers.claude.notes` and `providers.gemini.notes` to the model name in the working tree; it is committed with the routing. |
+| Q5 | #236's first AC check swaps the live `config/ai_settings.json` during a run (F11). Should the spec run that check against an isolated copy of the tree with `PYTHONPATH` set to it, as §2 did, and the issue's check wording be changed to match? Recommended: yes — the live file is read by every `workmain` command run in that window. | Q5 answered 20261023: yes. |
 
 ## 6. Disposition
 
-- Promoted to:
+- Promoted to: `../specs/PROVIDER_TEST_ROUTING_SPEC.md`
 - Superseded by:
