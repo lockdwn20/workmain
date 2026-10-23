@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.52.2] - 2026-10-23
+
+Tests that drive refusal, fallback and cost recording built their `ProviderManager` from a copy of the live `config/ai_settings.json`, so they took the operator's provider routing as a hidden premise. Routing reports to Claude first turned the suite red, and a test whose stub was not on the routed path called the real vendor API and was billed. `stubbed_manager` now takes each test's routing as a required argument, and a provider the test does not stub raises instead of being called (issue #236).
+
+### Changed
+
+- `report_types` routing for `daily_internal`, `weekly_client` and `note_condensation` is Claude primary with Gemini fallback, as set through `workmain providers set default`
+- `providers.claude.notes` and `providers.gemini.notes` name the model only
+- `tests/mocks/stub_providers.py` `stubbed_manager` takes a required `routing` argument and makes every configured provider the test does not stub raise `UnstubbedProviderCall`
+- `docs/DEVELOPMENT_STANDARDS.md` §6.2 rule 8: a test that builds a real `ProviderManager` states the routing it needs
+
+### Removed
+
+- `stubbed_manager`'s `edit` parameter and `drop_fallback`; `routing` states "no fallback" as `(primary, None)`
+
+Suite: 1434 passed, 0 failed, 0 skipped (baseline 1429 passed, 0 failed, 0 skipped).
+
 ## [1.52.1] - 2026-10-16
 
 EOD step 4b, `reports resend` and `email save` each made an email draft by running `workmain email save` as a child process, because no function made one. A failure inside the child reached the step only as an exit code, and `email save` exited 0 when it found no report, so the step reported a draft that was never made. The draft logic is now a service the three callers call directly. Step 4b reports the draft's path, or the error that stopped it (issue #104).
