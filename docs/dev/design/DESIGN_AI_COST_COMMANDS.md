@@ -1,6 +1,6 @@
 # AI Cost Commands on the Output Module — Design Study
 
-**Status:** Active
+**Status:** Shipped
 **Kind:** Design study
 **Author:** Spanner (Role 1)
 **Date:** 20261016
@@ -96,5 +96,5 @@ Settled by existing rules, with no option to weigh:
 
 ## 6. Disposition
 
-- Promoted to: —
+- Promoted to: `../specs/AI_COST_COMMANDS_SPEC.md`. All four questions answered 20261023 (Ray). F15's `TestReportTypeFiltersRows` stays with #212; F16's `email_service` export went to #205.
 - Superseded by: —

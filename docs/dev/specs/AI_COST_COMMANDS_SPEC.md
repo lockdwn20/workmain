@@ -1,6 +1,6 @@
 # AI Cost Commands on the Output Module — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261023
 **Branch:** `feature/issue-201-ai-cost-service` (from `dev`)

@@ -1,10 +1,10 @@
 # AI Cost Commands on the Output Module — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Anvil (Role 3)
 **Date:** 20261023
 **Spec:** `../specs/AI_COST_COMMANDS_SPEC.md`
-**Released as:** set by `/closeout`
+**Released as:** v1.53.0 (tag `v1.53.0`)
 
 ---
 
