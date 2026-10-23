@@ -36,11 +36,11 @@ class TestMonthParamType:
         assert t.convert("2026-05", None, None) == date(2026, 5, 1)
         assert t.convert(date(2026, 5, 1), None, None) == date(2026, 5, 1)
 
-    @pytest.mark.parametrize("text", ["2026-13", "May"])
-    def test_bad_month_is_rejected(self, text):
+    def test_bad_month_is_rejected(self):
         """P2"""
-        with pytest.raises(click.BadParameter, match="is not a valid month"):
-            MonthParamType().convert(text, None, None)
+        for text in ("2026-13", "May"):
+            with pytest.raises(click.BadParameter, match="is not a valid month"):
+                MonthParamType().convert(text, None, None)
 
 
 class TestPickParamType:

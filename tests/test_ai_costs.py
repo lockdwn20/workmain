@@ -1,7 +1,7 @@
 """
 Tests for the cost tracking persistence sprint: AiCostRepository (create,
-get_filtered, get_summary with provider filter), resolve_date_window and
-format_date_window_label (date_utils), and ProviderManager config loading
+get_filtered, get_summary with provider filter), resolve_date_window
+(date_utils), and ProviderManager config loading
 from ai_settings.json.
 """
 
@@ -13,7 +13,7 @@ from sqlalchemy import text
 
 from workmain.database.models import AiCost
 from workmain.database.repositories.ai_costs_repo import AiCostRepository
-from workmain.utils.date_utils import resolve_date_window, format_date_window_label
+from workmain.utils.date_utils import resolve_date_window
 from workmain.ai.provider_manager import ProviderManager
 
 
@@ -388,29 +388,6 @@ class TestResolveDateWindow:
     def test_end_without_start_raises(self):
         with pytest.raises(click.UsageError, match="--end requires --start"):
             resolve_date_window(None, None, date(2026, 5, 15), None, show_all=False)
-
-
-# ---------------------------------------------------------------------------
-# format_date_window_label
-# ---------------------------------------------------------------------------
-
-class TestFormatDateWindowLabel:
-    def test_all_time(self):
-        assert format_date_window_label(None, None) == "All Time"
-
-    def test_single_day(self):
-        d = date(2026, 5, 15)
-        assert format_date_window_label(d, d) == "2026-05-15"
-
-    def test_full_month(self):
-        assert format_date_window_label(date(2026, 5, 1), date(2026, 5, 31)) == "May 2026"
-
-    def test_full_month_february_non_leap(self):
-        assert format_date_window_label(date(2026, 2, 1), date(2026, 2, 28)) == "February 2026"
-
-    def test_arbitrary_range(self):
-        label = format_date_window_label(date(2026, 5, 3), date(2026, 5, 17))
-        assert label == "2026-05-03 to 2026-05-17"
 
 
 # ---------------------------------------------------------------------------

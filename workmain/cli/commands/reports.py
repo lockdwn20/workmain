@@ -25,15 +25,14 @@ from rich import box
 
 from workmain.database.connection import get_db
 from workmain.database.repositories.system_state_repository import SystemStateRepository
-from workmain.database.repositories.ai_costs_repo import get_ai_cost_repository, summarize
 from workmain.database.repositories.reports_repo import get_reports_repository
 from workmain.ai import get_report_generator, ReportFormat, ProviderType
-from workmain.services import email_service
+from workmain.services import ai_cost_service, email_service
 from workmain.utils.ai_arguments import failure_exit_code, require_eligible_provider, require_provider, require_report_type
-from workmain.utils.cost_display import (
-    format_call_tokens, render_cost_rows, render_cost_summary,
-)
-from workmain.utils.date_utils import resolve_date_window, format_date_window_label
+from workmain.cli.output import Renderer, ReportView, Section, WorkmAInGroup, pass_renderer
+from workmain.cli.params import DateParamType, MonthParamType
+from workmain.utils.cost_display import detail_view, format_call_tokens, totals_fields
+from workmain.utils.date_utils import resolve_date_window
 from workmain.utils.editor import edit_in_editor
 
 VALID_REPORT_STATUSES = ('unconfirmed', 'confirmed', 'corrected', 'all')
@@ -225,7 +224,7 @@ def generate_report_impl(
         sys.exit(failure_exit_code(e))
 
 
-@click.group()
+@click.group(cls=WorkmAInGroup)
 def reports():
     """Generate and manage reports."""
     pass
@@ -714,28 +713,40 @@ def report_resend(id: int):
         console.print(f"[red]✗ resend failed: {e}[/red]")
 
 
+REPORT_COSTS = ReportView(
+    "report costs",
+    "totals",
+    totals_fields("Calls"),
+    (Section("detail", detail_view("Type")),),
+    empty_hint="Generate a report first with: workmain reports save daily_internal",
+)
+
+
 @reports.command('costs')
 @click.option('--provider', '-P', help='Filter by AI provider')
 @click.option('--type', 'report_type', '-R', help='Filter by report type')
-@click.option('--limit', '-n', type=int, default=20, help='Max rows to display')
-@click.option('--date', '-d', 'date_str', metavar='YYYY-MM-DD', default=None,
-              help='Show costs for a single day')
-@click.option('--start', '-b', 'start_str', metavar='YYYY-MM-DD', default=None,
-              help='Range start date (inclusive)')
-@click.option('--end', '-e', 'end_str', metavar='YYYY-MM-DD', default=None,
-              help='Range end date (requires --start)')
-@click.option('--month', '-M', 'month_str', metavar='YYYY-MM', default=None,
-              help='Filter by calendar month')
+@click.option('--limit', '-n', type=click.IntRange(min=1), default=20,
+              help='Max rows to display')
+@click.option('--date', '-d', 'on_date', type=DateParamType(), metavar='YYYY-MM-DD',
+              default=None, help='Show costs for a single day')
+@click.option('--start', '-b', 'start', type=DateParamType(), metavar='YYYY-MM-DD',
+              default=None, help='Range start date (inclusive)')
+@click.option('--end', '-e', 'end', type=DateParamType(), metavar='YYYY-MM-DD',
+              default=None, help='Range end date (requires --start)')
+@click.option('--month', '-M', 'month', type=MonthParamType(), metavar='YYYY-MM',
+              default=None, help='Filter by calendar month')
 @click.option('--all', 'show_all', is_flag=True, default=False,
               help='Show all history (no date filter)')
+@pass_renderer
 def report_costs(
+    renderer: Renderer,
     provider: Optional[str],
     report_type: Optional[str],
     limit: int,
-    date_str: Optional[str],
-    start_str: Optional[str],
-    end_str: Optional[str],
-    month_str: Optional[str],
+    on_date: Optional[date],
+    start: Optional[date],
+    end: Optional[date],
+    month: Optional[date],
     show_all: bool,
 ):
     """
@@ -756,54 +767,16 @@ def report_costs(
       workmain reports costs --all -n 50
     """
     provider_type = require_provider(provider)
-    require_report_type(report_type)
+    report_type = require_report_type(report_type)
 
-    start_date, end_date = resolve_date_window(date_str, start_str, end_str, month_str, show_all)
+    start_date, end_date = resolve_date_window(on_date, start, end, month, show_all)
 
-    db = get_db()
-    try:
-        with db.session_scope() as session:
-            pairs = get_ai_cost_repository(session).get_report_costs(
-                provider=provider_type.value if provider_type else None,
-                report_type=report_type,
-                start_date=start_date,
-                end_date=end_date,
-            )
-
-            label = format_date_window_label(start_date, end_date)
-            console.print()
-            console.print(f"[bold cyan]Report Costs — {label}[/bold cyan]")
-            console.print()
-
-            if not pairs:
-                console.print("[yellow]No report costs found matching filters.[/yellow]")
-                console.print()
-                console.print("[dim]Generate a report first with: workmain reports save daily_internal[/dim]")
-                console.print()
-                return
-
-            summary = summarize([cost for cost, _ in pairs])
-            render_cost_summary(console, summary, "Calls")
-
-            display = pairs[:limit]
-            render_cost_rows(
-                console,
-                [(report.report_date, report.report_type, cost) for cost, report in display],
-                f"[bold]Report Detail:[/bold] (showing {len(display)} of {len(pairs)})",
-                "Type",
-            )
-
-            active_filters = [f"Period: {label}"]
-            if provider:
-                active_filters.append(f"Provider: {provider}")
-            if report_type:
-                active_filters.append(f"Type: {report_type}")
-            console.print("[dim]" + "  |  ".join(active_filters) + "[/dim]")
-            console.print()
-
-    except Exception as e:
-        console.print(f"[red]✗ Failed to get costs: {e}[/red]")
-        console.print()
+    with get_db().session_scope() as session:
+        result = ai_cost_service.report_costs(
+            session, provider_type.value if provider_type else None, report_type,
+            start_date, end_date, limit,
+        )
+    renderer.report(REPORT_COSTS, result)
 
 
 # Export command group

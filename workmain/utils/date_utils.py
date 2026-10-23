@@ -1,7 +1,6 @@
 """
 Shared date-window resolution for costs commands.
-Converts CLI date filter flags into (start_date, end_date) tuples
-and formats them for display.
+Converts parsed CLI date filter flags into (start_date, end_date) tuples.
 """
 
 from __future__ import annotations
@@ -65,32 +64,3 @@ def resolve_date_window(
     today = date.today()
     last_day = calendar.monthrange(today.year, today.month)[1]
     return date(today.year, today.month, 1), date(today.year, today.month, last_day)
-
-
-def format_date_window_label(
-    start_date: Optional[date],
-    end_date: Optional[date],
-) -> str:
-    """
-    Format the active date window as a human-readable label.
-
-    Args:
-        start_date: Window start, or None for all-time.
-        end_date: Window end, or None for all-time.
-
-    Returns:
-        "All Time", "2026-05-15", "May 2026", or "2026-05-01 to 2026-05-15".
-    """
-    if start_date is None:
-        return "All Time"
-    if start_date == end_date:
-        return start_date.isoformat()
-    last_of_month = calendar.monthrange(start_date.year, start_date.month)[1]
-    if (
-        start_date.day == 1
-        and end_date.day == last_of_month
-        and start_date.year == end_date.year
-        and start_date.month == end_date.month
-    ):
-        return start_date.strftime("%B %Y")
-    return f"{start_date.isoformat()} to {end_date.isoformat()}"

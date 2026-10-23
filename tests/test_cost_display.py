@@ -1,45 +1,33 @@
 """
-Tests for the cost commands' output and the per-call token lines (issue #191).
+Tests for the cost formatters, the cost commands' wiring to the service and the
+renderer (issue #201), and the per-call token lines (issue #191).
 
-Rows are seeded in db_session with sentinel dates (2099-…).
-
-A test checks the cells a command passed to Table.add_row, and summary lines on
-the output with whitespace collapsed. None depends on terminal width.
+A command test runs the command with its service patched and a mock renderer,
+so none depends on terminal width. The condense token-line test checks the
+cells a command passed to Table.add_row.
 """
 
-from datetime import date, datetime, timezone
-from unittest.mock import patch
+from datetime import date, datetime
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from click.testing import CliRunner
 from rich.table import Table
 
 from workmain.ai.base_provider import ProviderType
+from workmain.cli.commands import meetings as meetings_module
+from workmain.cli.commands import notes as notes_module
+from workmain.cli.commands import providers as providers_module
+from workmain.cli.commands import reports as reports_module
 from workmain.cli.commands.meetings import meetings
 from workmain.cli.commands.notes import notes
 from workmain.cli.commands.providers import providers
 from workmain.cli.commands.reports import reports
-from workmain.database.models import AiCost, Meeting, Report
-from workmain.database.repositories.ai_costs_repo import AiCostRepository
+from workmain.cli.output import Renderer, ReportView, WorkmAInGroup
+from workmain.database.models import Meeting
 from workmain.database.repositories.notes_repo import NotesRepository
+from workmain.services import ai_cost_service
 from workmain.utils import cost_display
-
-_DAY = date(2099, 1, 1)
-_DT = datetime(2099, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
-_DAY_ARGS = ['-d', '2099-01-01']
-
-
-def _row(session, **overrides):
-    values = dict(
-        interaction_type='note_condensation', provider='gemini', model='m',
-        prompt_tokens=10, completion_tokens=202, thinking_tokens=196,
-        total_tokens=212, cost_usd=0.5, created_at=_DT,
-    )
-    values.update(overrides)
-    row = AiCost(**values)
-    session.add(row)
-    session.flush()
-    return row
 
 
 def _invoke(command, args):
@@ -49,14 +37,6 @@ def _invoke(command, args):
         result = CliRunner().invoke(command, args)
     cells = [tuple(call.args[1:]) for call in add_row.call_args_list]
     return result, ' '.join(result.output.split()), cells
-
-
-def _no_writes(monkeypatch):
-    """AC4.2: any command that wrote a row or a link would raise."""
-    def _raise(*args, **kwargs):
-        raise AssertionError("a cost command wrote to ai_costs")
-    monkeypatch.setattr(AiCostRepository, 'create', _raise)
-    monkeypatch.setattr(AiCostRepository, 'link_report', _raise)
 
 
 class TestAnswerAndThinkingRules:
@@ -93,119 +73,6 @@ class TestAnswerAndThinkingRules:
     def test_ollama_shaped_token_line(self):
         assert cost_display.format_call_tokens(15, 5, None) == \
             'Tokens: 15 prompt, 5 answer, — thinking'
-
-
-class TestProvidersCosts:
-    def test_summary_and_both_tables_show_three_counts(
-        self, db_session, monkeypatch
-    ):
-        """AC5.1, AC4.2"""
-        _row(db_session, interaction_type='daily_internal', provider='gemini',
-             prompt_tokens=10, completion_tokens=202, thinking_tokens=196,
-             total_tokens=212, cost_usd=0.5)
-        _row(db_session, interaction_type='intent_parse', provider='ollama',
-             prompt_tokens=7, completion_tokens=3, thinking_tokens=None,
-             total_tokens=10, cost_usd=0.0)
-        _no_writes(monkeypatch)
-
-        result, out, cells = _invoke(providers, ['costs', *_DAY_ARGS])
-
-        assert result.exit_code == 0, result.output
-        assert 'Failed to get costs' not in out
-        assert 'Prompt Tokens: 17' in out
-        assert 'Answer Tokens: 9' in out
-        assert 'Thinking Tokens: 196' in out
-        assert 'Total Tokens: 222' in out
-        assert 'Total Cost: $0.500000' in out
-        assert 'By Provider:' in out
-        assert 'By Call Type:' in out
-        assert cells == [
-            ('Gemini', '1', '10', '6', '196', '212', '$0.500000', '$0.500000'),
-            ('Ollama', '1', '7', '3', '—', '10', '$0.000000', '$0.000000'),
-            ('daily_internal', '1', '10', '6', '196', '212', '$0.500000', '$0.500000'),
-            ('intent_parse', '1', '7', '3', '—', '10', '$0.000000', '$0.000000'),
-        ]
-
-
-class TestCondensationCosts:
-    def test_meetings_and_notes_costs_agree(
-        self, db_session, monkeypatch
-    ):
-        """AC5.2, AC4.2"""
-        _row(db_session, context_label='MtgA', provider='gemini',
-             prompt_tokens=10, completion_tokens=202, thinking_tokens=196,
-             total_tokens=212, cost_usd=0.5)
-        _row(db_session, context_label='MtgB', provider='ollama',
-             prompt_tokens=7, completion_tokens=3, thinking_tokens=None,
-             total_tokens=10, cost_usd=0.0)
-        _no_writes(monkeypatch)
-        meetings_result, meetings_out, meetings_cells = _invoke(
-            meetings, ['costs', *_DAY_ARGS])
-
-        notes_result, notes_out, notes_cells = _invoke(notes, ['costs', *_DAY_ARGS])
-
-        expected_cells = [
-            ('Gemini', '1', '10', '6', '196', '212', '$0.500000', '$0.500000'),
-            ('Ollama', '1', '7', '3', '—', '10', '$0.000000', '$0.000000'),
-            ('2099-01-01', 'MtgA', 'gemini', '10', '6', '196', '212', '$0.500000'),
-            ('2099-01-01', 'MtgB', 'ollama', '7', '3', '—', '10', '$0.000000'),
-        ]
-        for result, out, cells in (
-            (meetings_result, meetings_out, meetings_cells),
-            (notes_result, notes_out, notes_cells),
-        ):
-            assert result.exit_code == 0, result.output
-            assert 'Failed to get costs' not in out
-            assert 'Prompt Tokens: 17' in out
-            assert 'Answer Tokens: 9' in out
-            assert 'Thinking Tokens: 196' in out
-            assert sorted(cells) == sorted(expected_cells)
-        assert (
-            meetings_out
-            .replace('Meeting Condensation Costs', 'TITLE')
-            .replace('Meeting Detail', 'DETAIL')
-        ) == (
-            notes_out
-            .replace('Note Condensation Costs', 'TITLE')
-            .replace('Condensation Detail', 'DETAIL')
-        )
-
-
-class TestReportsCosts:
-    def test_reads_cost_rows_not_report_metadata(
-        self, db_session, monkeypatch
-    ):
-        """AC5.3, AC4.2: the report's stale metadata never reaches the output."""
-        report = Report(
-            report_type='daily_internal', report_date=_DAY, content='x',
-            report_metadata={'ai_provider': 'gemini', 'cost': 9.87, 'total_tokens': 77777},
-        )
-        db_session.add(report)
-        db_session.flush()
-        _row(db_session, interaction_type='daily_internal', provider='gemini',
-             prompt_tokens=10, completion_tokens=202, thinking_tokens=196,
-             total_tokens=212, cost_usd=0.5, refused=True, report_id=report.id)
-        _row(db_session, interaction_type='daily_internal', provider='claude',
-             prompt_tokens=7, completion_tokens=30, thinking_tokens=None,
-             total_tokens=37, cost_usd=0.25, report_id=report.id)
-        _no_writes(monkeypatch)
-
-        result, out, cells = _invoke(reports, ['costs', *_DAY_ARGS])
-
-        assert result.exit_code == 0, result.output
-        assert 'Failed to get costs' not in out
-        assert 'Prompt Tokens: 17' in out
-        assert 'Answer Tokens: 36' in out
-        assert 'Thinking Tokens: 196' in out
-        assert 'Total Tokens: 249' in out
-        assert 'Total Cost: $0.750000' in out
-        assert cells == [
-            ('2099-01-01', 'daily_internal', 'claude', '7', '30', '—', '37', '$0.250000'),
-            ('2099-01-01', 'daily_internal', 'gemini (refused)', '10', '6', '196', '212',
-             '$0.500000'),
-        ]
-        assert '9.870000' not in out
-        assert '77,777' not in out
 
 
 class TestMeetingsCondenseTokenLine:
@@ -271,3 +138,155 @@ def test_costs_usage_error_exits_2_on_stderr(group):
     assert result.exit_code == 2
     assert '--date and --month are mutually exclusive.' in result.stderr
     assert result.stdout == ''
+
+
+# ---------------------------------------------------------------------------
+# The four costs commands
+# ---------------------------------------------------------------------------
+
+_DAY = date(2099, 1, 1)
+
+# group, module, service function, view constant, the options the command takes
+# beyond the date options, and how its service call reads after `session`.
+_COMMANDS = {
+    'meetings': (meetings, meetings_module, 'condensation_costs', 'MEETING_COSTS',
+                 ['-n', '5'], lambda p, t, s, e, n: (p, s, e, n)),
+    'notes': (notes, notes_module, 'condensation_costs', 'NOTE_COSTS',
+              ['-n', '5'], lambda p, t, s, e, n: (p, s, e, n)),
+    'providers': (providers, providers_module, 'cost_summary', 'PROVIDER_COSTS',
+                  [], lambda p, t, s, e, n: (p, s, e)),
+    'reports': (reports, reports_module, 'report_costs', 'REPORT_COSTS',
+                ['-R', 'daily_internal', '-n', '5'], lambda p, t, s, e, n: (p, t, s, e, n)),
+}
+
+
+def _names(*keys):
+    return pytest.mark.parametrize('name', keys)
+
+
+@pytest.fixture
+def provider_manager():
+    manager = MagicMock()
+    manager.get_configured_provider_names.return_value = ['claude', 'gemini', 'ollama']
+    manager.get_report_type_names.return_value = ['daily_internal', 'weekly_client']
+    with patch('workmain.utils.ai_arguments.get_provider_manager', return_value=manager):
+        yield manager
+
+
+def _run(name, args, service_side_effect=None, renderer=None):
+    """Run `<name> costs <args>` with the service patched and a mock renderer."""
+    group, _, function, _, _, _ = _COMMANDS[name]
+    renderer = renderer or Mock(spec=Renderer)
+    with patch.object(ai_cost_service, function, autospec=True,
+                      side_effect=service_side_effect) as service:
+        result = CliRunner(mix_stderr=False).invoke(
+            group, ['costs', *args], obj=renderer)
+    return result, service, renderer
+
+
+def _month(today):
+    import calendar
+    last = calendar.monthrange(today.year, today.month)[1]
+    return date(today.year, today.month, 1), date(today.year, today.month, last)
+
+
+class TestCostCommands:
+    @_names('meetings', 'notes', 'providers', 'reports')
+    def test_service_gets_the_parsed_options_and_the_renderer_the_result(
+        self, name, provider_manager
+    ):
+        """C1"""
+        _, _, _, view_name, extra, expected = _COMMANDS[name]
+        result, service, renderer = _run(
+            name, ['-P', 'claude', '-d', '2099-01-01', *extra])
+
+        assert result.exit_code == 0, result.stderr
+        service.assert_called_once()
+        assert service.call_args.args[1:] == expected(
+            'claude', 'daily_internal', _DAY, _DAY, 5)
+        renderer.report.assert_called_once_with(
+            getattr(_COMMANDS[name][1], view_name), service.return_value)
+
+    @_names('meetings', 'notes', 'providers', 'reports')
+    def test_no_options_means_this_month_and_every_provider(
+        self, name, provider_manager
+    ):
+        """C2"""
+        expected = _COMMANDS[name][5]
+        result, service, _ = _run(name, [])
+
+        start, end = _month(date.today())
+        assert result.exit_code == 0, result.stderr
+        assert service.call_args.args[1:] == expected(None, None, start, end, 20)
+
+    def test_all_means_no_dates(self, provider_manager):
+        """C3"""
+        result, service, _ = _run('providers', ['--all'])
+        assert result.exit_code == 0, result.stderr
+        assert service.call_args.args[1:] == (None, None, None)
+
+    def test_start_and_end_are_passed_through(self, provider_manager):
+        """C4"""
+        result, service, _ = _run(
+            'reports', ['-b', '2099-01-01', '-e', '2099-01-15'])
+        assert result.exit_code == 0, result.stderr
+        assert service.call_args.args[1:] == (
+            None, None, date(2099, 1, 1), date(2099, 1, 15), 20)
+
+    def test_month_means_its_first_and_last_day(self, provider_manager):
+        """C5"""
+        result, service, _ = _run('notes', ['-M', '2099-02'])
+        assert result.exit_code == 0, result.stderr
+        assert service.call_args.args[1:] == (
+            None, date(2099, 2, 1), date(2099, 2, 28), 20)
+
+    def test_a_service_failure_is_one_error_line_on_stderr(self, provider_manager):
+        """C6"""
+        group = _COMMANDS['meetings'][0]
+        renderer = Mock(spec=Renderer)
+        with patch.object(ai_cost_service, 'condensation_costs', autospec=True,
+                          side_effect=RuntimeError('db down')):
+            result = CliRunner(mix_stderr=False).invoke(
+                group, ['costs'], obj=renderer)
+
+        assert result.exit_code == 1
+        assert result.stderr == 'Error: RuntimeError: db down\n'
+        assert result.stdout == ''
+        renderer.report.assert_not_called()
+
+    def test_bad_values_are_usage_errors(self, provider_manager):
+        """C7"""
+        for name in _COMMANDS:
+            for args in (['-d', '2026-13-01'], ['-M', '2026-13'], ['-n', '0'], ['-n', '-1']):
+                if name == 'providers' and args[0] == '-n':
+                    continue
+                result, service, _ = _run(name, args)
+                assert result.exit_code == 2, (name, args)
+                assert 'Error:' in result.stderr, (name, args)
+                service.assert_not_called()
+
+    def test_each_view_is_the_one_the_design_declares(self):
+        """C8"""
+        hint_condense = 'Condense a meeting with: workmain meetings condense <title>'
+        expected = {
+            'meetings': ('meeting condensation costs', 'Condensations',
+                         ('by_provider', 'detail'), hint_condense),
+            'notes': ('note condensation costs', 'Condensations',
+                      ('by_provider', 'detail'), hint_condense),
+            'providers': ('AI costs', 'Total Calls', ('by_provider', 'by_type'),
+                          'Generate a report with: workmain reports save daily_internal'),
+            'reports': ('report costs', 'Calls', ('detail',),
+                        'Generate a report first with: workmain reports save daily_internal'),
+        }
+        for name, (noun, label, sections, hint) in expected.items():
+            view = getattr(_COMMANDS[name][1], _COMMANDS[name][3])
+            assert isinstance(view, ReportView), name
+            assert view.noun == noun, name
+            assert view.totals[0].label == label, name
+            assert tuple(s.field for s in view.sections) == sections, name
+            assert view.empty_hint == hint, name
+
+    def test_each_group_reports_unhandled_exceptions(self):
+        """C9"""
+        for name in _COMMANDS:
+            assert isinstance(_COMMANDS[name][0], WorkmAInGroup), name
