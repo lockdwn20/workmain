@@ -22,6 +22,8 @@ from workmain.cli.output import (
     Field,
     RecordView,
     Renderer,
+    ReportView,
+    Section,
     WorkmAInGroup,
     pass_renderer,
 )
@@ -252,6 +254,108 @@ RECORD = RecordView(
 )
 
 
+@dataclass(frozen=True)
+class Totals:
+    calls: int
+    thinking: Optional[int]
+    cost: float
+
+
+@dataclass(frozen=True)
+class Result:
+    filters: Tuple[Tuple[str, object], ...]
+    totals: Totals
+    first: Page
+    second: Page
+    third: Page
+
+
+REPORT = ReportView(
+    "AI costs",
+    "totals",
+    (
+        Field("calls", "Total Calls", fmt=lambda n: f"{n:,}"),
+        Field("thinking", "Thinking", fmt=lambda n: "n/a" if n is None else str(n)),
+        Field("cost", "Cost", fmt=lambda x: f"${x:.2f}"),
+    ),
+    (
+        Section("first", CollectionView("firsts", (Column("content", "Content", "text"),))),
+        Section("second", CollectionView("seconds", (Column("content", "Content", "text"),))),
+        Section("third", CollectionView("thirds", (Column("content", "Content", "text"),))),
+    ),
+    empty_hint="Do something",
+)
+
+
+def _result(filters=(("provider", "claude"),), first=1, second=1, third=0):
+    def page(n):
+        return Page(_rows(n), n)
+
+    return Result(filters, Totals(1703685, None, 0.5), page(first), page(second), page(third))
+
+
+class TestReport:
+    def test_title_and_aligned_totals(self):
+        """R1"""
+        r, out, _ = _renderer(120)
+        r.report(REPORT, _result())
+        lines = _lines(out)
+        assert lines[0] == "AI costs (provider=claude)"
+        assert lines[1] == "Total Calls: 1,703,685"
+        assert lines[2] == "Thinking:    n/a"
+        assert lines[3] == "Cost:        $0.50"
+
+    def test_sections_with_rows_print_in_order_after_a_blank_line(self):
+        """R2"""
+        r, out, _ = _renderer(120)
+        r.report(REPORT, _result())
+        expected = io.StringIO()
+        c = Renderer(Console(file=expected, width=120))
+        c.collection(REPORT.sections[0].view, _result().first)
+        first = expected.getvalue()
+        text = out.getvalue()
+        assert "\n\n" + first in text
+        assert text.index("Firsts (") < text.index("Seconds (")
+        assert "Thirds" not in text
+
+    def test_every_section_empty_prints_the_empty_line_and_hint_only(self):
+        """R3"""
+        r, out, _ = _renderer(120)
+        r.report(REPORT, _result(first=0, second=0))
+        assert _lines(out) == [
+            "No AI costs found (provider=claude).",
+            "Do something",
+            "",
+        ]
+
+    def test_narrow_width_keeps_title_and_totals_whole(self):
+        """R4"""
+        r, out, _ = _renderer(20)
+        r.report(REPORT, _result(first=0, second=0, third=1))
+        lines = _lines(out)
+        assert lines[0] == "AI costs (provider=claude)"
+        assert lines[1] == "Total Calls: 1,703,685"
+
+    def test_brackets_in_a_filter_and_a_field_print_as_written(self):
+        """R5"""
+        view = ReportView(
+            "AI costs", "totals",
+            (Field("thinking", "Note", fmt=lambda n: "[#85019]"),),
+            REPORT.sections,
+        )
+        r, out, _ = _renderer(120)
+        r.report(view, _result(filters=(("label", "[#85019]"),)))
+        lines = _lines(out)
+        assert lines[0] == "AI costs (label=[#85019])"
+        assert lines[1] == "Note: [#85019]"
+
+    def test_no_filters_means_no_parentheses(self):
+        """R6"""
+        r, out, _ = _renderer(120)
+        r.report(REPORT, _result(filters=()))
+        assert _lines(out)[0] == "AI costs"
+
+
 class TestRecord:
     def test_empty_fields_are_left_out_and_zero_and_false_print(self):
         r, out, _ = _renderer(80)
@@ -395,5 +499,57 @@ class TestWiring:
             result = CliRunner(mix_stderr=False).invoke(cli, ["notes", "add", "x"])
         assert result.exit_code == 1
         assert "Error: Invalid tags: ['bogus']" in result.stderr
+        assert "Traceback" not in result.stderr
+        assert "Traceback" not in result.stdout
+
+    def test_unhandled_exception_is_one_error_line(self):
+        """W1"""
+        @click.group(cls=WorkmAInGroup)
+        def grp():
+            pass
+
+        @grp.command()
+        def boom():
+            raise RuntimeError("boom [#1]")
+
+        result = CliRunner(mix_stderr=False).invoke(grp, ["boom"])
+        assert result.exit_code == 1
+        assert result.stderr == "Error: RuntimeError: boom [#1]\n"
+        assert "Traceback" not in result.stderr
+        assert "Traceback" not in result.stdout
+
+    def test_click_exceptions_keep_their_exit_codes(self):
+        """W2"""
+        @click.group(cls=WorkmAInGroup)
+        def grp():
+            pass
+
+        @grp.command()
+        def abort():
+            raise click.Abort()
+
+        @grp.command()
+        @click.pass_context
+        def leave(ctx):
+            ctx.exit(3)
+
+        @grp.command()
+        def usage():
+            raise click.UsageError("x")
+
+        runner = CliRunner(mix_stderr=False)
+        assert runner.invoke(grp, ["abort"]).exit_code == 1
+        assert runner.invoke(grp, ["leave"]).exit_code == 3
+        assert runner.invoke(grp, ["usage"]).exit_code == 2
+
+    def test_root_group_reports_an_unhandled_exception_from_an_unconverted_group(self):
+        """W3"""
+        with patch(
+            "workmain.cli.commands.clients.ClientRepository",
+            side_effect=RuntimeError("boom"),
+        ):
+            result = CliRunner(mix_stderr=False).invoke(cli, ["clients", "list"])
+        assert result.exit_code == 1
+        assert "Error: RuntimeError: boom" in result.stderr
         assert "Traceback" not in result.stderr
         assert "Traceback" not in result.stdout

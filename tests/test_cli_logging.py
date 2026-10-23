@@ -9,8 +9,10 @@ observed in-process.
 import logging
 import subprocess
 import sys
+import os
 import warnings
 
+import pytest
 from click.testing import CliRunner
 
 _PROBE = (
@@ -53,3 +55,58 @@ def test_cli_python_warning_is_a_log_record_and_nothing_to_stderr(caplog, capsys
         r.name == 'py.warnings' and 'probe-96' in r.getMessage() for r in caplog.records
     )
     assert capsys.readouterr().err == ""
+
+
+def _run_with_level(code, level):
+    env = {**os.environ, "LOG_LEVEL": level}
+    return subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, env=env,
+    )
+
+
+@pytest.mark.parametrize(
+    "level, expected",
+    [("debug", 10), ("WARNING", 30), ("", 30), ("BOGUS", 30), ("NOTSET", 30)],
+)
+def test_cli_log_level_follows_log_level_variable(level, expected):
+    """L1"""
+    code = (
+        "import logging;"
+        "from workmain.cli.interface import _configure_cli_logging;"
+        "_configure_cli_logging();"
+        "print(logging.getLogger().level)"
+    )
+    result = _run_with_level(code, level)
+    assert result.returncode == 0
+    assert result.stdout.strip() == str(expected)
+
+
+_UNHANDLED = """
+import click
+from workmain.cli.interface import _configure_cli_logging
+from workmain.cli.output import WorkmAInGroup
+
+@click.group(cls=WorkmAInGroup)
+def g():
+    pass
+
+@g.command()
+def boom():
+    raise RuntimeError("boom")
+
+_configure_cli_logging()
+g.main(["boom"])
+"""
+
+
+@pytest.mark.parametrize("level", ["DEBUG", "WARNING"])
+def test_unhandled_exception_traceback_is_logged_at_debug_only(level):
+    """L2"""
+    result = _run_with_level(_UNHANDLED, level)
+    assert result.returncode == 1
+    assert result.stderr == "Error: RuntimeError: boom\n"
+    if level == "DEBUG":
+        assert "Traceback" in result.stdout
+        assert "RuntimeError: boom" in result.stdout
+    else:
+        assert "Traceback" not in result.stdout
