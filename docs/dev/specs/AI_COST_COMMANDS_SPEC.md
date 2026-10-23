@@ -19,7 +19,7 @@
 | 20261023 | Ray | Study Q2: who writes the rule the report view needs | This spec writes it into §5.6 (Step 6). A conversion corrects the standards it finds lacking as it goes. The sentence in #202–#216 saying otherwise was corrected 20261023, and #201's is corrected at close-out. |
 | 20261023 | Ray | Study Q3: an exception no command handles | `WorkmAInGroup` reports it as one `Error:` line on stderr, exit 1, and §5.6 is made consistent. DR7, Step 6. |
 | 20261023 | Ray | Study Q4: `email_service` missing from `__all__` | #205's. Added to #205's body 20261023. |
-| 20261023 | Spanner | Where the traceback of an unhandled exception goes. CLI logging writes to stdout (`interface.py:62-77`), so logging it at `WARNING` or above prints it to stdout. That breaks §5.6's "never expose a raw stack trace", and adds lines to the stdout a calling process captures. | **Awaiting Ray.** Recommended: it is logged at `DEBUG`, which the CLI's `WARNING` level discards, and the `Error:` line names the exception's type and message. DR7. |
+| 20261023 | Spanner | Where the traceback of an unhandled exception goes. CLI logging writes to stdout (`interface.py:62-77`), so logging it at `WARNING` or above prints it to stdout. That breaks §5.6's "never expose a raw stack trace", and adds lines to the stdout a calling process captures. | Ray, 20261023: the traceback is logged at `DEBUG`, and the `Error:` line names the exception's type and message. That only works if the CLI's level can be raised, and it can't today. `.env.example` and the live `.env` set `LOG_LEVEL`, but nothing reads it, and `_configure_cli_logging` hardcodes `WARNING`. Ray, 20261023: the CLI reads `LOG_LEVEL`, defaulting to `WARNING`, and `.env.example` sets `WARNING`. The daemon keeps its fixed `INFO`, because its unit loads the same `.env`, so one value cannot serve both. DR7, DR11. |
 | 20261023 | Spanner | How the refused marker prints (study F13). A `Column` reads one field, and today's cell joins `provider` and `refused`. | `refused` is its own key column, `Refused`, printed through `format_refused`: `refused` when true, and blank when false. One field per column is how §5.6 describes a view. Joining the two in the service would make it format a display string, and a row property would hide a second field inside one column. |
 | 20261023 | Spanner | How the period prints | The service returns `("from", start)` and `("to", end)` as filters when the window has them, and the renderer writes them by §5.6's title rule (`from=2026-10-01, to=2026-10-31`). `format_date_window_label` then has no caller, so it is removed with its tests in this change. |
 | 20261023 | Spanner | Where the views shared by several command files live | The `CollectionView`s and totals `Field`s shared by more than one command go in `workmain/utils/cost_display.py`, next to the `fmt` functions they use. Each command file declares its own `ReportView` as a module constant from them. Declaring each table four times would make one table four copies. |
@@ -35,6 +35,7 @@
 - `workmain/services/__init__.py`: `ai_cost_service` imported and listed in `__all__`.
 - `workmain/cli/output.py`: `Section`, `ReportView`, `Renderer.report`. `WorkmAInGroup.invoke` reports an exception no command handled.
 - `workmain/cli/params.py`: `MonthParamType`.
+- `workmain/cli/interface.py` `_configure_cli_logging`, and `.env.example`'s `LOG_LEVEL` line (DR11).
 - `workmain/utils/cost_display.py`: the four `render_*` functions and every Rich import removed. It gains `format_count`, `format_cost`, `format_refused`, `format_provider_name`, and the shared views.
 - `workmain/utils/date_utils.py`: `resolve_date_window` takes parsed values. `format_date_window_label` is removed.
 - The four command functions `meetings_costs`, `notes_costs`, `show_costs` and `report_costs`, their options, and the declarations of their four groups (`cls=WorkmAInGroup`). The imports each file no longer needs go too.
@@ -69,7 +70,9 @@ Verified on `dev` `036ad12`. Findings from the study are cited as F-numbers and 
 | Callers that read a child's stderr: `RunResult.failure_message` puts `stderr.strip()` into a "one-line `FAILED` message" (`self_invoke.py:77-88`), and `eod_workflow.py:117-118`, `241-242` and `271` echo it or carry it as a warning. A traceback makes that message many lines; an `Error:` line keeps it one. No caller searches a child's output for `Traceback` (`git grep -n Traceback -- workmain automation scripts`). | as cited |
 | No CLI test inspects `result.exception` or relies on an exception escaping a group. `tests/test_clients_commands.py:66` invokes `clients` with `catch_exceptions=False`, and `clients` is not a group this spec changes. | `git grep -nE 'result\.exception\|catch_exceptions' -- tests` |
 | `clients list` catches nothing, and constructs `ClientRepository` through the name imported in `workmain/cli/commands/clients.py`. | `clients.py:20-97` |
-| CLI logging: `basicConfig(level=logging.WARNING, handlers=[logging.StreamHandler(sys.stdout)])`, set in the root group's callback. | `interface.py:62-77`, `93` |
+| CLI logging: `basicConfig(level=logging.WARNING, handlers=[logging.StreamHandler(sys.stdout)])`, set in the root group's callback. `.env` is already loaded by then, because `interface.py` imports `workmain.database.connection`, which calls `load_dotenv()` at import. `basicConfig(level='BOGUS')` raises `ValueError: Unknown level`. | `interface.py:13`, `62-77`, `93`; `connection.py:10-13`; probe 20261023 |
+| `LOG_LEVEL` is set in `.env.example:29` (`INFO`) and the live `.env` (`INFO`), and read by no code. The daemon's `_configure_logging` hardcodes `INFO`, and its unit loads the same `.env` (`EnvironmentFile=%h/Projects/workmain/.env`). | `git grep -n LOG_LEVEL`; `daemon.py:76-82`; `deploy/workmain-notify.service:30` |
+| Contract change: CLI log output. With `LOG_LEVEL` unset or `WARNING`, the CLI prints what it prints today. A `.env` that keeps `LOG_LEVEL=INFO` makes every command print `INFO` records on stdout, including the stdout EOD captures from a child. The live `.env` is Ray's to change to `WARNING` before this merges (§7). | DR11 |
 | The four groups are plain `click.group()`. | `meetings.py:154`, `notes.py:232`, `providers.py:47`, `reports.py:228` |
 | Imports the four functions alone use: `notes.py` `get_ai_cost_repository`, `render_condensation_costs`; `providers.py` `get_ai_cost_repository`, `render_cost_breakdown`, `render_cost_summary`; `reports.py` `get_ai_cost_repository`, `summarize`, `render_cost_rows`, `render_cost_summary`; `meetings.py` `render_condensation_costs`. `meetings.py` keeps `get_ai_cost_repository` (line 849). All four drop `resolve_date_window`'s string arguments and `format_date_window_label`. | `grep -n` over each file |
 | Collection titles use `view.noun.capitalize()`, which lowercases every letter after the first. | `output.py:167` |
@@ -120,9 +123,10 @@ Verified on `dev` `036ad12`. Findings from the study are cited as F-numbers and 
   - Options keep their names, short forms, defaults, metavars and help text. Only their types change, and every docstring stays. `--date`, `--start` and `--end` take `DateParamType()`. `--month` takes `MonthParamType()`. `--limit` takes `click.IntRange(min=1)`.
   - Each function takes `renderer` through `@pass_renderer`, catches nothing, and imports the service through its module (`from workmain.services import ai_cost_service`) so tests can patch it.
   - The four groups are declared `@click.group(cls=WorkmAInGroup)`.
-- **DR7 — An exception no command handles.** `WorkmAInGroup.invoke` keeps its two branches. It then re-raises `click.ClickException`, `click.exceptions.Exit` and `click.Abort` unchanged. Any other `Exception` is logged at `DEBUG` with `exc_info=True` on the module logger (pending Ray, Decision Log), and re-raised as `click.ClickException(f"{type(exc).__name__}: {exc}")`, chained `from` it. A `BaseException` that is not an `Exception` passes through untouched.
+- **DR7 — An exception no command handles.** `WorkmAInGroup.invoke` keeps its two branches. It then re-raises `click.ClickException`, `click.exceptions.Exit` and `click.Abort` unchanged. Any other `Exception` is logged at `DEBUG` with `exc_info=True` on the module logger (DR11 says how to see it), and re-raised as `click.ClickException(f"{type(exc).__name__}: {exc}")`, chained `from` it. A `BaseException` that is not an `Exception` passes through untouched.
 - **DR8 — Arguments.** `MonthParamType(click.ParamType)`, `name = "month"`: a `date` passes through. Anything else converts with `datetime.strptime(text, "%Y-%m").date()`, the first of the month, and calls `self.fail` on `ValueError`, with the message `'<value>' is not a valid month. Use YYYY-MM.` (§3.8).
 - **DR9 — The date window.** `resolve_date_window(on: Optional[date], start: Optional[date], end: Optional[date], month: Optional[date], show_all: bool)` keeps today's precedence, its four `click.UsageError`s and their messages. It returns `(on, on)` for a day, `(start, end or date.today())` for a range, and `(month, <last day of month>)` for a month.
+- **DR11 — The CLI's log level.** `_configure_cli_logging` (`workmain/cli/interface.py`) takes its level from the environment variable `LOG_LEVEL`. That is a `logging` level name, matched case-insensitively. When it is unset, empty or not a level name, the level is `WARNING`, so a bad value never stops a command. Records still go to stdout. `.env.example` sets `LOG_LEVEL=WARNING`. The daemon's `_configure_logging` is unchanged.
 - **DR10 — Not covered here.** Anything this spec doesn't settle stops at the current step (`.claude/skills/session-start/SKILL.md` § Role 3).
 
 ## 4. Steps
@@ -131,7 +135,7 @@ Verified on `dev` `036ad12`. Findings from the study are cited as F-numbers and 
 | --- | --- | --- |
 | 1 | Read service, package export, service tests | `workmain/services/ai_cost_service.py`, `workmain/services/__init__.py`, `tests/test_ai_costs.py` |
 | 2 | `MonthParamType`, `resolve_date_window` on parsed values, their tests | `workmain/cli/params.py`, `workmain/utils/date_utils.py`, `tests/test_cli_params.py`, `tests/test_ai_costs.py` |
-| 3 | Report view and the group's exception branch, with renderer and wiring tests | `workmain/cli/output.py`, `tests/test_output.py` |
+| 3 | Report view, the group's exception branch and the CLI log level, with renderer, wiring and logging tests | `workmain/cli/output.py`, `workmain/cli/interface.py`, `.env.example`, `tests/test_output.py` |
 | 4 | Formatters and shared views | `workmain/utils/cost_display.py`, `tests/test_cost_display.py` |
 | 5 | The four commands converted, with command tests | `workmain/cli/commands/meetings.py`, `notes.py`, `providers.py`, `reports.py`, `workmain/utils/cost_display.py`, `workmain/utils/date_utils.py`, `tests/test_cost_display.py`, `tests/test_ai_arguments.py`, `tests/test_provider_foundation.py`, `tests/test_ai_costs.py` |
 | 6 | Standards | `docs/DEVELOPMENT_STANDARDS.md` |
@@ -152,7 +156,8 @@ Verified on `dev` `036ad12`. Findings from the study are cited as F-numbers and 
 ### Step 3 — renderer
 
 1. `output.py`: `Section`, `ReportView` and `Renderer.report` per DR4, and DR7 in `WorkmAInGroup.invoke`. The module docstring adds the report view and the group's third branch.
-2. `tests/test_output.py`: R1–R6 in `TestReport`, and W1–W3 in `TestWiring` (§6).
+2. `interface.py`: `_configure_cli_logging` per DR11, and its docstring names `LOG_LEVEL`. `.env.example`: `LOG_LEVEL=WARNING`.
+3. `tests/test_output.py`: R1–R6 in `TestReport`, W1–W3 in `TestWiring`, and L1–L2 in `TestCliLogLevel` (§6).
 
 ### Step 4 — formatters and views
 
@@ -177,7 +182,7 @@ Verified on `dev` `036ad12`. Findings from the study are cited as F-numbers and 
 
    > - **A report** prints a title from its noun and the result's filters, one aligned `Label: value` line per totals field, then each section that has rows, after a blank line, as a collection. When no section has rows, it prints the empty line a collection prints, and the view's hint.
 
-4. In the exit-code list, replace "Never expose a raw stack trace — catch at the command level and emit a clean message." with "Never expose a raw stack trace. `WorkmAInGroup` turns an exception no command handled into one `Error:` line on stderr, exit 1; the traceback is logged at `DEBUG`."
+4. In the exit-code list, replace "Never expose a raw stack trace — catch at the command level and emit a clean message." with "Never expose a raw stack trace. `WorkmAInGroup` turns an exception no command handled into one `Error:` line on stderr, exit 1. The traceback is logged at `DEBUG`: run the command again with `LOG_LEVEL=DEBUG` to see it."
 
 ### Step 7 — results artifact
 
@@ -206,16 +211,17 @@ None. This spec runs no migration, deletes no GitHub object, merges nothing to `
 | AC7.1 | The full suite passes. | `pytest`, with the counts expected in §6. |
 | AC8.1 | A report renders its title, totals and non-empty sections, and its empty line and hint when every section is empty, whole at a width the test sets, with bracketed values intact. | `pytest tests/test_output.py::TestReport` |
 | AC8.2 | An exception no command handled reaches the user as one `Error: <type>: <message>` line on stderr with exit 1, and no traceback, from a converted group and through the root from an unconverted one. Click's own exceptions keep their exits. | `pytest tests/test_output.py::TestWiring` |
+| AC8.4 | The CLI's log level follows `LOG_LEVEL`, defaults to `WARNING`, and survives a bad value. At `DEBUG`, the traceback of an unhandled exception is written to the log while stderr still carries only the `Error:` line. | `pytest tests/test_output.py::TestCliLogLevel` |
 | AC8.3 | A bad `--date`, `--start`, `--end`, `--month` or `--limit` on a costs command is a usage error, exit 2 on stderr. | `pytest tests/test_cli_params.py::TestMonthParamType "tests/test_cost_display.py::TestCostCommands::test_bad_values_are_usage_errors"` |
 | AC9.1 | A command author knows from `docs/DEVELOPMENT_STANDARDS.md` §5.6 how a result in parts is declared and printed, and what happens to an exception their command does not handle. | A stated reading by Ray of §5.6 for exactly that. |
 
 ## 6. Test plan
 
 - **Baseline:** the counts of the first `pytest` run on this branch, recorded in the results artifact. The run uses the committed `config/ai_settings.json`. An uncommitted routing edit in the working tree changes which provider the report tests reach (§7). On this branch at `2f64799`, 20261023, with the committed config: 1429 passed, 0 failed, 0 skipped.
-- **Expected after:** the baseline, less 13 removed tests, plus 44 new, as collected:
+- **Expected after:** the baseline, less 13 removed tests, plus 46 new, as collected:
   - **Removed:** the 3 tests of `TestProvidersCosts`, `TestCondensationCosts` and `TestReportsCosts`; the 5 of `TestFormatDateWindowLabel`; `test_configured_provider_is_accepted_by_cost_filters`, which collects as 4; and `test_providers_costs_known_provider_no_bad_parameter`.
-  - **New:** S1–S14, P1–P2, R1–R6, W1–W3 and F1–F4, which is 29. C1 and C2 collect as 4 each, and C3–C9 as 7.
-  - On the baseline above: 1460 passed, 0 failed, 0 skipped.
+  - **New:** S1–S14, P1–P2, R1–R6, W1–W3, L1–L2 and F1–F4, which is 31. C1 and C2 collect as 4 each, and C3–C9 as 7.
+  - On the baseline above: 1462 passed, 0 failed, 0 skipped.
 
 Test method names are the spec's where an AC cites the node; Anvil names the rest.
 
@@ -257,6 +263,8 @@ Test method names are the spec's where an AC cites the node; Anvil names the res
 | R6 | `TestReport` | No filters: the title is the noun alone, with no parentheses. |
 | W1 | `TestWiring` | A `WorkmAInGroup` command raising `RuntimeError("boom [#1]")`: exit 1, `result.stderr == "Error: RuntimeError: boom [#1]\n"`, and `Traceback` in neither stream. |
 | W2 | `TestWiring` | Commands raising `click.Abort()`, calling `ctx.exit(3)`, and raising `click.UsageError("x")` exit 1, 3 and 2, as without the branch. |
+| L1 | `TestCliLogLevel` | With the root logger's handlers and level saved and restored around it, `_configure_cli_logging()` under `LOG_LEVEL` `debug`, `WARNING`, unset, empty and `BOGUS` (via `monkeypatch`) sets the root level to `DEBUG`, `WARNING`, `WARNING`, `WARNING` and `WARNING`, without raising. |
+| L2 | `TestCliLogLevel` | With the level at `DEBUG`, a W1-style failure writes the traceback through the log handler, and `result.stderr` is still the one `Error:` line. With the level at `WARNING`, no traceback is written. |
 | W3 | `TestWiring` | Through `cli`, `clients list` with `workmain.cli.commands.clients.ClientRepository` patched to raise `RuntimeError("boom")`: exit 1, `Error: RuntimeError: boom` on stderr, and no `Traceback`. |
 
 **`tests/test_cost_display.py`**
@@ -282,5 +290,6 @@ Test method names are the spec's where an AC cites the node; Anvil names the res
 - **The group branch reaches every command.** DR7 changes only an exception no command catches. The exit stays 1 and the stream stays stderr, and Click's own exceptions pass through (W2). A caller that wanted the traceback now gets one line (§2, `failure_message` is better for it). Rollback: revert Step 3's `invoke` change.
 - **Output wording changes.** Titles, the empty line, the filter line (now `from=`/`to=` in the title), the Refused column and the list layout at narrow widths follow §5.6. The numbers and which rows appear do not change: S1–S14 pin them against today's values.
 - **`ai_cost_service` grows a second role.** Recording and reading are both the cost domain's. Recording keeps its own sessions (§4.3), and reading takes the caller's. Each function's docstring states which it does.
+- **`LOG_LEVEL` in the live `.env`.** It reads `INFO` today and has had no effect. Once DR11 lands, `INFO` makes every CLI command print `INFO` records on stdout, and EOD would capture them. Ray changes his `.env` to `LOG_LEVEL=WARNING`, or removes the line, before this merges. `.env` is untracked and not this branch's to edit. Rollback: revert Step 3's `interface.py` change.
 - **Live configuration.** `config/ai_settings.json` is edited in the working tree during daily use. With `daily_internal` routed to `claude` as both primary and fallback (Ray's edit, 20261019), 17 tests in seven files fail that pass with the committed file. No test in this spec reads the routing. Anvil records the baseline and the final counts with the committed file, and reports the working tree's state separately if it differs.
 - Each step is one commit and reverts alone. Step 5 depends on Steps 1–4.
