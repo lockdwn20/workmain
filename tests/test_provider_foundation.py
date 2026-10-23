@@ -1319,6 +1319,89 @@ def test_providers_test_succeeds_on_complete_reply():
 
 
 # ---------------------------------------------------------------------------
+# stubbed_manager refuses unstubbed providers (issue #236)
+# ---------------------------------------------------------------------------
+
+class TestStubbedManager:
+    """AC1.3 — stubbed_manager makes every unstubbed provider unreachable."""
+
+    def _request(self):
+        from workmain.ai.base_provider import GenerationRequest
+        return GenerationRequest(prompt="p", max_tokens=1000)
+
+    def test_unstubbed_primary_raises_and_fallback_is_not_tried(self, tmp_path):
+        from tests.mocks.stub_providers import (
+            StubProvider, UnstubbedProviderCall, stubbed_manager,
+        )
+        fallback = StubProvider(ProviderType.CLAUDE)
+        manager = stubbed_manager(
+            tmp_path, {"claude": fallback},
+            {"daily_internal": ("gemini", "claude")},
+        )
+
+        with pytest.raises(UnstubbedProviderCall, match="gemini"):
+            manager.generate(self._request(), report_type="daily_internal")
+
+        assert fallback.calls == 0
+
+    def test_stub_for_a_provider_whose_constructor_failed_is_called(
+        self, tmp_path, monkeypatch
+    ):
+        from tests.mocks.stub_providers import StubProvider, stubbed_manager
+        from workmain.ai.provider_manager import ProviderManager
+        monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+        plain = tmp_path / "plain"
+        plain.mkdir()
+        (plain / "ai_settings.json").write_text(
+            Path("config/ai_settings.json").read_text()
+        )
+        assert "gemini" in ProviderManager(
+            config_path=str(plain / "ai_settings.json")
+        )._disabled_reasons
+        stub = StubProvider(ProviderType.GEMINI)
+
+        manager = stubbed_manager(
+            tmp_path, {"gemini": stub}, {"daily_internal": ("gemini", None)}
+        )
+        manager.generate(self._request(), report_type="daily_internal")
+
+        assert stub.calls == 1
+
+    def test_unstubbed_provider_propagates_out_of_narrate(self, tmp_path, monkeypatch):
+        from tests.mocks.stub_providers import UnstubbedProviderCall, stubbed_manager
+        from workmain.ai import provider_manager as provider_manager_module
+        from workmain.daemon import narration
+        from workmain.daemon.models import Observation, ObservationType
+        manager = stubbed_manager(
+            tmp_path, {}, {"daemon_narration": ("claude", None)}
+        )
+        monkeypatch.setattr(
+            provider_manager_module, "_provider_manager_instance", manager
+        )
+
+        with pytest.raises(UnstubbedProviderCall, match="claude"):
+            narration.narrate(
+                [Observation(type=ObservationType.TIME_GAP, message="gap")]
+            )
+
+    def test_routing_key_in_neither_block_raises_keyerror(self, tmp_path):
+        from tests.mocks.stub_providers import stubbed_manager
+        with pytest.raises(KeyError, match="no_such_call_type"):
+            stubbed_manager(tmp_path, {}, {"no_such_call_type": ("claude", None)})
+
+    def test_none_fallback_leaves_the_entry_without_one(self, tmp_path):
+        from tests.mocks.stub_providers import stubbed_manager
+        manager = stubbed_manager(
+            tmp_path, {}, {"daily_internal": ("gemini", None)}
+        )
+        saved = json.loads((tmp_path / "ai_settings.json").read_text())
+
+        assert "fallback_provider" not in saved["report_types"]["daily_internal"]
+        assert saved["report_types"]["daily_internal"]["primary_provider"] == "gemini"
+        assert manager.get_report_config("daily_internal").fallback_provider is None
+
+
+# ---------------------------------------------------------------------------
 # ProviderManager.generate records every reply (issue #191)
 # ---------------------------------------------------------------------------
 
@@ -1349,7 +1432,7 @@ class TestManagerRecording:
         manager = stubbed_manager(tmp_path, {
             "gemini": StubProvider(ProviderType.GEMINI, error=GenerationError("boom")),
             "claude": StubProvider(ProviderType.CLAUDE, **self._SCRIPTED),
-        })
+        }, {"daily_internal": ("gemini", "claude")})
         before = self._count(db_session)
 
         response, notice = manager.generate(self._request(), report_type="daily_internal")
@@ -1372,7 +1455,7 @@ class TestManagerRecording:
         from tests.mocks.stub_providers import StubProvider, stubbed_manager
         manager = stubbed_manager(tmp_path, {
             "gemini": StubProvider(ProviderType.GEMINI, **self._SCRIPTED),
-        })
+        }, {"daily_internal": ("gemini", "claude")})
 
         with caplog.at_level("WARNING", logger="workmain.services.ai_cost_service"):
             response, notice = manager.generate(
@@ -1388,7 +1471,7 @@ class TestManagerRecording:
     ):
         """AC2.1"""
         from tests.mocks.stub_providers import (
-            StubProvider, drop_fallback, stubbed_manager,
+            StubProvider, stubbed_manager,
         )
         from workmain.ai.base_provider import IncompleteResponseError
         from workmain.database.models import AiCost
@@ -1398,7 +1481,7 @@ class TestManagerRecording:
                 ProviderType.GEMINI, FinishStatus.CUT_OFF, "MAX_TOKENS",
                 content="partial", **self._SCRIPTED,
             )},
-            edit=drop_fallback("daily_internal"),
+            routing={"daily_internal": ("gemini", None)},
         )
         before = self._count(db_session)
 
@@ -1430,7 +1513,7 @@ class TestManagerRecording:
                 content="partial",
             ),
             "claude": StubProvider(ProviderType.CLAUDE, **self._SCRIPTED),
-        })
+        }, {"daily_internal": ("gemini", "claude")})
         before = self._count(db_session)
 
         response, notice = manager.generate(self._request(), report_type="daily_internal")
@@ -1447,13 +1530,13 @@ class TestManagerRecording:
     ):
         """AC2.3"""
         from tests.mocks.stub_providers import (
-            StubProvider, drop_fallback, stubbed_manager,
+            StubProvider, stubbed_manager,
         )
         from workmain.database.models import AiCost
         manager = stubbed_manager(
             tmp_path,
             {"gemini": StubProvider(ProviderType.GEMINI, content="")},
-            edit=drop_fallback("daily_internal"),
+            routing={"daily_internal": ("gemini", None)},
         )
         before = self._count(db_session)
 
@@ -1472,7 +1555,7 @@ class TestProvidersTestRecording:
 
     def _invoke(self, tmp_path, stub):
         from tests.mocks.stub_providers import stubbed_manager
-        manager = stubbed_manager(tmp_path, {"claude": stub})
+        manager = stubbed_manager(tmp_path, {"claude": stub}, {})
         with patch('workmain.cli.commands.providers.get_provider_manager', return_value=manager), \
                 patch('workmain.utils.ai_arguments.get_provider_manager', return_value=manager):
             return CliRunner(mix_stderr=False).invoke(providers, ['test', 'claude'])

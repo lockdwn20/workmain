@@ -1374,11 +1374,11 @@ class TestReportStepOutcome:
         from workmain.ai import provider_manager as pm_module
         from workmain.ai.base_provider import ProviderType
         from workmain.cli.commands.reports import reports
-        from tests.mocks.stub_providers import cut_off, drop_fallback, stubbed_manager
+        from tests.mocks.stub_providers import cut_off, stubbed_manager
 
         manager = stubbed_manager(
             tmp_path, {'gemini': cut_off(ProviderType.GEMINI)},
-            edit=drop_fallback('daily_internal'),
+            routing={"daily_internal": ("gemini", None)},
         )
         with patch.object(pm_module, '_provider_manager_instance', manager):
             result = CliRunner(mix_stderr=False).invoke(
@@ -1470,7 +1470,7 @@ class TestCondenseStepOutcome:
             content='Discussed', tags=['client-report'], meeting_id=meeting.id,
             source='meeting', created_at=datetime(2099, 6, 4, 9, 0),
         )
-        manager = stubbed_manager(tmp_path, stubs)
+        manager = stubbed_manager(tmp_path, stubs, {"note_condensation": ("gemini", "claude")})
         with patch.object(pm_module, '_provider_manager_instance', manager):
             result = CliRunner(mix_stderr=False).invoke(meetings, ['condense', str(meeting.id)])
         return WorkmainRun(returncode=result.exit_code, stderr=result.stderr)
