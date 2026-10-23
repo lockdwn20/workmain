@@ -318,12 +318,12 @@ class TestCondensationRefusal:
     def test_cut_off_condensation_is_not_stored(self, tmp_path, db_session):
         """AC2.2."""
         from workmain.ai.base_provider import ProviderError, ProviderType
-        from tests.mocks.stub_providers import cut_off, drop_fallback, stubbed_manager
+        from tests.mocks.stub_providers import cut_off, stubbed_manager
         meeting = _meeting_with_note(db_session, "Sentinel Refusal Meeting 2099")
         condenser = NoteCondenser(db_session)
         condenser.provider_manager = stubbed_manager(
             tmp_path, {"gemini": cut_off(ProviderType.GEMINI)},
-            edit=drop_fallback("note_condensation"),
+            routing={"note_condensation": ("gemini", None)},
         )
 
         with pytest.raises(ProviderError):
@@ -341,7 +341,7 @@ class TestCondensationRefusal:
         condenser.provider_manager = stubbed_manager(tmp_path, {
             "gemini": cut_off(ProviderType.GEMINI),
             "claude": complete(ProviderType.CLAUDE, content="Recovered summary"),
-        })
+        }, {"note_condensation": ("gemini", "claude")})
 
         summary, _, notice, _ = condenser.condense_meeting(meeting)
 
@@ -366,7 +366,7 @@ class TestCondensationRecording:
                 prompt_tokens=9, completion_tokens=202, thinking_tokens=196,
                 tokens_used=211, cost=0.0123,
             ),
-        })
+        }, {"note_condensation": ("gemini", "claude")})
 
         _, _, _, cost_record_ids = condenser.condense_meeting(meeting)
 
@@ -391,7 +391,7 @@ class TestCondensationRecording:
         condenser = NoteCondenser(db_session)
         condenser.provider_manager = stubbed_manager(tmp_path, {
             "gemini": StubProvider(ProviderType.GEMINI, content="Summary"),
-        })
+        }, {"note_condensation": ("gemini", "claude")})
         def summary_write_fails():
             raise RuntimeError("summary write failed")
 

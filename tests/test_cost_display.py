@@ -217,7 +217,7 @@ class TestMeetingsCondenseTokenLine:
                 prompt_tokens=9, completion_tokens=202, thinking_tokens=196,
                 tokens_used=211, cost=0.0123,
             ),
-        })
+        }, {"note_condensation": ("gemini", "claude")})
 
         def condenser_on_the_commands_session(session):
             condenser = NoteCondenser(session)
