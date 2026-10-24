@@ -53,7 +53,6 @@ import httpx2
 import pytest
 import anthropic
 
-
 from workmain.ai.provider_manager import ProviderManager
 
 _FAKE_ANTHROPIC_ENV = {
@@ -167,7 +166,7 @@ class TestGenerationRequestContract:
 
 
 class TestClaudeRetryPolicy:
-    """DR4 — permanent 4xx fails on the first attempt; transient errors retry."""
+    """Claude and SDK retry limits, plus DR4 4xx/transient behavior."""
 
     def test_retry_attempts_equal_http_requests(self):
         request_count = 0
@@ -200,7 +199,6 @@ class TestClaudeRetryPolicy:
             fake_cls.return_value = MagicMock()
             ClaudeProvider(_offline_claude_config(), dict(_CLAUDE_POLICY))
         assert fake_cls.call_args.kwargs["max_retries"] == 0
-
 
     def test_claude_no_retry_on_4xx(self):
         provider, client = _build_claude()
@@ -449,7 +447,31 @@ def _build_gemini(config=None, policy=None):
 
 
 class TestGeminiRateLimitTranslation:
-    """Step 1 — typed rate-limit classification (DR1/DR2/DR2a/DR7/DR9)."""
+    """Typed rate-limit classification and request retry policy."""
+
+    def test_client_disables_sdk_retries(self):
+        with patch.dict(os.environ, {"GOOGLE_API_KEY": "A" * 39}), \
+             patch("workmain.ai.providers.gemini.genai.Client") as fake_cls:
+            fake_cls.return_value = MagicMock()
+            GeminiProvider(_offline_gemini_config(), {
+                "thinking_config": {"thinking_level": "high"},
+                "automatic_function_calling": {"disable": True},
+            })
+        retry_options = fake_cls.call_args.kwargs["http_options"].retry_options
+        assert retry_options.attempts == 1
+
+    def test_reply_read_error_does_not_retry_generation(self):
+        provider, client = _build_gemini()
+
+        class BadReply:
+            @property
+            def text(self):
+                raise RuntimeError("reply read failed")
+
+        client.models.generate_content.return_value = BadReply()
+        with pytest.raises(GenerationError, match="response reading failed"):
+            provider.generate(GenerationRequest(prompt="hi", max_tokens=20))
+        assert client.models.generate_content.call_count == 1
 
     def test_is_rate_limit_error_true_for_429(self):
         assert _is_rate_limit_error(_FakeGeminiAPIError(429)) is True

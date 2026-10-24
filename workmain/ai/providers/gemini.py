@@ -79,7 +79,12 @@ class GeminiProvider(BaseProvider):
             )
 
         try:
-            self.client = genai.Client(api_key=self._api_key)
+            self.client = genai.Client(
+                api_key=self._api_key,
+                http_options=types.HttpOptions(
+                    retry_options=types.HttpRetryOptions(attempts=1)
+                ),
+            )
         except Exception as e:
             raise ConfigurationError(f"Failed to initialize Gemini client: {e}") from e
 
@@ -149,7 +154,15 @@ class GeminiProvider(BaseProvider):
                     config=types.GenerateContentConfig(**config_dict)
                 )
 
-                content = response.text or ""
+                try:
+                    content = response.text or ""
+                except Exception as e:
+                    # The request succeeded; reading its reply must not issue
+                    # another (potentially billable) generation request.
+                    self._set_status(ProviderStatus.ERROR, str(e))
+                    raise GenerationError(
+                        f"Gemini response reading failed: {e}"
+                    ) from e
 
                 usage = response.usage_metadata
                 prompt_tokens = usage.prompt_token_count or 0
@@ -190,6 +203,9 @@ class GeminiProvider(BaseProvider):
                     finish_reason=finish_reason,
                     metadata=metadata
                 )
+
+            except GenerationError:
+                raise
 
             except genai_errors.APIError as e:
                 # One clause for 4xx, 5xx and a bare APIError from the SDK's
