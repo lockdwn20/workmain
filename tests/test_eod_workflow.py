@@ -39,7 +39,7 @@ from workmain.workflows.eod_workflow import (
     _keyword_note_dedup_match,
 )
 from workmain.workflows.eod_workflow import (
-    _run_condense_step, _run_sync_step, _run_email_step, _run_gdocs_step, _run_slack_weekly_step,
+    _run_clockify_step, _run_condense_step, _run_sync_step, _run_email_step, _run_gdocs_step, _run_slack_weekly_step,
     _run_weekly_email_step,
 )
 from workmain.services import email_service
@@ -1277,6 +1277,39 @@ class TestSubprocessHardening:
             result = _run_sync_step(dry_run=False, target_date=date(2099, 1, 1))
         assert result.status == EodStepStatus.COMPLETED
         assert m.call_count == 2
+
+
+class TestClockifyCallSites:
+    """The EOD steps that run a clockify command as a child process handle the
+    exit 3 the converted commands produce on a Clockify API failure (#202)."""
+
+    def test_e1_sync_step_exit_3_asks_to_continue_and_carries_the_error_line(self):
+        stderr = "Error: 1 of 2 entries were not pushed to Clockify\n"
+        with patch('workmain.workflows.eod_workflow.run_workmain',
+                   return_value=WorkmainRun(returncode=3, stderr=stderr)) as m, \
+             patch('workmain.workflows.eod_workflow._prompt_choice', return_value='y'):
+            result = _run_sync_step(dry_run=False, target_date=date(2099, 1, 1))
+        assert result.status == EodStepStatus.COMPLETED
+        assert "Error: 1 of 2 entries were not pushed to Clockify" in result.message
+        assert m.call_count == 1
+
+    def test_e2_clockify_step_exit_3_can_be_skipped_when_interactive(self):
+        with patch('workmain.workflows.eod_workflow.run_workmain',
+                   return_value=WorkmainRun(returncode=3, stderr="Error: x\n")), \
+             patch('workmain.workflows.eod_workflow._is_interactive', return_value=True), \
+             patch('workmain.workflows.eod_workflow._prompt_choice', return_value='s'):
+            result = _run_clockify_step(dry_run=False, target_date=date(2099, 1, 1))
+        assert result.status == EodStepStatus.COMPLETED
+
+    def test_e3_clockify_step_exit_3_fails_the_step_when_not_interactive(self):
+        stderr = "Error: Clockify request failed: 401\n"
+        with patch('workmain.workflows.eod_workflow.run_workmain',
+                   return_value=WorkmainRun(returncode=3, stderr=stderr)), \
+             patch('workmain.workflows.eod_workflow._is_interactive', return_value=False):
+            result = _run_clockify_step(dry_run=False, target_date=date(2099, 1, 1))
+        assert result.status == EodStepStatus.FAILED
+        assert "exit code 3" in result.error
+        assert "Error: Clockify request failed: 401" in result.error
 
 
 class TestEmailStepService:
