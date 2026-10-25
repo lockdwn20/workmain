@@ -10,6 +10,16 @@ class ServiceValidationError(Exception):
     """Base class for service-layer validation failures."""
 
 
+class IntegrationError(Exception):
+    """Raised when a call to another system failed or was refused. It is not
+    a ServiceValidationError: the request was valid, and the other system
+    could not carry it out."""
+
+
+class ClockifyNotConfiguredError(ServiceValidationError):
+    """Raised when CLOCKIFY_API_KEY is not set."""
+
+
 class MissingStartTimeError(ServiceValidationError):
     """Raised by time_entry_service when entry_time cannot be determined
     and no default may be applied. Caller must obtain a start time from
