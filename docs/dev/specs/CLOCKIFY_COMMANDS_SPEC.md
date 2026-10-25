@@ -26,6 +26,11 @@
 | 20261023 | Spanner | `--silent` | `Renderer.report(view, result, quiet=True)` prints only the warnings. §4.3 has a record failure reach stderr whatever the flags, as `test_t24` asserts today. |
 | 20261023 | Spanner | `sync both` renders two results | Push and pull are two service operations, each with its own result. The command renders each one with one `report` call. Splitting one result into parts is what study #201's Option B was rejected for, and this does not do that. |
 | 20261023 | Spanner | `report save` and the pull apply calls open no session in the command | `report save` reads no database. A Clockify write and its record use `record_scope()` inside the service (§4.3). AC1.1 is restated for commands that read the database, and the issue's AC is corrected at close-out. |
+| 20261025 | Caliper | 3, 5: S25 fails as written if both `classify` calls use `db_session`. The link is written by a separate `record_scope()` session, and a second query on `db_session` does not refresh the entry's already-loaded `clockify_id`, so the second classification still sees a conflict. DR4 avoids this in production with a fresh scope per classification. The spec does not say what S25 does between the calls. | Accepted. S25 seeds and commits as `test_clockify_sync.py::_seed_entry` does, and calls `db_session.expire_all()` before the second `classify`, which stands in for DR4's new scope. `classify` itself is unchanged: the fresh scope is the mechanism, and C16 pins it at the command. |
+| 20261025 | Caliper | 7: Nothing checks F4's protection at the command, where DR4 puts it. A command that classified every entry in one scope before asking would pass AC8.3 and C8. | Accepted. C16: a pull of two entries asserts the calls alternate `classify`, `apply_pull`, `classify`, `apply_pull`, and that the two `classify` calls received different sessions. AC8.3 checks S25 and C16. Expected after rises by 1. |
+| 20261025 | Caliper | 5: `plan_entry_push` reads `note` and `project` on the row `get_by_id` returns, and `get_by_id` loads neither. §4.3 says a change that adds a per-row read adds the loader. | **Not taken.** §4.3's loading rule governs "a repository method that returns rows", because a list of N rows costs up to N + 1 queries. `get_by_id` returns one row, so its two lazy loads cost a fixed two statements whatever the data, and §6.2's one-versus-five count cannot apply to it. Adding a loader would change the query for every other `get_by_id` caller, for no saving. |
+| 20261025 | Caliper | 2: Step 4.4's mapping of the deleted tests leaves out `test_pull_entries_noninteractive_does_not_prompt`. | Accepted. Step 4.4 maps it to C8 (nothing is asked) and S27's `None`-answer case (the import). |
+| 20261025 | Caliper | 3: DR6 gives `sync both`'s `--date` "default `date.today()`", which as an option default would be fixed when the module is imported. | Accepted. The option has no default, and the body uses `date.today()` when it is `None`, as `clockify.py:416` does today. The same holds for `sync pull`'s `--start`. |
 
 ---
 
@@ -121,8 +126,8 @@ Verified on `dev` `44bc6f5`, 20261023. Study findings are cited as F-numbers and
   | `status` | `get_status(session, datetime.now())` in a scope | `renderer.record(STATUS, status)` | — |
   | `report save PERIOD` | `save_report(period, start, end, date.today())`, no scope | `renderer.record(REPORT_SAVED, saved)` | `--start/-b`, `--end/-e` take `DateParamType()` |
   | `sync push` | `plan_push(session, date, all)` in a scope, then `push(plan)` | `renderer.report(PUSH, result, quiet=silent)`, then `raise result.error` when set | `--date/-d` takes `DateParamType()` |
-  | `sync pull` | DR4 | `renderer.report(PULL, result, quiet=silent)`, then `raise result.error` when set | `--start/-b`, `--end/-e` take `DateParamType()`. `--start` defaults to `date.today()` in the body, as today. `--silent` help: `Silent mode (no prompts; conflicts are imported as separate entries)` |
-  | `sync both` | `plan_push(session, on_date=d)` in a scope, `push(plan)`, then DR4 interactive for `d`, `d` | `report(PUSH, push_result)`, then `report(PULL, pull_result)`, then `raise push_result.error or pull_result.error` when either is set | `--date/-d` takes `DateParamType()`, default `date.today()` |
+  | `sync pull` | DR4 | `renderer.report(PULL, result, quiet=silent)`, then `raise result.error` when set | `--start/-b`, `--end/-e` take `DateParamType()`. `--start` has no default, and the body uses `date.today()` when it is `None`, as today. `--silent` help: `Silent mode (no prompts; conflicts are imported as separate entries)` |
+  | `sync both` | `plan_push(session, on_date=d)` in a scope, `push(plan)`, then DR4 interactive for `d`, `d` | `report(PUSH, push_result)`, then `report(PULL, pull_result)`, then `raise push_result.error or pull_result.error` when either is set | `--date/-d` takes `DateParamType()`, with no default. `d` is the option's value, or `date.today()` in the body when it is `None`, as today |
 
   - Every other option keeps its name, short form, default and help text. Every docstring stays, except that `sync both`'s and `status`'s describe what they now print. The groups are declared `@click.group(cls=WorkmAInGroup)`. Each command takes `renderer` through `@pass_renderer`.
   - Views, as module constants in `clockify.py`:
@@ -183,8 +188,8 @@ If `dev` has moved past `44bc6f5`, merge it into this branch (`git merge dev`) a
 1. `clockify.py`: DR1, DR4, DR5 and DR6. It removes the imports of `rich`, `ClockifyClient`, `ClockifyAuth`, `ClockifySync`, `TimeEntriesRepository`, `calendar`, `timedelta` and `Path` that it no longer uses, and `_PROJECT_ROOT` and `_CLOCKIFY_DIR`, whose job is now `clockify_service.CLOCKIFY_DIR`.
 2. `time.py`: DR9.
 3. Delete `workmain/integrations/clockify/sync.py`. In `workmain/integrations/clockify/__init__.py`, remove the `ClockifySync` import and its `__all__` entry, and the docstring's mention of sync, if any.
-4. Delete `tests/test_clockify_sync.py`. Every behaviour it tested has a service test in Step 3: the import tests are S27, `t20`–`t22` are S17, S26 and S28, `t24` is S18 with O1–O3, and `TestPushLoading` is S19.
-5. `tests/test_clockify.py`: replace `TestReportSaveExitCode` with C1–C15 in `TestClockifyCommands`, and update the module docstring.
+4. Delete `tests/test_clockify_sync.py`. Every behaviour it tested has a service test in Step 3: the import tests are S27, `t20`–`t22` are S17, S26 and S28, `t24` is S18 with O1–O3, `TestPushLoading` is S19, and `test_pull_entries_noninteractive_does_not_prompt` is C8 (nothing is asked) with S27's `None`-answer case (the import).
+5. `tests/test_clockify.py`: replace `TestReportSaveExitCode` with C1–C16 in `TestClockifyCommands`, and update the module docstring.
 6. `tests/test_time_add.py`: T1–T2 in `TestTimeAddUnitOfWork` (§6).
 
 ### Step 5 — EOD call sites
@@ -227,16 +232,16 @@ None. This spec runs no migration, deletes no GitHub object, merges nothing to `
 | AC7.1 | Each EOD step that runs a clockify command as a child process handles every exit code and output stream the converted command now produces, as that step's existing policy requires, through the `run_workmain` entry path. The `CliRunner` path is AC4.1's. | `pytest tests/test_eod_workflow.py::TestClockifyCallSites`, and a stated reading by Ray of the results artifact's call-site table. |
 | AC8.1 | A Clockify API failure in a clockify command exits 3 with one `Error:` line on stderr and no traceback, a missing API key exits 1 the same way, and a push or pull that partly failed prints its report and then exits non-zero. | `pytest tests/test_output.py::TestWiring tests/test_clockify.py::TestClockifyCommands` |
 | AC8.2 | A report's warnings reach stderr, one line each, whether or not it has rows and under `quiet`, and nothing else is printed under `quiet`. | `pytest tests/test_output.py::TestReport` |
-| AC8.3 | A pull's conflict question sees the links and imports already applied in the same run. | `pytest "tests/test_clockify_service.py::TestPull::test_s25_classification_sees_an_earlier_link"` |
+| AC8.3 | A pull's conflict question sees the links and imports already applied in the same run: the command classifies each entry in a new scope, after the previous entry's answer is applied. | `pytest "tests/test_clockify_service.py::TestPull::test_s25_classification_sees_an_earlier_link" "tests/test_clockify.py::TestClockifyCommands::test_c16_pull_classifies_each_entry_after_the_last_is_applied"` |
 | AC9.1 | A command author knows from `docs/DEVELOPMENT_STANDARDS.md` §5.6 how an integration error, a partly failed result, an outside call and a report's warnings are written. | A stated reading by Ray of §5.6 for exactly that. |
 
 ## 6. Test plan
 
 - **Baseline:** the counts Step 0 records. On this branch at `44bc6f5`, 20261023: 1472 passed, 0 failed, 0 skipped.
-- **Expected after:** the baseline, less 16 removed tests, plus 81 new, as collected:
+- **Expected after:** the baseline, less 16 removed tests, plus 82 new, as collected:
   - **Removed:** the 3 tests of `tests/test_clockify.py` and the 13 of `tests/test_clockify_sync.py`.
-  - **New:** service 48 (S2 collects 5, S3 2, S7 6, S27 6), repository 3, renderer and wiring 5, command 20 (C5 collects 4, C14 3), EOD 3, `time add` 2.
-  - On the baseline above: 1537 passed, 0 failed, 0 skipped.
+  - **New:** service 48 (S2 collects 5, S3 2, S7 6, S27 6), repository 3, renderer and wiring 5, command 21 (C5 collects 4, C14 3), EOD 3, `time add` 2.
+  - On the baseline above: 1538 passed, 0 failed, 0 skipped.
 
 Test method names are the spec's where an AC cites the node. Anvil names the rest.
 
@@ -268,7 +273,7 @@ Test method names are the spec's where an AC cites the node. Anvil names the res
 | S22 | `TestPull` | `classify` of an entry whose id a local entry holds: `"linked"`. |
 | S23 | `TestPull` | `classify` against an unlinked local entry at the same date and time: `"conflict"`, `local_id` that entry, and `pair` the WorkmAIn row then the Clockify row. |
 | S24 | `TestPull` | `classify` with no match: `"new"`, and `pair` empty. |
-| S25 | `TestPull` | `test_s25_classification_sees_an_earlier_link`: two Clockify entries at the time of one unlinked local entry. The first classifies as a conflict. After `apply_pull(first, PullAnswer("link", None))`, the second classifies as `"new"`. |
+| S25 | `TestPull` | `test_s25_classification_sees_an_earlier_link`: two Clockify entries at the time of one unlinked local entry, seeded and committed as `test_clockify_sync.py::_seed_entry` does. The first classifies as a conflict. After `apply_pull(first, PullAnswer("link", None))` and `db_session.expire_all()`, which stands in for DR4's new scope, the second classifies as `"new"`. |
 | S26 | `TestPull` | `apply_pull` with `"link"`: linked, through `record_scope`, and the link survives a later failed scope (was `t21`). |
 | S27 | `TestPull` | Six tests, from `TestImportClockifyEntry`, through `apply_pull` with `"import"`: the active client is stamped; `created_at` is not backdated; tags `"#cf"` give `['carry-forward']`; tags `""` give `['internal-only']`; answer `None` gives `['internal-only']`; `"#cf"` creates an active task. |
 | S28 | `TestPull` | An import survives a later failed scope (was `t22`). |
@@ -314,6 +319,7 @@ Test method names are the spec's where an AC cites the node. Anvil names the res
 | C13 | `sync both` with a push result whose `error` is set and a pull result whose `error` is `None`: both reports, then the push error's exit and line. |
 | C14 | Parametrized over `clockify`, `clockify_report` and `clockify_sync`: each is a `WorkmAInGroup`. |
 | C15 | `sync push -d 2026-13-01`: exit 2, `Error:` on stderr, and `plan_push` not called. |
+| C16 | `test_c16_pull_classifies_each_entry_after_the_last_is_applied`: `sync pull -q` with `fetch_pull` returning two entries, and `classify` and `apply_pull` attached to one parent `Mock` so their order is recorded: the calls are `classify`, `apply_pull`, `classify`, `apply_pull`, and the session the second `classify` received is not the first's. |
 
 **`tests/test_eod_workflow.py::TestClockifyCallSites`.** `run_workmain` is patched to return a `WorkmainRun`.
 
