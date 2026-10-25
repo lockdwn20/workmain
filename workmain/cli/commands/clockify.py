@@ -3,31 +3,172 @@ CLI commands for Clockify report retrieval, sync, and connection status.
 
 Provides clockify report save for downloading a PDF report (daily, weekly or
 monthly), clockify status for connection and sync status, and clockify sync
-for syncing time entries with Clockify in either direction.
+for syncing time entries with Clockify in either direction. Each command reads
+what it needs from clockify_service in a scope it owns, closes that scope, and
+hands the service's result to the renderer.
 """
 
-import calendar
 import click
-from rich.console import Console
-from rich.table import Table
-from datetime import date, datetime, timedelta
-from pathlib import Path
+from datetime import date, datetime
+from typing import Optional
 
+from workmain.cli.output import (
+    CollectionView,
+    Column,
+    Field,
+    RecordView,
+    ReportView,
+    Section,
+    WorkmAInGroup,
+    pass_renderer,
+)
+from workmain.cli.params import DateParamType
 from workmain.database.connection import get_db
-from workmain.integrations.clockify.client import ClockifyClient
-from workmain.integrations.clockify.auth import ClockifyAuth
-from workmain.integrations.clockify.sync import ClockifySync
-from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+from workmain.services import clockify_service
+
+STATUS = RecordView(
+    "Clockify",
+    "workspace_id",
+    "user",
+    (
+        Field("email", "Email"),
+        Field("pending", "Pending sync", fmt=clockify_service.format_pending),
+        Field("last_sync", "Last sync"),
+        Field("next_step", "Next step"),
+    ),
+)
+
+REPORT_SAVED = RecordView(
+    "Clockify report",
+    "file_name",
+    "period",
+    (
+        Field("start_date", "From"),
+        Field("end_date", "To"),
+        Field("path", "Saved to"),
+        Field("size_kb", "Size", fmt=clockify_service.format_size),
+    ),
+)
+
+PUSH = ReportView(
+    "time entries to push",
+    "totals",
+    (
+        Field("total", "Total"),
+        Field("successful", "Successful"),
+        Field("failed", "Failed"),
+        Field("unrecorded", "Not recorded locally"),
+    ),
+    (
+        Section(
+            "pushed",
+            CollectionView(
+                "pushed entries",
+                (
+                    Column("entry_id", "ID", "key"),
+                    Column("clockify_id", "Clockify ID", "key"),
+                    Column("description", "Description", "text"),
+                ),
+            ),
+        ),
+        Section(
+            "failed",
+            CollectionView(
+                "failed entries",
+                (
+                    Column("entry_id", "ID", "key"),
+                    Column("description", "Description", "text"),
+                    Column("error", "Error", "text"),
+                ),
+            ),
+        ),
+    ),
+    warnings_field="warnings",
+)
 
 
-console = Console()
+def _pulled(noun, detail_label=None):
+    columns = [
+        Column("clockify_id", "Clockify ID", "key"),
+        Column("entry_id", "ID", "key"),
+        Column("description", "Description", "text"),
+    ]
+    if detail_label:
+        columns.append(Column("detail", detail_label, "text"))
+    return CollectionView(noun, tuple(columns))
 
-# Project root: workmain/cli/commands/clockify.py → 4 parents up
-_PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
-_CLOCKIFY_DIR = _PROJECT_ROOT / "staging" / "clockify"
+
+PULL = ReportView(
+    "Clockify entries",
+    "totals",
+    (
+        Field("total", "Total from Clockify"),
+        Field("imported", "Imported"),
+        Field("linked", "Linked"),
+        Field("skipped", "Skipped"),
+        Field("failed", "Failed"),
+    ),
+    (
+        Section("imported", _pulled("imported entries")),
+        Section("linked", _pulled("linked entries")),
+        Section("skipped", _pulled("skipped entries", "Reason")),
+        Section("failed", _pulled("failed entries", "Error")),
+    ),
+    warnings_field="warnings",
+)
+
+CONFLICT = CollectionView(
+    "conflicting entries",
+    (
+        Column("source", "Source", "key"),
+        Column("entry_id", "ID", "key"),
+        Column("entry_date", "Date", "key"),
+        Column("entry_time", "Time", "key"),
+        Column("duration_hours", "Hours", "key", fmt=clockify_service.format_hours),
+        Column("description", "Description", "text"),
+    ),
+)
+
+_CONFLICT_ACTIONS = {"1": "link", "2": "import", "3": "skip"}
 
 
-@click.group()
+def _ask(renderer, item) -> clockify_service.PullAnswer:
+    """What to do with one entry a pull found: a conflict is resolved first,
+    then an import asks for its tags."""
+    if item.kind == "conflict":
+        renderer.collection(CONFLICT, item.pair)
+        choice = click.prompt(
+            "Link (1), keep both (2) or skip (3)",
+            type=click.Choice(list(_CONFLICT_ACTIONS)),
+        )
+        action = _CONFLICT_ACTIONS[choice]
+        if action != "import":
+            return clockify_service.PullAnswer(action, None)
+
+    description = item.entry.description or clockify_service.NO_DESCRIPTION
+    tags = click.prompt(
+        f"Tags for '{description}' (#ilo #cf, blank for internal-only)",
+        default="",
+        show_default=False,
+    )
+    return clockify_service.PullAnswer("import", tags)
+
+
+def _pull_entries(renderer, entries, interactive: bool):
+    """Classify, ask about and apply the entries one at a time, so each
+    classification sees the links and imports already applied."""
+    outcomes = []
+    for entry in entries:
+        with get_db().session_scope() as session:
+            item = clockify_service.classify(session, entry)
+        answer = None
+        if interactive and item.kind != "linked":
+            answer = _ask(renderer, item)
+        outcomes.append(clockify_service.apply_pull(item, answer))
+    return tuple(outcomes)
+
+
+@click.group(cls=WorkmAInGroup)
 def clockify():
     """
     Clockify integration commands.
@@ -38,100 +179,26 @@ def clockify():
 
 
 @clockify.command('status')
-def status():
+@pass_renderer
+def status(renderer):
     """
     Show Clockify connection and sync status.
 
-    Displays:
-    - API connection status
-    - Workspace information
+    Shows:
+    - Workspace, user and email from the API connection
     - Number of unsynced entries
-    - Last sync timestamp
+    - Last sync, and the next step when entries are pending
 
     \b
     Example:
       workmain clockify status
     """
-    db = get_db()
-    try:
-        with db.session_scope() as session:
-            # Test API connection
-            auth = ClockifyAuth()
-            client = ClockifyClient(auth)
-
-            console.print("\n[bold cyan]Testing Clockify Connection...[/bold cyan]")
-
-            try:
-                user_info = client.test_connection()
-
-                console.print("✓ [green]Connected to Clockify[/green]\n")
-
-                # Show user info
-                info_table = Table(show_header=False, box=None)
-                info_table.add_column("Field", style="cyan")
-                info_table.add_column("Value", style="white")
-
-                info_table.add_row("User", user_info.get('name', 'N/A'))
-                info_table.add_row("Email", user_info.get('email', 'N/A'))
-                info_table.add_row("Workspace ID", user_info.get('workspace_id', 'N/A')[:8] + "...")
-
-                console.print(info_table)
-                console.print()
-
-            except Exception as e:
-                console.print(f"✗ [red]Connection failed: {str(e)}[/red]")
-                return
-
-            # Get sync statistics
-            repo = TimeEntriesRepository(session)
-            unsynced = repo.get_unsynced_entries()
-
-            # Get last sync time
-            from sqlalchemy import func
-            from workmain.database.models import TimeEntry
-
-            last_synced = session.query(
-                func.max(TimeEntry.synced_at)
-            ).scalar()
-
-            console.print("[bold cyan]Sync Status:[/bold cyan]\n")
-
-            sync_table = Table(show_header=False, box=None)
-            sync_table.add_column("Metric", style="cyan")
-            sync_table.add_column("Value", style="white")
-
-            sync_table.add_row(
-                "Pending sync",
-                f"{len(unsynced)} entries" if unsynced else "0 entries (all synced ✓)"
-            )
-
-            if last_synced:
-                time_ago = datetime.now() - last_synced
-                if time_ago.days > 0:
-                    ago_text = f"{time_ago.days} days ago"
-                elif time_ago.seconds > 3600:
-                    ago_text = f"{time_ago.seconds // 3600} hours ago"
-                else:
-                    ago_text = f"{time_ago.seconds // 60} minutes ago"
-
-                sync_table.add_row("Last sync", ago_text)
-            else:
-                sync_table.add_row("Last sync", "Never")
-
-            console.print(sync_table)
-            console.print()
-
-            # Show next steps if entries pending
-            if unsynced:
-                console.print("[yellow]💡 Run 'workmain clockify sync push' to sync pending entries[/yellow]\n")
-
-    except ValueError as e:
-        console.print(f"\n[red]✗ Configuration error: {str(e)}[/red]")
-        console.print("\n[yellow]Add CLOCKIFY_API_KEY to your .env file:[/yellow]")
-        console.print(f"  {ClockifyAuth.get_env_example()}\n")
+    with get_db().session_scope() as session:
+        result = clockify_service.get_status(session, datetime.now())
+    renderer.record(STATUS, result)
 
 
-@clockify.group('report')
+@clockify.group('report', cls=WorkmAInGroup)
 def clockify_report():
     """
     Clockify PDF report commands.
@@ -143,11 +210,12 @@ def clockify_report():
 
 @clockify_report.command('save')
 @click.argument('period', type=click.Choice(['daily', 'weekly', 'monthly']), default='daily')
-@click.option('--start', '-b', type=click.DateTime(formats=['%Y-%m-%d']),
+@click.option('--start', '-b', type=DateParamType(),
               help='Start date override (YYYY-MM-DD)')
-@click.option('--end', '-e', type=click.DateTime(formats=['%Y-%m-%d']),
+@click.option('--end', '-e', type=DateParamType(),
               help='End date override (YYYY-MM-DD)')
-def clockify_report_save(period: str, start, end):
+@pass_renderer
+def clockify_report_save(renderer, period: str, start: Optional[date], end: Optional[date]):
     """
     Download Clockify PDF report and stage to staging/clockify/.
 
@@ -172,68 +240,11 @@ def clockify_report_save(period: str, start, end):
       workmain clockify report save daily --start 2026-03-05
       workmain clockify report save weekly --start 2026-02-24 --end 2026-02-28
     """
-    today = date.today()
-
-    # Calculate date range based on period
-    if period == 'daily':
-        start_date = start.date() if start else today
-        end_date = end.date() if end else start_date
-        filename_date = start_date
-    elif period == 'weekly':
-        if start:
-            start_date = start.date()
-        else:
-            start_date = today - timedelta(days=today.weekday())  # Monday
-        if end:
-            end_date = end.date()
-        else:
-            end_date = start_date + timedelta(days=4)  # Friday
-        filename_date = end_date
-    else:  # monthly
-        if start:
-            start_date = start.date()
-        else:
-            start_date = today.replace(day=1)
-        if end:
-            end_date = end.date()
-        else:
-            last_day = calendar.monthrange(today.year, today.month)[1]
-            end_date = today.replace(day=last_day)
-        filename_date = end_date
-
-    filename = f"Clockify_{filename_date.strftime('%Y%m%d')}.pdf"
-    _CLOCKIFY_DIR.mkdir(parents=True, exist_ok=True)
-    output_path = _CLOCKIFY_DIR / filename
-
-    try:
-        console.print(f"\n[cyan]Downloading Clockify {period} report...[/cyan]")
-        console.print(f"  Date range: {start_date} to {end_date}")
-        console.print(f"  Output:     staging/clockify/{filename}")
-
-        client = ClockifyClient()
-        success = client.download_pdf_report(
-            start_date=start_date,
-            end_date=end_date,
-            output_path=str(output_path)
-        )
-
-        if success:
-            file_size = output_path.stat().st_size / 1024  # KB
-            console.print(f"\n✓ [green]Report saved:[/green] staging/clockify/{filename}")
-            console.print(f"  Size: {file_size:.1f} KB")
-            console.print(f"  [dim]Staged for Drive upload (Phase 7)[/dim]\n")
-        else:
-            console.print("\n✗ [red]Download failed[/red]\n")
-            raise click.ClickException("Clockify report download failed")
-
-    except click.ClickException:
-        raise
-    except Exception as e:
-        console.print(f"\n[red]✗ Error downloading report: {str(e)}[/red]\n")
-        raise click.ClickException(str(e))
+    saved = clockify_service.save_report(period, start, end, date.today())
+    renderer.record(REPORT_SAVED, saved)
 
 
-@clockify.group('sync')
+@clockify.group('sync', cls=WorkmAInGroup)
 def clockify_sync():
     """
     Synchronize time entries with Clockify.
@@ -245,13 +256,14 @@ def clockify_sync():
 
 
 @clockify_sync.command('push')
-@click.option('--all', is_flag=True,
+@click.option('--all', 'include_synced', is_flag=True,
               help='Push all entries (including already synced)')
-@click.option('--date', '-d', type=click.DateTime(formats=['%Y-%m-%d']),
+@click.option('--date', '-d', 'on_date', type=DateParamType(),
               help='Push entries for specific date only')
 @click.option('--silent', '-q', is_flag=True,
               help='Silent mode (no progress output)')
-def clockify_sync_push(all, date, silent):
+@pass_renderer
+def clockify_sync_push(renderer, include_synced: bool, on_date: Optional[date], silent: bool):
     """
     Push local time entries to Clockify.
 
@@ -264,77 +276,25 @@ def clockify_sync_push(all, date, silent):
       workmain clockify sync push -d 2026-01-15
       workmain clockify sync push --all
     """
-    db = get_db()
-    try:
-        with db.session_scope() as session:
-            sync_engine = ClockifySync(session)
-            repo = TimeEntriesRepository(session)
-
-            # Get entries to push
-            if date:
-                entries = repo.get_by_date(date.date())
-
-                # Filter to unsynced unless --all
-                if not all:
-                    entries = [e for e in entries if not e.clockify_id]
-            elif all:
-                # Get ALL entries
-                entries = session.query(repo.model).all()
-            else:
-                # Default: unsynced entries only
-                entries = None  # sync_engine will fetch unsynced
-
-            if not silent:
-                if entries is not None and len(entries) == 0:
-                    click.echo("\nNo entries to sync\n")
-                    return
-
-                click.echo("\nPushing entries to Clockify...\n")
-
-            # Perform sync
-            results = sync_engine.push_entries(
-                entries=entries,
-                interactive=not silent
-            )
-
-            if not silent:
-                click.echo(f"\nSync Results:")
-                click.echo(f"  Total: {results['total']}")
-                click.echo(f"  ✓ Successful: {results['successful']}")
-
-                if results['failed'] > 0:
-                    click.echo(f"  ✗ Failed: {results['failed']}")
-
-                    # Show failures
-                    if results['failures']:
-                        click.echo("\nFailed entries:")
-                        for failure in results['failures']:
-                            click.echo(f"  - ID {failure['entry_id']}: {failure['error']}")
-
-                if results['unrecorded']:
-                    click.echo(
-                        f"  ⚠ In Clockify but not recorded locally: {len(results['unrecorded'])}"
-                    )
-                    for item in results['unrecorded']:
-                        click.echo(
-                            f"  - ID {item['entry_id']} → Clockify {item['clockify_id']}: "
-                            f"{item['error']}"
-                        )
-
-                click.echo()
-
-    except Exception as e:
-        click.echo(f"\n✗ Sync failed: {str(e)}\n")
+    with get_db().session_scope() as session:
+        plan = clockify_service.plan_push(
+            session, on_date=on_date, include_synced=include_synced
+        )
+    result = clockify_service.push(plan)
+    renderer.report(PUSH, result, quiet=silent)
+    if result.error:
+        raise result.error
 
 
 @clockify_sync.command('pull')
-@click.option('--start', '-b', type=click.DateTime(formats=['%Y-%m-%d']),
+@click.option('--start', '-b', type=DateParamType(),
               help='Start date (default: today)')
-@click.option('--end', '-e', type=click.DateTime(formats=['%Y-%m-%d']),
+@click.option('--end', '-e', type=DateParamType(),
               help='End date (default: same as start)')
 @click.option('--silent', '-q', is_flag=True,
-              help='Silent mode (auto-skip conflicts)')
-def clockify_sync_pull(start, end, silent):
+              help='Silent mode (no prompts; conflicts are imported as separate entries)')
+@pass_renderer
+def clockify_sync_pull(renderer, start: Optional[date], end: Optional[date], silent: bool):
     """
     Pull time entries from Clockify to local database.
 
@@ -351,108 +311,48 @@ def clockify_sync_pull(start, end, silent):
       workmain clockify sync pull -b 2026-01-15
       workmain clockify sync pull -b 2026-01-01 -e 2026-01-31
     """
-    db = get_db()
-    try:
-        with db.session_scope() as session:
-            sync_engine = ClockifySync(session)
-
-            # Determine date range
-            if not start:
-                start_date = date.today()
-            else:
-                start_date = start.date()
-
-            end_date = end.date() if end else None
-
-            if not silent:
-                date_range = f"{start_date}"
-                if end_date and end_date != start_date:
-                    date_range += f" to {end_date}"
-
-                click.echo(f"\nPulling entries from Clockify ({date_range})...\n")
-
-            # Perform pull
-            results = sync_engine.pull_entries(
-                start_date=start_date,
-                end_date=end_date,
-                interactive=not silent
-            )
-
-            if not silent:
-                click.echo(f"\nPull Results:")
-                click.echo(f"  Total from Clockify: {results['total']}")
-                click.echo(f"  ✓ Imported: {results['imported']}")
-                click.echo(f"  - Skipped: {results['skipped']}")
-
-                if results['conflicts'] > 0:
-                    click.echo(f"  ⚠ Conflicts resolved: {results['conflicts']}")
-
-                click.echo()
-
-    except Exception as e:
-        click.echo(f"\n✗ Pull failed: {str(e)}\n")
+    start_date = start or date.today()
+    entries = clockify_service.fetch_pull(start_date, end)
+    outcomes = _pull_entries(renderer, entries, interactive=not silent)
+    result = clockify_service.pull_result(start_date, end, outcomes)
+    renderer.report(PULL, result, quiet=silent)
+    if result.error:
+        raise result.error
 
 
 @clockify_sync.command('both')
-@click.option('--date', '-d', type=click.DateTime(formats=['%Y-%m-%d']),
+@click.option('--date', '-d', 'on_date', type=DateParamType(),
               help='Sync specific date only (default: today)')
-def clockify_sync_both(date):
+@pass_renderer
+def clockify_sync_both(renderer, on_date: Optional[date]):
     """
     Bidirectional sync: push local entries then pull from Clockify.
 
-    Performs complete synchronization:
+    Performs complete synchronization, printing a report for each direction:
     1. Push unsynced local entries to Clockify
     2. Pull new Clockify entries to local database
-    3. Resolve any conflicts interactively
+    3. Resolve any conflicts interactively, one entry at a time
 
     \b
     Examples:
       workmain clockify sync both
       workmain clockify sync both -d 2026-01-15
     """
-    db = get_db()
-    try:
-        with db.session_scope() as session:
-            sync_date = date.date() if date else datetime.today().date()
+    sync_date = on_date or date.today()
 
-            click.echo(f"\nBidirectional Sync ({sync_date})\n")
+    with get_db().session_scope() as session:
+        plan = clockify_service.plan_push(session, on_date=sync_date)
+    push_result = clockify_service.push(plan)
+    renderer.report(PUSH, push_result)
 
-            # Step 1: Push
-            click.echo("Step 1: Pushing local entries...")
+    entries = clockify_service.fetch_pull(sync_date, sync_date)
+    outcomes = _pull_entries(renderer, entries, interactive=True)
+    pull_result = clockify_service.pull_result(sync_date, sync_date, outcomes)
+    renderer.report(PULL, pull_result)
 
-            sync_engine = ClockifySync(session)
-            repo = TimeEntriesRepository(session)
-
-            entries = repo.get_by_date(sync_date)
-            unsynced = [e for e in entries if not e.clockify_id]
-
-            if unsynced:
-                push_results = sync_engine.push_entries(entries=unsynced, interactive=True)
-                click.echo(f"  ✓ Pushed {push_results['successful']} entries")
-                if push_results['unrecorded']:
-                    click.echo(
-                        f"  ⚠ In Clockify but not recorded locally: "
-                        f"{len(push_results['unrecorded'])}"
-                    )
-                click.echo()
-            else:
-                click.echo("  No local entries to push\n")
-
-            # Step 2: Pull
-            click.echo("Step 2: Pulling from Clockify...")
-
-            pull_results = sync_engine.pull_entries(
-                start_date=sync_date,
-                interactive=True
-            )
-
-            click.echo(f"  ✓ Imported {pull_results['imported']} new entries\n")
-
-            # Summary
-            click.echo("✓ Bidirectional sync complete\n")
-
-    except Exception as e:
-        click.echo(f"\n✗ Sync failed: {str(e)}\n")
+    error = push_result.error or pull_result.error
+    if error:
+        raise error
 
 
 # Export command group
