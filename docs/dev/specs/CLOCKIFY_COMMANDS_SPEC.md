@@ -1,6 +1,6 @@
 # Clockify Commands on the Output Module — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261023
 **Branch:** `feature/issue-202-clockify-service` (from `dev`)
