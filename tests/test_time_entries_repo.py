@@ -237,6 +237,45 @@ class TestTimeEntriesRepoLoading:
         five = _count_statements(db_session, repo.get_unsynced_entries, self._read)
         assert one == five
 
+    def test_get_all_count_does_not_grow(self, db_session):
+        repo = TimeEntriesRepository(db_session)
+        day = date(2099, 6, 10)
+        self._seed(db_session, day, 1)
+        one = _count_statements(db_session, repo.get_all, self._read)
+        self._seed(db_session, day, 4, marker='more-all')
+        five = _count_statements(db_session, repo.get_all, self._read)
+        assert one == five
+
+
+class TestTimeEntriesRepoSyncState:
+    """count_unsynced() and get_last_synced_at() read the Clockify sync state."""
+
+    @staticmethod
+    def _entry(db_session, *, clockify_id=None, synced_at=None):
+        note = _make_note(db_session)
+        entry = TimeEntriesRepository(db_session).create(
+            note_id=note.id,
+            duration_hours=1.0,
+            entry_date=date(2099, 6, 11),
+        )
+        entry.clockify_id = clockify_id
+        entry.synced_at = synced_at
+        db_session.flush()
+        return entry
+
+    def test_count_unsynced_counts_only_unsynced(self, db_session):
+        repo = TimeEntriesRepository(db_session)
+        before = repo.count_unsynced()
+        self._entry(db_session)
+        self._entry(db_session)
+        assert repo.count_unsynced() == before + 2
+        self._entry(db_session, clockify_id='g2-synced', synced_at=datetime(2099, 1, 1))
+        assert repo.count_unsynced() == before + 2
+
+    def test_get_last_synced_at_returns_the_latest(self, db_session):
+        self._entry(db_session, clockify_id='g3-synced', synced_at=datetime(2099, 1, 1, 12, 0))
+        assert TimeEntriesRepository(db_session).get_last_synced_at() == datetime(2099, 1, 1, 12, 0)
+
 
 class TestTimeEntriesRepoUpdate:
     """TimeEntriesRepository.update() note_id argument (Issue #168)."""
