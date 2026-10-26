@@ -133,7 +133,7 @@ Issue #241 turns Claude Code auto-memory off for this repository and requires ev
 
 ### 3.3 Out-of-scope finding
 
-`calendar_import_patterns.md` records two Outlook behaviours that `ics_parser.py` does not handle and that are fixed today only by manual cleanup: a meeting copied in Outlook arrives as a new event with a new UID and a `Copy: ` title prefix; and a series Outlook recreates arrives under a new UID prefix, which `_fallback_match` cannot match because it only looks at rows whose `outlook_id` is null, so the import duplicates the series. An issue for this needs: the defect (re-imported Outlook series and copies create duplicate meeting rows), and a criterion that importing an ICS holding a recreated series yields one row per occurrence. Ray decides whether that is its own issue or joins an open one.
+`calendar_import_patterns.md` records two Outlook behaviours that `ics_parser.py` does not handle and that are fixed today only by manual cleanup: a meeting copied in Outlook arrives as a new event with a new UID and a `Copy:` title prefix; and a series Outlook recreates arrives under a new UID prefix, which `_fallback_match` cannot match because it only looks at rows whose `outlook_id` is null, so the import duplicates the series. An issue for this needs: the defect (re-imported Outlook series and copies create duplicate meeting rows), and a criterion that importing an ICS holding a recreated series yields one row per occurrence. Ray decides whether that is its own issue or joins an open one.
 
 ### 3.4 The memory directory after the change
 
