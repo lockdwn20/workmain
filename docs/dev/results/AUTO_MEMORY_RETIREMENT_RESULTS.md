@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Complete pending Ray's checks. Auto-memory is off for the repository through a tracked `.claude/settings.json`. Every rule the design study's §3.2 marks Moved is written at its destination, #188 records the removal of its new `CLAUDE.md` pointer, and #242 carries memory's two points on deviations. AC2.1, AC2.2, AC2.4, AC3.1 and AC5.1 name Ray and are left to him.
+Complete pending Ray's checks. Auto-memory is off for the repository through a tracked `.claude/settings.json`. Every rule the design study's §3.2 marks Moved is written at its destination, #188 records the removal of its new `CLAUDE.md` pointer, and #242 carries memory's two points on deviations.
 
 ## 2. What shipped, by step
 
@@ -32,21 +32,22 @@ Complete pending Ray's checks. Auto-memory is off for the repository through a t
 | --- | --- | --- |
 | AC1.1 | Met | `git ls-files .claude/settings.json` printed `.claude/settings.json`; the `python3 -c` read printed `False` |
 | AC2.1 | Met | Ray reviewed the design study's §3.2 against the memory directory |
-| AC2.2 | **Not met** | Awaiting Ray's reading of each destination §3.2 names |
+| AC2.2 | Met | Ray reviewed each destination §3.2 names |
 | AC2.3 | Met | `gh issue view 188 --json body --jq .body \| grep -c 'removes that line'` printed `1` |
-| AC2.4 | **Not met** | Awaiting Ray's reading of the design study's §3.5 and §3.6 |
+| AC2.4 | Met | Ray reviewed the design study's §3.5 and §3.6 |
 | AC2.5 | Met | #242's body read back: `grep -c 'substitute for stopping'` printed `1`, `grep -c 'filename bookkeeping'` printed `1` |
 | AC2.6 | Met | `grep -rn -- '--limit [0-9]' CLAUDE.md docs/DEVELOPMENT_STANDARDS.md .claude/` returned nothing (exit 1). `gh repo view --json issues --jq .issues.totalCount` printed `123`; the §1.6 board read returned 123 items and the § Project Status issue read 123 issues |
-| AC3.1 | **Not met** | Awaiting Ray's reading of Step 2's and Step 4a–4c's additions and of § Working rules in `references/spanner.md` and `references/caliper.md` |
+| AC3.1 | Met | Ray reviewed Step 2's and Step 4a–4c's additions and the § Working rules in `references/spanner.md` and `references/caliper.md` |
 | AC4.1 | Met | `grep -n autoMemoryEnabled CLAUDE.md` returned one line, line 38, in § Auto-memory, rerun after the fidelity amendment |
-| AC5.1 | **Not met** | Awaiting Ray's `/memory` check in a fresh session on this branch |
+| AC5.1 | Met | `/memory` in a fresh session shows auto-memory off |
 
 ## 4. Deviations from spec
 
 | # | Deviation | Reason | Approved by |
 | --- | --- | --- | --- |
-
-None.
+| 1 | After Steps 1–8 shipped, the approved spec's text for Steps 2a, 2c, 3c, 3d, 3f, 3h, 4d and 4e was amended and the files changed to match (`a61217d`). | Ray's decisions on Caliper's fidelity pass, recorded in the spec's Decision Log and the design study's §3.6. Made at Ray's direction, not on Spanner's judgment. | Ray, 20261026 |
+| 2 | Step 5b: the spec's text block ends with a blank line, so inserting it left two blank lines before `### Claude-Specific Fields`. Spanner removed one without stopping. | Whitespace only; no text changed. | Not stopped for: recorded here instead |
+| 3 | Steps 6 and 7: writing #188's and #242's bodies back trimmed the trailing blank lines at the end of each body. The spec did not say to. Spanner did not stop. | A side effect of normalising the end of the file before `gh issue edit --body-file`; no content changed, as the before-and-after diffs in the scratchpad showed. | Not stopped for: recorded here instead |
 
 ## 5. Verification
 
