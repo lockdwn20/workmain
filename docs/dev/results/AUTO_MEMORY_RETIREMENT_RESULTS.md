@@ -1,6 +1,6 @@
 # Auto-Memory Retirement — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261026
 **Spec:** `../specs/AUTO_MEMORY_RETIREMENT_SPEC.md`
@@ -51,7 +51,7 @@ Complete pending Ray's checks. Auto-memory is off for the repository through a t
 
 ## 5. Verification
 
-- **Test suite:** not run. The spec omits a test plan because no file under `tests/`, `automation/`, `workmain/`, `config/` or `templates/` changed; `/closeout` runs the suites.
+- **Test suite:** 1541 passed, 0 failed, 0 skipped — `/closeout` preflight P8, 20261026. No baseline run: the branch changes no file under `tests/`, `automation/`, `workmain/`, `config/` or `templates/`, so the suite at the merge base and at the tip exercises the same code. `pytest automation/` not run: P9 is `n/a`, the branch changed no path under `automation/`.
 - **Live verification:** the two derived `--limit` reads were run on 20261026 against the live board and issue list (AC2.6).
 - **Daemon restart:** none — `chore/*` (`docs/DEVELOPMENT_STANDARDS.md` §2.6).
 
