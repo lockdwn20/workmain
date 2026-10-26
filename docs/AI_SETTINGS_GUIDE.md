@@ -45,6 +45,8 @@ Each key under `providers` is a `ProviderType` value (`workmain/ai/base_provider
 | `cost_structure` | string | Human-readable pricing label displayed by `providers list`. Update here if pricing changes — purely informational. |
 | `accepts` | list | Required on every provider, enabled or not. The `instructions` values this provider can serve. Absent, empty, or holding an unknown value refuses to load. See § Which providers can serve a call. |
 
+**Cost values are Ray's.** `cost_structure` and every `cost_per_1k_*` field are set by Ray whenever a model changes. A spec step that changes a model changes `model`, `notes` and `last_updated`, then stops and reports the expected cost values, citing the vendor's live pricing page and the date it was read, never a cached table. Ray makes the cost edit.
+
 ### Claude-Specific Fields
 
 | Field | Description |
