@@ -28,7 +28,11 @@ from workmain.cli.output import (
     pass_renderer,
 )
 from workmain.services import notes_service
-from workmain.services.exceptions import InvalidTagsError, ServiceValidationError
+from workmain.services.exceptions import (
+    IntegrationError,
+    InvalidTagsError,
+    ServiceValidationError,
+)
 from workmain.services.results import Page
 
 
@@ -287,6 +291,24 @@ REPORT = ReportView(
 )
 
 
+@dataclass(frozen=True)
+class WarnResult(Result):
+    warnings: Tuple[str, ...] = ()
+
+
+WARN_REPORT = ReportView(
+    REPORT.noun, REPORT.totals_field, REPORT.totals, REPORT.sections,
+    empty_hint=REPORT.empty_hint, warnings_field="warnings",
+)
+
+
+def _warn_result(warnings, **kw):
+    base = _result(**kw)
+    return WarnResult(
+        base.filters, base.totals, base.first, base.second, base.third, warnings
+    )
+
+
 def _result(filters=(("provider", "claude"),), first=1, second=1, third=0):
     def page(n):
         return Page(_rows(n), n)
@@ -354,6 +376,30 @@ class TestReport:
         r, out, _ = _renderer(120)
         r.report(REPORT, _result(filters=()))
         assert _lines(out)[0] == "AI costs"
+
+    def test_warnings_print_on_stderr_and_leave_stdout_as_it_was(self):
+        """O1"""
+        r, out, err = _renderer(20)
+        r.report(WARN_REPORT, _warn_result(("first warn", "second warn")))
+        r2, out2, _ = _renderer(20)
+        r2.report(REPORT, _result())
+        assert out.getvalue() == out2.getvalue()
+        assert err.getvalue() == "⚠ first warn\n⚠ second warn\n"
+
+    def test_warnings_print_when_every_section_is_empty(self):
+        """O2"""
+        r, out, err = _renderer(80)
+        r.report(WARN_REPORT, _warn_result(("one warn",), first=0, second=0, third=0))
+        assert "No AI costs found" in out.getvalue()
+        assert "Do something" in out.getvalue()
+        assert err.getvalue() == "⚠ one warn\n"
+
+    def test_quiet_prints_only_the_warnings(self):
+        """O3"""
+        r, out, err = _renderer(80)
+        r.report(WARN_REPORT, _warn_result(("one warn",)), quiet=True)
+        assert out.getvalue() == ""
+        assert err.getvalue() == "⚠ one warn\n"
 
 
 class TestRecord:
@@ -473,6 +519,40 @@ class TestWiring:
         assert result.exit_code == 1
         assert result.stderr == "Error: no such task\n"
         assert result.stdout == ""
+
+    def test_integration_error_exits_3_with_one_error_line(self):
+        """W1"""
+        @click.group(cls=WorkmAInGroup)
+        def grp():
+            pass
+
+        @grp.command()
+        def boom():
+            raise IntegrationError("Clockify request failed: 401")
+
+        result = CliRunner(mix_stderr=False).invoke(grp, ["boom"])
+        assert result.exit_code == 3
+        assert result.stderr == "Error: Clockify request failed: 401\n"
+        assert "Traceback" not in result.stderr
+        assert "Traceback" not in result.stdout
+
+    def test_integration_error_from_a_plain_group_under_a_wiring_root(self):
+        """W2"""
+        @click.group(cls=WorkmAInGroup)
+        def root():
+            pass
+
+        @root.group()
+        def plain():
+            pass
+
+        @plain.command()
+        def boom():
+            raise IntegrationError("Clockify request failed: 401")
+
+        result = CliRunner(mix_stderr=False).invoke(root, ["plain", "boom"])
+        assert result.exit_code == 3
+        assert result.stderr == "Error: Clockify request failed: 401\n"
 
     def test_stub_message_keeps_brackets_at_any_width(self, monkeypatch):
         @click.group(cls=WorkmAInGroup)

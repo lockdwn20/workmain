@@ -11,7 +11,7 @@ from typing import Optional
 from workmain.database.connection import get_db
 from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
-from workmain.integrations.clockify.sync import ClockifySync
+from workmain.services import clockify_service
 
 
 def format_time_entry_display(entry, show_id: bool = True, show_date: bool = True) -> str:
@@ -349,15 +349,18 @@ def time_add(description: Optional[str], duration: str, time: str,
         click.echo()
         if click.confirm("Sync to Clockify now?", default=False):
             # Sync this entry
-            sync_engine = ClockifySync(session)
-            results = sync_engine.push_entries(entries=[entry], interactive=True)
+            result = clockify_service.push(
+                clockify_service.plan_entry_push(session, entry.id)
+            )
+            for line in result.warnings:
+                click.echo(f"⚠ {line}", err=True)
 
-            if results['successful'] > 0:
+            if result.totals.successful > 0:
                 click.echo("✓ Synced to Clockify")
             else:
                 click.echo("✗ Sync failed")
-                if results['failures']:
-                    click.echo(f"  Error: {results['failures'][0]['error']}")
+                if result.failed.rows:
+                    click.echo(f"  Error: {result.failed.rows[0].error}")
 
 
 @time.command('edit')
