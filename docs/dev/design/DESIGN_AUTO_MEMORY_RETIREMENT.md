@@ -14,7 +14,7 @@ Issue #241 turns Claude Code auto-memory off for this repository and requires ev
 
 ## 2. Scope of the read
 
-- **Read:** every file in `~/.claude/projects/-home-lockdwn20-Projects-workmain/memory/`, read in full by Spanner on 20261026 from this session. The issue expected the read to be Ray-run or Ray-supplied because the directory is outside the repository. It is readable from a Claude Code session on Ray's machine, so Spanner read it directly. Ray's check of §3.2 against his own `/memory` view stands in for the supplied copy. On 20261026 the directory held 90 files: `MEMORY.md` (the index), 88 entry files, and one empty file whose name is a sentence fragment (`as a one-off). 2026-10-11.#`), left by a broken shell write.
+- **Read:** every file in `~/.claude/projects/-home-lockdwn20-Projects-workmain/memory/`, read in full by Spanner on 20261026 from this session. The issue expected the read to be Ray-run or Ray-supplied because the directory is outside the repository. It is readable from a Claude Code session on Ray's machine, so Spanner read it directly. Ray's check of this study's §3.2 against his own `/memory` view stands in for the supplied copy. On 20261026 the directory held 90 files: `MEMORY.md` (the index), 88 entry files, and one empty file whose name is a sentence fragment (`as a one-off). 2026-10-11.#`), left by a broken shell write.
 - **Checked against:** `CLAUDE.md`, `docs/DEVELOPMENT_STANDARDS.md`, `docs/AI_SETTINGS_GUIDE.md`, `.claude/skills/session-start/` (`SKILL.md` and `references/`), `.claude/skills/closeout/`, the three `docs/dev/*/_TEMPLATE_*.md` files, and the live state of every issue an entry names.
 - **Not read:** the Claude Code memory directories of other projects, and user-level `~/.claude/CLAUDE.md`. Neither is governed by this repository.
 - **Not in scope:** the three standards passages issue #240 lists as reading like permission to self-resolve, and the results template's deviations table. Both belong to #242. Where an entry restates one of them, its disposition below is "dropped, owned by the standard", and the standard's own fate is left to #242.
@@ -95,12 +95,12 @@ Issue #241 turns Claude Code auto-memory off for this repository and requires ev
 | `feedback_version_bump_both_fields.md` | Dropped | Owned: `/closeout` `references/feature.md` step 4 and `references/hotfix.md` step 1 (both fields), and P10 (integrity check). |
 | `feedback_weekly_report_tag_leak.md` | Dropped | History of the v1.19.x fixes; code and git hold it. |
 | `feedback_write_for_a_stranger.md` | Moved | §1.5: an ID resolves inside the file that uses it; a bare `§` cites only the standards; a reason is stated in terms a reader can check, and an issue number may follow it as a record but never stand as the reason. |
-| `calendar_import_patterns.md` | Dropped | The parser behaviour is in `workmain/utils/ics_parser.py`'s module docstring. Its DB snippet contradicts §4.1 (F7). The two Outlook behaviours the parser cannot handle are §3.3. |
+| `calendar_import_patterns.md` | Dropped | The parser behaviour is in `workmain/utils/ics_parser.py`'s module docstring. Its DB snippet contradicts §4.1 (F7). The two Outlook behaviours the parser cannot handle are this study's §3.3. |
 | `hotfix_item50_morning_briefing.md` | Dropped | Shipped v1.24.2; history in git and `CHANGELOG.md`. |
 | `hotfix_item56_reports_corrections.md` | Dropped | Shipped v1.25.1; history. |
 | `hotfix_item60_inspection_state.md` | Dropped | Shipped v1.25.0; history. |
 | `phase12_data_integrity.md` | Dropped | Shipped v1.16.0; history. |
-| `project_baseline_harness_restrictions.md` | Open — Q1 | |
+| `project_baseline_harness_restrictions.md` | Moved | `CLAUDE.md` § Common Pitfalls: one line sending a session to #188 before anything under `scripts/baseline/` is run, edited or cited. #188's body gains the removal of that line (Q1). |
 | `project_cli_editable_install.md` | Moved | §2.6: the CLI is an editable install and runs the checked-out tree, so only daemon behaviour waits for the restart. |
 | `project_cli_fragmentation.md` | Dropped | Resolved by the CLI standardization sprints and §5. |
 | `project_closeout_skill_not_resumable.md` | Dropped | Both defects were fixed by #91. Its live gap, a spec-less issue, cannot occur: §1.1 requires a spec on both paths. Its latent gap, skill files missing from a branch cut before they existed, cannot recur: every branch is now cut after them. |
@@ -137,17 +137,17 @@ Issue #241 turns Claude Code auto-memory off for this repository and requires ev
 
 ### 3.4 The memory directory after the change
 
-The spec does not delete the directory. The setting stops it loading. The directory is outside the working tree on Ray's machine, and it is what Ray checks §3.2 against. Deleting it afterwards is Ray's call.
+The spec does not delete the directory. The setting stops it loading. The directory is outside the working tree on Ray's machine, and it is what Ray checks this study's §3.2 against. Deleting it afterwards is Ray's call.
 
 ## 4. Options
 
-None. F1 settles the mechanism. F4 and F5 apply existing rules to choose each home. §3.2 applies the standards, entry by entry.
+None. F1 settles the mechanism. F4 and F5 apply existing rules to choose each home. This study's §3.2 applies the standards, entry by entry.
 
 ## 5. Open questions
 
 | Q | Question | Answer |
 | --- | --- | --- |
-| Q1 | `scripts/baseline/` is committed for reference only until #188 ships: only Ray runs it, and no document cites the scripts or their README. Ray chose to state those restrictions once, in #188's body, and nowhere else. Today the only thing that tells a new session to read #188 before touching `scripts/baseline/` is auto-memory; the README says nothing about the restriction. With memory off, a session finds the restriction only if it happens to read #188. Recommendation: add one line to `CLAUDE.md` § Common Pitfalls that says to read #188 before running, editing or citing anything under `scripts/baseline/`, and add removing that line to #188's own scope. The line points to the restriction without restating it, so it adds no second statement. The alternative is to drop the entry and accept that a session can miss the restriction. | |
+| Q1 | `scripts/baseline/` is committed for reference only until #188 ships: only Ray runs it, and no document cites the scripts or their README. Ray chose to state those restrictions once, in #188's body, and nowhere else. Today the only thing that tells a new session to read #188 before touching `scripts/baseline/` is auto-memory; the README says nothing about the restriction. With memory off, a session finds the restriction only if it happens to read #188. Recommendation: add one line to `CLAUDE.md` § Common Pitfalls that says to read #188 before running, editing or citing anything under `scripts/baseline/`, and add removing that line to #188's own scope. The line points to the restriction without restating it, so it adds no second statement. The alternative is to drop the entry and accept that a session can miss the restriction. | Answered 20261026 (Ray): the one-line pointer, with a note in #188 that the line is removed once it is no longer needed. |
 
 ## 6. Disposition
 
