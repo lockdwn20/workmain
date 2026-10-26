@@ -203,4 +203,4 @@ None. F1 settles the mechanism. F4 and F5 choose each home. This study's §3.2 a
 
 ## 6. Disposition
 
-- Promoted to: *(the spec, once written)*
+- Promoted to: `../specs/AUTO_MEMORY_RETIREMENT_SPEC.md`
