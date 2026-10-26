@@ -29,6 +29,9 @@ from workmain.services.clockify_service import (
     PushItem,
     apply_pull,
     classify,
+    format_hours,
+    format_pending,
+    format_size,
     fetch_pull,
     get_status,
     plan_entry_push,
@@ -617,3 +620,16 @@ class TestPull:
         assert outcome.result == "imported"
         assert len(outcome.warnings) == 1
         assert "nosuchtag" in outcome.warnings[0]
+
+
+class TestFormatters:
+
+    def test_s33_format_pending(self):
+        assert format_pending(0) == "0 entries (all synced ✓)"
+        assert format_pending(3) == "3 entries"
+
+    def test_s34_format_size(self):
+        assert format_size(2.0) == "2.0 KB"
+
+    def test_s35_format_hours(self):
+        assert format_hours(Decimal("1.5")) == "1.50h"
