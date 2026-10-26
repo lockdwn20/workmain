@@ -1,6 +1,6 @@
 # Auto-Memory Retirement — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261026
 **Branch:** `chore/issue-241-disable-auto-memory` (from `origin/main`)
