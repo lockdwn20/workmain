@@ -1,10 +1,10 @@
 # Clockify Commands on the Output Module — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Anvil (Role 3)
 **Date:** 20261025
 **Spec:** `../specs/CLOCKIFY_COMMANDS_SPEC.md`
-**Released as:** set by `/closeout`
+**Released as:** v1.54.0 (tag `v1.54.0`)
 
 ---
 
@@ -56,7 +56,7 @@ Complete, except where §3 records a check that names Ray. The five clockify com
 ## 5. Verification
 
 - **Test suite:** 1541 passed, 0 failed, 0 skipped (baseline: 1472 passed, 0 failed, 0 skipped), a difference of +69: 16 removed and 85 added — form per `docs/DEVELOPMENT_STANDARDS.md` §6.
-- **Live verification:** none. Every Clockify client in the tests is a mock and no command was run against Clockify.
+- **Live verification:** 20261026, at close-out, on this branch through the editable install, read-only. `workmain clockify status` printed the panel `Clockify #688104880e3d1e3bb7ac95ea — rracejr` with Email, Pending sync `0 entries (all synced ✓)` and Last sync, and exited 0. With `CLOCKIFY_API_KEY=invalid-probe-key` it printed `Error: Clockify request failed: 401 Client Error: Unauthorized for url: https://api.clockify.me/api/v1/user` on stderr and exited 3, where before this branch it printed on stdout and exited 0. No command that writes to Clockify was run.
 - **Daemon restart** (`feature/*`, per `docs/DEVELOPMENT_STANDARDS.md` §2.6): close-out's.
 
 Each command, with the service functions it calls and the renderer calls it makes (AC1.2):
