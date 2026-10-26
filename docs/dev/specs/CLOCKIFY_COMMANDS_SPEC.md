@@ -31,6 +31,12 @@
 | 20261025 | Caliper | 5: `plan_entry_push` reads `note` and `project` on the row `get_by_id` returns, and `get_by_id` loads neither. §4.3 says a change that adds a per-row read adds the loader. | **Not taken.** §4.3's loading rule governs "a repository method that returns rows", because a list of N rows costs up to N + 1 queries. `get_by_id` returns one row, so its two lazy loads cost a fixed two statements whatever the data, and §6.2's one-versus-five count cannot apply to it. Adding a loader would change the query for every other `get_by_id` caller, for no saving. |
 | 20261025 | Caliper | 2: Step 4.4's mapping of the deleted tests leaves out `test_pull_entries_noninteractive_does_not_prompt`. | Accepted. Step 4.4 maps it to C8 (nothing is asked) and S27's `None`-answer case (the import). |
 | 20261025 | Caliper | 3: DR6 gives `sync both`'s `--date` "default `date.today()`", which as an option default would be fixed when the module is imported. | Accepted. The option has no default, and the body uses `date.today()` when it is `None`, as `clockify.py:416` does today. The same holds for `sync pull`'s `--start`. |
+| 20261026 | Anvil | Results deviation 1: `plan_entry_push` raises `ServiceValidationError("Time entry <id> not found")` when `get_by_id` returns `None`. DR3 was silent. | Approved, Ray 20261026. A spec gap: DR3 should have stated it. |
+| 20261026 | Anvil | Results deviation 2: `classify` sets `local_id` for a `"linked"` item, and the skipped outcome carries it as `entry_id`. | Approved, Ray 20261026. The skipped row shows which local entry already holds the Clockify id. |
+| 20261026 | Anvil | Results deviation 3: `format_pending`, `format_size` and `format_hours` have no test, because AC3.1 requires one for every added function and §6 pinned the count without them. | A defect in this spec: AC3.1 and §6 contradicted each other. Ray 20261026: the spec is corrected, not the criterion. S33–S35 are added, and Expected after is 1541. The deviation should have stopped implementation (`SKILL.md` § Role 3), not been recorded after it. |
+| 20261026 | Anvil | Results deviation 4: the Clockify step's `run_workmain` calls are at `eod_workflow.py:1137` and `1156`, not `1144` and `1159`. | A defect in this spec's §2, which cited the lines unchecked. Corrected. |
+| 20261026 | Anvil | Results deviation 5: `_seed_entry` in `tests/test_clockify_service.py` creates its project on the note's client. | Approved, Ray 20261026. A test-helper change only. |
+| 20261026 | Spanner | Not in the results: `clockify.py` renames the parameters behind `--all` and `--date` to `include_synced` and `on_date`, where DR6 said options keep their names. The same rename was #201's results deviation 1. | Ray 20261026: recorded as a results deviation by Anvil, and approved on #201's reasoning. DR6 meant the flags, short forms, defaults and help text, which are unchanged. |
 
 ---
 
@@ -78,7 +84,7 @@ Verified on `dev` `44bc6f5`, 20261023. Study findings are cited as F-numbers and
 | `WorkmAInGroup.invoke` maps `NotImplementedError`, `ServiceValidationError`, passes Click's exceptions, and turns any other `Exception` into `Error: <type>: <message>`, exit 1. | `output.py:390-410` |
 | Call sites of `ClockifySync`, `push_entries` and `pull_entries`, found by `git grep -n "ClockifySync\|push_entries\|pull_entries\|SyncConflict\|_record_clockify_link" -- workmain tests automation scripts docs ':!docs/archive'`: `clockify.py:19`, `270`, `295`, `357`, `375`, `423`, `430`, `444`; `time.py:14`, `352-353`; `workmain/integrations/clockify/__init__.py:7`, `9`; `tests/test_clockify_sync.py` (every test). Each was read and is made on `ClockifySync` or its module. No reference by name through `getattr`. | as cited |
 | `time add` pushes inside its own `session_scope()`, after `session.commit()`, and prints `✓ Synced to Clockify` or `✗ Sync failed` with the first failure's error. No test takes its yes-to-sync path. | `time.py:346-359`; `tests/test_time_add.py` |
-| Contract change: the clockify commands' exit codes and streams. After this spec, a Clockify API failure exits 3 with `Error:` on stderr, a missing API key exits 1, a push or pull with failed items exits 1 or 3 after printing its report, and a bad date is a usage error (exit 2, unchanged). Callers outside `tests/`, by `git grep -nE "'clockify'" -- workmain automation scripts`: `eod_workflow.py:287`, `303` (`sync push`), `1125` (`report save`, run at `1144` and `1159`). `self_invoke.py:104` is a docstring. | F11, F12 |
+| Contract change: the clockify commands' exit codes and streams. After this spec, a Clockify API failure exits 3 with `Error:` on stderr, a missing API key exits 1, a push or pull with failed items exits 1 or 3 after printing its report, and a bad date is a usage error (exit 2, unchanged). Callers outside `tests/`, by `git grep -nE "'clockify'" -- workmain automation scripts`: `eod_workflow.py:287`, `303` (`sync push`), `1125` (`report save`, run at `1137` and `1156`). `self_invoke.py:104` is a docstring. | F11, F12 |
 | `_run_sync_step` on a non-zero exit asks `y`/`r`/`s` and returns `_completed(run, ...)`, which carries stderr as its message. `_run_clockify_step` on a non-zero exit asks `r`/`s` when interactive and returns `FAILED` with `run.failure_message(...)` when not. No test drives `_run_clockify_step`. | `eod_workflow.py:281-318`, `263-276`, `1122-1170`; `tests/test_eod_workflow.py:1272-1278` |
 | Contract change: `Renderer.report` gains a keyword parameter, and `ReportView` an optional field. Callers, by `git grep -n "renderer.report\|ReportView(" -- workmain tests`: the four costs commands and `tests/test_output.py`. Both additions default to today's behaviour. | `meetings.py:1706`, `notes.py:1021`, `providers.py:255`, `reports.py:779` |
 | Contract change: `WorkmAInGroup.invoke` gains a branch for `IntegrationError`, a new type that nothing raises today. No other command's behaviour changes. | `git grep -n IntegrationError` (no hits) |
@@ -181,7 +187,7 @@ If `dev` has moved past `44bc6f5`, merge it into this branch (`git merge dev`) a
 
 1. `clockify_service.py` per DR2 and DR3. `_record_clockify_link` is copied from `sync.py` in this step and moved in Step 4, so every step stays green.
 2. `services/__init__.py`: import `clockify_service` and list it in `__all__`, alphabetically.
-3. `tests/test_clockify_service.py`: S1–S32 (§6).
+3. `tests/test_clockify_service.py`: S1–S35 (§6).
 
 ### Step 4 — commands
 
@@ -238,10 +244,10 @@ None. This spec runs no migration, deletes no GitHub object, merges nothing to `
 ## 6. Test plan
 
 - **Baseline:** the counts Step 0 records. On this branch at `44bc6f5`, 20261023: 1472 passed, 0 failed, 0 skipped.
-- **Expected after:** the baseline, less 16 removed tests, plus 82 new, as collected:
+- **Expected after:** the baseline, less 16 removed tests, plus 85 new, as collected:
   - **Removed:** the 3 tests of `tests/test_clockify.py` and the 13 of `tests/test_clockify_sync.py`.
-  - **New:** service 48 (S2 collects 5, S3 2, S7 6, S27 6), repository 3, renderer and wiring 5, command 21 (C5 collects 4, C14 3), EOD 3, `time add` 2.
-  - On the baseline above: 1538 passed, 0 failed, 0 skipped.
+  - **New:** service 51 (S2 collects 5, S3 2, S7 6, S27 6), repository 3, renderer and wiring 5, command 21 (C5 collects 4, C14 3), EOD 3, `time add` 2.
+  - On the baseline above: 1541 passed, 0 failed, 0 skipped.
 
 Test method names are the spec's where an AC cites the node. Anvil names the rest.
 
@@ -281,6 +287,9 @@ Test method names are the spec's where an AC cites the node. Anvil names the res
 | S30 | `TestPull` | A link whose record raises: skipped, `detail` `link not recorded`, and a warning ending `The next pull will ask again.` |
 | S31 | `TestPull` | `pull_result` over one outcome of each result: the totals, each section's rows in order, `filters` `(("from", d), ("to", d))` with `end` `None`, and `error` `None` with no failure. |
 | S32 | `TestPull` | Tags `"#nosuchtag"`: imported, with a warning naming the tag. |
+| S33 | `TestFormatters` | `format_pending(0) == "0 entries (all synced ✓)"` and `format_pending(3) == "3 entries"`. |
+| S34 | `TestFormatters` | `format_size(2.0) == "2.0 KB"`. |
+| S35 | `TestFormatters` | `format_hours(Decimal("1.5")) == "1.50h"`. |
 
 **`tests/test_time_entries_repo.py`**
 
