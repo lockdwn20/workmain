@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.54.0] - 2026-10-26
+
+The five `clockify` commands queried, decided and printed in one function, and the `ClockifySync` engine below them printed progress and asked its questions with raw `input()`. Their tests could only search printed text. They now read through `clockify_service` and print through the CLI output module, so behaviour is tested at the service. A Clockify failure now exits 3 with one `Error:` line on stderr, where `status` and the `sync` commands printed a line and exited 0 (issue #202).
+
+### Added
+
+- `workmain/services/clockify_service.py`: `get_status`, `report_range`, `save_report`, `plan_push`, `plan_entry_push`, `push`, `fetch_pull`, `classify`, `apply_pull` and `pull_result`, with their result dataclasses and `format_pending`, `format_size` and `format_hours`
+- `IntegrationError` and `ClockifyNotConfiguredError` in `workmain/services/exceptions.py`. `WorkmAInGroup` reports an `IntegrationError` as `Error: <message>` on stderr, exit 3
+- `ReportView.warnings_field` and `Renderer.report(..., quiet=)`: a report's warnings print on stderr whether or not it has rows, and `quiet` prints only them
+- `TimeEntriesRepository.get_all`, `count_unsynced` and `get_last_synced_at`
+
+### Changed
+
+- `clockify status` prints a panel titled `Clockify #<workspace id> — <user>`, with the full workspace id. A rejected API key exits 3, and a missing one exits 1
+- `clockify sync push`, `pull` and `both` print a report of what was pushed, imported, linked, skipped and failed when they finish, in place of per-entry progress lines. A run with failed entries exits 3 when Clockify refused them, otherwise 1, after printing its report. An entry in Clockify whose link was not recorded is still reported on stderr and does not change the exit
+- `clockify sync pull` asks about each Clockify entry in turn, with `click.prompt` in place of `input()`. Each conflict is checked after the answers already given, as before. An ignored tag is reported on stderr
+- `clockify sync pull --silent`'s help states that conflicts are imported as separate entries, which is what it does
+- `clockify report save` prints the saved file as a panel and exits 3 on a Clockify failure, where it exited 1
+- The clockify date options take `DateParamType`
+- `time add`'s push uses `clockify_service`
+- `docs/DEVELOPMENT_STANDARDS.md` §5.6 describes the integration exit, a result that partly fails, a command whose service calls another system, and a report's warnings
+
+### Removed
+
+- `workmain/integrations/clockify/sync.py` (`ClockifySync`, `SyncConflict`), and `tests/test_clockify_sync.py`, whose behaviour is now tested at the service
+
+Suite: 1541 passed, 0 failed, 0 skipped (baseline 1472 passed, 0 failed, 0 skipped).
+
 ## [1.53.0] - 2026-10-23
 
 The four AI cost commands (`meetings costs`, `notes costs`, `providers costs`, `reports costs`) queried, decided and printed in one function, through a renderer in `workmain/utils/cost_display.py` that ran its own queries. Their tests could only search printed text. They now read through `ai_cost_service` and print through the CLI output module's new report view, so behaviour is tested at the service. An exception no command handles is now one `Error:` line instead of a traceback, and the CLI's log level follows `LOG_LEVEL` (issue #201).
