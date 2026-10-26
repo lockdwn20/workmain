@@ -8,10 +8,13 @@ every key column fits at full width and the table is at most
 TABLE_MAX_LINES lines, otherwise a list. Every value reaches Rich as Text,
 never as markup, so a value such as [#85019] prints as written. A ReportView
 names a result in parts (a title, totals and sections) and the renderer prints
-each section as a collection. WorkmAInGroup turns a service validation error or
-a stub command's NotImplementedError into a Click exception, so Click prints it
-and sets the exit code once. Its third branch does the same for an exception no
-command handled, as one Error line, and logs the traceback at DEBUG.
+each section as a collection, then prints the result's warnings, if the view
+names a field for them, on stderr. WorkmAInGroup turns a service validation
+error or a stub command's NotImplementedError into a Click exception, so Click
+prints it and sets the exit code once. An IntegrationError (a call to another
+system failed) becomes a Click exception with exit code 3. The last branch does
+the same for an exception no command handled, as one Error line, and logs the
+traceback at DEBUG.
 """
 
 import io
@@ -28,7 +31,7 @@ from rich.table import Table
 from rich.text import Text
 
 from workmain.cli.params import PickParamType
-from workmain.services.exceptions import ServiceValidationError
+from workmain.services.exceptions import IntegrationError, ServiceValidationError
 from workmain.services.results import Page
 
 logger = logging.getLogger(__name__)
@@ -94,7 +97,8 @@ class ReportView:
 
     The result has a `filters` attribute shaped as Page.filters. `totals_field`
     names the attribute holding the totals, and `totals` are the Fields read
-    from it.
+    from it. `warnings_field` names the attribute holding the result's warnings,
+    a sequence of strings.
     """
 
     noun: str
@@ -102,6 +106,7 @@ class ReportView:
     totals: Tuple[Field, ...]
     sections: Tuple[Section, ...]
     empty_hint: Optional[str] = None
+    warnings_field: Optional[str] = None
 
 
 def _format_value(value: Any) -> str:
@@ -305,8 +310,20 @@ class Renderer:
     # Records
     # ------------------------------------------------------------------
 
-    def report(self, view: ReportView, result: Any) -> None:
-        """Print a result in parts: a title, the totals, then each section with rows."""
+    def report(self, view: ReportView, result: Any, quiet: bool = False) -> None:
+        """Print a result in parts: a title, the totals, then each section with rows.
+
+        The result's warnings, when the view names a field for them, follow on
+        stderr whether or not any section has rows. With quiet, they are all
+        that is printed.
+        """
+        if not quiet:
+            self._report_body(view, result)
+        if view.warnings_field:
+            for text in getattr(result, view.warnings_field):
+                self.warning(text, stderr=True)
+
+    def _report_body(self, view: ReportView, result: Any) -> None:
         pages = [(s, getattr(result, s.field)) for s in view.sections]
         if not any(page.rows for _, page in pages):
             self._empty(view.noun, result.filters, view.empty_hint)
@@ -387,12 +404,22 @@ class _StubCommandError(click.ClickException):
         console.print()
 
 
+class _IntegrationFailure(click.ClickException):
+    """
+    Raised when a call to another system failed. Exit code 3 sets it apart
+    from a request the service refused (DEVELOPMENT_STANDARDS §5.6).
+    """
+
+    exit_code = 3
+
+
 class WorkmAInGroup(click.Group):
     """
-    Click Group that gives a clean user-facing message for the two errors a
-    command raises on purpose: NotImplementedError (OAuth stub commands) and
-    ServiceValidationError (a request a service cannot carry out), instead
-    of a raw Python traceback. An exception no command handled becomes one
+    Click Group that gives a clean user-facing message for the errors a
+    command raises on purpose: NotImplementedError (OAuth stub commands),
+    ServiceValidationError (a request a service cannot carry out) and
+    IntegrationError (another system failed, exit 3), instead of a raw Python
+    traceback. An exception no command handled becomes one
     "Error: <type>: <message>" line, and its traceback is logged at DEBUG.
     """
 
@@ -403,6 +430,8 @@ class WorkmAInGroup(click.Group):
             raise _StubCommandError(str(e)) from e
         except ServiceValidationError as e:
             raise click.ClickException(str(e)) from e
+        except IntegrationError as e:
+            raise _IntegrationFailure(str(e)) from e
         except (click.ClickException, click.exceptions.Exit, click.Abort):
             raise
         except Exception as e:

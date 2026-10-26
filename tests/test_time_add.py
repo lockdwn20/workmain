@@ -28,7 +28,9 @@ from click.testing import CliRunner
 from workmain.cli.commands.time import time
 from workmain.database.models import Client, Meeting, Note, TimeEntry
 from workmain.database.repositories.system_state_repository import SystemStateRepository
-from workmain.services import notes_service
+from workmain.services import clockify_service, notes_service
+from workmain.services.exceptions import IntegrationError
+from workmain.services.results import Page
 
 _SENTINEL_PRIMARY_CONTENT = "Sentinel time add primary content 2099-07-28"
 _SENTINEL_EXTRA_CONTENT = "Sentinel extra note content 2099"
@@ -236,6 +238,38 @@ class TestTimeAddUnitOfWork:
         notes = _notes_with(db_session, content)
         assert len(notes) == 1
         assert db_session.query(TimeEntry).filter(TimeEntry.note_id == notes[0].id).count() == 1
+
+    def test_t1_time_add_pushes_the_new_entry_when_asked(self, db_session):
+        content = "Sentinel time add pushes 2099-96"
+        pushed = clockify_service.PushedEntry(1, "clockify-id", content)
+        result_ = clockify_service.PushResult(
+            (), clockify_service.PushTotals(1, 1, 0, 0), Page((pushed,), 1), Page((), 0), (), None,
+        )
+
+        with patch.object(clockify_service, "push", autospec=True, return_value=result_) as push:
+            result = CliRunner().invoke(time, ["add", content, "1h", "-T", "0900"], input="y\n")
+
+        assert result.exit_code == 0, result.output
+        note = _notes_with(db_session, content)[0]
+        entry = db_session.query(TimeEntry).filter(TimeEntry.note_id == note.id).one()
+        plan = push.call_args.args[0]
+        assert [item.entry_id for item in plan.rows] == [entry.id]
+        assert "✓ Synced to Clockify" in result.output
+
+    def test_t2_time_add_reports_a_failed_push_and_still_exits_zero(self, db_session):
+        content = "Sentinel time add push fails 2099-96"
+        failed = clockify_service.FailedEntry(1, content, "boom")
+        result_ = clockify_service.PushResult(
+            (), clockify_service.PushTotals(1, 0, 1, 0), Page((), 0), Page((failed,), 1), (),
+            IntegrationError("1 of 1 entries were not pushed to Clockify"),
+        )
+
+        with patch.object(clockify_service, "push", autospec=True, return_value=result_):
+            result = CliRunner().invoke(time, ["add", content, "1h", "-T", "0900"], input="y\n")
+
+        assert result.exit_code == 0, result.output
+        assert "✗ Sync failed" in result.output
+        assert "  Error: boom" in result.output
 
     def test_t15_entry_persists_when_the_clockify_sync_prompt_is_cancelled(self, db_session):
         content = "Sentinel time add sync abort 2099-96"

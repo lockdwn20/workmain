@@ -504,6 +504,37 @@ class TimeEntriesRepository:
             TimeEntry.clockify_id.is_(None)
         ).order_by(TimeEntry.entry_date, TimeEntry.entry_time).all()
     
+    def get_all(self) -> List[TimeEntry]:
+        """
+        Get every time entry, oldest first.
+
+        Returns:
+            List of TimeEntry objects with note and project loaded
+        """
+        return self.session.query(TimeEntry).options(
+            joinedload(TimeEntry.note), joinedload(TimeEntry.project)
+        ).order_by(TimeEntry.entry_date, TimeEntry.entry_time).all()
+
+    def count_unsynced(self) -> int:
+        """
+        Count the time entries not yet synced to Clockify.
+
+        Returns:
+            Number of entries without clockify_id
+        """
+        return self.session.query(func.count(TimeEntry.id)).filter(
+            TimeEntry.clockify_id.is_(None)
+        ).scalar()
+
+    def get_last_synced_at(self) -> Optional[datetime]:
+        """
+        Get the time of the latest Clockify sync.
+
+        Returns:
+            Latest synced_at, or None when nothing has been synced
+        """
+        return self.session.query(func.max(TimeEntry.synced_at)).scalar()
+
     def mark_as_synced(
         self,
         entry_id: int,
