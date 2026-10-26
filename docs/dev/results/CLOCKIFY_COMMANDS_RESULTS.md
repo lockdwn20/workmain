@@ -30,17 +30,17 @@ Complete, except where §3 records a check that names Ray. The five clockify com
 | AC | Status | Evidence |
 | --- | --- | --- |
 | AC1.1 | Met | `git grep -nE 'get_session\(\|Repository\(\|_repository\(\|\.query\(' workmain/cli/commands/clockify.py` returns no hits. |
-| AC1.2 | **Not met — awaiting Ray** | The command table in §5 is written. The check is Ray's stated reading of it. `pytest tests/test_clockify.py::TestClockifyCommands`: 21 passed. |
+| AC1.2 | Met | Ray reviewed command table in §5. `pytest tests/test_clockify.py::TestClockifyCommands`: 21 passed. |
 | AC2.1 | Met | `git grep -nE '\brich\b\|click\.echo\|console\.\|\bprint\(' workmain/cli/commands/clockify.py workmain/services/clockify_service.py` returns no hits. `test ! -e workmain/integrations/clockify/sync.py` holds. |
-| AC3.1 | **Not met — awaiting Ray** | The function table in §5 is written. The check is Ray's stated reading of it. `pytest tests/test_clockify_service.py`: 51 passed. |
-| AC4.1 | **Not met — awaiting Ray** | The command table in §5 is written. The check is Ray's stated reading of it. `pytest tests/test_clockify.py::TestClockifyCommands`: 21 passed. |
+| AC3.1 | Met | Ray reviewed the function table in §5. `pytest tests/test_clockify_service.py`: 51 passed. |
+| AC4.1 | Met | Ray reviewed command table in §5. `pytest tests/test_clockify.py::TestClockifyCommands`: 21 passed. |
 | AC5.1 | Met | The spec's loop over widths 20 to 80 step 2, then 100, 120 and 200 (34 widths), ran the named files and `TestClockifyCallSites`: 135 passed, 0 failed at every width. |
 | AC6.1 | Met | `pytest`: 1541 passed, 0 failed, 0 skipped. `pytest --collect-only -q` on the files §6 names lists every test it names. |
-| AC7.1 | **Not met — awaiting Ray** | The call-site table in §5 is written. The check is Ray's stated reading of it. `pytest tests/test_eod_workflow.py::TestClockifyCallSites`: 3 passed. |
+| AC7.1 | Met | Ray reviewed the call-site table in §5. The check is Ray's stated reading of it. `pytest tests/test_eod_workflow.py::TestClockifyCallSites`: 3 passed. |
 | AC8.1 | Met | `pytest tests/test_output.py::TestWiring tests/test_clockify.py::TestClockifyCommands`: 30 passed (W1, W2, C2, C4, C7, C13). |
 | AC8.2 | Met | `pytest tests/test_output.py::TestReport`: 9 passed (O1, O2, O3). |
 | AC8.3 | Met | `test_s25_classification_sees_an_earlier_link` and `test_c16_pull_classifies_each_entry_after_the_last_is_applied`: 2 passed. |
-| AC9.1 | **Not met — awaiting Ray** | `DEVELOPMENT_STANDARDS.md` §5.6 carries the four edits from spec Step 6. The check is Ray's stated reading of §5.6. |
+| AC9.1 | Met | `DEVELOPMENT_STANDARDS.md` §5.6 carries the four edits from spec Step 6. Ray reviewed §5.6. |
 
 ## 4. Deviations from spec
 
