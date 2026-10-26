@@ -6,6 +6,8 @@ it there; everywhere else cites it. Do not summarize back what the reader can al
 read: not the artifact in chat, not a section in another section, not a design rule in a
 decision log.
 
+A wording artifact in a document — an awkward phrase, an overloaded term — is not a finding. Fix it in one line or leave it; never report it as a defect. A real defect changes what the code or the process does.
+
 **`docs/DEVELOPMENT_STANDARDS.md` owns how we build** — git workflow, code patterns, database, CLI, and testing.
 
 The only text restated from it is the § Critical Rules subset; nothing else appears in both.
@@ -29,7 +31,13 @@ Coding, database, CLI, git, and testing rules all live in `docs/DEVELOPMENT_STAN
 
 ## THREE-ROLE MODEL ⭐
 
-A session opens in its declared role with `/session-start <role>`. What each role is, does and hands to the others is `.claude/skills/session-start/SKILL.md` § THREE-ROLE MODEL, and is stated nowhere else.
+A session opens in its declared role with `/session-start <role>`. What each role is, does and hands to the others is `.claude/skills/session-start/SKILL.md` § THREE-ROLE MODEL, and is stated nowhere else. The one exception is a rule for how a single role works: it sits in that role's `.claude/skills/session-start/references/<role>.md` § Working rules, which no other role's session loads.
+
+---
+
+## Auto-memory
+
+Claude Code auto-memory is off for this repository: `.claude/settings.json` sets `autoMemoryEnabled` to `false`. No instruction is carried by memory. A rule lives in this file, in `docs/DEVELOPMENT_STANDARDS.md`, or in the skill that governs its role, and a correction Ray gives in a session is made there, through a spec like any other change.
 
 ---
 
@@ -41,7 +49,7 @@ A session opens in its declared role with `/session-start <role>`. What each rol
 Item state, priority, and sequencing live in GitHub Issues — never in a document. Read them with the JSON fields, not the plain list, so parent/child structure and milestone are visible:
 
 ```bash
-gh issue list --state open --limit 200 \
+gh issue list --state open --limit "$(gh repo view --json issues --jq .issues.totalCount)" \
   --json number,title,state,milestone,labels,parent,subIssuesSummary
 ```
 
@@ -188,3 +196,6 @@ Made and closed. Do not re-open or work around these without Ray's explicit dire
 - **Master Logs are reference only** — target output format for AI, NOT input data sources.
 - **Phase scope creep** is resolved through Spanner and Ray.
 - **Component-verified ≠ integration-verified** — the spec-time rules (call sites, entry paths) are `docs/DEVELOPMENT_STANDARDS.md` §1.2. At implementation, trace handle and session provenance at every call site, diff drafted code against any claimed reference verbatim (not just shape), and never accept an elided "unchanged" block without checking it against the recon's own quote.
+- **A destructive write is checked before it runs.** Run `gh` from the repository root: outside a repository it fails, and an empty file passed to `gh issue edit --body-file` blanks the issue, which GitHub cannot restore. Before overwriting anything you did not author, check that the source is non-empty and holds what you expect, and read stderr in the same block. Before changing a value, read the whole file and search it for every occurrence of the value, not only the one you came for. Where a written standard and the practice recorded in an earlier artifact disagree, surface the disagreement before running either.
+- **Deleting a meeting unlinks its notes.** `notes.meeting_id` is `ON DELETE SET NULL`, and the "Notes: N captured" line counts only the current occurrence. Before deleting a meeting, count its notes by query, and for a recurring meeting count the series too (`MeetingsRepository.get_series_note_count()`).
+- **`scripts/baseline/` is restricted until #188 ships.** Read #188 before running, editing or citing anything under it, and scope any search a check runs to the file it is about, never to a directory that holds the harness.
