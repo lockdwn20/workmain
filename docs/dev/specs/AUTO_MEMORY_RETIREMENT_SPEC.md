@@ -21,6 +21,10 @@
 | 20261026 | Ray | **Step 4d drops both qualifiers of its source entry.** `feedback_dont_block_on_unwritten_standards.md` limits the rule to "reviewing or authoring work that is *building* the process (issue #80's cycle mechanics, and anything like it)". It also states "Mechanism defects (a wrong `gh` default, an unverifiable AC) are unaffected — those still block." Step 4d writes it unqualified into § Role 2: "A case no standard yet covers is not a finding." As written, it narrows Caliper's criterion 3 (under-specification) for every spec, not only process-building ones. Required: carry both qualifiers into the destination text, or withdraw 4d and give Ray an open question. | Accepted. Both qualifiers are carried (Step 4e), with the entry's "a point argued once and reaffirmed by Ray is decided". The amendment is an `Amendment:` row of Caliper's findings table, because `references/caliper.md`'s Emits allow nothing outside that table. |
 | 20261026 | Ray | **The moved text has not been checked against its sources.** Every `Moved` row in design study §3.2 is rewritten at its destination rather than quoted. A check of eight source entries against Steps 2–5 found one with scope lost (4d, above). AC2.2 checks that each rule is stated at its destination, not that it says what the entry said. Required: a criterion that each `Moved` row's destination text is checked against its source entry for scope, conditions and exceptions, with every difference recorded and either justified or corrected. Proposed check: a Caliper pass over the `Moved` rows only, with its findings table in the design study. | Accepted. Spanner re-checked every Moved row first (design study §3.5): about twenty had lost a condition, exception or qualifier, and each is corrected below or kept out with its reason. Caliper's pass is recorded in design study §3.6. AC2.4 covers both. |
 | 20261026 | Caliper | Source-check pass over the Moved rows: four findings — §1.6 says nothing writes to the board; two `--limit 200` literals break Step 3f's rule; Step 3a leaves §1.1's recon permission and `n/a` rule contradicting it; the `Amendment:` row's form is unspecified. | Each resolved in design study §3.6: Steps 2d, 3a, 3d, 3k and 4e. |
+| 20261026 | Ray | Fidelity pass (design study §3.6), wording noise: `CLAUDE.md`'s wording-artifact line is removed, and `feedback_no_wording_noise.md` becomes Dropped. "Fix it in one line" reads as permission to edit for every role, including Anvil, and the line adds nothing the findings rules don't already cover. | Applied: Step 2a withdrawn, the line removed, design study §3.2 changed. |
+| 20261026 | Ray | Fidelity pass, unwritten standards: the rule applies to authoring as well as review. Whichever role meets a case no standard covers identifies it with suggested wording and does not block on it; Ray approves it, and Spanner then writes it into the spec. It goes into `references/spanner.md` § Working rules as well as `caliper.md`, with "and anything like it" restored in place of the closed list. | Applied (Steps 4d, 4e). |
+| 20261026 | Ray | Fidelity pass, fix ships its standard: applies to every issue; the general wording stands. Second agent runtime: the general form is correct; Copilot was context, not a standard. | Recorded in design study §3.5 as Ray's decisions; no text change. |
+| 20261026 | Ray | Fidelity pass, the remaining findings (issue opening, meeting deletes, writing for a stranger, hand-kept state, stale documents, the editable CLI, "item number"): restore the source's scope, conditions and exceptions as Caliper states them. | Applied (Steps 2c, 3c, 3d, 3f, 3h). |
 | 20261026 | Ray | **Two points routed to #242 are recorded only in this design study.** (1) `feedback_anvil_stop_on_any_gap.md`: "A results Deviations row is for something Ray already decided, not a substitute for stopping." (2) `feedback_spec_test_file_drift.md` is the origin of `docs/DEVELOPMENT_STANDARDS.md` §6.4's "use the established file … document the deviation". The entry says outright "This is a 'proceed with the obviously-correct interpretation and note it' situation, not a 'stop the gate and wait for Ray' situation." The study drops both as "#242's subject". Once this set is archived, nothing carries them forward. Required: a step that adds both points, with their source text, to #242's body (same read-check-write procedure as Step 6), and a criterion that checks it. | Accepted. Step 7, AC2.5. Design study §3.2 now records both as moved to #242. |
 
 ## 1. Scope
@@ -76,18 +80,7 @@ Create the file with exactly this content:
 
 ### Step 2 — `CLAUDE.md`
 
-**2a.** After the opening paragraph, which ends:
-
-```text
-read: not the artifact in chat, not a section in another section, not a design rule in a
-decision log.
-```
-
-insert a blank line and this paragraph:
-
-```markdown
-A wording artifact in a document — an awkward phrase, an overloaded term — is not a finding. Fix it in one line or leave it; never report it as a defect. A real defect changes what the code or the process does.
-```
+**2a.** Withdrawn 20261026 by Ray (Decision Log). Shipped in `1894ec2` and removed by the fidelity amendment.
 
 **2b.** Replace:
 
@@ -115,7 +108,7 @@ Claude Code auto-memory is off for this repository: `.claude/settings.json` sets
 
 ```markdown
 - **A destructive write is checked before it runs.** Run `gh` from the repository root: outside a repository it fails, and an empty file passed to `gh issue edit --body-file` blanks the issue, which GitHub cannot restore. Before overwriting anything you did not author, check that the source is non-empty and holds what you expect, and read stderr in the same block. Before changing a value, read the whole file and search it for every occurrence of the value, not only the one you came for. Where a written standard and the practice recorded in an earlier artifact disagree, surface the disagreement before running either.
-- **Deleting a meeting unlinks its notes.** `notes.meeting_id` is `ON DELETE SET NULL`, and the "Notes: N captured" line counts only the current occurrence. Before deleting a meeting, count its notes by query, and for a recurring meeting count the series too (`MeetingsRepository.get_series_note_count()`).
+- **A meeting deleted by a cleanup script or an ad-hoc fix unlinks its notes.** `notes.meeting_id` is `ON DELETE SET NULL`, and the "Notes: N captured" line counts only the current occurrence. Before such a delete, count the meeting's notes by query, and for a recurring meeting count the series too (`MeetingsRepository.get_series_note_count()`). Delete only when the count is 0: any other count means the delete orphans those notes.
 - **`scripts/baseline/` is restricted until #188 ships.** Read #188 before running, editing or citing anything under it, and scope any search a check runs to the file it is about, never to a directory that holds the harness.
 ```
 
@@ -200,13 +193,13 @@ with:
 with:
 
 ```markdown
-- Work is tracked in GitHub Issues. State is GitHub's own — open or closed. There is no status vocabulary to maintain in prose, and no register or statistics table to keep in step. Work is called an issue and cited by its number. "Backlog" and "backlog item" are retired terms and are not written into new text; a quote of existing text, and the filename `docs/archive/FEATURE_BACKLOG.md`, stay as they are.
+- Work is tracked in GitHub Issues. State is GitHub's own — open or closed. There is no status vocabulary to maintain in prose, and no register or statistics table to keep in step. Work is called an issue and cited by its number. "Backlog", "backlog item" and "item number" are retired terms and are not written into new text; a quote of existing text, and the filename `docs/archive/FEATURE_BACKLOG.md`, stay as they are.
 ```
 
 **3d. §1.3.** Insert after the bullet that begins `- **An issue is opened only for what no open issue already covers.**`:
 
 ```markdown
-- **An issue is opened when it is on the board and its dependencies are linked.** It is added to the `WorkmAIn Queue` project at creation — `gh project item-add 3 --owner lockdwn20 --url <issue-url>` — and each issue it waits on is linked as a GitHub dependency — `gh api --method POST repos/lockdwn20/workmain/issues/<N>/dependencies/blocked_by -F issue_id=<the blocking issue's id>`. "Depends on #N" in prose is not a dependency: nothing reads it, and the board shows the issue as ready. Both are verified by reading them back — the board read in §1.6, and `gh api repos/lockdwn20/workmain/issues/<N>/dependencies/blocked_by` — because `item-add` prints nothing on success.
+- **An issue is opened when its body is written, it is on the board, and its dependencies are linked.** It is added to the `WorkmAIn Queue` project at creation — `gh project item-add 3 --owner lockdwn20 --url <issue-url>` — and every real dependency is linked as a GitHub dependency, whichever way it runs: the new issue may wait on an open one, or an open one may wait on it. The link is made on the issue that waits — `gh api --method POST repos/lockdwn20/workmain/issues/<blocked>/dependencies/blocked_by -F issue_id=<the blocking issue's id>`. "Depends on #N" in prose is not a dependency: nothing reads it, and the board shows the issue as ready. Each is verified by reading it back, in both directions — the board read in §1.6, `gh api repos/lockdwn20/workmain/issues/<blocked>/dependencies/blocked_by` and `gh api repos/lockdwn20/workmain/issues/<blocker>/dependencies/blocking` — because `item-add` prints nothing on success.
 ```
 
 **3e. §1.4.** Replace:
@@ -224,9 +217,9 @@ with:
 **3f. §1.5.** Insert after the bullet that begins `- **Markdown is never hard-wrapped.**`:
 
 ```markdown
-- **A document never asserts a live count or holds a hand-maintained list.** A test count, queue size, version or status written as currently true is stale on the next commit, and the next reader spends a turn reconciling it. The document states the rule, and the set is derived from its live source: `pytest --collect-only -q`, `gh issue list`, `gh label list`, `workmain/__version__.py`. An operational bound, such as a `--limit`, is an instruction to derive it, never a remembered number. A list found already in a document is deleted, not updated: needing an update is the sign it should not exist. A criterion that would need such a list checks instead that the rule is stated. A dated measurement with its evidence, such as a recon's suite count at recon time, is a record and stays.
+- **Nothing is proposed that has to be kept up by hand.** No list, register, count, status table or copy of state that lives somewhere authoritative goes into a document, a spec step, a criterion or a script. A test count, queue size, version or status written as currently true is stale on the next commit, and the next reader spends a turn reconciling it. The rule is stated, and the set is derived from its live source: `pytest --collect-only -q`, `gh issue list`, `gh label list`, `workmain/__version__.py`. An operational bound, such as a `--limit`, is an instruction to derive it, never a remembered number. A list found already in a document is deleted, not updated: needing an update is the sign it should not exist. A criterion that would need such a list checks instead that the rule is stated. A document that cannot be trusted is deleted, not annotated. A dated measurement with its evidence, such as a recon's suite count at recon time, is a record and stays.
 - **A change to a rule searches the whole document set** — `CLAUDE.md`, this document, the skills and the templates — for every other statement of it, and corrects each one. A historical citation stays as written; only a live, forward-looking reference is repointed.
-- **A document is written for a reader who has read nothing else.** An issue, a criterion and a design study's open question each stand alone. The facts they depend on are stated in them. A rule is stated in a sentence, and another document is cited as its checklist, never as its definition. What breaks, and who notices, is spelled out. An ID — a finding, a question, a design rule — is used only inside the file that defines it; anywhere else the thing is stated or cited in full. A bare `§` is a section of this document; a section of any other document is cited with that document's name. A reason is stated in terms the reader can check. An issue number may follow it as the record, but never stands in as the reason. An example is set out as an example, not woven into the rule, and is checked against the rest of this document before it goes in.
+- **A document is written for a reader who has read nothing else.** An issue, a criterion and a design study's open question each stand alone. The facts they depend on are stated in them. A rule is stated in a sentence, and another document is cited as its checklist, never as its definition. What breaks, and who notices, is spelled out. A design study's question says whether the problem it asks about is real before framing it, and a finding that cites two files says which one has the problem and which is there for contrast. An ID — a finding, a question, a design rule — is used only inside the file that defines it; anywhere else the thing is stated or cited in full. A bare `§` is only ever a section of this document, wherever it is written; a section of any other document is cited with that document's name, and on its first reference in a document with what the section is. A reason is stated in terms the reader can check. An issue number may follow it as the record, but never stands in as the reason. An example is set out as an example, not woven into the rule, and is checked against the rest of this document before it goes in.
 ```
 
 **3g. §2.4.** Insert after the bullet ``- `git commit --no-verify` is **prohibited**. It bypasses commit validation.``:
@@ -239,7 +232,7 @@ with:
 
 ```markdown
 
-**The CLI does not wait for the restart.** `workmain` is an editable install from the repository, so every `workmain` command runs whatever branch is checked out, in its own process. A live check made through the CLI passes on the working branch before close-out. Only what the daemon runs — scheduled triggers and Slack Socket Mode — waits for the restart.
+**The CLI does not wait for the restart.** `workmain` is an editable install from the repository, so every `workmain` command runs whatever branch is checked out, in its own process. A live check made through the CLI passes on the working branch: where a spec has one that Ray runs, he runs it there, before `/closeout`. Only what the daemon runs — the T1–T6 triggers (`CLAUDE.md` § Trigger Terminology) and Slack Socket Mode — waits for the restart.
 ```
 
 **3i. §2.7.** Replace:
@@ -328,6 +321,7 @@ These hold for the whole Spanner session. The run neither reads nor emits them, 
 - **A repeated pattern is not a precedent if an open issue calls it a defect.** Before citing what other call sites do, search the open issues for that family of defect. A value a request sends to a provider is declared in configuration, never inherited from a Python default or a literal at the call site.
 - **A design holds for every provider a call type can be routed to.** Which provider serves a call is switchable configuration, often set to work around the defect in hand. Read the commit message that set a value before calling the value a finding.
 - **A position Ray brings from an outside review is his decision** once he confirms it — pasted text is not his words until he says so — and is recorded as his, never cited to the review. Its claims are verified against code first.
+- **A case no standard yet covers does not block the work.** When authoring work that builds the process — the standards, the skills, the implementation cycle, and anything like it — a case no standard yet covers is identified with suggested wording, and the work carries on. Ray approves the wording, and Spanner then writes it into the spec. A mechanism defect — a wrong command default, a criterion that cannot be checked — still blocks.
 - **Keep the open items visible.** When Ray's input moves between several open items, keep a checklist of them in the reply and show it each time it changes.
 ```
 
@@ -346,7 +340,7 @@ An amendment (§ Working rules) is a row of the same table: `| <YYYYMMDD> | Cali
 
 These hold for the whole Caliper session. The run neither reads nor emits them, and no other role's session loads them.
 
-- **A spec that builds the process can outrun the standards.** Where the spec under review is itself writing the rules — the standards, the skills, the implementation cycle — a case no standard yet covers is not a finding against it. It is an amendment row (§ Emits), with suggested wording, for Role 1 to write into the standards; it does not hold the spec. A mechanism defect — a wrong command default, a criterion that cannot be checked — is still a finding, in every spec. A point argued once and reaffirmed by Ray is decided.
+- **A spec that builds the process can outrun the standards.** Where the spec under review builds the process — the standards, the skills, the implementation cycle, and anything like it — a case no standard yet covers is not a finding against it. It is an amendment row (§ Emits) with suggested wording, and it does not hold the spec. Ray approves the wording, and Spanner then writes it into the spec. A mechanism defect — a wrong command default, a criterion that cannot be checked — is still a finding, in every spec. A point argued once and reaffirmed by Ray is decided.
 ```
 
 ### Step 5 — results template and AI settings guide

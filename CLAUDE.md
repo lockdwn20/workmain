@@ -6,8 +6,6 @@ it there; everywhere else cites it. Do not summarize back what the reader can al
 read: not the artifact in chat, not a section in another section, not a design rule in a
 decision log.
 
-A wording artifact in a document — an awkward phrase, an overloaded term — is not a finding. Fix it in one line or leave it; never report it as a defect. A real defect changes what the code or the process does.
-
 **`docs/DEVELOPMENT_STANDARDS.md` owns how we build** — git workflow, code patterns, database, CLI, and testing.
 
 The only text restated from it is the § Critical Rules subset; nothing else appears in both.
@@ -197,5 +195,5 @@ Made and closed. Do not re-open or work around these without Ray's explicit dire
 - **Phase scope creep** is resolved through Spanner and Ray.
 - **Component-verified ≠ integration-verified** — the spec-time rules (call sites, entry paths) are `docs/DEVELOPMENT_STANDARDS.md` §1.2. At implementation, trace handle and session provenance at every call site, diff drafted code against any claimed reference verbatim (not just shape), and never accept an elided "unchanged" block without checking it against the recon's own quote.
 - **A destructive write is checked before it runs.** Run `gh` from the repository root: outside a repository it fails, and an empty file passed to `gh issue edit --body-file` blanks the issue, which GitHub cannot restore. Before overwriting anything you did not author, check that the source is non-empty and holds what you expect, and read stderr in the same block. Before changing a value, read the whole file and search it for every occurrence of the value, not only the one you came for. Where a written standard and the practice recorded in an earlier artifact disagree, surface the disagreement before running either.
-- **Deleting a meeting unlinks its notes.** `notes.meeting_id` is `ON DELETE SET NULL`, and the "Notes: N captured" line counts only the current occurrence. Before deleting a meeting, count its notes by query, and for a recurring meeting count the series too (`MeetingsRepository.get_series_note_count()`).
+- **A meeting deleted by a cleanup script or an ad-hoc fix unlinks its notes.** `notes.meeting_id` is `ON DELETE SET NULL`, and the "Notes: N captured" line counts only the current occurrence. Before such a delete, count the meeting's notes by query, and for a recurring meeting count the series too (`MeetingsRepository.get_series_note_count()`). Delete only when the count is 0: any other count means the delete orphans those notes.
 - **`scripts/baseline/` is restricted until #188 ships.** Read #188 before running, editing or citing anything under it, and scope any search a check runs to the file it is about, never to a directory that holds the harness.
