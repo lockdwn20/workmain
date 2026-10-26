@@ -17,7 +17,7 @@ Issue #241 turns Claude Code auto-memory off for this repository and requires ev
 - **Read:** every file in `~/.claude/projects/-home-lockdwn20-Projects-workmain/memory/`, read in full by Spanner on 20261026 from this session. The issue expected the read to be Ray-run or Ray-supplied because the directory is outside the repository. It is readable from a Claude Code session on Ray's machine, so Spanner read it directly. Ray's check of this study's §3.2 against his own `/memory` view stands in for the supplied copy. On 20261026 the directory held 90 files: `MEMORY.md` (the index), 88 entry files, and one empty file whose name is a sentence fragment (`as a one-off). 2026-10-11.#`), left by a broken shell write.
 - **Checked against:** `CLAUDE.md`, `docs/DEVELOPMENT_STANDARDS.md`, `docs/AI_SETTINGS_GUIDE.md`, `.claude/skills/session-start/` (`SKILL.md` and `references/`), `.claude/skills/closeout/`, the three `docs/dev/*/_TEMPLATE_*.md` files, and the live state of every issue an entry names.
 - **Not read:** the Claude Code memory directories of other projects, and user-level `~/.claude/CLAUDE.md`. Neither is governed by this repository.
-- **Not in scope:** the three standards passages issue #240 lists as reading like permission to self-resolve, and the results template's deviations table. Both belong to #242. Where an entry restates one of them, its disposition below is "dropped, owned by the standard", and the standard's own fate is left to #242.
+- **Not in scope:** the three standards passages issue #240 lists as reading like permission to self-resolve, and the results template's deviations table. Both belong to #242. Where an entry bears on one of them, its point is carried into #242's body, and the standard's own fate is left to #242.
 
 ## 3. Findings
 
@@ -28,7 +28,7 @@ Issue #241 turns Claude Code auto-memory off for this repository and requires ev
 | F1 | `autoMemoryEnabled: false` in a project's settings turns auto-memory off for that project. `/memory` shows the toggle. | Claude Code docs, *How Claude remembers your project* § Enable or disable auto memory (code.claude.com/docs/en/memory), read 20261026: "To turn it off for a single project, set `autoMemoryEnabled` in that project's settings" | — |
 | F2 | No tracked `.claude/settings.json` exists. `.claude/settings.local.json` is untracked and holds only Ray's personal permissions. | `ls .claude` → `settings.local.json skills`; `git ls-files .claude/settings.json` returns nothing | High |
 | F3 | Nothing in the repository names auto-memory. | `grep -rn -i memory CLAUDE.md docs/DEVELOPMENT_STANDARDS.md .claude/` returns no hit about Claude Code memory | High |
-| F4 | `references/<role>.md` holds only the session-open run's reads and emits. `SKILL.md` § THREE-ROLE MODEL is the only statement of what each role does, and it holds for the whole session. A standing instruction for one role therefore belongs in `SKILL.md` § Role N. In a reference file it would be a second home for that role's duties, read only when the run is. The issue's third criterion names the reference files; the spec restates it with `SKILL.md` § Role N. | `.claude/skills/session-start/SKILL.md`: "§ THREE-ROLE MODEL below is the only statement of what each role is, does and hands to the others. It holds for the whole session"; `CLAUDE.md` § THREE-ROLE MODEL: "and is stated nowhere else"; `references/anvil.md`, `caliper.md`, `spanner.md` carry only `Reads, in order` and `Emits` | High |
+| F4 | A rule for one role must sit where only that role's session loads it. `SKILL.md` is loaded by every role, so a rule placed there with a sentence saying it does not apply to the others stays in every role's context. That is the mechanism F8 shows failing. `references/<role>.md` is loaded only by `/session-start <role>`. Today it holds only the run's reads and emits; it gains a § Working rules that holds for the session and that the run neither reads nor emits. `SKILL.md` and `CLAUDE.md`, which say the role model is stated only in `SKILL.md`, each gain a sentence naming that exception. | `.claude/skills/session-start/SKILL.md` § Choosing the reference ("Load exactly one"); `references/anvil.md`, `caliper.md`, `spanner.md` carry only `Reads, in order` and `Emits`; `SKILL.md`: "§ THREE-ROLE MODEL below is the only statement of what each role is, does and hands to the others" | High |
 | F5 | The second criterion records the dispositions in the results artifact. They are decided here, before the spec, and Ray reads them before implementation. Their one home is §3.2 of this study, which is archived with the spec and results artifact. The results artifact cites it. | `CLAUDE.md` opening: "Every fact, decision, and rule has exactly one home" | Medium |
 | F6 | `docs/DEVELOPMENT_STANDARDS.md` §1.6 says every issue joins the queue project "at creation (§1.3)". §1.3 says no such thing. The rule exists only in memory (`feedback_issue_open_completion.md`). | §1.6 first paragraph; §1.3 read in full | Medium |
 | F7 | Several entries contradict the standards they cite and would mislead a session that followed them: `feedback_hotfix_merge_no_pr.md` and `feedback_pr_workflow.md` order a remote branch delete, which §2.3 forbids; `feedback_db_session_cli_isolation.md` prescribes a real committed session with `tearDown` cleanup, which §6.1 replaced; `feedback_gate_stops.md` requires a stop at every gate, which §1.4 replaced with steps; `calendar_import_patterns.md` gives `db.get_session()` as the connection snippet, which §4.1 forbids in application code. | each file read against the cited section | High |
@@ -44,32 +44,32 @@ Issue #241 turns Claude Code auto-memory off for this repository and requires ev
 | `as a one-off). 2026-10-11.#` | Dropped | Empty file left by a broken shell write. |
 | `feedback_ac_verification_before_closeout.md` | Dropped | Owned: §1.3 last bullet ("Verification of every AC against delivered code… A spec's say-so is not evidence") and `/closeout` P6. The backlog files it names are archived. |
 | `feedback_acs_validate_not_specify.md` | Moved | §1.2: an issue's acceptance criteria validate the work and do not design it. Where the design makes one wrong, the spec restates it and close-out edits the issue. |
-| `feedback_anvil_stop_on_any_gap.md` | Dropped | Owned: `SKILL.md` § Role 3 (stop at the current step, do not self-resolve) and `references/anvil.md` read 5 (every reference checked). Its "a deviation row is for something Ray already decided" is #242's subject. |
-| `feedback_apply_rules_dont_ask.md` | Moved | `SKILL.md` § Role 1. |
+| `feedback_anvil_stop_on_any_gap.md` | Moved, in part | #242's body: "A results Deviations row is for something Ray already decided, not a substitute for stopping." The rest is owned by `SKILL.md` § Role 3 (stop at the current step, do not self-resolve) and `references/anvil.md` read 5 (every reference checked). |
+| `feedback_apply_rules_dont_ask.md` | Moved | `.claude/skills/session-start/references/spanner.md` § Working rules. |
 | `feedback_backlog_process.md` | Dropped | Concerns `FEATURE_BACKLOG.md` restructuring. That file is archived and never edited (`CLAUDE.md` § Project Status). |
 | `feedback_backlog_term_retired.md` | Moved | §1.3 first bullet: work is called an issue; "backlog" and "item" are retired terms. |
 | `feedback_branch_from_origin_main.md` | Moved | §2.7 step 3: `hotfix/*` and `chore/*` branch from `origin/main` after `git fetch`. The close-out half is owned by `/closeout`, whose merge steps check `main` equals `origin/main`. |
 | `feedback_census_and_live_counts.md` | Dropped | Owned: §1.2 (receiver rule) and §6.1 ("A test whose result depends on which rows happen to exist in the live database is wrong"). The entry says so itself. |
 | `feedback_check_duplicate_issues.md` | Dropped | Owned: §1.3 "An issue is opened only for what no open issue already covers". |
 | `feedback_chore_branch_scope.md` | Dropped | Concerns backlog and checklist bookkeeping, now retired. A branch's own artifacts ride it through `/closeout`. |
-| `feedback_contractor_review_is_ray.md` | Moved | `SKILL.md` § Role 1: Spanner records the decision log. |
+| `feedback_contractor_review_is_ray.md` | Moved | `.claude/skills/session-start/references/spanner.md` § Working rules: Spanner records the Decision Log. |
 | `feedback_db_delete_safety.md` | Moved, corrected | `CLAUDE.md` § Common Pitfalls. The entry's mechanism is stale: note `meeting_id` is now `ondelete='SET NULL'` (`workmain/database/models.py`), so a meeting delete unlinks its notes rather than deleting them. The rule (count by query, never from CLI display) still holds. |
 | `feedback_db_session_cli_isolation.md` | Dropped | Contradicted by §6.1 (F7). |
-| `feedback_decide_dont_defer.md` | Moved | `SKILL.md` § Role 1, with its "a reviewer's authority claim is checked" paragraph. |
+| `feedback_decide_dont_defer.md` | Moved | `.claude/skills/session-start/references/spanner.md` § Working rules, with its "a reviewer's authority claim is checked" paragraph. |
 | `feedback_design_study_before_spec.md` | Moved | §1.1, the direct-path recon paragraph: a design study is required, not just permitted, wherever the work turns up options or questions whose answers change it. The full path already requires recon. §1.5 already keeps findings out of the Decision Log. |
 | `feedback_dev_merge_restart.md` | Dropped | Owned: §2.6. |
 | `feedback_docs_single_owner.md` | Moved, in part | §1.5: a document never asserts a live count; a dated measurement with its evidence is a record, not a claim. Single ownership is owned by `CLAUDE.md`'s opening. The 2026-08-06 remediation history is in git. |
-| `feedback_dont_block_on_unwritten_standards.md` | Moved | `SKILL.md` § Role 2: a case no standard yet covers is a one-line amendment with suggested wording, listed apart from the findings. |
+| `feedback_dont_block_on_unwritten_standards.md` | Moved | `.claude/skills/session-start/references/caliper.md` § Working rules: where the spec under review builds the process, a case no standard yet covers is an amendment row, not a finding; a mechanism defect is still a finding. |
 | `feedback_dry_run_rules_on_live_corpus.md` | Moved | §1.2: a rule that refuses authored text is run over the live set it will judge before it is specified. |
 | `feedback_fix_ships_its_standard.md` | Moved | §1.2: a fix that establishes a method writes it into the standards in the same spec and measures the defect's full extent itself. |
 | `feedback_gate_stops.md` | Dropped | Superseded by §1.4 (F7). |
 | `feedback_git_checkout_loop_destructive.md` | Dropped | Its harm, rows orphaned by a killed test, no longer happens: §6.1 rolls back every test's transaction, including a killed one. What remains is generic git care. |
-| `feedback_hardcoded_is_not_precedent.md` | Moved | `SKILL.md` § Role 1. |
+| `feedback_hardcoded_is_not_precedent.md` | Moved | `.claude/skills/session-start/references/spanner.md` § Working rules. |
 | `feedback_hotfix_merge_no_pr.md` | Dropped | Owned: §2.2 and `/closeout` `references/hotfix.md`. Its step 4 contradicts §2.3 (F7). |
 | `feedback_issue_open_completion.md` | Moved | §1.3: an issue is added to the queue project at creation, and each dependency is linked as a GitHub dependency, never stated in prose. This fills the gap in F6. |
 | `feedback_minimal_anvil_handoff.md` | Dropped | Owned: `SKILL.md` § Spanner → Anvil handoff. |
 | `feedback_no_commit_all.md` | Moved | §2.4: stage only the files you wrote; `git commit -a` is prohibited, because Ray edits live `config/` in the working tree. |
-| `feedback_no_filler_options.md` | Moved | `SKILL.md` § Role 1. |
+| `feedback_no_filler_options.md` | Moved | `.claude/skills/session-start/references/spanner.md` § Working rules. |
 | `feedback_no_hard_wrapped_markdown.md` | Dropped | Owned: §1.5. |
 | `feedback_no_manual_registers.md` | Moved | §1.5, with the live-count rule: a document never holds a hand-maintained list or copy of state; it states the rule and the set is derived from the live source. §1.3 already applies this to issues and labels. |
 | `feedback_no_tests_on_known_gaps.md` | Moved | §6.2 rule 9: a test pins behaviour meant to stay, never a path an open issue removes. |
@@ -80,12 +80,12 @@ Issue #241 turns Claude Code auto-memory off for this repository and requires ev
 | `feedback_ray_owned_acs.md` | Dropped | Owned: §1.2 ("A check that names Ray is Ray's sign-off… Ray changes the row once he has checked it"). The second sentence covers its Spanner-side note that a `Met` row may be Ray's own edit. |
 | `feedback_ray_owns_pricing.md` | Moved | `docs/AI_SETTINGS_GUIDE.md` at the cost fields. It already owns them, and `CLAUDE.md` sends a session there before an AI config edit. |
 | `feedback_results_s3_ac_table_only.md` | Moved | `docs/dev/results/_TEMPLATE_RESULTS.md` §3: the section holds only the AC table, because `automation/closeout_acs.py` reads every three-column table under it as AC rows. |
-| `feedback_routing_is_config.md` | Moved, in part | `SKILL.md` § Role 1: a design holds for every provider a call type can be routed to. The test half is owned by §6.2 rule 8. |
+| `feedback_routing_is_config.md` | Moved, in part | `.claude/skills/session-start/references/spanner.md` § Working rules: a design holds for every provider a call type can be routed to. The test half is owned by §6.2 rule 8. |
 | `feedback_run_expected_failures.md` | Moved | §1.2: an expected failure a spec quotes is observed by running the mutation, with the mechanics that keep the run honest. |
 | `feedback_say_label_not_type.md` | Dropped | Owned: §1.3 (labels, the `defect`/`gap` pair, native Types unused). The rest is wording. |
 | `feedback_spec_self_consistency.md` | Dropped | Owned: §6 ("Do not transcribe a baseline into this or any other document"). The template's `<passed> passed` line is Ray's separate fix. |
-| `feedback_spec_sized_to_issue.md` | Moved | `SKILL.md` § Role 1. |
-| `feedback_spec_test_file_drift.md` | Dropped | Owned: §6.4. Whether §6.4 survives is #242's question. |
+| `feedback_spec_sized_to_issue.md` | Moved | `.claude/skills/session-start/references/spanner.md` § Working rules. |
+| `feedback_spec_test_file_drift.md` | Moved | #242's body: the entry is the origin of §6.4, and it says outright that the case is "a 'proceed with the obviously-correct interpretation and note it' situation, not a 'stop the gate and wait for Ray' situation". #242 adjudicates §6.4. |
 | `feedback_specs_dont_restate_closeout.md` | Dropped | Owned: §1.1 Close-out and `SKILL.md` § Role 3 ("no merge, version bump or restart; those are close-out's"). |
 | `feedback_standardization_session_rules.md` | Dropped | Expired: the entry ends when #80 closes, and #80 is closed. |
 | `feedback_steps_not_gates.md` | Dropped | Owned: §1.4. |
@@ -139,9 +139,57 @@ Issue #241 turns Claude Code auto-memory off for this repository and requires ev
 
 The spec does not delete the directory. The setting stops it loading. The directory is outside the working tree on Ray's machine, and it is what Ray checks this study's §3.2 against. Deleting it afterwards is Ray's call.
 
+### 3.5 Source check of the Moved rows
+
+Spanner, 20261026, after Ray's review found step 4d had lost its source's qualifiers. Each destination text in the spec was read against its whole source entry for scope, conditions and exceptions. A difference is corrected in the spec, or kept with the reason given here.
+
+| Entry | Difference in the first draft | Resolution |
+| --- | --- | --- |
+| `feedback_acs_validate_not_specify.md` | Lost: a criterion's stated check must be able to produce the stated answer. | Corrected (Step 3b). |
+| `feedback_apply_rules_dont_ask.md` | Lost: when to escalate (rules conflict, no rule covers, scope Ray owns), and that an applied rule can still be reversed by Ray. | Corrected (Step 4d). |
+| `feedback_backlog_term_retired.md` | Broadened: "item" retired, where the source retires "backlog item"; "item" is in live use (`references/spanner.md`). Lost: quoted existing text and the archived filename stay. | Corrected (Step 3c). |
+| `feedback_branch_from_origin_main.md` | Broadened from `chore/*` and `hotfix/*` to every branch. Dropped: reproduction worktrees use `origin/main`. | Narrowed (Step 3i). The worktree point is kept out: worktrees are not part of the workflow §2 states. |
+| `feedback_contractor_review_is_ray.md` | Lost: pasted text is not Ray's words until he confirms it. | Corrected (Step 4d). |
+| `feedback_db_delete_safety.md` | Mechanism corrected on purpose (`ON DELETE SET NULL`, not cascade). | Kept; §3.2 states why. |
+| `feedback_decide_dont_defer.md` | Lost: dead code removed in scope has its blast radius inventoried and criteria of its own. | Corrected (Step 4d). |
+| `feedback_design_study_before_spec.md` | Narrowed to the direct path; the source applies on both. Lost: the spec's Decision Log cites the question each decision answers. | Corrected (Step 3a). |
+| `feedback_docs_single_owner.md` | Lost: an operational bound is derived, never remembered; a standards change searches the whole document set; historical citations stay. Dropped: "prefer mechanism over prose", and Ray's time-boxed remediation exception. | Corrected (Step 3f). The mechanism line contradicts `feedback_spec_sized_to_issue.md` (a mechanism the issue did not name goes to Ray first) and is kept out. The exception expired with its work. |
+| `feedback_dont_block_on_unwritten_standards.md` | Lost both qualifiers: limited to specs that build the process, and mechanism defects still block (Ray's review). Lost: a point argued once and reaffirmed by Ray is decided. | Corrected (Step 4e). Written as an `Amendment:` row so it fits `references/caliper.md`'s Emits, which allow nothing outside the findings table. |
+| `feedback_dry_run_rules_on_live_corpus.md` | Lost: the run comes before the options go to Ray; a rule that must tell subject from evidence is a reading, not a pattern. | Corrected (Step 3b). |
+| `feedback_fix_ships_its_standard.md` | Lost: it overrides issue text calling a missing rule a gap to raise elsewhere. | Corrected (Step 3b). |
+| `feedback_hardcoded_is_not_precedent.md` | Lost: request values sent to a provider are declared in configuration. | Corrected (Step 4d). |
+| `feedback_issue_open_completion.md` | Lost: both are verified by reading back, and why (`item-add` is silent, `item-list` truncates). | Corrected (Step 3d). |
+| `feedback_no_commit_all.md` | None. | — |
+| `feedback_no_filler_options.md` | Lost: an option a standing rule defeats is filler even when the issue names it. | Corrected (Step 4d). |
+| `feedback_no_manual_registers.md` | Lost: an inherited list is deleted, not updated; a criterion that would need a list checks that the rule is stated. | Corrected (Step 3f). |
+| `feedback_no_tests_on_known_gaps.md` | Lost: both issues say why. | Corrected (Step 3j). |
+| `feedback_no_wording_noise.md` | None. | — |
+| `feedback_out_of_scope_findings.md` | Lost: keep a visible checklist when Ray's input moves between open items. Dropped: never say "correction issue". | Checklist corrected (Step 4d). The phrase is wording. |
+| `feedback_ray_owns_pricing.md` | Lost: the model-change step changes `model`, `notes` and `last_updated`, then stops and reports. | Corrected (Step 5b). |
+| `feedback_results_s3_ac_table_only.md` | None. | — |
+| `feedback_routing_is_config.md` | None in the design half. | — |
+| `feedback_run_expected_failures.md` | Lost: each mutation is reverted with `git checkout -- <file>`. | Corrected (Step 3b). |
+| `feedback_spec_sized_to_issue.md` | Lost: a rule that needs enforcement tooling is two issues; a review finding against surface added since the last round is usually fixed by deleting it. | Corrected (Step 4d). |
+| `feedback_steps_stay_green.md` | Lost: "or keeps the old call working". | Corrected (Step 3e). |
+| `feedback_verify_before_destructive_write.md` | Lost: a standard and an earlier artifact's recorded practice that disagree are surfaced before either is run. | Corrected (Step 2c). |
+| `feedback_write_for_a_stranger.md` | Lost: issues, criteria and open questions stand alone; another document is cited as a checklist, not a definition; what breaks and who notices is spelled out; examples are set out as examples and checked against the rest of the standards. Softened: "a standards reason never cites an issue number" became "an issue number may follow the reason as its record". Dropped: the rule needs a mechanical check. | Corrected (Step 3f). The softening is kept: the standards already cite issues after their reasons (§1.2's #79 and #130), and the source objected to an issue number given *as* the reason. A mechanical check is a mechanism this issue did not name. |
+| `project_baseline_harness_restrictions.md` | Lost: scope a check's search to the file it is about, never a directory holding the harness. | Corrected (Step 2c). |
+| `project_cli_editable_install.md` | None. | — |
+| `project_cycle_mechanics.md` | None in the part moved. | — |
+| `project_skills_repeatable_runs.md` | Dropped: session close reports what the session did, not a new editorial. | Kept out: close-out is `/closeout`, which composes the closing comment from what the branch did. |
+| `feedback_anvil_stop_on_any_gap.md` | Dropped to "#242's subject" with nothing carrying it there (Ray's review). | Corrected (Step 7). |
+| `feedback_spec_test_file_drift.md` | Same (Ray's review). | Corrected (Step 7). |
+
+### 3.6 Caliper source check
+
+Caliper's pass over the Moved rows, each against its source entry, run at Ray's request before approval. Spanner records its findings table here and resolves each row.
+
+| Date | Source | Decision or finding | Resolution |
+| --- | --- | --- | --- |
+
 ## 4. Options
 
-None. F1 settles the mechanism. F4 and F5 apply existing rules to choose each home. This study's §3.2 applies the standards, entry by entry.
+None. F1 settles the mechanism. F4 and F5 choose each home. This study's §3.2 applies the standards, entry by entry.
 
 ## 5. Open questions
 
