@@ -13,7 +13,7 @@ User-initiated only. Invoked with role `$role` and target `$target`.
 
 The session-open run **reads**. It writes no file, creates no branch or commit, and makes no GitHub change. It assembles the state a role needs before it acts, from the sources that role's reference names, in the order named.
 
-§ THREE-ROLE MODEL below is the only statement of what each role is, does and hands to the others. It holds for the whole session, not only for the run.
+§ THREE-ROLE MODEL below is the only statement of what each role is, does and hands to the others. It holds for the whole session, not only for the run. The one exception is a rule for how a single role works: it sits in that role's reference file, § Working rules, so that no other role's session loads it.
 
 ## Step 0 — refuse before reading
 
@@ -32,7 +32,7 @@ Stop, print the line below, and read nothing when any of these holds:
 - Read only the sources the role's reference names, in the order it names them. A source that cannot be read is reported as unreadable with its error; nothing is reconstructed in its place.
 - Emit only what those sources carry, in the shape the reference states, and end at the last item its Emits list names. No commentary, no recommendation the reference does not name, no closing summary.
 - Every rule, role definition and command another document owns is cited by its section of `CLAUDE.md` or `docs/DEVELOPMENT_STANDARDS.md`, never copied.
-- The same arguments against the same repository and GitHub state produce the same output.
+- The same arguments against the same repository and GitHub state produce the same output. That is what the skill is for: before it, every session opened with a different set of commands and closed with a different summary.
 
 ## Choosing the reference
 
@@ -53,6 +53,8 @@ Stop and surface to Ray.
 Operating outside this model causes architecture drift. Each chat session begins with `/session-start <role>`.
 
 **Model changes happen between chats, not during chats.**
+
+Each role is its own Claude Code session — never a subagent, which runs inside its parent's session, and never a second agent runtime, which chooses its model its own way. Either collapses the boundary between roles that this model exists to keep.
 
 ### Role 1 - Claude Code (VS Code UI) / Opus - Codename: Spanner - Spec Planner & Keeper
 
