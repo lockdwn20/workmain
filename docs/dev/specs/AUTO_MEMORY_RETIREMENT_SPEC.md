@@ -20,6 +20,7 @@
 | 20261026 | Ray | **The Role 1 working rules land where every role loads them.** Step 4c puts eight Spanner rules, including "Apply a rule; do not ask" and "Decide; do not defer", into `.claude/skills/session-start/SKILL.md` § Role 1. That file carries all three roles and is loaded by Anvil and Caliper. The rules stay in Anvil's context, separated from it only by "They do not apply to Role 2 or Role 3". That is the same mechanism #240 records as a contributor: directives for one role sitting in another role's context. The carve-out was already tried in memory. `feedback_anvil_stop_on_any_gap.md` states "The Spanner-side rules ([[feedback-decide-dont-defer]], [[feedback-apply-rules-dont-ask]]) do not apply to Anvil." Design study F4 is right that `references/<role>.md` today holds only session-open reads and emits. But the issue's criterion asks for a home only that role loads, not for the current shape of those files. Required: a location read only by a Spanner session (for example an expanded `references/spanner.md`, or a Spanner-only rules file the Spanner session-open reads). AC3.1 is restated to require it. | Accepted. Spanner's rules go to a new § Working rules in `references/spanner.md`, and the Caliper rule goes to the same section in `references/caliper.md` (Steps 4d, 4e). `SKILL.md` and `CLAUDE.md` each gain a sentence naming that home as the one exception to "the role model is stated only in `SKILL.md`" (Steps 2b, 4c). Design study F4 is corrected. AC3.1 now carries the issue's own criterion: the role's reference file. |
 | 20261026 | Ray | **Step 4d drops both qualifiers of its source entry.** `feedback_dont_block_on_unwritten_standards.md` limits the rule to "reviewing or authoring work that is *building* the process (issue #80's cycle mechanics, and anything like it)". It also states "Mechanism defects (a wrong `gh` default, an unverifiable AC) are unaffected — those still block." Step 4d writes it unqualified into § Role 2: "A case no standard yet covers is not a finding." As written, it narrows Caliper's criterion 3 (under-specification) for every spec, not only process-building ones. Required: carry both qualifiers into the destination text, or withdraw 4d and give Ray an open question. | Accepted. Both qualifiers are carried (Step 4e), with the entry's "a point argued once and reaffirmed by Ray is decided". The amendment is an `Amendment:` row of Caliper's findings table, because `references/caliper.md`'s Emits allow nothing outside that table. |
 | 20261026 | Ray | **The moved text has not been checked against its sources.** Every `Moved` row in design study §3.2 is rewritten at its destination rather than quoted. A check of eight source entries against Steps 2–5 found one with scope lost (4d, above). AC2.2 checks that each rule is stated at its destination, not that it says what the entry said. Required: a criterion that each `Moved` row's destination text is checked against its source entry for scope, conditions and exceptions, with every difference recorded and either justified or corrected. Proposed check: a Caliper pass over the `Moved` rows only, with its findings table in the design study. | Accepted. Spanner re-checked every Moved row first (design study §3.5): about twenty had lost a condition, exception or qualifier, and each is corrected below or kept out with its reason. Caliper's pass is recorded in design study §3.6. AC2.4 covers both. |
+| 20261026 | Caliper | Source-check pass over the Moved rows: four findings — §1.6 says nothing writes to the board; two `--limit 200` literals break Step 3f's rule; Step 3a leaves §1.1's recon permission and `n/a` rule contradicting it; the `Amendment:` row's form is unspecified. | Each resolved in design study §3.6: Steps 2d, 3a, 3d, 3k and 4e. |
 | 20261026 | Ray | **Two points routed to #242 are recorded only in this design study.** (1) `feedback_anvil_stop_on_any_gap.md`: "A results Deviations row is for something Ray already decided, not a substitute for stopping." (2) `feedback_spec_test_file_drift.md` is the origin of `docs/DEVELOPMENT_STANDARDS.md` §6.4's "use the established file … document the deviation". The entry says outright "This is a 'proceed with the obviously-correct interpretation and note it' situation, not a 'stop the gate and wait for Ray' situation." The study drops both as "#242's subject". Once this set is archived, nothing carries them forward. Required: a step that adds both points, with their source text, to #242's body (same read-check-write procedure as Step 6), and a criterion that checks it. | Accepted. Step 7, AC2.5. Design study §3.2 now records both as moved to #242. |
 
 ## 1. Scope
@@ -27,7 +28,7 @@
 **In scope:**
 
 - A tracked `.claude/settings.json` that turns auto-memory off.
-- The text each `Moved` row of the design study's §3.2 names, written at its destination: `CLAUDE.md`; `docs/DEVELOPMENT_STANDARDS.md` §1.1–§1.5, §2.4, §2.6, §2.7 and §6.2; `.claude/skills/session-start/SKILL.md`; a new § Working rules in `references/spanner.md` and `references/caliper.md`; `docs/dev/results/_TEMPLATE_RESULTS.md` §3; `docs/AI_SETTINGS_GUIDE.md`.
+- The text each `Moved` row of the design study's §3.2 names, written at its destination: `CLAUDE.md`; `docs/DEVELOPMENT_STANDARDS.md` §1.1–§1.6, §2.4, §2.6, §2.7 and §6.2; `.claude/skills/session-start/SKILL.md`; a new § Working rules in `references/spanner.md` and `references/caliper.md`; `docs/dev/results/_TEMPLATE_RESULTS.md` §3; `docs/AI_SETTINGS_GUIDE.md`.
 - One addition each to #188's and #242's bodies.
 - The design study's §6 Disposition and this spec's results artifact.
 
@@ -53,7 +54,7 @@ Direct path: each step below quotes the text it replaces or anchors on. Each anc
 | Step | Deliverable | Files |
 | --- | --- | --- |
 | 1 | Auto-memory off | `.claude/settings.json` |
-| 2 | `CLAUDE.md` additions | `CLAUDE.md` |
+| 2 | `CLAUDE.md` additions and the derived issue-list bound | `CLAUDE.md` |
 | 3 | Standards additions | `docs/DEVELOPMENT_STANDARDS.md` |
 | 4 | Role rules and rationale | `.claude/skills/session-start/SKILL.md`, `references/spanner.md`, `references/caliper.md` |
 | 5 | Results template and AI settings guide | `docs/dev/results/_TEMPLATE_RESULTS.md`, `docs/AI_SETTINGS_GUIDE.md` |
@@ -118,13 +119,60 @@ Claude Code auto-memory is off for this repository: `.claude/settings.json` sets
 - **`scripts/baseline/` is restricted until #188 ships.** Read #188 before running, editing or citing anything under it, and scope any search a check runs to the file it is about, never to a directory that holds the harness.
 ```
 
+**2d.** In § Project Status, replace:
+
+```text
+gh issue list --state open --limit 200 \
+  --json number,title,state,milestone,labels,parent,subIssuesSummary
+```
+
+with:
+
+```bash
+gh issue list --state open --limit "$(gh repo view --json issues --jq .issues.totalCount)" \
+  --json number,title,state,milestone,labels,parent,subIssuesSummary
+```
+
+`gh repo view --json issues` reports the repository's open-issue count (123 on 20261026, equal to `gh issue list --state open --limit 1000 --json number --jq length`), so the list is never cut short.
+
 ### Step 3 — `docs/DEVELOPMENT_STANDARDS.md`
 
-**3a. §1.1.** Insert after the bullet `` - **`chore/*` → the direct path.** §2.2 defines what `chore/*` covers: `docs/**`, standards documents, `.claude/`, and dev tooling that changes no application behaviour. ``:
+**3a. §1.1.** Three edits.
+
+Replace:
+
+```text
+- **Recon** — read-only pass, verbatim findings, no fixes and no inline suggestions.
+```
+
+with:
 
 ```markdown
+- **Recon** — read-only pass, verbatim findings, no fixes and no inline suggestions. Where the findings turn up options, a trade-off, or questions whose answers change the work, the artifact is a design study instead: it adds the options with a recommendation and the open questions (`docs/dev/design/_TEMPLATE_DESIGN.md`), and it is written before the spec. Findings and options never go in the spec's Decision Log or only in chat, and each Decision Log decision cites the question it answers.
+```
 
-**Options go to a design study.** On either path, where the work turns up options, a trade-off, or questions whose answers change it, the design artifact is a design study, not a recon, and it is written before the spec. It holds the findings, the options with a recommendation, and the open questions with their answers. The spec cites it in `**Design study:**`, and each decision in the spec's Decision Log cites the question it answers. Findings and options never go in the Decision Log or only in chat.
+Replace:
+
+```text
+**A recon is permitted on this path**, and earns its place when the change spans documents that may contradict each other
+```
+
+with:
+
+```markdown
+**A design artifact is permitted on this path, and required where the work turns up options or questions whose answers change it** — the full path's Recon stage states what it then holds. A recon earns its place when the change spans documents that may contradict each other
+```
+
+Replace:
+
+```text
+**Where no recon is run, no design artifact exists** and the spec's `**Design study:**` field reads `n/a`.
+```
+
+with:
+
+```markdown
+**Where no design artifact is written**, the spec's `**Design study:**` field reads `n/a`.
 ```
 
 **3b. §1.2.** Replace:
@@ -158,7 +206,7 @@ with:
 **3d. §1.3.** Insert after the bullet that begins `- **An issue is opened only for what no open issue already covers.**`:
 
 ```markdown
-- **An issue is opened when it is on the board and its dependencies are linked.** It is added to the `WorkmAIn Queue` project at creation — `gh project item-add 3 --owner lockdwn20 --url <issue-url>` — and each issue it waits on is linked as a GitHub dependency — `gh api --method POST repos/lockdwn20/workmain/issues/<N>/dependencies/blocked_by -F issue_id=<the blocking issue's id>`. "Depends on #N" in prose is not a dependency: nothing reads it, and the board shows the issue as ready. Both are verified by reading them back — `gh project item-list` with a `--limit` above the board's size, and `gh api repos/lockdwn20/workmain/issues/<N>/dependencies/blocked_by` — because `item-add` prints nothing on success and `item-list` truncates silently at its default limit.
+- **An issue is opened when it is on the board and its dependencies are linked.** It is added to the `WorkmAIn Queue` project at creation — `gh project item-add 3 --owner lockdwn20 --url <issue-url>` — and each issue it waits on is linked as a GitHub dependency — `gh api --method POST repos/lockdwn20/workmain/issues/<N>/dependencies/blocked_by -F issue_id=<the blocking issue's id>`. "Depends on #N" in prose is not a dependency: nothing reads it, and the board shows the issue as ready. Both are verified by reading them back — the board read in §1.6, and `gh api repos/lockdwn20/workmain/issues/<N>/dependencies/blocked_by` — because `item-add` prints nothing on success.
 ```
 
 **3e. §1.4.** Replace:
@@ -212,6 +260,31 @@ with:
 9. **A test pins behaviour meant to stay.** It never exercises a path an open issue is about to remove or narrow; it proves the same property with inputs that issue leaves valid. Opening an issue that narrows behaviour includes rewriting the open criteria and tests that exercise the narrowed path, and both issues say why.
 ```
 
+**3k. §1.6.** Replace:
+
+```text
+gh project item-list 3 --owner lockdwn20 --format json --limit 200 --query "is:open" \
+```
+
+with:
+
+```bash
+gh project item-list 3 --owner lockdwn20 --format json --query "is:open" \
+  --limit "$(gh project view 3 --owner lockdwn20 --format json --jq .items.totalCount)" \
+```
+
+and replace:
+
+```text
+Ordering is Ray's. Position is set in the Web UI, and nothing in this repository writes to the board.
+```
+
+with:
+
+```markdown
+Ordering is Ray's. Position is set in the Web UI, and nothing in this repository changes it. Adding a new issue to the board (§1.3) is the one write, and it orders nothing. The limit is the board's own item count, because `item-list` cuts its output at `--limit` without saying so.
+```
+
 ### Step 4 — session-start skill
 
 **4a. `SKILL.md`.** Append to the bullet `- The same arguments against the same repository and GitHub state produce the same output.`:
@@ -258,15 +331,22 @@ These hold for the whole Spanner session. The run neither reads nor emits them, 
 - **Keep the open items visible.** When Ray's input moves between several open items, keep a checklist of them in the reply and show it each time it changes.
 ```
 
-**4e. `references/caliper.md`.** Append after the last line, `` With no finding, the run emits the same table with one row, `| <YYYYMMDD> | Caliper | No findings. | n/a |`, and nothing else. No other commentary. ``:
+**4e. `references/caliper.md`.** Replace the last line:
+
+```text
+With no finding, the run emits the same table with one row, `| <YYYYMMDD> | Caliper | No findings. | n/a |`, and nothing else. No other commentary.
+```
+
+with:
 
 ```markdown
+An amendment (§ Working rules) is a row of the same table: `| <YYYYMMDD> | Caliper | Amendment: <criterion number>: <the case no standard yet covers, and the suggested wording> | |`. With no finding and no amendment, the run emits the same table with one row, `| <YYYYMMDD> | Caliper | No findings. | n/a |`, and nothing else. A run with amendments and no finding emits the amendment rows alone. No other commentary.
 
 ## Working rules
 
 These hold for the whole Caliper session. The run neither reads nor emits them, and no other role's session loads them.
 
-- **A spec that builds the process can outrun the standards.** Where the spec under review is itself writing the rules — the standards, the skills, the implementation cycle — a case no standard yet covers is not a finding against it. It is a row of the findings table that begins `Amendment:` and gives suggested wording, for Role 1 to write into the standards; it does not hold the spec. A mechanism defect — a wrong command default, a criterion that cannot be checked — is still a finding, in every spec. A point argued once and reaffirmed by Ray is decided.
+- **A spec that builds the process can outrun the standards.** Where the spec under review is itself writing the rules — the standards, the skills, the implementation cycle — a case no standard yet covers is not a finding against it. It is an amendment row (§ Emits), with suggested wording, for Role 1 to write into the standards; it does not hold the spec. A mechanism defect — a wrong command default, a criterion that cannot be checked — is still a finding, in every spec. A point argued once and reaffirmed by Ray is decided.
 ```
 
 ### Step 5 — results template and AI settings guide
@@ -331,6 +411,7 @@ None in these steps. The one authorization point on this path, the merge to `mai
 | AC2.3 | #188 records that it removes the `CLAUDE.md` pointer. | `gh issue view 188 --json body --jq .body \| grep -c 'removes that line'` prints `1` |
 | AC2.4 | Each `Moved` row's destination text says what its source entry said — the same scope, conditions and exceptions — and every difference is recorded with its correction or the reason it stands. | Stated reading by Ray of the design study's §3.5 (Spanner's check) and §3.6 (Caliper's pass), every row resolved |
 | AC2.5 | #242 carries memory's two points on deviations, in their source wording. | `gh issue view 242 --json body --jq .body` piped to `grep -c 'substitute for stopping'` and to `grep -c 'filename bookkeeping'` each prints `1` |
+| AC2.6 | No live document reads issues or the board with a fixed `--limit`; each bound is derived from the live count, so neither read can be cut short as the queue grows. | `grep -rn -- '--limit [0-9]' CLAUDE.md docs/DEVELOPMENT_STANDARDS.md .claude/` returns nothing, and the §1.6 board read and the § Project Status issue read each return as many open items as `gh repo view --json issues --jq .issues.totalCount` |
 | AC3.1 | No role-specific rule moved out of memory lands in a file every role loads (`CLAUDE.md`, `SKILL.md`). Each lands in the § Working rules of `.claude/skills/session-start/references/<role>.md` for the role it governs. | Stated reading by Ray of Step 2's and Step 4a–4c's additions, and of § Working rules in `references/spanner.md` and `references/caliper.md` |
 | AC4.1 | `CLAUDE.md` states that auto-memory is off for this repository and that no instruction is carried by memory. | `grep -n autoMemoryEnabled CLAUDE.md` returns one line, in § Auto-memory |
 | AC5.1 | A session opened after the change loads no auto-memory. | Ray runs `/memory` in a fresh session on this branch and reports auto-memory shown as off |
