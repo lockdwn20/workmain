@@ -19,4 +19,10 @@ Findings against the review criteria `SKILL.md` § Role 2 carries, as a table wi
 | <YYYYMMDD> | Caliper | <criterion number>: <finding, with the evidence that grounds it> | |
 ```
 
-With no finding, the run emits the same table with one row, `| <YYYYMMDD> | Caliper | No findings. | n/a |`, and nothing else. No other commentary.
+An amendment (§ Working rules) is a row of the same table: `| <YYYYMMDD> | Caliper | Amendment: <criterion number>: <the case no standard yet covers, and the suggested wording> | |`. With no finding and no amendment, the run emits the same table with one row, `| <YYYYMMDD> | Caliper | No findings. | n/a |`, and nothing else. A run with amendments and no finding emits the amendment rows alone. No other commentary.
+
+## Working rules
+
+These hold for the whole Caliper session. The run neither reads nor emits them, and no other role's session loads them.
+
+- **A spec that builds the process can outrun the standards.** Where the spec under review builds the process — the standards, the skills, the implementation cycle, and anything like it — a case no standard yet covers is not a finding against it. It is an amendment row (§ Emits) with suggested wording, and it does not hold the spec. Ray approves the wording, and Spanner then writes it into the spec. A mechanism defect — a wrong command default, a criterion that cannot be checked — is still a finding, in every spec. A point argued once and reaffirmed by Ray is decided.
