@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Complete, except where §3 records a check that names Ray. The five clockify commands and `time add`'s Clockify push now run on `workmain/services/clockify_service.py`; the `ClockifySync` engine and its tests are deleted. `IntegrationError` exits 3 through `WorkmAInGroup`, a report prints its warnings on stderr and honours `quiet`, and `DEVELOPMENT_STANDARDS.md` §5.6 states all four. Two spec gaps are open in §4 and need Ray's decision.
+Complete, except where §3 records a check that names Ray. The five clockify commands and `time add`'s Clockify push now run on `workmain/services/clockify_service.py`; the `ClockifySync` engine and its tests are deleted. `IntegrationError` exits 3 through `WorkmAInGroup`, a report prints its warnings on stderr and honours `quiet`, and `DEVELOPMENT_STANDARDS.md` §5.6 states all four. The spec was corrected after the first pass (§4), and S33 to S35 were added.
 
 ## 2. What shipped, by step
 
@@ -19,7 +19,7 @@ Complete, except where §3 records a check that names Ray. The five clockify com
 | 0 | Baseline recorded: 1472 passed, 0 failed, 0 skipped. `dev` was still at `44bc6f5`, so no merge. | — | 0 |
 | 1 | `get_all`, `count_unsynced`, `get_last_synced_at` | `time_entries_repo.py`, `test_time_entries_repo.py` | +3 |
 | 2 | `IntegrationError`, `ClockifyNotConfiguredError`, the exit-3 branch, `ReportView.warnings_field`, `Renderer.report(quiet=)` | `exceptions.py`, `output.py`, `test_output.py` | +5 |
-| 3 | `clockify_service` and its export | `clockify_service.py`, `services/__init__.py`, `test_clockify_service.py` | +48 |
+| 3 | `clockify_service` and its export, with S1–S35 | `clockify_service.py`, `services/__init__.py`, `test_clockify_service.py` | +51 |
 | 4 | Commands and `time add` on the service; `sync.py` and `test_clockify_sync.py` deleted; 3 old and 13 sync tests removed | `clockify.py`, `time.py`, `integrations/clockify/__init__.py`, `sync.py`, `test_clockify.py`, `test_clockify_sync.py`, `test_time_add.py` | +7 (+23, −16) |
 | 5 | EOD call-site tests; `eod_workflow.py` unchanged | `test_eod_workflow.py` | +3 |
 | 6 | §5.6: the four edits | `DEVELOPMENT_STANDARDS.md` | 0 |
@@ -32,10 +32,10 @@ Complete, except where §3 records a check that names Ray. The five clockify com
 | AC1.1 | Met | `git grep -nE 'get_session\(\|Repository\(\|_repository\(\|\.query\(' workmain/cli/commands/clockify.py` returns no hits. |
 | AC1.2 | **Not met — awaiting Ray** | The command table in §5 is written. The check is Ray's stated reading of it. `pytest tests/test_clockify.py::TestClockifyCommands`: 21 passed. |
 | AC2.1 | Met | `git grep -nE '\brich\b\|click\.echo\|console\.\|\bprint\(' workmain/cli/commands/clockify.py workmain/services/clockify_service.py` returns no hits. `test ! -e workmain/integrations/clockify/sync.py` holds. |
-| AC3.1 | **Not met — awaiting Ray** | The function table in §5 is written. The check is Ray's stated reading of it, and the table shows `format_pending`, `format_size` and `format_hours` have no direct test (§4, row 3). `pytest tests/test_clockify_service.py`: 48 passed. |
+| AC3.1 | **Not met — awaiting Ray** | The function table in §5 is written. The check is Ray's stated reading of it. `pytest tests/test_clockify_service.py`: 51 passed. |
 | AC4.1 | **Not met — awaiting Ray** | The command table in §5 is written. The check is Ray's stated reading of it. `pytest tests/test_clockify.py::TestClockifyCommands`: 21 passed. |
 | AC5.1 | Met | The spec's loop over widths 20 to 80 step 2, then 100, 120 and 200 (34 widths), ran the named files and `TestClockifyCallSites`: 135 passed, 0 failed at every width. |
-| AC6.1 | Met | `pytest`: 1538 passed, 0 failed, 0 skipped. |
+| AC6.1 | Met | `pytest`: 1541 passed, 0 failed, 0 skipped. `pytest --collect-only -q` on the files §6 names lists every test it names. |
 | AC7.1 | **Not met — awaiting Ray** | The call-site table in §5 is written. The check is Ray's stated reading of it. `pytest tests/test_eod_workflow.py::TestClockifyCallSites`: 3 passed. |
 | AC8.1 | Met | `pytest tests/test_output.py::TestWiring tests/test_clockify.py::TestClockifyCommands`: 30 passed (W1, W2, C2, C4, C7, C13). |
 | AC8.2 | Met | `pytest tests/test_output.py::TestReport`: 9 passed (O1, O2, O3). |
@@ -46,15 +46,16 @@ Complete, except where §3 records a check that names Ray. The five clockify com
 
 | # | Deviation | Reason | Approved by |
 | --- | --- | --- | --- |
-| 1 | `plan_entry_push` raises `ServiceValidationError("Time entry <id> not found")` when `get_by_id` returns `None`. DR3 is silent. | Without it the next line fails with `AttributeError` on `None`. `time add` has just committed the entry, so it is unreachable from the CLI. | Awaiting Ray |
-| 2 | `classify` sets `local_id` to the existing entry's id for a `"linked"` item, and `apply_pull` carries it as the skipped outcome's `entry_id`. DR3 states `local_id` only for a conflict. | The report's ID column then shows which local entry already holds the Clockify id. No test depends on it beyond S22. | Awaiting Ray |
-| 3 | `format_pending`, `format_size` and `format_hours` have no service test. DR3 adds them as service functions, AC3.1 requires every added function to be tested at the service, and S1–S32 do not name them. | Adding tests raises the §6 expected count past 1538, which AC6.1 pins. That is Spanner's call. | Awaiting Ray |
-| 4 | The spec cites the clockify step's two `run_workmain` calls at `eod_workflow.py:1144` and `1159`. They are at `1137` and `1156`. `cmd_args` is at `1125` as cited. | A stale line citation in spec §2. The call sites and their handling are as the spec describes. | Not needed |
-| 5 | `_seed_entry` in `test_clockify_service.py` creates its project on the note's client. | The live active client makes `TimeEntriesRepository.create` refuse a project with no client. S10 and S19 need a project. | Not needed |
+| 1 | `plan_entry_push` raises `ServiceValidationError("Time entry <id> not found")` when `get_by_id` returns `None`. DR3 was silent. | Without it the next line fails with `AttributeError` on `None`. Unreachable from the CLI. | Ray, 20261026 |
+| 2 | `classify` sets `local_id` for a `"linked"` item, and the skipped outcome carries it as `entry_id`. | The report's ID column shows which local entry already holds the Clockify id. | Ray, 20261026 |
+| 3 | `format_pending`, `format_size` and `format_hours` had no test: AC3.1 required one and §6 pinned a count without them. I recorded it here instead of stopping. | A spec defect. The spec now names S33–S35, which are added. | Ray, 20261026 (spec corrected) |
+| 4 | The Clockify step's `run_workmain` calls are at `eod_workflow.py:1137` and `1156`, not `1144` and `1159`. | A spec §2 citation defect, corrected. | Spec corrected |
+| 5 | `_seed_entry` in `test_clockify_service.py` creates its project on the note's client. | The live active client makes `TimeEntriesRepository.create` refuse a project with no client. | Ray, 20261026 |
+| 6 | `clockify.py` names the parameters behind `--all` and `--date` `include_synced` and `on_date`. The flags, short forms, defaults and help text are unchanged. | Avoids shadowing the `date` import and the `all` builtin. I did not record this in the first pass. | Ray, 20261026, on #201's reasoning |
 
 ## 5. Verification
 
-- **Test suite:** 1538 passed, 0 failed, 0 skipped (baseline: 1472 passed, 0 failed, 0 skipped) — form per `docs/DEVELOPMENT_STANDARDS.md` §6.
+- **Test suite:** 1541 passed, 0 failed, 0 skipped (baseline: 1472 passed, 0 failed, 0 skipped), a difference of +69: 16 removed and 85 added — form per `docs/DEVELOPMENT_STANDARDS.md` §6.
 - **Live verification:** none. Every Clockify client in the tests is a mock and no command was run against Clockify.
 - **Daemon restart** (`feature/*`, per `docs/DEVELOPMENT_STANDARDS.md` §2.6): close-out's.
 
@@ -83,7 +84,7 @@ Each service function, with its tests (AC3.1):
 | `classify` | S22, S23, S24, S25 |
 | `apply_pull` | S25, S26, S27 (six), S28, S29, S30, S32 |
 | `pull_result` | S29, S31 |
-| `format_pending`, `format_size`, `format_hours` | none (§4, row 3) |
+| `format_pending`, `format_size`, `format_hours` | S33, S34, S35 |
 
 Each command, with its command tests (AC4.1):
 
@@ -105,4 +106,4 @@ Each EOD call site in the spec's §2 contract row, with the exit codes the comma
 
 ## 6. Follow-ups
 
-None opened. §4 rows 1 to 3 need Ray's decision. Row 3 needs a spec change, because the added tests change the §6 expected count.
+None opened.
