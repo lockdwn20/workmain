@@ -37,6 +37,8 @@ Every AC on the **approved spec**, by identifier, checked against **delivered co
 | --- | --- | --- |
 | AC1.1 | Met / **Not met** / Carried | `pytest ...` output, file:line, or command result |
 
+This section holds only the AC table. Close-out reads every three-column table under `## 3.` as AC rows (`automation/closeout_acs.py`), so a supporting table goes under `## 5. Verification` and the AC row cites it.
+
 Anything not met is listed here and carried to an issue, cited by its number — an open issue that already covers it where one exists, `docs/DEVELOPMENT_STANDARDS.md` §1.3. Do not quietly drop an unmet AC.
 
 ## 4. Deviations from spec
