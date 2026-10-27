@@ -114,4 +114,4 @@ Depends on Q1.
 
 ## 6. Disposition
 
-- Promoted to:
+- Promoted to: `../specs/DEVIATION_RECORD_SPEC.md`
