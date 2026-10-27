@@ -1,6 +1,6 @@
 # Deviation Record and Self-Resolution Passages — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261027
 **Spec:** `../specs/DEVIATION_RECORD_SPEC.md`
