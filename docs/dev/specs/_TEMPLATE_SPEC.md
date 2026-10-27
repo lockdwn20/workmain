@@ -53,7 +53,7 @@ The call-sites row is required where this spec changes a signature, a required i
 
 ## 3. Design rules
 
-Numbered invariants the implementation must hold to. These are what an implementer falls back on when the spec doesn't cover a case.
+Numbered invariants the implementation must hold to. A case a design rule decides is covered by this spec. A case none decides is not: Anvil stops on it (`.claude/skills/session-start/SKILL.md` § Role 3), and Role 1, implementing a direct-path spec, stops on it when it changes meaning, scope or file set (`.claude/skills/session-start/references/spanner.md` § Working rules).
 
 - **DR1 —**
 - **DR2 —**

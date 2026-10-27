@@ -48,7 +48,7 @@ SPEC  →  APPROVAL  →  IMPLEMENTATION  →  CLOSE-OUT
 
 **Where no design artifact is written**, the spec's `**Design study:**` field reads `n/a`. That is the stated form of a direct-path spec, not a requirement quietly skipped: `/closeout`'s `P5a` accepts `n/a` only on a `chore/*` spec, and fails every other missing or broken design-study citation exactly as before.
 
-**What the direct path trades.** With no recon, no Role 2 pass and no separate implementer, **Ray's approval is the only review between the spec and the edit**, and scope that no acceptance criterion named is caught *after* implementation, by the results artifact's deviations table, rather than *before* it by recon and review. On a document that is recoverable — the text is there to read and the fix is another edit. On application code it is not, which is why the path is keyed on the branch type and not on how small the change looks.
+**What the direct path trades.** With no recon, no Role 2 pass and no separate implementer, **Ray's approval is the only review between the spec and the edit**, and scope that no acceptance criterion named is found only *during* implementation, when Role 1 stops on a change to the scope Ray approved (`.claude/skills/session-start/references/spanner.md` § Working rules), rather than *before* it by recon and review. On a document that is recoverable — the text is there to read and the fix is another edit. On application code it is not, which is why the path is keyed on the branch type and not on how small the change looks.
 
 **What shows each stage done.** Each stage is done when its artifact or field shows it, and not before. A stage on both paths has the same condition on each.
 
@@ -235,7 +235,7 @@ chore/*    — documentation/process/tooling only. From main, merges to main AND
   - Branch from `main`
   - Merge the hotfix/** into the feature/* branch before its step 1
   - Delete the hotfix/*
-  - Document the deviation in the feature spec.
+  - The feature spec's Decision Log records the folded hotfix before the spec is approved.
   - The version bump rides the feature.
 
 ### 2.3 Branch deletion
@@ -256,7 +256,7 @@ chore/*    — documentation/process/tooling only. From main, merges to main AND
 ```text
 <type>(<scope>): <short description>
 
-<body — what and why, not how. Files changed, decisions made, expected test count. Note any deviations from spec.>
+<body — what and why, not how. Files changed, decisions made, expected test count.>
 
 Co-Authored-By: Claude
 ```
@@ -787,10 +787,6 @@ Rules:
 - `scripts-deprecated/` is excluded from collection.
   - Do not add to it and do not run it with pytest
   - if you need a diagnostic script, put it in `scripts/`.
-
-### 6.4 Spec-named test file doesn't exist
-
-- If a spec names a test file that isn't there, use the established file for that coverage and document the deviation.
 
 ---
 

@@ -43,10 +43,14 @@ Anything not met is listed here and carried to an issue, cited by its number —
 
 ## 4. Deviations from spec
 
-Where the implementation differs from what was specified, and why. Includes anything surfaced during implementation and resolved by Ray mid-flight.
+A departure is any difference between the approved spec and what was delivered, including an ambiguity the spec did not settle. Every departure is listed here with how it was handled, how it was resolved, and who resolved it. `Step stopped at` holds one of three values:
 
-| # | Deviation | Reason | Approved by |
-| --- | --- | --- | --- |
+- **the step** the implementer stopped at, before making the change. `Resolution` is what Ray decided, and `Resolved by` is `Ray, <date>`;
+- **`within approved meaning`** — a wording or mechanical change Role 1 made without stopping while implementing its own direct-path spec, within the meaning, scope and file set Ray approved (`.claude/skills/session-start/references/spanner.md` § Working rules). Anvil never uses it. `Resolution` is the change made, and `Resolved by` is `Role 1, <date>`;
+- **`none`** — the change was made without the stop it required. A `none` row breaks the stop rule: `.claude/skills/session-start/SKILL.md` § Role 3 for Anvil, `references/spanner.md` § Working rules for Role 1. It is still listed, because a record that leaves it out hides it. `Resolution` is what was done, and `Resolved by` is `Awaiting Ray` until Ray rules on it, then `Ray, <date>`.
+
+| # | Departure or ambiguity | Step stopped at | Resolution | Resolved by |
+| --- | --- | --- | --- | --- |
 
 ## 5. Verification
 
