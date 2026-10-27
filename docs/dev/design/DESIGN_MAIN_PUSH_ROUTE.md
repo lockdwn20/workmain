@@ -34,33 +34,39 @@
 | F8 | A PR needs its head branch on `origin`. Routing `chore/*` or `hotfix/*` through a PR therefore contradicts §2.3, and the pushed branch must later leave `origin`. Deleting it is a GitHub object deletion and an authorization point (§1.4), and `protection` (F2) blocks deleting any branch except through the same bypass, so a PR route under today's `protection` replaces one unstated bypass with another. | `docs/DEVELOPMENT_STANDARDS.md` §1.4, §2.3; F2 | High |
 | F9 | Repository settings: `delete_branch_on_merge` is `false`; merge commits, squash and rebase are all allowed. Of the ruleset's merge methods only `merge` produces the merge commit §2.3 requires ("Every merge is `--no-ff`"). **Not verified:** whether GitHub's automatic head-branch deletion is refused by `protection`'s `deletion` rule. | `gh api repos/lockdwn20/workmain`; F1 | Medium |
 | F10 | This issue's own close-out is a `chore/*` close-out, and AC3 is checked on the first close-out after this ships. Whatever the spec changes on GitHub must be in place before this branch's `/closeout` runs, or AC3 is checked on a push that still uses the bypass. | Issue #246 AC3 | Medium |
+| F11 | Ray, 20261027: `main-pr-required` was created after `jay23606` opened PR #234 from a fork against `main`. Its admin bypass was added so `chore/*` and `hotfix/*` close-outs could keep merging to `main` as §2.2 describes. `protection` was created after a warning GitHub itself showed. | Ray, in session 20261027; `gh pr list` (#234, cross-repository, base `main`, opened 20261021 05:26 UTC) | — |
+| F12 | `main-pr-required` does not act on #234. A fork author without write access can neither push to `main` nor merge a PR into it, with or without a ruleset. With 0 required approvals, the rule does not hold any PR back from a merge. Its Copilot setting applies only "if a non-zero approval count is required". What keeps #234 out of `main` is that Ray has not merged it. | F1, F4; the ruleset's own setting text as Ray read it from the GitHub UI | Medium |
 
 ## 4. Options
 
-### Option A — Keep the pushed merge; delete `main-pr-required`
+### Option A1 — Keep the pushed merge and the ruleset; state the bypass
 
-- **Approach:** §2.2 states that a `chore/*` or `hotfix/*` merge is made locally `--no-ff` and `main` is pushed. `main-pr-required` is deleted. `protection` is unchanged. The skill's sequences are unchanged.
-- **Pros:** No change to §2.3, the closeout sequences or the authorization point. Matches the route every `chore/*` and `hotfix/*` close-out has taken.
-- **Cons:** Reverses a control Ray added four days ago. `dev → main` keeps no technical backstop: a mistaken local `dev → main` merge that is pushed lands with no warning at all.
-- **Variant, defeated:** keep the ruleset and name the admin bypass in §2.2 as the route. It meets AC1's wording, but by F4 the documented rule then rejects no actor that exists. A control written down as protection while it protects nothing is worse than none.
+- **Approach:** §2.2 states that a `chore/*` or `hotfix/*` merge reaches `origin` as a pushed local `--no-ff` merge, that the push passes `main-pr-required` through its admin bypass, and that the `remote:` line it prints is expected. Both rulesets are unchanged. The closeout sequences keep their steps and cite §2.2 for the push.
+- **Pros:** No change on GitHub, to the branch flow, or to the authorization point. Matches every `chore/*` and `hotfix/*` close-out since the ruleset was created (F6). Keeps the ruleset Ray added for #234.
+- **Cons:** The standards state a bypass of a rule that refuses no actor (F4) and does not act on the case it was created for (F12).
+
+### Option A2 — Keep the pushed merge; delete `main-pr-required`
+
+- **Approach:** as A1, but `main-pr-required` is deleted, so no bypass is used and none is stated.
+- **Pros:** The standards describe no control that does nothing.
+- **Cons:** Removes a ruleset Ray added deliberately, and a change on GitHub has to be made before this branch's close-out (F10).
 
 ### Option B — Every change to `main` goes through a PR
 
-- **Approach:** a `chore/*` or `hotfix/*` branch is pushed at close-out, `gh pr create --base main --head <branch>`, and Ray merges it on GitHub with the merge-commit method, as he does for `dev → main`. Close-out then fetches `main`, tags it (`hotfix/*`), merges the branch into `dev` locally and pushes `dev`. The pushed branch leaves `origin` by the route Q3 settles. `main-pr-required`'s bypass is removed (Q2), so a pushed merge to `main` is refused instead of warned. `protection`'s `deletion` rule is narrowed to `main` and `dev` (F8). Sites changed: every F7 site.
-- **Pros:** One route and one shape of the authorization point for all three branch types; `SKILL.md` § The stop loses its `feature/*` special case. With the bypass removed, the ruleset refuses the mistakes §2.8 forbids — a pushed local merge to `main` — rather than printing a line. Keeps the control Ray added.
-- **Cons:** More close-out steps, one more on GitHub. §2.3's "no working branch is ever pushed" becomes "except at close-out, for `chore/*` and `hotfix/*`". A remote branch deletion enters every such close-out. Per F5, it changes the shape of the merge, not who can make it.
+Defeated by F11. Its case rested on reading the ruleset as Ray's choice of route to `main`; F11 shows it was a response to #234, and that the bypass was made so the existing route would continue. Its approach also required pushing working branches against §2.3 and deleting them on `origin` through `protection`'s bypass (F8).
 
-**Recommendation: B.** Ray added the ruleset after the last `hotfix/*` merge, which says PRs are the intended route to `main`. B is the only option under which a ruleset on `main` refuses anything (F4). It also puts all three branch types through one stop of the same shape, where today `feature/*` is the exception. A's simplicity comes from removing the control, not from fixing the route.
+**Recommendation: A2, narrowly over A1.** Both meet the issue's criteria. A2 keeps the standards from describing a control that does nothing; A1 is the choice if the ruleset is kept for a reason outside this issue.
 
 ## 5. Open questions
 
 | Q | Question | Answer |
 | --- | --- | --- |
-| Q1 | Route: A (pushed merge stays, `main-pr-required` deleted) or B (every change to `main` through a PR Ray merges)? Recommendation: B. | |
-| Q2 | Under B: remove the admin bypass from `main-pr-required`, so a pushed merge to `main` is refused for every actor, Ray included, until the ruleset is edited? Recommendation: yes. It is the only form in which the rule refuses anything (F4). The cost is that an emergency direct push needs a ruleset edit first. | |
-| Q3 | Under B: how the pushed working branch leaves `origin`. (a) Turn on `delete_branch_on_merge`, so GitHub deletes it as part of the merge Ray performs; or (b) a close-out step that deletes it, at an authorization point (§1.4). Either way `protection`'s `deletion` rule is narrowed to `main` and `dev` (F8). Recommendation: (a). It adds no stop, and the deletion is part of the act Ray already authorizes. F9's unverified point is settled by the narrowing either way. | |
-| Q4 | Who applies the GitHub changes (ruleset edits, the repository setting), and when? §1.4's set does not name a ruleset or a repository setting, so under its "anything not on this list is a step" Spanner would apply them with `gh api` as implementation steps. They are security controls on Ray's account. Recommendation: Ray applies them, in the spec's order, before this branch's close-out (F10), and the spec states each change as a check naming Ray. Suggested wording for §1.4, since no standard covers it: "Changing a repository ruleset or a repository setting" added to the authorization set. | |
+| Q1 | Route: A1 (pushed merge stays, ruleset stays, the bypass and its warning are stated in §2.2), A2 (pushed merge stays, `main-pr-required` deleted) or B (every change to `main` through a PR Ray merges)? | Answered 20261027 (Ray): A1. `main-pr-required` stays as it is for now. §2.2 states that the bypass warning occurs on `chore/*` and `hotfix/*` merges to `main` and is expected. No change is made on GitHub. |
+| Q2 | Under B: remove the admin bypass from `main-pr-required`? | Not applicable: Q1 chose A1. |
+| Q3 | Under B: how a pushed working branch leaves `origin`? | Not applicable: Q1 chose A1. |
+| Q4 | Who applies a ruleset or repository-setting change, and is such a change an authorization point under §1.4? | Not applicable: A1 makes no change on GitHub. |
 
 ## 6. Disposition
 
 - Promoted to:
+- Carried to #247: a session identity with no admin role, so the rulesets bind sessions (F4, F5).
