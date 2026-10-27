@@ -18,6 +18,7 @@
 | 20261027 | Ray | Design study Q1: A1. `chore/*` and `hotfix/*` merges keep reaching `main` as a pushed local merge. `main-pr-required` stays as it is. §2.2 states that the bypass warning occurs on these pushes and is expected. No change is made on GitHub. | Step 1. |
 | 20261027 | Ray | A session identity with no admin role, so that the rulesets bind sessions, is a separate issue. | Opened as #247. Out of scope here. |
 | 20261027 | Spanner | `.claude/skills/closeout/references/chore.md` step 4 and `references/hotfix.md` step 5 are unchanged. Each already performs the merge and push this spec states, and cites §2.2 for it. Repeating the bypass in them would put the rule in a second home. | No step. AC2.1 reads them against §2.2. |
+| 20261027 | Ray | AC3.1 is checked from a push to `main`, which close-out makes only after `P6` requires every row to be `Met` or `Carried`. Ray: record it `Met` before the push. If the push shows a bypass §2.2 does not name, Ray reopens #246 or opens a new issue. | Results §3 AC3.1. |
 | 20261027 | Spanner | `protection` (25759747) is not named in §2.2. The route neither deletes a branch nor pushes a non-fast-forward, so it passes `protection` without the bypass (design study F2). | No step. AC1.1 reads it. |
 
 ---

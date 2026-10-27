@@ -23,10 +23,10 @@ Complete. `docs/DEVELOPMENT_STANDARDS.md` §2.2 now states that a `hotfix/*` or 
 
 | AC | Status | Evidence |
 | --- | --- | --- |
-| AC1.1 | Not met | Awaiting Ray |
+| AC1.1 | Met | Ray, 20261027: stated reading of §2.2 against rulesets 25770102 and 25759747 |
 | AC1.2 | Met | `grep -rn -e 'main-pr-required' -e 'admin role' CLAUDE.md docs/DEVELOPMENT_STANDARDS.md docs/AI_SETTINGS_GUIDE.md .claude/ docs/dev/*/_TEMPLATE_*.md` returned one line, `docs/DEVELOPMENT_STANDARDS.md:190`, inside §2.2, 20261027 at `1f55333` |
-| AC2.1 | Not met | Awaiting Ray |
-| AC3.1 | Not met | Awaiting Ray — checked on this branch's close-out |
+| AC2.1 | Met | Ray, 20261027: stated reading of `references/chore.md` step 4 and `references/hotfix.md` step 5 against §2.2 |
+| AC3.1 | Met | Ray, 20261027: recorded Met before this branch's close-out push, which is the evidence; Ray reopens #246 or opens a new issue if that push shows a bypass §2.2 does not name |
 
 ## 4. Deviations from spec
 
