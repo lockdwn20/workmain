@@ -68,5 +68,5 @@ Defeated by F11. Its case rested on reading the ruleset as Ray's choice of route
 
 ## 6. Disposition
 
-- Promoted to:
+- Promoted to: `../specs/MAIN_PUSH_ROUTE_SPEC.md`
 - Carried to #247: a session identity with no admin role, so the rulesets bind sessions (F4, F5).
