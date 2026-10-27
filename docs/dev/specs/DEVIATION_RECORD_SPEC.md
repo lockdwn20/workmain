@@ -1,6 +1,6 @@
 # Deviation Record and Self-Resolution Passages — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261027
 **Branch:** `chore/issue-242-deviation-record` (from `origin/main`)
