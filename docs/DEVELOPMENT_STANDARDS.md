@@ -186,6 +186,9 @@ chore/*    — documentation/process/tooling only. From main, merges to main AND
 
 - Never commit directly.
 - Receives merges from `dev`, `hotfix/*` and `chore/*`.
+  - `dev` reaches `main` through a pull request — the `dev` block below.
+  - **A `hotfix/*` or `chore/*` branch is merged into `main` locally (§2.3), and `main` is pushed.** The repository ruleset `main-pr-required` requires a pull request for every change to `main`. This push passes it through the ruleset's bypass for the repository admin role, so GitHub prints `remote: - Changes must be made through a pull request.` and accepts the push. That line is expected on these two branch types and is not a failure. An account without the admin role cannot make this push.
+  - The ruleset was added after a pull request was opened against `main` from a fork (#234). The bypass was added so this route would continue.
 - **A merge carrying application code — from `dev` or `hotfix/*` — is a release.** It bumps `workmain/__version__.py`, updates `CHANGELOG.md`, is tagged `git tag v<version>`, and gets a GitHub Release: `gh release create v<version> --generate-notes`.
 - **A `chore/*` merge is not a release and does none of those four things.** It changes no application behaviour, so there is nothing to version. This is the only exception, and the `chore/*` block below is its full statement.
 
