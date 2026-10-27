@@ -1,6 +1,6 @@
 # Route to `main` for `chore/*` and `hotfix/*` — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261027
 **Branch:** `chore/issue-246-main-push-route` (from `origin/main`)

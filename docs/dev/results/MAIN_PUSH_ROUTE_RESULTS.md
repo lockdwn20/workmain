@@ -1,6 +1,6 @@
 # Route to `main` for `chore/*` and `hotfix/*` — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261027
 **Spec:** `../specs/MAIN_PUSH_ROUTE_SPEC.md`
