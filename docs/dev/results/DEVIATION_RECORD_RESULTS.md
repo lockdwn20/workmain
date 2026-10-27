@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Complete pending Ray's checks. The results template's §4 records how each departure was handled, with `Step stopped at` taking the step, `within approved meaning` or `none`. The three standards passages issue #242 names are rewritten or removed, the search's further hits are rewritten, and `references/spanner.md` bounds Role 1's judgment when it implements a direct-path spec.
+Complete. The results template's §4 records how each departure was handled, with `Step stopped at` taking the step, `within approved meaning` or `none`. The three standards passages issue #242 names are rewritten or removed, the search's further hits are rewritten, and `references/spanner.md` bounds Role 1's judgment when it implements a direct-path spec.
 
 ## 2. What shipped, by step
 
@@ -26,13 +26,13 @@ Complete pending Ray's checks. The results template's §4 records how each depar
 
 | AC | Status | Evidence |
 | --- | --- | --- |
-| AC1.1 | Not met | Awaiting Ray |
+| AC1.1 | Met | Stated reading by Ray, 20261027 |
 | AC1.2 | Met | `grep -c 'Departure or ambiguity . Step stopped at . Resolution . Resolved by' docs/dev/results/_TEMPLATE_RESULTS.md` printed `1`; `grep -c 'Approved by' docs/dev/results/_TEMPLATE_RESULTS.md` printed `0`, 20261027 |
-| AC2.1 | Not met | Awaiting Ray |
-| AC3.1 | Not met | Awaiting Ray |
-| AC4.1 | Not met | Awaiting Ray |
+| AC2.1 | Met | Stated reading by Ray, 20261027 |
+| AC3.1 | Met | Stated reading by Ray, 20261027 |
+| AC4.1 | Met | Stated reading by Ray, 20261027 |
 | AC4.2 | Met | `grep -rni -e 'document the deviation' -e 'note any deviations' -e 'falls back on' CLAUDE.md docs/DEVELOPMENT_STANDARDS.md docs/AI_SETTINGS_GUIDE.md .claude/ docs/dev/*/_TEMPLATE_*.md` returned nothing (exit 1), 20261027 |
-| AC4.3 | Not met | Awaiting Ray |
+| AC4.3 | Met | Stated reading by Ray, 20261027 |
 | AC5.1 | Met | `pytest` exit 0, `pytest automation/` exit 0, 20261027 — § 5 Verification |
 
 ## 4. Deviations from spec
