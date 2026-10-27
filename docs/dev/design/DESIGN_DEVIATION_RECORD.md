@@ -56,7 +56,7 @@ Issue #242 makes the results artifact's deviations record show that the implemen
 
 ## 4. Options
 
-Two corrections Ray gave earlier bear on this. On #202's implementation (20261026): "A results Deviations row is for something Ray already decided, not a substitute for stopping." And the note §6.4 was written from (Item #61, 20260725): "This is a 'proceed with the obviously-correct interpretation and note it' situation, not a 'stop the gate and wait for Ray' situation — the latter is reserved for actual design ambiguity (scope, architecture, behavior), not filename bookkeeping." Issue #242 carries both. The second is the earlier, and it is the position issue #240 sets out to close.
+Two corrections Ray gave earlier bear on this. On #202's implementation (20261026): "A results Deviations row is for something Ray already decided, not a substitute for stopping." And the note §6.4 was written from (20260725, during the implementation of pre-migration backlog Item 61, Report Review & Weekly Generation Unification, shipped in v1.26.0; the note was held in auto-memory, which #241 retired): "This is a 'proceed with the obviously-correct interpretation and note it' situation, not a 'stop the gate and wait for Ray' situation — the latter is reserved for actual design ambiguity (scope, architecture, behavior), not filename bookkeeping." Issue #242 carries both. The second is the earlier, and it is the position issue #240 sets out to close.
 
 ### 4.1 Results template §4
 
@@ -76,7 +76,7 @@ Issue #242 states the change, and no option is open. §4's instruction becomes: 
 
 ### 4.4 §6.4 spec-named test file does not exist (F4)
 
-- **Keep as a named exception.** This is the Item #61 position: filename bookkeeping is not design ambiguity. It is defeated by Ray's later correction on #202, by issue #240's requirement that every departure show a stop, and by the fact that "the established file for that coverage" is a judgment about where tests belong, which `docs/DEVELOPMENT_STANDARDS.md` §6.3 makes at spec time.
+- **Keep as a named exception.** This is the 20260725 note's position: filename bookkeeping is not design ambiguity. It is defeated by Ray's later correction on #202, by issue #240's requirement that every departure show a stop, and by the fact that "the established file for that coverage" is a judgment about where tests belong, which `docs/DEVELOPMENT_STANDARDS.md` §6.3 makes at spec time.
 - **Rewrite to stop.** It works, but a rewritten §6.4 would state a second time what `references/anvil.md` read 5 and § Role 3 already do for every unresolved file reference, of which a test file is one case.
 - **Remove the section.** Recommended. The case already stops before step 1 by the Anvil session-open read, and nothing cites §6.4.
 
@@ -107,8 +107,8 @@ Depends on Q1.
 
 | Q | Question | Answer |
 | --- | --- | --- |
-| Q1 | On the direct path, Role 1 implements its own spec, and nothing states that the stop rule in `.claude/skills/session-start/SKILL.md` § Role 3 binds it. Spanner's working rules ("apply a rule; do not ask", "the work carries on") stay in force during that implementation. #241's results show Spanner departing from its spec twice without stopping and recording it afterward. Should the stop rule bind whichever role implements (option A in §4.7: §1.1 and `references/spanner.md` change, and results §4 names the stop rule instead of "Role 3"), or Anvil only (option B: those files stay as they are, and a direct-path §4 row may carry no stop)? Recommendation: A. | |
-| Q2 | `docs/DEVELOPMENT_STANDARDS.md` §6.4 tells an implementer who meets a spec-named test file that does not exist to use the established file and record the deviation. Ray's 20260725 note on Item #61 says that is bookkeeping, not a stop. His 20261026 correction on #202 says a deviation row is never a substitute for stopping. The same case is already stopped before step 1 by `references/anvil.md`'s check of every file the spec names. Should §6.4 be removed (recommended: the case already stops, and nothing cites §6.4), rewritten to stop (a second statement of the session-open check), or kept as a named exception (the Item #61 position)? | |
+| Q1 | On the direct path, Role 1 implements its own spec, and nothing states that the stop rule in `.claude/skills/session-start/SKILL.md` § Role 3 binds it. Spanner's working rules ("apply a rule; do not ask", "the work carries on") stay in force during that implementation. #241's results show Spanner departing from its spec twice without stopping and recording it afterward. Should the stop rule bind whichever role implements (option A in §4.7: §1.1 and `references/spanner.md` change, and results §4 names the stop rule instead of "Role 3"), or Anvil only (option B: those files stay as they are, and a direct-path §4 row may carry no stop)? Recommendation: A. | Answered 20261027 (Ray): the stop rule binds whichever role implements — option A. |
+| Q2 | `docs/DEVELOPMENT_STANDARDS.md` §6.4 tells an implementer who meets a spec-named test file that does not exist to use the established file and record the deviation. Ray's 20260725 note, made while pre-migration backlog Item 61 (Report Review & Weekly Generation Unification) was implemented, says that is bookkeeping, not a stop. His 20261026 correction on #202 says a deviation row is never a substitute for stopping. The same case is already stopped before step 1 by `references/anvil.md`'s check of every file the spec names. Should §6.4 be removed (recommended: the case already stops, and nothing cites §6.4), rewritten to stop (a second statement of the session-open check), or kept as a named exception (the 20260725 note's position)? | |
 
 ## 6. Disposition
 
