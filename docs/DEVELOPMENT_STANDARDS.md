@@ -20,7 +20,7 @@ There are two paths, and **the branch type is which one applies**. §2.7 step 3 
 No spec is written without a read-only audit first. Recon produces a findings document in `docs/dev/design/`; decisions are made from it; only then is a spec written.
 
 ```text
-RECON  →  ANALYSIS  →  SPEC  →  REVIEW  →  APPROVAL  →  IMPLEMENTATION  →  CLOSE-OUT
+RECON  →  ANALYSIS  →  SPEC  →  REVIEW  →  APPROVAL  →  IMPLEMENTATION  →  IMPLEMENTATION REVIEW  →  CLOSE-OUT
 ```
 
 - **Recon** — read-only pass, verbatim findings, no fixes and no inline suggestions. Where the findings turn up options, a trade-off, or questions whose answers change the work, the artifact is a design study instead: it adds the options with a recommendation and the open questions (`docs/dev/design/_TEMPLATE_DESIGN.md`), and it is written before the spec. Findings and options never go in the spec's Decision Log or only in chat, and each Decision Log decision cites the question it answers.
@@ -29,15 +29,20 @@ RECON  →  ANALYSIS  →  SPEC  →  REVIEW  →  APPROVAL  →  IMPLEMENTATION
 - **Review** — Role 2 findings go back to Role 1, never forward to the implementer.
 - **Approval** — Ray approves explicitly. No implementation without an approved spec.
 - **Implementation** — Role 3, step by step, from the approved spec only.
+- **Implementation review** — Role 2 reviews the delivered branch against the spec and its results artifact, on Ray's request in the Caliper session that reviewed the spec. `.claude/skills/session-start/references/caliper.md` § Post-implementation review states its reads and checks. Findings go back to Role 1, never forward to the implementer.
+  - **An unstopped departure** is a change on the branch made without the stop it required: a change that traces to nothing in the spec, a results §4 row whose `Step stopped at` is `none`, or a `within approved meaning` change that altered the meaning, scope or file set Ray approved. Ray rules on each one, as the resolution of its Decision Log row, with one of two outcomes:
+    - **Revert** — the change is reverted on the branch, and carried to an issue under §1.3 if it is still wanted.
+    - **Keep** — the spec is amended so the change traces to it.
+  - The ruling's home is the resolution of the finding's Decision Log row. Role 1 writes it there and writes the outcome into the spec, and the implementing role carries it out. Either way, results §4 lists the departure with `Step stopped at` set to `none`, so the record still shows the stop was skipped, and its `Resolved by` names Ray and the date of that Decision Log row.
 - **Close-out** — Ray runs the `/closeout` skill against the branch being closed out, or `--branch <name>` for one already merged. It performs the merges, artifact completion, and whatever version bump, tag, Release and service restart its branch type requires, stopping at each authorization point it crosses. It composes the issue's closing comment and prints the command that would post it; posting the comment and closing the issue are Ray's, on the same principle as merging the `dev → main` PR.
 
 **Direct path**
 
 ```text
-SPEC  →  APPROVAL  →  IMPLEMENTATION  →  CLOSE-OUT
+SPEC  →  REVIEW*  →  APPROVAL  →  IMPLEMENTATION  →  IMPLEMENTATION REVIEW*  →  CLOSE-OUT
 ```
 
-**All four are required.** Nothing on this path is optional except the two things named below as optional.
+**The four unmarked stages are required.** The two marked `*` are the Role 2 review, which Ray calls for or not at the start (§1.2). Where they run, they are the full path's Review and Implementation review, done when the table below shows them done.
 
 - **Spec** — written to `docs/dev/specs/`, from the same template. §1.2 states which sections it may omit and how it verifies existing state instead.
 - **Approval** — Ray approves explicitly. No implementation without an approved spec.
@@ -48,18 +53,19 @@ SPEC  →  APPROVAL  →  IMPLEMENTATION  →  CLOSE-OUT
 
 **Where no design artifact is written**, the spec's `**Design study:**` field reads `n/a`. That is the stated form of a direct-path spec, not a requirement quietly skipped: `/closeout`'s `P5a` accepts `n/a` only on a `chore/*` spec, and fails every other missing or broken design-study citation exactly as before.
 
-**What the direct path trades.** With no recon, no Role 2 pass and no separate implementer, **Ray's approval is the only review between the spec and the edit**, and scope that no acceptance criterion named is found only *during* implementation, when Role 1 stops on a change to the scope Ray approved (`.claude/skills/session-start/references/spanner.md` § Working rules), rather than *before* it by recon and review. On a document that is recoverable — the text is there to read and the fix is another edit. On application code it is not, which is why the path is keyed on the branch type and not on how small the change looks.
+**What the direct path trades.** With no recon, no required Role 2 pass and no separate implementer, **Ray's approval is the only review between the spec and the edit**, and scope that no acceptance criterion named is found only *during* implementation, when Role 1 stops on a change to the scope Ray approved (`.claude/skills/session-start/references/spanner.md` § Working rules), rather than *before* it by recon and review. On a document that is recoverable — the text is there to read and the fix is another edit. On application code it is not, which is why the path is keyed on the branch type and not on how small the change looks.
 
-**What shows each stage done.** Each stage is done when its artifact or field shows it, and not before. A stage on both paths has the same condition on each.
+**What shows each stage done.** Each stage is done when its artifact or field shows it, and not before. A stage on both paths has the same condition on each, except where its row states a direct-path `n/a`.
 
 | Stage | Done when |
 | --- | --- |
 | Recon | A `docs/dev/design/` artifact names the issue in its `**Originating item:**` field. |
 | Analysis | Every row of that artifact's §5 Open questions carries an answer. |
 | Spec | A `docs/dev/specs/` artifact names the issue in its `**Originating item:**` field. |
-| Review | The spec's Decision Log carries at least one `Caliper` row, and every `Caliper` row has a resolution. A clean pass is the `No findings.` row `/session-start Caliper` emits for one. |
+| Review | The spec's Decision Log carries at least one `Caliper` row, and every `Caliper` row has a resolution. A clean pass is the `No findings.` row `/session-start Caliper` emits for one. On the direct path the stage is `n/a` where the spec's `**Status:**` is `Approved` and it carries no `Caliper` row. |
 | Approval | The spec's `**Status:**` is `Approved`. |
 | Implementation | A results artifact in the `results/` directory beside the spec names it in its `**Spec:**` field. The implementing role writes it as its last implementation step. |
+| Implementation review | The spec's Decision Log carries at least one `Caliper (post-implementation)` row, and every one has a resolution. A clean pass is the `No findings.` row the review emits for one. On the direct path the stage is `n/a` where the spec carries no `Caliper` row, because it runs only where the Review stage ran (§1.2). |
 | Close-out | The spec's `**Status:**` is `Shipped`, and the artifact set is in `docs/archive/`. |
 
 ### 1.2 Spec authoring rules
@@ -84,10 +90,10 @@ SPEC  →  APPROVAL  →  IMPLEMENTATION  →  CLOSE-OUT
   - `docs/dev/specs/_TEMPLATE_SPEC.md` §5 carries the two as separate columns, `Criterion` and `How it is checked`. On an issue, `.github/ISSUE_TEMPLATE/issue.schema.json` carries them as separate fields, and `automation/issue_validator.py` refuses a criterion that states only a command. A criterion that passes the validator still has to meet this rule.
 - **A criterion that verifies changed behaviour names the entry path it exercises.** Where more than one entry path reaches the change, the criteria cover the set, or state which paths are omitted and why. A green check through the one path that works is not coverage: #79's live check ran `workmain providers test claude`, which goes through `ProviderManager` — the one path the #130 defect could not reach.
 - **Where a criterion is a property of a document rather than of running code, the check may be a stated reading by Ray.** It is still a check, and it still names what is being read: the section, and what the reader is reading it for. `docs/dev/specs/_TEMPLATE_SPEC.md` §5 states the same and cites here.
-  - **A check that names Ray is Ray's sign-off.** The implementer records its results row as `Not met`, with `Awaiting Ray` as its evidence, never `Met` on its own reading or run. Ray changes the row once he has checked it.
+  - **A check that names Ray is Ray's sign-off.** The implementer records its results row as `Not met`, with `Awaiting Ray` as its evidence, never `Met` on its own reading or run. Once he has checked it, the row becomes `Met` with evidence in the form `Ray, <YYYYMMDD>: <what he read or ran>`.
 - **The wording rule and the entry-path rule apply to criteria authored from here forward.** Criteria already written are not rewritten and no issue is reopened to reword one; there is no retrospective sweep of the queue.
 - A spec may map sub-ACs to the ACs on the originating issue using the numbering `ACn.m`, which is what lets close-out read the set mechanically. An unmapped sub-AC verifies nothing the issue asked for.
-- At least one Role 2 review pass before a spec is approved — on the full path. On the direct path a Role 2 pass is optional and at Ray's discretion.
+- At least one Role 2 review pass before a spec is approved, and a post-implementation review before close-out (§1.1 Implementation review) — on the full path. On the direct path both are at Ray's discretion, decided once, at the start: the post-implementation review runs exactly when Ray had Role 2 review the spec.
 
 ### 1.3 Issue discipline
 

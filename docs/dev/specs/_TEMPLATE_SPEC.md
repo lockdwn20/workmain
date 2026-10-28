@@ -28,6 +28,7 @@ Decisions and review findings with their resolution — **only**. Never a descri
 | YYYYMMDD | Spanner | | |
 | YYYYMMDD | Caliper | | Accepted / **Not taken** — <why> |
 | YYYYMMDD | Anvil | | |
+| YYYYMMDD | Caliper (post-implementation) | | |
 
 Record findings you *rejected* and why so the finding does not get raised again by the next reviewer.
 

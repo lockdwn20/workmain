@@ -83,6 +83,8 @@ Reviews every spec before implementation begins, against these criteria:
 6. Does this spec introduce a new path where an existing service, orchestrator, or workflow already covers the case, or write its own version of a mechanism `docs/DEVELOPMENT_STANDARDS.md` §3.8 says to use?
 7. Which acceptance criteria could be satisfied by a change that does not achieve what the criterion is for? — how a criterion is worded so that difference is visible: `docs/DEVELOPMENT_STANDARDS.md` §1.2.
 
+After implementation, on Ray's request in the same session, reviews the delivered branch against the spec and its results artifact — `references/caliper.md` § Post-implementation review. When each review is required: `docs/DEVELOPMENT_STANDARDS.md` §1.2.
+
 Findings go BACK to Role 1, never forward. You do not implement.
 
 ### Role 3 - Claude Code / Sonnet - Codename: Anvil - Implementer
