@@ -35,6 +35,9 @@
 | 20261028 | Caliper | 3: Read 2 gives no command to find the results artifact on the branch, and read 4 gives no rule for taking the branch name out of the `**Branch:**` field. | Accepted. Read 2 finds it with `git grep`. `<branch>` is the first backtick-quoted name in the `**Branch:**` field. |
 | 20261028 | Caliper | 3: 1c's "Nothing on this path is optional except the Role 2 review" contradicts the next paragraph, under which a design artifact is optional where it is not required. AC2.3 inherits the contradiction. | Accepted. 1d drops the "only optional" claim and states the four unmarked stages as required and the two marked stages as Ray's discretion. AC2.3 is reworded. |
 | 20261028 | Caliper | Amendment: 3: No rule covers a post-implementation review when the Caliper session that reviewed the spec has ended. Suggested wording for §1.1 Implementation review: "Where that session has ended, Ray opens `/session-start Caliper <spec path>` and requests the review in the new session; the session-open emit is not logged against an `Approved` spec." | **Not taken** — Ray, 20261028: a session that crashes is resumed, not replaced. Each Claude Code session can be reopened from the session picker, so the review stays in the Caliper session that reviewed the spec, and no rule for a replacement session is needed. |
+| 20261028 | Caliper | 3: 3a names a discretionary stage that is neither done nor `n/a` together with the stage after it, as Ray's choice. On a direct-path spec with `Caliper` rows and a results artifact, Implementation review is neither, so Spanner would emit "Implementation review or Close-out". But 1g makes that review required once Review ran, and AC2.4 expects Implementation review alone. The choice wording fits only Review before approval. | Accepted. 3a names only Review, before the spec is `Approved`, together with Approval as Ray's choice. Implementation review is decided by 1f's done condition, done or `n/a`, so there is no choice to name. |
+| 20261028 | Caliper | 3: 1f's direct-path `n/a` clauses contradict the unchanged sentence above the table, "A stage on both paths has the same condition on each", and 1d's "with the same done conditions". | Accepted. 1f also amends that sentence to except a row's stated direct-path `n/a`, and 1d cites the table instead of claiming the same conditions. |
+| 20261028 | Caliper | 2: I4 relies on "the form Ray's sign-off takes in results §3", but no standard states that form. `docs/DEVELOPMENT_STANDARDS.md` §1.2 says only "Ray changes the row once he has checked it", and archived rows vary: `docs/archive/results/AUTO_MEMORY_RETIREMENT_RESULTS.md` § 3 has undated sign-offs. | Accepted. Setting the form establishes a method, so under §1.2 it is written into §1.2 in this spec (1h), with AC1.2. I4 cites §1.2. The form applies from here forward; archived rows are not rewritten, and I4 reads only new cycles. |
 
 ---
 
@@ -69,7 +72,7 @@ Direct path: each step quotes the text it replaces. Every quoted line was confir
 
 | Step | Deliverable | Files |
 | --- | --- | --- |
-| 1 | §1.1 places the Implementation review stage on both paths, states its done condition and the disposition of an unstopped departure; §1.2 states when each review is required | `docs/DEVELOPMENT_STANDARDS.md` |
+| 1 | §1.1 places the Implementation review stage on both paths, states its done condition and the disposition of an unstopped departure; §1.2 states when each review is required and the evidence form of Ray's sign-off | `docs/DEVELOPMENT_STANDARDS.md` |
 | 2 | Role 2 covers both review points; Caliper's reference states the post-implementation review | `.claude/skills/session-start/SKILL.md`, `.claude/skills/session-start/references/caliper.md` |
 | 3 | Spanner's session open reads post-implementation rows and walks the discretionary stages; the templates carry the new Source and cite the disposition | `.claude/skills/session-start/references/spanner.md`, `docs/dev/results/_TEMPLATE_RESULTS.md`, `docs/dev/specs/_TEMPLATE_SPEC.md` |
 | 4 | Study disposition and results artifact | `docs/dev/design/DESIGN_POST_IMPLEMENTATION_REVIEW.md`, `docs/dev/results/POST_IMPLEMENTATION_REVIEW_RESULTS.md` |
@@ -128,7 +131,7 @@ SPEC  →  REVIEW*  →  APPROVAL  →  IMPLEMENTATION  →  IMPLEMENTATION REVI
 with:
 
 ```text
-**The four unmarked stages are required.** The two marked `*` are the Role 2 review, which Ray calls for or not at the start (§1.2). Where they run, they are the full path's Review and Implementation review, with the same done conditions.
+**The four unmarked stages are required.** The two marked `*` are the Role 2 review, which Ray calls for or not at the start (§1.2). Where they run, they are the full path's Review and Implementation review, done when the table below shows them done.
 ```
 
 **1e.** In §1.1 **What the direct path trades**, replace:
@@ -143,7 +146,19 @@ with:
 **What the direct path trades.** With no recon, no required Role 2 pass and no separate implementer,
 ```
 
-**1f.** In §1.1's table of what shows each stage done, replace:
+**1f.** In §1.1 **What shows each stage done**, replace:
+
+```text
+A stage on both paths has the same condition on each.
+```
+
+with:
+
+```text
+A stage on both paths has the same condition on each, except where its row states a direct-path `n/a`.
+```
+
+In the table that follows, replace:
 
 ```text
 | Review | The spec's Decision Log carries at least one `Caliper` row, and every `Caliper` row has a resolution. A clean pass is the `No findings.` row `/session-start Caliper` emits for one. |
@@ -178,6 +193,18 @@ with:
 
 ```text
 - At least one Role 2 review pass before a spec is approved, and a post-implementation review before close-out (§1.1 Implementation review) — on the full path. On the direct path both are at Ray's discretion, decided once, at the start: the post-implementation review runs exactly when Ray had Role 2 review the spec.
+```
+
+**1h.** In §1.2, replace:
+
+```text
+Ray changes the row once he has checked it.
+```
+
+with:
+
+```text
+Once he has checked it, the row becomes `Met` with evidence in the form `Ray, <YYYYMMDD>: <what he read or ran>`.
 ```
 
 ### Step 2 — Role 2 and Caliper's reference
@@ -221,7 +248,7 @@ Run when Ray requests it in this session after the results artifact exists — `
 - **I1** — A change in the diff that no spec step's deliverable or quoted text covers and no acceptance criterion requires. A change inside a file the step table names is traced only if a step covers that change; naming the file is not enough. Two kinds of change are not checked: the artifact set (the spec, the design study its `**Design study:**` field names, and the results artifact), and a commit `docs/DEVELOPMENT_STANDARDS.md` §2.2 defines as an operational change from live use.
 - **I2** — A change a step covers that departs from the step's quoted text or deliverable, and that results §4 does not list.
 - **I3** — A results §4 row whose `Step stopped at` is `none` and whose `Resolved by` is `Awaiting Ray`.
-- **I4** — A results §3 row marked `Met` whose evidence does not exercise the property its criterion names (`docs/DEVELOPMENT_STANDARDS.md` §1.2). A row whose check names Ray is a finding when it is `Met` and its evidence does not name Ray with a date. Marked `Not met` with `Awaiting Ray`, it is not a finding.
+- **I4** — A results §3 row marked `Met` whose evidence does not exercise the property its criterion names (`docs/DEVELOPMENT_STANDARDS.md` §1.2). A row whose check names Ray is a finding when it is `Met` and its evidence is not in the form `docs/DEVELOPMENT_STANDARDS.md` §1.2 states for Ray's sign-off. Marked `Not met` with `Awaiting Ray`, it is not a finding.
 - **I5** — A results §4 row whose `Step stopped at` is `within approved meaning` and whose change altered the meaning, scope or file set Ray approved.
 
 ### Emits
@@ -260,7 +287,7 @@ that §1.1's done conditions, applied to the artifacts found, do not show done.
 with:
 
 ```text
-that §1.1's done conditions, applied to the artifacts found, do not show done. A stage §1.1 shows `n/a` is passed over. A stage §1.1 marks as at Ray's discretion that is neither done nor `n/a` is named together with the stage after it, as Ray's choice.
+that §1.1's done conditions, applied to the artifacts found, do not show done. A stage §1.1 shows `n/a` is passed over. On the direct path, Review before the spec is `Approved` is named together with Approval, as Ray's choice.
 ```
 
 **3b.** In `docs/dev/results/_TEMPLATE_RESULTS.md` § 4, replace:
@@ -303,6 +330,7 @@ None in Steps 1–4. Merging this branch to `main` is close-out's, at its own st
 | AC | Criterion | How it is checked |
 | --- | --- | --- |
 | AC1.1 | Caliper's reference states a post-implementation review, run on Ray's request in the live Caliper session, with its reads (spec, results artifact, issue, and the branch diff against its §2.2 parent's merge base) and its checks: the issue's four, plus a check of each `within approved meaning` row for a change of meaning. Restated from issue AC1, which assumed a new `/session-start` target. | Stated reading by Ray of `.claude/skills/session-start/references/caliper.md` § Post-implementation review |
+| AC1.2 | §1.2 states the evidence form of Ray's sign-off on a criterion whose check names him, and I4 judges a `Met` row by that form. | Stated reading by Ray of `docs/DEVELOPMENT_STANDARDS.md` §1.2 and `references/caliper.md` § Post-implementation review I4 |
 | AC2.1 | Role 2 covers both review points: the spec before implementation, and the delivered branch after it. | Stated reading by Ray of `.claude/skills/session-start/SKILL.md` § Role 2 |
 | AC2.2 | On the full path, the Implementation review stage sits between Implementation and Close-out, with a done condition that tells it apart from the Review stage. | Stated reading by Ray of `docs/DEVELOPMENT_STANDARDS.md` §1.1: the full-path diagram, the stage list and the done table |
 | AC2.3 | §1.2 states when each review is required on each path, and §1.1's direct path marks its two Role 2 stages as at Ray's discretion, citing §1.2, without contradicting the design-artifact paragraph that follows. | Stated reading by Ray of `docs/DEVELOPMENT_STANDARDS.md` §1.1 Direct path and §1.2 |
