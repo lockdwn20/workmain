@@ -16,6 +16,10 @@ class IntegrationError(Exception):
     could not carry it out."""
 
 
+class InvalidICSFileError(ServiceValidationError):
+    """Raised when an ICS file cannot be parsed."""
+
+
 class ClockifyNotConfiguredError(ServiceValidationError):
     """Raised when CLOCKIFY_API_KEY is not set."""
 
