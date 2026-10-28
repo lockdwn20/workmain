@@ -36,6 +36,8 @@
 | 20261028 | Caliper | 3: DR3 does not say what `total` and `filters` the section Pages carry, and `Renderer.collection` prints both in the section's title. | Accepted. Both Pages carry `total` equal to their row count and `filters` `()`. S7 and S18 assert it. |
 | 20261028 | Caliper | 3: §6 says only S14 uses `tests/fixtures/`, but S16 names a fixture file, and S15 does not say where its file comes from. | Accepted. S14 and S16 use `tests/fixtures/`. S15 and every other file test write to `tmp_path`. |
 | 20261028 | Caliper | 3: Step 7 says the results artifact "holds the §5 table" and that "its §5 holds three tables". The template puts acceptance criteria in its §3 and verification in its §5. | Accepted. Step 7 now says the spec's §5 criteria go in results §3, and the four tables in results §5 Verification. |
+| 20261028 | Caliper | 6: C7 reads the prompt from stdout, where §6.2's Command rule allows reading only an `Error:` line on stderr. | Accepted. C7 patches `click.confirm` and asserts it was called with the preview's `question` and `default=True`, as C10 patches it. |
+| 20261028 | Caliper | 3: O3 does not say which view its empty case uses. With `totals_when_empty=False` the first line is the empty line, not the title, so O3 as written asserts a line the renderer never prints, and the empty-line case DR6 names is untested. | Accepted. O3 covers three cases: rows, empty with `totals_when_empty=True` (title first), and empty with it false (empty line first), each with and without `dry_run`. |
 
 ---
 
@@ -261,7 +263,7 @@ Test method names are the spec's where an AC cites the node. Anvil names the res
 | --- | --- | --- |
 | O1 | `TestReport` | A view with no sections and `totals_when_empty=True`: the output is the title then the aligned totals, and no `No ... found` line. |
 | O2 | `TestReport` | A view with an empty section and `totals_when_empty=True`: the title and totals, and no section. With the field false, the same result prints the empty line and hint, as R3 already shows. |
-| O3 | `TestReport` | `dry_run=True`: the first line is `[DRY RUN]`, a space, then the title, both with rows and with every section empty; and with `dry_run=False` the first line is the title alone. |
+| O3 | `TestReport` | Parametrized over three cases, each rendered with `dry_run=True` and then `dry_run=False`: a view with rows, whose first line is the title; a view with `totals_when_empty=True` and every section empty, whose first line is the title; and a view with `totals_when_empty=False` and every section empty, whose first line is the empty line. With `dry_run=True` that first line is `[DRY RUN]`, a space, then the line; with `dry_run=False` it is the line alone. |
 | O4 | `TestLines` | `nothing_to_do()` prints `Nothing to do.` as one line at width 20. |
 
 **`tests/test_calendar_service.py`.** Every database test takes `db_session` and seeds on 2099 sentinel dates, with sentinel `outlook_id`s. ICS files are written to `tmp_path` with 2099 dates, except in S14 and S16, which use `tests/fixtures/`.
@@ -299,7 +301,7 @@ Test method names are the spec's where an AC cites the node. Anvil names the res
 | C4 | `sync`: exit 1, and no service function or renderer method called. |
 | C5 | `import <file> --dry-run`: `preview_import` received a session, the expanded path and a `date`. `report` was called once, with `PREVIEW`, its return value and `dry_run=True`. No prompt, and `run_import` not called. Exit 0. |
 | C6 | `import <file>` with a preview whose `has_changes` is false: `report` with `PREVIEW` and `dry_run=False`, then `renderer.nothing_to_do()`, no prompt, `run_import` not called. Exit 0. |
-| C7 | `import <file>` with a preview whose `question` is `"Q?"` and input `y\n`: the prompt shown is `Q? [Y/n]`, then `run_import` received a session and the preview, then `report` with `IMPORTED` and its return value. Exit 0. |
+| C7 | `import <file>` with a preview whose `question` is `"Q?"`, and `click.confirm` in `workmain.cli.commands.calendar` patched to return `True`: `click.confirm` was called once with `"Q?"` and `default=True`, then `run_import` received a session and the preview, then `report` with `IMPORTED` and its return value. Exit 0. |
 | C8 | `import <file>` with input `\n`: the default yes, so `run_import` is called. |
 | C9 | `test_c9_declined_import_does_not_apply`: input `n\n`: `renderer.cancelled()` called, `run_import` not called, exit 0. |
 | C10 | `test_c10_preview_scope_closes_before_the_question`: `get_db` in `workmain.cli.commands.calendar` is replaced by one whose `session_scope()` is a context manager appending `enter` and `exit` to a list, and yielding a fresh `Mock(spec=Session)` each time. `click.confirm` is patched to append `confirm` and return `True`, and `run_import` to append `run_import`. The list is `enter`, `exit`, `confirm`, `enter`, `run_import`, `exit`, and the session `run_import` received is not the one `preview_import` received. |
