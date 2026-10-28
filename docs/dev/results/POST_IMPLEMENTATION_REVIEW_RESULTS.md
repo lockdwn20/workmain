@@ -25,15 +25,15 @@ Complete. §1.1 places the Implementation review stage on both paths, with its d
 
 | AC | Status | Evidence |
 | --- | --- | --- |
-| AC1.1 | Not met | Awaiting Ray |
-| AC1.2 | Not met | Awaiting Ray |
-| AC2.1 | Not met | Awaiting Ray |
-| AC2.2 | Not met | Awaiting Ray |
-| AC2.3 | Not met | Awaiting Ray |
-| AC2.4 | Not met | Awaiting Ray: the `/session-start Spanner 243` run, and the reading of § Emits **Next stage** |
-| AC3.1 | Not met | Awaiting Ray: the planted-change run |
+| AC1.1 | Met | Ray, 20261028: Reviewed `.claude/skills/session-start/references/caliper.md` § Post-implementation review |
+| AC1.2 | Met | Ray, 20261028: Reviewed `docs/DEVELOPMENT_STANDARDS.md` §1.2 and `references/caliper.md` § Post-implementation review I4 |
+| AC2.1 | Met | Ray, 20261028: Reviewed `.claude/skills/session-start/SKILL.md` § Role 2 |
+| AC2.2 | Met | Ray, 20261028: Reviewed `docs/DEVELOPMENT_STANDARDS.md` §1.1: the full-path diagram, the stage list and the done table |
+| AC2.3 | Met | Ray, 20261028: Reviewed `docs/DEVELOPMENT_STANDARDS.md` §1.1 Direct path and §1.2 |
+| AC2.4 | Met | Ray, 20261028: `/session-start Spanner 243` run, and §1.1 Emitted in **Next stage** |
+| AC3.1 | Met | Ray, 20261028: Line added to `docs/DEVELOPMENT_STANDARDS.md:517`, Caliper post implementation review reported `I1`, changes reverted `git revert d6d8a03` |
 | AC4.1 | Carried | #240, whose second criterion is the same run |
-| AC5.1 | Not met | Awaiting Ray. `grep -rn 'still wanted' CLAUDE.md docs/DEVELOPMENT_STANDARDS.md .claude/ docs/dev/*/_TEMPLATE_*.md` returned one line, `docs/DEVELOPMENT_STANDARDS.md:34`, inside §1.1 Implementation review, 20261028 at `50c38a5` |
+| AC5.1 | Met | Ray, 20261028:  `grep -rn 'still wanted' CLAUDE.md docs/DEVELOPMENT_STANDARDS.md .claude/ docs/dev/*/_TEMPLATE_*.md` returned one line, `docs/DEVELOPMENT_STANDARDS.md:34`, inside §1.1 Implementation review, 20261028 at `50c38a5` |
 
 ## 4. Deviations from spec
 
