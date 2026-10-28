@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Complete. The five calendar commands and the new `calendar status` read and write the database only through `calendar_service`, in scopes the command owns, and print only through the `Renderer`. `ics_parser`'s fallback match and note count take their answers from `MeetingsRepository`. The renderer gained `totals_when_empty`, `dry_run` and `nothing_to_do()`. `docs/DEVELOPMENT_STANDARDS.md` §5.2 and §5.6 state the new rules. Four checks are left to Ray (§5).
+Complete. The five calendar commands and the new `calendar status` read and write the database only through `calendar_service`, in scopes the command owns, and print only through the `Renderer`. `ics_parser`'s fallback match and note count take their answers from `MeetingsRepository`. The renderer gained `totals_when_empty`, `dry_run` and `nothing_to_do()`. `docs/DEVELOPMENT_STANDARDS.md` §5.2 and §5.6 state the new rules. Four acceptance criteria (AC1.2, AC3.1, AC4.1, AC8.1) are Not met until Ray has made the readings §5 lists.
 
 ## 2. What shipped, by step
 
@@ -30,10 +30,10 @@ Complete. The five calendar commands and the new `calendar status` read and writ
 | AC | Status | Evidence |
 | --- | --- | --- |
 | AC1.1 | Met | `git grep -nE 'get_session\(\|Repository\(\|_repository\(\|\.query\(' workmain/cli/commands/calendar.py` returned no hits. |
-| AC1.2 | Met | §5 table 1; `test_c10_preview_scope_closes_before_the_question` and `TestCalendarCommands` pass. Ray's reading of table 1 is owed (§5). |
+| AC1.2 | Not met | Awaiting Ray's reading of §5 table 1. Done: table 1 written; `test_c10_preview_scope_closes_before_the_question` and `TestCalendarCommands` pass. |
 | AC2.1 | Met | The AC2.1 `git grep` over `calendar.py` and `calendar_service.py` returned no hits. |
-| AC3.1 | Met | §5 table 2; `pytest tests/test_calendar_service.py tests/test_meetings_repository.py` passes. Ray's reading of table 2 is owed (§5). |
-| AC4.1 | Met | §5 table 3; `TestCalendarCommands` passes. Ray's reading of table 3 is owed (§5). |
+| AC3.1 | Not met | Awaiting Ray's reading of §5 table 2. Done: table 2 written; `pytest tests/test_calendar_service.py tests/test_meetings_repository.py` passes. |
+| AC4.1 | Not met | Awaiting Ray's reading of §5 table 3. Done: table 3 written; `TestCalendarCommands` passes. |
 | AC5.1 | Met | The width sweep (20–80 step 2, 100, 120, 200) over the five files reported 130 passed, 0 failed at every width. |
 | AC6.1 | Met | Full suite 1598 passed, 0 failed, 0 skipped; every T-id in §6 is in §5 table 4; `pytest --collect-only -q` on the five files lists every node in it. |
 | AC7.1 | Met | `pytest tests/test_ics_import.py tests/test_recurring_edits.py` passes (no existing test changed except test 30's removal); `TestRepositoryDelegation` passes. |
@@ -41,7 +41,7 @@ Complete. The five calendar commands and the new `calendar status` read and writ
 | AC7.3 | Met | `test_c9_declined_import_does_not_apply` and `test_c13_import_has_no_silent_option` pass. |
 | AC7.4 | Met | `test_s4_cancelled_meeting_is_included_and_marked` passes for all three view functions; C3 passes. |
 | AC7.5 | Met | `test_c1_group_has_no_callback_work` and `test_c2_status` pass. Live: `workmain calendar` printed the help only; `workmain calendar status` printed the count and last import. |
-| AC8.1 | Met | Step 6 text applied verbatim in `docs/DEVELOPMENT_STANDARDS.md` §5.2 and §5.6. Ray's reading is owed (§5). |
+| AC8.1 | Not met | Awaiting Ray's reading of `docs/DEVELOPMENT_STANDARDS.md` §5.2 and §5.6. Done: Step 6 text applied verbatim. |
 
 ## 4. Deviations from spec
 
