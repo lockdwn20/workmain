@@ -99,4 +99,4 @@ The issue's "split to its own issue on the §1.3 rule" is not a third option: a 
 
 ## 6. Disposition
 
-- Promoted to:
+- Promoted to: `../specs/POST_IMPLEMENTATION_REVIEW_SPEC.md`
