@@ -1,6 +1,6 @@
 # Post-Implementation Review — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261028
 **Spec:** `../specs/POST_IMPLEMENTATION_REVIEW_SPEC.md`
@@ -45,7 +45,7 @@ None. Every quoted line occurred once in its file and was replaced as quoted.
 ## 5. Verification
 
 - **Test suite:** 1541 passed, 0 failed, 0 skipped (baseline: 1541 passed, 0 failed, 0 skipped, from the most recent `CHANGELOG.md` entry). `pytest automation/`: 58 passed, 0 failed, 0 skipped. Both run 20261028 at `50c38a5`.
-- **Live verification:** AC2.4 and AC3.1, Ray's runs on this branch.
+- **Live verification:** AC2.4 and AC3.1, Ray's runs on this branch, 20261028 (§ 3). The branch's Implementation review emitted `No findings.` (spec Decision Log, 20261028). Close-out preflight re-ran `pytest`: 1541 passed, 0 failed, 0 skipped.
 - **Daemon restart:** none — `chore/*` (`docs/DEVELOPMENT_STANDARDS.md` §2.6).
 
 ## 6. Follow-ups
