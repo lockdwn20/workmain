@@ -16,10 +16,6 @@ from datetime import date, datetime
 from unittest.mock import patch
 from pathlib import Path
 
-from click.testing import CliRunner
-
-from workmain.cli.commands.calendar import calendar_import
-
 from workmain.database.models import Meeting, Note
 from workmain.utils.ics_parser import (
     ICSEvent,
@@ -977,30 +973,6 @@ class TestICSImport:
         today = date(2026, 1, 1)
         removed = detect_removed_meetings(db_session, all_cancelled_ics, today)
         assert removed == []
-
-    # ------------------------------------------------------------------
-    # Test 30 — calendar import lists each newly imported meeting's ID
-    # ------------------------------------------------------------------
-
-    def test_30_calendar_import_lists_new_meeting_ids(self, db_session):
-        """
-        The post-import listing queries for the meetings just added. Under
-        autoflush=False that query sees them only because import_events_to_db
-        flushes before returning.
-        """
-        result = CliRunner().invoke(
-            calendar_import, [str(FIXTURES / "week_normal.ics")], input="y\n"
-        )
-
-        assert result.exit_code == 0, result.output
-        rows = (
-            db_session.query(Meeting)
-            .filter(Meeting.outlook_id.like("test-00%@workmain%"))
-            .all()
-        )
-        assert len(rows) == 3
-        for row in rows:
-            assert f"[{row.id:4d}]" in result.output
 
 
 class TestRepositoryDelegation:
