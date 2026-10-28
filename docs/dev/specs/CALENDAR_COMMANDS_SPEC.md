@@ -1,6 +1,6 @@
 # Calendar Commands on the Output Module — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261028
 **Branch:** `feature/issue-203-calendar-output-separation` (from `dev`)
