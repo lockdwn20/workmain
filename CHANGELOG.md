@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.56.0] - 2026-10-29
+
+The `clients` commands queried, decided and printed in one function, and every error printed on stdout and exited 0. Their tests could only search printed text. They now read and write through `clients_service` and print through the CLI output module, so behaviour is tested at the service. What is read, decided and written does not change (issue #204).
+
+### Added
+
+- `workmain/services/clients_service.py`: `list_clients`, `get_client`, `add_client`, `preview_delete`, `delete_client`, `get_status` and `set_active`, with their result dataclasses and view formatters
+- `ClientNotFoundError`, `InvalidClientNameError` and `ActiveClientDeleteError` in `workmain/services/exceptions.py`
+- `ClientRepository.count_linked_records`
+
+### Changed
+
+- `clients delete` prints how many notes, time entries, meetings, reports, projects and report recipients will lose their client, and its question states the same counts
+- `clients list` prints a titled table, `clients show` a panel, and `clients status` and `clients set active` a `Client context` report; `add` and `delete` print a `✓` line
+- Every `clients` error is one `Error:` line on stderr, exit 1, with not-found suggestions on that line; refusing to delete the active client without `--force` is one of them. Ctrl-C at the `delete` prompt exits 1 with `Aborted!`
+- `docs/standards/5-cli.md` §5.6 says how a converted command that takes `--force` previews and applies
+
+Suite: 1623 passed, 0 failed, 0 skipped (baseline 1598 passed, 0 failed, 0 skipped).
+
 ## [1.55.0] - 2026-10-28
 
 The `calendar` commands queried, classified and printed in one file, and the group's callback counted meetings on every invocation. Their tests could only search printed text. They now read and write through `calendar_service` and print through the CLI output module, so behaviour is tested at the service. What is read, classified and imported does not change (issue #203).
