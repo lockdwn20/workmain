@@ -38,6 +38,14 @@
 | 20261028 | Caliper | 3: Step 7 says the results artifact "holds the §5 table" and that "its §5 holds three tables". The template puts acceptance criteria in its §3 and verification in its §5. | Accepted. Step 7 now says the spec's §5 criteria go in results §3, and the four tables in results §5 Verification. |
 | 20261028 | Caliper | 6: C7 reads the prompt from stdout, where §6.2's Command rule allows reading only an `Error:` line on stderr. | Accepted. C7 patches `click.confirm` and asserts it was called with the preview's `question` and `default=True`, as C10 patches it. |
 | 20261028 | Caliper | 3: O3 does not say which view its empty case uses. With `totals_when_empty=False` the first line is the empty line, not the title, so O3 as written asserts a line the renderer never prints, and the empty-line case DR6 names is untested. | Accepted. O3 covers three cases: rows, empty with `totals_when_empty=True` (title first), and empty with it false (empty line first), each with and without `dry_run`. |
+| 20261028 | Caliper (post-implementation) | I2: Step 5.2 delivers C1–C13 as command tests under §6, but `tests/test_calendar.py` on the branch gets them from three module fixtures of its own: `renderer`, `ics_file` and `service`, each `@pytest.fixture`. Its tests take these as arguments, for example `test_c7_confirmed_import(self, renderer, service, ics_file)`. `docs/DEVELOPMENT_STANDARDS.md` §6.2 rule 6 allows a test to take only `db_session`, `tmp_path` and `caplog`, and says "anything else it needs, it builds in its own body". The command-test precedent, `tests/test_clockify.py`, builds its renderer and patches inside a `_run` helper. No other test file in the diff declares a fixture: `test_calendar_service.py`, `test_output.py`, `test_meetings_repository.py` and `test_ics_import.py` have none. Results §4 does not list this departure. | Ray, 20261028: Revert. Step 5.2 and §6 now state the `_run` and `_ics_file` helpers; no production file changes, and every C-test keeps its assertions. Results §4 adds the departure with `Step stopped at` `none` and `Resolved by` `Ray, 20261028`. |
+| 20261028 | Caliper (post-implementation) | I3: Results §4 row 1 has `Step stopped at` `none` and `Resolved by` `Awaiting Ray`. It says Step 4.2's copy-then-remove of the helpers was not followed, and the service was written fresh. | Ray, 20261028: Keep. `_classify` and `preview_import` were checked against `calendar.py:114-146` and `436-503`: the rules, totals and question text match. Copy-then-remove existed only to keep each step green, and every step was green. Step 4.2 is amended. Results §4 row 1 `Resolved by` reads `Ray, 20261028`. |
+| 20261028 | Caliper (post-implementation) | I3: Results §4 row 2 has `Step stopped at` `none` and `Resolved by` `Awaiting Ray`. It says `ics_parser.py` still imports `Note`, which is now unused. | Ray, 20261028: Keep, with the spec amended. Step 2's change left the import unused, so Step 2 removes it. Results §4 row 2 `Resolved by` reads `Ray, 20261028`. |
+| 20261028 | Caliper (post-implementation) | I3: Results §4 row 3 has `Step stopped at` `none` and `Resolved by` `Awaiting Ray`. It says the new tests are named `test_o1…`–`test_o4…`, and the old warnings tests in `tests/test_output.py` already use O1–O3 as docstring ids. | Ray, 20261028: Keep. §6 states the node names; results §5's T-id table maps each O-id to its node. Results §4 row 3 `Resolved by` reads `Ray, 20261028`. |
+| 20261028 | Caliper (post-implementation) | I4: AC1.2's check names Ray. Results §3 marks it `Met`, with "Ray's reading of table 1 is owed". §1.2's sign-off rule needs `Not met` with `Awaiting Ray` until Ray checks it, and then `Ray, <YYYYMMDD>: …`. | Accepted. Corrected at `bf8db75`: `Not met`, `Awaiting Ray`. |
+| 20261028 | Caliper (post-implementation) | I4: AC3.1's check names Ray. Results §3 marks it `Met`, with "Ray's reading of table 2 is owed", which is not in §1.2's sign-off form. | Accepted. Corrected at `bf8db75`: `Not met`, `Awaiting Ray`. |
+| 20261028 | Caliper (post-implementation) | I4: AC4.1's check names Ray. Results §3 marks it `Met`, with "Ray's reading of table 3 is owed", which is not in §1.2's sign-off form. | Accepted. Corrected at `bf8db75`: `Not met`, `Awaiting Ray`. |
+| 20261028 | Caliper (post-implementation) | I4: AC8.1's check is "a stated reading by Ray of §5.2 and §5.6". Results §3 marks it `Met`, with "Step 6 text applied verbatim… Ray's reading is owed". That is Anvil's own reading, recorded as `Met`, and it is not in §1.2's sign-off form. | Accepted. Corrected at `bf8db75`: `Not met`, `Awaiting Ray`. |
 
 ---
 
@@ -167,7 +175,7 @@ If `dev` has moved past `db0a52e`, merge it into this branch (`git merge dev`) a
 
 ### Step 2 — ICS parser
 
-`ics_parser.py`: DR2's last bullet. `tests/test_ics_import.py`: add I1–I2 in a new `TestRepositoryDelegation` (§6). Every existing test in the file runs unchanged and passes: it is the evidence that the import's behaviour did not change.
+`ics_parser.py`: DR2's last bullet, and the `Note` import that change leaves unused. `tests/test_ics_import.py`: add I1–I2 in a new `TestRepositoryDelegation` (§6). Every existing test in the file runs unchanged and passes: it is the evidence that the import's behaviour did not change.
 
 ### Step 3 — renderer
 
@@ -176,14 +184,14 @@ If `dev` has moved past `db0a52e`, merge it into this branch (`git merge dev`) a
 ### Step 4 — service
 
 1. `exceptions.py`: DR4.
-2. `calendar_service.py`: DR3. The helpers it takes from `calendar.py` are copied in this step and removed in Step 5, so every step stays green.
+2. `calendar_service.py`: DR3. `calendar.py`'s helpers stay until Step 5 removes them.
 3. `services/__init__.py`: import `calendar_service` and list it in `__all__`, alphabetically.
 4. `tests/test_calendar_service.py`: S1–S20 (§6).
 
 ### Step 5 — commands
 
 1. `calendar.py`: DR1, DR5 and DR7.
-2. `tests/test_calendar.py`: C1–C13 in `TestCalendarCommands` (§6).
+2. `tests/test_calendar.py`: C1–C13 in `TestCalendarCommands`, through the helpers §6 states (§6).
 3. `tests/test_ics_import.py`: delete `test_30_calendar_import_lists_new_meeting_ids`, its comment banner, and the `calendar_import` and `CliRunner` imports. S18 holds its property at the service, and C10 holds it at the command.
 
 ### Step 6 — standards
@@ -266,6 +274,8 @@ Test method names are the spec's where an AC cites the node. Anvil names the res
 | O3 | `TestReport` | Parametrized over three cases, each rendered with `dry_run=True` and then `dry_run=False`: a view with rows, whose first line is the title; a view with `totals_when_empty=True` and every section empty, whose first line is the title; and a view with `totals_when_empty=False` and every section empty, whose first line is the empty line. With `dry_run=True` that first line is `[DRY RUN]`, a space, then the line; with `dry_run=False` it is the line alone. |
 | O4 | `TestLines` | `nothing_to_do()` prints `Nothing to do.` as one line at width 20. |
 
+O1–O4 are the nodes `test_o1…`–`test_o4…`. The older warnings tests in the same file carry O1–O3 as docstrings; results §5's T-id table names the node each O-id here is.
+
 **`tests/test_calendar_service.py`.** Every database test takes `db_session` and seeds on 2099 sentinel dates, with sentinel `outlook_id`s. ICS files are written to `tmp_path` with 2099 dates, except in S14 and S16, which use `tests/fixtures/`.
 
 | T | Class | What it shows |
@@ -291,7 +301,7 @@ Test method names are the spec's where an AC cites the node. Anvil names the res
 | S19 | `TestImport` | A preview of one cancelled event on a seeded meeting: totals cancelled 1, `meetings` empty. |
 | S20 | `TestFormatters` | `format_weekday` over a known Monday to Sunday; `format_clock(time(6, 5)) == "06:05"` and `format_clock(None) == "—"`; `format_recurring` and `format_cancelled` for true and false; `format_last_import(date(2099, 1, 1)) == "2099-01-01"` and `format_last_import(None) == "never"`. |
 
-**`tests/test_calendar.py::TestCalendarCommands`.** Each test runs `CliRunner(mix_stderr=False).invoke(calendar, args, obj=renderer, input=...)`, with `renderer` a `Mock(spec=Renderer)` and each service function it reaches patched with `patch.object(calendar_service, "<name>", autospec=True)`.
+**`tests/test_calendar.py::TestCalendarCommands`.** The file declares no `@pytest.fixture`; a test takes at most `tmp_path` (`docs/DEVELOPMENT_STANDARDS.md` §6.2 rule 6). Each test calls `_run(args, returns=None, side_effects=None, input=None)`, after `tests/test_clockify.py`'s `_run`. It builds `renderer`, a `Mock(spec=Renderer)`; on an `ExitStack` patches every function in `SERVICE_FUNCTIONS` with `patch.object(calendar_service, "<name>", autospec=True)`; sets each named mock's `return_value` from `returns` and `side_effect` from `side_effects`; runs `CliRunner(mix_stderr=False).invoke(calendar, args, obj=renderer, input=input)`; and returns `(result, renderer, mocks)`, `mocks` keyed by name. A test that also patches `click.confirm` or `get_db` does so in its own body around the call. `_ics_file(tmp_path)` writes a minimal calendar file and returns its path.
 
 | T | What it shows |
 | --- | --- |
