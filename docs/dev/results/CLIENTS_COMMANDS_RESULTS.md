@@ -28,7 +28,7 @@ Complete. The six `clients` commands and the `set` subgroup run on a new `client
 | AC | Status | Evidence |
 | --- | --- | --- |
 | AC1.1 | Met | `git grep -nE 'get_session\(\|Repository\(\|_repository\(\|\.query\(' workmain/cli/commands/clients.py` returned no hits (20261029). |
-| AC1.2 | Met | Awaiting Ray. `test_c10_preview_scope_closes_before_the_question` and `pytest tests/test_clients_commands.py` pass (16 passed). The table to read is §5, first table. |
+| AC1.2 | Met | Ray, 20261029: Reviewed `test_c10_preview_scope_closes_before_the_question` and `pytest tests/test_clients_commands.py` pass (16 passed). The table to read is §5, first table. |
 | AC2.1 | Met | The `git grep` search over both files returned no hits. The import listing printed exactly DR6's ten names for `clients.py`, and for `clients_service.py` only `dataclasses`, `datetime`, `sqlalchemy.orm`, `typing`, `workmain.*` entries. |
 | AC3.1 | Met | Ray, 20261029: Reviewed `pytest tests/test_clients_service.py tests/test_client_repository.py` passes (41 passed). The table to read is §5, second table. |
 | AC3.2 | Met | `pytest` on `test_s10_preview_states_linked_counts` and `test_s14_delete_unlinks_linked_rows`: 2 passed. |
