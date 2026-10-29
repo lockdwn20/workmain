@@ -33,6 +33,7 @@
 | 20261029 | Anvil | The Caliper S14 row cites `models.py:52` for `Client.projects`; the relationship is at `models.py:51`. | Accepted. Citation corrected. |
 | 20261029 | Anvil | §2's `run_workmain(` row lists `eod_workflow.py:869`, `1125` and `1179` as calls the search returns; they are the `cmd_args = [...]` assignments, and the calls are `909`/`931`, `1137`/`1156` and `1189`. The search also returns the definition at `self_invoke.py:100`, which the row did not account for (found by Spanner verifying this finding). | Accepted. The row cites the call lines, names the assignment lines as where the arguments are built, and accounts for the definition. The commands named and the conclusion are unchanged. |
 | 20261029 | Anvil | §2's caller search also returns `workmain/database/migrations/011_clients.sql:33`, which the row did not enumerate. | Accepted. The row lists it: a column comment string in an applied migration, which runs no command. The conclusion is unchanged. |
+| 20261029 | Anvil | Departure found after Step 3's commit (`ff3627d`): Step 3.2 says the command tests are C1–C12, but §6's table and the Caliper row on the aborted prompt require C13, which Anvil implemented without stopping. A conflict inside the spec: C13 was added to §6 without Step 3.2. | Ray, 20261029: Keep. Step 3.2 now reads C1–C13. Results §4 lists the departure with `Step stopped at` `none` and `Resolved by` `Ray, 20261029`. |
 
 ---
 
@@ -151,7 +152,7 @@ If `dev` has moved past `b5717b6`, merge it into this branch (`git merge dev`) a
 ### Step 3 — commands
 
 1. `clients.py`: DR1, DR5 and DR6.
-2. `tests/test_clients_commands.py`: replaced in full by C1–C12 in `TestClientsCommands` (§6).
+2. `tests/test_clients_commands.py`: replaced in full by C1–C13 in `TestClientsCommands` (§6).
 3. `tests/test_output.py`: W3 as §6 states. The `cli` import stays; line 632 uses it.
 
 Steps 3.1–3.3 are one commit: W3 fails once `clients.py` stops importing `ClientRepository`.
