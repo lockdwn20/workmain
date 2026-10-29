@@ -106,7 +106,7 @@ SPEC  →  REVIEW*  →  APPROVAL  →  IMPLEMENTATION  →  IMPLEMENTATION REVI
 
 A spec's steps are ordered work, defined below.
 
-- **Steps.** Ordered work inside a spec. Committed individually, reviewable and revertible individually. No approval stop. A step ends with a commit, not with a request to continue. A step that changes a signature, a required input or an invariant updates every caller in that step, or keeps the old call working, so each step's commit leaves the suite green.
+- **Steps.** Ordered work inside a spec. Committed individually, reviewable and revertible individually. No approval stop: a step that goes as the spec writes it ends with a commit, not with a request to continue. A departure is the exception. Anvil stops on every departure before the step's commit (`.claude/skills/session-start/SKILL.md` § Role 3). Role 1, on its own direct-path spec, stops on one that changes the meaning, scope or file set Ray approved (`.claude/skills/session-start/references/spanner.md` § Working rules). A step that changes a signature, a required input or an invariant updates every caller in that step, or keeps the old call working, so each step's commit leaves the suite green.
 - **Authorization points.** Attached to specific *actions* that are irreversible or reach outside the working tree.
   - This is a property of the action, so it does not scale with scope: a one-step issue can contain one and a twenty-step issue can contain none.
   - An authorization point is a hard stop — state what is about to happen, then wait for   Ray's explicit approval.
