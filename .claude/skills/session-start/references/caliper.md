@@ -8,6 +8,7 @@
 2. The originating issue named by the spec's `**Originating item:**` field: `gh issue view <N> --json number,title,body,labels,milestone,parent`
 3. The design study named by the spec's `**Design study:**` field, resolved relative to the spec. Skipped when the field reads `n/a`.
 4. Every source the spec cites — file, symbol, line, section or command — at the cited location.
+5. `docs/standards/README.md`, `docs/standards/1-workflow.md`, `docs/standards/2-git.md` and `docs/standards/3-code.md`, end to end.
 
 ## Emits
 

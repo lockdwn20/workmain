@@ -9,6 +9,7 @@
 3. `gh api repos/{owner}/{repo}/issues/<N>/dependencies/blocked_by --jq '.[] | "#\(.number) \(.state) \(.title)"'`
 4. `grep -lE '^\*\*Originating item:\*\* .*Issue #<N>([^0-9]|$)' docs/dev/design/*.md docs/dev/specs/*.md docs/archive/design/*.md docs/archive/specs/*.md`, and the `**Status:**` and `**Branch:**` lines of each file found. For each design study found, its §5 Open questions table. For each spec found, its Decision Log rows whose Source is `Caliper` or `Caliper (post-implementation)`, and `grep -l '^\*\*Spec:\*\* .*<spec file name>'` over the `results/` directory beside it, with the `**Status:**` line of each file found.
 5. `git branch --list '*/issue-<N>-*'`
+6. `docs/standards/README.md`, `docs/standards/1-workflow.md` and `docs/standards/2-git.md`, end to end.
 
 ## Emits
 
