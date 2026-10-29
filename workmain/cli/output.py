@@ -436,7 +436,7 @@ class _StubCommandError(click.ClickException):
 class _IntegrationFailure(click.ClickException):
     """
     Raised when a call to another system failed. Exit code 3 sets it apart
-    from a request the service refused (DEVELOPMENT_STANDARDS §5.6).
+    from a request the service refused (docs/standards/5-cli.md §5.6).
     """
 
     exit_code = 3

@@ -265,7 +265,7 @@ def _completed(run, label: str) -> EodStepResult:
     """A COMPLETED result that carries a captured child's stderr as its message.
 
     A child that exits 0 but writes to stderr is warning its caller
-    (DEVELOPMENT_STANDARDS §5.6). The terminal has already seen it through
+    (docs/standards/5-cli.md §5.6). The terminal has already seen it through
     _echo_workmain; the Slack EOD path sees only the result's message.
     """
     warning = run.stderr.strip() if run.stderr else ''
