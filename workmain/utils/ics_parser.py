@@ -68,7 +68,7 @@ from icalendar import Calendar
 from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session
 
-from workmain.database.models import Meeting, Note
+from workmain.database.models import Meeting
 from workmain.database.repositories.meetings_repo import MeetingsRepository
 
 LOCAL_TZ = __import__('zoneinfo').ZoneInfo("America/Los_Angeles")
