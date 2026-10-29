@@ -56,7 +56,7 @@ _STAGING_CLOCKIFY = _PROJECT_ROOT / "staging" / "clockify"
 
 def _record_upload(local_path: Path, drive_file_id: str, folder_id: str,
                    filename: str, upload_type: str, upload_date: date) -> None:
-    """Record a completed Drive upload in its own scope (DEVELOPMENT_STANDARDS §4.3).
+    """Record a completed Drive upload in its own scope (docs/standards/4-database.md §4.3).
 
     A failure is reported on stderr and the command carries on with its
     exit status unchanged: the file is in Drive, and rerunning the upload

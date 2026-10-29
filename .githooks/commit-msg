@@ -5,7 +5,7 @@
 # Enable once per clone:
 #   git config core.hooksPath .githooks
 #
-# The standard this enforces lives in docs/DEVELOPMENT_STANDARDS.md §2.4.
+# The standard this enforces lives in docs/standards/2-git.md §2.4.
 # This hook checks format only; it cannot tell you a scope is wrong or a
 # description is useless.
 
@@ -61,7 +61,7 @@ cat >&2 <<'FOOTER'
 
     Step 3 of 7. Files changed, decisions made, expected test count.
 
-  Full standard: docs/DEVELOPMENT_STANDARDS.md §2.4
+  Full standard: docs/standards/2-git.md §2.4
   Do not bypass this with --no-verify — that is prohibited by the same standard.
 
 FOOTER

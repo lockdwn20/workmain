@@ -5,7 +5,7 @@ A function here returns frozen dataclasses of plain values and prints and asks
 nothing. No function opens, commits or rolls back the session it is given: the
 command owns that scope and closes it before any Clockify write. A Clockify
 write and the record of it (a time entry's link, or an imported entry) use a
-record_scope() the function opens itself (DEVELOPMENT_STANDARDS §4.3).
+record_scope() the function opens itself (docs/standards/4-database.md §4.3).
 
 A call to Clockify that ends the whole operation and fails is raised as
 IntegrationError. A push or pull that fails for some entries returns a result
@@ -56,7 +56,7 @@ def _integration_error(e: requests.RequestException) -> IntegrationError:
 
 def _record_clockify_link(entry_id: int, clockify_id: str) -> None:
     """Record that a local time entry is in Clockify, in its own scope
-    (DEVELOPMENT_STANDARDS §4.3)."""
+    (docs/standards/4-database.md §4.3)."""
     with get_db().record_scope() as session:
         if TimeEntriesRepository(session).mark_as_synced(entry_id, clockify_id) is None:
             raise LookupError(f"time entry {entry_id} is not visible to the recording session")

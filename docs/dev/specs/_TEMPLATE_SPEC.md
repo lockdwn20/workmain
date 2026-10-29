@@ -10,9 +10,9 @@
 
 > Delete this block before use.
 >
-> **Filename:** subject-based, no version suffix, no date — `<SUBJECT>_SPEC.md`. Revisions edit this file in place; the Decision Log records what was decided and git records what changed. Citations never break because the filename never changes, and a pointer to this spec's own design study or results artifact is relative, so it survives the move to `docs/archive/` (`docs/DEVELOPMENT_STANDARDS.md` §1.5).
+> **Filename:** subject-based, no version suffix, no date — `<SUBJECT>_SPEC.md`. Revisions edit this file in place; the Decision Log records what was decided and git records what changed. Citations never break because the filename never changes, and a pointer to this spec's own design study or results artifact is relative, so it survives the move to `docs/archive/` (`docs/standards/1-workflow.md` §1.5).
 >
-> **Direct path** (`chore/*` — `docs/DEVELOPMENT_STANDARDS.md` §1.1): §2 Verified current state is omitted; quote the text being replaced inline in the step that replaces it. §6 Test plan may be omitted where the change touches no file under `tests/`, `automation/`, `workmain/`, `config/` or `templates/` — close-out runs the suites regardless. Every other section is required, and this stays one template.
+> **Direct path** (`chore/*` — `docs/standards/1-workflow.md` §1.1): §2 Verified current state is omitted; quote the text being replaced inline in the step that replaces it. §6 Test plan may be omitted where the change touches no file under `tests/`, `automation/`, `workmain/`, `config/` or `templates/` — close-out runs the suites regardless. Every other section is required, and this stays one template.
 >
 > This template is advisory. Template compliance is not a Caliper review criterion.
 
@@ -46,11 +46,11 @@ What exists today, verified against source at authoring time. Cite file and symb
 
 | Claim | Evidence (file:line, symbol) |
 | --- | --- |
-| Call sites of `<symbol>`, found by `grep -rn '<pattern>' --include='*.py' .` | every `file:line` the search returns that is confirmed a call site — `docs/DEVELOPMENT_STANDARDS.md` §1.2 |
+| Call sites of `<symbol>`, found by `grep -rn '<pattern>' --include='*.py' .` | every `file:line` the search returns that is confirmed a call site — `docs/standards/1-workflow.md` §1.2 |
 
 Anything not verified here is a guess, and an implementer will treat it as fact. If a claim was carried in from an earlier document rather than re-checked, say so.
 
-The call-sites row is required where this spec changes a signature, a required input or an invariant of something already called elsewhere — `docs/DEVELOPMENT_STANDARDS.md` §1.2.
+The call-sites row is required where this spec changes a signature, a required input or an invariant of something already called elsewhere — `docs/standards/1-workflow.md` §1.2.
 
 ## 3. Design rules
 
@@ -72,7 +72,7 @@ Each step ends with a commit. There is no approval stop between steps.
 
 ### Authorization points
 
-List any authorization points this spec contains — per `docs/DEVELOPMENT_STANDARDS.md` §1.4. State exactly what is about to happen and wait for Ray's explicit approval proceeding. If the spec contains none, say so explicitly.
+List any authorization points this spec contains — per `docs/standards/1-workflow.md` §1.4. State exactly what is about to happen and wait for Ray's explicit approval proceeding. If the spec contains none, say so explicitly.
 
 ## 5. Acceptance criteria
 
@@ -83,15 +83,15 @@ Sub-ACs are mapped to the originating issue's ACs via the number scheme, `ACn.m`
 | AC1.1 | | ex. `pytest tests/test_x.py::test_y` |
 | AC1.2 | | ex. `grep -rn "..." workmain/` returns zero hits |
 
-Semantic criteria is only applicable to document changes per `docs/DEVELOPMENT_STANDARDS.md` §1.2.
+Semantic criteria is only applicable to document changes per `docs/standards/1-workflow.md` §1.2.
 
-A criterion that verifies changed behaviour names the entry path it exercises — `docs/DEVELOPMENT_STANDARDS.md` §1.2 states what it owes where there is more than one.
+A criterion that verifies changed behaviour names the entry path it exercises — `docs/standards/1-workflow.md` §1.2 states what it owes where there is more than one.
 
 ## 6. Test plan
 
-- **Baseline before this work:** Derived from last CHANGELOG.md entry per `docs/DEVELOPMENT_STANDARDS.md` §6.
-- **Expected after:** <passed> passed, <failed> failed, <skipped> skipped — form per `docs/DEVELOPMENT_STANDARDS.md` §6.
-- Recommended test files or test file additions and what each covers. All tests per `docs/DEVELOPMENT_STANDARDS.md` §6
+- **Baseline before this work:** Derived from last CHANGELOG.md entry per `docs/standards/6-testing.md` §6.
+- **Expected after:** <passed> passed, <failed> failed, <skipped> skipped — form per `docs/standards/6-testing.md` §6.
+- Recommended test files or test file additions and what each covers. All tests per `docs/standards/6-testing.md` §6
 
 ## 7. Risks and rollback
 

@@ -8,6 +8,7 @@
 2. The originating issue named by the spec's `**Originating item:**` field: `gh issue view <N> --json number,title,body,labels,milestone,parent`
 3. The design study named by the spec's `**Design study:**` field, resolved relative to the spec. Skipped when the field reads `n/a`.
 4. Every source the spec cites — file, symbol, line, section or command — at the cited location.
+5. `docs/standards/README.md`, `docs/standards/1-workflow.md`, `docs/standards/2-git.md` and `docs/standards/3-code.md`, end to end.
 
 ## Emits
 
@@ -23,21 +24,21 @@ An amendment (§ Working rules) is a row of the same table: `| <YYYYMMDD> | Cali
 
 ## Post-implementation review
 
-Run when Ray requests it in this session after the results artifact exists — `docs/DEVELOPMENT_STANDARDS.md` §1.1 Implementation review. `<branch>` is the first backtick-quoted name in the spec's `**Branch:**` field. Every file is read from it with `git show <branch>:<path>`, never from the working tree, because the branch under review need not be the one checked out.
+Run when Ray requests it in this session after the results artifact exists — `docs/standards/1-workflow.md` §1.1 Implementation review. `<branch>` is the first backtick-quoted name in the spec's `**Branch:**` field. Every file is read from it with `git show <branch>:<path>`, never from the working tree, because the branch under review need not be the one checked out.
 
 ### Reads, in order
 
 1. The spec, end to end.
 2. The results artifact that names the spec in its `**Spec:**` field, found with `git grep -l '^\*\*Spec:\*\* .*<spec file name>' <branch> -- <results dir>`, where `<results dir>` is the `results/` directory beside the spec.
 3. The originating issue: `gh issue view <N> --json number,title,body,labels,milestone,parent`
-4. `git diff <base>..<branch>` and `git log --format='%h %s%n%b' <base>..<branch>`. `<base>` is `git merge-base <parent> <branch>`, and `<parent>` is the branch `docs/DEVELOPMENT_STANDARDS.md` §2.2 names for the branch type: `main` for `chore/*` and `hotfix/*`, `dev` for `feature/*`.
+4. `git diff <base>..<branch>` and `git log --format='%h %s%n%b' <base>..<branch>`. `<base>` is `git merge-base <parent> <branch>`, and `<parent>` is the branch `docs/standards/2-git.md` §2.2 names for the branch type: `main` for `chore/*` and `hotfix/*`, `dev` for `feature/*`.
 
 ### Checks
 
-- **I1** — A change in the diff that no spec step's deliverable or quoted text covers and no acceptance criterion requires. A change inside a file the step table names is traced only if a step covers that change; naming the file is not enough. Two kinds of change are not checked: the artifact set (the spec, the design study its `**Design study:**` field names, and the results artifact), and a commit `docs/DEVELOPMENT_STANDARDS.md` §2.2 defines as an operational change from live use.
+- **I1** — A change in the diff that no spec step's deliverable or quoted text covers and no acceptance criterion requires. A change inside a file the step table names is traced only if a step covers that change; naming the file is not enough. Two kinds of change are not checked: the artifact set (the spec, the design study its `**Design study:**` field names, and the results artifact), and a commit `docs/standards/2-git.md` §2.2 defines as an operational change from live use.
 - **I2** — A change a step covers that departs from the step's quoted text or deliverable, and that results §4 does not list.
 - **I3** — A results §4 row whose `Step stopped at` is `none` and whose `Resolved by` is `Awaiting Ray`.
-- **I4** — A results §3 row marked `Met` whose evidence does not exercise the property its criterion names (`docs/DEVELOPMENT_STANDARDS.md` §1.2). A row whose check names Ray is a finding when it is `Met` and its evidence is not in the form `docs/DEVELOPMENT_STANDARDS.md` §1.2 states for Ray's sign-off. Marked `Not met` with `Awaiting Ray`, it is not a finding.
+- **I4** — A results §3 row marked `Met` whose evidence does not exercise the property its criterion names (`docs/standards/1-workflow.md` §1.2). A row whose check names Ray is a finding when it is `Met` and its evidence is not in the form `docs/standards/1-workflow.md` §1.2 states for Ray's sign-off. Marked `Not met` with `Awaiting Ray`, it is not a finding.
 - **I5** — A results §4 row whose `Step stopped at` is `within approved meaning` and whose change altered the meaning, scope or file set Ray approved.
 
 ### Emits
@@ -48,7 +49,7 @@ The table § Emits states, with `Caliper (post-implementation)` in the Source co
 | <YYYYMMDD> | Caliper (post-implementation) | <check id>: <finding, with the evidence that grounds it> | |
 ```
 
-With no finding, the review emits one row, `| <YYYYMMDD> | Caliper (post-implementation) | No findings. | n/a |`, and nothing else. No other commentary. Every finding under I1, I2, I3 or I5 is an unstopped departure: a departure results §4 does not list has no stop on record. What happens to it is `docs/DEVELOPMENT_STANDARDS.md` §1.1 Implementation review, and the review does not propose an outcome.
+With no finding, the review emits one row, `| <YYYYMMDD> | Caliper (post-implementation) | No findings. | n/a |`, and nothing else. No other commentary. Every finding under I1, I2, I3 or I5 is an unstopped departure: a departure results §4 does not list has no stop on record. What happens to it is `docs/standards/1-workflow.md` §1.1 Implementation review, and the review does not propose an outcome.
 
 ## Working rules
 

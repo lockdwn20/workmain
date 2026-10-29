@@ -18,7 +18,7 @@ issue_validator = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(issue_validator)
 
 SCHEMA = issue_validator.load_schema(ROOT / ".github" / "ISSUE_TEMPLATE" / "issue.schema.json")
-LABEL_PAIR = issue_validator.parse_label_pair(ROOT / "docs" / "DEVELOPMENT_STANDARDS.md")
+LABEL_PAIR = issue_validator.parse_label_pair(ROOT / issue_validator.STANDARDS_RELATIVE_PATH)
 LIVE_LABELS = {"cli", "defect", "gap", "tests", "documentation"}
 LIVE_MILESTONES = {"Phase 14 — Setup Wizard & Configuration"}
 
@@ -108,7 +108,7 @@ class TestAC2:
 
     def test_the_live_standards_file_yields_exactly_the_label_pair(self):
         """A reflow of §1.3 that breaks this parse breaks every issue creation."""
-        tokens = issue_validator.parse_label_pair(ROOT / "docs" / "DEVELOPMENT_STANDARDS.md")
+        tokens = issue_validator.parse_label_pair(ROOT / issue_validator.STANDARDS_RELATIVE_PATH)
         assert tokens == ["defect", "gap"]
 
     def test_ac2_7_validation_is_total(self):

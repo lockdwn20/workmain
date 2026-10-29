@@ -36,7 +36,7 @@ ROOT = find_repo_root(Path(__file__))
 # Ordered, live root first. A set moves to the archive whole at close-out, so an
 # artifact is resolved from wherever it is and never judged for being there — a
 # lookup that treated the archive as wrong would fail the preflight of every
-# close-out that had already archived (`docs/DEVELOPMENT_STANDARDS.md` §1.5).
+# close-out that had already archived (`docs/standards/1-workflow.md` §1.5).
 SPEC_ROOTS = (Path("docs/dev/specs"), Path("docs/archive/specs"))
 
 _SPEC_BRANCH_FIELD_RE = re.compile(r"^\*\*Branch:\*\*\s*`([^`]+)`", re.MULTILINE)

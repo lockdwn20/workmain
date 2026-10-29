@@ -31,7 +31,7 @@ Stop, print the line below, and read nothing when any of these holds:
 
 - Read only the sources the role's reference names, in the order it names them. A source that cannot be read is reported as unreadable with its error; nothing is reconstructed in its place.
 - Emit only what those sources carry, in the shape the reference states, and end at the last item its Emits list names. No commentary, no recommendation the reference does not name, no closing summary.
-- Every rule, role definition and command another document owns is cited by its section of `CLAUDE.md` or `docs/DEVELOPMENT_STANDARDS.md`, never copied.
+- Every rule, role definition and command another document owns is cited by its section of `CLAUDE.md` or of a `docs/standards/` file, never copied.
 - The same arguments against the same repository and GitHub state produce the same output. That is what the skill is for: before it, every session opened with a different set of commands and closed with a different summary.
 
 ## Choosing the reference
@@ -80,10 +80,10 @@ Reviews every spec before implementation begins, against these criteria:
 3. Where is this spec under-specified such that an implementer would have to guess?
 4. What here is scope that wasn't in the originating item?
 5. For every boundary this spec crosses - function call, DB session, thread, transaction, schema change - what does each side assume about the other, and was that assumption checked against live source?
-6. Does this spec introduce a new path where an existing service, orchestrator, or workflow already covers the case, or write its own version of a mechanism `docs/DEVELOPMENT_STANDARDS.md` §3.8 says to use?
-7. Which acceptance criteria could be satisfied by a change that does not achieve what the criterion is for? — how a criterion is worded so that difference is visible: `docs/DEVELOPMENT_STANDARDS.md` §1.2.
+6. Does this spec introduce a new path where an existing service, orchestrator, or workflow already covers the case, or write its own version of a mechanism `docs/standards/3-code.md` §3.8 says to use?
+7. Which acceptance criteria could be satisfied by a change that does not achieve what the criterion is for? — how a criterion is worded so that difference is visible: `docs/standards/1-workflow.md` §1.2.
 
-After implementation, on Ray's request in the same session, reviews the delivered branch against the spec and its results artifact — `references/caliper.md` § Post-implementation review. When each review is required: `docs/DEVELOPMENT_STANDARDS.md` §1.2.
+After implementation, on Ray's request in the same session, reviews the delivered branch against the spec and its results artifact — `references/caliper.md` § Post-implementation review. When each review is required: `docs/standards/1-workflow.md` §1.2.
 
 Findings go BACK to Role 1, never forward. You do not implement.
 
@@ -93,7 +93,7 @@ Works from approved specs only. Read the full spec end to end, cross-check and v
 
 Receives work as § Spanner → Anvil handoff states. Every implementation owes the following, whether or not the spec repeats it:
 
-- a commit at the end of each step — `docs/DEVELOPMENT_STANDARDS.md` §1.4
+- a commit at the end of each step — `docs/standards/1-workflow.md` §1.4
 - the results artifact as the last implementation step, with test counts in the form §6 states and every check that names Ray left to him — §1.1 § What shows each stage done, §1.2
 - no merge, version bump or restart; those are close-out's — §1.1
 
@@ -104,8 +104,8 @@ If you encounter anything the spec doesn't cover, or that requires a design deci
 3. **Tell Ray** - he will bring it to Spanner
 4. **Do NOT self-resolve** - no scope adjustments, no in-flow architecture calls
 
-**Choosing the cheapest way to turn an acceptance criterion green is a design decision.** Where the least-effort way to satisfy a criterion and the way that achieves what it is for come apart, that is not an implementer's call — it is the case above, and it stops at 1 through 4. How a criterion is worded so the two are distinguishable: `docs/DEVELOPMENT_STANDARDS.md` §1.2.
+**Choosing the cheapest way to turn an acceptance criterion green is a design decision.** Where the least-effort way to satisfy a criterion and the way that achieves what it is for come apart, that is not an implementer's call — it is the case above, and it stops at 1 through 4. How a criterion is worded so the two are distinguishable: `docs/standards/1-workflow.md` §1.2.
 
 ### Spanner → Anvil handoff
 
-On the full path, Spanner hands an approved spec to Anvil as `/session-start Anvil <spec path>`, and nothing else. The spec is the whole instruction. Anything Anvil needs that the spec doesn't say is a defect in the spec, and it is fixed there, never carried in the prompt. A prompt that restates the spec is a second statement of it, and the two can disagree. The direct path has no handoff — `docs/DEVELOPMENT_STANDARDS.md` §1.1.
+On the full path, Spanner hands an approved spec to Anvil as `/session-start Anvil <spec path>`, and nothing else. The spec is the whole instruction. Anything Anvil needs that the spec doesn't say is a defect in the spec, and it is fixed there, never carried in the prompt. A prompt that restates the spec is a second statement of it, and the two can disagree. The direct path has no handoff — `docs/standards/1-workflow.md` §1.1.

@@ -68,7 +68,7 @@ def _configure_cli_logging() -> None:
 
     Python warnings are captured into the log too, so a library warning never
     reaches stderr, which a calling process reads as the command's own warning
-    (DEVELOPMENT_STANDARDS §5.6).
+    (docs/standards/5-cli.md §5.6).
 
     The level is the environment variable LOG_LEVEL. Unset, empty, unknown and
     NOTSET all give WARNING, so a bad value never stops a command and NOTSET
