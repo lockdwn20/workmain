@@ -85,10 +85,10 @@ On the direct path, Ray decides at the start whether Caliper reviews the spec, a
 
 | Q | Question | Answer |
 | --- | --- | --- |
-| Q1 | Does the rule that a `none` row is written only after Ray's ruling bind Role 1 on the direct path as well as Anvil (§4.2)? | |
-| Q2 | Does Caliper review this spec, and so also the delivered branch (§4.3)? | |
+| Q1 | Does the rule that a `none` row is written only after Ray's ruling bind Role 1 on the direct path as well as Anvil (§4.2)? | Answered 20261029 by Ray: yes, Option B. The rule binds Role 1 implementing its own direct-path spec. |
+| Q2 | Does Caliper review this spec, and so also the delivered branch (§4.3)? | Answered 20261029 by Ray: yes, Caliper reviews this spec. |
 
 ## 6. Disposition
 
-- Promoted to:
+- Promoted to: `../specs/ANVIL_DEPARTURE_STOP_SPEC.md`
 - Superseded by:
