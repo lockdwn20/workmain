@@ -5,11 +5,19 @@ transaction.
 """
 
 from __future__ import annotations
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
-from workmain.database.models import Client
+from workmain.database.models import (
+    Client,
+    Meeting,
+    Note,
+    Project,
+    Report,
+    ReportRecipient,
+    TimeEntry,
+)
 from workmain.database.repositories.system_state_repository import SystemStateRepository
 
 
@@ -91,6 +99,29 @@ class ClientRepository:
         self.session.delete(client)
         self.session.flush()
         return True
+
+    def count_linked_records(self, client_id: int) -> Dict[str, int]:
+        """Count the rows linked to a client, by table.
+
+        These are the rows a delete of the client unlinks: every foreign key
+        on clients is ON DELETE SET NULL.
+
+        Returns:
+            Counts keyed meetings, notes, projects, report_recipients, reports
+            and time_entries, in that order.
+        """
+        tables = (
+            ('meetings', Meeting),
+            ('notes', Note),
+            ('projects', Project),
+            ('report_recipients', ReportRecipient),
+            ('reports', Report),
+            ('time_entries', TimeEntry),
+        )
+        return {
+            key: self.session.query(model).filter(model.client_id == client_id).count()
+            for key, model in tables
+        }
 
     def update(self, client_id: int, **kwargs) -> Optional[Client]:
         """Update client fields. Accepted kwargs: name, slack_channel.

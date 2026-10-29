@@ -677,11 +677,19 @@ class TestWiring:
 
     def test_root_group_reports_an_unhandled_exception_from_an_unconverted_group(self):
         """W3"""
-        with patch(
-            "workmain.cli.commands.clients.ClientRepository",
-            side_effect=RuntimeError("boom"),
-        ):
-            result = CliRunner(mix_stderr=False).invoke(cli, ["clients", "list"])
+        @click.group(cls=WorkmAInGroup)
+        def root():
+            pass
+
+        @root.group()
+        def plain():
+            pass
+
+        @plain.command()
+        def boom():
+            raise RuntimeError("boom")
+
+        result = CliRunner(mix_stderr=False).invoke(root, ["plain", "boom"])
         assert result.exit_code == 1
         assert "Error: RuntimeError: boom" in result.stderr
         assert "Traceback" not in result.stderr

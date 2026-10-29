@@ -4,9 +4,19 @@ management, and validation guards.
 All tests use the db_session fixture for full transaction isolation.
 """
 
+from datetime import date, datetime
+
 import pytest
 
-from workmain.database.models import Client
+from workmain.database.models import (
+    Client,
+    Meeting,
+    Note,
+    Project,
+    Report,
+    ReportRecipient,
+    TimeEntry,
+)
 from workmain.database.repositories.client_repository import ClientRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
 
@@ -160,3 +170,62 @@ class TestClientRepositoryActiveContext:
         # Since the record is gone, it returns None
         result = repo.get_by_id(client.id)
         assert result is None
+
+
+class TestCountLinkedRecords:
+    """count_linked_records counts the rows a delete of the client unlinks."""
+
+    def test_r1_counts_each_linked_table(self, db_session):
+        """R1"""
+        repo = ClientRepository(db_session)
+        client = repo.create("_T204_R1")
+        other = repo.create("_T204_R1_Other")
+        day = date(2099, 1, 1)
+        stamp = datetime(2099, 1, 1, 9, 0)
+        db_session.add(Meeting(
+            title="_T204_", start_time=stamp, end_time=stamp, client_id=client.id,
+        ))
+        note = Note(content="_T204_", client_id=client.id)
+        db_session.add_all([note, Note(content="_T204_", client_id=client.id)])
+        db_session.add(Note(content="_T204_", client_id=other.id))
+        db_session.add(Project(name="_T204_", client_id=client.id))
+        db_session.add(ReportRecipient(
+            report_type="_T204_", recipient_type="_T204_", client_id=client.id,
+        ))
+        db_session.add(Report(
+            report_type="_T204_", report_date=day, content="_T204_", client_id=client.id,
+        ))
+        db_session.flush()
+        db_session.add(TimeEntry(
+            note_id=note.id, duration_hours=1, entry_date=day, client_id=client.id,
+        ))
+        db_session.flush()
+
+        counts = repo.count_linked_records(client.id)
+
+        assert counts == {
+            "meetings": 1,
+            "notes": 2,
+            "projects": 1,
+            "report_recipients": 1,
+            "reports": 1,
+            "time_entries": 1,
+        }
+        assert list(counts) == [
+            "meetings", "notes", "projects", "report_recipients", "reports", "time_entries",
+        ]
+
+    def test_r2_unlinked_client_counts_zero(self, db_session):
+        """R2"""
+        client = ClientRepository(db_session).create("_T204_R2")
+
+        counts = ClientRepository(db_session).count_linked_records(client.id)
+
+        assert counts == {
+            "meetings": 0,
+            "notes": 0,
+            "projects": 0,
+            "report_recipients": 0,
+            "reports": 0,
+            "time_entries": 0,
+        }
