@@ -89,7 +89,7 @@ The alternative is to skip rendering the preview under `--force`. Recommended: t
 
 | Q | Question | Answer |
 | --- | --- | --- |
-| Q1 | `clients show` and `delete` stop with suggestions where §5.4 requires the fuzzy picker, and `set active` takes no ID under an exception that only an archived spec records. Should this issue move targeting unchanged, with a new issue to bring it up to §5.4 (§4 Q1 Option A), or bring it up to §5.4 here (Option B)? Recommended: A. | Answered 20261029 (Ray): A. The new issue is drafted from §4 Q1 Option A, blocked by #204, and is opened on Ray's approval. |
+| Q1 | `clients show` and `delete` stop with suggestions where §5.4 requires the fuzzy picker, and `set active` takes no ID under an exception that only an archived spec records. Should this issue move targeting unchanged, with a new issue to bring it up to §5.4 (§4 Q1 Option A), or bring it up to §5.4 here (Option B)? Recommended: A. | Answered 20261029 (Ray): A. Its own issue, opened as #251, blocked by #204. |
 | Q2 | §5.6 does not say how `--force` meets the preview-confirm-apply pattern, and `clients delete` is the first converted command to need it. Should §5.6 say that a command with `--force` renders the preview and applies without asking (§4 Q2), or that it skips the preview too? Recommended: render the preview, then apply. | Answered 20261029 (Ray): the §4 Q2 wording, rendering the preview and applying without asking. |
 
 ## 6. Disposition
