@@ -9,7 +9,10 @@ TABLE_MAX_LINES lines, otherwise a list. Every value reaches Rich as Text,
 never as markup, so a value such as [#85019] prints as written. A ReportView
 names a result in parts (a title, totals and sections) and the renderer prints
 each section as a collection, then prints the result's warnings, if the view
-names a field for them, on stderr. WorkmAInGroup turns a service validation
+names a field for them, on stderr. A report whose view sets totals_when_empty
+prints its title and totals even when no section has rows, and report(...,
+dry_run=True) starts its first line with a dim [DRY RUN]. nothing_to_do()
+prints that a command found nothing to apply. WorkmAInGroup turns a service validation
 error or a stub command's NotImplementedError into a Click exception, so Click
 prints it and sets the exit code once. An IntegrationError (a call to another
 system failed) becomes a Click exception with exit code 3. The last branch does
@@ -98,7 +101,9 @@ class ReportView:
     The result has a `filters` attribute shaped as Page.filters. `totals_field`
     names the attribute holding the totals, and `totals` are the Fields read
     from it. `warnings_field` names the attribute holding the result's warnings,
-    a sequence of strings.
+    a sequence of strings. When `totals_when_empty` is set and no section has
+    rows, the renderer prints the title and the totals, not the empty line and
+    the hint.
     """
 
     noun: str
@@ -107,6 +112,7 @@ class ReportView:
     sections: Tuple[Section, ...]
     empty_hint: Optional[str] = None
     warnings_field: Optional[str] = None
+    totals_when_empty: bool = False
 
 
 def _format_value(value: Any) -> str:
@@ -118,6 +124,16 @@ def _format_value(value: Any) -> str:
     if isinstance(value, date):
         return value.strftime("%Y-%m-%d")
     return str(value)
+
+
+def _dry_run_lead(line: Text, dry_run: bool) -> Text:
+    """Prefix a line with a dim [DRY RUN] and a space when dry_run is set."""
+    if not dry_run:
+        return line
+    lead = Text("[DRY RUN]", style="dim")
+    lead.append(" ")
+    lead.append_text(line)
+    return lead
 
 
 def _cell(row: Any, field: str, fmt: Optional[Callable[[Any], str]]) -> str:
@@ -177,6 +193,9 @@ class Renderer:
     def cancelled(self) -> None:
         self._line(Text("Cancelled."))
 
+    def nothing_to_do(self) -> None:
+        self._line(Text("Nothing to do."))
+
     def warning(self, text: str, stderr: bool = False) -> None:
         line = Text("⚠", style="yellow")
         line.append(f" {text}")
@@ -191,11 +210,12 @@ class Renderer:
         noun: str,
         filters: Sequence[Tuple[str, object]],
         hint: Optional[str],
+        dry_run: bool = False,
     ) -> None:
         empty = f"No {noun} found"
         if filters:
             empty += f" ({_filter_text(filters)})"
-        self._line(Text(empty + "."))
+        self._line(_dry_run_lead(Text(empty + "."), dry_run))
         if hint:
             self._line(Text(hint, style="dim"))
 
@@ -310,29 +330,38 @@ class Renderer:
     # Records
     # ------------------------------------------------------------------
 
-    def report(self, view: ReportView, result: Any, quiet: bool = False) -> None:
+    def report(
+        self,
+        view: ReportView,
+        result: Any,
+        quiet: bool = False,
+        dry_run: bool = False,
+    ) -> None:
         """Print a result in parts: a title, the totals, then each section with rows.
+
+        With dry_run, the first line printed on stdout starts with a dim
+        [DRY RUN] and a space.
 
         The result's warnings, when the view names a field for them, follow on
         stderr whether or not any section has rows. With quiet, they are all
         that is printed.
         """
         if not quiet:
-            self._report_body(view, result)
+            self._report_body(view, result, dry_run)
         if view.warnings_field:
             for text in getattr(result, view.warnings_field):
                 self.warning(text, stderr=True)
 
-    def _report_body(self, view: ReportView, result: Any) -> None:
+    def _report_body(self, view: ReportView, result: Any, dry_run: bool = False) -> None:
         pages = [(s, getattr(result, s.field)) for s in view.sections]
-        if not any(page.rows for _, page in pages):
-            self._empty(view.noun, result.filters, view.empty_hint)
+        if not any(page.rows for _, page in pages) and not view.totals_when_empty:
+            self._empty(view.noun, result.filters, view.empty_hint, dry_run)
             return
 
         title = view.noun[:1].upper() + view.noun[1:]
         if result.filters:
             title += f" ({_filter_text(result.filters)})"
-        self._line(Text(title))
+        self._line(_dry_run_lead(Text(title), dry_run))
 
         totals = getattr(result, view.totals_field)
         width = max(len(f.label) for f in view.totals) + 2

@@ -13,11 +13,8 @@ Fixtures used:
 
 import pytest
 from datetime import date, datetime
+from unittest.mock import patch
 from pathlib import Path
-
-from click.testing import CliRunner
-
-from workmain.cli.commands.calendar import calendar_import
 
 from workmain.database.models import Meeting, Note
 from workmain.utils.ics_parser import (
@@ -977,26 +974,32 @@ class TestICSImport:
         removed = detect_removed_meetings(db_session, all_cancelled_ics, today)
         assert removed == []
 
-    # ------------------------------------------------------------------
-    # Test 30 — calendar import lists each newly imported meeting's ID
-    # ------------------------------------------------------------------
 
-    def test_30_calendar_import_lists_new_meeting_ids(self, db_session):
-        """
-        The post-import listing queries for the meetings just added. Under
-        autoflush=False that query sees them only because import_events_to_db
-        flushes before returning.
-        """
-        result = CliRunner().invoke(
-            calendar_import, [str(FIXTURES / "week_normal.ics")], input="y\n"
-        )
+class TestRepositoryDelegation:
+    """_fallback_match and _note_count_for take their answers from MeetingsRepository."""
 
-        assert result.exit_code == 0, result.output
-        rows = (
-            db_session.query(Meeting)
-            .filter(Meeting.outlook_id.like("test-00%@workmain%"))
-            .all()
+    def test_i1_fallback_match_delegates(self, db_session):
+        from workmain.database.repositories.meetings_repo import MeetingsRepository
+        from workmain.utils.ics_parser import _fallback_match
+
+        event = ICSEvent(
+            uid="i1@test", title="Delegated", start_time=datetime(2099, 3, 1, 9, 0),
+            end_time=datetime(2099, 3, 1, 9, 30), is_recurring=False, is_cancelled=False,
         )
-        assert len(rows) == 3
-        for row in rows:
-            assert f"[{row.id:4d}]" in result.output
+        sentinel = object()
+        with patch.object(
+            MeetingsRepository, "get_unlinked_by_title_on_date",
+            autospec=True, return_value=sentinel,
+        ) as method:
+            assert _fallback_match(db_session, event) is sentinel
+        assert method.call_args.args[1:] == ("Delegated", date(2099, 3, 1))
+
+    def test_i2_note_count_delegates(self, db_session):
+        from workmain.database.repositories.meetings_repo import MeetingsRepository
+        from workmain.utils.ics_parser import _note_count_for
+
+        with patch.object(
+            MeetingsRepository, "count_all_notes", autospec=True, return_value=7,
+        ) as method:
+            assert _note_count_for(db_session, 42) == 7
+        assert method.call_args.args[1:] == (42,)

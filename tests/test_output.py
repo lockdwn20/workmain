@@ -401,6 +401,54 @@ class TestReport:
         assert out.getvalue() == ""
         assert err.getvalue() == "⚠ one warn\n"
 
+    def test_o1_totals_when_empty_with_no_sections(self):
+        view = ReportView(
+            "status", "totals", (Field("calls", "Calls"), Field("cost", "Cost")),
+            (), totals_when_empty=True,
+        )
+        r, out, _ = _renderer(80)
+        r.report(view, _result(filters=()))
+        assert _lines(out) == ["Status", "Calls: 1703685", "Cost:  0.5", ""]
+        assert "found" not in out.getvalue()
+
+    def test_o2_totals_when_empty_with_an_empty_section(self):
+        on = ReportView(
+            REPORT.noun, REPORT.totals_field, REPORT.totals, REPORT.sections,
+            empty_hint=REPORT.empty_hint, totals_when_empty=True,
+        )
+        r, out, _ = _renderer(120)
+        r.report(on, _result(first=0, second=0))
+        lines = _lines(out)
+        assert lines[:4] == [
+            "AI costs (provider=claude)",
+            "Total Calls: 1,703,685",
+            "Thinking:    n/a",
+            "Cost:        $0.50",
+        ]
+        assert "Firsts" not in out.getvalue() and "Do something" not in out.getvalue()
+        r2, out2, _ = _renderer(120)
+        r2.report(REPORT, _result(first=0, second=0))
+        assert _lines(out2)[0] == "No AI costs found (provider=claude)."
+
+    @pytest.mark.parametrize("case", ["rows", "empty_totals", "empty_plain"])
+    @pytest.mark.parametrize("dry_run", [True, False])
+    def test_o3_dry_run_prefixes_the_first_line(self, case, dry_run):
+        if case == "rows":
+            view, result, first = REPORT, _result(), "AI costs (provider=claude)"
+        elif case == "empty_totals":
+            view = ReportView(
+                REPORT.noun, REPORT.totals_field, REPORT.totals, REPORT.sections,
+                totals_when_empty=True,
+            )
+            result, first = _result(first=0, second=0), "AI costs (provider=claude)"
+        else:
+            view, result = REPORT, _result(first=0, second=0)
+            first = "No AI costs found (provider=claude)."
+        r, out, _ = _renderer(120)
+        r.report(view, result, dry_run=dry_run)
+        expected = f"[DRY RUN] {first}" if dry_run else first
+        assert _lines(out)[0] == expected
+
 
 class TestRecord:
     def test_empty_fields_are_left_out_and_zero_and_false_print(self):
@@ -489,6 +537,11 @@ class TestLines:
         r.warning("w", stderr=True)
         assert "⚠ w" in err.getvalue()
         assert "⚠" not in out.getvalue()
+
+    def test_o4_nothing_to_do_is_one_line_at_width_20(self):
+        r, out, _ = _renderer(20)
+        r.nothing_to_do()
+        assert _lines(out) == ["Nothing to do.", ""]
 
 
 class TestWiring:

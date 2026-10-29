@@ -4,7 +4,7 @@ Handles all CRUD operations for the meetings table.
 """
 
 from datetime import datetime, date, time
-from typing import List, Optional, Tuple
+from typing import List, Optional, Sequence, Tuple
 from difflib import SequenceMatcher
 
 from sqlalchemy import func, and_, or_
@@ -398,6 +398,133 @@ class MeetingsRepository:
             query = query.filter(Note.created_date == meeting_date)
         return query.count()
     
+    def count_all_notes(self, meeting_id: int) -> int:
+        """
+        Get count of every note attached to a meeting.
+
+        Unlike get_note_count, this leaves out nothing: condensed and
+        info-only notes are counted.
+
+        Args:
+            meeting_id: Meeting ID
+
+        Returns:
+            Number of notes whose meeting_id is the meeting's
+        """
+        return (
+            self.session.query(func.count(Note.id))
+            .filter(Note.meeting_id == meeting_id)
+            .scalar()
+        ) or 0
+
+    def get_outlook_import_stats(self) -> Tuple[int, Optional[datetime]]:
+        """
+        Get the Outlook-sourced meetings' count and latest creation time.
+
+        Returns:
+            (count of meetings with an outlook_id, latest created_at among
+            them or None)
+        """
+        count = (
+            self.session.query(func.count(Meeting.id))
+            .filter(Meeting.outlook_id.isnot(None))
+            .scalar()
+        ) or 0
+        latest = (
+            self.session.query(func.max(Meeting.created_at))
+            .filter(Meeting.outlook_id.isnot(None))
+            .scalar()
+        )
+        return count, latest
+
+    def get_outlook_between(self, start: datetime, end: datetime) -> List[Meeting]:
+        """
+        Get Outlook-sourced meetings starting in a window, cancelled included.
+
+        Args:
+            start: Window start (inclusive)
+            end: Window end (exclusive)
+
+        Returns:
+            Meetings with an outlook_id and start <= start_time < end,
+            ordered by start_time
+        """
+        return (
+            self.session.query(Meeting)
+            .filter(
+                Meeting.outlook_id.isnot(None),
+                Meeting.start_time >= start,
+                Meeting.start_time < end,
+            )
+            .order_by(Meeting.start_time)
+            .all()
+        )
+
+    def get_by_outlook_id(self, outlook_id: str) -> Optional[Meeting]:
+        """
+        Get the first meeting with an Outlook ID.
+
+        Args:
+            outlook_id: ICS UID stored as outlook_id
+
+        Returns:
+            Meeting or None
+        """
+        return (
+            self.session.query(Meeting)
+            .filter(Meeting.outlook_id == outlook_id)
+            .first()
+        )
+
+    def get_by_outlook_ids(self, outlook_ids: Sequence[str]) -> List[Meeting]:
+        """
+        Get the meetings whose Outlook ID is in a set.
+
+        Args:
+            outlook_ids: ICS UIDs stored as outlook_id
+
+        Returns:
+            Meetings ordered by start_time; [] for an empty set, without a query
+        """
+        if not outlook_ids:
+            return []
+        return (
+            self.session.query(Meeting)
+            .filter(Meeting.outlook_id.in_(list(outlook_ids)))
+            .order_by(Meeting.start_time)
+            .all()
+        )
+
+    def get_unlinked_by_title_on_date(
+        self,
+        title: str,
+        on_date: date
+    ) -> Optional[Meeting]:
+        """
+        Get the meeting an ICS event would be linked to by title and date.
+
+        Matches title case-insensitively on the calendar date, restricted to
+        meetings with outlook_id IS NULL (manually-created meetings only).
+        If several match, returns the most recent by start_time then id.
+
+        Args:
+            title: Event title
+            on_date: Event calendar date
+
+        Returns:
+            Matching Meeting or None
+        """
+        return (
+            self.session.query(Meeting)
+            .filter(
+                Meeting.outlook_id.is_(None),
+                func.lower(Meeting.title) == title.lower(),
+                func.date(Meeting.start_time) == on_date,
+            )
+            .order_by(Meeting.start_time.desc(), Meeting.id.desc())
+            .first()
+        )
+
     def get_series_note_count(self, outlook_recurring_id: str) -> int:
         """
         Get total user-authored notes across all occurrences of a recurring series.
