@@ -54,7 +54,7 @@ The call-sites row is required where this spec changes a signature, a required i
 
 ## 3. Design rules
 
-Numbered invariants the implementation must hold to. A case a design rule decides is covered by this spec. A case none decides is not: Anvil stops on it (`.claude/skills/session-start/SKILL.md` § Role 3), and Role 1, implementing a direct-path spec, stops on it when it changes meaning, scope or file set (`.claude/skills/session-start/references/spanner.md` § Working rules).
+Numbered invariants the implementation must hold to. A step that cannot hold a design rule, and a case no design rule decides, are departures: Anvil stops on them (`.claude/skills/session-start/SKILL.md` § Role 3), and Role 1, implementing a direct-path spec, stops on them when they change meaning, scope or file set (`.claude/skills/session-start/references/spanner.md` § Working rules).
 
 - **DR1 —**
 - **DR2 —**
@@ -63,7 +63,7 @@ State explicitly what an implementer should do when they hit something not cover
 
 ## 4. Steps
 
-Each step ends with a commit. There is no approval stop between steps.
+Each step ends with a commit. There is no approval stop between steps, except a departure. Anvil stops on every departure before the step's commit (`.claude/skills/session-start/SKILL.md` § Role 3). Role 1, on its own direct-path spec, stops on one that changes the meaning, scope or file set Ray approved (`.claude/skills/session-start/references/spanner.md` § Working rules).
 
 | Step | Deliverable | Files |
 | --- | --- | --- |
