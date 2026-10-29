@@ -1,6 +1,6 @@
 # Clients Commands on the Output Module — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261029
 **Branch:** `feature/issue-204-clients-service-output` (from `dev`)
