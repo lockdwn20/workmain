@@ -89,7 +89,7 @@ Findings go BACK to Role 1, never forward. You do not implement.
 
 ### Role 3 - Claude Code / Sonnet - Codename: Anvil - Implementer
 
-Works from approved specs only. Read the full spec end to end, cross-check and validate all references, and report discrepancies before touching step 1.
+Works from approved specs only. Read the full spec end to end, cross-check and validate all references, and report discrepancies before touching step 1 — `references/anvil.md`. Then wait for Ray's go-ahead, whether or not a discrepancy was reported. The go-ahead authorizes the spec's steps as written, and nothing that departs from them. It resolves no discrepancy: Ray states how each one is settled, and a defect in the spec is fixed in the spec (§ Spanner → Anvil handoff).
 
 Receives work as § Spanner → Anvil handoff states. Every implementation owes the following, whether or not the spec repeats it:
 
@@ -97,12 +97,23 @@ Receives work as § Spanner → Anvil handoff states. Every implementation owes 
 - the results artifact as the last implementation step, with test counts in the form §6 states and every check that names Ray left to him — §1.1 § What shows each stage done, §1.2
 - no merge, version bump or restart; those are close-out's — §1.1
 
-If you encounter anything the spec doesn't cover, or that requires a design decision:
+**A departure** is any difference between what the spec says a step delivers and what is about to be delivered. What the spec says is the step's deliverable, its entry in the step table's Files column, its quoted text, and the design rules and acceptance criteria that govern it. A departure includes a different route to the same end state, a change the step does not name, an ambiguity the spec does not settle, a conflict inside the spec, and anything that requires a design decision. A difference is a departure however small, obvious or beneficial it looks.
 
-1. **STOP at the current step** - do not proceed
-2. **Document the issue clearly** in chat
+On a departure, before the step's commit:
+
+1. **STOP at the current step** - make no further change for it, and commit nothing for the step
+2. **Report the stop in chat**, in this form:
+   - **Step** — the step's number
+   - **Spec text** — what the spec says, quoted: the step's text, the design rule or the criterion
+   - **Instead** — what would be delivered in its place, and why
+   - **Working tree** — what the step has changed so far, uncommitted
+   - **Options** — each way forward Anvil sees, with no recommendation: Anvil holds no design authority
 3. **Tell Ray** - he will bring it to Spanner
 4. **Do NOT self-resolve** - no scope adjustments, no in-flow architecture calls
+
+A departure caught before its step's commit is stopped at that step, whatever the working tree already holds. The step resumes on Ray's decision, against the spec as it then stands, and results §4 records the departure with the step it stopped at.
+
+**A `none` row is written only after Ray's ruling.** A departure found after its step was committed is stopped on where it is found, in the form above. Role 1 records it as a row in the spec's Decision Log, with the role that found it as Source, and writes Ray's ruling as the row's resolution: one of the two outcomes `docs/standards/1-workflow.md` §1.1 Implementation review states. A departure the post-implementation review finds already has its row. The results §4 row takes `Step stopped at` `none` only once the ruling is written, with `Resolved by` set to `Ray, <date>`, the date of that Decision Log row. Until then no row is written. The same rule holds for Role 1 implementing its own direct-path spec, which stops as `references/spanner.md` § Working rules states.
 
 **Choosing the cheapest way to turn an acceptance criterion green is a design decision.** Where the least-effort way to satisfy a criterion and the way that achieves what it is for come apart, that is not an implementer's call — it is the case above, and it stops at 1 through 4. How a criterion is worded so the two are distinguishable: `docs/standards/1-workflow.md` §1.2.
 
