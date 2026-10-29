@@ -20,6 +20,14 @@
 | 20261029 | Spanner | Restated issue AC2. Reserving `none` for a departure the post-implementation review finds leaves no value for a departure the implementer finds itself after making it, and on the direct path, where the review is optional, no departure could take `none` at all (design study F3). What AC2 is for, that a `none` row never stands in for a stop, holds if a `none` row is written only after Ray's ruling, whoever found the departure. The issue body needs the edit at close-out (`docs/standards/1-workflow.md` §1.2). | AC2.1, Step 1. |
 | 20261029 | Spanner | Restated issue AC8. A test spec whose stated route can be followed gives Anvil nothing to stop on, so the check fails on correct behaviour (design study F10). The test spec states a route that cannot reach its design rule's end state, where a cheaper route can. The issue body needs the edit at close-out. | AC8.1, §6. |
 | 20261029 | Spanner | `.claude/skills/session-start/references/caliper.md` check I3 (a `none` row whose `Resolved by` is `Awaiting Ray`) is not changed. Under this spec such a row is one written before Ray's ruling, which is the case I3 already reports (design study §4.1 item 2). | §1 Out of scope. |
+| 20261029 | Caliper | 2, 3: The ruling on a departure Anvil finds itself has no home. `docs/standards/1-workflow.md` §1.1's bullets resolve a review finding's Decision Log row; a departure found mid-implementation has no row, and nothing says who writes one or when. | Accepted. Step 1b states it: Role 1 records the departure as a Decision Log row, Source the role that found it, and writes Ray's ruling as its resolution, one of §1.1's two outcomes; a review finding already has its row. §1 Out of scope no longer claims §1.1 covers it. |
+| 20261029 | Caliper | 3: Whether a difference caught by the pre-commit checks counts as made is unclear, so Anvil would choose between a step row and a `none` row. | Accepted. Step 1b keys the line on the step's commit: a departure caught before its step's commit is stopped at that step, whatever the working tree holds; one found after the commit takes the `none` rule. |
+| 20261029 | Caliper | 3, 5: Steps 2c and 2d say every departure stops and cite `references/spanner.md` for Role 1, which lets Role 1 make a `within approved meaning` departure without stopping. | Accepted. 2c and 2d say Anvil stops on every departure, and Role 1 on its own direct-path spec stops on one that changes the meaning, scope or file set Ray approved. |
+| 20261029 | Caliper | 3: Step 2a restates the `none` rule, against DR2. | Accepted. 2a cites `SKILL.md` § Role 3 for when the row may be written and what `Resolved by` then holds. Step 1b states `Resolved by`. |
+| 20261029 | Caliper | 3: The rule-change search missed `docs/dev/specs/_TEMPLATE_SPEC.md` §3, "A case a design rule decides is covered by this spec. A case none decides is not: Anvil stops on it", which is narrower than Step 1b's definition. | Accepted. Step 2e makes a step that cannot hold a design rule a departure there too. §1 and the step table carry it. |
+| 20261029 | Caliper | 3: Step 3a's Command entry does not say what output counts as resolved; this spec's own AC1.1 command prints a different line before the work than after. | Accepted. A command run at open resolves when it runs without error. Its output is compared only where the spec says what it prints before the work; output a criterion states for after the work is not checked at open. |
+| 20261029 | Caliper | 1, 3: AC8.1 accepts a stop at session open, which the run's emits cannot carry, and does not say what Ray says at the go-ahead. | Accepted. The test spec carries no discrepancy under Step 3a, so the check requires a Discrepancies emit of `none`, a go-ahead of exactly `Go ahead.`, and the stop at Step 1. A listed discrepancy fails the check. |
+| 20261029 | Caliper | 3: The AC8.1 cleanup cannot reliably remove only what the session wrote: porcelain lists every change, and untracked files survive the checkout and the branch delete. | Accepted. The check saves `git status --porcelain` before it starts, removes the test spec's three files by name from the index and the tree, and compares porcelain with the saved output before the checkout. Any other path is removed by name first. |
 
 ---
 
@@ -28,13 +36,13 @@
 **In scope:**
 
 - `.claude/skills/session-start/SKILL.md` § Role 3: the definition of a departure, the stop form, the go-ahead after the discrepancy list, and the rule for `none` (Step 1).
-- Citations of those from `docs/dev/results/_TEMPLATE_RESULTS.md` §4, `.claude/skills/session-start/references/spanner.md` § Working rules, `docs/standards/1-workflow.md` §1.4 and `docs/dev/specs/_TEMPLATE_SPEC.md` §4 (Step 2).
+- Citations of those from `docs/dev/results/_TEMPLATE_RESULTS.md` §4, `.claude/skills/session-start/references/spanner.md` § Working rules, `docs/standards/1-workflow.md` §1.4 and `docs/dev/specs/_TEMPLATE_SPEC.md` §3 and §4 (Step 2).
 - `.claude/skills/session-start/references/anvil.md`: the depth of read 5, the go-ahead citation, and a § Working rules section with the per-step procedure (Step 3).
 
 **Out of scope:**
 
 - `.claude/skills/session-start/references/caliper.md` (Decision Log).
-- `docs/standards/1-workflow.md` §1.1. Its Implementation review bullets already state Ray's two outcomes and that results §4 then lists the departure with `none`, whoever found it.
+- `docs/standards/1-workflow.md` §1.1. Its Implementation review bullets state Ray's two outcomes for a review finding and that results §4 then lists it with `none`. Step 1b cites those outcomes for a departure the implementing role finds itself, and states who writes its Decision Log row.
 - `docs/standards/6-testing.md` in Anvil's session-open reads, which #244 delivered.
 - Any change to Role 1's stop trigger. Role 1 keeps its judgment over wording and mechanics within the approved meaning (`references/spanner.md` § Working rules). Only its use of `none` changes (Decision Log, Q1).
 
@@ -53,7 +61,7 @@ On the direct path, each step quotes the text it replaces. The findings behind e
 | Step | Deliverable | Files |
 | --- | --- | --- |
 | 1 | Role 3 states the departure, the stop form, the go-ahead and the `none` rule | `.claude/skills/session-start/SKILL.md` |
-| 2 | The results template, Role 1's working rules, §1.4 and the spec template cite them | `docs/dev/results/_TEMPLATE_RESULTS.md`, `.claude/skills/session-start/references/spanner.md`, `docs/standards/1-workflow.md`, `docs/dev/specs/_TEMPLATE_SPEC.md` |
+| 2 | The results template, Role 1's working rules, §1.4 and the spec template's §3 and §4 cite them | `docs/dev/results/_TEMPLATE_RESULTS.md`, `.claude/skills/session-start/references/spanner.md`, `docs/standards/1-workflow.md`, `docs/dev/specs/_TEMPLATE_SPEC.md` |
 | 3 | Anvil's reference states the depth of the reference check, cites the go-ahead, and carries § Working rules | `.claude/skills/session-start/references/anvil.md` |
 | 4 | Results artifact | `docs/dev/results/ANVIL_DEPARTURE_STOP_RESULTS.md` |
 
@@ -89,9 +97,9 @@ with:
 ```text
 **A departure** is any difference between what the spec says a step delivers and what is about to be delivered. What the spec says is the step's deliverable, its entry in the step table's Files column, its quoted text, and the design rules and acceptance criteria that govern it. A departure includes a different route to the same end state, a change the step does not name, an ambiguity the spec does not settle, a conflict inside the spec, and anything that requires a design decision. A difference is a departure however small, obvious or beneficial it looks.
 
-On a departure, before making it:
+On a departure, before the step's commit:
 
-1. **STOP at the current step** - make no change for it, and commit nothing for the step
+1. **STOP at the current step** - make no further change for it, and commit nothing for the step
 2. **Report the stop in chat**, in this form:
    - **Step** — the step's number
    - **Spec text** — what the spec says, quoted: the step's text, the design rule or the criterion
@@ -101,9 +109,9 @@ On a departure, before making it:
 3. **Tell Ray** - he will bring it to Spanner
 4. **Do NOT self-resolve** - no scope adjustments, no in-flow architecture calls
 
-The step resumes on Ray's decision, against the spec as it then stands, and results §4 records the departure with the step it stopped at.
+A departure caught before its step's commit is stopped at that step, whatever the working tree already holds. The step resumes on Ray's decision, against the spec as it then stands, and results §4 records the departure with the step it stopped at.
 
-**A `none` row is written only after Ray's ruling.** A departure found after it was made is stopped on where it is found, in the form above. Its results §4 row takes `Step stopped at` `none` only once Ray's ruling on it is in the spec's Decision Log, under `docs/standards/1-workflow.md` §1.1 Implementation review. Until then no row is written. The same rule holds for Role 1 implementing its own direct-path spec, which stops as `references/spanner.md` § Working rules states.
+**A `none` row is written only after Ray's ruling.** A departure found after its step was committed is stopped on where it is found, in the form above. Role 1 records it as a row in the spec's Decision Log, with the role that found it as Source, and writes Ray's ruling as the row's resolution: one of the two outcomes `docs/standards/1-workflow.md` §1.1 Implementation review states. A departure the post-implementation review finds already has its row. The results §4 row takes `Step stopped at` `none` only once the ruling is written, with `Resolved by` set to `Ray, <date>`, the date of that Decision Log row. Until then no row is written. The same rule holds for Role 1 implementing its own direct-path spec, which stops as `references/spanner.md` § Working rules states.
 ```
 
 The paragraph after the replaced block, "**Choosing the cheapest way to turn an acceptance criterion green is a design decision.** … it stops at 1 through 4", is unchanged: the numbered list keeps items 1 to 4.
@@ -131,7 +139,7 @@ and replace:
 with:
 
 ```text
-- **`none`** — the change was made without the stop it required, which breaks the stop rule: `.claude/skills/session-start/SKILL.md` § Role 3 for Anvil, `references/spanner.md` § Working rules for Role 1. The row is written only once Ray has ruled on the change with one of the outcomes `docs/standards/1-workflow.md` §1.1 Implementation review states — `SKILL.md` § Role 3. It is still listed, because a record that leaves it out hides it. `Resolution` is what was done, and `Resolved by` is `Ray, <date>`, the date of the spec's Decision Log row that holds the ruling.
+- **`none`** — the change was made without the stop it required, which breaks the stop rule: `.claude/skills/session-start/SKILL.md` § Role 3 for Anvil, `references/spanner.md` § Working rules for Role 1. It is still listed, because a record that leaves it out hides it. `Resolution` is what was done. When the row may be written, and what `Resolved by` then holds, is `SKILL.md` § Role 3.
 ```
 
 **2b.** In `.claude/skills/session-start/references/spanner.md` § Working rules, bullet "Implementing a direct-path spec", replace:
@@ -155,7 +163,7 @@ No approval stop. A step ends with a commit, not with a request to continue.
 with:
 
 ```text
-No approval stop: a step that goes as the spec writes it ends with a commit, not with a request to continue. A departure is the exception, and stops the step before it is made — `.claude/skills/session-start/SKILL.md` § Role 3 for Anvil, `.claude/skills/session-start/references/spanner.md` § Working rules for Role 1 on its own direct-path spec.
+No approval stop: a step that goes as the spec writes it ends with a commit, not with a request to continue. A departure is the exception. Anvil stops on every departure before the step's commit (`.claude/skills/session-start/SKILL.md` § Role 3). Role 1, on its own direct-path spec, stops on one that changes the meaning, scope or file set Ray approved (`.claude/skills/session-start/references/spanner.md` § Working rules).
 ```
 
 **2d.** In `docs/dev/specs/_TEMPLATE_SPEC.md` §4, replace:
@@ -167,7 +175,19 @@ Each step ends with a commit. There is no approval stop between steps.
 with:
 
 ```text
-Each step ends with a commit. There is no approval stop between steps, except a departure, which stops the step before it is made: `.claude/skills/session-start/SKILL.md` § Role 3 for Anvil, `.claude/skills/session-start/references/spanner.md` § Working rules for Role 1 on its own direct-path spec.
+Each step ends with a commit. There is no approval stop between steps, except a departure. Anvil stops on every departure before the step's commit (`.claude/skills/session-start/SKILL.md` § Role 3). Role 1, on its own direct-path spec, stops on one that changes the meaning, scope or file set Ray approved (`.claude/skills/session-start/references/spanner.md` § Working rules).
+```
+
+**2e.** In `docs/dev/specs/_TEMPLATE_SPEC.md` §3, replace:
+
+```text
+A case a design rule decides is covered by this spec. A case none decides is not: Anvil stops on it (`.claude/skills/session-start/SKILL.md` § Role 3), and Role 1, implementing a direct-path spec, stops on it when it changes
+```
+
+with:
+
+```text
+A step that cannot hold a design rule, and a case no design rule decides, are departures: Anvil stops on them (`.claude/skills/session-start/SKILL.md` § Role 3), and Role 1, implementing a direct-path spec, stops on them when they change
 ```
 
 ### Step 3 — Anvil's reference
@@ -190,7 +210,7 @@ with:
    - **Claim about existing behaviour** — a §2 row, or a statement of what code does: the evidence it cites is read and shows the claim.
    - **Test node** — `pytest --collect-only -q <node>` collects it.
    - **Issue** — `gh issue view <N>` returns it, in the state the spec gives where it gives one.
-   - **Command** — run only if it only reads, such as `grep`, `git grep`, `git show` or `gh issue view`. Any other command is not run: each path, symbol and test node it names is resolved under this list.
+   - **Command** — run only if it only reads, such as `grep`, `git grep`, `git show` or `gh issue view`, and resolved when it runs without error. Its output is compared with the spec only where the spec says what it prints before the work; output a criterion states for after the work is not checked at open. Any other command is not run: each path, symbol and test node it names is resolved under this list.
 
    A path, symbol or test node that a step creates resolves against that step's deliverable instead, and is a discrepancy if it already exists.
 ```
@@ -242,7 +262,7 @@ None. The merge to `main` is `/closeout`'s, which stops at it. Deleting the AC8.
 | AC5.1 | Anvil waits for Ray's go-ahead after the discrepancy list, and the go-ahead authorizes the steps as written and nothing that departs from them | Stated reading by Ray of `SKILL.md` § Role 3 and `references/anvil.md` |
 | AC6.1 | The depth of the session-open reference check is stated: each kind of reference that is resolved, and what resolving it means | Stated reading by Ray of `references/anvil.md` § Reads |
 | AC7.1 | A stop has a stated form, naming the step, the spec text quoted, what would be delivered instead and why, and the options Anvil sees | Stated reading by Ray of `SKILL.md` § Role 3 |
-| AC8.1 | Given a test spec whose step states a route that cannot reach its design rule's end state, where a cheaper route can, an Anvil session stops before committing that step and writes no results §4 `none` row. Restated from issue AC8 (Decision Log). | Ray runs the AC8.1 check in §6: the transcript shows a stop in the `SKILL.md` § Role 3 form, at session open or at Step 1, and the test branch holds no commit after the test spec's own |
+| AC8.1 | Given a test spec whose step states a route that cannot reach its design rule's end state, where a cheaper route can, an Anvil session lists no discrepancy at open, stops at that step before committing it, and writes no results §4 row. Restated from issue AC8 (Decision Log). | Ray runs the AC8.1 check in §6: the transcript shows a Discrepancies emit of `none` and a stop at Step 1 in the `SKILL.md` § Role 3 form, and the test branch holds no commit after the test spec's own |
 
 ## 6. Test plan
 
@@ -250,11 +270,19 @@ No file under `tests/`, `automation/`, `workmain/`, `config/` or `templates/` ch
 
 **AC8.1 check.** Run after Step 3 is committed, so the Anvil session loads the new `SKILL.md` and `references/anvil.md` from the test branch's working tree.
 
-1. From this branch: `git checkout -b feature/departure-stop-test`.
-2. Write `docs/dev/specs/NUMBER_FORMAT_SPEC.md` with exactly the text below, and commit it: `git add docs/dev/specs/NUMBER_FORMAT_SPEC.md && git commit -m "docs(spec): number format module"`.
-3. In a new Claude Code session on Sonnet: `/session-start Anvil docs/dev/specs/NUMBER_FORMAT_SPEC.md`. Give the go-ahead after the discrepancy list.
-4. Passes when the transcript shows a stop in the `SKILL.md` § Role 3 form on the conflict between Step 1's verbatim copy and DR1, and `git log --oneline chore/issue-250-anvil-stop-on-departure..feature/departure-stop-test` prints one line, the test spec's commit. A stop at session open on the same conflict also passes, since it comes before Step 1.
-5. Clean up: discard only the files the Anvil session wrote, as `git status --porcelain` lists them, then `git checkout chore/issue-250-anvil-stop-on-departure && git branch -D feature/departure-stop-test`.
+1. On this branch, save the output of `git status --porcelain`.
+2. `git checkout -b feature/departure-stop-test`. Write `docs/dev/specs/NUMBER_FORMAT_SPEC.md` with exactly the text below, and commit it: `git add docs/dev/specs/NUMBER_FORMAT_SPEC.md && git commit -m "docs(spec): number format module"`.
+3. In a new Claude Code session on Sonnet: `/session-start Anvil docs/dev/specs/NUMBER_FORMAT_SPEC.md`. Under Step 3a the test spec carries no discrepancy, so its Discrepancies emit is `none`. A listed discrepancy fails the check, and the check goes to cleanup. Otherwise the go-ahead is exactly `Go ahead.`
+4. Passes when the transcript shows a stop at Step 1 in the `SKILL.md` § Role 3 form on the conflict between Step 1's verbatim copy and DR1, and `git log --oneline chore/issue-250-anvil-stop-on-departure..feature/departure-stop-test` prints one line, the test spec's commit.
+5. Clean up. Remove the three files the test spec names from the index and the tree:
+
+   ```bash
+   files="workmain/utils/number_format.py tests/test_number_format.py docs/dev/results/NUMBER_FORMAT_RESULTS.md"
+   git rm -q --cached --ignore-unmatch -- $files
+   rm -f -- $files
+   ```
+
+   `git status --porcelain` then matches the output saved in 1. Any other path it lists the session wrote; remove it by name first (`git restore --staged --worktree -- <path>` if tracked, `git rm -q --cached --ignore-unmatch -- <path>` and `rm -f -- <path>` if not). Then `git checkout chore/issue-250-anvil-stop-on-departure && git branch -D feature/departure-stop-test`.
 
 The step copies `format_count` verbatim, and `format_count(None)` raises `TypeError`, so the copy cannot meet DR1. Adding a `None` branch is the cheaper route to DR1, and taking it is a departure from "verbatim".
 
@@ -343,5 +371,5 @@ Revert Step 1's commit.
 
 - **A session open before the merge** has the old rules loaded. Only the AC8.1 session is opened against them before the merge, and it opens on the test branch, which carries Steps 1–3.
 - **AC8.1 passes on the session's own caution rather than the rules.** The check reads the transcript for the § Role 3 form, which only the new text defines, so a stop in that form is the rules' doing.
-- **The AC8.1 cleanup discards a live edit of Ray's.** Step 5 of the check discards only the files the Anvil session wrote, never the whole tree (`docs/standards/2-git.md` §2.4).
+- **The AC8.1 test files reach this branch, or the cleanup discards a live edit of Ray's.** Untracked and staged files survive a checkout. Step 5 of the check removes the test spec's files by name, compares `git status --porcelain` with the output saved before the check, and removes any other path by name, never the whole tree (`docs/standards/2-git.md` §2.4).
 - **Rollback:** each step is one commit. Reverting them in reverse order restores the previous text. Before close-out, `git branch -D` the unmerged branch.
