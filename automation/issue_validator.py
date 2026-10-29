@@ -10,7 +10,7 @@ milestones, referenced issues).
 
 Why this exists: GitHub carries no type-vs-area marking on a label
 (`Repository.issueTypes` is null for this repository), so the label
-pair lives only in `docs/DEVELOPMENT_STANDARDS.md` §1.3, parsed at run
+pair lives only in `docs/standards/1-workflow.md` §1.3, parsed at run
 time rather than hardcoded here — a hardcoded pair would go stale the first
 time §1.3 changes.
 """
@@ -25,7 +25,7 @@ from pathlib import Path
 
 SCHEMA_RELATIVE_PATH = Path(".github/ISSUE_TEMPLATE/issue.schema.json")
 TEMPLATE_RELATIVE_PATH = Path(".github/ISSUE_TEMPLATE/issue.template.json")
-STANDARDS_RELATIVE_PATH = Path("docs/DEVELOPMENT_STANDARDS.md")
+STANDARDS_RELATIVE_PATH = Path("docs/standards/1-workflow.md")
 LABEL_PAIR_PHRASE = "label pair"
 PROJECT_NAME = "WorkmAIn Queue"
 
