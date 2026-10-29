@@ -213,3 +213,6 @@ def clients_status(renderer):
     with get_db().session_scope() as session:
         status = clients_service.get_status(session)
     renderer.report(STATUS, status)
+
+
+__all__ = ['clients']

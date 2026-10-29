@@ -45,6 +45,7 @@ Complete. The six `clients` commands and the `set` subgroup run on a new `client
 | # | Departure or ambiguity | Step stopped at | Resolution | Resolved by |
 | --- | --- | --- | --- | --- |
 | 1 | Step 3.2 said C1–C12 while §6 and the Caliper row on the aborted prompt require C13. C13 was implemented in Step 3's commit (`ff3627d`) without a stop. | none | Keep. Step 3.2 now reads C1–C13. | Ray, 20261029 |
+| 2 | Step 3's commit (`ff3627d`) deleted `__all__ = ['clients']` from `clients.py`; no step, design rule or criterion covers it. Found by Caliper's post-implementation review (I1). | none | Revert. `clients.py` ends with `__all__ = ['clients']` again. | Ray, 20261029 |
 
 ## 5. Verification
 
