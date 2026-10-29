@@ -1,6 +1,6 @@
 # Anvil Departure Stop — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261029
 **Branch:** `chore/issue-250-anvil-stop-on-departure` (from `main`)
@@ -31,6 +31,7 @@
 | 20261029 | Caliper | 3: Step 1b draws the stop line at the step's commit, but `docs/dev/results/_TEMPLATE_RESULTS.md:48` defines the first `Step stopped at` value as the step stopped at "before making the change", and no step edits it. A difference caught by check 3 or 4 would read as unstopped there. | Accepted. Step 2a also replaces "before making the change" with "before the step's commit". A search of the document set for `before making`, `before it is made` and `before the change` found no other statement. |
 | 20261029 | Caliper | 3: Step 3a's "resolved when it runs without error" does not settle a search that finds nothing: `grep` and `git grep` exit 1, and criteria often check for zero hits. | Accepted. A command resolves on exit status 0, or 1 from `grep` or `git grep`, which means no match. Any other status is a discrepancy. |
 | 20261029 | Caliper | 1, 3: The AC8.1 check allows a dirty working tree, which `references/anvil.md` lists as a discrepancy, so a live edit of Ray's fails the check on correct behaviour. | Accepted. Check step 1 stashes any change (`git stash push -u`) so the tree is clean; cleanup requires `git status --porcelain` to print nothing before the checkout, and pops the stash after the branch is deleted. This replaces the saved-porcelain comparison. |
+| 20261029 | Caliper | No findings. | n/a |
 
 ---
 
