@@ -28,6 +28,9 @@
 | 20261029 | Caliper | 3: Step 3a's Command entry does not say what output counts as resolved; this spec's own AC1.1 command prints a different line before the work than after. | Accepted. A command run at open resolves when it runs without error. Its output is compared only where the spec says what it prints before the work; output a criterion states for after the work is not checked at open. |
 | 20261029 | Caliper | 1, 3: AC8.1 accepts a stop at session open, which the run's emits cannot carry, and does not say what Ray says at the go-ahead. | Accepted. The test spec carries no discrepancy under Step 3a, so the check requires a Discrepancies emit of `none`, a go-ahead of exactly `Go ahead.`, and the stop at Step 1. A listed discrepancy fails the check. |
 | 20261029 | Caliper | 3: The AC8.1 cleanup cannot reliably remove only what the session wrote: porcelain lists every change, and untracked files survive the checkout and the branch delete. | Accepted. The check saves `git status --porcelain` before it starts, removes the test spec's three files by name from the index and the tree, and compares porcelain with the saved output before the checkout. Any other path is removed by name first. |
+| 20261029 | Caliper | 3: Step 1b draws the stop line at the step's commit, but `docs/dev/results/_TEMPLATE_RESULTS.md:48` defines the first `Step stopped at` value as the step stopped at "before making the change", and no step edits it. A difference caught by check 3 or 4 would read as unstopped there. | Accepted. Step 2a also replaces "before making the change" with "before the step's commit". A search of the document set for `before making`, `before it is made` and `before the change` found no other statement. |
+| 20261029 | Caliper | 3: Step 3a's "resolved when it runs without error" does not settle a search that finds nothing: `grep` and `git grep` exit 1, and criteria often check for zero hits. | Accepted. A command resolves on exit status 0, or 1 from `grep` or `git grep`, which means no match. Any other status is a discrepancy. |
+| 20261029 | Caliper | 1, 3: The AC8.1 check allows a dirty working tree, which `references/anvil.md` lists as a discrepancy, so a live edit of Ray's fails the check on correct behaviour. | Accepted. Check step 1 stashes any change (`git stash push -u`) so the tree is clean; cleanup requires `git status --porcelain` to print nothing before the checkout, and pops the stash after the branch is deleted. This replaces the saved-porcelain comparison. |
 
 ---
 
@@ -142,6 +145,18 @@ with:
 - **`none`** — the change was made without the stop it required, which breaks the stop rule: `.claude/skills/session-start/SKILL.md` § Role 3 for Anvil, `references/spanner.md` § Working rules for Role 1. It is still listed, because a record that leaves it out hides it. `Resolution` is what was done. When the row may be written, and what `Resolved by` then holds, is `SKILL.md` § Role 3.
 ```
 
+and replace:
+
+```text
+- **the step** the implementer stopped at, before making the change.
+```
+
+with:
+
+```text
+- **the step** the implementer stopped at, before the step's commit.
+```
+
 **2b.** In `.claude/skills/session-start/references/spanner.md` § Working rules, bullet "Implementing a direct-path spec", replace:
 
 ```text
@@ -210,7 +225,7 @@ with:
    - **Claim about existing behaviour** — a §2 row, or a statement of what code does: the evidence it cites is read and shows the claim.
    - **Test node** — `pytest --collect-only -q <node>` collects it.
    - **Issue** — `gh issue view <N>` returns it, in the state the spec gives where it gives one.
-   - **Command** — run only if it only reads, such as `grep`, `git grep`, `git show` or `gh issue view`, and resolved when it runs without error. Its output is compared with the spec only where the spec says what it prints before the work; output a criterion states for after the work is not checked at open. Any other command is not run: each path, symbol and test node it names is resolved under this list.
+   - **Command** — run only if it only reads, such as `grep`, `git grep`, `git show` or `gh issue view`, and resolved when it exits 0, or 1 from `grep` or `git grep`, which means no match. Any other exit status is a discrepancy. Its output is compared with the spec only where the spec says what it prints before the work; output a criterion states for after the work is not checked at open. Any other command is not run: each path, symbol and test node it names is resolved under this list.
 
    A path, symbol or test node that a step creates resolves against that step's deliverable instead, and is a discrepancy if it already exists.
 ```
@@ -270,7 +285,7 @@ No file under `tests/`, `automation/`, `workmain/`, `config/` or `templates/` ch
 
 **AC8.1 check.** Run after Step 3 is committed, so the Anvil session loads the new `SKILL.md` and `references/anvil.md` from the test branch's working tree.
 
-1. On this branch, save the output of `git status --porcelain`.
+1. On this branch, if `git status --porcelain` prints anything, `git stash push -u -m ac81`. The tree is then clean, as Anvil's session open requires.
 2. `git checkout -b feature/departure-stop-test`. Write `docs/dev/specs/NUMBER_FORMAT_SPEC.md` with exactly the text below, and commit it: `git add docs/dev/specs/NUMBER_FORMAT_SPEC.md && git commit -m "docs(spec): number format module"`.
 3. In a new Claude Code session on Sonnet: `/session-start Anvil docs/dev/specs/NUMBER_FORMAT_SPEC.md`. Under Step 3a the test spec carries no discrepancy, so its Discrepancies emit is `none`. A listed discrepancy fails the check, and the check goes to cleanup. Otherwise the go-ahead is exactly `Go ahead.`
 4. Passes when the transcript shows a stop at Step 1 in the `SKILL.md` § Role 3 form on the conflict between Step 1's verbatim copy and DR1, and `git log --oneline chore/issue-250-anvil-stop-on-departure..feature/departure-stop-test` prints one line, the test spec's commit.
@@ -282,7 +297,7 @@ No file under `tests/`, `automation/`, `workmain/`, `config/` or `templates/` ch
    rm -f -- $files
    ```
 
-   `git status --porcelain` then matches the output saved in 1. Any other path it lists the session wrote; remove it by name first (`git restore --staged --worktree -- <path>` if tracked, `git rm -q --cached --ignore-unmatch -- <path>` and `rm -f -- <path>` if not). Then `git checkout chore/issue-250-anvil-stop-on-departure && git branch -D feature/departure-stop-test`.
+   `git status --porcelain` then prints nothing. Any path it lists the session wrote; remove it by name first (`git restore --staged --worktree -- <path>` if tracked, `git rm -q --cached --ignore-unmatch -- <path>` and `rm -f -- <path>` if not). Then `git checkout chore/issue-250-anvil-stop-on-departure && git branch -D feature/departure-stop-test`, and `git stash pop` if step 1 stashed.
 
 The step copies `format_count` verbatim, and `format_count(None)` raises `TypeError`, so the copy cannot meet DR1. Adding a `None` branch is the cheaper route to DR1, and taking it is a departure from "verbatim".
 
@@ -371,5 +386,5 @@ Revert Step 1's commit.
 
 - **A session open before the merge** has the old rules loaded. Only the AC8.1 session is opened against them before the merge, and it opens on the test branch, which carries Steps 1–3.
 - **AC8.1 passes on the session's own caution rather than the rules.** The check reads the transcript for the § Role 3 form, which only the new text defines, so a stop in that form is the rules' doing.
-- **The AC8.1 test files reach this branch, or the cleanup discards a live edit of Ray's.** Untracked and staged files survive a checkout. Step 5 of the check removes the test spec's files by name, compares `git status --porcelain` with the output saved before the check, and removes any other path by name, never the whole tree (`docs/standards/2-git.md` §2.4).
+- **The AC8.1 test files reach this branch, or the check loses a live edit of Ray's.** Untracked and staged files survive a checkout. Check step 1 stashes any live edit, and step 5 removes the test spec's files by name, requires `git status --porcelain` to print nothing before the checkout, and pops the stash after (`docs/standards/2-git.md` §2.4).
 - **Rollback:** each step is one commit. Reverting them in reverse order restores the previous text. Before close-out, `git branch -D` the unmerged branch.
