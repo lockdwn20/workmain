@@ -1,6 +1,6 @@
 # Standards Split — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261029
 **Spec:** `../specs/STANDARDS_SPLIT_SPEC.md`
