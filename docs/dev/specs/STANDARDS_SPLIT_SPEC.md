@@ -1,6 +1,6 @@
 # Standards Split — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261029
 **Branch:** `chore/issue-244-standards-split` (from `main`)
