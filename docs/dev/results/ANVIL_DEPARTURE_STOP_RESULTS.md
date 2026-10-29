@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Steps 1–3 are delivered as quoted, and every replaced text matched its file exactly once. Role 3 now defines a departure, gives a stop a stated form, makes Anvil wait for Ray's go-ahead, and allows a `none` row only after Ray's ruling, for Anvil and for Role 1 on the direct path. The templates, Role 1's working rules and §1.4 cite those rules. Anvil's reference states the depth of its reference check and carries a per-step procedure. The work is complete, apart from Ray's checks. Every criterion names Ray, so each one is `Not met` until he signs it off, and AC8.1 needs his live run.
+Steps 1–3 are delivered as quoted, and every replaced text matched its file exactly once. Role 3 now defines a departure, gives a stop a stated form, makes Anvil wait for Ray's go-ahead, and allows a `none` row only after Ray's ruling, for Anvil and for Role 1 on the direct path. The templates, Role 1's working rules and §1.4 cite those rules. Anvil's reference states the depth of its reference check and carries a per-step procedure. The work is complete.
 
 ## 2. What shipped, by step
 
@@ -25,14 +25,14 @@ Steps 1–3 are delivered as quoted, and every replaced text matched its file ex
 
 | AC | Status | Evidence |
 | --- | --- | --- |
-| AC1.1 | Not met | Awaiting Ray |
-| AC2.1 | Not met | Awaiting Ray |
-| AC3.1 | Not met | Awaiting Ray |
-| AC4.1 | Not met | Awaiting Ray |
-| AC5.1 | Not met | Awaiting Ray |
-| AC6.1 | Not met | Awaiting Ray |
-| AC7.1 | Not met | Awaiting Ray |
-| AC8.1 | Not met | Awaiting Ray |
+| AC1.1 | Met | Ray, 20261029: Reviewed SKILL.md § Role 3, _TEMPLATE_RESULTS.md §4 and references/spanner.md § Working rules, for one statement of the definition and citations of it |
+| AC2.1 | Met | Ray, 20261029: Reviewed SKILL.md § Role 3, _TEMPLATE_RESULTS.md §4 and references/spanner.md § Working rules |
+| AC3.1 | Met | Ray, 20261029: Reviewed references/anvil.md § Working rules |
+| AC4.1 | Met | Ray, 20261029: Reviewed docs/standards/1-workflow.md §1.4 and _TEMPLATE_SPEC.md §4 |
+| AC5.1 | Met | Ray, 20261029: Reviewed SKILL.md § Role 3 and references/anvil.md |
+| AC6.1 | Met | Ray, 20261029: Reviewed references/anvil.md § Reads |
+| AC7.1 | Met | Ray, 20261029: Reviewed SKILL.md § Role 3 |
+| AC8.1 | Met | Ray, 20261029: Test performed per `docs/dev/specs/ANVIL_DEPARTURE_STOP_SPEC.md` §6 and Anvil stopped as required |
 
 ## 4. Deviations from spec
 
@@ -45,8 +45,8 @@ None.
 
 - **Test suite:** 1598 passed, 0 failed, 0 skipped (baseline: 1598 passed, 0 failed, 0 skipped). `pytest automation/`: 58 passed, 0 failed, 0 skipped (baseline: 58 passed, 0 failed, 0 skipped).
 - **Exact text:** each step's replacements were applied by a script that read the old and new text from the spec's own quoted blocks and asserted that each old text occurred exactly once in its file before replacing it. Step 3c was appended.
-- **AC1.1 search:** `git grep -nE 'any difference between' -- CLAUDE.md docs/standards .claude 'docs/dev/*/_TEMPLATE_*.md'` printed one line, `.claude/skills/session-start/SKILL.md:100`. The stated reading AC1.1 also requires is Ray's.
-- **Live verification:** AC8.1's check (spec §6) is Ray's, run on `feature/departure-stop-test` cut from `18373d8`.
+- **AC1.1 search:** `git grep -nE 'any difference between' -- CLAUDE.md docs/standards .claude 'docs/dev/*/_TEMPLATE_*.md'` printed one line, `.claude/skills/session-start/SKILL.md:100`.
+- **Live verification:** Ray ran AC8.1's check (spec §6) on `feature/departure-stop-test` on 20261029. Anvil stopped as required, and the test branch has been deleted.
 - **Daemon restart:** n/a — `chore/*` changes no application behaviour (`docs/standards/2-git.md` §2.6).
 
 ## 6. Follow-ups
