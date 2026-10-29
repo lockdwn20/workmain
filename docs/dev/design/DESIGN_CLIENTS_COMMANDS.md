@@ -1,6 +1,6 @@
 # Clients Commands on the Output Module — Design Study
 
-**Status:** Active
+**Status:** Shipped
 **Kind:** Design study
 **Author:** Spanner (Role 1)
 **Date:** 20261029
@@ -94,5 +94,5 @@ The alternative is to skip rendering the preview under `--force`. Recommended: t
 
 ## 6. Disposition
 
-- Promoted to: —
+- Promoted to: `../specs/CLIENTS_COMMANDS_SPEC.md`; Q1's §5.4 targeting to issue #251
 - Superseded by: —

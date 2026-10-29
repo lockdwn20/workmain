@@ -1,10 +1,10 @@
 # Clients Commands on the Output Module — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Anvil (Role 3)
 **Date:** 20261029
 **Spec:** `../specs/CLIENTS_COMMANDS_SPEC.md`
-**Released as:** v1.56.0
+**Released as:** v1.56.0 (tag v1.56.0)
 
 ---
 
@@ -50,8 +50,8 @@ Complete. The six `clients` commands and the `set` subgroup run on a new `client
 ## 5. Verification
 
 - **Test suite:** 1623 passed, 0 failed, 0 skipped (baseline: 1598 passed, 0 failed, 0 skipped) — +25: 2 repository, 24 service, 16 command added, 17 command removed.
-- **Live verification:** none named in the spec.
-- **Daemon restart:** close-out's.
+- **Live verification (20261029, at close-out):** `workmain clients list`, `status` and `show 1` (exit 0: a table titled `Clients (1 found)`, the `Client context` report, the `Client #1` panel), and `show`, `delete` and `set active` with an unknown name and `add internal` (each exit 1, one `Error:` line on stderr, nothing on stdout). Nothing was written.
+- **Daemon restart:** run by `/closeout` after the merge to `dev`; the confirmed `ActiveEnterTimestamp` is in the issue's closing comment.
 
 **Commands**
 
