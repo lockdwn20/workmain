@@ -1,10 +1,10 @@
 # Calendar Commands on the Output Module — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261028
 **Branch:** `feature/issue-203-calendar-output-separation` (from `dev`)
-**Target release:** set by `/closeout`
+**Target release:** v1.55.0
 **Originating item:** Issue #203
 **Design study:** `../design/DESIGN_CALENDAR_COMMANDS.md`
 

@@ -1,10 +1,10 @@
 # Calendar Commands on the Output Module — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Anvil (Role 3)
 **Date:** 20261028
 **Spec:** `../specs/CALENDAR_COMMANDS_SPEC.md`
-**Released as:** set by `/closeout`
+**Released as:** v1.55.0 (tag v1.55.0)
 
 ---
 
@@ -56,7 +56,7 @@ Complete. The five calendar commands and the new `calendar status` read and writ
 
 - **Test suite:** 1598 passed, 0 failed, 0 skipped (baseline: 1541 passed, 0 failed, 0 skipped). Difference: +57 passed (58 added, 1 removed).
 - **Live verification (20261028):** `workmain calendar`, `calendar status`, `calendar week`, `calendar import tests/fixtures/week_normal.ics --dry-run` (read-only, exit 0, `[DRY RUN]` first line) and the malformed-file import (exit 1). No import was applied.
-- **Daemon restart:** not run; close-out's.
+- **Daemon restart:** run by `/closeout` after the merge to `dev`; the confirmed `ActiveEnterTimestamp` is in the issue's closing comment.
 - **Read by Ray, 20261028:** tables 1, 2 and 3 below (AC1.2, AC3.1, AC4.1), and `docs/DEVELOPMENT_STANDARDS.md` §5.2 and §5.6 (AC8.1).
 
 **Table 1 — commands, service functions and renderer calls (AC1.2)**
