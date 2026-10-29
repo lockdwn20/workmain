@@ -38,6 +38,7 @@
 | 20261029 | Caliper (post-implementation) | I4: AC1.2's evidence records the test runs, not a reading of results §5's first table; "The table to read" was the instruction carried over from the `Awaiting Ray` text. | Accepted. Ray confirmed, 20261029, that he read the table. The evidence states the reading. |
 | 20261029 | Caliper (post-implementation) | I4: AC3.1's evidence records the run, not a reading of results §5's second table. | Accepted. Ray confirmed, 20261029, that he read the table. The evidence states the reading. |
 | 20261029 | Caliper (post-implementation) | I4: AC4.1's evidence records the run, not a reading of results §5's third table. | Accepted. Ray confirmed, 20261029, that he read the table. The evidence states the reading. |
+| 20261029 | Caliper (post-implementation) | No findings. | n/a |
 
 ---
 
