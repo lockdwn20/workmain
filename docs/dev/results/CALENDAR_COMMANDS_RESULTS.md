@@ -47,9 +47,10 @@ Complete. The five calendar commands and the new `calendar status` read and writ
 
 | # | Departure or ambiguity | Step stopped at | Resolution | Resolved by |
 | --- | --- | --- | --- | --- |
-| 1 | Step 4.2 says the helpers are copied from `calendar.py` and removed in Step 5. The service was written fresh from DR3, and `calendar.py` was rewritten whole in Step 5, so nothing was copied. | none | Same end state; every step's suite was green. No behaviour differs from the spec. | Awaiting Ray |
-| 2 | `workmain/utils/ics_parser.py` still imports `Note`, now unused. The spec limits the file to two function bodies, so the import was left. | none | Left as is. Removing it is #159's file. | Awaiting Ray |
-| 3 | `tests/test_output.py` already uses "O1"–"O3" in docstrings of the warnings tests. The new tests are named `test_o1…`–`test_o4…` and the T-id table below maps them. | none | Docstring ids in the older tests are unchanged. | Awaiting Ray |
+| 1 | Step 4.2 says the helpers are copied from `calendar.py` and removed in Step 5. The service was written fresh from DR3, and `calendar.py` was rewritten whole in Step 5, so nothing was copied. | none | Keep. `_classify` and `preview_import` were checked against `calendar.py:114-146` and `436-503`; the rules, totals and question text match. Step 4.2 is amended in the spec. | Ray, 20261028 |
+| 2 | `workmain/utils/ics_parser.py` still imports `Note`, now unused. The spec limits the file to two function bodies, so the import was left. | none | Keep, with the spec amended: Step 2 removes the import its change leaves unused. The `Note` import is removed. | Ray, 20261028 |
+| 3 | `tests/test_output.py` already uses "O1"–"O3" in docstrings of the warnings tests. The new tests are named `test_o1…`–`test_o4…` and the T-id table below maps them. | none | Keep. Spec §6 states the node names; §5 table 4 maps each O-id to its node. | Ray, 20261028 |
+| 4 | `tests/test_calendar.py` took its renderer, patched service functions and ICS file from three module fixtures (`renderer`, `service`, `ics_file`). `docs/DEVELOPMENT_STANDARDS.md` §6.2 rule 6 allows a test to take only `db_session`, `tmp_path` and `caplog`. | none | Revert. The fixtures are removed; each test calls the `_run` and `_ics_file` helpers Step 5.2 and §6 now state. No production file changed and every C-test keeps its assertions. | Ray, 20261028 |
 
 ## 5. Verification
 
