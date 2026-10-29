@@ -4,7 +4,7 @@
 #
 # Runs automation/check_release_integrity.py, which cross-checks git tags against
 # CHANGELOG.md sections, GitHub Releases, and workmain/__version__.py, enforcing
-# DEVELOPMENT_STANDARDS.md §2.2.
+# docs/standards/2-git.md §2.2.
 #
 # Scope is deliberately narrow — it fires only on pushes that can damage the
 # release record:

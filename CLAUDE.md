@@ -6,7 +6,7 @@ it there; everywhere else cites it. Do not summarize back what the reader can al
 read: not the artifact in chat, not a section in another section, not a design rule in a
 decision log.
 
-**`docs/DEVELOPMENT_STANDARDS.md` owns how we build** — git workflow, code patterns, database, CLI, and testing.
+**`docs/standards/` owns how we build** — git workflow, code patterns, database, CLI, and testing. `docs/standards/README.md` is its header and index.
 
 The only text restated from it is the § Critical Rules subset; nothing else appears in both.
 
@@ -14,16 +14,16 @@ The only text restated from it is the § Critical Rules subset; nothing else app
 
 ## Critical Rules
 
-These four are restated here in full because a session that has read nothing else must still have them. This section is the one place in the project where duplication is deliberate; `docs/DEVELOPMENT_STANDARDS.md` states the same carve-out in its preamble. Membership is Ray-approved: an entry is added, reworded, or removed only with his explicit approval.
+These four are restated here in full because a session that has read nothing else must still have them. This section is the one place in the project where duplication is deliberate; `docs/standards/README.md` states the same carve-out. Membership is Ray-approved: an entry is added, reworded, or removed only with his explicit approval.
 
-- **Spec before implementation.** No implementation without an approved spec. Full statement: `docs/DEVELOPMENT_STANDARDS.md` §1.1.
-- **Authorization points.** A hard stop for specific actions that are irreversible or reach outside the working tree: executing a DB migration, deleting a GitHub object (issue, label, milestone, a branch on `origin`, release), merging to `main`, force-pushing any branch, or changing the run state of a live service beyond the post-merge-restart carve-out. State what is about to happen, then wait for Ray's explicit approval — a   migration's approval is always at execution, not the spec that contains it. Full statement: `docs/DEVELOPMENT_STANDARDS.md` §1.4.
+- **Spec before implementation.** No implementation without an approved spec. Full statement: `docs/standards/1-workflow.md` §1.1.
+- **Authorization points.** A hard stop for specific actions that are irreversible or reach outside the working tree: executing a DB migration, deleting a GitHub object (issue, label, milestone, a branch on `origin`, release), merging to `main`, force-pushing any branch, or changing the run state of a live service beyond the post-merge-restart carve-out. State what is about to happen, then wait for Ray's explicit approval — a   migration's approval is always at execution, not the spec that contains it. Full statement: `docs/standards/1-workflow.md` §1.4.
 - **Stop and surface.** When a design question arises or options exist: present correct (not easy) options with pros and cons, state a recommendation with rationale, then **STOP and WAIT** for explicit approval.
   - Never use ✓ or "Decision: X" to imply a decision Ray has not confirmed.
   - This entry is the full statement of the global rule; `.claude/skills/session-start/SKILL.md` § Role 3 holds the implementation-specific form.
-- **Integration over separation.** Enhance existing command files when adding to an existing group; new files only for approved distinct command groups. Full statement: `docs/DEVELOPMENT_STANDARDS.md` §3.6.
+- **Integration over separation.** Enhance existing command files when adding to an existing group; new files only for approved distinct command groups. Full statement: `docs/standards/3-code.md` §3.6.
 
-Coding, database, CLI, git, and testing rules all live in `docs/DEVELOPMENT_STANDARDS.md`.
+Coding, database, CLI, git, and testing rules all live in `docs/standards/`.
 
 ---
 
@@ -35,7 +35,7 @@ A session opens in its declared role with `/session-start <role>`. What each rol
 
 ## Auto-memory
 
-Claude Code auto-memory is off for this repository: `.claude/settings.json` sets `autoMemoryEnabled` to `false`. No instruction is carried by memory. A rule lives in this file, in `docs/DEVELOPMENT_STANDARDS.md`, or in the skill that governs its role, and a correction Ray gives in a session is made there, through a spec like any other change.
+Claude Code auto-memory is off for this repository: `.claude/settings.json` sets `autoMemoryEnabled` to `false`. No instruction is carried by memory. A rule lives in this file, in `docs/standards/`, or in the skill that governs its role, and a correction Ray gives in a session is made there, through a spec like any other change.
 
 ---
 
@@ -51,11 +51,11 @@ gh issue list --state open --limit "$(gh repo view --json issues --jq .issues.to
   --json number,title,state,milestone,labels,parent,subIssuesSummary
 ```
 
-That command reads issue *content*. Order is separate and lives in the `WorkmAIn Queue` project — see `docs/DEVELOPMENT_STANDARDS.md` §1.6.
+That command reads issue *content*. Order is separate and lives in the `WorkmAIn Queue` project — see `docs/standards/1-workflow.md` §1.6.
 
 Requires `gh` ≥ 2.6x for `parent` / `subIssues` / `subIssuesSummary` (Issues 2.0 support).
 
-What milestones, labels, and parent/child structure mean: `docs/DEVELOPMENT_STANDARDS.md` §1.3.
+What milestones, labels, and parent/child structure mean: `docs/standards/1-workflow.md` §1.3.
 
 `docs/archive/FEATURE_BACKLOG.md` and `docs/archive/implementation-checklist.md` hold the pre-migration record for historical context only. They are not authoritative, are never updated, and must not be cited as the basis for a current decision.
 
@@ -67,7 +67,7 @@ What milestones, labels, and parent/child structure mean: `docs/DEVELOPMENT_STAN
 
 | Document | Read it |
 | --- | --- |
-| `docs/DEVELOPMENT_STANDARDS.md` | Before committing, or writing any module, command, or test |
+| `docs/standards/README.md` | Before committing, or writing any module, command, or test — it names the section file each needs |
 | GitHub Issues — see command below | Before proposing features; check issue state, milestone, parent/sub-issues, and ACs |
 | `docs/AI_SETTINGS_GUIDE.md` | When editing AI provider config |
 
@@ -90,7 +90,7 @@ Daemon (APScheduler)  →  Inspection Engine  →  Notification Delivery
 Socket Mode Handler   →  Intent Parser (Ollama)  →  Action Executor  →  Services
 ```
 
-Directory layout and file placement: `docs/DEVELOPMENT_STANDARDS.md` §7.
+Directory layout and file placement: `docs/standards/7-file-placement.md` §7.
 
 ---
 
@@ -193,7 +193,7 @@ Made and closed. Do not re-open or work around these without Ray's explicit dire
 
 - **Master Logs are reference only** — target output format for AI, NOT input data sources.
 - **Phase scope creep** is resolved through Spanner and Ray.
-- **Component-verified ≠ integration-verified** — the spec-time rules (call sites, entry paths) are `docs/DEVELOPMENT_STANDARDS.md` §1.2. At implementation, trace handle and session provenance at every call site, diff drafted code against any claimed reference verbatim (not just shape), and never accept an elided "unchanged" block without checking it against the recon's own quote.
+- **Component-verified ≠ integration-verified** — the spec-time rules (call sites, entry paths) are `docs/standards/1-workflow.md` §1.2. At implementation, trace handle and session provenance at every call site, diff drafted code against any claimed reference verbatim (not just shape), and never accept an elided "unchanged" block without checking it against the recon's own quote.
 - **A destructive write is checked before it runs.** Run `gh` from the repository root: outside a repository it fails, and an empty file passed to `gh issue edit --body-file` blanks the issue, which GitHub cannot restore. Before overwriting anything you did not author, check that the source is non-empty and holds what you expect, and read stderr in the same block. Before changing a value, read the whole file and search it for every occurrence of the value, not only the one you came for. Where a written standard and the practice recorded in an earlier artifact disagree, surface the disagreement before running either.
 - **A meeting deleted by a cleanup script or an ad-hoc fix unlinks its notes.** `notes.meeting_id` is `ON DELETE SET NULL`, and the "Notes: N captured" line counts only the current occurrence. Before such a delete, count the meeting's notes by query, and for a recurring meeting count the series too (`MeetingsRepository.get_series_note_count()`). Delete only when the count is 0: any other count means the delete orphans those notes.
 - **`scripts/baseline/` is restricted until #188 ships.** Read #188 before running, editing or citing anything under it, and scope any search a check runs to the file it is about, never to a directory that holds the harness.
