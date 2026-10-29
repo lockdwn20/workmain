@@ -68,7 +68,8 @@ from icalendar import Calendar
 from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session
 
-from workmain.database.models import Meeting, Note
+from workmain.database.models import Meeting
+from workmain.database.repositories.meetings_repo import MeetingsRepository
 
 LOCAL_TZ = __import__('zoneinfo').ZoneInfo("America/Los_Angeles")
 
@@ -431,26 +432,14 @@ def _fallback_match(session: Session, event: ICSEvent) -> Meeting | None:
     Returns:
         Matching Meeting row or None
     """
-    event_date = event.start_time.date()
-    return (
-        session.query(Meeting)
-        .filter(
-            Meeting.outlook_id.is_(None),
-            sa_func.lower(Meeting.title) == event.title.lower(),
-            sa_func.date(Meeting.start_time) == event_date,
-        )
-        .order_by(Meeting.start_time.desc(), Meeting.id.desc())
-        .first()
+    return MeetingsRepository(session).get_unlinked_by_title_on_date(
+        event.title, event.start_time.date()
     )
 
 
 def _note_count_for(session: Session, meeting_id: int) -> int:
     """Return the number of notes attached to a meeting row."""
-    return (
-        session.query(sa_func.count(Note.id))
-        .filter(Note.meeting_id == meeting_id)
-        .scalar()
-    ) or 0
+    return MeetingsRepository(session).count_all_notes(meeting_id)
 
 
 def _find_stale_duplicates(

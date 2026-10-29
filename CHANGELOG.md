@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.55.0] - 2026-10-28
+
+The `calendar` commands queried, classified and printed in one file, and the group's callback counted meetings on every invocation. Their tests could only search printed text. They now read and write through `calendar_service` and print through the CLI output module, so behaviour is tested at the service. What is read, classified and imported does not change (issue #203).
+
+### Added
+
+- `workmain/services/calendar_service.py`: `get_status`, `meetings_today`, `meetings_week`, `meetings_month`, `preview_import` and `run_import`, with their result dataclasses and view formatters
+- `calendar status`, which prints the Outlook meeting count and the last import
+- `InvalidICSFileError` in `workmain/services/exceptions.py`
+- `MeetingsRepository.get_outlook_import_stats`, `get_outlook_between`, `get_by_outlook_id`, `get_by_outlook_ids`, `get_unlinked_by_title_on_date` and `count_all_notes`
+- `ReportView.totals_when_empty`, `Renderer.report(..., dry_run=)` and `Renderer.nothing_to_do()`
+
+### Changed
+
+- `workmain calendar` prints its help, as every other group does; the count moved to `calendar status`
+- `calendar today`, `week` and `month` print a table with `YYYY-MM-DD` dates and Day, Recurring and Status columns; cancelled meetings show as cancelled
+- `calendar import` prints its preview and result as reports. A dry run's report starts `[DRY RUN]`, an import with nothing to do prints `Nothing to do.`, and a declined import prints `Cancelled.`. An invalid file is one `Error:` line, exit 1
+- `ics_parser`'s fallback match and note count read through `MeetingsRepository`
+- `docs/DEVELOPMENT_STANDARDS.md` §5.2 says a group's callback does no work; §5.6 describes how a converted command previews, confirms and applies, `totals_when_empty`, and the dry-run prefix
+
+### Removed
+
+- `calendar import --silent`/`-q`; the import always confirms
+
+Suite: 1598 passed, 0 failed, 0 skipped (baseline 1541 passed, 0 failed, 0 skipped).
+
 ## [1.54.0] - 2026-10-26
 
 The five `clockify` commands queried, decided and printed in one function, and the `ClockifySync` engine below them printed progress and asked its questions with raw `input()`. Their tests could only search printed text. They now read through `clockify_service` and print through the CLI output module, so behaviour is tested at the service. A Clockify failure now exits 3 with one `Error:` line on stderr, where `status` and the `sync` commands printed a line and exited 0 (issue #202).
