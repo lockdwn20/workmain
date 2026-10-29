@@ -9,7 +9,7 @@ load error.
 
 failure_exit_code is the one owner of the exit code a failed command takes:
 3 for an integration error (a ProviderError that is not a ConfigurationError),
-1 otherwise (docs/DEVELOPMENT_STANDARDS.md §5.6).
+1 otherwise (docs/standards/5-cli.md §5.6).
 """
 
 import sys
@@ -28,7 +28,7 @@ def failure_exit_code(exc: BaseException) -> int:
     """Return the exit code for a failed command: 3 for an integration error, else 1.
 
     An integration error is a ProviderError that is not a ConfigurationError
-    (docs/DEVELOPMENT_STANDARDS.md §5.6).
+    (docs/standards/5-cli.md §5.6).
     """
     if isinstance(exc, ProviderError) and not isinstance(exc, ConfigurationError):
         return 3

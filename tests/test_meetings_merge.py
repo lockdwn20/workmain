@@ -1,7 +1,7 @@
 """
 CLI-level coverage for 'workmain meetings merge': the notes the merge moved
 are committed before the "Delete old meeting?" prompt, so cancelling that
-prompt keeps the merge (DEVELOPMENT_STANDARDS §4.1, the owner commits before
+prompt keeps the merge (docs/standards/4-database.md §4.1, the owner commits before
 it waits).
 """
 

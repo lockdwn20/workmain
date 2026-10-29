@@ -9,6 +9,7 @@
 3. `git status --porcelain`
 4. `git branch --show-current`, against the spec's `**Branch:**` field.
 5. Every reference the spec makes — file, symbol, line, section or command — at the cited location.
+6. `docs/standards/README.md`, `docs/standards/1-workflow.md`, `docs/standards/2-git.md` and `docs/standards/6-testing.md`, end to end.
 
 ## Emits
 

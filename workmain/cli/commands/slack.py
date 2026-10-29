@@ -58,7 +58,7 @@ def _normalize_channel(channel: str) -> str:
 
 def _record_slack_post(report_id: int, message_ts: str, channel: str,
                        workspace_name: str) -> bool:
-    """Record a posted weekly report in its own scope (DEVELOPMENT_STANDARDS §4.3).
+    """Record a posted weekly report in its own scope (docs/standards/4-database.md §4.3).
 
     Returns True when the record committed. A failure is reported on stderr
     and returns False, with the command's exit status unchanged: the message

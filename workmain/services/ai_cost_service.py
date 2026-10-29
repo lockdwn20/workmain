@@ -4,7 +4,7 @@ writes a cost row.
 
 `record_reply` opens its own session through `record_scope()`, so a recording
 survives a failure in the caller's transaction
-(`docs/DEVELOPMENT_STANDARDS.md` §4.3). `link_report` writes in the caller's
+(`docs/standards/4-database.md` §4.3). `link_report` writes in the caller's
 session. Neither ever fails the call it serves.
 
 The read functions take the caller's session and return what the cost

@@ -2,7 +2,7 @@
 CLI-level coverage for 'workmain meetings reschedule': the new start time and
 each linked time entry the user approved are committed before the next
 prompt, so cancelling a later prompt keeps what was already done
-(DEVELOPMENT_STANDARDS §4.1, the owner commits before it waits).
+(docs/standards/4-database.md §4.1, the owner commits before it waits).
 """
 
 from datetime import date, datetime, time

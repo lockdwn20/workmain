@@ -13,7 +13,7 @@ release in flight — CHANGELOG.md already carries its section, per §2.5's
 Exits non-zero on any mismatch at or above BASELINE, so it can gate a push to `main`.
 Older releases are reported as accepted history and never fail the run.
 
-Why this exists: `DEVELOPMENT_STANDARDS.md` §2.2 already requires a CHANGELOG entry
+Why this exists: `docs/standards/2-git.md` §2.2 already requires a CHANGELOG entry
 and a GitHub Release on every merge to `main`. The prose rule did not prevent four
 tags shipping without a Release, nor a release-prep edit silently absorbing the
 v1.28.0 section into v1.29.0's by replacing its heading. A rule that cannot fail
@@ -146,7 +146,7 @@ def main():
                 problems.append(
                     f"__version__.py is {ver} (ahead of tag v{tags[-1]}, a release in "
                     f"flight) but CHANGELOG.md has no `## [{ver}]` section — "
-                    f"DEVELOPMENT_STANDARDS.md §2.5 requires both move together")
+                    f"docs/standards/2-git.md §2.5 requires both move together")
 
     scope = "tags vs CHANGELOG" if a.no_remote else "tags vs CHANGELOG vs Releases"
     enforced = [v for v in tags if version_key(v) >= floor]
