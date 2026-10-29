@@ -32,6 +32,7 @@
 | 20261029 | Caliper | 3: Step 3a's "resolved when it runs without error" does not settle a search that finds nothing: `grep` and `git grep` exit 1, and criteria often check for zero hits. | Accepted. A command resolves on exit status 0, or 1 from `grep` or `git grep`, which means no match. Any other status is a discrepancy. |
 | 20261029 | Caliper | 1, 3: The AC8.1 check allows a dirty working tree, which `references/anvil.md` lists as a discrepancy, so a live edit of Ray's fails the check on correct behaviour. | Accepted. Check step 1 stashes any change (`git stash push -u`) so the tree is clean; cleanup requires `git status --porcelain` to print nothing before the checkout, and pops the stash after the branch is deleted. This replaces the saved-porcelain comparison. |
 | 20261029 | Caliper | No findings. | n/a |
+| 20261029 | Caliper (post-implementation) | No findings. | n/a |
 
 ---
 
