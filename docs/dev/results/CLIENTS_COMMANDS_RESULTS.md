@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Complete. The six `clients` commands and the `set` subgroup run on a new `clients_service` and the output module. `clients delete` previews the linked counts, asks a question that states them, and applies by ID in a second scope. Every error exits 1 with one `Error:` line on stderr. Four criteria name Ray and are `Not met` until he checks them.
+Complete. The six `clients` commands and the `set` subgroup run on a new `clients_service` and the output module. `clients delete` previews the linked counts, asks a question that states them, and applies by ID in a second scope. Every error exits 1 with one `Error:` line on stderr. One departure is recorded in §4. Four criteria name Ray and are `Not met` until he checks them.
 
 ## 2. What shipped, by step
 
@@ -44,6 +44,7 @@ Complete. The six `clients` commands and the `set` subgroup run on a new `client
 
 | # | Departure or ambiguity | Step stopped at | Resolution | Resolved by |
 | --- | --- | --- | --- | --- |
+| 1 | Step 3.2 said C1–C12 while §6 and the Caliper row on the aborted prompt require C13. C13 was implemented in Step 3's commit (`ff3627d`) without a stop. | none | Keep. Step 3.2 now reads C1–C13. | Ray, 20261029 |
 
 ## 5. Verification
 
