@@ -46,6 +46,8 @@
 | 20261030 | Caliper | 8: The design study's §4.3 heading, "What a spec may number (Q2)", still frames Q2 as numbering. | Accepted. The heading reads "What a document may label (Q2)". |
 | 20261030 | Caliper | 7, 3: The design no longer meets issue AC6 as worded ("the latest Caliper pass, made on the spec text that is approved"): the text condition moved to the Approval row, and a spec returned to `Draft` is approved again by Ray with no new pass. Only AC1.1 is marked restated, and only issue AC1 is named for the issue-body edit `docs/standards/1-workflow.md` §1.2 requires. | Accepted. AC6.1 is marked restated from issue AC6. The issue body needs the AC6 edit at close-out, with the AC1 edit (`docs/standards/1-workflow.md` §1.2). |
 | 20261030 | Caliper | 3: Step 4b keeps "because the branch under review need not be the one checked out", but under Step 4a the checked-out branch must hold the spec, so before close-out it is `<branch>` or one cut from it. | Accepted. Step 4b's reason reads: the branch checked out need only hold the spec, and need not be `<branch>`. |
+| 20261030 | Caliper | 3, 8: Step 5 defines the label check in read 5 but `references/anvil.md` § Emits lists no discrepancy it fits: a label that points at the right row resolves. Read 5's bullet covers only a step's citation, so a label given in §6 that no step cites is outside it, though AC3.1 covers it. | Accepted. Step 5 states the label check once, as a § Emits discrepancy over the whole spec, which read 1 reads end to end; read 5's bullet keeps the reference check only. §1 In scope, the step table and AC3.1 follow. |
+| 20261030 | Caliper | 3: Steps 4d and 4e say every read is of the commit at `HEAD`, but read 2 (`gh issue view`) and any `gh` command read 4 resolves read GitHub's current state. | Accepted. Both say the spec and every repository file read are of that commit. |
 
 ---
 
@@ -56,7 +58,7 @@
 - `docs/standards/1-workflow.md`: two authoring rules in §1.2 (Step 1), the Review and Approval rows of §1.1's done-condition table, and §1.1 Implementation review's session (Step 2).
 - `.claude/skills/session-start/SKILL.md` § Role 2: criterion 8, and one session for each pass (Step 3).
 - `.claude/skills/session-start/references/caliper.md`: how the run chooses which review it is, the post-implementation review's trigger, the amendment rule, the spec review reading the committed spec, and the commit its `No findings.` row names (Step 4).
-- `.claude/skills/session-start/references/anvil.md` § Reads, in order: a reference to another part of the same spec (Step 5).
+- `.claude/skills/session-start/references/anvil.md` § Reads, in order and § Emits: a reference to another part of the same spec, and an item with a name of its own given a label (Step 5).
 
 **Out of scope:**
 
@@ -85,7 +87,7 @@ The Step 1b rule refuses authored text, so it was run over the live set it will 
 | 2 | §1.1's Review row requires a clean pass naming the commit it read, its Approval row requires the approved text to be that commit's, and Implementation review cites Role 2 for its session | `docs/standards/1-workflow.md` |
 | 3 | Role 2 carries criterion 8 and the rule that each pass runs in its own session | `.claude/skills/session-start/SKILL.md` |
 | 4 | Caliper's reference chooses its review from the artifacts, its amendment rule matches the Review row, and its spec review reads the committed spec and names that commit | `.claude/skills/session-start/references/caliper.md` |
-| 5 | Anvil's read 5 resolves a reference to another part of the same spec | `.claude/skills/session-start/references/anvil.md` |
+| 5 | Anvil's read 5 resolves a reference to another part of the same spec, and its § Emits reports an item with a name of its own given a label | `.claude/skills/session-start/references/anvil.md` |
 | 6 | Results artifact | `docs/dev/results/SPEC_SELF_CONSISTENCY_RESULTS.md` |
 
 Close-out is not in this table. It is `/closeout`.
@@ -217,7 +219,7 @@ It is an amendment row (§ Emits) with suggested wording, and not a finding agai
 with:
 
 ```text
-1. The spec at the target path, end to end, read with a clean working tree. Where `git status --porcelain` prints anything, the run reviews nothing (§ Emits). A clean tree makes this read and every read below one of the commit at `HEAD`.
+1. The spec at the target path, end to end, read with a clean working tree. Where `git status --porcelain` prints anything, the run reviews nothing (§ Emits). A clean tree makes this read, and every read of a repository file below, one of the commit at `HEAD`.
 ```
 
 **4e.** Replace:
@@ -229,7 +231,7 @@ With no finding and no amendment, the run emits the same table with one row, `| 
 with:
 
 ```text
-With no finding and no amendment, the run emits the same table with one row, `| <YYYYMMDD> | Caliper | No findings. Read at <commit>. | n/a |`, where `<commit>` is `git rev-parse --short HEAD`, the commit every read was of, and nothing else. A run that reviews nothing, because `HEAD` holds no spec at the target path (§ Choosing the review) or the working tree is not clean (read 1), emits no table and no row to record. It emits one line, `Not reviewed:` and the reason, followed by each path `git status --porcelain` lists where the tree is not clean.
+With no finding and no amendment, the run emits the same table with one row, `| <YYYYMMDD> | Caliper | No findings. Read at <commit>. | n/a |`, where `<commit>` is `git rev-parse --short HEAD`, the commit the spec and every repository file were read at, and nothing else. A run that reviews nothing, because `HEAD` holds no spec at the target path (§ Choosing the review) or the working tree is not clean (read 1), emits no table and no row to record. It emits one line, `Not reviewed:` and the reason, followed by each path `git status --porcelain` lists where the tree is not clean.
 ```
 
 ### Step 5 — Anvil's reference
@@ -243,7 +245,19 @@ In `.claude/skills/session-start/references/anvil.md` § Reads, in order, direct
 insert:
 
 ```text
-   - **Reference to another part of the spec** — a step's citation of another section of the same spec, or of an item that section labels: the section exists, and each item cited is there and is what the step says it is. A test named other than by its node ID, or any item with a name of its own given a label, is a discrepancy (`docs/standards/1-workflow.md` §1.2).
+   - **Reference to another part of the spec** — a step's citation of another section of the same spec, or of an item that section labels: the section exists, and each item cited is there and is what the step says it is.
+```
+
+In § Emits, directly after:
+
+```text
+  - a reference that does not resolve, or resolves to something other than what the spec says is there
+```
+
+insert:
+
+```text
+  - an item with a name of its own given a label anywhere in the spec, such as a test named other than by its node ID (`docs/standards/1-workflow.md` §1.2)
 ```
 
 ### Step 6 — results
@@ -260,7 +274,7 @@ None. The merge to `main` is `/closeout`'s, which stops at it.
 | --- | --- | --- |
 | AC1.1 | An item that has a name of its own, such as a test, a file or a symbol, is cited by that name and never given a label, and a reference to a labelled item within the file that defines it names its label or cites its section, as stated in the standards' spec authoring rules. Restated from issue AC1 (Decision Log). | Stated reading by Ray of `docs/standards/1-workflow.md` §1.2, for the rule |
 | AC2.1 | A revision of a spec, including the resolution of a review finding, finds every statement in the spec of what it changes, and changes each one, as stated in the standards' spec authoring rules | Stated reading by Ray of `docs/standards/1-workflow.md` §1.2, for the rule |
-| AC3.1 | Anvil's session-open run resolves a step's reference to another part of the same spec only when that part holds what the step says, and reports any other result, and any item with a name of its own given a label, as a discrepancy | Stated reading by Ray of `.claude/skills/session-start/references/anvil.md` § Reads, in order, read 5 |
+| AC3.1 | Anvil's session-open run resolves a step's reference to another part of the same spec only when that part holds what the step says, and reports any other result, and any item with a name of its own given a label, as a discrepancy | Stated reading by Ray of `.claude/skills/session-start/references/anvil.md` § Reads, in order, read 5, and § Emits |
 | AC4.1 | Every pre-implementation Caliper pass, the first or a later one, is a full review of the spec as it then stands, in a session of its own opened with `/session-start Caliper`, and not a check of earlier findings only | Stated reading by Ray of `.claude/skills/session-start/SKILL.md` § Role 2 and `references/caliper.md` § Choosing the review |
 | AC5.1 | Caliper's review criteria ask where the spec states the same thing in more than one place, and whether the statements agree | Stated reading by Ray of `SKILL.md` § Role 2's criteria list |
 | AC6.1 | The Review stage is done only when the latest Caliper pass reports no findings and names the commit it read, a spec is first set `Approved` only when its text is that commit's apart from the recording of that row, an edit to an `Approved` spec other than a Decision Log row, a `**Status:**` change or a Keep amendment returns it to `Draft` until Ray approves it again, and an amendment's wording written into the spec is reviewed by a later pass. Restated from issue AC6 (Decision Log). | Stated reading by Ray of the Review and Approval rows in `docs/standards/1-workflow.md` §1.1's done-condition table, and `references/caliper.md` § Reads, in order, § Emits and § Working rules |
