@@ -1,6 +1,6 @@
 # Spec Self-Consistency — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261030
 **Spec:** `../specs/SPEC_SELF_CONSISTENCY_SPEC.md`
@@ -43,8 +43,9 @@ Complete. Steps 1–5 made every edit as the spec quotes it, one commit per step
 
 ## 5. Verification
 
-- **Test suite:** not run. No file under `tests/`, `automation/`, `workmain/`, `config/` or `templates/` changed (spec §6). Close-out runs the suites.
+- **Test suite:** 1623 passed, 0 failed, 0 skipped (baseline: 1622 passed, 1 failed, 0 skipped) — form per `docs/standards/6-testing.md` §6. The baseline ran at the merge base `eca8083` in a temporary worktree, whose long path made Rich wrap the message `tests/test_report_history.py::TestReportResend::test_resend_prompts_on_existing_file` asserts on; the branch changes no file under `tests/` or `workmain/`. `pytest automation/` not run: the branch changes nothing under `automation/`.
 - **Live verification:** none. The changes are documentation and skill text.
+- **Daemon restart:** n/a — `chore/*`, for which `docs/standards/2-git.md` §2.6 requires none.
 - **AC7.1's search** at `e2495c0` prints 17 lines. Each states the post-implementation review's session only by citing `SKILL.md` § Role 2 or `references/caliper.md` § Choosing the review, or doesn't state it: `SKILL.md:87` holds the rule, `references/caliper.md:7` and `docs/standards/1-workflow.md:24` cite it, and no line says the review runs in the session that reviewed the spec.
 
 ## 6. Follow-ups

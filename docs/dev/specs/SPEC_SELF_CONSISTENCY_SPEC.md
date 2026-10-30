@@ -1,6 +1,6 @@
 # Spec Self-Consistency — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261029
 **Branch:** `chore/issue-253-spec-self-consistency` (from `main`)
