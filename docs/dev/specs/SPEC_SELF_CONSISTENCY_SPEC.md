@@ -34,6 +34,9 @@
 | 20261030 | Caliper | 7, 3: Approval checks the text only at the edit that sets `Approved`. A spec defect fixed after Anvil's session open, or a departure ruling that amends the spec, edits an `Approved` spec no pass read, so Review and AC6.1 read green on unread text. | Accepted (Ray, 20261030). The Approval row adds: an edit to the spec's text while `**Status:**` is `Approved`, other than the amendment a Keep ruling makes, sets it back to `Draft` in the same commit, and it is approved again only as the row states. A Keep amendment records code that exists, and the post-implementation review covers it. Step 2a, AC6.1. |
 | 20261030 | Caliper | 2, 8: The design study still states the retired template rule in §4.1 item 6 and frames Q2 by the AC1 wording in §1. | Accepted. Both state the reworded rule. |
 | 20261030 | Caliper | 3: AC3.1, §1 In scope and Step 5 cite `references/anvil.md` § Reads; the heading is `## Reads, in order`. | Accepted. All three cite § Reads, in order. |
+| 20261030 | Caliper | 3, 5: Step 2a does not say whether a Decision Log row is an edit that returns an `Approved` spec to `Draft`. The rules require rows after approval (a departure's row, post-implementation rows with Ray's rulings). If they count, the spec is `Draft` once the results artifact exists, Step 4a then selects only the post-implementation review so no clean pass can re-approve it, and `/closeout` P4 refuses it. | Accepted. A Decision Log row is a record, not text a pass reviews: the Approval row exempts it with the Keep amendment. Step 2a, AC6.1. |
+| 20261030 | Caliper | 5, 3: Step 4d moves only read 1 to `HEAD`. Reads 3 and 4 still read the working tree, so the commit the `No findings.` row names need not hold what they read, and a step quote matching only an uncommitted edit to a cited file passes. | Accepted. The spec review runs only on a clean working tree, which makes every read one of the commit at `HEAD`; otherwise it emits the paths and reviews nothing. Steps 4d, 4e. |
+| 20261030 | Caliper | 3: The spec does not say how its own record meets the Review row it introduces: its passes run under the current reference, which emits `No findings.` without a commit. | Accepted. §7 states it: the clean pass's row records the commit the Caliper session states it read, on a clean tree, and the Approval check runs against it. |
 
 ---
 
@@ -112,7 +115,7 @@ with:
 
 ```text
 | Review | The spec's last `Caliper` row, by its position in the Decision Log, is the `No findings.` row `/session-start Caliper` emits for a clean pass, naming the commit the pass read, and every other `Caliper` row has a resolution. A `Caliper` row is one whose Source is exactly `Caliper`. A Caliper pass is `.claude/skills/session-start/SKILL.md` § Role 2. On the direct path the stage is `n/a` where the spec's `**Status:**` is `Approved` and it carries no `Caliper` row. |
-| Approval | The spec's `**Status:**` is `Approved`. Where the spec carries a `Caliper` row, `**Status:**` is set to `Approved` only when `git diff <commit> -- <spec path>`, run before that edit with the commit the last `No findings.` row names, shows no change but the lines that record that row: the text approved is the text the pass read. An edit to the spec's text while `**Status:**` is `Approved`, other than the amendment a Keep ruling makes (§1.1 Implementation review), sets `**Status:**` back to `Draft` in the same commit, and the spec is approved again only as this row states. |
+| Approval | The spec's `**Status:**` is `Approved`. Where the spec carries a `Caliper` row, `**Status:**` is set to `Approved` only when `git diff <commit> -- <spec path>`, run before that edit with the commit the last `No findings.` row names, shows no change but the lines that record that row: the text approved is the text the pass read. An edit to the spec while `**Status:**` is `Approved`, other than a Decision Log row and the amendment a Keep ruling makes (§1.1 Implementation review), sets `**Status:**` back to `Draft` in the same commit, and the spec is approved again only as this row states. |
 ```
 
 **2b.** In `docs/standards/1-workflow.md` §1.1, replace:
@@ -205,7 +208,7 @@ It is an amendment row (§ Emits) with suggested wording, and not a finding agai
 with:
 
 ```text
-1. The spec at the target path, end to end, as committed: `git show HEAD:<target path>`. Edits in the working tree are not read.
+1. The spec at the target path, end to end, read with a clean working tree. Where `git status --porcelain` prints anything, the run emits each path it lists and reviews nothing. A clean tree makes this read and every read below one of the commit at `HEAD`.
 ```
 
 **4e.** Replace:
@@ -217,7 +220,7 @@ With no finding and no amendment, the run emits the same table with one row, `| 
 with:
 
 ```text
-With no finding and no amendment, the run emits the same table with one row, `| <YYYYMMDD> | Caliper | No findings. Read at <commit>. | n/a |`, where `<commit>` is `git rev-parse --short HEAD`, the commit read 1 read, and nothing else.
+With no finding and no amendment, the run emits the same table with one row, `| <YYYYMMDD> | Caliper | No findings. Read at <commit>. | n/a |`, where `<commit>` is `git rev-parse --short HEAD`, the commit every read was of, and nothing else.
 ```
 
 ### Step 5 — Anvil's reference
@@ -251,7 +254,7 @@ None. The merge to `main` is `/closeout`'s, which stops at it.
 | AC3.1 | Anvil's session-open run resolves a step's reference to another part of the same spec only when that part holds what the step says, and reports any other result, and any item with a name of its own given a label, as a discrepancy | Stated reading by Ray of `.claude/skills/session-start/references/anvil.md` § Reads, in order, read 5 |
 | AC4.1 | Every pre-implementation Caliper pass, the first or a later one, is a full review of the spec as it then stands, in a session of its own opened with `/session-start Caliper`, and not a check of earlier findings only | Stated reading by Ray of `.claude/skills/session-start/SKILL.md` § Role 2 and `references/caliper.md` § Choosing the review |
 | AC5.1 | Caliper's review criteria ask where the spec states the same thing in more than one place, and whether the statements agree | Stated reading by Ray of `SKILL.md` § Role 2's criteria list |
-| AC6.1 | The Review stage is done only when the latest Caliper pass reports no findings and names the commit it read, a spec is set `Approved` only when its text is that commit's apart from the recording of that row, an edit to an `Approved` spec other than a Keep amendment returns it to `Draft`, and an amendment's wording written into the spec is reviewed by a later pass | Stated reading by Ray of the Review and Approval rows in `docs/standards/1-workflow.md` §1.1's done-condition table, and `references/caliper.md` § Reads, in order, § Emits and § Working rules |
+| AC6.1 | The Review stage is done only when the latest Caliper pass reports no findings and names the commit it read, a spec is set `Approved` only when its text is that commit's apart from the recording of that row, an edit to an `Approved` spec other than a Decision Log row or a Keep amendment returns it to `Draft`, and an amendment's wording written into the spec is reviewed by a later pass | Stated reading by Ray of the Review and Approval rows in `docs/standards/1-workflow.md` §1.1's done-condition table, and `references/caliper.md` § Reads, in order, § Emits and § Working rules |
 | AC7.1 | Which Caliper session runs the post-implementation review is stated once, in `SKILL.md` § Role 2, as a session of its own whose run chooses its review as `references/caliper.md` § Choosing the review states, and §1.1 Implementation review and `references/caliper.md` cite it | Stated reading by Ray of `docs/standards/1-workflow.md` §1.1 Implementation review, `SKILL.md` § Role 2, and `references/caliper.md` § Choosing the review and § Post-implementation review; and a reading by Ray of every line `git grep -n -i -e 'post-implementation' -e 'implementation review' -e 'after implementation' -e 'delivered branch' -- CLAUDE.md docs/standards .claude 'docs/dev/*/_TEMPLATE_*.md'` prints, for any other statement of which session runs the review. A statement of it has to name the review, so the search sees every form; at `7c95654` it prints 15 lines |
 
 ## 6. Test plan
@@ -261,5 +264,6 @@ No file under `tests/`, `automation/`, `workmain/`, `config/` or `templates/` ch
 ## 7. Risks and rollback
 
 - **A Caliper session opened before the merge** loads the old rules from whichever branch is checked out. This spec's own reviews run on this branch, so the post-implementation review runs under the new § Choosing the review.
+- **This spec's own Review record.** Its pre-implementation passes run under the reference as it stands before Step 4, which emits `No findings.` without a commit and does not require a clean tree. Under the Review row Step 2a writes, its clean pass's row is recorded as `No findings. Read at <commit>.`, with the commit the Caliper session states it read (`git rev-parse --short HEAD`, on a clean tree), and the Approval check runs against that commit.
 - **The mode check selects the wrong review.** It reads the branch the spec names, not the working tree. A spec whose branch was deleted after close-out has no live review to run.
 - **Rollback:** each step is one commit. Reverting them in reverse order restores the previous text. Before close-out, `git branch -D` the unmerged branch.
