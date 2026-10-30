@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Complete. Steps 1–5 made every edit as the spec quotes it, one commit per step, with no departure. Every acceptance criterion is checked by Ray's reading, so each stays `Not met` until he gives it.
+Complete. Steps 1–5 made every edit as the spec quotes it, one commit per step, with no departure. Every acceptance criterion is checked by Ray's reading, and he gave it for all seven on 20261030.
 
 ## 2. What shipped, by step
 
@@ -27,13 +27,13 @@ Complete. Steps 1–5 made every edit as the spec quotes it, one commit per step
 
 | AC | Status | Evidence |
 | --- | --- | --- |
-| AC1.1 | Not met | Awaiting Ray |
-| AC2.1 | Not met | Awaiting Ray |
-| AC3.1 | Not met | Awaiting Ray |
-| AC4.1 | Not met | Awaiting Ray |
-| AC5.1 | Not met | Awaiting Ray |
-| AC6.1 | Not met | Awaiting Ray |
-| AC7.1 | Not met | Awaiting Ray. The search's output at `e2495c0` is in §5 |
+| AC1.1 | Met | Ray, 20261030: read `docs/standards/1-workflow.md` §1.2, for the ID rule |
+| AC2.1 | Met | Ray, 20261030: read `docs/standards/1-workflow.md` §1.2, for the revision rule |
+| AC3.1 | Met | Ray, 20261030: read `.claude/skills/session-start/references/anvil.md` § Reads, in order, read 5, and § Emits |
+| AC4.1 | Met | Ray, 20261030: read `.claude/skills/session-start/SKILL.md` § Role 2 and `references/caliper.md` § Choosing the review |
+| AC5.1 | Met | Ray, 20261030: read `SKILL.md` § Role 2's criteria list |
+| AC6.1 | Met | Ray, 20261030: read the Review and Approval rows in `docs/standards/1-workflow.md` §1.1, and `references/caliper.md` § Reads, in order, § Emits and § Working rules |
+| AC7.1 | Met | Ray, 20261030: read `docs/standards/1-workflow.md` §1.1 Implementation review, `SKILL.md` § Role 2, `references/caliper.md` § Choosing the review and § Post-implementation review, and the search's output at `e2495c0` (§5) |
 
 ## 4. Deviations from spec
 
