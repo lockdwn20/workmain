@@ -2,9 +2,13 @@
 
 **Role:** `SKILL.md` § Role 2. **Target:** a spec path, required.
 
+## Choosing the review
+
+A run is one Caliper pass, in a session of its own (`SKILL.md` § Role 2). `<branch>` is the first backtick-quoted name in the `**Branch:**` field of the spec as committed at `HEAD` (`git show HEAD:<target path>`). Where `HEAD` holds no file at the target path, the run reports the spec unreadable (`SKILL.md` § Rules every run holds) and reviews nothing (§ Emits): it is run with a branch checked out that holds the spec. When `git rev-parse --verify --quiet <branch>` exits 0 and § Post-implementation review's read 2 finds a results artifact on `<branch>`, the run is § Post-implementation review. Otherwise it is the spec review: § Reads, in order and § Emits.
+
 ## Reads, in order
 
-1. The spec at the target path, end to end.
+1. The spec at the target path, end to end, read with a clean working tree. Where `git status --porcelain` prints anything, the run reviews nothing (§ Emits). A clean tree makes this read, and every read of a repository file below, one of the commit at `HEAD`.
 2. The originating issue named by the spec's `**Originating item:**` field: `gh issue view <N> --json number,title,body,labels,milestone,parent`
 3. The design study named by the spec's `**Design study:**` field, resolved relative to the spec. Skipped when the field reads `n/a`.
 4. Every source the spec cites — file, symbol, line, section or command — at the cited location.
@@ -20,11 +24,11 @@ Findings against the review criteria `SKILL.md` § Role 2 carries, as a table wi
 | <YYYYMMDD> | Caliper | <criterion number>: <finding, with the evidence that grounds it> | |
 ```
 
-An amendment (§ Working rules) is a row of the same table: `| <YYYYMMDD> | Caliper | Amendment: <criterion number>: <the case no standard yet covers, and the suggested wording> | |`. With no finding and no amendment, the run emits the same table with one row, `| <YYYYMMDD> | Caliper | No findings. | n/a |`, and nothing else. A run with amendments and no finding emits the amendment rows alone. No other commentary.
+An amendment (§ Working rules) is a row of the same table: `| <YYYYMMDD> | Caliper | Amendment: <criterion number>: <the case no standard yet covers, and the suggested wording> | |`. With no finding and no amendment, the run emits the same table with one row, `| <YYYYMMDD> | Caliper | No findings. Read at <commit>. | n/a |`, where `<commit>` is `git rev-parse --short HEAD`, the commit the spec and every repository file were read at, and nothing else. A run that reviews nothing, because `HEAD` holds no spec at the target path (§ Choosing the review) or the working tree is not clean (read 1), emits no table and no row to record. It emits one line, `Not reviewed:` and the reason, followed by each path `git status --porcelain` lists where the tree is not clean. A run with amendments and no finding emits the amendment rows alone. No other commentary.
 
 ## Post-implementation review
 
-Run when Ray requests it in this session after the results artifact exists — `docs/standards/1-workflow.md` §1.1 Implementation review. `<branch>` is the first backtick-quoted name in the spec's `**Branch:**` field. Every file is read from it with `git show <branch>:<path>`, never from the working tree, because the branch under review need not be the one checked out.
+Run when § Choosing the review selects it — `docs/standards/1-workflow.md` §1.1 Implementation review. Every file is read from `<branch>` with `git show <branch>:<path>`, never from the working tree, because the branch checked out need only hold the spec (§ Choosing the review) and need not be `<branch>`.
 
 ### Reads, in order
 
@@ -55,4 +59,4 @@ With no finding, the review emits one row, `| <YYYYMMDD> | Caliper (post-impleme
 
 These hold for the whole Caliper session. The run neither reads nor emits them, and no other role's session loads them.
 
-- **A spec that builds the process can outrun the standards.** Where the spec under review builds the process — the standards, the skills, the implementation cycle, and anything like it — a case no standard yet covers is not a finding against it. It is an amendment row (§ Emits) with suggested wording, and it does not hold the spec. Ray approves the wording, and Spanner then writes it into the spec. A mechanism defect — a wrong command default, a criterion that cannot be checked — is still a finding, in every spec. A point argued once and reaffirmed by Ray is decided.
+- **A spec that builds the process can outrun the standards.** Where the spec under review builds the process — the standards, the skills, the implementation cycle, and anything like it — a case no standard yet covers is not a finding against it. It is an amendment row (§ Emits) with suggested wording, and not a finding against the spec. Ray approves the wording, and Spanner then writes it into the spec. Before implementation, the next pass reviews it like any other text (`docs/standards/1-workflow.md` §1.1, the Review row); after it, Ray's approval of the wording is its review. A mechanism defect — a wrong command default, a criterion that cannot be checked — is still a finding, in every spec. A point argued once and reaffirmed by Ray is decided.

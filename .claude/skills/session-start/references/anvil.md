@@ -14,6 +14,7 @@
    - **Line or line range** — holds the text or symbol the spec says it holds.
    - **Quoted text a step replaces or edits** — occurs verbatim in the file named, as many times as the step says, and once where it does not say.
    - **Section** — the file named has the heading, and the section says what the spec says it says.
+   - **Reference to another part of the spec** — a step's citation of another section of the same spec, or of an item that section gives an ID: the section exists, and each item cited is there and is what the step says it is.
    - **Claim about existing behaviour** — a §2 row, or a statement of what code does: the evidence it cites is read and shows the claim.
    - **Test node** — `pytest --collect-only -q <node>` collects it.
    - **Issue** — `gh issue view <N>` returns it, in the state the spec gives where it gives one.
@@ -30,6 +31,7 @@
   - the working tree is not clean, with each path `git status --porcelain` lists
   - the current branch is not the spec's `**Branch:**`
   - a reference that does not resolve, or resolves to something other than what the spec says is there
+  - an item with a name of its own given an ID anywhere in the spec, such as a test named other than by its node ID (`docs/standards/1-workflow.md` §1.2)
 
 Every read runs and every discrepancy is reported; the run does not stop at the first. What happens next — waiting for Ray's go-ahead, and what it authorizes — is `SKILL.md` § Role 3.
 
