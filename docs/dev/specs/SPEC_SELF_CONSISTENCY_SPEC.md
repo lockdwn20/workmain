@@ -48,6 +48,7 @@
 | 20261030 | Caliper | 3: Step 4b keeps "because the branch under review need not be the one checked out", but under Step 4a the checked-out branch must hold the spec, so before close-out it is `<branch>` or one cut from it. | Accepted. Step 4b's reason reads: the branch checked out need only hold the spec, and need not be `<branch>`. |
 | 20261030 | Caliper | 3, 8: Step 5 defines the label check in read 5 but `references/anvil.md` § Emits lists no discrepancy it fits: a label that points at the right row resolves. Read 5's bullet covers only a step's citation, so a label given in §6 that no step cites is outside it, though AC3.1 covers it. | Accepted. Step 5 states the label check once, as a § Emits discrepancy over the whole spec, which read 1 reads end to end; read 5's bullet keeps the reference check only. §1 In scope, the step table and AC3.1 follow. |
 | 20261030 | Caliper | 3: Steps 4d and 4e say every read is of the commit at `HEAD`, but read 2 (`gh issue view`) and any `gh` command read 4 resolves read GitHub's current state. | Accepted. Both say the spec and every repository file read are of that commit. |
+| 20261030 | Caliper | 8: §1 Out of scope ("design study Q2", "Q1 Option A") and §2 ("the design study's F1") use the design study's IDs outside the Decision Log, against `docs/standards/1-workflow.md` §1.5. | Accepted. Each states the thing or cites the study's section. |
 
 ---
 
@@ -63,8 +64,8 @@
 **Out of scope:**
 
 - The Implementation review stage's done condition. The issue does not name it.
-- `docs/dev/specs/_TEMPLATE_SPEC.md`. With design study Q2 answered, no section of the template changes form.
-- `.claude/skills/session-start/SKILL.md` Step 0's usage line. Under Q1 Option A, Caliper's target is still a spec path.
+- `docs/dev/specs/_TEMPLATE_SPEC.md`. Under the rule Step 1b states, no section of the template changes form.
+- `.claude/skills/session-start/SKILL.md` Step 0's usage line. Caliper's target is still a spec path: the run chooses its review from the spec's branch (Step 4a).
 - `.claude/skills/session-start/references/spanner.md`. Its Next stage applies whatever §1.1's table states, and its amendment sentence ("Ray approves the wording, and Spanner then writes it into the spec") still holds.
 - Archived specs, which are a record (`docs/standards/1-workflow.md` §1.5).
 
@@ -72,7 +73,7 @@
 
 On the direct path, each step quotes the text it replaces. The findings behind each change, with their evidence, are in the design study's §3. The quotes below were taken on 20261029 at `eca8083`.
 
-The Step 1b rule refuses authored text, so it was run over the live set it will judge (`docs/standards/1-workflow.md` §1.2): this spec and its design study, the only live artifacts. Neither gives a label to an item with a name of its own. Their labels are design rules, steps and their parts, criteria, findings, questions and options, each its item's only name, and their tests, files and symbols are cited by node ID, path and symbol. The archive census of invented labels is the design study's F1.
+The Step 1b rule refuses authored text, so it was run over the live set it will judge (`docs/standards/1-workflow.md` §1.2): this spec and its design study, the only live artifacts. Neither gives a label to an item with a name of its own. Their labels are design rules, steps and their parts, criteria, findings, questions and options, each its item's only name, and their tests, files and symbols are cited by node ID, path and symbol. The archive census of invented labels is in the design study's §3.
 
 ## 3. Design rules
 
