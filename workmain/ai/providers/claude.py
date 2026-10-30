@@ -75,7 +75,7 @@ class ClaudeProvider(BaseProvider):
                 f"Claude API key required. Set {api_key_env} environment variable."
             )
 
-        self.client = Anthropic(api_key=self._api_key)
+        self.client = Anthropic(api_key=self._api_key, max_retries=0)
 
         if not self.validate_config():
             raise ConfigurationError("Invalid Claude configuration")
