@@ -40,7 +40,7 @@ In #203 and #204 a spec reached Anvil with two of its sections disagreeing, and 
 
 Each item is a change the issue states. Where the issue or a standard also fixes how it is made, that is stated with it.
 
-1. **No numbered set beyond the template's** (F1, F2, AC1 as restated under Q2). §4.3 states the rule. It goes in `docs/standards/1-workflow.md` §1.2.
+1. **No label for an item that has a name of its own** (F1, F2, AC1 as restated under Q2). §4.3 states the rule. It goes in `docs/standards/1-workflow.md` §1.2.
 2. **A revision finds every statement** (F2, AC2). The "surgical" bullet in §1.2 is extended. A revision of a spec, including the resolution of a review finding, searches the spec for every statement of what it changes, and changes each one. This is the in-spec counterpart of §1.5's rule-change search, and it cites that rule.
 3. **Criterion 8** (F8, AC5). Add to `SKILL.md` § Role 2: "Where does this spec state the same thing in more than one place, and do the statements agree?"
 4. **Every pre-implementation pass is a full review in a fresh session** (F3, AC4). `SKILL.md` § Role 2 states the rule. Each pass, the first or a later one, is a review of the whole spec as it then stands, against every criterion, opened with a new `/session-start Caliper <spec path>`. A session runs one pass. `references/caliper.md` cites the rule. Its reads already take in the whole spec, Decision Log included, and "a point argued once and reaffirmed by Ray is decided" already keeps a fresh pass from reopening settled findings.
@@ -74,7 +74,7 @@ Each item is a change the issue states. Where the issue or a standard also fixes
 
 The defect is not that a step names members of a set another section owns. A reference is what the one-home rule asks for. The ranges that went stale were of labels the spec invented (F1): C1–C12 in #204 was a numbering of §6's tests that no template defines and no rule governs. The test already has a name, its pytest node ID, in the file that is its one home. The label is a second name for it.
 
-The rule, in `docs/standards/1-workflow.md` §1.2: a spec or design study numbers or letters only what its template numbers or letters, with a step's parts labelled under its number as the stated exception, and names a test by its node ID. The revision rule (§4.1 item 2) keeps every reference to a numbered item true when the set changes, for every set alike. A rule that held some sets' IDs fixed and not others' would be a standard written for the exceptions.
+The rule, in `docs/standards/1-workflow.md` §1.2: an item that has a name of its own, such as a test, a file or a symbol, is cited by that name and never given a label. A label that is an item's only name, such as a design rule's, is its one home. The revision rule (§4.1 item 2) keeps every reference true when a set changes, for every set alike. A rule that held some sets' IDs fixed and not others' would be a standard written for the exceptions.
 
 The issue's AC1 forbade a step from restating a set's members at all, which treats a reference as the defect. The spec restates AC1 to this rule (`docs/standards/1-workflow.md` §1.2), and the issue body needs the edit at close-out.
 
@@ -87,7 +87,7 @@ On the direct path, Ray decides at the start whether Caliper reviews the spec, a
 | Q | Question | Answer |
 | --- | --- | --- |
 | Q1 | Which Caliper session runs the post-implementation review: a fresh session that chooses its mode from whether a results artifact exists (A), a fresh session given the mode as an argument (B), or the session of the last pre-implementation pass (C) (§4.2)? | Answered 20261029 by Ray: Option A. The mode check is written into the Caliper skill. |
-| Q2 | What may a spec number, and how does a reference to a numbered item stay true (§4.3)? | Answered 20261029 by Ray: the issue's AC1 misread the defect. A reference by ID is what the one-home rule wants. The stale ranges were of labels the spec invented. A spec numbers only the sets its template defines and names a test by its node ID; the revision rule covers every set alike. The rule in §4.3, with AC1 restated to it. |
+| Q2 | What may a document label, and how does a reference to a labelled item stay true (§4.3)? | Answered 20261029 by Ray: the issue's AC1 misread the defect. A reference by ID is what the one-home rule wants. The stale ranges were of labels the spec invented for tests, which have a name of their own. Reworded 20261030 by Ray after Caliper's second review: an item that has a name of its own is cited by that name, never given a label; the revision rule covers every set alike. The rule in §4.3, with AC1 restated to it. |
 | Q3 | Does Caliper review this spec, and so also the delivered branch (§4.4)? | Answered 20261029 by Ray: yes. The change crosses roles and needs Caliper's review. |
 
 ## 6. Disposition
