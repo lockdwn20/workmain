@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Complete. Steps 1–5 made every edit as the spec quotes it, one commit per step, with no departure. Every acceptance criterion is checked by Ray's reading, and he gave it for all seven on 20261030.
+Complete. Steps 1–5 made every edit as the spec quotes it, one commit per step. One change outside the steps, `.claude/settings.json`'s `idleCompaction` setting, was kept by Ray's ruling (§4). Every acceptance criterion is checked by Ray's reading, and he gave it for all seven on 20261030.
 
 ## 2. What shipped, by step
 
@@ -37,10 +37,9 @@ Complete. Steps 1–5 made every edit as the spec quotes it, one commit per step
 
 ## 4. Deviations from spec
 
-None.
-
 | # | Departure or ambiguity | Step stopped at | Resolution | Resolved by |
 | --- | --- | --- | --- | --- |
+| 1 | Commit `256bffa` set `"idleCompaction": false` in `.claude/settings.json`, a change no step covered, made without a stop | none | Keep: the spec's §1 In scope lists it | Ray, 20261030 |
 
 ## 5. Verification
 

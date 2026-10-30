@@ -55,6 +55,7 @@
 | 20261030 | Caliper | 3, 7: A post-implementation run can emit an amendment, but Step 4c says the next pass reviews the wording written in, and after implementation Step 4a selects no pass that reads the whole spec. AC6.1 then reads green on unread text. | Accepted. Under the 20261030 Ray row on re-approval, Ray's approval stands after implementation: Step 4c says the next pass reviews amendment wording before implementation, and Ray's approval of the wording is its review after. AC6.1 follows. |
 | 20261030 | Caliper | 5, 3: Step 4d runs a spec review only on a clean working tree, and §7 has Spanner commit and confirm a clean tree before each pass, but `docs/standards/2-git.md` §2.4 and §2.2 § Operational changes from live use expect uncommitted changes Spanner may not commit (Ray's live `config/` edits, a CLI-written `config/ai_settings.json`). While either is in the tree, every spec review emits `Not reviewed:`, and the spec does not say whether Spanner commits, stashes, or the run reads through `git show HEAD:<path>`. | Withdrawn by Caliper in the same pass, on Ray's pushback: `docs/standards/2-git.md` §2.7 step 1 requires a clean working directory at the start of every session, Step 4d prints the paths that block the review, and clearing them is ordinary git practice the spec does not leave open. |
 | 20261030 | Caliper | No findings. Read at `979666a`. | n/a |
+| 20261030 | Caliper (post-implementation) | I1: Commit `256bffa` (`chore(claude): turn idle compaction off for the repository`) adds `"idleCompaction": false` to `.claude/settings.json`. No step in §4 covers it, no criterion requires it, §1 In scope does not list the file, and it is not an operational change from live use (`docs/standards/2-git.md` §2.2). Results §4 reads "None." | Keep (Ray, 20261030). Idle compaction ran during this spec's own session and must not run again in this repository. §1 In scope lists the change; results §4 records it. |
 
 ---
 
@@ -65,6 +66,7 @@
 - `docs/standards/1-workflow.md`: two authoring rules in §1.2 (Step 1), the Review and Approval rows of §1.1's done-condition table, and §1.1 Implementation review's session (Step 2).
 - `.claude/skills/session-start/SKILL.md` § Role 2: criterion 8, and one session for each pass (Step 3).
 - `.claude/skills/session-start/references/caliper.md`: how the run chooses which review it is, the post-implementation review's trigger, the amendment rule, the spec review reading the committed spec, and the commit its `No findings.` row names (Step 4).
+- `.claude/settings.json`: `"idleCompaction": false`, so idle compaction does not run in this repository (commit `256bffa`, kept by Ray's ruling on the post-implementation review; Decision Log).
 - `.claude/skills/session-start/references/anvil.md` § Reads, in order and § Emits: a reference to another part of the same spec, and an item with a name of its own given an ID (Step 5).
 
 **Out of scope:**
