@@ -53,6 +53,7 @@
 | 20261030 | Caliper | 8, 3: Step 1b and 1a say "label" where `docs/standards/1-workflow.md` §1.5 says "ID" for the same thing, and nothing ties the two terms. | Accepted (Ray, 20261030). The spec and design study say "ID", §1.5's term, throughout. |
 | 20261030 | Caliper | 8, 3: §7's third bullet says a spec whose branch was deleted after close-out has no live review to run, but Step 4a would run a spec review of it where `HEAD` holds the spec. | Accepted (Ray, 20261030). Nobody reviews a shipped spec, and the spec states no rule for it: the sentence is removed. |
 | 20261030 | Caliper | 3, 7: A post-implementation run can emit an amendment, but Step 4c says the next pass reviews the wording written in, and after implementation Step 4a selects no pass that reads the whole spec. AC6.1 then reads green on unread text. | Accepted. Under the 20261030 Ray row on re-approval, Ray's approval stands after implementation: Step 4c says the next pass reviews amendment wording before implementation, and Ray's approval of the wording is its review after. AC6.1 follows. |
+| 20261030 | Caliper | No findings. Read at `979666a`. | n/a |
 
 ---
 
