@@ -30,6 +30,10 @@
 | 20261030 | Caliper | 8: Step 3b restates the mode condition in a weaker form than Step 4a. | Accepted. Step 3b cites `references/caliper.md` § Choosing the review. AC7.1 follows. |
 | 20261030 | Caliper | 7: AC7.1's search for three phrases cannot see a statement of the session in other wording. | Accepted. AC7.1's evidence is a reading of every line that names the post-implementation review, which any statement of its session has to do. |
 | 20261030 | Ray | The Step 1b rule is reworded with no template boundary: an item that has a name of its own is cited by that name, never given a label; a label that is an item's only name is its one home. | Steps 1b and 5, AC1.1 and AC3.1. AC1.1 remains a restatement of issue AC1. |
+| 20261030 | Caliper | 8, 3: Step 3a's criterion 8 cites §1.2 for "how a reference to a set another section owns is written", the framing Q2 replaced; the rule criterion 8 asks about is 1a. 1a says "ID" and 1b says "label" for the same thing. | Accepted. Criterion 8 cites §1.2 for how a revision keeps every statement in step. 1a says "label". |
+| 20261030 | Caliper | 7, 3: Approval checks the text only at the edit that sets `Approved`. A spec defect fixed after Anvil's session open, or a departure ruling that amends the spec, edits an `Approved` spec no pass read, so Review and AC6.1 read green on unread text. | Accepted (Ray, 20261030). The Approval row adds: an edit to the spec's text while `**Status:**` is `Approved`, other than the amendment a Keep ruling makes, sets it back to `Draft` in the same commit, and it is approved again only as the row states. A Keep amendment records code that exists, and the post-implementation review covers it. Step 2a, AC6.1. |
+| 20261030 | Caliper | 2, 8: The design study still states the retired template rule in §4.1 item 6 and frames Q2 by the AC1 wording in §1. | Accepted. Both state the reworded rule. |
+| 20261030 | Caliper | 3: AC3.1, §1 In scope and Step 5 cite `references/anvil.md` § Reads; the heading is `## Reads, in order`. | Accepted. All three cite § Reads, in order. |
 
 ---
 
@@ -40,7 +44,7 @@
 - `docs/standards/1-workflow.md`: two authoring rules in §1.2 (Step 1), the Review and Approval rows of §1.1's done-condition table, and §1.1 Implementation review's session (Step 2).
 - `.claude/skills/session-start/SKILL.md` § Role 2: criterion 8, and one session for each pass (Step 3).
 - `.claude/skills/session-start/references/caliper.md`: how the run chooses which review it is, the post-implementation review's trigger, the amendment rule, the spec review reading the committed spec, and the commit its `No findings.` row names (Step 4).
-- `.claude/skills/session-start/references/anvil.md` § Reads: a reference to another part of the same spec (Step 5).
+- `.claude/skills/session-start/references/anvil.md` § Reads, in order: a reference to another part of the same spec (Step 5).
 
 **Out of scope:**
 
@@ -86,7 +90,7 @@ with:
 
 ```text
 - Changes to an existing spec are surgical, not wholesale rewrites.
-- **A revision finds every statement of what it changes.** A change to a spec, including the resolution of a review finding, searches the whole spec for every other statement of what it changes and every reference to an ID it adds, retires or alters, and changes each one. A change that edits one statement and leaves another standing hands the implementer a spec that disagrees with itself. §1.5 states the same duty across the document set for a rule change.
+- **A revision finds every statement of what it changes.** A change to a spec, including the resolution of a review finding, searches the whole spec for every other statement of what it changes and every reference to a label it adds, removes or alters, and changes each one. A change that edits one statement and leaves another standing hands the implementer a spec that disagrees with itself. §1.5 states the same duty across the document set for a rule change.
 ```
 
 **1b.** Directly after the bullet 1a adds, insert:
@@ -108,7 +112,7 @@ with:
 
 ```text
 | Review | The spec's last `Caliper` row, by its position in the Decision Log, is the `No findings.` row `/session-start Caliper` emits for a clean pass, naming the commit the pass read, and every other `Caliper` row has a resolution. A `Caliper` row is one whose Source is exactly `Caliper`. A Caliper pass is `.claude/skills/session-start/SKILL.md` § Role 2. On the direct path the stage is `n/a` where the spec's `**Status:**` is `Approved` and it carries no `Caliper` row. |
-| Approval | The spec's `**Status:**` is `Approved`. Where the spec carries a `Caliper` row, `**Status:**` is set to `Approved` only when `git diff <commit> -- <spec path>`, run before that edit with the commit the last `No findings.` row names, shows no change but the lines that record that row: the text approved is the text the pass read. |
+| Approval | The spec's `**Status:**` is `Approved`. Where the spec carries a `Caliper` row, `**Status:**` is set to `Approved` only when `git diff <commit> -- <spec path>`, run before that edit with the commit the last `No findings.` row names, shows no change but the lines that record that row: the text approved is the text the pass read. An edit to the spec's text while `**Status:**` is `Approved`, other than the amendment a Keep ruling makes (§1.1 Implementation review), sets `**Status:**` back to `Draft` in the same commit, and the spec is approved again only as this row states. |
 ```
 
 **2b.** In `docs/standards/1-workflow.md` §1.1, replace:
@@ -135,7 +139,7 @@ with:
 
 ```text
 7. Which acceptance criteria could be satisfied by a change that does not achieve what the criterion is for? — how a criterion is worded so that difference is visible: `docs/standards/1-workflow.md` §1.2.
-8. Where does this spec state the same thing in more than one place, and do the statements agree? — how a reference to a set another section owns is written: `docs/standards/1-workflow.md` §1.2.
+8. Where does this spec state the same thing in more than one place, and do the statements agree? — how a revision keeps every statement in step: `docs/standards/1-workflow.md` §1.2.
 ```
 
 **3b.** Replace:
@@ -218,7 +222,7 @@ With no finding and no amendment, the run emits the same table with one row, `| 
 
 ### Step 5 — Anvil's reference
 
-In `.claude/skills/session-start/references/anvil.md` § Reads, directly after:
+In `.claude/skills/session-start/references/anvil.md` § Reads, in order, directly after:
 
 ```text
    - **Section** — the file named has the heading, and the section says what the spec says it says.
@@ -244,10 +248,10 @@ None. The merge to `main` is `/closeout`'s, which stops at it.
 | --- | --- | --- |
 | AC1.1 | An item that has a name of its own, such as a test, a file or a symbol, is cited by that name and never given a label, and a reference to a labelled item names its label or cites its section, as stated in the standards' spec authoring rules. Restated from issue AC1 (Decision Log). | Stated reading by Ray of `docs/standards/1-workflow.md` §1.2, for the rule |
 | AC2.1 | A revision of a spec, including the resolution of a review finding, finds every statement in the spec of what it changes, and changes each one, as stated in the standards' spec authoring rules | Stated reading by Ray of `docs/standards/1-workflow.md` §1.2, for the rule |
-| AC3.1 | Anvil's session-open run resolves a step's reference to another part of the same spec only when that part holds what the step says, and reports any other result, and any item with a name of its own given a label, as a discrepancy | Stated reading by Ray of `.claude/skills/session-start/references/anvil.md` § Reads, read 5 |
+| AC3.1 | Anvil's session-open run resolves a step's reference to another part of the same spec only when that part holds what the step says, and reports any other result, and any item with a name of its own given a label, as a discrepancy | Stated reading by Ray of `.claude/skills/session-start/references/anvil.md` § Reads, in order, read 5 |
 | AC4.1 | Every pre-implementation Caliper pass, the first or a later one, is a full review of the spec as it then stands, in a session of its own opened with `/session-start Caliper`, and not a check of earlier findings only | Stated reading by Ray of `.claude/skills/session-start/SKILL.md` § Role 2 and `references/caliper.md` § Choosing the review |
 | AC5.1 | Caliper's review criteria ask where the spec states the same thing in more than one place, and whether the statements agree | Stated reading by Ray of `SKILL.md` § Role 2's criteria list |
-| AC6.1 | The Review stage is done only when the latest Caliper pass reports no findings and names the commit it read, a spec is set `Approved` only when its text is that commit's apart from the recording of that row, and an amendment's wording written into the spec is reviewed by a later pass | Stated reading by Ray of the Review and Approval rows in `docs/standards/1-workflow.md` §1.1's done-condition table, and `references/caliper.md` § Reads, in order, § Emits and § Working rules |
+| AC6.1 | The Review stage is done only when the latest Caliper pass reports no findings and names the commit it read, a spec is set `Approved` only when its text is that commit's apart from the recording of that row, an edit to an `Approved` spec other than a Keep amendment returns it to `Draft`, and an amendment's wording written into the spec is reviewed by a later pass | Stated reading by Ray of the Review and Approval rows in `docs/standards/1-workflow.md` §1.1's done-condition table, and `references/caliper.md` § Reads, in order, § Emits and § Working rules |
 | AC7.1 | Which Caliper session runs the post-implementation review is stated once, in `SKILL.md` § Role 2, as a session of its own whose run chooses its review as `references/caliper.md` § Choosing the review states, and §1.1 Implementation review and `references/caliper.md` cite it | Stated reading by Ray of `docs/standards/1-workflow.md` §1.1 Implementation review, `SKILL.md` § Role 2, and `references/caliper.md` § Choosing the review and § Post-implementation review; and a reading by Ray of every line `git grep -n -i -e 'post-implementation' -e 'implementation review' -e 'after implementation' -e 'delivered branch' -- CLAUDE.md docs/standards .claude 'docs/dev/*/_TEMPLATE_*.md'` prints, for any other statement of which session runs the review. A statement of it has to name the review, so the search sees every form; at `7c95654` it prints 15 lines |
 
 ## 6. Test plan
