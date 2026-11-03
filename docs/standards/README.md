@@ -1,6 +1,6 @@
 # WorkmAIn Development Standards
 
-How work gets built. `.claude/skills/session-start/SKILL.md` owns who does what (the three-role model). `CLAUDE.md` owns what this project is (stack, architecture) and domain decisions (tag system, time format, trigger terminology, write-path map). This document owns everything else — process, git workflow, code patterns, database, CLI structure, and testing.
+How work gets built. `.claude/skills/session-start/SKILL.md` owns who does what (the three-role model). `CLAUDE.md` owns what this project is (stack) and domain decisions (tag system, time format, trigger terminology, write-path map). `docs/ARCHITECTURE.md` owns the architecture: the layers, what each module owns, and the files the application reads and writes. This document owns everything else — process, git workflow, code patterns, database, CLI structure, and testing.
 
 The only text here also stated in `CLAUDE.md` is its § Critical Rules subset; nothing else appears in both.
 
@@ -22,4 +22,6 @@ Read the section that covers the work before doing it.
 | `docs/standards/4-database.md` | §4 Database Standards | code that opens a session or uses a repository, or a migration |
 | `docs/standards/5-cli.md` | §5 CLI Standards | adding or changing a command |
 | `docs/standards/6-testing.md` | §6 Testing Standards | writing a test, or recording test evidence |
-| `docs/standards/7-file-placement.md` | §7 File Placement | creating a file |
+| `docs/standards/7-file-placement.md` | §7 File Placement | creating a spec, design study, results artifact, test, script or tooling file |
+
+Before adding a module, class, public function, table, or a file the application reads or writes, read `docs/ARCHITECTURE.md` and find its owner there.
