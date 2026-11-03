@@ -84,13 +84,7 @@ What milestones, labels, and parent/child structure mean: `docs/standards/1-work
   - Ollama / Mistral 7B (intent parsing, `workmain-intent:latest` on Proxmox LXC)
 - **Integrations:** Clockify · Outlook (ICS import; OAuth stubbed) · Google Drive/Docs · Slack
 
-```text
-CLI (Click)           →  Services  →  Repositories  →  SQLAlchemy Models  →  PostgreSQL
-Daemon (APScheduler)  →  Inspection Engine  →  Notification Delivery
-Socket Mode Handler   →  Intent Parser (Ollama)  →  Action Executor  →  Services
-```
-
-Directory layout and file placement: `docs/standards/7-file-placement.md` §7.
+The architecture — the layers, what each module owns, and the files the application reads and writes — is `docs/ARCHITECTURE.md`. Where the development process keeps its own files is `docs/standards/7-file-placement.md` §7.
 
 ---
 
