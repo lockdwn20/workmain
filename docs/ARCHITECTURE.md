@@ -12,9 +12,9 @@ A layer may call the layers below it, and never the layers above it.
 
 | Layer | Packages | Rule |
 | --- | --- | --- |
-| **Surfaces** | `workmain/cli/`, `workmain/daemon/`, the Slack conversation code (`workmain/integrations/slack/slack_eod.py`, `workmain/integrations/slack/socket_client.py`) | Take input from a person or a clock, call the application layer, and present the result. No business decisions and no direct data access. |
+| **Surfaces** | `workmain/cli/`, `workmain/daemon/`, the Slack conversation code (`workmain/integrations/slack/slack_eod.py`, `workmain/integrations/slack/socket_client.py`) | Take input from a person or a clock, call the application layer, and present the result. No business decisions and no direct data access: a surface owns its session through `workmain/database/connection.py`, and receives plain values from the application layer. |
 | **Application** | `workmain/services/`, `workmain/workflows/`, `workmain/orchestration/` | Business decisions. A service owns one domain. A workflow sequences several services for one process, the same for every surface. A command handler executes a confirmed structured action. |
-| **Capabilities** | `workmain/ai/`, `workmain/templates_engine/`, `workmain/integrations/` (except the Slack conversation code) | Do one external or computational job: talk to a model, render a template, call an API. Receive the data they work on from the application layer, never fetch it, and return data. No business decisions. |
+| **Capabilities** | `workmain/ai/`, `workmain/templates_engine/`, `workmain/integrations/` (except the Slack conversation code) | Do one external or computational job: talk to a model, render a template, call an API. Receive the data they work on from the application layer as plain values, never fetch it, and return data. Nothing from `workmain/database/` is imported, models included. No business decisions. |
 | **Data** | `workmain/database/repositories/`, `workmain/database/models.py`, `workmain/database/connection.py` | All database access. A repository owns one table, or one tightly bound group of tables, and never commits (`docs/standards/4-database.md` §4.3). |
 | **Shared** | `workmain/utils/`, `workmain/config_manager/` | Universal helpers and configuration loading that no layer owns. No database, no AI, no output. |
 
@@ -45,6 +45,7 @@ The three entry points (CLI, daemon, Slack Socket Mode) are the three surfaces, 
 - `workmain/daemon/inspection_engine.py` — the deterministic rules that turn today's data into observations.
 - `workmain/daemon/narration.py` — observations into prose.
 - `workmain/daemon/delivery.py` — notification delivery.
+- `workmain/daemon/models.py` — the daemon's shared data types: observations and their kinds.
 - `workmain/daemon/conversation_state.py` — Slack DM conversation state: pending confirmations and the EOD session.
 - `workmain/daemon/acknowledgment.py` — correction acknowledgments the inspection engine honours.
 - `workmain/daemon/state_io.py` — reading and writing daemon state files.
@@ -97,7 +98,10 @@ The three entry points (CLI, daemon, Slack Socket Mode) are the three surfaces, 
 - `workmain/utils/self_invoke.py` — running `workmain` as a subprocess.
 - `workmain/utils/editor.py` — the `$EDITOR` round trip.
 - `workmain/utils/meeting_templates.py` — recurring meeting templates.
+- `workmain/utils/cost_display.py` — CLI views for AI cost figures. Moving to `workmain/cli/` (§3).
+- `workmain/utils/ai_arguments.py` — checking a provider or report-type argument against the AI configuration. Moving to `workmain/cli/` (§3).
 - `workmain/config_manager/` — loading configuration files, and template aliases.
+- `workmain/__version__.py` — the application's version.
 
 ### Files the application reads and writes
 
@@ -115,20 +119,24 @@ The three entry points (CLI, daemon, Slack Socket Mode) are the three surfaces, 
 
 ## 3. Known deficiencies
 
-Code that breaks a rule above, where the fix is tracked. A known deficiency is not reported as a new finding and is never copied. When its issue closes, its entry is removed and the rule applies in full. Each entry names the issue that fixes it; an entry without one is assigned an issue before any other work depends on it.
+Code that breaks a rule above, where the fix is tracked. A known deficiency is not reported as a new finding and is never copied. When its issue closes, its entry is removed and the rule applies in full. Each entry names the issue that fixes it; an entry without one is assigned an issue before any other work depends on it. An entry's "Covers" sentence names the code it covers, and the check reports a mismatch there as that entry, not as a new one. An entry with no "Covers" sentence covers nothing the check looks at.
 
-**Unconverted command groups.** A command group not yet converted to the service layer and the renderer may query, decide and print in one function, while its conversion issue is open. New code never copies that pattern: a new command, or new behaviour in an unconverted group, goes through a service and the renderer. Which groups remain is read from the open conversion issues, never listed here.
+**Unconverted commands — #198.** Covers `workmain/cli/`. A command not yet converted to the service layer and the renderer may query, decide and print in one function, while its conversion issue is open. New code never copies that pattern: a new command, or new behaviour in an unconverted one, goes through a service and the renderer. Which commands remain is read from the open conversion issues, never listed here. Because this entry covers all of `workmain/cli/`, the check cannot see a converted command fall back to reading the database directly; the post-implementation review checks for that.
 
-**EOD and the Slack conversation code — #254.** The Slack conversation code and `workmain/cli/commands/eod.py` each walk the EOD steps themselves. The Slack code reaches `IntentParser` and `ActionExecutor` directly. `workmain/workflows/eod_workflow.py` runs its steps through the `workmain` CLI and prompts on the terminal. `workmain/daemon/conversation_state.py` and `workmain/workflows/eod_workflow.py` import each other. `workmain/orchestration/confirmation_gate.py` is Slack-only surface code.
+**The daemon reading data directly.** Covers `workmain/daemon/`. `workmain/daemon/scheduler.py`, `workmain/daemon/daemon.py` and `workmain/daemon/inspection_engine.py` call repositories and use database models themselves. Whether `workmain/daemon/inspection_engine.py`, the rules that turn today's data into observations, belongs in the application layer is part of the fix.
+
+**AI cost recording inside capabilities.** Covers `workmain/ai/provider_manager.py` and `workmain/ai/report_generator.py`. `workmain/ai/provider_manager.py` records each call's cost through `workmain/services/ai_cost_service.py`, and `workmain/ai/report_generator.py` links costs to reports, so a capability calls the application layer. The fix returns each call's usage, failed calls included, to the application layer that asked for it, which records it.
+
+**EOD and the Slack conversation code — #254.** Covers `workmain/integrations/slack/slack_eod.py`, `workmain/workflows/eod_workflow.py`, `workmain/daemon/conversation_state.py` and `workmain/orchestration/confirmation_gate.py`. The Slack conversation code and `workmain/cli/commands/eod.py` each walk the EOD steps themselves. The Slack code reaches `IntentParser` and `ActionExecutor` directly. `workmain/workflows/eod_workflow.py` runs its steps through the `workmain` CLI and prompts on the terminal. `workmain/daemon/conversation_state.py` and `workmain/workflows/eod_workflow.py` import each other. `workmain/orchestration/confirmation_gate.py` is Slack-only surface code.
 
 **The active client — #255.** It is stored as `clients.is_active` and as `system_state.active_client_id`, and read three ways.
 
 **Configuration files — #147, and #211 for `config/ai_settings.json` writes.** Configuration files are located three ways, and most readers build their own path rather than going through `workmain/config_manager/`. `workmain/cli/commands/providers.py` reads and writes `config/ai_settings.json` itself. `config/` mixes settings shipped with the repository and files the application rewrites at runtime.
 
-**Code in `workmain/utils/` that a layer owns.** `workmain/utils/cost_display.py` builds CLI views and belongs in `workmain/cli/`. `workmain/utils/ai_arguments.py` checks command arguments, prints and exits, and belongs in `workmain/cli/`. `workmain/utils/ics_parser.py`'s `import_events_to_db` and its meeting queries decide and write an import, and belong in `workmain/services/calendar_service.py` and `MeetingsRepository`; ICS parsing stays in `workmain/utils/`.
+**Code in `workmain/utils/` that a layer owns.** Covers `workmain/utils/cost_display.py`, `workmain/utils/ai_arguments.py` and `workmain/utils/ics_parser.py`. `workmain/utils/cost_display.py` builds CLI views and belongs in `workmain/cli/`. `workmain/utils/ai_arguments.py` checks command arguments, prints and exits, and belongs in `workmain/cli/`. `workmain/utils/ics_parser.py`'s `import_events_to_db` and its meeting queries decide and write an import, and belong in `workmain/services/calendar_service.py` and `MeetingsRepository`; ICS parsing stays in `workmain/utils/`.
 
-**Capabilities fetching their own data.** `workmain/ai/prompt_builder.py`, `workmain/ai/report_generator.py` and `workmain/templates_engine/field_manager.py` query the database themselves.
+**Capabilities fetching their own data.** Covers `workmain/ai/prompt_builder.py`, `workmain/ai/report_generator.py`, `workmain/ai/note_condenser.py` and `workmain/templates_engine/field_manager.py`. The prompt builder, the report generator and the field manager query the database themselves. The note condenser and the field manager are handed database models rather than plain values.
 
-**Per-service status types.** `workmain/services/calendar_service.py` and `workmain/services/clients_service.py` each declare their own "filters plus totals" wrapper and a type named `StatusTotals`.
+**Per-service status types.** Covers `workmain/services/calendar_service.py` and `workmain/services/clients_service.py`. `workmain/services/calendar_service.py` and `workmain/services/clients_service.py` each declare their own "filters plus totals" wrapper and a type named `StatusTotals`.
 
-**Packages.** `__init__.py` files that hold more than their docstring, and packages with no modules, are found by the package check.
+**Packages.** Covers `workmain/**/__init__.py`. `__init__.py` files that hold more than their docstring, packages with no modules, and `workmain/database/migrations/__init__.py`, which makes a package of a folder of SQL files, are found by the package check.
