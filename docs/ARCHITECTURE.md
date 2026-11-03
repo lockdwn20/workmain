@@ -26,7 +26,7 @@ The three entry points (CLI, daemon, Slack Socket Mode) are the three surfaces, 
 
 **One fact, one home.** A fact the application keeps is stored in one place, and every reader reads it from there.
 
-**Configuration files.** Each configuration file is read and written only by the module that owns it (§2), through `workmain/config_manager/`.
+**Configuration files.** Each configuration file is read and written only by the module that owns it (section 2), through `workmain/config_manager/`.
 
 **Packages.** An `__init__.py` holds a one-sentence docstring stating its package's role, matching its line in this document, and nothing else: no list of contents, no re-exports, no `__all__`, no code. A name is imported from the module that defines it. WorkmAIn is an application, not a library: nothing outside the repository imports it, so a package-level public API has no audience. A package with no modules is deleted.
 
@@ -98,8 +98,8 @@ The three entry points (CLI, daemon, Slack Socket Mode) are the three surfaces, 
 - `workmain/utils/self_invoke.py` — running `workmain` as a subprocess.
 - `workmain/utils/editor.py` — the `$EDITOR` round trip.
 - `workmain/utils/meeting_templates.py` — recurring meeting templates.
-- `workmain/utils/cost_display.py` — CLI views for AI cost figures. Moving to `workmain/cli/` (§3).
-- `workmain/utils/ai_arguments.py` — checking a provider or report-type argument against the AI configuration. Moving to `workmain/cli/` (§3).
+- `workmain/utils/cost_display.py` — CLI views for AI cost figures. Moving to `workmain/cli/` (section 3).
+- `workmain/utils/ai_arguments.py` — checking a provider or report-type argument against the AI configuration. Moving to `workmain/cli/` (section 3).
 - `workmain/config_manager/` — loading configuration files, and template aliases.
 - `workmain/__version__.py` — the application's version.
 

@@ -3,11 +3,11 @@ Checks the code against docs/ARCHITECTURE.md and reports every mismatch.
 
 The map is the standard: this module reads the map and the source, and edits
 neither. Every path it checks against comes from the map — the layers and
-their packages from §1's table, the owned modules from §2's lines, and the
-code each known deficiency covers from the "Covers" sentence of its §3 entry.
-A mismatch inside code a §3 entry covers is reported as that known deficiency
+their packages from map section 1's table, the owned modules from map section 2's lines, and the
+code each known deficiency covers from the "Covers" sentence of its map section 3 entry.
+A mismatch inside code a map section 3 entry covers is reported as that known deficiency
 and does not fail the run; any other mismatch is new and fails it, to be fixed
-in the code or brought to Ray as a change to the map. Asking whether a §3
+in the code or brought to Ray as a change to the map. Asking whether a map section 3
 entry's issues are still open needs the GitHub CLI, `gh`.
 
 Exit 0 when nothing new is found, 1 otherwise.
@@ -74,7 +74,7 @@ def _pattern(path: str) -> Pattern:
 
 def read_layers(sections: Dict[str, List[str]]) -> List[Layer]:
     """
-    Read the layers from §1's table.
+    Read the layers from map section 1's table.
 
     Args:
         sections: The map, split by `_sections`.
@@ -83,7 +83,7 @@ def read_layers(sections: Dict[str, List[str]]) -> List[Layer]:
         One (layer name, [(path, pattern)]) pair per table row, top layer first.
 
     Raises:
-        SystemExit: §1 has no layer table.
+        SystemExit: map section 1 has no layer table.
     """
     layers = []
     for line in _section(sections, 1):
@@ -91,13 +91,13 @@ def read_layers(sections: Dict[str, List[str]]) -> List[Layer]:
         if m:
             layers.append((m.group(1), [(p, _pattern(p)) for p in _code_paths(m.group(2))]))
     if not layers:
-        raise SystemExit("§1 has no layer table")
+        raise SystemExit("map section 1 has no layer table")
     return layers
 
 
 def read_owned(sections: Dict[str, List[str]]) -> List[Tuple[str, Pattern]]:
     """
-    Read the owned modules from §2's lines.
+    Read the owned modules from map section 2's lines.
 
     Args:
         sections: The map, split by `_sections`.
@@ -111,7 +111,7 @@ def read_owned(sections: Dict[str, List[str]]) -> List[Tuple[str, Pattern]]:
 
 def read_deficiencies(sections: Dict[str, List[str]]) -> List[Entry]:
     """
-    Read the known deficiencies from §3's entries.
+    Read the known deficiencies from map section 3's entries.
 
     An entry is a paragraph that opens with a bold title. Its issues are the
     numbers in its title, and the code it covers is the package paths in its
@@ -233,7 +233,7 @@ def layer_of(rel: str, layers: List[Layer]) -> Tuple[Optional[int], Optional[str
 
 def check_layers(mods: Dict[str, ast.Module], layers: List[Layer]) -> List[Finding]:
     """
-    Find imports that break §1's layer rules.
+    Find imports that break map section 1's layer rules.
 
     An import is a finding when it points to a higher layer, when a surface
     reaches data other than `database/connection.py`, or when a capability
@@ -266,7 +266,7 @@ def check_layers(mods: Dict[str, ast.Module], layers: List[Layer]) -> List[Findi
 
 def check_duplicates(mods: Dict[str, ast.Module]) -> List[Finding]:
     """
-    Find public class names defined in more than one module (§1, Result types).
+    Find public class names defined in more than one module (map section 1, Result types).
 
     Function names may repeat, because a function is always called through its
     module.
@@ -289,7 +289,7 @@ def check_duplicates(mods: Dict[str, ast.Module]) -> List[Finding]:
 
 def check_ownership(mods: Dict[str, ast.Module], owned: List[Tuple[str, Pattern]]) -> List[Finding]:
     """
-    Find modules no §2 line gives an owner. `__init__.py` files are left to `check_packages`.
+    Find modules no map section 2 line gives an owner. `__init__.py` files are left to `check_packages`.
 
     Args:
         mods: Every package module, as `modules` returns.
@@ -298,13 +298,13 @@ def check_ownership(mods: Dict[str, ast.Module], owned: List[Tuple[str, Pattern]
     Returns:
         One (module path, description) pair per unowned module.
     """
-    return [(rel, f"{rel} — no owner in §2") for rel in mods
+    return [(rel, f"{rel} — no owner in map section 2") for rel in mods
             if not rel.endswith("__init__.py") and not any(rx.match(rel) for _, rx in owned)]
 
 
 def check_packages(mods: Dict[str, ast.Module]) -> List[Finding]:
     """
-    Find `__init__.py` files that break §1's Packages rule.
+    Find `__init__.py` files that break map section 1's Packages rule.
 
     A finding is an `__init__.py` with no docstring, one holding anything after
     its docstring, or one with no Python module beside it.
@@ -339,7 +339,7 @@ def check_packages(mods: Dict[str, ast.Module]) -> List[Finding]:
 
 def check_issues(entries: List[Entry], ask_github: bool) -> Tuple[List[str], List[str]]:
     """
-    Check §3's entries against their issues.
+    Check map section 3's entries against their issues.
 
     Args:
         entries: The known deficiencies, as `read_deficiencies` returns them.
@@ -379,11 +379,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         argv: Command-line arguments; the process's own when None.
 
     Returns:
-        0 when nothing new is found and no §3 entry needs removing, 1 otherwise.
+        0 when nothing new is found and no map section 3 entry needs removing, 1 otherwise.
     """
     parser = argparse.ArgumentParser(description="Check the code against docs/ARCHITECTURE.md.")
     parser.add_argument("--check-issues", action="store_true",
-                        help="ask gh whether each §3 entry's issues are still open")
+                        help="ask gh whether each map section 3 entry's issues are still open")
     args = parser.parse_args(argv)
 
     sections = _sections(MAP_PATH.read_text(encoding="utf-8"))
@@ -403,28 +403,28 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         else:
             new.append(text)
 
-    print(f"Layers, top to bottom (from §1): {' > '.join(name for name, _ in layers)}")
+    print(f"Layers, top to bottom (from map section 1): {' > '.join(name for name, _ in layers)}")
 
     print(f"\nNew findings: {len(new)}")
     for text in new:
         print(f"  {text}")
 
-    print(f"\nKnown deficiencies (§3): {sum(len(v) for v in known.values())} finding(s)")
+    print(f"\nKnown deficiencies (map section 3): {sum(len(v) for v in known.values())} finding(s)")
     for title, _, _ in entries:
         if known[title]:
             print(f"  {title}: {len(known[title])}")
 
     awaiting, closed = check_issues(entries, args.check_issues)
     if awaiting:
-        print(f"\n§3 entries awaiting an issue: {len(awaiting)}")
+        print(f"\nMap section 3 entries awaiting an issue: {len(awaiting)}")
         for title in awaiting:
             print(f"  {title}")
     if closed:
-        print(f"\n§3 entries to review: {len(closed)}")
+        print(f"\nMap section 3 entries to review: {len(closed)}")
         for text in closed:
             print(f"  {text}")
     if not args.check_issues:
-        print("\n(§3 issue states not checked)")
+        print("\n(map section 3 issue states not checked)")
 
     failed = bool(new or closed)
     print(f"\n{'FAIL' if failed else 'PASS'}")
