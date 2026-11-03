@@ -89,7 +89,7 @@ def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Build:
 
     Returns:
         A function that writes CLEAN, overlaid with its `changes`, and a map whose
-        §3 holds its `deficiencies`, and returns the repository's root.
+        map section 3 holds its `deficiencies`, and returns the repository's root.
     """
 
     def build(changes: Optional[Dict[str, str]] = None, deficiencies: str = "") -> Path:
@@ -238,7 +238,7 @@ def test_a_module_with_no_owner_line_is_a_new_finding(repo: Build, capsys: pytes
     repo({"workmain/utils/strays.py": "x = 1\n"})
     code, out = run(capsys)
     assert code == 1
-    assert "workmain/utils/strays.py — no owner in §2" in new_findings(out)
+    assert "workmain/utils/strays.py — no owner in map section 2" in new_findings(out)
 
 
 def test_an_init_holding_more_than_its_docstring_is_a_new_finding(repo: Build, capsys: pytest.CaptureFixture) -> None:
@@ -298,7 +298,7 @@ def test_an_entry_with_no_issue_is_listed_and_does_not_fail(repo: Build, capsys:
     repo(deficiencies="\n**Waiting for an issue.** Covers `workmain/utils/dates.py`.\n")
     code, out = run(capsys)
     assert code == 0
-    assert "§3 entries awaiting an issue: 1" in out
+    assert "Map section 3 entries awaiting an issue: 1" in out
 
 
 def test_an_entry_whose_issues_are_all_closed_fails_with_check_issues(repo: Build, capsys: pytest.CaptureFixture, monkeypatch: pytest.MonkeyPatch) -> None:
