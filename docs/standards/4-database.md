@@ -66,4 +66,4 @@
 
 ### 4.6 Write-path convergence
 
-- Note and paired-TimeEntry creation goes through the service layer only — see `CLAUDE.md` "§ Note Write-Path Convergence" design decision for the authoritative call map.
+- Moved to `CLAUDE.md` § Note Write-Path Convergence, which owns the call map.
