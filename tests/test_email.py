@@ -3,10 +3,10 @@ Tests for the email repository, draft pipeline, and recipient management
 (Phase 6 Gate 5).
 """
 
-import pytest
 from datetime import date
 from unittest.mock import ANY, patch
 
+import pytest
 from click.testing import CliRunner
 
 from workmain.cli.commands.email import email_send

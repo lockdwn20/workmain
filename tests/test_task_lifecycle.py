@@ -18,8 +18,13 @@ import click
 import pytest
 from click.testing import CliRunner
 
-from workmain.cli.commands.tasks import TASK_LIST, TASK_RECORD, TASK_TODAY, tasks
-from workmain.cli.commands.tasks import task_list
+from workmain.cli.commands.tasks import (
+    TASK_LIST,
+    TASK_RECORD,
+    TASK_TODAY,
+    task_list,
+    tasks,
+)
 from workmain.cli.interface import cli
 from workmain.cli.output import Renderer
 from workmain.database.repositories.notes_repo import NotesRepository
@@ -28,7 +33,6 @@ from workmain.services import tasks_service
 from workmain.services.exceptions import NotATaskError, TaskNotFoundError
 from workmain.services.results import Page
 from workmain.services.tasks_service import TaskDetail, TaskRow
-
 
 # ---------------------------------------------------------------------------
 # Shared helpers

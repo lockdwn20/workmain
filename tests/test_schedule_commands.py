@@ -17,7 +17,9 @@ from datetime import date
 import pytest
 
 from workmain.cli.commands.schedule import _resolve_holiday, _resolve_timeoff
-from workmain.database.repositories.schedule_repository import ScheduleExceptionRepository
+from workmain.database.repositories.schedule_repository import (
+    ScheduleExceptionRepository,
+)
 
 SENTINEL_A = date(2099, 6, 1)
 SENTINEL_B = date(2099, 6, 5)

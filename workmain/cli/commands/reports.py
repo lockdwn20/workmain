@@ -11,26 +11,36 @@ and reports costs.
 """
 
 import sys
-
-import click
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
+import click
+from rich import box
 from rich.console import Console
 from rich.markup import escape
-from rich.table import Table
 from rich.panel import Panel
-from rich import box
+from rich.table import Table
 
-from workmain.database.connection import get_db
-from workmain.database.repositories.system_state_repository import SystemStateRepository
-from workmain.database.repositories.reports_repo import get_reports_repository
-from workmain.ai import get_report_generator, ReportFormat, ProviderType
-from workmain.services import ai_cost_service, email_service
-from workmain.utils.ai_arguments import failure_exit_code, require_eligible_provider, require_provider, require_report_type
-from workmain.cli.output import Renderer, ReportView, Section, WorkmAInGroup, pass_renderer
+from workmain.ai import ProviderType, ReportFormat, get_report_generator
+from workmain.cli.output import (
+    Renderer,
+    ReportView,
+    Section,
+    WorkmAInGroup,
+    pass_renderer,
+)
 from workmain.cli.params import DateParamType, MonthParamType
+from workmain.database.connection import get_db
+from workmain.database.repositories.reports_repo import get_reports_repository
+from workmain.database.repositories.system_state_repository import SystemStateRepository
+from workmain.services import ai_cost_service, email_service
+from workmain.utils.ai_arguments import (
+    failure_exit_code,
+    require_eligible_provider,
+    require_provider,
+    require_report_type,
+)
 from workmain.utils.cost_display import detail_view, format_call_tokens, totals_fields
 from workmain.utils.date_utils import resolve_date_window
 from workmain.utils.editor import edit_in_editor

@@ -4,9 +4,9 @@ edits, and no-option error. Uses db_session fixture from conftest.py for
 full transaction isolation.
 """
 
-import pytest
-from datetime import datetime, date, time
+from datetime import date, datetime, time
 
+import pytest
 from click.testing import CliRunner
 
 from workmain.cli.commands.meetings import meetings

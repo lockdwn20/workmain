@@ -27,17 +27,16 @@ from rich.panel import Panel
 from rich.rule import Rule
 
 from workmain.database.connection import get_db
-from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.gdrive_repository import GDriveRepository
+from workmain.database.repositories.notes_repo import NotesRepository
+from workmain.integrations.gdrive import cache as folder_cache
 from workmain.integrations.gdrive.auth import (
-    is_authenticated,
+    GDriveAuthError,
     get_credentials,
     get_service,
-    GDriveAuthError,
+    is_authenticated,
 )
 from workmain.integrations.gdrive.client import GDriveClient, GDriveClientError
-from workmain.integrations.gdrive import cache as folder_cache
-
 
 console = Console()
 err_console = Console(stderr=True, soft_wrap=True)

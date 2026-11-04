@@ -25,9 +25,11 @@ from datetime import date, datetime, time
 
 import pytest
 
-from workmain.services.schedule_service import ScheduleService
-from workmain.database.repositories.schedule_repository import ScheduleExceptionRepository
+from workmain.database.repositories.schedule_repository import (
+    ScheduleExceptionRepository,
+)
 from workmain.database.repositories.system_state_repository import SystemStateRepository
+from workmain.services.schedule_service import ScheduleService
 
 SENTINEL_MONDAY = date(2099, 1, 5)      # Monday
 SENTINEL_TUESDAY = date(2099, 1, 6)     # Tuesday

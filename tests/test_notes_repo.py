@@ -9,7 +9,6 @@ import pytest
 from sqlalchemy import event
 
 from workmain.database.models import Meeting, Project
-
 from workmain.database.repositories.notes_repo import NotesRepository
 
 

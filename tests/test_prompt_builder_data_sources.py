@@ -7,9 +7,10 @@ filter parity (the same client filter applied as full report generation).
 All repository calls are mocked; no DB writes occur in this file.
 """
 
-import pytest
 from datetime import date
 from unittest.mock import MagicMock, call
+
+import pytest
 
 from workmain.ai.prompt_builder import PromptBuilder
 from workmain.ai.report_generator import ReportGenerator

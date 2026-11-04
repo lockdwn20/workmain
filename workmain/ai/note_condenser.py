@@ -5,14 +5,14 @@ Takes multiple meeting notes and condenses them into a professional, concise sum
 suitable for time tracking entries.
 """
 
-from typing import List, Optional, Tuple
 from datetime import datetime
+from typing import List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
-from workmain.database.models import Meeting, Note
 from workmain.ai.base_provider import GenerationRequest
 from workmain.ai.provider_manager import FallbackNotice, get_provider_manager
+from workmain.database.models import Meeting, Note
 from workmain.templates_engine import get_style_adapter
 
 

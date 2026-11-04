@@ -5,17 +5,16 @@ get_filtered, get_summary with provider filter), resolve_date_window
 from ai_settings.json.
 """
 
-import pytest
 from datetime import date, datetime, timezone
 
 import click
+import pytest
 from sqlalchemy import text
 
+from workmain.ai.provider_manager import ProviderManager
 from workmain.database.models import AiCost
 from workmain.database.repositories.ai_costs_repo import AiCostRepository
 from workmain.utils.date_utils import resolve_date_window
-from workmain.ai.provider_manager import ProviderManager
-
 
 # Sentinel timestamps — far future avoids picking up real production rows.
 _S_DATE = date(2099, 1, 1)
@@ -503,7 +502,9 @@ class TestAiCostRepositoryRecording:
 
 def _reply(**overrides):
     from workmain.ai.base_provider import (
-        FinishStatus, GenerationResponse, ProviderType,
+        FinishStatus,
+        GenerationResponse,
+        ProviderType,
     )
     values = dict(
         content='reply', provider=ProviderType.GEMINI, model='gemini-test',
@@ -566,6 +567,7 @@ class TestAiCostService:
     def test_link_report_with_no_ids_touches_no_session(self):
         """An empty list returns before the session is reached."""
         from unittest.mock import MagicMock
+
         from workmain.services import ai_cost_service
         session = MagicMock()
         assert ai_cost_service.link_report(session, [], 5) is None
@@ -589,6 +591,7 @@ class TestAiCostService:
     def test_link_report_failure_logs_warning(self, caplog):
         """A session that cannot open a savepoint degrades to a warning."""
         from unittest.mock import MagicMock
+
         from workmain.services import ai_cost_service
         session = MagicMock()
         session.begin_nested.side_effect = RuntimeError("database unavailable")
@@ -625,6 +628,7 @@ class TestAiCostService:
         """T8: the cost row is committed in its own scope, so a scope that
         writes and raises afterwards does not take it."""
         from unittest.mock import patch
+
         from workmain.database.connection import DatabaseConnection, get_db
         from workmain.services import ai_cost_service
 
@@ -650,6 +654,7 @@ class TestAiCostService:
     ):
         """Two calls open two sessions through the module's get_db, closing each."""
         from unittest.mock import MagicMock
+
         from workmain.database.connection import DatabaseConnection
         from workmain.services import ai_cost_service
         sessions = []

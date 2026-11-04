@@ -13,11 +13,11 @@ from unittest.mock import patch
 
 import pytest
 from sqlalchemy import event
-from workmain.database.models import Recipient, ReportRecipient, Client
+
+from workmain.database.models import Client, Recipient, ReportRecipient
 from workmain.database.repositories.email_repository import EmailRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
 from workmain.services import email_service
-
 
 # Sentinel report type — far-future unique value to avoid prod collisions
 _TMPL = "weekly_client_2099_test"

@@ -4,19 +4,18 @@ No real network or database access in this suite.
 """
 
 import json
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from workmain.ai.intent_parser import IntentParser, IntentParseError
 from workmain.ai.base_provider import (
-    GenerationResponse,
     FinishStatus,
-    ProviderType,
+    GenerationResponse,
     ProviderError,
+    ProviderType,
     ProviderUnavailableError,
 )
-
+from workmain.ai.intent_parser import IntentParseError, IntentParser
 
 # ---------------------------------------------------------------------------
 # Helpers

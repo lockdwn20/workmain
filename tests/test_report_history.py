@@ -40,10 +40,12 @@ class TestReportHistory(unittest.TestCase):
     """Tests for 'workmain reports history' (and 'list') commands."""
 
     def setUp(self):
-        from tests.conftest import db_session as _fixture
         import pytest
+
         # Bootstrap fixture manually for unittest context
         from dotenv import load_dotenv
+
+        from tests.conftest import db_session as _fixture
         load_dotenv()
         from workmain.database.connection import get_db
         db = get_db()

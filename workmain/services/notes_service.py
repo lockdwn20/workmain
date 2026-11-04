@@ -5,14 +5,14 @@ and defaults — callers pass a session and domain parameters only.
 """
 
 from datetime import datetime
-from typing import Optional, List
+from typing import List, Optional
 
 from workmain.database.models import Note
 from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
 from workmain.database.repositories.task_status_repo import TaskStatusRepository
-from workmain.utils.tag_utils import get_tag_system
 from workmain.services.exceptions import InvalidTagsError
+from workmain.utils.tag_utils import get_tag_system
 
 
 def apply_cf_hook_on_create(session, note: Note) -> None:

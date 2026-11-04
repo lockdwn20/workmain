@@ -1,10 +1,6 @@
 # CLAUDE.md - WorkmAIn Project Context
 
-All output — chat, specs, design docs, commit messages, code comments — is direct,
-concise, and plainly spoken. Every fact, decision, and rule has exactly one home. State
-it there; everywhere else cites it. Do not summarize back what the reader can already
-read: not the artifact in chat, not a section in another section, not a design rule in a
-decision log.
+All output — chat, specs, design docs, commit messages, code comments — is direct, concise, and plainly spoken. Every fact, decision, and rule has exactly one home. State it there; everywhere else cites it. Do not summarize back what the reader can already read: not the artifact in chat, not a section in another section, not a design rule in a decision log.
 
 **`docs/standards/` owns how we build** — git workflow, code patterns, database, CLI, and testing. `docs/standards/README.md` is its header and index.
 
@@ -109,8 +105,7 @@ The architecture — the layers, what each module owns, and the files the applic
 
 ### Time Format
 
-Input 24-hour preferred (`1430` or `14:30`); AM/PM accepted. Stored as PostgreSQL TIME.
-**Always displayed 24-hour.**
+Input 24-hour preferred (`1430` or `14:30`); AM/PM accepted. Stored as PostgreSQL TIME. **Always displayed 24-hour.**
 
 ### Trigger Terminology
 

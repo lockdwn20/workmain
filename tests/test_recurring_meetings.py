@@ -3,11 +3,13 @@ Unit tests for recurring meetings functionality.
 Tests Phase 5.1 operational fixes.
 """
 
+from datetime import date, datetime, time, timedelta
+
 import pytest
-from datetime import date, time, datetime, timedelta
+
 from workmain.database.repositories.meetings_repo import MeetingsRepository
-from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
 from workmain.database.repositories.notes_repo import NotesRepository
+from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
 
 
 class TestRecurringMeetings:

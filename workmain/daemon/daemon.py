@@ -21,23 +21,29 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.date import DateTrigger
 from slack_sdk import WebClient
 
+import workmain.daemon.scheduler as _sched_module
+from workmain.ai.base_provider import ProviderError
+from workmain.ai.provider_manager import get_provider_manager
+from workmain.daemon import state_io
+from workmain.daemon.conversation_state import ConversationStore
 from workmain.daemon.delivery import deliver
 from workmain.daemon.inspection_engine import InspectionEngine
 from workmain.daemon.narration import narrate
-from workmain.daemon import state_io
-from workmain.ai.base_provider import ProviderError
-from workmain.ai.provider_manager import get_provider_manager
-from workmain.daemon.conversation_state import ConversationStore
+from workmain.daemon.scheduler import (
+    build_scheduler,
+    register_all_jobs,
+    scheduler_start,
+    scheduler_stop,
+)
 from workmain.database.connection import get_db
-from workmain.database.repositories.notification_repository import NotificationConfigRepository
-from workmain.services.schedule_service import ScheduleService
-import workmain.daemon.scheduler as _sched_module
-from workmain.daemon.scheduler import build_scheduler, register_all_jobs, scheduler_start, scheduler_stop
+from workmain.database.repositories.notification_repository import (
+    NotificationConfigRepository,
+)
 from workmain.integrations.slack import auth
-from workmain.integrations.slack.socket_client import WorkmAInSocketClient
 from workmain.integrations.slack.slack_eod import SlackEodManager
+from workmain.integrations.slack.socket_client import WorkmAInSocketClient
 from workmain.orchestration.confirmation_gate import ConfirmationGate
-
+from workmain.services.schedule_service import ScheduleService
 
 # ---------------------------------------------------------------------------
 # Root guard
@@ -477,7 +483,10 @@ class WorkmAInDaemon:
 
     def _execute_action(self, action: dict) -> None:
         """Execute a confirmed action and report the result."""
-        from workmain.orchestration.action_executor import ActionExecutor, ActionExecutorError
+        from workmain.orchestration.action_executor import (
+            ActionExecutor,
+            ActionExecutorError,
+        )
         db = get_db()
         try:
             with db.session_scope() as session:

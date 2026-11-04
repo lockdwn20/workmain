@@ -5,8 +5,8 @@ IntentParser through a mandatory confirmation gate before any DB write.
 
 from workmain.orchestration.action_executor import (
     ActionExecutor,
-    ActionResult,
     ActionExecutorError,
+    ActionResult,
 )
 from workmain.orchestration.confirmation_gate import ConfirmationGate
 

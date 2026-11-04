@@ -19,7 +19,6 @@ from workmain.cli.output import (
 from workmain.database.connection import get_db
 from workmain.services import clients_service
 
-
 CLIENT_LIST = CollectionView(
     "clients",
     (

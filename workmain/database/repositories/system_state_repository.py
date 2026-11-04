@@ -4,8 +4,9 @@ state reads and writes go through this repository.
 """
 
 from __future__ import annotations
-from typing import Optional
+
 from datetime import datetime, timezone
+from typing import Optional
 
 from sqlalchemy.orm import Session
 

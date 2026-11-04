@@ -27,6 +27,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from workmain.cli.commands.slack import (
+    _record_slack_post,
+    get_draft_date_range,
+    slack,
+    slack_status,
+)
+from workmain.database.connection import DatabaseConnection, get_db
 from workmain.database.models import Report
 from workmain.database.repositories.reports_repo import ReportsRepository
 from workmain.integrations.slack.auth import (
@@ -39,10 +46,6 @@ from workmain.integrations.slack.client import (
     SlackClientError,
     format_for_slack,
 )
-from workmain.cli.commands.slack import (
-    _record_slack_post, get_draft_date_range, slack, slack_status,
-)
-from workmain.database.connection import DatabaseConnection, get_db
 
 
 def _weekly_posted(session, report_date) -> bool:
@@ -455,6 +458,7 @@ class TestSlackPostWeeklySharedRunner(unittest.TestCase):
     def test_uses_shared_runner_no_duplicate_logic(self):
         """No duplicate generate/edit/upsert logic remains in slack_post()."""
         import inspect
+
         from workmain.cli.commands import slack as slack_module
         src = inspect.getsource(slack_module.slack_post.callback)
         self.assertIn('_run_report_review_step', src)

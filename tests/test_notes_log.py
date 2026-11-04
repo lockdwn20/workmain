@@ -17,7 +17,7 @@ test_report_history.py's pattern.
 import os
 import unittest
 from datetime import datetime
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import click
 import pytest

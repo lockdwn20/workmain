@@ -4,13 +4,14 @@ Replaces track.py — `track` and `time` groups merged into a single `time` grou
 Sync subcommands (push/pull/both) moved to `clockify sync` in clockify.py.
 """
 
-import click
 from datetime import date, datetime, timedelta
 from typing import Optional
 
+import click
+
 from workmain.database.connection import get_db
-from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
+from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
 from workmain.services import clockify_service
 
 
@@ -267,8 +268,8 @@ def time_add(description: Optional[str], duration: str, time: str,
                         return
 
         # Parse tags and determine primary note parameters
-        from workmain.utils.tag_utils import parse_tags
         from workmain.services import notes_service, time_entry_service
+        from workmain.utils.tag_utils import parse_tags
 
         note_tags = ['internal-only']  # Default tag
         if tags:

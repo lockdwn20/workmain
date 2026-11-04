@@ -11,10 +11,11 @@ Fixtures used:
                                  Wednesday via RECURRENCE-ID exception (no SUMMARY on exception)
 """
 
-import pytest
 from datetime import date, datetime
-from unittest.mock import patch
 from pathlib import Path
+from unittest.mock import patch
+
+import pytest
 
 from workmain.database.models import Meeting, Note
 from workmain.utils.ics_parser import (
@@ -314,7 +315,7 @@ class TestICSImport:
         After import, outlook_id is backfilled so future imports use the fast
         exact-UID path.
         """
-        from workmain.utils.ics_parser import _fallback_match, ICSEvent
+        from workmain.utils.ics_parser import ICSEvent, _fallback_match
 
         # Insert a manual meeting that matches test-001@workmain
         # Title and start date must exactly match the ICS event.
@@ -673,8 +674,8 @@ class TestICSImport:
         Case B: occurrence has 3 notes, series has 3 → line NOT shown (same number)
         Case C: non-recurring meeting → line never shown
         """
-        from workmain.database.repositories.meetings_repo import MeetingsRepository
         from workmain.cli.commands.meetings import format_meeting_display
+        from workmain.database.repositories.meetings_repo import MeetingsRepository
 
         series_uid = "series-test22@workmain"
 

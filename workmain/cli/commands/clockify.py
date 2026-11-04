@@ -8,9 +8,10 @@ what it needs from clockify_service in a scope it owns, closes that scope, and
 hands the service's result to the renderer.
 """
 
-import click
 from datetime import date, datetime
 from typing import Optional
+
+import click
 
 from workmain.cli.output import (
     CollectionView,

@@ -79,9 +79,7 @@ workmain never pre-loads a model. Keep-alive (`CLAUDE.md` § OLLAMA_KEEP_ALIVE) 
 
 ## `report_types` Section
 
-Each key is the name of a report template in `templates/reports/`, or of a whole-report call such as `note_condensation`.
-A report template's AI settings (provider, fallback, `max_tokens`) live in its entry and nowhere in the template file.
-A template without an entry cannot be generated.
+Each key is the name of a report template in `templates/reports/`, or of a whole-report call such as `note_condensation`. A report template's AI settings (provider, fallback, `max_tokens`) live in its entry and nowhere in the template file. A template without an entry cannot be generated.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -108,22 +106,15 @@ Takes effect immediately on next CLI invocation.
 workmain providers set default daily_internal claude
 workmain providers set default daily_internal claude --fallback gemini
 ```
-Uses read-modify-write — only targeted fields are changed, all others preserved.
-Takes effect on next CLI invocation (running process caches the old config).
+Uses read-modify-write — only targeted fields are changed, all others preserved. Takes effect on next CLI invocation (running process caches the old config).
 
 Both options are refused for a provider that cannot serve the report type; see § Which providers can serve a call.
 
 ### Fallback behaviour
 
-When `primary_provider` fails (API error, rate limit, or a reply that is cut off, stopped early or empty),
-`ProviderManager.generate()` logs a `warning` naming the call type and the primary, then
-tries `fallback_provider` if `fallback_mode = "auto"`. The fallback's reply is refused on the same
-terms. When the fallback answers, `generate()` returns a `FallbackNotice` (`call_type`, `primary`,
-`fallback`, `reason`) beside the response, and `None` when the primary answered. The reason is
-the primary's own failure text, whatever the cause. Nothing else records a fallback.
+When `primary_provider` fails (API error, rate limit, or a reply that is cut off, stopped early or empty), `ProviderManager.generate()` logs a `warning` naming the call type and the primary, then tries `fallback_provider` if `fallback_mode = "auto"`. The fallback's reply is refused on the same terms. When the fallback answers, `generate()` returns a `FallbackNotice` (`call_type`, `primary`, `fallback`, `reason`) beside the response, and `None` when the primary answered. The reason is the primary's own failure text, whatever the cause. Nothing else records a fallback.
 
-If `fallback_mode = "manual"`, generation raises `ProviderError` carrying the primary's failure text and a hint to retry
-using `--provider <fallback>`. With no fallback configured, the `ProviderError` carries the same text.
+If `fallback_mode = "manual"`, generation raises `ProviderError` carrying the primary's failure text and a hint to retry using `--provider <fallback>`. With no fallback configured, the `ProviderError` carries the same text.
 
 ---
 
@@ -197,12 +188,7 @@ Adding a provider requires five steps — no other code changes needed:
    ```
    workmain/ai/providers/<name>.py
    ```
-   Implement all five abstract methods from `BaseProvider` (generate, estimate_cost,
-   validate_config, count_tokens, check_availability). See `providers/claude.py` for
-   a complete example. Set `provider_type = ProviderType.<NAME>` on the class and use
-   `self.provider_type` wherever the class names itself. If `generate()` reads any policy key,
-   declare those keys in a `REQUIRED_POLICY_KEYS` class attribute so an incomplete
-   policy is refused at construction rather than failing at request time.
+   Implement all five abstract methods from `BaseProvider` (generate, estimate_cost, validate_config, count_tokens, check_availability). See `providers/claude.py` for a complete example. Set `provider_type = ProviderType.<NAME>` on the class and use `self.provider_type` wherever the class names itself. If `generate()` reads any policy key, declare those keys in a `REQUIRED_POLICY_KEYS` class attribute so an incomplete policy is refused at construction rather than failing at request time.
 
 3. **Add the class to the tuple in `providers/__init__.py`.** `PROVIDER_REGISTRY` is built from each class's `provider_type`:
    ```python
@@ -228,13 +214,6 @@ Adding a provider requires five steps — no other code changes needed:
    ```
    `accepts` is required; see § Which providers can serve a call.
 
-5. **Copy `config/providers/_template/`** to `config/providers/<name>/` and edit its
-   `settings.json` `description` and every key the provider reads (vendor-native
-   values — see § The request payload policy). An enabled provider with no policy
-   file fails to construct. If the provider reads no payload parameters, keep the
-   template's `description` alone. Delete `models/` unless this provider has a
-   model this project builds (DR2).
+5. **Copy `config/providers/_template/`** to `config/providers/<name>/` and edit its `settings.json` `description` and every key the provider reads (vendor-native values — see § The request payload policy). An enabled provider with no policy file fails to construct. If the provider reads no payload parameters, keep the template's `description` alone. Delete `models/` unless this provider has a model this project builds (DR2).
 
-That is all. Every command that takes a provider accepts the providers configured in
-`ai_settings.json`, so `providers list`, `providers test`, `providers costs --provider`,
-and `providers set default` pick the new one up from step 4.
+That is all. Every command that takes a provider accepts the providers configured in `ai_settings.json`, so `providers list`, `providers test`, `providers costs --provider`, and `providers set default` pick the new one up from step 4.

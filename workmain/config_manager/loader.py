@@ -4,7 +4,8 @@ Load and manage JSON configuration files with environment variable overrides
 
 import json
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
 from dotenv import load_dotenv
 
 # Load environment variables

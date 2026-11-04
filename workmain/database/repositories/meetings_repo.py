@@ -3,11 +3,11 @@ Data access layer for meetings with fuzzy matching and recurring detection.
 Handles all CRUD operations for the meetings table.
 """
 
-from datetime import datetime, date, time
-from typing import List, Optional, Sequence, Tuple
+from datetime import date, datetime, time
 from difflib import SequenceMatcher
+from typing import List, Optional, Sequence, Tuple
 
-from sqlalchemy import func, and_, or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from workmain.database.models import Meeting, Note

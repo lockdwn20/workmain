@@ -3,18 +3,18 @@ Ollama local inference provider — Mistral 7B on Proxmox via REST API.
 """
 
 import json
-import urllib.request
 import urllib.error
+import urllib.request
 from typing import Optional
 
 from workmain.ai.base_provider import (
     BaseProvider,
-    ProviderUnavailableError,
-    ProviderStatus,
+    FinishStatus,
     GenerationRequest,
     GenerationResponse,
-    FinishStatus,
+    ProviderStatus,
     ProviderType,
+    ProviderUnavailableError,
 )
 
 

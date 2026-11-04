@@ -5,14 +5,14 @@ Handles all CRUD operations for the time_entries table.
 
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
-from typing import List, Optional, Tuple, Dict
+from typing import Dict, List, Optional, Tuple
 
-from sqlalchemy import func, and_, or_, desc
+from sqlalchemy import and_, desc, func, or_
 from sqlalchemy.orm import Session, contains_eager, joinedload
 
-from workmain.database.models import Note, TimeEntry, Project
-from workmain.utils.time_parser import parse_time as _parse_time
+from workmain.database.models import Note, Project, TimeEntry
 from workmain.utils.time_parser import parse_duration_hours as _parse_duration_hours
+from workmain.utils.time_parser import parse_time as _parse_time
 
 
 class TimeEntriesRepository:

@@ -11,7 +11,6 @@ import os
 from pathlib import Path
 from typing import Optional
 
-
 CONFIG_PATH = Path.home() / ".workmain" / "integrations" / "slack" / "config.json"
 
 

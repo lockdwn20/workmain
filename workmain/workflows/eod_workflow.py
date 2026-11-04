@@ -31,7 +31,6 @@ from workmain.utils.self_invoke import (
     run_workmain,
 )
 
-
 # ---------------------------------------------------------------------------
 # Result types
 # ---------------------------------------------------------------------------
@@ -332,7 +331,9 @@ def _run_review_step(dry_run: bool, target_date: date, non_interactive: bool = F
     if non_interactive:
         _db = get_db()
         with _db.session_scope() as _session:
-            from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+            from workmain.database.repositories.time_entries_repo import (
+                TimeEntriesRepository,
+            )
             entries = TimeEntriesRepository(_session).get_by_date(target_date)
             if not entries:
                 return EodStepResult(
@@ -465,8 +466,10 @@ def _run_task_match_step(dry_run: bool, target_date: date, non_interactive: bool
     db = get_db()
     try:
         with db.session_scope() as session:
-            from workmain.database.repositories.task_status_repo import TaskStatusRepository
             from workmain.database.repositories.notes_repo import NotesRepository
+            from workmain.database.repositories.task_status_repo import (
+                TaskStatusRepository,
+            )
 
             task_repo = TaskStatusRepository(session)
             active_tasks = task_repo.get_filtered(status='active', limit=0)
@@ -671,7 +674,9 @@ def _run_note_dedup_step(dry_run: bool, target_date: date, non_interactive: bool
     db = get_db()
     try:
         with db.session_scope() as session:
-            from workmain.database.repositories.task_status_repo import TaskStatusRepository
+            from workmain.database.repositories.task_status_repo import (
+                TaskStatusRepository,
+            )
 
             task_repo = TaskStatusRepository(session)
             active_tasks = task_repo.get_filtered(status='active', limit=0)
@@ -958,7 +963,9 @@ def _run_report_review_step(
             )
         db = get_db()
         with db.session_scope() as session:
-            from workmain.database.repositories.reports_repo import get_reports_repository
+            from workmain.database.repositories.reports_repo import (
+                get_reports_repository,
+            )
             rows = get_reports_repository(session).list_reports(
                 report_type=report_type,
                 start_date=target_date,
@@ -987,7 +994,9 @@ def _run_report_review_step(
     db = get_db()
     try:
         with db.session_scope() as session:
-            from workmain.database.repositories.reports_repo import get_reports_repository
+            from workmain.database.repositories.reports_repo import (
+                get_reports_repository,
+            )
             repo = get_reports_repository(session)
             reports = repo.list_reports(
                 report_type=report_type,
