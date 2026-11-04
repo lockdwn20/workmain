@@ -1,5 +1,7 @@
 ## 3. Code Standards
 
+`automation/style_check.py` checks §3.1's module docstrings, §3.2's import order and §3.5's docstrings and type hints on every line a branch changes, with the rules configured in `pyproject.toml`.
+
 ### 3.1 Module headers
 
 - PEP 257 module docstring: a one-line summary, then a paragraph describing what the module does and why. **No version, no date, no version-history block** — git tags, `CHANGELOG.md`, and `workmain/__version__.py` are the version record. **No terminal command, no instruction to set an environment variable, no command-line flag, no terminal invocation, no trigger for when to run something, and no inventory of the module's own contents.** Naming an environment variable the module reads, or the API call that yields an instance of it, is a description of what the module requires and how it is obtained, and belongs here. A command belongs to `argparse` or to a Click command's own docstring (§5.6), which is where a reader looking for it will be.
@@ -18,17 +20,7 @@
 
 ### 3.2 Import organization
 
-- Standard library, then third-party, then local — blank line between groups.
-
-  ```python
-  from datetime import date, datetime
-  from typing import List, Optional
-
-  from sqlalchemy import func, and_, or_
-  from sqlalchemy.orm import Session
-
-  from workmain.database.models import Note, Meeting, Project
-  ```
+- Standard library, then third-party, then local, with a blank line between groups.
 
 ### 3.3 Singletons
 
@@ -54,7 +46,7 @@
 
 ### 3.4 Package `__init__.py`
 
-- A package that exposes an API gets a §3.1 docstring, imports of its classes *and* singleton getters, and an `__all__` declaring them. A package that exposes nothing — a namespace holding modules that callers import directly — gets the §3.1 docstring and nothing else. Which one a package is, is a fact about it: if no caller writes `from <package> import <name>`, it exposes nothing, and inventing exports to satisfy this section is not conformance. No `__version__` constant in either.
+- Moved to `docs/ARCHITECTURE.md` section 1, Packages: an `__init__.py` holds a one-sentence docstring and nothing else.
 
 ### 3.5 Function and class docstrings
 
