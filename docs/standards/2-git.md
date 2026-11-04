@@ -12,6 +12,8 @@ chore/*    — documentation/process/tooling only. From main, merges to main AND
 
 **Branch names are `<type>/issue-<N>-<slug>`.** The issue number is what links a merge commit back to its issue once §2.3 deletes the branch. Work with no issue behind it is the exception and names itself descriptively — this is an exception, not the standard.
 
+**One branch, one kind of work.** Hotfix and feature work never share a branch, except under the hotfix → feature exception in §2.2.
+
 ### 2.2 Branch rules
 
 **`main`**
@@ -118,7 +120,12 @@ Types: `feat`, `fix`, `refactor`, `chore`, `docs`, `test`.
 | Feature/phase → dev → main | Minor | 1.3.1 → 1.4.0 |
 | Breaking change | Major | 1.4.0 → 2.0.0 |
 
-Update `workmain/__version__.py` and `CHANGELOG.md` together on every `feature/*` and `hotfix/*` merge to `main`.
+Update together on every `feature/*` and `hotfix/*` merge to `main`:
+
+- `workmain/__version__.py`: `__version__` and `__version_info__`
+- `CHANGELOG.md`
+
+**The pre-push hook (`.githooks/pre-push`, running `automation/check_release_integrity.py`) refuses a push where they disagree.**
 
 ### 2.6 Deployment
 
@@ -137,24 +144,18 @@ Confirm the new `ActiveEnterTimestamp` postdates the merge commit before calling
 
 ### 2.7 Session start checklist
 
+**Never work directly on `main` or `dev`, and create the branch before writing anything.**
+
 1. `git status` — working directory clean.
 2. `git branch` — confirm where you are.
 3. Determine work type:
    - phase/multi-step → `feature/*` from `dev`
    - targeted application fix → `hotfix/*` from `main`
-   - docs/process only → `chore/*` from `main`.
-4. Create the branch **before** writing anything. A `hotfix/*` or `chore/*` branch is cut from `origin/main` after `git fetch` — `git checkout -b <branch> origin/main` — because pull requests merge on GitHub and a local `main` falls behind.
-5. Never work directly on `main` or `dev`.
+   - docs/process only → `chore/*` from `main`
+4. `git fetch` — pull requests merge on GitHub, so a local branch falls behind `origin`.
+5. `git checkout --no-track -b <branch> origin/<base>`, where `<base>` is the branch step 3 names.
+   - `--no-track` leaves the branch without an upstream, so `git status`, `git pull` and `git push` never default to the base branch.
 
 ### 2.8 Never do
 
-- Commit to `main`, or to `dev` beyond trivial post-merge version/changelog updates.
-- Merge a feature branch straight to `main`, or merge `dev → main` locally.
-- Merge the `dev → main` PR yourself — Ray does that.
-- Skip the version bump, the tag, or the GitHub Release on a merge to `main` that carries application code. A `chore/*` merge carries none and takes none — §2.2.
-- Combine hotfix and feature work on one branch.
-- Write code before creating the branch.
-- Leave a merged branch alive, or let `dev` sit ahead of `main`.
-- Use `chore/*` for application code, `config/*`, `templates/*`, `tests/**`, or `CHANGELOG.md` — except under the `chore/*` exception or the operational-change exception in §2.2.
-- Report a `dev` merge as deployed without a confirmed post-merge restart.
-- Use `git commit --no-verify`.
+- See §2.1 to §2.6.
