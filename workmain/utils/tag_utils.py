@@ -3,10 +3,10 @@ Provides tag parsing, validation, conversion, and display formatting.
 Tags are case-insensitive, normalized, and validated against config/tags.json.
 """
 
-import re
 import json
+import re
 from pathlib import Path
-from typing import List, Tuple, Dict, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 
 
 class TagSystem:

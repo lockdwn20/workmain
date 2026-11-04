@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -231,8 +231,8 @@ class TestDaemonStartConfigurationFault:
     loads the provider manager in line, before _resolve_dm_channel."""
 
     def test_configuration_error_fails_start(self):
-        from workmain.daemon.daemon import WorkmAInDaemon
         from workmain.ai.base_provider import ConfigurationError
+        from workmain.daemon.daemon import WorkmAInDaemon
 
         daemon = WorkmAInDaemon.__new__(WorkmAInDaemon)
         with patch('workmain.daemon.daemon.build_scheduler'), \
@@ -400,8 +400,9 @@ class TestMeetingTriggers:
 
     def test_meeting_triggers_rescheduled_on_15min_rescan(self):
         """register_all_jobs wires an IntervalTrigger for rescan."""
-        import workmain.daemon.scheduler as sched_mod
         from apscheduler.triggers.interval import IntervalTrigger
+
+        import workmain.daemon.scheduler as sched_mod
         mock_scheduler = MagicMock()
         daemon = MagicMock()
         with patch.object(sched_mod, '_scheduler', mock_scheduler), \
@@ -1596,6 +1597,7 @@ class TestActionResultFollowsCommit:
     def _record_scope_exit(monkeypatch, events):
         """Append 'scope_exit' to events as each session_scope() exits."""
         from contextlib import contextmanager
+
         from workmain.database.connection import DatabaseConnection
 
         real = DatabaseConnection.session_scope

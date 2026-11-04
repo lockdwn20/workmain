@@ -23,9 +23,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from workmain.workflows.eod_workflow import (
-    _tokenize, _score_match, _run_task_match_step, EodStepStatus
+    EodStepStatus,
+    _run_task_match_step,
+    _score_match,
+    _tokenize,
 )
-
 
 # ---------------------------------------------------------------------------
 # _tokenize()

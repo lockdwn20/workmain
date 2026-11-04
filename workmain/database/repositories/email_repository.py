@@ -3,9 +3,9 @@ Data access layer for recipient management and report-template assignments.
 Handles all CRUD operations for the recipients and report_recipients tables.
 """
 
-from typing import Optional, List
+from typing import List, Optional
 
-from sqlalchemy.orm import Session, selectinload, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from workmain.database.models import Recipient, ReportRecipient
 

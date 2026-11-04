@@ -20,14 +20,14 @@ Send command requires Azure AD OAuth -- see docs/OAUTH_SETUP.md
 """
 
 import re
-import click
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+import click
+from rich import box
 from rich.console import Console
 from rich.table import Table
-from rich import box
 
 from workmain.database.connection import get_db
 from workmain.database.repositories.email_repository import get_email_repository
@@ -473,7 +473,9 @@ def email_assign(recipient_id: int, template: str, role: str):
       workmain email assign 2 weekly_client cc
     """
     require_report_type(template)
-    from workmain.database.repositories.system_state_repository import SystemStateRepository
+    from workmain.database.repositories.system_state_repository import (
+        SystemStateRepository,
+    )
     db = get_db()
     with db.session_scope() as session:
         active_client_id = SystemStateRepository(session).get_int('active_client_id')
@@ -506,7 +508,9 @@ def email_unassign(recipient_id: int, template: str):
       workmain email unassign 2 weekly_client
     """
     require_report_type(template)
-    from workmain.database.repositories.system_state_repository import SystemStateRepository
+    from workmain.database.repositories.system_state_repository import (
+        SystemStateRepository,
+    )
     db = get_db()
     with db.session_scope() as session:
         active_client_id = SystemStateRepository(session).get_int('active_client_id')

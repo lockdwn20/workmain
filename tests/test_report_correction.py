@@ -33,18 +33,18 @@ import shutil
 import unittest
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from unittest.mock import ANY, patch, MagicMock
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 from click.testing import CliRunner
 
 from workmain.ai.prompt_builder import PromptBuilder
+from workmain.cli.commands.reports import _report_list_impl, _resolve_report, reports
 from workmain.database.models import Report
 from workmain.database.repositories.reports_repo import (
     ReportsRepository,
     get_reports_repository,
 )
-from workmain.cli.commands.reports import _report_list_impl, _resolve_report, reports
 
 # Sentinel Mon–Fri week for weekly_client prompt generation tests (first Monday of June 2099)
 _d = date(2099, 6, 1)

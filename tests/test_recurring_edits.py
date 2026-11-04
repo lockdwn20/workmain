@@ -5,16 +5,16 @@ and is_manually_modified ICS protection logic.
 All tests use db_session fixture from conftest.py and sentinel dates (2099+).
 """
 
-import pytest
 import uuid
-from datetime import datetime, date, time, timedelta
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
+
+import pytest
 
 from workmain.database.models import Meeting
 from workmain.database.repositories.meetings_repo import MeetingsRepository
-from workmain.utils.meeting_templates import MeetingTemplateConfig
 from workmain.utils.ics_parser import ICSEvent, import_events_to_db
-
+from workmain.utils.meeting_templates import MeetingTemplateConfig
 
 # ---------------------------------------------------------------------------
 # Helpers

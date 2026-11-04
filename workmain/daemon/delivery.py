@@ -12,7 +12,7 @@ import logging
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from workmain.daemon.daemon import WorkmAInDaemon

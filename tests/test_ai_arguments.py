@@ -18,12 +18,12 @@ from click.testing import CliRunner
 from workmain.ai.base_provider import ProviderType
 from workmain.ai.provider_manager import ProviderManager
 from workmain.ai.report_generator import ReportGenerator
-from workmain.database.models import AiCost, Report
 from workmain.cli.commands.email import email
 from workmain.cli.commands.meetings import meetings
 from workmain.cli.commands.notes import notes
 from workmain.cli.commands.providers import providers
 from workmain.cli.commands.reports import reports
+from workmain.database.models import AiCost, Report
 from workmain.utils.ai_arguments import require_provider, require_report_type
 
 _PATCH_TARGET = 'workmain.utils.ai_arguments.get_provider_manager'

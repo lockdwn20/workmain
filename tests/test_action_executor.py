@@ -24,7 +24,6 @@ from workmain.orchestration.action_executor import (
 )
 from workmain.orchestration.confirmation_gate import ConfirmationGate
 
-
 # ---------------------------------------------------------------------------
 # ActionResult / ActionExecutorError data-class sanity
 # ---------------------------------------------------------------------------
@@ -276,7 +275,9 @@ class TestActionExecutorCreateTimeEntry:
         """T1: the note is flushed before the time entry is created; a failure
         creating the entry rolls the note back with it."""
         from workmain.database.models import Note
-        from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+        from workmain.database.repositories.time_entries_repo import (
+            TimeEntriesRepository,
+        )
 
         description = f"Sentinel atomic create {uuid.uuid4().hex[:8]}"
         with patch.object(
@@ -358,7 +359,9 @@ class TestActionExecutorCreateTimeEntry:
         assert result.success is True
 
     def test_create_time_entry_stamps_client_id(self, db_session):
-        from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+        from workmain.database.repositories.time_entries_repo import (
+            TimeEntriesRepository,
+        )
         client = Client(name="ActionTestClient-time", is_active=True)
         db_session.add(client)
         db_session.flush()
@@ -386,8 +389,10 @@ class TestActionExecutorCreateTimeEntry:
         confirm a carry-forward tag on a Slack-originated time entry now creates
         an active task via the relocated CF hook (Design Rule 2/3), not a
         documented gap — the dict-level plumbing genuinely supports it."""
-        from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
         from workmain.database.repositories.task_status_repo import TaskStatusRepository
+        from workmain.database.repositories.time_entries_repo import (
+            TimeEntriesRepository,
+        )
 
         executor = ActionExecutor(db_session)
         result = executor.execute({

@@ -9,9 +9,10 @@ All tests that create entries use _TEST_DATE or _TEST_WEEK_MONDAY (far-future
 sentinel dates) so category/total assertions are unaffected by production data.
 """
 
-import pytest
 from datetime import date, time, timedelta
 from decimal import Decimal
+
+import pytest
 
 from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.time_entries_repo import TimeEntriesRepository

@@ -3,13 +3,14 @@ CLI commands for task lifecycle management (carry-forward notes).
 Full lifecycle group: list, today, show, complete, dismiss.
 """
 
-import click
 from datetime import date
 from typing import Optional
 
+import click
+
 from workmain.cli.output import (
-    Column,
     CollectionView,
+    Column,
     Field,
     RecordView,
     WorkmAInGroup,

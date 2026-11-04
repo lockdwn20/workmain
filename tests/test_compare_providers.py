@@ -15,7 +15,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from workmain.ai.base_provider import (
-    FinishStatus, GenerationResponse, IncompleteResponseError, ProviderType,
+    FinishStatus,
+    GenerationResponse,
+    IncompleteResponseError,
+    ProviderType,
 )
 from workmain.ai.note_condenser import NoteCondenser
 from workmain.ai.provider_manager import ProviderManager

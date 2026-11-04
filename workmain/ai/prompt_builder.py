@@ -11,19 +11,20 @@ the result to the token limit.
 """
 
 from datetime import date, datetime, timedelta
-from typing import Dict, Any, List, Optional, Tuple
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
 from sqlalchemy.orm import Session
 
-from workmain.templates_engine import (
-    get_template_loader,
-    get_style_adapter,
-    TemplateLoader,
-    StyleAdapter
-)
+from workmain.database.repositories.meetings_repo import MeetingsRepository
 from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
-from workmain.database.repositories.meetings_repo import MeetingsRepository
+from workmain.templates_engine import (
+    StyleAdapter,
+    TemplateLoader,
+    get_style_adapter,
+    get_template_loader,
+)
 
 
 class PromptBuilder:

@@ -11,10 +11,9 @@ from datetime import date, datetime
 
 import pytest
 
+from workmain.database.repositories.meetings_repo import MeetingsRepository
 from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
-from workmain.database.repositories.meetings_repo import MeetingsRepository
-
 
 # ---------------------------------------------------------------------------
 # NotesRepository.find_by_content_like()

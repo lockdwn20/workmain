@@ -22,15 +22,14 @@ from workmain.cli.output import (
     CollectionView,
     Column,
     Field,
+    Renderer,
     ReportView,
     Section,
-    Renderer,
     WorkmAInGroup,
     pass_renderer,
 )
 from workmain.database.connection import get_db
 from workmain.services import calendar_service
-
 
 MEETINGS = CollectionView(
     "Outlook meetings",

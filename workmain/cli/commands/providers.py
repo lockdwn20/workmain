@@ -14,15 +14,14 @@ import time
 from datetime import date
 from pathlib import Path
 from typing import Optional
+
 import click
+from rich import box
 from rich.console import Console
 from rich.markup import escape
-from rich.table import Table
 from rich.panel import Panel
-from rich import box
+from rich.table import Table
 
-from workmain.database.connection import get_db
-from workmain.ai.provider_manager import get_provider_manager, report_type_names
 from workmain.ai.base_provider import (
     GenerationRequest,
     IncompleteResponseError,
@@ -30,15 +29,29 @@ from workmain.ai.base_provider import (
     ProviderUnavailableError,
     require_complete,
 )
-from workmain.services import ai_cost_service
-from workmain.utils.ai_arguments import require_eligible_provider, require_provider, require_report_type
-from workmain.cli.output import Renderer, ReportView, Section, WorkmAInGroup, pass_renderer
+from workmain.ai.provider_manager import get_provider_manager, report_type_names
+from workmain.cli.output import (
+    Renderer,
+    ReportView,
+    Section,
+    WorkmAInGroup,
+    pass_renderer,
+)
 from workmain.cli.params import DateParamType, MonthParamType
+from workmain.database.connection import get_db
+from workmain.services import ai_cost_service
+from workmain.utils.ai_arguments import (
+    require_eligible_provider,
+    require_provider,
+    require_report_type,
+)
 from workmain.utils.cost_display import (
-    BY_PROVIDER, BY_TYPE, format_call_tokens, totals_fields,
+    BY_PROVIDER,
+    BY_TYPE,
+    format_call_tokens,
+    totals_fields,
 )
 from workmain.utils.date_utils import resolve_date_window
-
 
 console = Console()
 err_console = Console(stderr=True, soft_wrap=True)

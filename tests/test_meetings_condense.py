@@ -180,6 +180,7 @@ class TestMeetingsCondenseRefusal(unittest.TestCase):
 
     def setUp(self):
         import tempfile
+
         from dotenv import load_dotenv
         load_dotenv()
         from workmain.database.connection import get_db
@@ -204,8 +205,9 @@ class TestMeetingsCondenseRefusal(unittest.TestCase):
 
     def _invoke(self, stubs):
         from pathlib import Path
-        from workmain.ai import provider_manager as pm_module
+
         from tests.mocks.stub_providers import stubbed_manager
+        from workmain.ai import provider_manager as pm_module
 
         meeting = _seed_meeting(self.session, "Sentinel Meetings Condense Refusal 2099")
         self._meeting_ids.append(meeting.id)

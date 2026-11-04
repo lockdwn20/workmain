@@ -14,9 +14,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from workmain.ai.base_provider import (
-    ProviderType,
-    ProviderStatus,
     GenerationRequest,
+    ProviderStatus,
+    ProviderType,
 )
 from workmain.ai.provider_manager import ProviderManager
 

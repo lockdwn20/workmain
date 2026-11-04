@@ -20,9 +20,11 @@ import click
 from rich.console import Console
 
 from workmain.daemon import state_io
-from workmain.database.connection import get_db
-from workmain.database.repositories.notification_repository import NotificationConfigRepository
 from workmain.daemon.delivery import deliver
+from workmain.database.connection import get_db
+from workmain.database.repositories.notification_repository import (
+    NotificationConfigRepository,
+)
 
 console = Console()
 

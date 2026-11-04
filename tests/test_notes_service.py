@@ -4,8 +4,9 @@ Tests for workmain/services/notes_service.py.
 All DB tests use the db_session fixture (transaction rolled back after each test).
 """
 
-import pytest
 from datetime import date, datetime
+
+import pytest
 
 from workmain.database.models import Client
 from workmain.database.repositories.system_state_repository import SystemStateRepository

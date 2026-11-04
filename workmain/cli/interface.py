@@ -5,11 +5,11 @@ Main CLI interface using the Click framework.
 import logging
 import os
 import sys
+from datetime import date
 
 import click
 from rich.console import Console
 from rich.table import Table
-from datetime import date
 
 from workmain.database.connection import get_db
 from workmain.database.repositories.client_repository import ClientRepository
@@ -22,39 +22,38 @@ except ImportError:
     __version__ = "1.1.0"
 
 # Import Phase 2 commands
+# Import Phase 6 commands
+from workmain.cli.commands.calendar import calendar
 from workmain.cli.commands.clients import clients
-from workmain.cli.commands.notes import notes
-from workmain.cli.commands.meetings import meetings
-from workmain.cli.commands.time import time
-from workmain.cli.commands.tasks import tasks
-from workmain.cli.output import Renderer, WorkmAInGroup
-
-# Import Phase 3 commands
-from workmain.cli.commands.templates import templates
-
-# Import Phase 4 commands
-from workmain.cli.commands.reports import reports
-from workmain.cli.commands.providers import providers
 
 # Import Phase 5 commands
 from workmain.cli.commands.clockify import clockify
-
-# Import Phase 6 commands
-from workmain.cli.commands.calendar import calendar
 from workmain.cli.commands.email import email
-
-# Import Phase 7 commands
-from workmain.cli.commands.gdocs import gdocs
-
-# Import Phase 8 commands
-from workmain.cli.commands.slack import slack
 
 # Import Sprint commands
 from workmain.cli.commands.eod import eod
 
+# Import Phase 7 commands
+from workmain.cli.commands.gdocs import gdocs
+from workmain.cli.commands.meetings import meetings
+from workmain.cli.commands.notes import notes
+from workmain.cli.commands.notifications import notifications
+from workmain.cli.commands.providers import providers
+
+# Import Phase 4 commands
+from workmain.cli.commands.reports import reports
+
 # Phase 10: Notification & Scheduling
 from workmain.cli.commands.schedule import schedule
-from workmain.cli.commands.notifications import notifications
+
+# Import Phase 8 commands
+from workmain.cli.commands.slack import slack
+from workmain.cli.commands.tasks import tasks
+
+# Import Phase 3 commands
+from workmain.cli.commands.templates import templates
+from workmain.cli.commands.time import time
+from workmain.cli.output import Renderer, WorkmAInGroup
 
 # Initialize console
 console = Console()

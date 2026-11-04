@@ -96,9 +96,7 @@
 - Every option has a `--long-form` in lowercase-hyphenated words.
 - Short forms are optional.
 
-**Case convention:** lowercase short forms are for frequent flags; uppercase for the
-less-used variant of a related concept (`-t/--tags` vs `-T/--time`). This pairing is
-self-documenting.
+**Case convention:** lowercase short forms are for frequent flags; uppercase for the less-used variant of a related concept (`-t/--tags` vs `-T/--time`). This pairing is self-documenting.
 
 Reserved across all commands — no flag may reuse these:
 

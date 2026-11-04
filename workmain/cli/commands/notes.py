@@ -5,27 +5,33 @@ from note.py into a single group with all subcommands.
 Replaces: note group + notes group from note.py (v2.9)
 """
 
-import click
 import os
-import tempfile
 import subprocess
+import tempfile
 from datetime import date, datetime, timedelta
 from typing import Optional
 
+import click
+from rich import box
 from rich.console import Console
 from rich.table import Table
-from rich import box
 
+from workmain.cli.output import (
+    Renderer,
+    ReportView,
+    Section,
+    WorkmAInGroup,
+    pass_renderer,
+)
+from workmain.cli.params import DateParamType, MonthParamType
 from workmain.database.connection import get_db
-from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.meetings_repo import MeetingsRepository
-from workmain.utils.tag_utils import parse_tags, get_tag_system
+from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.services import ai_cost_service, notes_service, time_entry_service
 from workmain.utils.ai_arguments import require_provider
-from workmain.cli.output import Renderer, ReportView, Section, WorkmAInGroup, pass_renderer
-from workmain.cli.params import DateParamType, MonthParamType
 from workmain.utils.cost_display import BY_PROVIDER, detail_view, totals_fields
 from workmain.utils.date_utils import resolve_date_window
+from workmain.utils.tag_utils import get_tag_system, parse_tags
 
 console = Console()
 
@@ -468,7 +474,9 @@ def notes_delete(identifier: str):
         click.echo(format_note_display(note))
 
         # Pre-check: block deletion if linked time entries exist (ON DELETE RESTRICT)
-        from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+        from workmain.database.repositories.time_entries_repo import (
+            TimeEntriesRepository,
+        )
         linked = TimeEntriesRepository(session).get_by_note_id(note_id)
         if linked:
             ids = ', '.join(str(e.id) for e in linked)
@@ -652,7 +660,6 @@ def notes_log(meeting: str):
                 try:
                     with session.begin_nested():
                         from workmain.ai.note_condenser import get_note_condenser
-
                         from workmain.ai.provider_manager import get_provider_manager
                         _rc = get_provider_manager().get_report_config('note_condensation')
                         _provider_display = _rc.primary_provider.value.capitalize() if _rc else 'AI'

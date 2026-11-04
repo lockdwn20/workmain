@@ -4,12 +4,16 @@ Prepares data for AI processing and generates final output.
 """
 
 from datetime import date, datetime
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional
+
 from sqlalchemy.orm import Session
 
-from workmain.templates_engine.loader import TemplateLoader, get_template_loader
-from workmain.templates_engine.validator import TemplateValidator, get_template_validator
 from workmain.templates_engine.field_manager import FieldManager, get_field_manager
+from workmain.templates_engine.loader import TemplateLoader, get_template_loader
+from workmain.templates_engine.validator import (
+    TemplateValidator,
+    get_template_validator,
+)
 
 
 class TemplateRenderer:
@@ -336,6 +340,7 @@ class TemplateRenderer:
             User's full name or default
         """
         import os
+
         from dotenv import load_dotenv
         
         load_dotenv()

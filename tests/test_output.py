@@ -17,8 +17,8 @@ from rich.console import Console
 
 from workmain.cli.interface import cli
 from workmain.cli.output import (
-    Column,
     CollectionView,
+    Column,
     Field,
     RecordView,
     Renderer,

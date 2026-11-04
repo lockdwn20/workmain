@@ -8,7 +8,6 @@ import json
 from pathlib import Path
 from typing import Dict, Optional
 
-
 TEMPLATE_SCHEMA_KEYS = {"name", "start", "end", "frequency", "until_days", "include_weekends", "attendees"}
 VALID_FREQUENCIES = {"daily", "weekly", "monthly"}
 

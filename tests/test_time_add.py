@@ -215,7 +215,9 @@ class TestTimeAddUnitOfWork:
         assert len(entries) == 1
 
     def test_t2_interrupt_between_the_note_and_the_entry_leaves_neither(self, db_session):
-        from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+        from workmain.database.repositories.time_entries_repo import (
+            TimeEntriesRepository,
+        )
         content = "Sentinel time add interrupted 2099-96"
 
         with patch.object(TimeEntriesRepository, "create", side_effect=KeyboardInterrupt):

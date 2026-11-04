@@ -19,7 +19,6 @@ import json
 from pathlib import Path
 from typing import Optional
 
-
 CACHE_PATH = Path.home() / ".workmain" / "integrations" / "gdrive" / "cache.json"
 
 

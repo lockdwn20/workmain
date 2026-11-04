@@ -10,8 +10,7 @@ from datetime import time
 
 import pytest
 
-from workmain.utils.time_parser import parse_time, parse_duration_hours
-
+from workmain.utils.time_parser import parse_duration_hours, parse_time
 
 # ---------------------------------------------------------------------------
 # parse_time()

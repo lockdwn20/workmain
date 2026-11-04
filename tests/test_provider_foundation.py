@@ -12,32 +12,37 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 import pytest
 from click.testing import CliRunner
 
 from workmain.ai.base_provider import (
     BaseProvider,
-    ProviderType,
-    ProviderStatus,
-    ProviderError,
-    ProviderUnavailableError,
     ConfigurationError,
     FinishStatus,
     GenerationError,
     GenerationResponse,
     IncompleteResponseError,
+    ProviderError,
+    ProviderStatus,
+    ProviderType,
+    ProviderUnavailableError,
     require_complete,
 )
-from workmain.ai.providers import PROVIDER_REGISTRY, ClaudeProvider, GeminiProvider, OllamaProvider
-from workmain.ai.providers.ollama import OllamaProvider as OllamaProviderDirect
 from workmain.ai.provider_manager import (
     ProviderManager,
-    get_provider_manager,
     eligible_provider_names,
+    get_provider_manager,
 )
+from workmain.ai.providers import (
+    PROVIDER_REGISTRY,
+    ClaudeProvider,
+    GeminiProvider,
+    OllamaProvider,
+)
+from workmain.ai.providers.ollama import OllamaProvider as OllamaProviderDirect
 from workmain.cli.commands.providers import providers
-
 
 # ---------------------------------------------------------------------------
 # Registry tests
@@ -1307,7 +1312,9 @@ class TestStubbedManager:
 
     def test_unstubbed_primary_raises_and_fallback_is_not_tried(self, tmp_path):
         from tests.mocks.stub_providers import (
-            StubProvider, UnstubbedProviderCall, stubbed_manager,
+            StubProvider,
+            UnstubbedProviderCall,
+            stubbed_manager,
         )
         fallback = StubProvider(ProviderType.CLAUDE)
         manager = stubbed_manager(
@@ -1447,7 +1454,8 @@ class TestManagerRecording:
     ):
         """AC2.1"""
         from tests.mocks.stub_providers import (
-            StubProvider, stubbed_manager,
+            StubProvider,
+            stubbed_manager,
         )
         from workmain.ai.base_provider import IncompleteResponseError
         from workmain.database.models import AiCost
@@ -1506,7 +1514,8 @@ class TestManagerRecording:
     ):
         """AC2.3"""
         from tests.mocks.stub_providers import (
-            StubProvider, stubbed_manager,
+            StubProvider,
+            stubbed_manager,
         )
         from workmain.database.models import AiCost
         manager = stubbed_manager(

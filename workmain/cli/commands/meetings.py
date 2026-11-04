@@ -2,32 +2,41 @@
 CLI commands for meeting management.
 """
 
-import click
-from datetime import datetime, date, time, timedelta
-from typing import Optional
 import sys
 import uuid
+from datetime import date, datetime, time, timedelta
+from typing import Optional
 
+import click
+from rich import box
 from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
-from rich import box
 
+from workmain.ai.note_condenser import get_note_condenser
+from workmain.cli.output import (
+    Renderer,
+    ReportView,
+    Section,
+    WorkmAInGroup,
+    pass_renderer,
+)
+from workmain.cli.params import DateParamType, MonthParamType
 from workmain.database.connection import get_db
 from workmain.database.models import Meeting
+from workmain.database.repositories.ai_costs_repo import get_ai_cost_repository
 from workmain.database.repositories.meetings_repo import MeetingsRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
-from workmain.database.repositories.ai_costs_repo import get_ai_cost_repository
-from workmain.ai.note_condenser import get_note_condenser
-from workmain.utils.ai_arguments import failure_exit_code, require_provider
-from workmain.cli.output import Renderer, ReportView, Section, WorkmAInGroup, pass_renderer
-from workmain.cli.params import DateParamType, MonthParamType
 from workmain.services import ai_cost_service
+from workmain.utils.ai_arguments import failure_exit_code, require_provider
 from workmain.utils.cost_display import (
-    BY_PROVIDER, detail_view, format_token_line, sum_rows, totals_fields,
+    BY_PROVIDER,
+    detail_view,
+    format_token_line,
+    sum_rows,
+    totals_fields,
 )
 from workmain.utils.date_utils import resolve_date_window
-
 
 console = Console()
 err_console = Console(stderr=True, soft_wrap=True)
@@ -221,7 +230,9 @@ def create(title: str, start: str, end: str, meeting_date: Optional[str],
         
             # Parse times using TimeEntriesRepository for consistent parsing
             # Supports: 14:30, 1430, 2:30pm, 230pm
-            from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+            from workmain.database.repositories.time_entries_repo import (
+                TimeEntriesRepository,
+            )
             time_repo = TimeEntriesRepository(session)
 
             try:
@@ -656,7 +667,9 @@ def track(title_or_id: str, date: Optional[datetime]):
         ).total_seconds() / 3600
 
         # Create time entry
-        from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+        from workmain.database.repositories.time_entries_repo import (
+            TimeEntriesRepository,
+        )
         time_repo = TimeEntriesRepository(session)
 
         # Check for existing time entry for this meeting on this date
@@ -682,8 +695,8 @@ def track(title_or_id: str, date: Optional[datetime]):
             default=default_desc
         )
 
-        from workmain.utils.tag_utils import parse_tags
         from workmain.services import notes_service, time_entry_service
+        from workmain.utils.tag_utils import parse_tags
 
         click.echo("Add tags inline: #ilo #cf (blank for internal-only)")
         tag_input = click.prompt("Tags", default="", show_default=False)
@@ -1029,7 +1042,9 @@ def meetings_edit(identifier: str, title: Optional[str], start: Optional[str],
                 new_date = mtg.start_time.date()
 
             # Parse start/end times if provided
-            from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+            from workmain.database.repositories.time_entries_repo import (
+                TimeEntriesRepository,
+            )
             time_repo = TimeEntriesRepository(session)
 
             new_start_dt = None
@@ -1127,8 +1142,10 @@ def meetings_reschedule(identifier: str, meeting_date: Optional[str],
     db = get_db()
     try:
         with db.session_scope() as session:
-            from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
             from workmain.database.models import TimeEntry
+            from workmain.database.repositories.time_entries_repo import (
+                TimeEntriesRepository,
+            )
 
             repo = MeetingsRepository(session)
             time_repo = TimeEntriesRepository(session)
@@ -1262,7 +1279,9 @@ def meetings_series_edit(identifier: str, start: Optional[str], end: Optional[st
     db = get_db()
     try:
         with db.session_scope() as session:
-            from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+            from workmain.database.repositories.time_entries_repo import (
+                TimeEntriesRepository,
+            )
             repo = MeetingsRepository(session)
             time_repo = TimeEntriesRepository(session)
 
@@ -1545,8 +1564,9 @@ def meetings_template_use(name: str, start_str: Optional[str], end_str: Optional
       workmain meetings template use "Daily Standup" -b 2026-06-01
       workmain meetings template use "Weekly Review" -b 2026-06-01 -e 2026-08-31
     """
-    from workmain.utils.meeting_templates import get_meeting_template_config
     from calendar import monthrange
+
+    from workmain.utils.meeting_templates import get_meeting_template_config
 
     cfg = get_meeting_template_config()
     tmpl = cfg.get(name)

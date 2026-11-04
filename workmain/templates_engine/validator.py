@@ -4,7 +4,7 @@ Validates templates against JSON schema and field definitions.
 
 import json
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 
 class TemplateValidator:

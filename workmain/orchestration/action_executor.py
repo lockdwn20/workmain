@@ -6,7 +6,8 @@ ConfirmationGate first — that is the caller's responsibility.
 
 import logging
 from dataclasses import dataclass, field
-from datetime import date, time as time_type
+from datetime import date
+from datetime import time as time_type
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -81,9 +82,11 @@ class ActionExecutor:
     # ------------------------------------------------------------------
 
     def _execute_create_time_entry(self, action: dict) -> ActionResult:
+        from workmain.database.repositories.time_entries_repo import (
+            TimeEntriesRepository,
+        )
         from workmain.services import time_entry_service
-        from workmain.services.exceptions import MissingStartTimeError, InvalidTagsError
-        from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+        from workmain.services.exceptions import InvalidTagsError, MissingStartTimeError
         from workmain.utils.tag_utils import get_valid_full_names
 
         description = action.get("description", "")
