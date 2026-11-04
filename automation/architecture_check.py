@@ -61,7 +61,8 @@ def _code_paths(text: str) -> List[str]:
 
 
 def _pattern(path: str) -> Pattern:
-    """A map path as a regex over repository-relative file paths.
+    """
+    Turn a map path into a regex over repository-relative file paths.
 
     A path ending in '/' covers everything under it. '<name>' matches one path
     segment, and '**/' any number of them, none included.
