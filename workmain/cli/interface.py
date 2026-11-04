@@ -202,7 +202,7 @@ def today():
     console.print("\n[bold yellow]MORNING STARTUP[/bold yellow]")
     console.print("  workmain calendar sync               # Sync Outlook calendar (OAuth)")
     console.print("  workmain meetings today              # What's on today")
-    console.print("  workmain meetings upcoming -n 2w     # Look ahead 2 weeks")
+    console.print("  workmain meetings upcoming --days 2w     # Look ahead 2 weeks")
     console.print("  workmain notes today                 # Review yesterday's carry-forwards")
     console.print("  workmain tasks list --all            # Open carry-forward tasks")
 
