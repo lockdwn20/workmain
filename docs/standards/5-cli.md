@@ -53,21 +53,8 @@
   - `send` addresses a recipient
   - Slack uses `post` (publishing to a channel, not addressing a recipient) with a required `PERIOD` argument.
 
-- **Domain-specific verbs** are permitted only with prior approval, must be imperative, must be documented in `--help`, and must not duplicate a standard verb.
-- Currently approved:
-
-| Verb | Used by | Rationale |
-| --- | --- | --- |
-| `condense` | `meetings condense` | AI summarization |
-| `rename` | `meetings rename` | Rename without full edit |
-| `merge` | `meetings merge` | Combine two records |
-| `track` | `meetings track` | Time entry from a meeting; valid as a *subcommand* verb, not as a group name |
-| `log` | `notes log` | Bulk multi-note editor workflow, distinct from `add` |
-| `register` / `unregister` / `validate` | `templates` | Template lifecycle and schema validation |
-| `complete` | `tasks complete` | Lifecycle closure; `edit` does not imply finality |
-| `dismiss` | `tasks dismiss` | Deliberate non-completion |
-| `confirm` | `reports confirm` | Attestation without modification |
-| `correct` | `reports correct` | Targeted correction with audit trail; distinct write target |
+- **Domain-specific verbs** are permitted only with Ray's approval, must be imperative, must be documented in `--help`, and must not duplicate a standard verb. The approved verbs, each with its reason, are `APPROVED_VERBS` in `tests/test_cli_conventions.py`, which fails the suite on any command name that is not a standard verb from the table above, an approved verb, or a name §5.1 or §5.2 permits.
+- Names that predate that test are its `EXISTING_EXCEPTIONS`. The list only shrinks: an entry leaves when its command is renamed or removed, and nothing is added to it.
 
 - Aliases are permitted for discoverability but must be documented in `--help`.
   - The canonical name must match the standard.
@@ -98,48 +85,9 @@
 
 **Case convention:** lowercase short forms are for frequent flags; uppercase for the less-used variant of a related concept (`-t/--tags` vs `-T/--time`). This pairing is self-documenting.
 
-Reserved across all commands — no flag may reuse these:
-
-| Short | Long | Scope |
-| --- | --- | --- |
-| `-b` | `--start` | `meetings edit` |
-| `-C` | `--category` | `time add`, `time edit` |
-| `-c` | `--content` | `notes edit` |
-| `-D` | `--description` | `time edit` |
-| `-d` | `--date` | All |
-| `-e` | `--end` | `meetings edit` |
-| `-f` | `--source` / `--fallback` | `notes add` / `providers set default` |
-| `-H` | `--history` | `notes list` with `--meeting` |
-| `-h` | `--help` | Click built-in; never reassign |
-| `-i` | `--show-ids` | Group level only |
-| `-L` | `--duration` | `time edit` |
-| `-l` | `--title` | `meetings edit`, `schedule *  add` |
-| `-M` | `--month` | costs commands |
-| `-m` | `--meeting` | `notes log`, `time add` |
-| `-N` | `--notes` | `time add` |
-| `-n` | `--limit` | List commands |
-| `-P` | `--provider` | costs commands |
-| `-p` | `--project` | `time add` |
-| `-q` | `--silent` | Quiet-mode commands |
-| `-R` | `--type` | `reports list` |
-| `-S` | `--skip` | `eod` |
-| `-s` | `--search` | Filter commands |
-| `-T` | `--time` | `time add` (required there) |
-| `-t` | `--tags` | All |
-
-- Check any new short form against this table **and** every other flag on the same command to prevent conflicts.
-
-- **Intentionally no short form** — safety-critical or infrequent, where friction is the point:
-  - `--dry-run`
-  - `--force`
-  - `--send`
-  - `--preview`
-  - `--recurring`
-  - `--until`
-  - `--include-weekends`
-  - `--cancelled`
-  - `--status`
-  - `--all`.
+- **A short form means one long form across every command.** `-h` is Click's `--help` and is never reassigned.
+- **Some flags have no short form on purpose:** safety-critical or infrequent ones, where friction is the point. They are `NO_SHORT_FORM` in `tests/test_cli_conventions.py`.
+- `tests/test_cli_conventions.py` checks both rules against every command Click builds, so a conflict fails the suite.
 
 - Boolean flags use `is_flag=True`, never `type=bool`.
 - Multi-value flags use `multiple=True` with comma-delimited input (`--tags ilo,cf`), never repeated flags.

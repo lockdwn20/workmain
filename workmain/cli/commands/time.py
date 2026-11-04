@@ -473,7 +473,7 @@ def time_delete(identifier: str):
 
 @time.command('today')
 @click.option('--show-ids', is_flag=True, help='Show entry IDs')
-@click.option('--category', '-c', help='Filter by category')
+@click.option('--category', '-C', help='Filter by category')
 @click.pass_context
 def time_today(ctx, show_ids: bool, category: Optional[str]):
     """
@@ -484,7 +484,7 @@ def time_today(ctx, show_ids: bool, category: Optional[str]):
       workmain time today
       workmain time --show-ids today
       workmain time today --show-ids
-      workmain time today -c development
+      workmain time today -C development
     """
     db = get_db()
     with db.session_scope() as session:
@@ -511,7 +511,7 @@ def time_today(ctx, show_ids: bool, category: Optional[str]):
 
 @time.command('week')
 @click.option('--show-ids', is_flag=True, help='Show entry IDs')
-@click.option('--category', '-c', help='Filter by category')
+@click.option('--category', '-C', help='Filter by category')
 @click.pass_context
 def time_week(ctx, show_ids: bool, category: Optional[str]):
     """
@@ -521,7 +521,7 @@ def time_week(ctx, show_ids: bool, category: Optional[str]):
     Examples:
       workmain time week
       workmain time --show-ids week
-      workmain time week -c meeting
+      workmain time week -C meeting
     """
     db = get_db()
     with db.session_scope() as session:
@@ -565,7 +565,7 @@ def time_week(ctx, show_ids: bool, category: Optional[str]):
 @time.command('date')
 @click.argument('target_date', required=False)
 @click.option('--show-ids', is_flag=True, help='Show entry IDs')
-@click.option('--category', '-c', help='Filter by category')
+@click.option('--category', '-C', help='Filter by category')
 @click.pass_context
 def time_date(ctx, target_date: Optional[str], show_ids: bool, category: Optional[str]):
     """

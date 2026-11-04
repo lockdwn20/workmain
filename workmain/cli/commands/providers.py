@@ -277,7 +277,7 @@ def providers_set():
 @providers_set.command('default')
 @click.argument('report_type', metavar='REPORT_TYPE')
 @click.argument('provider', metavar='PROVIDER')
-@click.option('--fallback', '-f', default=None,
+@click.option('--fallback', default=None,
               help='Set fallback provider (optional)')
 @click.option('--force', is_flag=True, default=False,
               help='Skip confirmation prompt')
