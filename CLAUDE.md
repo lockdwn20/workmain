@@ -17,7 +17,7 @@ These four are restated here in full because a session that has read nothing els
 - **Stop and surface.** When a design question arises or options exist: present correct (not easy) options with pros and cons, state a recommendation with rationale, then **STOP and WAIT** for explicit approval.
   - Never use ✓ or "Decision: X" to imply a decision Ray has not confirmed.
   - This entry is the full statement of the global rule; `.claude/skills/session-start/SKILL.md` § Role 3 holds the implementation-specific form.
-- **Integration over separation.** Enhance existing command files when adding to an existing group; new files only for approved distinct command groups. Full statement: `docs/standards/3-code.md` §3.6.
+- **Find the owner first.** Before adding a module, class, public function, table or a file the application uses, find its owner in `docs/ARCHITECTURE.md`. Full statement: its opening paragraph.
 
 Coding, database, CLI, git, and testing rules all live in `docs/standards/`.
 
@@ -162,19 +162,6 @@ During development, reference the default client via `WORKMAIN_DEFAULT_CLIENT` i
 ### Known Column Naming Asymmetry
 
 `notes.created_date` (DB-computed from `created_at::DATE`, never written by app code) and `time_entries.entry_date` (explicit write at creation) serve the same conceptual role but are named differently. **Do not rename either** — blast radius ~55 references across ~12 files.
-
----
-
-## Locked Architecture Decisions (2026-06-26)
-
-Made and closed. Do not re-open or work around these without Ray's explicit direction.
-
-| ID | Decision |
-| --- | --- |
-| OQ1 | DB `schedule_exceptions` is the canonical non-working-day store. `config/non_working_days.json` to be migrated into DB and retired. Schedule module grows `is_working_day(date)` and `is_working_hours(datetime)`; all callers converge on these. |
-| OQ2 | Show surfaces (`meetings today`): include cancelled — `get_by_date()` stays unfiltered by design. Inspect/notify surfaces: use `get_active_for_date()`. |
-| OQ3 | `os` → rename to `wsl-notify` (requires DB migration). `terminal` retired or repurposed as log-only. `slack` added as a first-class delivery method. Content generation decoupled from delivery. |
-| OQ4 | Task↔time-entry matcher kept and made cancellable; note↔note dedup implemented as Item #32's real deliverable. Specced and shipped together in Ops_Config_Correction_Sprint (v1.24.0): `_run_task_match_step()` (step `3c`) and `_run_note_dedup_step()` (step `3d`) in `eod_workflow.py`, both taking `cancel_event`. Dedup sets the dismissed note's pointer via `set_forwarding_note()`. |
 
 ---
 
