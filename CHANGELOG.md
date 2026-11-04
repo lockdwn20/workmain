@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.56.1] - 2026-11-04
+
+Four short flags broke `docs/standards/5-cli.md` §5.5, which the standard's own reserved-flags table did not catch: it listed `-f` for `--fallback`. The flags are corrected, and a test now reads every command and option Click builds, so a name or short flag that breaks §5.3 or §5.5 fails the suite. One root cause across four application files, so this stays a hotfix (`docs/standards/2-git.md` §2.2: the file count is a proxy).
+
+### Added
+
+- `tests/test_cli_conventions.py`: every command name is a standard verb (read from §5.3's table), an approved verb, or a name §5.1 or §5.2 permits; names that predate the test are listed as existing exceptions, which only shrink. Each short flag means one long flag across every command, flags kept without a short form have none, and `-h` is never reassigned
+
+### Changed
+
+- `providers set default --fallback` no longer takes `-f`, which meant `--source` on `notes add`
+- `meetings create --recurring` no longer takes `-r`, which meant `--frequency` on `meetings template add`
+- `meetings upcoming --days` no longer takes `-n`, which means `--limit` everywhere else
+- `time today`, `time week` and `time date` take `-C` for `--category`, as `time add` and `time edit` do; `-c` means `--content`
+- The `--help` examples for `meetings create`, `meetings upcoming`, `time today` and `time week`, and the example `workmain today` prints, use the corrected flags
+- `docs/standards/5-cli.md`: §5.3's approved-verb table and §5.5's reserved-flag table and no-short-form list move into `tests/test_cli_conventions.py`, which is now their one home. `--until` is no longer on the no-short-form list: `-u` is its short form on `meetings create` and `meetings template add` (Ray, 20261104)
+
+Suite: 1630 passed, 0 failed, 0 skipped (baseline 1623 passed, 0 failed, 0 skipped).
+
 ## [1.56.0] - 2026-10-29
 
 The `clients` commands queried, decided and printed in one function, and every error printed on stdout and exited 0. Their tests could only search printed text. They now read and write through `clients_service` and print through the CLI output module, so behaviour is tested at the service. What is read, decided and written does not change (issue #204).

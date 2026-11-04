@@ -176,7 +176,7 @@ def meetings():
 @click.option('--start', '-b', required=True, help='Start time (HH:MM, HHMM, or YYYY-MM-DD HH:MM)')
 @click.option('--end', '-e', required=True, help='End time (HH:MM, HHMM, or YYYY-MM-DD HH:MM)')
 @click.option('--date', 'meeting_date', help='Meeting date (YYYY-MM-DD, defaults to today)')
-@click.option('--recurring', '-r', type=click.Choice(['daily', 'weekly', 'monthly']),
+@click.option('--recurring', type=click.Choice(['daily', 'weekly', 'monthly']),
               help='Recurring frequency (daily = workdays only by default)')
 @click.option('--until', '-u', type=click.DateTime(formats=['%Y-%m-%d']),
               help='End date for recurring series (optional, defaults to +90 days)')
@@ -191,8 +191,8 @@ def create(title: str, start: str, end: str, meeting_date: Optional[str],
     Examples:
       workmain meetings create "Standup" -b 14:00 -e 14:30
       workmain meetings create "Planning" -b 09:00 -e 10:30 --date 2026-01-20
-      workmain meetings create "Daily Sync" -b 09:00 -e 09:15 -r daily -u 2026-01-31
-      workmain meetings create "Weekly Review" -b 10:00 -e 11:00 -r weekly
+      workmain meetings create "Daily Sync" -b 09:00 -e 09:15 --recurring daily -u 2026-01-31
+      workmain meetings create "Weekly Review" -b 10:00 -e 11:00 --recurring weekly
     """
     db = get_db()
     try:
@@ -765,7 +765,7 @@ def meetings_today_cmd(search: Optional[str]):
 
 
 @meetings.command('upcoming')
-@click.option('--days', '-n', default='7d',
+@click.option('--days', default='7d',
               help='Lookahead duration (e.g., 7d, 2w, 1m) [default: 7d]')
 def meetings_upcoming(days: str):
     """
@@ -774,9 +774,9 @@ def meetings_upcoming(days: str):
     \b
     Examples:
       workmain meetings upcoming
-      workmain meetings upcoming -n 14d
-      workmain meetings upcoming -n 2w
-      workmain meetings upcoming -n 1m
+      workmain meetings upcoming --days 14d
+      workmain meetings upcoming --days 2w
+      workmain meetings upcoming --days 1m
     """
     from workmain.utils.duration_parser import parse_duration
 
