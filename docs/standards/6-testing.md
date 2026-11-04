@@ -2,8 +2,8 @@
 
 - pytest is the exclusive runner.
 - **The application suite is a bare `pytest` from the repository root.** `testpaths` in `pyproject.toml` is what resolves it to `tests/`. No other invocation stands in for it unless a spec names the alternative and states why. That covers a path subset, a `-k` or `-m` filter, and an environment variable that changes what runs.
-- Non-application suites, such as `pytest automation/`, are reached by their own path. Each is a separate suite, not an alternative to this one. §6.3 owns test placement.
-- **A test reports what actually happened.** Passed means it ran and its assertions held. Failed means it ran and did not — an error, a timeout or a wrong answer. Skipped means it did not run because a precondition declared with `@pytest.mark.skipif` was absent; that is the only way a test is skipped, and it is decided before the test exercises anything. A test never reports passed without having run, which is what an early `return` does, and never reports skipped after it has run. A skip is never added to turn a red suite green. Four live API tests in `tests/test_ai_clients.py` returned early under `SKIP_API_TESTS=1`, counted as passed, and the failures they hid shipped to `main` (#130, #131).
+- Non-application suites, such as `pytest automation/`, are reached by their own path. Each is a separate suite, not an alternative to this one. §7 owns test placement.
+- **A test reports what actually happened.** Passed means it ran and its assertions held. Failed means it ran and did not — an error, a timeout or a wrong answer. Skipped means it did not run because a precondition declared with `@pytest.mark.skipif` was absent; that is the only way a test is skipped, and it is decided before the test exercises anything. A test never reports passed without having run, which is what an early `return` does, and never reports skipped after it has run. A skip is never added to turn a red suite green.
 - **Recorded test evidence states all three counts, in the form `<passed> passed, <failed> failed, <skipped> skipped`, and writes each one even when it is zero.** pytest counts a skipped test separately from a passed one, so a record without the skipped count can't show whether a run did less than the full suite.
 
   ```bash
@@ -11,9 +11,6 @@
   pytest -v                           # verbose
   pytest tests/test_x.py::TestClass::test_name
   ```
-
-- The current expected pass count is whatever `main` last shipped — read it from the most recent `CHANGELOG.md` entry or run `pytest --collect-only -q`.
-- Do not transcribe a baseline into this or any other document; it goes stale immediately.
 
 ### 6.1 Test isolation from the database
 
@@ -79,14 +76,4 @@ Rules:
 
 ### 6.3 Placement
 
-| Goes in | What |
-| --- | --- |
-| `tests/` root | `test_<component>.py` — resolved by `testpaths` for a bare `pytest` |
-| `tests/fixtures/` | Test data (JSON, CSV) — never Python test files |
-| `tests/mocks/` | Fakes for external services — never test files |
-| `scripts/` | Utilities and demos, never tests |
-| `automation/` | Non-application dev tooling and its own tests (`*_test.py`), never mixed with the application suite — `testpaths` |
-
-- `scripts-deprecated/` is excluded from collection.
-  - Do not add to it and do not run it with pytest
-  - if you need a diagnostic script, put it in `scripts/`.
+- Moved to §7.
