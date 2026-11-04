@@ -67,10 +67,7 @@
       """
   ```
 
-### 3.6 Integration over separation
-
-- Enhance an existing command file when adding to an existing group.
-- New files are only for approved distinct command groups.
+### 3.6 NOT USED
 
 ### 3.7 Security
 
