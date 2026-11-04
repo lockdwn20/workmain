@@ -24,7 +24,6 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-
 # OAuth scopes required for full Outlook integration
 REQUIRED_SCOPES = [
     "Calendars.Read",    # read calendar events

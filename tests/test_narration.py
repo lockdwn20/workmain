@@ -9,16 +9,16 @@ the resulting ProviderManager to narration by setting the module singleton
 
 import json
 import logging
-
-import pytest
 from pathlib import Path
 
+import pytest
+
+from tests.mocks.stub_providers import cut_off, stubbed_manager
 from workmain.ai import provider_manager as provider_manager_module
 from workmain.ai.base_provider import ProviderType
 from workmain.ai.provider_manager import ProviderManager
 from workmain.daemon import narration
 from workmain.daemon.models import Observation, ObservationType
-from tests.mocks.stub_providers import cut_off, stubbed_manager
 
 _SENTINEL_TOKENS = 7001
 

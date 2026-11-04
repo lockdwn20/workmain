@@ -23,7 +23,6 @@ from workmain.database.repositories.notification_repository import (
     NotificationConfigRepository,
 )
 
-
 # ---------------------------------------------------------------------------
 # TestNotificationConfig — CLI-level command tests via CliRunner
 # ---------------------------------------------------------------------------

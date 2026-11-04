@@ -221,7 +221,7 @@ class SlackEodManager:
         dispatch). The background thread resumes this same loop via a
         recursive _advance_step() call once its step completes.
         """
-        from workmain.workflows.eod_workflow import run_step, EodStepStatus
+        from workmain.workflows.eod_workflow import EodStepStatus, run_step
 
         while session.current_step_idx < len(session.steps):
             step = session.steps[session.current_step_idx]
@@ -399,7 +399,7 @@ class SlackEodManager:
 
     def _reprompt_current_step(self, session: SlackEodSession) -> None:
         """Re-run the current step and re-send its PAUSED message (after a correction)."""
-        from workmain.workflows.eod_workflow import run_step, EodStepStatus
+        from workmain.workflows.eod_workflow import EodStepStatus, run_step
 
         if session.current_step_idx >= len(session.steps):
             return
@@ -458,7 +458,10 @@ class SlackEodManager:
     def _execute_and_reprompt(self, session: SlackEodSession, action: dict) -> None:
         """Execute a confirmed inline correction then re-present the current step."""
         from workmain.database.connection import get_db
-        from workmain.orchestration.action_executor import ActionExecutor, ActionExecutorError
+        from workmain.orchestration.action_executor import (
+            ActionExecutor,
+            ActionExecutorError,
+        )
         db = get_db()
         result = None
         try:

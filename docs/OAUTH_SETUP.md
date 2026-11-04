@@ -1,30 +1,24 @@
-WorkmAIn
-OAUTH_SETUP.md v1.0
-20260305
+WorkmAIn OAUTH_SETUP.md v1.0 20260305
 
 ---
 
 # Outlook OAuth Setup — Microsoft Graph API
 
-This document describes what is required to enable live Outlook calendar sync
-and email send functionality in WorkmAIn.
+This document describes what is required to enable live Outlook calendar sync and email send functionality in WorkmAIn.
 
-These features are currently stubbed. The infrastructure (scopes, token file,
-client class) is complete. Only credential provisioning is required to activate.
+These features are currently stubbed. The infrastructure (scopes, token file, client class) is complete. Only credential provisioning is required to activate.
 
 ---
 
 ## What Is Blocked
 
-Corporate Azure AD access restrictions prevent direct OAuth app registration
-at this time. When app registration becomes available, follow this guide.
+Corporate Azure AD access restrictions prevent direct OAuth app registration at this time. When app registration becomes available, follow this guide.
 
 ---
 
 ## Azure AD App Registration Requirements
 
-A Global Administrator (or Application Administrator) on the organization's
-Azure AD tenant must:
+A Global Administrator (or Application Administrator) on the organization's Azure AD tenant must:
 
 1. Register a new application in Azure Active Directory
 2. Grant the following API permissions (Microsoft Graph, Delegated):
@@ -47,9 +41,7 @@ OUTLOOK_CLIENT_SECRET=<Client secret value from Azure AD>
 OUTLOOK_TENANT_ID=<Directory (tenant) ID from Azure AD>
 ```
 
-These are the static Azure AD app registration credentials. They are distinct
-from the user tokens (access_token / refresh_token) which rotate automatically
-and are stored separately in the token file.
+These are the static Azure AD app registration credentials. They are distinct from the user tokens (access_token / refresh_token) which rotate automatically and are stored separately in the token file.
 
 ---
 
@@ -85,8 +77,7 @@ Structure:
 }
 ```
 
-This file contains user-specific tokens that rotate. It is separate from the
-`.env` app registration credentials. Do not commit either file to version control.
+This file contains user-specific tokens that rotate. It is separate from the `.env` app registration credentials. Do not commit either file to version control.
 
 ---
 
@@ -113,11 +104,7 @@ workmain calendar import <file.ics>
 
 - OAuth flow is implemented in `workmain/integrations/outlook_client.py`
 - All method signatures, docstrings, and token file management are complete
-- To activate: provision credentials in `.env`, implement the `authenticate()`
-  method body using MSAL (Microsoft Authentication Library for Python),
-  then implement `refresh_token()` and `is_authenticated()`
-- The calendar and email CLI commands import `OutlookClient` from
-  `workmain.integrations.outlook_client` — no import changes needed
+- To activate: provision credentials in `.env`, implement the `authenticate()` method body using MSAL (Microsoft Authentication Library for Python), then implement `refresh_token()` and `is_authenticated()`
+- The calendar and email CLI commands import `OutlookClient` from `workmain.integrations.outlook_client` — no import changes needed
 
-MSAL package: `pip install msal`
-Microsoft Graph API docs: https://learn.microsoft.com/en-us/graph/api/overview
+MSAL package: `pip install msal` Microsoft Graph API docs: https://learn.microsoft.com/en-us/graph/api/overview

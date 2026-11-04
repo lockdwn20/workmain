@@ -1,22 +1,16 @@
-WorkmAIn
-SLACK_SETUP.md v2.0
-20260625
+WorkmAIn SLACK_SETUP.md v2.0 20260625
 
 ---
 
 # Slack Integration Setup
 
-This document covers the full setup process for WorkmAIn's Slack integration:
-outbound report posting (Phase 8) and inbound Socket Mode DM interface (Phase 13).
+This document covers the full setup process for WorkmAIn's Slack integration: outbound report posting (Phase 8) and inbound Socket Mode DM interface (Phase 13).
 
 ---
 
 ## Overview
 
-WorkmAIn uses a Slack **Bot Token** (`xoxb-`) for API calls and a **Socket Mode
-App-Level Token** (`xapp-`) for the persistent WebSocket connection. There is no
-user-level OAuth flow — the bot is installed to the workspace once and both tokens
-are stored statically in `.env`.
+WorkmAIn uses a Slack **Bot Token** (`xoxb-`) for API calls and a **Socket Mode App-Level Token** (`xapp-`) for the persistent WebSocket connection. There is no user-level OAuth flow — the bot is installed to the workspace once and both tokens are stored statically in `.env`.
 
 Two capability tiers require different scopes and app configuration:
 
@@ -25,16 +19,13 @@ Two capability tiers require different scopes and app configuration:
 | **Outbound** | Post weekly draft to a channel | Phase 8 |
 | **Inbound** | Receive DMs, parse intent, Block Kit buttons, conversational EOD | Phase 13 |
 
-Both tiers use the same app. Adding inbound support requires additional Bot Token
-scopes, a Socket Mode App-Level Token, and several one-time app configuration
-changes, followed by a workspace reinstall.
+Both tiers use the same app. Adding inbound support requires additional Bot Token scopes, a Socket Mode App-Level Token, and several one-time app configuration changes, followed by a workspace reinstall.
 
 ---
 
 ## Step 1 — Create the Slack App
 
-1. Go to [https://api.slack.com/apps](https://api.slack.com/apps) and click
-   **Create New App → From scratch**
+1. Go to [https://api.slack.com/apps](https://api.slack.com/apps) and click **Create New App → From scratch**
 2. Name: `WorkmAIn` (or your preferred display name)
 3. Select the target workspace
 4. Click **Create App**
@@ -61,31 +52,26 @@ Add these scopes to the existing Phase 8 set:
 | `im:write` | Open DM channels via `conversations.open` |
 | `im:read` | List IM channels via `conversations.list` |
 
-**Note:** `im:history` (previously required for polling) is no longer needed.
-If it is already present from a prior setup it is harmless but can be removed.
+**Note:** `im:history` (previously required for polling) is no longer needed. If it is already present from a prior setup it is harmless but can be removed.
 
-**Important:** Every time scopes are added, Slack requires the app to be
-reinstalled to the workspace before the new scopes take effect (see Step 6).
+**Important:** Every time scopes are added, Slack requires the app to be reinstalled to the workspace before the new scopes take effect (see Step 6).
 
 ---
 
 ## Step 3 — Enable the Messages Tab (Inbound only)
 
-Without this setting, users cannot send messages to the bot and receive
-the error: *"Sending messages to this app has been turned off."*
+Without this setting, users cannot send messages to the bot and receive the error: *"Sending messages to this app has been turned off."*
 
 1. In the left sidebar → **Features → App Home**
 2. Under **Show Tabs**, find **Messages Tab**
-3. Enable **"Allow users to send Slash commands and messages from the
-   messages tab"**
+3. Enable **"Allow users to send Slash commands and messages from the messages tab"**
 4. Save changes
 
 ---
 
 ## Step 4 — Enable Socket Mode and Configure Events (Inbound only)
 
-Socket Mode delivers inbound messages and Block Kit button interactions over a
-persistent outbound WebSocket. No public endpoint or tunnel is required.
+Socket Mode delivers inbound messages and Block Kit button interactions over a persistent outbound WebSocket. No public endpoint or tunnel is required.
 
 ### 4a — Enable Socket Mode
 
@@ -104,16 +90,14 @@ persistent outbound WebSocket. No public endpoint or tunnel is required.
 
 1. In the left sidebar → **Features → Interactivity & Shortcuts**
 2. Toggle **Interactivity** on
-3. No Request URL is needed — Socket Mode delivers interaction payloads
-   over the WebSocket
+3. No Request URL is needed — Socket Mode delivers interaction payloads over the WebSocket
 4. Click **Save Changes**
 
 ---
 
 ## Step 5 — Generate the App-Level Token
 
-The `xapp-` App-Level Token is separate from the Bot Token and is required for
-Socket Mode. It is generated once and stored in `.env`.
+The `xapp-` App-Level Token is separate from the Bot Token and is required for Socket Mode. It is generated once and stored in `.env`.
 
 1. In the left sidebar → **Settings → Basic Information**
 2. Scroll to **App-Level Tokens**
@@ -148,13 +132,11 @@ SLACK_BOT_TOKEN=xoxb-your-token-here
 
 The Bot Token does not expire unless manually revoked.
 
-Whenever Bot Token scopes are added or removed, a yellow banner appears at
-the top of the app settings page:
+Whenever Bot Token scopes are added or removed, a yellow banner appears at the top of the app settings page:
 
 > *"You've changed the permission scopes… Reinstall your app"*
 
-Click **Reinstall to Workspace** and re-authorize. If the token changes,
-update `SLACK_BOT_TOKEN` in `.env`, then run:
+Click **Reinstall to Workspace** and re-authorize. If the token changes, update `SLACK_BOT_TOKEN` in `.env`, then run:
 
 ```bash
 workmain slack auth
@@ -185,8 +167,7 @@ Requires an active client (`workmain clients set active <name>`).
 
 ### Set the operator user ID (Phase 13 — inbound DMs)
 
-The daemon opens a DM channel with you at startup. It needs your Slack user ID
-to do so.
+The daemon opens a DM channel with you at startup. It needs your Slack user ID to do so.
 
 **Find your Slack user ID:**
 - Slack → click your avatar → **Profile** → kebab menu (⋮) → **Copy member ID**
@@ -198,8 +179,7 @@ to do so.
 workmain slack set operator-user-id U123456789A
 ```
 
-This writes `operator_user_id` to
-`~/.workmain/integrations/slack/config.json` (chmod 600).
+This writes `operator_user_id` to `~/.workmain/integrations/slack/config.json` (chmod 600).
 
 The daemon calls `conversations.open()` at startup to resolve the DM channel.
 

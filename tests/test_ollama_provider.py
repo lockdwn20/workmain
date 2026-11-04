@@ -7,17 +7,17 @@ import json
 import socket
 import urllib.error
 from io import BytesIO
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-from workmain.ai.providers.ollama import OllamaProvider
 from workmain.ai.base_provider import (
-    GenerationRequest,
     FinishStatus,
+    GenerationRequest,
     GenerationResponse,
     ProviderStatus,
     ProviderType,
     ProviderUnavailableError,
 )
+from workmain.ai.providers.ollama import OllamaProvider
 
 _CONFIG = {"host": "test-host", "port": 11434, "model": "mistral:latest", "timeout": 5}
 

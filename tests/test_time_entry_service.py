@@ -5,15 +5,16 @@ All DB tests use the db_session fixture (transaction rolled back after each test
 Sentinel date 2099-01-01 is used for backdating assertions.
 """
 
-import pytest
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
+import pytest
+
 from workmain.database.models import Client, Meeting
 from workmain.database.repositories.notes_repo import NotesRepository
-from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
 from workmain.database.repositories.task_status_repo import TaskStatusRepository
+from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
 from workmain.services import notes_service, time_entry_service
 from workmain.services.exceptions import InvalidTagsError, MissingStartTimeError
 
@@ -63,7 +64,9 @@ class TestTimeEntryServiceCreateTimeEntry:
             )
 
     def test_missing_entry_time_writes_no_row(self, db_session):
-        from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+        from workmain.database.repositories.time_entries_repo import (
+            TimeEntriesRepository,
+        )
         before = len(TimeEntriesRepository(db_session).get_by_date(_SENTINEL))
         try:
             time_entry_service.create_time_entry(

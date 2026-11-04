@@ -25,11 +25,11 @@ from workmain.database.connection import get_db
 from workmain.database.repositories.reports_repo import get_reports_repository
 from workmain.integrations.slack.auth import (
     SlackAuthError,
+    get_default_channel,
     get_token,
     is_authenticated,
     load_slack_config,
     save_slack_config,
-    get_default_channel,
 )
 from workmain.integrations.slack.client import (
     SlackClient,
@@ -38,7 +38,6 @@ from workmain.integrations.slack.client import (
     get_slack_client,
 )
 from workmain.utils.date_format import format_date_display
-
 
 console = Console()
 err_console = Console(stderr=True, soft_wrap=True)
@@ -112,8 +111,10 @@ def _resolve_client_channel(session) -> Optional[str]:
 
     Does not fall back to config.json — caller decides fallback behavior.
     """
-    from workmain.database.repositories.system_state_repository import SystemStateRepository
     from workmain.database.repositories.client_repository import ClientRepository
+    from workmain.database.repositories.system_state_repository import (
+        SystemStateRepository,
+    )
     state_repo = SystemStateRepository(session)
     active_client_id = state_repo.get_int('active_client_id')
     if active_client_id:
@@ -240,8 +241,10 @@ def slack_status():
     with db.session_scope() as session:
         channel = _get_display_channel(session)
 
-        from workmain.database.repositories.system_state_repository import SystemStateRepository
         from workmain.database.repositories.client_repository import ClientRepository
+        from workmain.database.repositories.system_state_repository import (
+            SystemStateRepository,
+        )
         active_client_id = SystemStateRepository(session).get_int('active_client_id')
         if active_client_id:
             client = ClientRepository(session).get_by_id(active_client_id)
@@ -305,8 +308,10 @@ def slack_set_channel(channel: str):
 
     db = get_db()
     with db.session_scope() as session:
-        from workmain.database.repositories.system_state_repository import SystemStateRepository
         from workmain.database.repositories.client_repository import ClientRepository
+        from workmain.database.repositories.system_state_repository import (
+            SystemStateRepository,
+        )
         active_client_id = SystemStateRepository(session).get_int('active_client_id')
         if not active_client_id:
             console.print(
@@ -369,7 +374,10 @@ def slack_set_operator_user_id(user_id: str):
     Example:
       workmain slack set operator-user-id U0A1B2C3D4
     """
-    from workmain.integrations.slack.auth import save_operator_user_id, get_operator_user_id
+    from workmain.integrations.slack.auth import (
+        get_operator_user_id,
+        save_operator_user_id,
+    )
     user_id = user_id.strip()
     if not user_id.upper().startswith('U'):
         console.print()

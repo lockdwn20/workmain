@@ -5,18 +5,19 @@ client_id resolution, tag validation, defaults, and the linked-note creation
 required by the note-first pattern (v1.20.0).
 """
 
-from datetime import date, datetime, time as time_type
-from typing import Optional, List, Tuple
+from datetime import date, datetime
+from datetime import time as time_type
+from typing import List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
 from workmain.database.models import Meeting, Note, TimeEntry
 from workmain.database.repositories.notes_repo import NotesRepository
-from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
+from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+from workmain.services.exceptions import InvalidTagsError, MissingStartTimeError
 from workmain.services.notes_service import apply_cf_hook_on_create
 from workmain.utils.tag_utils import get_tag_system
-from workmain.services.exceptions import InvalidTagsError, MissingStartTimeError
 
 
 def create_time_entry(

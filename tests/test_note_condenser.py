@@ -25,7 +25,12 @@ from unittest.mock import patch
 
 import pytest
 
-from workmain.ai.base_provider import FinishStatus, GenerationRequest, GenerationResponse, ProviderType
+from workmain.ai.base_provider import (
+    FinishStatus,
+    GenerationRequest,
+    GenerationResponse,
+    ProviderType,
+)
 from workmain.ai.note_condenser import NoteCondenser, _compute_condensed_tags
 from workmain.ai.provider_manager import ProviderManager
 from workmain.database.models import Meeting, Note
@@ -317,8 +322,8 @@ def _meeting_with_note(db_session, title):
 class TestCondensationRefusal:
     def test_cut_off_condensation_is_not_stored(self, tmp_path, db_session):
         """AC2.2."""
-        from workmain.ai.base_provider import ProviderError, ProviderType
         from tests.mocks.stub_providers import cut_off, stubbed_manager
+        from workmain.ai.base_provider import ProviderError, ProviderType
         meeting = _meeting_with_note(db_session, "Sentinel Refusal Meeting 2099")
         condenser = NoteCondenser(db_session)
         condenser.provider_manager = stubbed_manager(
@@ -334,8 +339,8 @@ class TestCondensationRefusal:
 
     def test_fallback_condensation_returns_notice(self, tmp_path, db_session):
         """AC6.2 (condenser half)."""
-        from workmain.ai.base_provider import ProviderType
         from tests.mocks.stub_providers import complete, cut_off, stubbed_manager
+        from workmain.ai.base_provider import ProviderType
         meeting = _meeting_with_note(db_session, "Sentinel Fallback Meeting 2099")
         condenser = NoteCondenser(db_session)
         condenser.provider_manager = stubbed_manager(tmp_path, {

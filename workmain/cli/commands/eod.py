@@ -26,18 +26,17 @@ weekly_client, step 8) before completing (step 9).
 from datetime import date
 
 import click
+from rich import box
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from rich import box
 
 from workmain.workflows.eod_workflow import (
-    EodStepStatus,
     EodStepResult,
+    EodStepStatus,
     get_step_sequence,
     run_step,
 )
-
 
 console = Console()
 

@@ -5,13 +5,13 @@ to source _build_step_sequence and _run_review_step from there.
 """
 
 from datetime import date
-from unittest.mock import patch, call, MagicMock
+from unittest.mock import MagicMock, call, patch
 
 from click.testing import CliRunner
 
-from workmain.workflows.eod_workflow import _build_step_sequence, _run_review_step
-from workmain.utils.self_invoke import TIMEOUT_LOCAL, WorkmainRun
 from workmain.cli.commands.eod import eod
+from workmain.utils.self_invoke import TIMEOUT_LOCAL, WorkmainRun
+from workmain.workflows.eod_workflow import _build_step_sequence, _run_review_step
 
 MONDAY    = 0
 THURSDAY  = 3

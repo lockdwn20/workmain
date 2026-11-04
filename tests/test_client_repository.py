@@ -20,7 +20,6 @@ from workmain.database.models import (
 from workmain.database.repositories.client_repository import ClientRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
 
-
 # Unique names avoid collisions with production clients (GMF, etc.)
 _NAME_A = "_TestClient_G8_A"
 _NAME_B = "_TestClient_G8_B"

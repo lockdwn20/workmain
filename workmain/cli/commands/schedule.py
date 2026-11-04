@@ -11,7 +11,8 @@ Subgroups:
   workmain schedule config show           — display current timing configuration
 """
 
-from datetime import datetime, date as date_type
+from datetime import date as date_type
+from datetime import datetime
 from typing import Optional
 
 import click
@@ -20,7 +21,9 @@ from rich.console import Console
 from rich.table import Table
 
 from workmain.database.connection import get_db
-from workmain.database.repositories.schedule_repository import ScheduleExceptionRepository
+from workmain.database.repositories.schedule_repository import (
+    ScheduleExceptionRepository,
+)
 from workmain.database.repositories.system_state_repository import SystemStateRepository
 from workmain.services.schedule_service import ScheduleService
 from workmain.utils.time_parser import parse_time

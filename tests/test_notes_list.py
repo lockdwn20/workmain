@@ -19,10 +19,9 @@ from typing import Optional
 import pytest
 from click.testing import CliRunner
 
-from workmain.database.repositories.notes_repo import NotesRepository
-from workmain.database.repositories.meetings_repo import MeetingsRepository
 from workmain.cli.commands.notes import notes
-
+from workmain.database.repositories.meetings_repo import MeetingsRepository
+from workmain.database.repositories.notes_repo import NotesRepository
 
 # ---------------------------------------------------------------------------
 # Helpers

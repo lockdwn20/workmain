@@ -9,9 +9,10 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from workmain.database.repositories.schedule_repository import ScheduleExceptionRepository
+from workmain.database.repositories.schedule_repository import (
+    ScheduleExceptionRepository,
+)
 from workmain.database.repositories.system_state_repository import SystemStateRepository
-
 
 DEFAULT_WORKING_HOURS_START = time(9, 0)
 DEFAULT_WORKING_HOURS_END = time(18, 0)

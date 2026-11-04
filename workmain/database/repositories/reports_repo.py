@@ -7,9 +7,10 @@ files on disk, and confirm, flag and record Slack posts on reports.
 """
 
 from datetime import date, datetime
-from typing import List, Dict, Optional, Any
+from typing import Any, Dict, List, Optional
+
+from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc
 
 from workmain.database.models import Report
 

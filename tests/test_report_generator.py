@@ -21,10 +21,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 from click.testing import CliRunner
 
+from tests.mocks.stub_providers import complete, cut_off, stubbed_manager
 from workmain.ai.base_provider import ProviderError, ProviderType
 from workmain.ai.provider_manager import ProviderManager
 from workmain.ai.report_generator import ReportGenerator
-from tests.mocks.stub_providers import complete, cut_off, stubbed_manager
 
 _SENTINEL_TOKENS = 7001
 

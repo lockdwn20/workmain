@@ -12,21 +12,21 @@ import json
 import logging
 import os
 import time
-from typing import Dict, Optional, List, Tuple
-from enum import Enum
 from dataclasses import dataclass
+from enum import Enum
+from typing import Dict, List, Optional, Tuple
 
 from workmain.ai.base_provider import (
     BaseProvider,
-    ProviderType,
-    ProviderStatus,
-    ProviderUnavailableError,
+    ConfigurationError,
     GenerationRequest,
     GenerationResponse,
-    ProviderError,
-    RateLimitError,
-    ConfigurationError,
     IncompleteResponseError,
+    ProviderError,
+    ProviderStatus,
+    ProviderType,
+    ProviderUnavailableError,
+    RateLimitError,
     require_complete,
 )
 from workmain.ai.providers import PROVIDER_REGISTRY

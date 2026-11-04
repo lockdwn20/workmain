@@ -11,8 +11,8 @@ message and max_tokens per request — keeping the context window clean.
 import json
 import logging
 
-from workmain.ai.provider_manager import get_provider_manager
 from workmain.ai.base_provider import GenerationRequest, ProviderUnavailableError
+from workmain.ai.provider_manager import get_provider_manager
 
 logger = logging.getLogger(__name__)
 

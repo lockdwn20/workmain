@@ -24,6 +24,7 @@ def _isolated_database(monkeypatch):
     load_dotenv()
 
     from sqlalchemy.orm import sessionmaker
+
     from workmain.database.connection import DatabaseConnection, get_db
 
     db = get_db()

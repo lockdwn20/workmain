@@ -20,7 +20,6 @@ from googleapiclient.http import MediaFileUpload
 
 from workmain.integrations.gdrive import cache as folder_cache
 
-
 FOLDER_MIME = "application/vnd.google-apps.folder"
 SUBFOLDERS  = ["Raw_Notes", "Reports", "Clockify"]
 

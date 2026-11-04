@@ -4,7 +4,8 @@ Handles data retrieval from database based on section configuration.
 """
 
 from datetime import date, datetime, timedelta
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+
 from sqlalchemy.orm import Session
 
 
@@ -140,7 +141,9 @@ class FieldManager:
         Returns:
             List of time entry dictionaries
         """
-        from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
+        from workmain.database.repositories.time_entries_repo import (
+            TimeEntriesRepository,
+        )
         
         repo = TimeEntriesRepository(self.session)
         
@@ -165,9 +168,10 @@ class FieldManager:
         Returns:
             List of meeting dictionaries
         """
-        from workmain.database.repositories.meetings_repo import MeetingsRepository
-        from workmain.database.models import Meeting
         from sqlalchemy import and_
+
+        from workmain.database.models import Meeting
+        from workmain.database.repositories.meetings_repo import MeetingsRepository
         
         repo = MeetingsRepository(self.session)
         

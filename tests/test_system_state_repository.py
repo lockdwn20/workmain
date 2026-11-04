@@ -7,7 +7,6 @@ import pytest
 
 from workmain.database.repositories.system_state_repository import SystemStateRepository
 
-
 # Use a key prefix that avoids collisions with production keys
 _KEY = "_test_sys_state_g8"
 _KEY2 = "_test_sys_state_g8_b"

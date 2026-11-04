@@ -42,11 +42,14 @@ def job_workday_start(daemon: Any) -> None:
     eow/eod_prompt) and is not the desired morning-briefing content.
     """
     from workmain.daemon.daemon import (
-        _get_unresolved_observations, _schedule_meeting_reminders,
+        _get_unresolved_observations,
+        _schedule_meeting_reminders,
     )
     from workmain.daemon.delivery import deliver
     from workmain.database.repositories.meetings_repo import MeetingsRepository
-    from workmain.database.repositories.notification_repository import NotificationConfigRepository
+    from workmain.database.repositories.notification_repository import (
+        NotificationConfigRepository,
+    )
     from workmain.database.repositories.task_status_repo import TaskStatusRepository
     from workmain.integrations.slack.slack_eod import build_morning_briefing
 

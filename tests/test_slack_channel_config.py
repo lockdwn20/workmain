@@ -18,7 +18,6 @@ load_dotenv()
 
 from workmain.cli.commands.slack import slack, slack_set, slack_set_channel
 
-
 # ---------------------------------------------------------------------------
 # Helpers for CliRunner tests
 # ---------------------------------------------------------------------------
@@ -63,10 +62,12 @@ class TestResolveSlackChannel:
 
     def test_returns_client_channel_when_set(self, db_session):
         """Active client's slack_channel is returned first."""
-        from workmain.database.models import Client
-        from workmain.database.repositories.system_state_repository import SystemStateRepository
-        from workmain.database.repositories.client_repository import ClientRepository
         from workmain.cli.commands.slack import _resolve_slack_channel
+        from workmain.database.models import Client
+        from workmain.database.repositories.client_repository import ClientRepository
+        from workmain.database.repositories.system_state_repository import (
+            SystemStateRepository,
+        )
 
         client = Client(name="_T11_5_SlackResolve_A", is_active=False,
                         slack_channel="#test-client-channel")
@@ -81,10 +82,13 @@ class TestResolveSlackChannel:
 
     def test_falls_back_to_config_when_no_client_channel(self, db_session):
         """NULL slack_channel on client -> falls back to config.json."""
-        from workmain.database.models import Client
-        from workmain.database.repositories.system_state_repository import SystemStateRepository
-        from workmain.cli.commands.slack import _resolve_slack_channel
         from unittest.mock import patch
+
+        from workmain.cli.commands.slack import _resolve_slack_channel
+        from workmain.database.models import Client
+        from workmain.database.repositories.system_state_repository import (
+            SystemStateRepository,
+        )
 
         client = Client(name="_T11_5_SlackResolve_B", is_active=False,
                         slack_channel=None)
@@ -101,9 +105,12 @@ class TestResolveSlackChannel:
 
     def test_returns_none_when_neither_set(self, db_session):
         """No client channel and no config.json channel -> None."""
-        from workmain.database.repositories.system_state_repository import SystemStateRepository
-        from workmain.cli.commands.slack import _resolve_slack_channel
         from unittest.mock import patch
+
+        from workmain.cli.commands.slack import _resolve_slack_channel
+        from workmain.database.repositories.system_state_repository import (
+            SystemStateRepository,
+        )
 
         SystemStateRepository(db_session).delete('active_client_id')
 
@@ -114,10 +121,13 @@ class TestResolveSlackChannel:
 
     def test_uses_client_channel_over_config(self, db_session):
         """Client channel takes priority over config.json value."""
-        from workmain.database.models import Client
-        from workmain.database.repositories.system_state_repository import SystemStateRepository
-        from workmain.cli.commands.slack import _resolve_slack_channel
         from unittest.mock import patch
+
+        from workmain.cli.commands.slack import _resolve_slack_channel
+        from workmain.database.models import Client
+        from workmain.database.repositories.system_state_repository import (
+            SystemStateRepository,
+        )
 
         client = Client(name="_T11_5_SlackResolve_C", is_active=False,
                         slack_channel="#client-wins")

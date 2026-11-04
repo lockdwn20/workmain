@@ -14,26 +14,30 @@ database with its metadata (costs, tokens, provider), and ends cost tracking
 with timing.
 """
 
-from datetime import date, datetime
-from pathlib import Path
-from typing import Dict, Any, List, Optional, Tuple
-from sqlalchemy.orm import Session
-from enum import Enum
 import time
+from datetime import date, datetime
+from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+from sqlalchemy.orm import Session
 
 from workmain.ai import (
-    get_prompt_builder,
-    get_provider_manager,
-    PromptBuilder,
-    ProviderManager,
     GenerationRequest,
     GenerationResponse,
-    ProviderType
+    PromptBuilder,
+    ProviderManager,
+    ProviderType,
+    get_prompt_builder,
+    get_provider_manager,
 )
 from workmain.ai.base_provider import ProviderUnavailableError
+from workmain.database.repositories.reports_repo import (
+    ReportsRepository,
+    get_reports_repository,
+)
 from workmain.services import ai_cost_service
-from workmain.templates_engine import get_template_loader, TemplateLoader
-from workmain.database.repositories.reports_repo import get_reports_repository, ReportsRepository
+from workmain.templates_engine import TemplateLoader, get_template_loader
 
 
 class ReportFormat(Enum):
@@ -278,6 +282,7 @@ class ReportGenerator:
             User's full name or default
         """
         import os
+
         from dotenv import load_dotenv
 
         load_dotenv()

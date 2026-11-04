@@ -6,10 +6,10 @@ Handles all CRUD operations for the notes table.
 from datetime import date, datetime
 from typing import List, Optional, Tuple
 
-from sqlalchemy import func, and_, or_, any_, desc
+from sqlalchemy import and_, any_, desc, func, or_
 from sqlalchemy.orm import Session, joinedload
 
-from workmain.database.models import Note, Meeting, Project
+from workmain.database.models import Meeting, Note, Project
 
 
 class NotesRepository:

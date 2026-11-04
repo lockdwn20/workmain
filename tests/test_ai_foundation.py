@@ -4,27 +4,22 @@ cost tracking system, the provider manager with fallback, and the
 configuration structures.
 """
 
-from datetime import date, datetime
-from typing import Dict, Any
 import json
 import os
 import tempfile
+from datetime import date, datetime
+from typing import Any, Dict
 
 from workmain.ai.base_provider import (
     BaseProvider,
-    ProviderType,
-    ProviderStatus,
+    FinishStatus,
     GenerationRequest,
     GenerationResponse,
-    FinishStatus,
-    ProviderError
+    ProviderError,
+    ProviderStatus,
+    ProviderType,
 )
-
-from workmain.ai.provider_manager import (
-    ProviderManager,
-    FallbackMode,
-    ReportTypeConfig
-)
+from workmain.ai.provider_manager import FallbackMode, ProviderManager, ReportTypeConfig
 
 
 def _manager_with_route(report_type, fallback_mode="auto", fallback=True):

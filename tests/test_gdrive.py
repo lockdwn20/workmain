@@ -7,18 +7,17 @@ All Drive API calls are mocked — no real Drive operations in this suite.
 """
 
 import json
-import pytest
 from datetime import date, datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
 from click.testing import CliRunner
 
+from workmain.cli.commands.gdocs import _format_notes_markdown, _record_upload, gdocs
+from workmain.database.connection import DatabaseConnection, get_db
 from workmain.database.models import GDriveUpload
 from workmain.database.repositories.gdrive_repository import GDriveRepository
-from workmain.cli.commands.gdocs import gdocs, _format_notes_markdown, _record_upload
-from workmain.database.connection import DatabaseConnection, get_db
-
 
 # ---------------------------------------------------------------------------
 # Helpers

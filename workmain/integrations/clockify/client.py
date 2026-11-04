@@ -4,10 +4,11 @@ Clockify API client for time entry management and report retrieval.
 API Documentation: https://docs.clockify.me
 """
 
-import requests
-from typing import Optional, List, Dict, Any
-from datetime import datetime, date, time
+from datetime import date, datetime, time
 from decimal import Decimal
+from typing import Any, Dict, List, Optional
+
+import requests
 
 from .auth import ClockifyAuth
 

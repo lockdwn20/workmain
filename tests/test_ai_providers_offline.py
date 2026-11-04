@@ -8,13 +8,13 @@ config.
 import os
 
 from workmain.ai.base_provider import (
-    ProviderStatus,
-    GenerationRequest,
     ConfigurationError,
-    ProviderError,
-    RateLimitError,
-    GenerationError,
     FinishStatus,
+    GenerationError,
+    GenerationRequest,
+    ProviderError,
+    ProviderStatus,
+    RateLimitError,
 )
 from workmain.ai.providers.claude import ClaudeProvider
 from workmain.ai.providers.gemini import GeminiProvider, _is_rate_limit_error
@@ -48,9 +48,9 @@ import json as _json
 import types
 from unittest.mock import MagicMock, patch
 
+import anthropic
 import httpx
 import pytest
-import anthropic
 
 from workmain.ai.provider_manager import ProviderManager
 
@@ -155,6 +155,7 @@ class TestGenerationRequestContract:
     def test_no_temperature_field(self):
         """AC3.1 — GenerationRequest has no temperature field."""
         import dataclasses
+
         from workmain.ai.base_provider import GenerationRequest
         assert "temperature" not in {f.name for f in dataclasses.fields(GenerationRequest)}
 

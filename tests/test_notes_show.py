@@ -16,9 +16,8 @@ from datetime import datetime
 import pytest
 from click.testing import CliRunner
 
-from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.cli.commands.notes import notes
-
+from workmain.database.repositories.notes_repo import NotesRepository
 
 # ---------------------------------------------------------------------------
 # Helpers

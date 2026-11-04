@@ -9,43 +9,46 @@ extraction).
 
 import threading
 from datetime import date, datetime
-from unittest.mock import ANY, patch, MagicMock
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 from sqlalchemy import text
 
-from workmain.ai.base_provider import ProviderStatus, ProviderError, ConfigurationError
-from workmain.daemon.models import Observation, ObservationType
+from workmain.ai.base_provider import ConfigurationError, ProviderError, ProviderStatus
 from workmain.daemon import state_io
+from workmain.daemon.models import Observation, ObservationType
 from workmain.database.models import Report
 from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.reports_repo import ReportsRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
 from workmain.database.repositories.task_status_repo import TaskStatusRepository
-from workmain.workflows.eod_workflow import (
-    EodStepStatus,
-    EodStepResult,
-    get_step_sequence,
-    run_step,
-    _build_step_sequence,
-    _run_review_step,
-    _run_report_step,
-    _run_weekly_report_step,
-    _run_task_match_step,
-    _run_note_dedup_step,
-    _tokenize,
-    _score_match,
-    _keyword_score_match,
-    _keyword_note_dedup_match,
-)
-from workmain.workflows.eod_workflow import (
-    _run_clockify_step, _run_condense_step, _run_sync_step, _run_email_step, _run_gdocs_step, _run_slack_weekly_step,
-    _run_weekly_email_step,
-)
 from workmain.services import email_service
 from workmain.services.email_service import EmailDraft, SavedDraft
 from workmain.services.exceptions import NoReportFoundError
 from workmain.utils.self_invoke import TIMEOUT_LOCAL, WorkmainRun
+from workmain.workflows.eod_workflow import (
+    EodStepResult,
+    EodStepStatus,
+    _build_step_sequence,
+    _keyword_note_dedup_match,
+    _keyword_score_match,
+    _run_clockify_step,
+    _run_condense_step,
+    _run_email_step,
+    _run_gdocs_step,
+    _run_note_dedup_step,
+    _run_report_step,
+    _run_review_step,
+    _run_slack_weekly_step,
+    _run_sync_step,
+    _run_task_match_step,
+    _run_weekly_email_step,
+    _run_weekly_report_step,
+    _score_match,
+    _tokenize,
+    get_step_sequence,
+    run_step,
+)
 
 MONDAY    = 0
 THURSDAY  = 3
@@ -890,8 +893,11 @@ class TestControlResumeRetries:
     """CONTROL_RESUME retries the current step — it does not skip it."""
 
     def _manager_with_session(self, tmp_path):
-        from workmain.integrations.slack.slack_eod import SlackEodManager, SlackEodSession
         from workmain.daemon.conversation_state import ConversationStore
+        from workmain.integrations.slack.slack_eod import (
+            SlackEodManager,
+            SlackEodSession,
+        )
         client = MagicMock()
         daemon = MagicMock()
         store = ConversationStore(path=tmp_path / 'conversation_state.json')
@@ -937,8 +943,11 @@ class TestHandleReplyMidFlightGuard:
     flight); CONTROL_STOP is unaffected by the guard."""
 
     def _manager_with_running_session(self, tmp_path):
-        from workmain.integrations.slack.slack_eod import SlackEodManager, SlackEodSession
         from workmain.daemon.conversation_state import ConversationStore
+        from workmain.integrations.slack.slack_eod import (
+            SlackEodManager,
+            SlackEodSession,
+        )
         client = MagicMock()
         daemon = MagicMock()
         store = ConversationStore(path=tmp_path / 'conversation_state.json')
@@ -1097,6 +1106,7 @@ class TestReportReviewStepCollapse:
 
     def test_wrappers_delegate_to_shared_implementation(self):
         import inspect
+
         from workmain.workflows import eod_workflow
         daily_src = inspect.getsource(eod_workflow._run_report_step)
         weekly_src = inspect.getsource(eod_workflow._run_weekly_report_step)
@@ -1404,10 +1414,11 @@ class TestReportStepOutcome:
         """The WorkmainRun that 'reports save daily_internal' really produces
         when the only provider's reply is cut off (§6 fixture rule)."""
         from click.testing import CliRunner
+
+        from tests.mocks.stub_providers import cut_off, stubbed_manager
         from workmain.ai import provider_manager as pm_module
         from workmain.ai.base_provider import ProviderType
         from workmain.cli.commands.reports import reports
-        from tests.mocks.stub_providers import cut_off, stubbed_manager
 
         manager = stubbed_manager(
             tmp_path, {'gemini': cut_off(ProviderType.GEMINI)},
@@ -1487,10 +1498,11 @@ class TestCondenseStepOutcome:
     def _condense_run(self, db_session, tmp_path, stubs):
         """The WorkmainRun 'meetings condense' really produces for these stubs."""
         from click.testing import CliRunner
+
+        from tests.mocks.stub_providers import stubbed_manager
         from workmain.ai import provider_manager as pm_module
         from workmain.cli.commands.meetings import meetings
         from workmain.database.models import Meeting
-        from tests.mocks.stub_providers import stubbed_manager
 
         meeting = Meeting(
             title='Sentinel Eod Condense 2099', start_time=datetime(2099, 6, 4, 9, 0),
@@ -1528,8 +1540,8 @@ class TestCondenseStepOutcome:
 
     def test_refused_condensation_fails_step_and_still_condenses_the_rest(self, db_session, tmp_path):
         """AC3.8."""
-        from workmain.ai.base_provider import ProviderType
         from tests.mocks.stub_providers import cut_off
+        from workmain.ai.base_provider import ProviderType
         refused = self._condense_run(db_session, tmp_path, {
             'gemini': cut_off(ProviderType.GEMINI), 'claude': cut_off(ProviderType.CLAUDE),
         })
@@ -1544,8 +1556,8 @@ class TestCondenseStepOutcome:
 
     def test_recovered_fallback_is_reported_in_the_step_message(self, db_session, tmp_path):
         """AC6.8."""
-        from workmain.ai.base_provider import ProviderType
         from tests.mocks.stub_providers import complete, cut_off
+        from workmain.ai.base_provider import ProviderType
         recovered = self._condense_run(db_session, tmp_path, {
             'gemini': cut_off(ProviderType.GEMINI),
             'claude': complete(ProviderType.CLAUDE, content='Recovered summary'),
@@ -1627,6 +1639,7 @@ class TestSlackWeeklyStepFailure:
 
     def test_unattended_nonzero_is_failed_with_stderr(self):
         from click.testing import CliRunner
+
         from workmain.cli.commands.slack import slack
         from workmain.integrations.slack.auth import SlackAuthError
 

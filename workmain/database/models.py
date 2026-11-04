@@ -6,17 +6,31 @@ Models: Note, TimeEntry, Meeting, Project, Report, Recipient, ReportRecipient,
 These map to the PostgreSQL tables created by schema migrations.
 """
 
-from datetime import datetime, date, time
-from datetime import timezone
+from datetime import date, datetime, time, timezone
 from typing import List, Optional
 
 from sqlalchemy import (
-    Column, Integer, String, Text, Boolean, DateTime, Date, Time, Float,
-    DECIMAL, Numeric, ForeignKey, ARRAY, Computed, JSON, func, text
+    ARRAY,
+    DECIMAL,
+    JSON,
+    Boolean,
+    Column,
+    Computed,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    Time,
+    func,
+    text,
 )
+from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import TSVECTOR
 
 Base = declarative_base()
 

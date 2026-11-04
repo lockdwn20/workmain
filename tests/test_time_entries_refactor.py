@@ -8,11 +8,12 @@ All DB tests use the db_session fixture (transaction rolled back after each test
 Sentinel date 2099-06-01 prevents overlap with production data.
 """
 
-import pytest
 from datetime import date
 from decimal import Decimal
 
-from workmain.database.models import TimeEntry, Client, Project
+import pytest
+
+from workmain.database.models import Client, Project, TimeEntry
 from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
 
