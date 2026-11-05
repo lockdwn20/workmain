@@ -13,18 +13,23 @@ A run is one Caliper pass, in a session of its own (`SKILL.md` § Role 2). `<bra
 3. The design study named by the spec's `**Design study:**` field, resolved relative to the spec. Skipped when the field reads `n/a`.
 4. Every source the spec cites — file, symbol, line, section or command — at the cited location.
 5. `docs/standards/README.md`, `docs/standards/1-workflow.md`, `docs/standards/2-git.md` and `docs/standards/3-code.md`, end to end.
+6. `docs/ARCHITECTURE.md`, end to end, and the output of `python3 automation/architecture_check.py`.
+7. The pass rows already in the spec's Decision Log. Where there is one, this is a later pass: `git diff <commit> -- <spec path>`, from the commit the last pass row names, is what changed since it.
 
 ## Emits
 
-Findings against the review criteria `SKILL.md` § Role 2 carries, as a table with the spec's Decision Log header and one row per finding. Resolution is left empty — it is filled when the finding is resolved:
+The findings, then the pass row, as a table with the spec's Decision Log header. Each finding names its criterion and its category, and whether it blocks (`SKILL.md` § Role 2). Resolution is left empty; it is filled when the finding is resolved:
 
 ```markdown
 | Date | Source | Decision or finding | Resolution |
 | --- | --- | --- | --- |
-| <YYYYMMDD> | Caliper | <criterion number>: <finding, with the evidence that grounds it> | |
+| <YYYYMMDD> | Caliper | <criterion number>, <category>, <blocking or non-blocking>: <finding, with the evidence that grounds it> | |
+| <YYYYMMDD> | Caliper | Pass at <commit>, <full, or changes since <commit>>: <n> items checked, <b> blocking, <m> non-blocking. | n/a |
 ```
 
-An amendment (§ Working rules) is a row of the same table: `| <YYYYMMDD> | Caliper | Amendment: <criterion number>: <the case no standard yet covers, and the suggested wording> | |`. With no finding and no amendment, the run emits the same table with one row, `| <YYYYMMDD> | Caliper | No findings. Read at <commit>. | n/a |`, where `<commit>` is `git rev-parse --short HEAD`, the commit the spec and every repository file were read at, and nothing else. A run that reviews nothing, because `HEAD` holds no spec at the target path (§ Choosing the review) or the working tree is not clean (read 1), emits no table and no row to record. It emits one line, `Not reviewed:` and the reason, followed by each path `git status --porcelain` lists where the tree is not clean. A run with amendments and no finding emits the amendment rows alone. No other commentary.
+The pass row is always the last row, and `<commit>` is `git rev-parse --short HEAD`, the commit the spec and every repository file were read at. Below the table, and not recorded in the spec, the pass shows its coverage: one row for each acceptance criterion, design rule, §2 claim and step in its scope, with what it was checked against and its result.
+
+A run that reviews nothing, because `HEAD` holds no spec at the target path (§ Choosing the review) or the working tree is not clean (read 1), emits no table and no row to record. It emits one line, `Not reviewed:` and the reason, followed by each path `git status --porcelain` lists where the tree is not clean. No other commentary.
 
 ## Post-implementation review
 
@@ -40,10 +45,12 @@ Run when § Choosing the review selects it — `docs/standards/1-workflow.md` §
 ### Checks
 
 - **I1** — A change in the diff that no spec step's deliverable or quoted text covers and no acceptance criterion requires. A change inside a file the step table names is traced only if a step covers that change; naming the file is not enough. Two kinds of change are not checked: the artifact set (the spec, the design study its `**Design study:**` field names, and the results artifact), and a commit `docs/standards/2-git.md` §2.2 defines as an operational change from live use.
-- **I2** — A change a step covers that departs from the step's quoted text or deliverable, and that results §4 does not list.
+- **I2** — A change that departs from the contract (`SKILL.md` § Role 3) and that results §4 does not list as a departure, or a decision below the contract that results §4's Decisions table does not record.
 - **I3** — A results §4 row whose `Step stopped at` is `none` and whose `Resolved by` is `Awaiting Ray`.
 - **I4** — A results §3 row marked `Met` whose evidence does not exercise the property its criterion names (`docs/standards/1-workflow.md` §1.2). A row whose check names Ray is a finding when it is `Met` and its evidence is not in the form `docs/standards/1-workflow.md` §1.2 states for Ray's sign-off. Marked `Not met` with `Awaiting Ray`, it is not a finding.
 - **I5** — A results §4 row whose `Step stopped at` is `within approved meaning` and whose change altered the meaning, scope or file set Ray approved.
+- **I6** — A new finding from `automation/architecture_check.py` or a violation from `automation/style_check.py`, each run on `<branch>`.
+- **I7** — A converted command that reads the database directly, which the architecture check cannot see (`docs/ARCHITECTURE.md` section 3, Unconverted commands).
 
 ### Emits
 
@@ -59,4 +66,4 @@ With no finding, the review emits one row, `| <YYYYMMDD> | Caliper (post-impleme
 
 These hold for the whole Caliper session. The run neither reads nor emits them, and no other role's session loads them.
 
-- **A spec that builds the process can outrun the standards.** Where the spec under review builds the process — the standards, the skills, the implementation cycle, and anything like it — a case no standard yet covers is not a finding against it. It is an amendment row (§ Emits) with suggested wording, and not a finding against the spec. Ray approves the wording, and Spanner then writes it into the spec. Before implementation, the next pass reviews it like any other text (`docs/standards/1-workflow.md` §1.1, the Review row); after it, Ray's approval of the wording is its review. A mechanism defect — a wrong command default, a criterion that cannot be checked — is still a finding, in every spec. A point argued once and reaffirmed by Ray is decided.
+- **A case no standard covers is a standards gap** (`SKILL.md` § Role 2): never a finding against the spec, and never wording for the spec. A mechanism defect, such as a wrong command default or a criterion that cannot be checked, is still a finding, in every spec. A point argued once and reaffirmed by Ray is decided.
