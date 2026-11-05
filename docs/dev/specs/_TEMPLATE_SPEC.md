@@ -70,6 +70,8 @@ Each step ends with a commit. There is no approval stop between steps, except a 
 | 1 | | |
 | 2 | | |
 
+Each step states its contract and the owner of each new thing it adds (`.claude/skills/session-start/SKILL.md` § Role 1). What is below the contract is the implementer's.
+
 ### Authorization points
 
 List any authorization points this spec contains — per `docs/standards/1-workflow.md` §1.4. State exactly what is about to happen and wait for Ray's explicit approval proceeding. If the spec contains none, say so explicitly.
@@ -80,7 +82,7 @@ Sub-ACs are mapped to the originating issue's ACs via the number scheme, `ACn.m`
 
 | AC | Criterion | How it is checked |
 | --- | --- | --- |
-| AC1.1 | | ex. `pytest tests/test_x.py::test_y` |
+| AC1.1 | | ex. `pytest tests/test_x.py` passes, with a test showing <behaviour> |
 | AC1.2 | | ex. `grep -rn "..." workmain/` returns zero hits |
 
 Semantic criteria is only applicable to document changes per `docs/standards/1-workflow.md` §1.2.

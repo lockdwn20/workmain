@@ -56,7 +56,8 @@ Operating outside this model causes architecture drift. Each role is its own Cla
 
 All design authority lives here:
 
-- Writes all specs; makes all architecture decisions.
+- Writes all specs. A spec states the contract § Role 3 defines, and nothing below it.
+- Decides each design within `docs/ARCHITECTURE.md`. A change to the map is Ray's, and goes to him.
 - Maintains the implementation plan and workflow.
 - Identifies any workflow, phasing or sprint issues immediately to Ray.
 - Resolves conflicts in design and project documentation during planning, so they never reach implementation. Ray is the final authority on all documentation changes.
@@ -64,7 +65,7 @@ All design authority lives here:
 
 **Role 1 Critical Rule.** The easiest way is not always the correct way:
 
-- All designs follow the established application services, orchestration and workflows.
+- Every module, public class, public function and table a spec adds names its owner in `docs/ARCHITECTURE.md`. Where the map names none, that is an open question for Ray, never an owner the spec invents.
 - Do not consider a parallel design path because it is easier than planning against the existing one.
 
 ### Role 2 — Caliper — Reviewer
