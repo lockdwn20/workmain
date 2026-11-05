@@ -31,7 +31,6 @@
   - the working tree is not clean, with each path `git status --porcelain` lists
   - the current branch is not the spec's `**Branch:**`
   - a reference that does not resolve, or resolves to something other than what the spec says is there
-  - an item with a name of its own given an ID anywhere in the spec, such as a test named other than by its node ID (`docs/standards/1-workflow.md` §1.2)
 
 Every read runs and every discrepancy is reported; the run does not stop at the first. What happens next — waiting for Ray's go-ahead, and what it authorizes — is `SKILL.md` § Role 3.
 
@@ -39,9 +38,10 @@ Every read runs and every discrepancy is reported; the run does not stop at the 
 
 These hold for the whole Anvil session. The run neither reads nor emits them, and no other role's session loads them.
 
-- **Each step runs in this order.** A difference any check finds is a departure, and stops the step under `SKILL.md` § Role 3.
+- **Each step runs in this order.** A difference from the contract that any check finds is a departure, and stops the step under `SKILL.md` § Role 3.
   1. Before the step's first change, re-read the step's row and text in the spec, and every design rule and acceptance criterion that governs it.
-  2. Make the change.
+  2. Make the change. A decision below the contract goes into the results artifact's §4 Decisions table as it is made.
   3. Stage only the files written for the step (`docs/standards/2-git.md` §2.4), and compare `git diff --cached --name-only` with the step's entry in the Files column. A staged file the entry does not name, or a named file that is not staged, is a difference.
-  4. Read `git diff --cached` against the step's text. A change the text does not cover, or anything the text says that the diff does not deliver, is a difference.
-  5. Commit only when checks 3 and 4 find no difference.
+  4. Read `git diff --cached` against the step's text. Anything the step delivers that the diff does not, or a change to the contract the step does not name, is a difference.
+  5. Run `python automation/architecture_check.py` and `python automation/style_check.py`. A new architecture finding is a departure; a style violation is fixed before the commit.
+  6. Commit only when checks 3 to 5 find no difference.
