@@ -25,8 +25,8 @@ RECON  →  ANALYSIS  →  SPEC  →  REVIEW  →  APPROVAL  →  IMPLEMENTATION
   - **An unstopped departure** is a change on the branch made without the stop it required: a change that traces to nothing in the spec, a results §4 row whose `Step stopped at` is `none`, or a `within approved meaning` change that altered the meaning, scope or file set Ray approved. Ray rules on each one, as the resolution of its Decision Log row, with one of two outcomes:
     - **Revert** — the change is reverted on the branch, and carried to an issue under §1.3 if it is still wanted.
     - **Keep** — the spec is amended so the change traces to it.
-  - The ruling's home is the resolution of the finding's Decision Log row. Role 1 writes it there and writes the outcome into the spec, and the implementing role carries it out. Either way, results §4 lists the departure with `Step stopped at` set to `none`, so the record still shows the stop was skipped, and its `Resolved by` names Ray and the date of that Decision Log row.
-- **Close-out** — Ray runs the `/closeout` skill against the branch being closed out, or `--branch <name>` for one already merged. It performs the merges, artifact completion, and whatever version bump, tag, Release and service restart its branch type requires, stopping at each authorization point it crosses. It composes the issue's closing comment and prints the command that would post it; posting the comment and closing the issue are Ray's, on the same principle as merging the `dev → main` PR.
+  - The ruling's home is the resolution of the finding's Decision Log row. Role 1 writes it there and writes the outcome into the spec, and the implementing role carries it out.
+- **Close-out** — Ray runs the `/closeout` skill (`.claude/skills/closeout/SKILL.md`). Posting the issue's closing comment and closing the issue are Ray's, on the same principle as merging the `dev → main` PR.
 
 **Direct path**
 
@@ -99,7 +99,7 @@ SPEC  →  REVIEW*  →  APPROVAL  →  IMPLEMENTATION  →  IMPLEMENTATION REVI
 - A milestone carries the exit condition that closes it, and that condition must cover every issue in it.
 - An issue must be independently verifiable on its own: split into sub-issues only where each piece leaves the repository in a coherent state its own acceptance criteria can verify. Where steps are strictly sequential and individually meaningless, they stay inline as steps in one issue — not split into a parent with children for its own sake.
 - **An issue is opened only for what no open issue already covers.** Before any issue is opened — while planning, at close-out, or to carry a finding or an unmet acceptance criterion forward — the open issues are searched for one covering the same defect or gap: `gh issue list --state open --search "<term>"` once for each symbol, file and behaviour the new issue would name, and every result read. A finding an open issue already covers is added to that issue's context or acceptance criteria, and a new issue carries only the rest.
-- **An issue is opened when its body is written, it is on the board, and its dependencies are linked.** It is added to the `WorkmAIn Queue` project at creation — `gh project item-add 3 --owner lockdwn20 --url <issue-url>` — and every real dependency is linked as a GitHub dependency, whichever way it runs: the new issue may wait on an open one, or an open one may wait on it. The link is made on the issue that waits — `gh api --method POST repos/lockdwn20/workmain/issues/<blocked>/dependencies/blocked_by -F issue_id=<the blocking issue's id>`. "Depends on #N" in prose is not a dependency: nothing reads it, and the board shows the issue as ready. Each is verified by reading it back, in both directions — the board read in §1.6, `gh api repos/lockdwn20/workmain/issues/<blocked>/dependencies/blocked_by` and `gh api repos/lockdwn20/workmain/issues/<blocker>/dependencies/blocking` — because `item-add` prints nothing on success.
+- **An issue is opened when its body is written, it is on the board, and its dependencies are linked.** It is created with `python3 automation/issue_validator.py <file> --create`, which adds it to the `WorkmAIn Queue` project and links each issue in its `blocked_by` and `blocking` fields as a GitHub dependency. Every real dependency goes in those fields, whichever way it runs: the new issue may wait on an open one, or an open one may wait on it. "Depends on #N" in prose is not a dependency: nothing reads it, and the board shows the issue as ready. An issue created with a dependency left out of the fields still looks complete, so each is verified by reading it back: `gh issue view <N> --json projectItems` for the board, and, in both directions, `gh api repos/lockdwn20/workmain/issues/<blocked>/dependencies/blocked_by` and `gh api repos/lockdwn20/workmain/issues/<blocker>/dependencies/blocking`.
 - **An issue split by its design study takes its findings with it.** When a design study shows that its issue must be split into several issues, each new issue's write-up carries the study's findings and settled answers for that issue, so it can be worked on without the study, and each new issue gets a design study of its own. The originating issue's study is narrowed to the work that issue keeps. If the originating issue is left as a parent with no work of its own, its study is deleted, and git keeps its history. A spec cites only a design study written for its own issue, because `/closeout` archives a spec's design study along with the spec (§1.5).
 - Verification of every AC against delivered code before marking an item complete is required. A spec's say-so is not evidence.
 
@@ -146,16 +146,8 @@ A spec's steps are ordered work, defined below.
 
 ### 1.6 Sequencing
 
-**The Github Project Board is the order.** Every issue joins the `WorkmAIn Queue` project at creation (§1.3), and its position there is the sequence. The next open item on the list is what comes next. There is no priority label and no rank field.
+**The Github Project Board is the order.** Every issue joins the `WorkmAIn Queue` project at creation (§1.3), and its position there is the sequence. The next open item on the list is what comes next. There is no priority label and no rank field. The board is read as `.claude/skills/session-start/references/spanner.md` read 1 states.
 
-```bash
-gh project item-list 3 --owner lockdwn20 --format json --query "is:open" \
-  --limit "$(gh project view 3 --owner lockdwn20 --format json --jq .items.totalCount)" \
-  | jq -r '.items[] | "#\(.content.number)\t\(.milestone.title // "—")\t\(.title)"'
-```
-
-Items come back in board order. `milestone` and `labels` arrive on each item, so rank within a milestone and rank across milestones are the same single read — filter with `jq`, do not re-sort.
-
-Ordering is Ray's. Position is set in the Web UI, and nothing in this repository changes it. Adding a new issue to the board (§1.3) is the one write, and it orders nothing. The limit is the board's own item count, because `item-list` cuts its output at `--limit` without saying so. The project's `Status` field is auto-populated by GitHub and cannot be removed; it is ignored.
+Ordering is Ray's. Position is set in the Web UI, and nothing in this repository changes it. Adding a new issue to the board (§1.3) is the one write, and it orders nothing. The project's `Status` field is auto-populated by GitHub and cannot be removed; it is ignored.
 
 **Preemption is expressed by position, and by nothing else.** Work that preempts the schedule is moved to the top of the board. **No general category of preempting work is defined.** Future preemption is decided case by case, by Ray, and takes effect as a move on the board — not as a label, a milestone, or a rule added here.
