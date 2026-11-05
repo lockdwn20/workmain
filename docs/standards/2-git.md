@@ -23,7 +23,7 @@ chore/*    — documentation/process/tooling only. From main, merges to main AND
   - `dev` reaches `main` through a pull request — the `dev` block below.
   - **A `hotfix/*` or `chore/*` branch is merged into `main` locally (§2.3), and `main` is pushed.** The repository ruleset `main-pr-required` requires a pull request for every change to `main`. This push passes it through the ruleset's bypass for the repository admin role, so GitHub prints `remote: - Changes must be made through a pull request.` and accepts the push. That line is expected on these two branch types and is not a failure. An account without the admin role cannot make this push.
   - The ruleset was added after a pull request was opened against `main` from a fork (#234). The bypass was added so this route would continue.
-- **A merge carrying application code — from `dev` or `hotfix/*` — is a release.** It bumps `workmain/__version__.py`, updates `CHANGELOG.md`, is tagged `git tag v<version>`, and gets a GitHub Release: `gh release create v<version> --generate-notes`.
+- **A merge carrying application code — from `dev` or `hotfix/*` — is a release.** It bumps `workmain/__version__.py`, updates `CHANGELOG.md`, is tagged `v<version>`, and gets a GitHub Release. `/closeout` performs all four.
 - **A `chore/*` merge is not a release and does none of those four things.** It changes no application behaviour, so there is nothing to version. This is the only exception, and the `chore/*` block below is its full statement.
 
 **`dev`**
@@ -31,7 +31,7 @@ chore/*    — documentation/process/tooling only. From main, merges to main AND
 - Always equal to, or one feature ahead of, `main`.
 - Direct commits permitted only for trivial version/changelog updates after a feature merge.
 - **`dev → main` MUST go through a GitHub PR — never a local merge.**
-  - Push `dev`-> `gh pr create` -> verify on GitHub -> stop. **Ray merges the PR himself**.
+  - `/closeout` opens the PR and stops. **Ray merges the PR himself**.
 
 **`feature/*`**
 
@@ -133,12 +133,7 @@ Update together on every `feature/*` and `hotfix/*` merge to `main`:
 
 **Every `feature/*` and `hotfix/*` branch ends with a service restart.** The daemon loads code once at process start, so a merge to `dev` is not deployed until it restarts. `chore/*` carries no restart — it changes no application code.
 
-```bash
-systemctl --user restart workmain-notify.service
-systemctl --user show workmain-notify.service --property=ActiveEnterTimestamp
-```
-
-Confirm the new `ActiveEnterTimestamp` postdates the merge commit before calling anything deployed.
+`/closeout` performs it. Nothing is deployed until the service's `ActiveEnterTimestamp` postdates the merge commit.
 
 **The CLI does not wait for the restart.** `workmain` is an editable install from the repository, so every `workmain` command runs whatever branch is checked out, in its own process. A live check made through the CLI passes on the working branch: where a spec has one that Ray runs, he runs it there, before `/closeout`. Only what the daemon runs — the T1–T6 triggers (`CLAUDE.md` § Trigger Terminology) and Slack Socket Mode — waits for the restart.
 
