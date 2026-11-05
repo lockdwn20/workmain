@@ -31,7 +31,7 @@ What shipped, in a paragraph. State plainly whether the work is complete or part
 
 ## 3. Acceptance criteria
 
-Every AC on the **approved spec**, by identifier, checked against **delivered code**. This table is written by whoever implemented the spec, as the last implementation step — Anvil on the full path, Role 1 on the direct path (`docs/standards/1-workflow.md` §1.1). They ran the ACs, so they are the only one who can fill it. Close-out verifies that every spec AC has a row and that every row is `Met` or a `Carried` citing its follow-up issue; it does not re-judge them. Item 32 was closed in Phase 13 Sprint 2 with all four ACs unmet and had to be reopened eleven days later; that is what this table exists to prevent.
+Every AC on the **approved spec**, by identifier, checked against **delivered code**. This table is written by whoever implemented the spec, as the last implementation step — Anvil on the full path, Role 1 on the direct path (`docs/standards/1-workflow.md` §1.1). They ran the ACs, so they are the only one who can fill it. Close-out verifies that every spec AC has a row and that every row is `Met` or a `Carried` citing its follow-up issue; it does not re-judge them.
 
 | AC | Status | Evidence |
 | --- | --- | --- |
@@ -41,7 +41,7 @@ This section holds only the AC table. Close-out reads every three-column table u
 
 Anything not met is listed here and carried to an issue, cited by its number — an open issue that already covers it where one exists, `docs/standards/1-workflow.md` §1.3. Do not quietly drop an unmet AC.
 
-## 4. Deviations from spec
+## 4. Deviations and decisions
 
 `.claude/skills/session-start/SKILL.md` § Role 3 defines a departure. Every departure is listed here with how it was handled, how it was resolved, and who resolved it. `Step stopped at` holds one of three values:
 
@@ -50,6 +50,11 @@ Anything not met is listed here and carried to an issue, cited by its number —
 - **`none`** — the change was made without the stop it required, which breaks the stop rule: `.claude/skills/session-start/SKILL.md` § Role 3 for Anvil, `references/spanner.md` § Working rules for Role 1. It is still listed, because a record that leaves it out hides it. `Resolution` is what was done. When the row may be written, and what `Resolved by` then holds, is `SKILL.md` § Role 3.
 
 | # | Departure or ambiguity | Step stopped at | Resolution | Resolved by |
+| --- | --- | --- | --- | --- |
+
+**Decisions below the contract.** Each choice the implementer made that the spec left to it (`.claude/skills/session-start/SKILL.md` § Role 3), recorded as it was made.
+
+| # | Step | Decision | Considered instead | Why |
 | --- | --- | --- | --- | --- |
 
 ## 5. Verification
