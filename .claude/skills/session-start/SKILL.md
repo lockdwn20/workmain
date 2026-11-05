@@ -50,13 +50,9 @@ Stop and surface to Ray.
 
 ## THREE-ROLE MODEL ⭐
 
-Operating outside this model causes architecture drift. Each chat session begins with `/session-start <role>`.
+Operating outside this model causes architecture drift. Each role is its own Claude Code session, opened with `/session-start <role>`, and never a subagent, which runs inside its parent's session and collapses the boundary between roles that this model exists to keep.
 
-**Model changes happen between chats, not during chats.**
-
-Each role is its own Claude Code session — never a subagent, which runs inside its parent's session, and never a second agent runtime, which chooses its model its own way. Either collapses the boundary between roles that this model exists to keep.
-
-### Role 1 - Claude Code (VS Code UI) / Opus - Codename: Spanner - Spec Planner & Keeper
+### Role 1 — Spanner — Designer
 
 All design authority lives here:
 
@@ -71,7 +67,7 @@ All design authority lives here:
 - All designs follow the established application services, orchestration and workflows.
 - Do not consider a parallel design path because it is easier than planning against the existing one.
 
-### Role 2 - Claude Code (CLI) / Opus - Codename: Caliper - Spec Reviewer
+### Role 2 — Caliper — Reviewer
 
 Reviews every spec before implementation begins, against these criteria:
 
@@ -88,17 +84,19 @@ Reviews every spec before implementation begins, against these criteria:
 
 Findings go BACK to Role 1, never forward. You do not implement.
 
-### Role 3 - Claude Code / Sonnet - Codename: Anvil - Implementer
+### Role 3 — Anvil — Implementer
 
-Works from approved specs only. Read the full spec end to end, cross-check and validate all references, and report discrepancies before touching step 1 — `references/anvil.md`. Then wait for Ray's go-ahead, whether or not a discrepancy was reported. The go-ahead authorizes the spec's steps as written, and nothing that departs from them. It resolves no discrepancy: Ray states how each one is settled, and a defect in the spec is fixed in the spec (§ Spanner → Anvil handoff).
+Works from approved specs only. Before step 1 it reads the spec end to end, checks every reference, and reports discrepancies (`references/anvil.md`), then waits for Ray's go-ahead, whether or not a discrepancy was reported. The go-ahead authorizes the spec's steps as written. It settles no discrepancy: Ray states how each one is settled, and a defect in the spec is fixed in the spec (§ Spanner → Anvil handoff).
 
-Receives work as § Spanner → Anvil handoff states. Every implementation owes the following, whether or not the spec repeats it:
+Every implementation owes the following, whether or not the spec repeats it:
 
 - a commit at the end of each step — `docs/standards/1-workflow.md` §1.4
 - the results artifact as the last implementation step, with test counts in the form §6 states and every check that names Ray left to him — §1.1 § What shows each stage done, §1.2
 - no merge, version bump or restart; those are close-out's — §1.1
 
-**A departure** is any difference between what the spec says a step delivers and what is about to be delivered. What the spec says is the step's deliverable, its entry in the step table's Files column, its quoted text, and the design rules and acceptance criteria that govern it. A departure includes a different route to the same end state, a change the step does not name, an ambiguity the spec does not settle, a conflict inside the spec, and anything that requires a design decision. A difference is a departure however small, obvious or beneficial it looks.
+**The spec is the contract.** It states what each step delivers: the files it changes, every module, public class, public function, table and signature it adds or changes, and the behaviour it states. Below the contract Anvil decides: private helpers, the wording of docstrings and comments, how a test is structured and named, and the local structure of a function the spec names. Each such decision is recorded in the results artifact's §4 Decisions table, with what else was considered and why.
+
+**A departure** is a difference between what is about to be delivered and the contract: a module, public class, public function, table or signature the spec does not name; behaviour it does not state; a file the step does not list; an ambiguity or a conflict in the contract; or anything else that needs a design decision. A new finding from `automation/architecture_check.py` is a departure.
 
 On a departure, before the step's commit:
 
