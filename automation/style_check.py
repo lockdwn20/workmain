@@ -3,7 +3,8 @@ Checks the lines a branch changed against the style rules a tool can check.
 
 Python lines are checked with ruff, configured in pyproject.toml to the rules
 docs/standards/3-code.md states: import order (§3.2), docstrings (§3.1, §3.5)
-and type hints (§3.5). Markdown lines are checked for hard wrapping
+and type hints (§3.5). Python lines are also checked for citations of the
+process that produced them (§3.1). Markdown lines are checked for hard wrapping
 (docs/standards/1-workflow.md §1.5). Only lines the branch added or changed
 are checked, against the point where it left its base branch, so code is
 brought up to the rules as it is touched rather than all at once. Uncommitted
@@ -25,6 +26,11 @@ from typing import Dict, List, Optional, Sequence, Set, Tuple
 ROOT = Path(__file__).resolve().parent.parent
 PYTHON_DIRS = ("workmain/", "tests/", "automation/", "scripts/")
 SKIPPED = ("CHANGELOG.md", "docs/archive/", "scripts-deprecated/", "staging/")
+
+# A citation of the process that produced the code: a gate, phase, sprint, backlog item or open question.
+_HISTORY = re.compile(r"\bGate \d+[A-Z]?\b|\bPhase \d+\b|_Sprint\b|\bSprint\b|\bItem #?\d+\b|\bOQ\d+\b")
+# This module and its tests name the forms they look for.
+_HISTORY_EXEMPT = ("automation/style_check.py", "automation/style_check_test.py")
 
 # A Markdown line that starts a block of its own rather than continuing a paragraph.
 _BLOCK_START = re.compile(r"\s*([-*+]\s|\d+[.)]\s|#|\||>|<!--|---\s*$|\[\^?[^\]]*\]:|\*\*[^*]+:\*\*)")
@@ -111,6 +117,27 @@ def python_violations(paths: List[str]) -> List[Violation]:
              v["end_location"]["row"], f"{v['code']} {v['message']}") for v in json.loads(result.stdout or "[]")]
 
 
+def history_violations(path: str, text: str) -> List[Violation]:
+    """
+    Find citations of the process that produced the code in a Python file.
+
+    Comments, docstrings and strings are all searched: a citation of a gate,
+    phase, sprint, backlog item or open question records how the code came to
+    be, which git and the issue already hold.
+
+    Args:
+        path: The file's repository-relative path, for the report.
+        text: The file's contents.
+
+    Returns:
+        One (path, line, line, message) entry per citation.
+    """
+    if path in _HISTORY_EXEMPT:
+        return []
+    return [(path, number, number, f"history citation \"{match.group(0)}\": git and the issue are the record")
+            for number, line in enumerate(text.splitlines(), 1) for match in _HISTORY.finditer(line)]
+
+
 def markdown_violations(path: str, text: str) -> List[Violation]:
     """
     Find hard-wrapped lines in a Markdown file.
@@ -165,6 +192,8 @@ def check(changes: Dict[str, Optional[Set[int]]]) -> List[Violation]:
     """
     python = [p for p in changes if p.endswith(".py") and p.startswith(PYTHON_DIRS) and (ROOT / p).exists()]
     found = python_violations(python)
+    for path in python:
+        found += history_violations(path, (ROOT / path).read_text(encoding="utf-8"))
     for path in changes:
         if path.endswith(".md") and (ROOT / path).exists():
             found += markdown_violations(path, (ROOT / path).read_text(encoding="utf-8"))
