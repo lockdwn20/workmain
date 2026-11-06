@@ -74,7 +74,6 @@ SPEC  →  REVIEW*  →  APPROVAL  →  IMPLEMENTATION  →  IMPLEMENTATION REVI
 - **An issue's acceptance criteria validate the work; they do not design it.** They are written before the design exists. Design on the merits. Where the design makes a criterion wrong, the spec restates it in its §5, says the issue body needs the edit, and the edit is made at close-out. A conflict between the design and an issue's criterion is not an open question. A criterion's check must be able to produce the answer the criterion states: a search that cannot see every form of what it counts proves nothing.
 - **A new rule goes in only with Ray's approval, into its one home, and only where no existing rule covers it.** A fix does not write the method it used into this document.
 - The spec measures the defect's full extent itself — every site, every condition — and never takes the issue's list as the census.
-- **An expected failure a spec quotes is observed, never reasoned.** Its author runs each mutation in the working tree, reverts it with `git checkout -- <file>`, and quotes what happened. Each run uses a fresh `PYTHONPYCACHEPREFIX`, because restoring and re-mutating a file within one second at the same size reuses the previous mutation's `.pyc`. Each mutation's old text is a literal that occurs once in its file. The test seeds its own rows, so the mutation cannot pass on whatever the database holds.
 - **A rule that refuses authored text is run over the live set it will judge before it is specified** — every open issue, every spec row, whatever the rule reads — and the result is recorded in the spec before its options go to Ray. A rule tried only on its own example can refuse correct text it was never shown. A rule that must tell a property's subject from the evidence for it is a reading, not a pattern.
 - Acceptance criteria must be mechanically testable. If an AC cannot be checked by running something, rewrite it until it can.
 - **A criterion names a property of the delivered system. The command is evidence for that property, not the criterion itself.** Write it as "*<property>*, checked by `<command>`" — not as "`<command>` returns zero hits" standing alone. A command is a proxy, and a proxy has many ways to read green, only one of which is the change that was wanted. Naming the property is what tells a reviewer, and an implementer, which of those ways is the work.
@@ -112,7 +111,7 @@ A spec's steps are ordered work, defined below.
   - This is a property of the action, so it does not scale with scope: a one-step issue can contain one and a twenty-step issue can contain none.
   - An authorization point is a hard stop — state what is about to happen, then wait for   Ray's explicit approval.
   - **The authorization set (anything not on this list is a step):**
-    - Executing a DB migration
+    - Executing a DB migration against the live database. Building the test database from the migrations is not one.
     - Deleting a GitHub object (issue, label, milestone, branch, release)
       - The branch entry covers a branch on `origin`. Deleting a local branch that was never pushed is not a GitHub object deletion — see §2.3.
     - Merging to `main`
