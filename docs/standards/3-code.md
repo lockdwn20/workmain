@@ -1,6 +1,6 @@
 ## 3. Code Standards
 
-`automation/style_check.py` checks §3.1's module docstrings, §3.2's import order and §3.5's docstrings and type hints on every line a branch changes, with the rules configured in `pyproject.toml`.
+`automation/style_check.py` checks §3.1's module docstrings, §3.2's import order and §3.5's docstrings and type hints, and §3.1's history citations, on every line a branch changes, with the rules configured in `pyproject.toml`.
 
 ### 3.1 Module headers
 
@@ -16,6 +16,7 @@
   """
   ```
 
+- **Code never cites the process that produced it.** No gate, phase, sprint, backlog item or open-question tag in a comment, docstring or string: git and the issue hold how the code came to be.
 - *NOTE: Duplicating version history in every file was retired in v1.29.0.*
 
 ### 3.2 Import organization

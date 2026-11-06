@@ -151,6 +151,39 @@ def test_a_line_after_an_explicit_break_is_not_wrapping() -> None:
     assert _wrapped("Ends with two spaces  \nthen continues.\n\nEnds with a backslash\\\nthen continues.\n") == []
 
 
+# ---------------------------------------------------------------- history citations
+
+def _cited(text: str) -> list:
+    """The citations `history_violations` reports for `text`."""
+    return [message.split('"')[1] for _, _, _, message in sc.history_violations("workmain/x.py", text)]
+
+
+def test_each_form_of_history_citation_is_found() -> None:
+    text = "# Gate 5 §5.3\n# Gate 5A\n# Phase 11\n# per Operations_Config_Correction_Sprint\n# the Slack Sprint\n# Item 32 and Item #57\n# (OQ2)\n"
+    assert _cited(text) == ["Gate 5", "Gate 5A", "Phase 11", "_Sprint", "Sprint", "Item 32", "Item #57", "OQ2"]
+
+
+def test_ordinary_words_are_not_citations() -> None:
+    assert _cited("# the gate opens in this phase; a sprint of items\n# Phase out the old reader\n") == []
+
+
+def test_the_checker_and_its_tests_are_exempt() -> None:
+    assert sc.history_violations("automation/style_check.py", "# Gate 5\n") == []
+
+
+def test_a_citation_on_an_untouched_line_is_not_reported(repo: Build) -> None:
+    text = BASE["workmain/old.py"].replace("import os\n", "import os  # Gate 5\n")
+    repo({"workmain/old.py": text + "\n\ndef added() -> None:\n    \"\"\"Do nothing.\"\"\"\n"})
+    found = [v for v in sc.check({"workmain/old.py": {9, 10, 11, 12}}) if "history" in v[3]]
+    assert found == []
+
+
+def test_a_citation_on_a_changed_line_is_reported(repo: Build) -> None:
+    root = repo({"workmain/old.py": BASE["workmain/old.py"] + "\n\n# Phase 6 leftover\n"})
+    found = [(path, line) for path, line, _, message in violations(root) if "history" in message]
+    assert found == [("workmain/old.py", 10)]
+
+
 # ---------------------------------------------------------------- changed lines
 
 def test_only_the_lines_a_branch_changed_are_collected(repo: Build) -> None:

@@ -48,7 +48,6 @@ config/database.json
 *_credentials.json
 
 # Data directories
-data/
 logs/
 cache/
 temp/
