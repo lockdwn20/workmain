@@ -40,7 +40,7 @@ These hold for the whole Anvil session. The run neither reads nor emits them, an
 
 - **Each step runs in this order.** A difference from the contract that any check finds is a departure, and stops the step under `SKILL.md` § Role 3.
   1. Before the step's first change, re-read the step's row and text in the spec, and every design rule and acceptance criterion that governs it.
-  2. Make the change. A decision below the contract goes into the results artifact's §4 Decisions table as it is made.
+  2. Make the change. A decision below the contract goes into the results artifact's §4 Decisions table as it is made. For a defect fix, the test that shows the defect is run before the fix and after it (`docs/standards/6-testing.md` §6.2 rule 10).
   3. Stage only the files written for the step (`docs/standards/2-git.md` §2.4), and compare `git diff --cached --name-only` with the step's entry in the Files column. A staged file the entry does not name, or a named file that is not staged, is a difference.
   4. Read `git diff --cached` against the step's text. Anything the step delivers that the diff does not, or a change to the contract the step does not name, is a difference.
   5. Run `python automation/architecture_check.py` and `python automation/style_check.py`. A new architecture finding is a departure; a style violation is fixed before the commit.
