@@ -8,7 +8,7 @@ A run is one Caliper pass, in a session of its own (`SKILL.md` § Role 2). `<bra
 
 ## Reads, in order
 
-1. The spec at the target path, end to end, read with a clean working tree. Where `git status --porcelain` prints anything, the run reviews nothing (§ Emits). A clean tree makes this read, and every read of a repository file below, one of the commit at `HEAD`.
+1. The spec at the target path, end to end, read from a temporary detached worktree of `HEAD`, created with `git worktree add --detach "$(mktemp -d)" HEAD`. Every read and command below is run in that worktree, so the review reads `HEAD` whatever the working tree holds. Before § Emits, the run removes it with `git worktree remove --force <worktree path>`.
 2. The originating issue named by the spec's `**Originating item:**` field: `gh issue view <N> --json number,title,body,labels,milestone,parent`
 3. The design study named by the spec's `**Design study:**` field, resolved relative to the spec. Skipped when the field reads `n/a`.
 4. Every source the spec cites — file, symbol, line, section or command — at the cited location.
@@ -29,16 +29,16 @@ The findings, then the pass row, as a table with the spec's Decision Log header.
 
 The pass row is always the last row, and `<commit>` is `git rev-parse --short HEAD`, the commit the spec and every repository file were read at. Below the table, and not recorded in the spec, the pass shows its coverage: one row for each acceptance criterion, design rule, §2 claim and step in its scope, with what it was checked against and its result.
 
-A run that reviews nothing, because `HEAD` holds no spec at the target path (§ Choosing the review) or the working tree is not clean (read 1), emits no table and no row to record. It emits one line, `Not reviewed:` and the reason, followed by each path `git status --porcelain` lists where the tree is not clean. No other commentary.
+A run that reviews nothing, because `HEAD` holds no spec at the target path (§ Choosing the review), emits no table and no row to record. It emits one line, `Not reviewed:` and the reason. No other commentary.
 
 ## Post-implementation review
 
-Run when § Choosing the review selects it — `docs/standards/1-workflow.md` §1.1 Implementation review. Every file is read from `<branch>` with `git show <branch>:<path>`, never from the working tree, because the branch checked out need only hold the spec (§ Choosing the review) and need not be `<branch>`.
+Run when § Choosing the review selects it — `docs/standards/1-workflow.md` §1.1 Implementation review. Every file is read from `<branch>`, with `git show <branch>:<path>` or, for check I6, in a worktree of `<branch>`, never from the working tree, because the branch checked out need only hold the spec (§ Choosing the review) and need not be `<branch>`.
 
 ### Reads, in order
 
 1. The spec, end to end.
-2. The results artifact that names the spec in its `**Spec:**` field, found with `git grep -l '^\*\*Spec:\*\* .*<spec file name>' <branch> -- <results dir>`, where `<results dir>` is the `results/` directory beside the spec.
+2. The results artifact that names the spec in its `**Spec:**` field, found with `git grep -l '^\*\*Spec:\*\* .*<spec file name>' <branch> -- <results dir>`, where `<results dir>` is `docs/dev/results/`.
 3. The originating issue: `gh issue view <N> --json number,title,body,labels,milestone,parent`
 4. `git diff <base>..<branch>` and `git log --format='%h %s%n%b' <base>..<branch>`. `<base>` is `git merge-base <parent> <branch>`, and `<parent>` is the branch `docs/standards/2-git.md` §2.2 names for the branch type: `main` for `chore/*` and `hotfix/*`, `dev` for `feature/*`.
 
@@ -49,7 +49,7 @@ Run when § Choosing the review selects it — `docs/standards/1-workflow.md` §
 - **I3** — A results §4 row whose `Step stopped at` is `none` and whose `Resolved by` is `Awaiting Ray`.
 - **I4** — A results §3 row marked `Met` whose evidence does not exercise the property its criterion names (`docs/standards/1-workflow.md` §1.2). A row whose check names Ray is a finding when it is `Met` and its evidence is not in the form `docs/standards/1-workflow.md` §1.2 states for Ray's sign-off. Marked `Not met` with `Awaiting Ray`, it is not a finding.
 - **I5** — A results §4 row whose `Step stopped at` is `within approved meaning` and whose change altered the meaning, scope or file set Ray approved.
-- **I6** — A new finding from `automation/architecture_check.py` or a violation from `automation/style_check.py`, each run on `<branch>`.
+- **I6** — A new finding from `automation/architecture_check.py`, or a violation from `automation/style_check.py --base <parent>`, with `<parent>` as read 4 names it. Both are run in a temporary detached worktree of `<branch>`, created with `git worktree add --detach "$(mktemp -d)" <branch>` and removed with `git worktree remove --force <worktree path>` once both have run, so they check `<branch>` and not the working tree.
 - **I7** — A converted command that reads the database directly, which the architecture check cannot see (`docs/ARCHITECTURE.md` section 3, Unconverted commands).
 
 ### Emits
