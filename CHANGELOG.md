@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.57.0] - 2026-11-10
+
+Alembic now applies and records every schema change. Live had drifted from the numbered SQL migrations, which no runner applied and nothing on the database recorded; a build of them from empty failed. The first revision is a baseline taken from live's schema, and live is stamped at it (#266).
+
+### Added
+
+- Alembic: `alembic.ini` at the repository root; `workmain/database/migrations/env.py`, which connects through `DATABASE_URL` in `workmain/database/connection.py` and compares against the models' metadata; the revision template `script.py.mako`; and the baseline revision `versions/0001_baseline.py`, which runs `versions/0001_baseline.sql`, live's cleaned schema-only dump. A database built from empty by `alembic upgrade head` has live's schema exactly
+
+### Changed
+
+- `time_entries.entry_time` is NOT NULL on live and in the `TimeEntry` model, and `TimeEntriesRepository.create` requires it. No application write path sent a null; the tests that inserted entries without a time now supply one
+- On live, the comments on `clients.slack_channel` and `report_recipients.client_id` no longer name the real client or cite phases
+- `docs/standards/4-database.md` §4.5 states how a revision is written and applied. `docs/ARCHITECTURE.md` section 2 Data names what `workmain/database/migrations/` holds, and `docs/standards/7-file-placement.md` §7 places `alembic.ini`
+
+### Removed
+
+- The numbered migrations `001`–`026` and `workmain/database/migrations/__init__.py`. Git keeps them
+- Migration 022's tag-vocabulary CHECK is not carried into the baseline: the tag vocabulary is configuration, read from `config/tags.json`
+
+Suite: 1630 passed, 0 failed, 0 skipped (baseline 1630 passed, 0 failed, 0 skipped).
+
 ## [1.56.1] - 2026-11-04
 
 Four short flags broke `docs/standards/5-cli.md` §5.5, which the standard's own reserved-flags table did not catch: it listed `-f` for `--fallback`. The flags are corrected, and a test now reads every command and option Click builds, so a name or short flag that breaks §5.3 or §5.5 fails the suite. One root cause across four application files, so this stays a hotfix (`docs/standards/2-git.md` §2.2: the file count is a proxy).
