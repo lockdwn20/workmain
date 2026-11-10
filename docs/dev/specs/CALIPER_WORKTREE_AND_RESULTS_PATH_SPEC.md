@@ -17,9 +17,11 @@
 | 20261110 | Ray | Branch type `chore/*`, direct path. | n/a |
 | 20261110 | Ray | Direction on the issue: a spec review reads `HEAD` from a temporary detached worktree and removes it at the end, the clean-tree refusal goes, and every statement of where results live names the folder exactly. | n/a |
 | 20261110 | Spanner | The census (§1) finds the ambiguous results wording in four places the issue does not name: `.claude/skills/session-start/references/spanner.md` read 4 ("beside it"), `.claude/skills/closeout/SKILL.md` P5 ("beside the spec `P4` resolved"), and two docstrings in `automation/`. Ray's direction covers every statement, so all are in scope. | n/a |
-| 20261110 | Spanner | `.claude/skills/session-start/SKILL.md` § `/session-start` says the run "writes no file". A worktree is files on disk and an entry in `.git/worktrees/`, so that sentence would contradict read 1. It is amended to name the worktree as the one exception. | n/a |
+| 20261110 | Spanner | `.claude/skills/session-start/SKILL.md` § `/session-start` says the run "writes no file". A worktree is files on disk and an entry in `.git/worktrees/`, so that sentence would contradict read 1. It is amended to name the worktree as the one exception. | Superseded by Ray's ruling below, 20261110. |
 | 20261110 | Ray | Non-blocking: § Post-implementation review check I6 runs `automation/architecture_check.py` and `automation/style_check.py` "on `<branch>`", but both read the working tree, so uncommitted work can produce findings that aren't on the branch. Verified: both set `ROOT = Path(__file__).resolve().parent.parent`, and `style_check.py`'s module docstring says "Uncommitted and untracked files count as changed". | Accepted. I6 runs its commands in a temporary detached worktree of `<branch>`, created and removed as read 1's is (step 1). § 1 Out of scope is corrected. |
 | 20261110 | Spanner | Boundary check on that change: in a detached worktree, `style_check.py` `main` gets `HEAD` from `git rev-parse --abbrev-ref HEAD`, and `base_branch` then returns `main`, which is wrong for a `feature/*` branch. I6 therefore passes `--base <parent>`, with `<parent>` as read 4 names it. `architecture_check.py` reads no branch or base: its only argument is `--check-issues`. | n/a |
+| 20261110 | Ray | No exceptions in `.claude/skills/session-start/SKILL.md`. The § `/session-start` sentences that make the run read-only are replaced with: "The session-open run assembles the state a role needs before it acts, from the sources that role's reference names, in the order named. It creates no branch or commit and edits no tracked file. Anything else it does is stated in that role's reference." This replaces the Caliper exception, and it also covers `.claude/skills/session-start/references/spanner.md` § Emits' label edit (`gh issue edit <N> --add-label`), which the old sentence "makes no GitHub change" contradicted. | Step 1 carries it. |
+| 20261110 | Spanner | The frontmatter `description` of `.claude/skills/session-start/SKILL.md` ends "Read-only.", another statement of the rule Ray replaced. Under `docs/standards/1-workflow.md` §1.2 a revision changes every statement of what it changes, so step 1 deletes those two words. | n/a |
 
 ---
 
@@ -28,7 +30,7 @@
 **In scope:**
 
 - `.claude/skills/session-start/references/caliper.md`: read 1, the pass-row sentence and the `Not reviewed:` paragraph of § Emits, post-implementation read 2, and post-implementation check I6.
-- `.claude/skills/session-start/SKILL.md`: the sentence saying the run writes no file.
+- `.claude/skills/session-start/SKILL.md`: the § `/session-start` paragraph stating what the run does, and the frontmatter `description`'s "Read-only.".
 - `.claude/skills/session-start/references/spanner.md`: read 4's results directory.
 - `docs/standards/1-workflow.md` §1.1: the Implementation row of "What shows each stage done".
 - `.claude/skills/closeout/SKILL.md`: P5's wording.
@@ -86,11 +88,19 @@ with:
 
 `.claude/skills/session-start/SKILL.md` § `/session-start`. Replace:
 
-> The session-open run **reads**. It writes no file, creates no branch or commit, and makes no GitHub change.
+> The session-open run **reads**. It writes no file, creates no branch or commit, and makes no GitHub change. It assembles the state a role needs before it acts, from the sources that role's reference names, in the order named.
 
 with:
 
-> The session-open run **reads**. It writes no file, creates no branch or commit, and makes no GitHub change. The one exception is the temporary worktree a Caliper review reads from or runs its checks in, which the run removes before it emits (`references/caliper.md` read 1 and check I6).
+> The session-open run assembles the state a role needs before it acts, from the sources that role's reference names, in the order named. It creates no branch or commit and edits no tracked file. Anything else it does is stated in that role's reference.
+
+`.claude/skills/session-start/SKILL.md` frontmatter `description`. Replace:
+
+> emitting the state that role needs before it acts. Read-only.
+
+with:
+
+> emitting the state that role needs before it acts.
 
 `caliper.md` § Post-implementation review, check I6. Replace:
 
