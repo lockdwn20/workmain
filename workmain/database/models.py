@@ -288,7 +288,7 @@ class TimeEntry(Base):
 
     # Date/time (24-hour format)
     entry_date = Column(Date, nullable=False)
-    entry_time = Column(Time, nullable=True)  # 24-hour format: 14:30, 09:00
+    entry_time = Column(Time, nullable=False)  # 24-hour format: 14:30, 09:00
 
     # Client attribution (Phase 11)
     client_id = Column(Integer, ForeignKey('clients.id', ondelete='SET NULL'),

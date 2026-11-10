@@ -11,6 +11,7 @@ Where the development process keeps its own files. Where application code lives,
 | Test data (JSON, CSV), never Python test files | `tests/fixtures/` |
 | Fakes for external services, never test files | `tests/mocks/` |
 | Utilities and demos, never tests | `scripts/` |
+| Alembic's configuration, `alembic.ini` | repository root |
 | Non-application dev tooling and its own tests (`*_test.py`), never mixed with the application suite | `automation/` |
 
 Dev artifacts always go in `docs/dev/<type>/`, never in the `docs/` root.

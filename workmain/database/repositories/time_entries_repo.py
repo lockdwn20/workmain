@@ -66,7 +66,7 @@ class TimeEntriesRepository:
         note_id: int,
         duration_hours: float,
         entry_date: date,
-        entry_time: Optional[time] = None,
+        entry_time: time,
         category: Optional[str] = None,
         project_id: Optional[int] = None,
         meeting_id: Optional[int] = None,
@@ -82,7 +82,7 @@ class TimeEntriesRepository:
             note_id: ID of the linked Note (required — carries content and tags)
             duration_hours: Duration in hours (e.g., 1.5, 2.25)
             entry_date: Date of the time entry
-            entry_time: Time in 24-hour format (optional)
+            entry_time: Time in 24-hour format
             category: Category (e.g., 'development', 'meeting', 'review')
             project_id: Optional project ID to link
             meeting_id: Optional meeting ID to link
