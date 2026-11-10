@@ -1,6 +1,6 @@
 # Alembic With a Baseline Taken From Live — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Anvil (Role 3)
 **Date:** 20261110
 **Spec:** `../specs/ALEMBIC_BASELINE_SPEC.md`
@@ -81,8 +81,8 @@ The work is complete: every acceptance criterion is met, including the three che
 
 | Item | Description | Why deferred |
 | --- | --- | --- |
-| `workmain/database/connection.py:24` | A second `Base = declarative_base()` that holds no tables and that nothing imports. The spec's Decision Log proposes it joins #108 | An existing defect outside this spec; Ray decides |
-| `tests/test_notifications_commands.py:8` | Says `notification_config` was dropped in migration 010; no migration drops it | An existing defect; Ray decides before close-out (spec Decision Log) |
-| `CLAUDE.md` § Tech Stack | Says PostgreSQL 16.11; live runs 16.15 | An existing defect; Ray decides before close-out (spec Decision Log) |
-| Issue body edits | #266's second and third criteria and #263's `__init__.py` line, as the spec's §5 "Restated for close-out" states | Made at close-out (`docs/standards/1-workflow.md` §1.2) |
+| `workmain/database/connection.py:24` | A second `Base = declarative_base()` that holds no tables and that nothing imports | Added to #108 with a criterion, Ray 20261110 |
+| `tests/test_notifications_commands.py:8` | Says `notification_config` was dropped in migration 010; no migration drops it | Opened as #268, Ray 20261110 |
+| `CLAUDE.md` § Tech Stack | Says PostgreSQL 16.11; live runs 16.15 | Opened as #268, with the test docstring, Ray 20261110 |
+| Issue body edits | #266's second and third criteria and #263's `__init__.py` line and criterion, as the spec's §5 "Restated for close-out" states | Made at close-out, 20261110 |
 | The live backup | `~/backups/workmain/workmain_pre_issue266_20261110.dump`, client data, outside the repository | Ray decides how long it is kept |
