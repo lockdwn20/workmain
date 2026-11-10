@@ -1,6 +1,5 @@
 -- NUCLEAR OPTION: Clear ALL data from database (Fixed version)
 -- WARNING: This deletes EVERYTHING - only use in development!
--- Based on actual schema from 001_initial_schema.sql
 
 BEGIN;
 

@@ -3,7 +3,7 @@ clients_service tests — listing, targeting, adding, deleting and the active
 client context. Every test takes db_session and seeds its own clients.
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, time
 
 import pytest
 
@@ -49,7 +49,7 @@ def _seed_linked(session, name):
     session.add_all([meeting, note_a, note_b, other_note, project, recipient, report])
     session.flush()
     entry = TimeEntry(
-        note_id=note_a.id, duration_hours=1, entry_date=day, client_id=client.id,
+        note_id=note_a.id, duration_hours=1, entry_date=day, entry_time=time(9, 0), client_id=client.id,
     )
     session.add(entry)
     session.flush()

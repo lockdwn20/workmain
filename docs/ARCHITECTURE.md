@@ -85,7 +85,7 @@ The three entry points (CLI, daemon, Slack Socket Mode) are the three surfaces, 
 
 - `workmain/database/connection.py` — `get_db()` and `session_scope()`, the only way to get a session.
 - `workmain/database/models.py` — every ORM model.
-- `workmain/database/migrations/` — the numbered SQL migrations.
+- `workmain/database/migrations/` — the schema's migrations: the Alembic environment (`env.py`), the revision template (`script.py.mako`), and `versions/`, one revision per schema change.
 - `workmain/database/repositories/` — one repository per table, named for it. `system_state_repository` is the key-value store.
 
 ### Shared
@@ -139,4 +139,4 @@ Code that breaks a rule above, where the fix is tracked. A known deficiency is n
 
 **Per-service status types — #259.** Covers `workmain/services/calendar_service.py` and `workmain/services/clients_service.py`. `workmain/services/calendar_service.py` and `workmain/services/clients_service.py` each declare their own "filters plus totals" wrapper and a type named `StatusTotals`.
 
-**Packages — #263, and #108 for the packages with no modules.** Covers `workmain/**/__init__.py`. `__init__.py` files that hold more than their docstring, packages with no modules, and `workmain/database/migrations/__init__.py`, which makes a package of a folder of SQL files, are found by the package check.
+**Packages — #263, and #108 for the packages with no modules.** Covers `workmain/**/__init__.py`. `__init__.py` files that hold more than their docstring, and packages with no modules, are found by the package check.

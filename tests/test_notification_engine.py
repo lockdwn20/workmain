@@ -19,7 +19,7 @@ here (TestCancelledMeetingExclusion) rather than creating a second,
 duplicate file under that name.
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, time
 
 import pytest
 
@@ -70,7 +70,7 @@ def _time_entry(db_session, hours: float, meeting_id=None):
     return TimeEntriesRepository(db_session).create(
         note_id=note.id,
         duration_hours=hours,
-        entry_date=SENTINEL_DATE,
+        entry_date=SENTINEL_DATE, entry_time=time(9, 0),
         meeting_id=meeting_id,
     )
 

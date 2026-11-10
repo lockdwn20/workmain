@@ -60,9 +60,11 @@
 
 ### 4.5 Migrations
 
-- SQL files, numbered `NNN_name.sql`.
-- **Execution is an authorization point** — see §1.4.
-- The approval is at execution, not the spec that contains it.
+- **Every change to a database's schema is an Alembic revision** in `workmain/database/migrations/versions/`, and nothing changes the schema another way. `alembic.ini` at the repository root configures Alembic (§7). `workmain/database/migrations/env.py` connects through `DATABASE_URL` in `workmain/database/connection.py`, so `.env` names the database a command reaches.
+- **A revision is written** with `alembic revision -m "<what it changes>" --rev-id <NNNN>` from the repository root, where `<NNNN>` is the next four-digit number after the highest in `versions/`. Its `upgrade()` makes the change. Its `downgrade()` reverses it, or raises where reversing would destroy data. A change to a table changes its model in `workmain/database/models.py` in the same commit.
+- **A revision is applied** with `alembic upgrade head` from the repository root. `alembic current` prints the revision a database is at.
+- **The first revision, `0001`, is a baseline:** live's schema when Alembic was adopted, in `versions/0001_baseline.sql`. Live was stamped at it, not built by it. Any other database is built from empty by `alembic upgrade head`.
+- **Applying a revision to the live database is an authorization point** — see §1.4. The approval is at execution, not the spec that contains it.
 
 ### 4.6 Write-path convergence
 
