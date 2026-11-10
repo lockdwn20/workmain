@@ -1,6 +1,6 @@
 ---
 name: session-start
-description: Open a session in a declared role — Spanner, Caliper or Anvil — by reading a fixed set of sources in a fixed order and emitting the state that role needs before it acts. Read-only.
+description: Open a session in a declared role — Spanner, Caliper or Anvil — by reading a fixed set of sources in a fixed order and emitting the state that role needs before it acts.
 argument-hint: <Spanner|Caliper|Anvil> [issue-number | spec-path]
 arguments: [role, target]
 disable-model-invocation: true
@@ -11,7 +11,7 @@ user-invocable: true
 
 User-initiated only. Invoked with role `$role` and target `$target`.
 
-The session-open run **reads**. It writes no file, creates no branch or commit, and makes no GitHub change. It assembles the state a role needs before it acts, from the sources that role's reference names, in the order named.
+The session-open run assembles the state a role needs before it acts, from the sources that role's reference names, in the order named. It creates no branch or commit and edits no tracked file. Anything else it does is stated in that role's reference.
 
 § THREE-ROLE MODEL below is the only statement of what each role is, does and hands to the others. It holds for the whole session, not only for the run. The one exception is a rule for how a single role works: it sits in that role's reference file, § Working rules, so that no other role's session loads it.
 
