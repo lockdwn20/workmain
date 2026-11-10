@@ -1,6 +1,6 @@
 # Alembic With a Baseline Taken From Live — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261110
 **Branch:** `feature/issue-266-alembic-baseline` (from `dev`)
