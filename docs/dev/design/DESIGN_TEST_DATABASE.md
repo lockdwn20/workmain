@@ -127,5 +127,5 @@ The setup applies each file in name order through the application's own engine, 
 - #267 (report inclusion read from one home): found in review of Q2. 022's tag CHECK is not carried forward because the tag vocabulary is configuration.
 - #257 keeps Q3, Q5, F12–F18, the fix to `tests/test_slack_channel_config.py` (F16), and the rewrite of `docs/standards/6-testing.md` §6.1 and §6.2.
 - #66 checks the models against the schema with `alembic check` against `workmain_test`, plus a check of what `alembic check` does not compare.
-- Promoted to: (#257's spec, when it resumes)
+- Promoted to: `../specs/TEST_DATABASE_SPEC.md`
 - Superseded by:
