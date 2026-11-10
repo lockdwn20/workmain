@@ -18,6 +18,8 @@
 | 20261110 | Ray | Direction on the issue: a spec review reads `HEAD` from a temporary detached worktree and removes it at the end, the clean-tree refusal goes, and every statement of where results live names the folder exactly. | n/a |
 | 20261110 | Spanner | The census (§1) finds the ambiguous results wording in four places the issue does not name: `.claude/skills/session-start/references/spanner.md` read 4 ("beside it"), `.claude/skills/closeout/SKILL.md` P5 ("beside the spec `P4` resolved"), and two docstrings in `automation/`. Ray's direction covers every statement, so all are in scope. | n/a |
 | 20261110 | Spanner | `.claude/skills/session-start/SKILL.md` § `/session-start` says the run "writes no file". A worktree is files on disk and an entry in `.git/worktrees/`, so that sentence would contradict read 1. It is amended to name the worktree as the one exception. | n/a |
+| 20261110 | Ray | Non-blocking: § Post-implementation review check I6 runs `automation/architecture_check.py` and `automation/style_check.py` "on `<branch>`", but both read the working tree, so uncommitted work can produce findings that aren't on the branch. Verified: both set `ROOT = Path(__file__).resolve().parent.parent`, and `style_check.py`'s module docstring says "Uncommitted and untracked files count as changed". | Accepted. I6 runs its commands in a temporary detached worktree of `<branch>`, created and removed as read 1's is (step 1). § 1 Out of scope is corrected. |
+| 20261110 | Spanner | Boundary check on that change: in a detached worktree, `style_check.py` `main` gets `HEAD` from `git rev-parse --abbrev-ref HEAD`, and `base_branch` then returns `main`, which is wrong for a `feature/*` branch. I6 therefore passes `--base <parent>`, with `<parent>` as read 4 names it. `architecture_check.py` reads no branch or base: its only argument is `--check-issues`. | n/a |
 
 ---
 
@@ -25,19 +27,19 @@
 
 **In scope:**
 
-- `.claude/skills/session-start/references/caliper.md`: read 1, the pass-row sentence and the `Not reviewed:` paragraph of § Emits, and post-implementation read 2.
+- `.claude/skills/session-start/references/caliper.md`: read 1, the pass-row sentence and the `Not reviewed:` paragraph of § Emits, post-implementation read 2, and post-implementation check I6.
 - `.claude/skills/session-start/SKILL.md`: the sentence saying the run writes no file.
 - `.claude/skills/session-start/references/spanner.md`: read 4's results directory.
 - `docs/standards/1-workflow.md` §1.1: the Implementation row of "What shows each stage done".
 - `.claude/skills/closeout/SKILL.md`: P5's wording.
 - `automation/closeout_acs.py` `derive_results_path` and `automation/closeout_acs_test.py` `test_ac2_3_results_root_follows_the_spec_root`: docstrings only.
 
-Census of where results live, by `grep -rn 'beside' CLAUDE.md docs/standards .claude docs/dev docs/ARCHITECTURE.md automation .github .githooks` at `b0144f6`: the six sites above. `automation/architecture_check.py:311` and `:330` also match, and both are about Python modules, not results. Census of the clean-tree rule, by `grep -rnE 'clean (working )?tree|porcelain|not clean|worktree'` over the same paths: `caliper.md` lines 11 and 32, and `anvil.md` lines 9 and 31.
+Census of where results live, by `grep -rn 'beside' CLAUDE.md docs/standards .claude docs/dev docs/ARCHITECTURE.md automation .github .githooks` at `b0144f6`: the six sites above. `automation/architecture_check.py:311` and `:330` also match, and both are about Python modules, not results. Census of the clean-tree rule, by `grep -rnE 'clean (working )?tree|porcelain|not clean|worktree'` over the same paths: `caliper.md` lines 11 and 32, and `anvil.md` lines 9 and 31. Census of commands Caliper runs against the working tree, by reading `caliper.md` end to end: spec-review read 6 (`automation/architecture_check.py`, covered by read 1's worktree) and post-implementation check I6.
 
 **Out of scope:**
 
 - `.claude/skills/session-start/references/anvil.md`'s clean-tree check. Anvil writes to the tree, so it needs a clean one. The issue is about Caliper only.
-- § Post-implementation review's reads. They already read from `<branch>` with `git show` and never read the working tree.
+- § Post-implementation review's reads 1 to 4. They already read from `<branch>` with `git show`, `git grep <branch>` and `git diff`, and never read the working tree. Only the commands check I6 runs read the working tree, and I6 is in scope.
 - `.claude/skills/closeout/SKILL.md` line 41, which already says "the `results/` directory of the spec's own root".
 
 ## 3. Design rules
@@ -46,12 +48,13 @@ Census of where results live, by `grep -rn 'beside' CLAUDE.md docs/standards .cl
 - **DR2 — The worktree is created at a fresh path from `mktemp -d`.** Two Caliper sessions can run at the same time, so a fixed sibling path like `../workmain-caliper` could collide. `git worktree add` accepts an existing empty directory.
 - **DR3 — The worktree is removed with `--force` before § Emits.** Caliper writes nothing, so whatever is in the worktree came from running a read's command (for example `__pycache__/` from `automation/architecture_check.py`). Nothing in it is worth keeping, so `--force` makes sure the removal succeeds. The emitted text comes from the reads, so the worktree isn't needed after read 7.
 - **DR4 — The results directory is named one way everywhere:** "the `results/` directory of the spec's own root (`docs/dev/` or `docs/archive/`)". Closeout's P4 already searches those two roots, and `docs/standards/1-workflow.md` §1.5 makes `docs/archive/<type>/` mirror `docs/dev/<type>/`.
+- **DR5 — The post-implementation review's commands run on `<branch>`, not on the working tree.** Check I6 runs in a temporary detached worktree of `<branch>`, created as DR2 states and removed as DR3 states. `style_check.py` is given its base explicitly, because in a detached worktree it can't read the branch name.
 
 ## 4. Steps
 
 | Step | Deliverable | Files |
 | --- | --- | --- |
-| 1 | Caliper's spec review reads `HEAD` from a temporary worktree. The clean-tree refusal is gone. | `.claude/skills/session-start/references/caliper.md`, `.claude/skills/session-start/SKILL.md` |
+| 1 | Caliper's spec review reads `HEAD` from a temporary worktree, and check I6 runs in one of `<branch>`. The clean-tree refusal is gone. | `.claude/skills/session-start/references/caliper.md`, `.claude/skills/session-start/SKILL.md` |
 | 2 | Every statement of where results live names the folder | `docs/standards/1-workflow.md`, `.claude/skills/session-start/references/caliper.md`, `.claude/skills/session-start/references/spanner.md`, `.claude/skills/closeout/SKILL.md`, `automation/closeout_acs.py`, `automation/closeout_acs_test.py` |
 | 3 | Results artifact | `docs/dev/results/CALIPER_WORKTREE_AND_RESULTS_PATH_RESULTS.md` |
 
@@ -87,7 +90,15 @@ with:
 
 with:
 
-> The session-open run **reads**. It writes no file, creates no branch or commit, and makes no GitHub change. The one exception is the temporary worktree a Caliper spec review reads from, which the run removes before it emits (`references/caliper.md` read 1).
+> The session-open run **reads**. It writes no file, creates no branch or commit, and makes no GitHub change. The one exception is the temporary worktree a Caliper review reads from or runs its checks in, which the run removes before it emits (`references/caliper.md` read 1 and check I6).
+
+`caliper.md` § Post-implementation review, check I6. Replace:
+
+> - **I6** — A new finding from `automation/architecture_check.py` or a violation from `automation/style_check.py`, each run on `<branch>`.
+
+with:
+
+> - **I6** — A new finding from `automation/architecture_check.py`, or a violation from `automation/style_check.py --base <parent>`, with `<parent>` as read 4 names it. Both are run with a temporary detached worktree of `<branch>` as the working directory, created with `git worktree add --detach "$(mktemp -d)" <branch>` and removed with `git worktree remove --force <worktree path>` once both have run. Both scripts read the tree they are run from, so a run in the main working tree would check uncommitted work as well as the branch. `style_check.py` is given `--base` because in a detached worktree it can't read the branch name, and it would fall back to `main`.
 
 ### Step 2 — `docs(standards): name the results folder exactly`
 
@@ -165,6 +176,7 @@ None. Nothing here migrates, deletes a GitHub object, merges to `main`, force-pu
 | --- | --- | --- |
 | AC1.1 | A Caliper spec review runs with uncommitted work in the tree. It reads `HEAD` and leaves no worktree behind. | Ray opens `/session-start Caliper docs/dev/specs/CALIPER_WORKTREE_AND_RESULTS_PATH_SPEC.md` on this branch with an untracked file in the tree. The run emits a pass row naming this branch's `HEAD`, and afterwards `git worktree list` shows only the main worktree. |
 | AC1.2 | Nothing in the Caliper reference makes a spec review depend on the working tree's state | `grep -n -e porcelain -e clean .claude/skills/session-start/references/caliper.md` prints nothing |
+| AC1.3 | The post-implementation review's check I6 checks `<branch>`, not the working tree, and leaves no worktree behind. This criterion comes from Ray's ruling, not the issue; the issue body gains it at close-out (`docs/standards/1-workflow.md` §1.2). | During the AC2.1 run, Ray leaves an untracked `automation/_i6_probe.py` in the tree containing a line `ruff` rejects. I6 reports no violation for that file, and afterwards `git worktree list` shows only the main worktree. |
 | AC2.1 | The post-implementation review finds a results artifact in `docs/dev/results/` and selects § Post-implementation review | Ray runs a Caliper post-implementation review of this spec after step 3, when its results artifact is in `docs/dev/results/`. The run emits `Caliper (post-implementation)` rows. |
 | AC2.2 | Every statement of where results live names the folder | `grep -rnw 'beside' .claude docs/standards automation/closeout_acs.py automation/closeout_acs_test.py` prints nothing. The issue's check, `grep -rn 'beside the spec'`, cannot see spanner.md's "beside it", so this check replaces it (`docs/standards/1-workflow.md` §1.2); the issue body is edited to match at close-out. |
 | AC2.3 | The docstring edits change no behaviour of the close-out tooling | `pytest automation/` passes, 101 passed, 0 failed, 0 skipped |
@@ -176,5 +188,5 @@ None. Nothing here migrates, deletes a GitHub object, merges to `main`, force-pu
 
 ## 7. Risks and rollback
 
-- If a session dies between read 1 and the removal, the worktree is left behind. `git worktree list` shows it, and `git worktree remove --force <path>` clears it. AC1.1's check is what catches it.
+- If a session dies between creating a worktree (read 1, or check I6) and removing it, the worktree is left behind. `git worktree list` shows it, and `git worktree remove --force <path>` clears it. AC1.1's check is what catches it.
 - Each step is one commit and is reverted with `git revert`.
