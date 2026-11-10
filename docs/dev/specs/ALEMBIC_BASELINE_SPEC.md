@@ -44,6 +44,7 @@
 | 20261110 | Anvil | Departure at Step 2: DR2's `target_metadata = workmain.database.connection.Base.metadata` holds no tables. `workmain/database/models.py:35` declares its own `Base = declarative_base()`; with the models imported, `models.Base.metadata` has 13 tables, `connection.Base.metadata` 0, and `models.Base is connection.Base` is `False`. DR2 asserted the claim without a §2 row | DR2 amended to `workmain.database.models.Base.metadata`, with a §2 row. That is the only valid option. Moving the models onto `connection.Base` takes the base away from `workmain/database/models.py`, which `docs/ARCHITECTURE.md` section 2 Data makes the owner of every ORM model, and changes two modules' contracts. Leaving `target_metadata` as `None` drops what DR2 is for, #66's `alembic check`. The unused `connection.Base` (`workmain/database/connection.py:24`, imported nowhere) is an existing defect, proposed to join #108, which removes dead code from that module. Awaiting Ray's re-approval |
 | 20261110 | Caliper | Caliper criterion 1, spec defect, non-blocking: no criterion checks DR2's `target_metadata`; the empty `connection.Base.metadata` would have passed every check in §5, and #66 needs the value to hold the models' 13 tables | Accepted. AC2.5 runs `alembic check` against AC2.1's database: with no models in the metadata it proposes removing every table |
 | 20261110 | Caliper | Caliper, pass at 8ac4289, changes since 5c20487: 12 items checked, 0 blocking, 1 non-blocking | n/a |
+| 20261110 | Caliper (post-implementation) | No findings. | n/a |
 
 ---
 
