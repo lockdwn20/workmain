@@ -39,8 +39,8 @@ The work is complete apart from the three checks that name Ray (§3). One depart
 | AC3.3 | Met | `grep -rn notes_tags_valid_vocabulary workmain/database/migrations` printed nothing (exit 1) |
 | AC4.1 | Met | `ls workmain/database/migrations/`: `env.py`, `script.py.mako`, `versions` (and the git-ignored `__pycache__`); none of `001`–`026` |
 | AC4.2 | Met | `git ls-files workmain/database/migrations/__init__.py` printed nothing |
-| AC5.1 | **Not met** | Awaiting Ray |
-| AC5.2 | **Not met** | Awaiting Ray. Mechanical half: `python3 automation/architecture_check.py` printed `PASS`, `New findings: 0` |
+| AC5.1 | Met | 20261110, Ray: reviewed `docs/standards/4-database.md` and found no issues. |
+| AC5.2 | Met | 20261110, Ray: reviewed `docs/ARCHITECTURE.md` and `docs/standards/7-file-placement.md` and found no issues and Mechanical half: `python3 automation/architecture_check.py` printed `PASS`, `New findings: 0` |
 | AC5.3 | Met | `alembic revision -m "style probe" --rev-id 9999` generated `versions/9999_style_probe.py`; `ruff check` on it: `All checks passed!`; the file was deleted |
 | AC6.1 | Met | Bare `pytest` after the live change: 1630 passed, 0 failed, 0 skipped; again after the stamp, the same |
 | AC6.2 | Met | The node passes (`1 passed`); the `grep` prints `35:        with pytest.raises(IntegrityError, match="note_id"):`, inside `test_time_entry_create_requires_note_id` (lines 30–36) |
