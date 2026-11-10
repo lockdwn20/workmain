@@ -38,6 +38,9 @@
 | 20261110 | Caliper | Caliper, pass at d50d351, full: 43 items checked, 0 blocking, 11 non-blocking | n/a |
 | 20261110 | Ray | The three Spanner decisions open for approval: `TimeEntriesRepository.create`'s `entry_time` default removed; four-digit sequential revision IDs; a table's model changes in the same commit as its revision | Accepted, all three |
 | 20261110 | Ray | The two existing defects Caliper proposed as issues: `tests/test_notifications_commands.py:8` and `CLAUDE.md` § Tech Stack's PostgreSQL version | Not fixed here. Ray decides before close-out whether each becomes its own issue or joins another |
+| 20261110 | Caliper | Caliper criterion 3, spec defect, non-blocking: AC5.3's fixed path `versions/9999_style_probe.py` and the four-digit IDs' sort order both rely on Alembic's default `file_template`, which DR2 does not state; an ini with another template breaks both | Accepted. DR2 states `file_template = %%(rev)s_%%(slug)s` |
+| 20261110 | Caliper | Caliper criterion 3, spec defect, non-blocking: once DR6 removes `create`'s default, `_make_te`'s docstring in `tests/test_time_tracking.py` (lines 22–25), "Minimum required kwarg: duration_hours, entry_date", is false, and the spec does not say whether Step 1 corrects it | Accepted. DR6 names it: Step 1 adds `entry_time` to that line |
+| 20261110 | Caliper | Caliper, pass at 5c20487, changes since d50d351: 21 items checked, 0 blocking, 2 non-blocking | n/a |
 
 ---
 
@@ -86,7 +89,7 @@
 ## 3. Design rules
 
 - **DR1 — Alembic is the only path for a schema change from Step 4 on.** After live is stamped, nothing in this branch changes live's schema except through a revision. Step 2's statements are the direction's one exception, run before the baseline exists.
-- **DR2 — One configuration.** `alembic.ini` at the repository root sets `script_location = %(here)s/workmain/database/migrations` and holds no database URL. `env.py` sets the URL from `workmain.database.connection.DATABASE_URL`, and `target_metadata` to `workmain.database.connection.Base.metadata` with `workmain.database.models` imported. A bare `alembic <command>` from the repository root reaches the database `DATABASE_URL` names: each `DB_*` variable already set in the environment wins over `.env`, because `load_dotenv()` does not override it.
+- **DR2 — One configuration.** `alembic.ini` at the repository root sets `script_location = %(here)s/workmain/database/migrations` and `file_template = %%(rev)s_%%(slug)s`, and holds no database URL. `env.py` sets the URL from `workmain.database.connection.DATABASE_URL`, and `target_metadata` to `workmain.database.connection.Base.metadata` with `workmain.database.models` imported. A bare `alembic <command>` from the repository root reaches the database `DATABASE_URL` names: each `DB_*` variable already set in the environment wins over `.env`, because `load_dotenv()` does not override it.
 - **DR3 — The baseline names no role.** `0001_baseline.sql` holds no `OWNER TO`, `GRANT` or `REVOKE`, and does not contain `workmain_user`. Whatever role runs `alembic upgrade` owns what it creates.
 - **DR4 — The baseline revision.** `versions/0001_baseline.py` has `revision = "0001"` and `down_revision = None`. `upgrade()` reads `0001_baseline.sql` from its own directory and executes its whole text through the migration connection without SQLAlchemy bind-parameter processing (`exec_driver_sql`). `downgrade()` raises `NotImplementedError`, whose message says that undoing the baseline drops every table.
 - **DR5 — The baseline's SQL** is live's `pg_dump --schema-only --no-owner --no-privileges` taken after Step 2, with exactly these changes:
@@ -96,7 +99,7 @@
     - `schedule_exceptions_type_check` → `CHECK (type IN ('holiday', 'timeoff'))`
     - `task_status_status_check` → `CHECK (status IN ('active', 'completed', 'dismissed'))`
   - Nothing else is edited. `pg_dump`'s `--` comment lines stay.
-- **DR6 — `entry_time` is required.** `TimeEntry.entry_time` is `Column(Time, nullable=False)`. `TimeEntriesRepository.create`'s `entry_time` keeps its position and type, `time`, with no default, and its docstring no longer calls it optional. `TimeEntriesRepository.update`'s `None`-means-keep is unchanged.
+- **DR6 — `entry_time` is required.** `TimeEntry.entry_time` is `Column(Time, nullable=False)`. `TimeEntriesRepository.create`'s `entry_time` keeps its position and type, `time`, with no default, and its docstring no longer calls it optional. `tests/test_time_tracking.py`'s `_make_te` docstring names `entry_time` among its minimum required kwargs. `TimeEntriesRepository.update`'s `None`-means-keep is unchanged.
 - **DR7 — Every test call that inserts or tries to insert a time entry supplies `entry_time`**: each site §2's search lists, whether or not the call reaches an insert. A test that asserts an insert fails fails for the reason it names: `test_time_entry_create_requires_note_id` supplies `entry_time` and asserts `pytest.raises(IntegrityError, match="note_id")`.
 - **DR8 — Generated files meet the style check.** `script.py.mako` produces revisions that pass `automation/style_check.py`: a module docstring, and docstrings and return types on `upgrade()` and `downgrade()`. `env.py` and `0001_baseline.py` pass it.
 - **DR9 — No real client name and no history citation in a new file.** No file this branch adds contains the value of `WORKMAIN_DEFAULT_CLIENT` (`CLAUDE.md` § Client Reference) or a `docs/standards/3-code.md` §3.1 history citation.
