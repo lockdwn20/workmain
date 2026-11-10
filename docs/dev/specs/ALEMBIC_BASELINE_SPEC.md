@@ -36,6 +36,8 @@
 | 20261110 | Caliper | Caliper, existing defect, non-blocking: `tests/test_notifications_commands.py:8` says `notification_config` was dropped in migration 010; no migration drops it. Proposed issue: correct the docstring; criterion: no test docstring says `notification_config` was dropped by a migration | Proposed issue for Ray. No open issue covers it (`gh issue list --state open --search notification_config`, and `test_notifications_commands`) |
 | 20261110 | Caliper | Caliper, existing defect, non-blocking: `CLAUDE.md` § Tech Stack says PostgreSQL 16.11; live runs 16.15. AC2.1's empty `diff` also needs the scratch cluster on live's version, since `pg_dump` writes the server version into its header. Proposed issue: correct the version or state it from its live source | AC2.1 now requires the scratch server's version to equal live's. The `CLAUDE.md` line is a proposed issue for Ray; no open issue covers it (searched `16.11`, `PostgreSQL version`, `Tech Stack`) |
 | 20261110 | Caliper | Caliper, pass at d50d351, full: 43 items checked, 0 blocking, 11 non-blocking | n/a |
+| 20261110 | Ray | The three Spanner decisions open for approval: `TimeEntriesRepository.create`'s `entry_time` default removed; four-digit sequential revision IDs; a table's model changes in the same commit as its revision | Accepted, all three |
+| 20261110 | Ray | The two existing defects Caliper proposed as issues: `tests/test_notifications_commands.py:8` and `CLAUDE.md` § Tech Stack's PostgreSQL version | Fixed on this branch before close-out, not as issues. Step 3, AC7.1, AC7.2. `CLAUDE.md` states the major version only, since a minor version written as current goes stale (`docs/standards/1-workflow.md` §1.5) and the dump comparison's same-version requirement lives in AC2.1 |
 
 ---
 
@@ -49,6 +51,7 @@
 - `workmain/database/migrations/001_*.sql`–`026_*.sql` and `workmain/database/migrations/__init__.py` deleted.
 - Live stamped at `0001`.
 - `docs/ARCHITECTURE.md` section 2 Data and section 3 Packages, `docs/standards/4-database.md` §4.5, `docs/standards/7-file-placement.md` §7, and the stale comment in `scripts/database/reset_database_fixed.sql`.
+- The false docstring sentence in `tests/test_notifications_commands.py`, and the PostgreSQL version in `CLAUDE.md` § Tech Stack.
 
 **Out of scope:**
 
@@ -58,7 +61,7 @@
 - The unused `uuid-ossp` extension: the baseline is live, and dropping it is a later revision if anyone wants it.
 - `TimeEntry`'s display helpers that handle a `None` `entry_time` (`models.py` lines 308, 318), the `Optional` on `workmain/services/clockify_service.py`'s `ConflictRow.entry_time` (line 331), a display record, and `tests/test_prompt_builder_data_sources.py:44`, which sets `None` on an unsaved object. None of them writes a row.
 - `scripts/database/reset_database_fixed.sql`'s statements. Only its comment that cites `001_initial_schema.sql` changes.
-- Prose that records which numbered migration made a change: `workmain/database/models.py:470`, `tests/test_ai_costs.py` lines 52, 57, 67, 72, 83, 101, 106 and 114, and `tests/test_notifications_commands.py:8`. Each is a historical citation (`docs/standards/1-workflow.md` §1.5), and git keeps the files.
+- Prose that records which numbered migration made a change: `workmain/database/models.py:470` and `tests/test_ai_costs.py` lines 52, 57, 67, 72, 83, 101, 106 and 114. Each is a historical citation (`docs/standards/1-workflow.md` §1.5), and git keeps the files.
 
 ## 2. Verified current state
 
@@ -106,7 +109,7 @@ A case these rules do not decide is a departure: `.claude/skills/session-start/S
 | --- | --- | --- |
 | 1 | `entry_time` required in the model and the repository; every test insert supplies it (DR6, DR7). The suite passes on live, whose column is still nullable | `workmain/database/models.py`, `workmain/database/repositories/time_entries_repo.py`, the seven test files in §2 |
 | 2 | **Authorization point A**, then the baseline: backup, the live change, the dump, and the Alembic files (DR2–DR5, DR8, DR9). `001`–`026` and `__init__.py` deleted | `alembic.ini`; `workmain/database/migrations/env.py`, `script.py.mako`, `versions/0001_baseline.py`, `versions/0001_baseline.sql`; `workmain/database/migrations/001_initial_schema.sql` through `026_ai_costs_single_record.sql` and `__init__.py` (deleted) |
-| 3 | The documents | `docs/ARCHITECTURE.md`, `docs/standards/4-database.md`, `docs/standards/7-file-placement.md`, `scripts/database/reset_database_fixed.sql` |
+| 3 | The documents, and two stale statements Ray ruled in | `docs/ARCHITECTURE.md`, `docs/standards/4-database.md`, `docs/standards/7-file-placement.md`, `scripts/database/reset_database_fixed.sql`, `tests/test_notifications_commands.py`, `CLAUDE.md` |
 | 4 | **Authorization point B**: live stamped at `0001`, then the §5 checks run and recorded | none (no commit) |
 | 5 | The results artifact | `docs/dev/results/ALEMBIC_BASELINE_RESULTS.md` |
 
@@ -171,6 +174,22 @@ with:
 
 `scripts/database/reset_database_fixed.sql`. Delete line 3, `-- Based on actual schema from 001_initial_schema.sql`.
 
+`tests/test_notifications_commands.py`, module docstring. Replace:
+
+> notify_enabled) — no notification_config table (dropped in migration 010).
+
+with:
+
+> notify_enabled) — no notification_config table.
+
+`CLAUDE.md` § Tech Stack. Replace:
+
+> - **Python 3.12** on WSL Ubuntu 24.04 · **PostgreSQL 16.11** (workmain / workmain_user)
+
+with:
+
+> - **Python 3.12** on WSL Ubuntu 24.04 · **PostgreSQL 16** (workmain / workmain_user)
+
 ### Step 4
 
 **Authorization point B.** Precondition: Ray has signed off AC2.2 (his review of `0001_baseline.sql`). State the command and wait for his approval: `alembic stamp 0001` from the repository root against live. It creates `alembic_version` on live and writes its row. Then run every §5 check, live's dump for AC2.1 taken after the stamp.
@@ -203,11 +222,14 @@ Issue #266's acceptance criteria, numbered in order, map as `ACn.m`.
 | AC5.3 | A revision written as §4.5 states meets the style rules | From the repository root, `alembic revision -m "style probe" --rev-id 9999`, then `ruff check workmain/database/migrations/versions/9999_style_probe.py` reporting no violation, then the file deleted. Creating a revision without `--autogenerate` reads no database |
 | AC6.1 | The full suite passes on live with `entry_time` NOT NULL | Bare `pytest`, after Step 2's live change, reporting 0 failed |
 | AC6.2 | The note_id test fails for `note_id` | `pytest tests/test_time_entries_refactor.py::TestNoteIdEnforcement::test_time_entry_create_requires_note_id` passes, and `grep -n 'pytest.raises(IntegrityError, match="note_id")' tests/test_time_entries_refactor.py` prints one line, inside that test |
+| AC7.1 | No test says a migration dropped `notification_config` | `grep -rn 'dropped in migration' tests` printing nothing |
+| AC7.2 | `CLAUDE.md` states PostgreSQL's major version and no minor version | `grep -n 'PostgreSQL 16\.' CLAUDE.md` printing nothing, and `grep -n '\*\*PostgreSQL 16\*\*' CLAUDE.md` printing the Tech Stack line |
 
 **Restated for close-out** to edit into the issue bodies (`docs/standards/1-workflow.md` §1.2):
 
 - #266, third criterion: `grep notes_tags_valid_vocabulary` runs over `workmain/database/migrations/`, which holds the baseline's two files (AC3.3).
 - #266, second criterion: the empty database is built by a role that is not a superuser (AC2.1).
+- #266 gains AC7.1 and AC7.2's two criteria, which Ray ruled into this issue.
 - #263: its line and criterion for `workmain/database/migrations/__init__.py` are met here and come out of its body.
 
 ## 6. Test plan
