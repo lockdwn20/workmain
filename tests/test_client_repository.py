@@ -4,7 +4,7 @@ management, and validation guards.
 All tests use the db_session fixture for full transaction isolation.
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, time
 
 import pytest
 
@@ -196,7 +196,7 @@ class TestCountLinkedRecords:
         ))
         db_session.flush()
         db_session.add(TimeEntry(
-            note_id=note.id, duration_hours=1, entry_date=day, client_id=client.id,
+            note_id=note.id, duration_hours=1, entry_date=day, entry_time=time(9, 0), client_id=client.id,
         ))
         db_session.flush()
 

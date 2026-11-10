@@ -8,10 +8,11 @@ All DB tests use the db_session fixture (transaction rolled back after each test
 Sentinel date 2099-06-01 prevents overlap with production data.
 """
 
-from datetime import date
+from datetime import date, time
 from decimal import Decimal
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from workmain.database.models import Client, Project, TimeEntry
 from workmain.database.repositories.notes_repo import NotesRepository
@@ -29,9 +30,9 @@ class TestNoteIdEnforcement:
 
     def test_time_entry_create_requires_note_id(self, db_session):
         """DB rejects a TimeEntry row with note_id=NULL at flush time."""
-        te = TimeEntry(note_id=None, duration_hours=Decimal("1.0"), entry_date=_SENTINEL)
+        te = TimeEntry(note_id=None, duration_hours=Decimal("1.0"), entry_date=_SENTINEL, entry_time=time(9, 0))
         db_session.add(te)
-        with pytest.raises(Exception):
+        with pytest.raises(IntegrityError, match="note_id"):
             db_session.flush()
 
     def test_time_entry_create_with_note_id(self, db_session):
@@ -44,7 +45,7 @@ class TestNoteIdEnforcement:
         te = TimeEntriesRepository(db_session).create(
             note_id=note.id,
             duration_hours=1.5,
-            entry_date=_SENTINEL,
+            entry_date=_SENTINEL, entry_time=time(9, 0),
         )
         assert te.id is not None
         assert te.note_id == note.id
@@ -64,7 +65,7 @@ class TestGetByNoteId:
             content="Linked entry note", tags=["internal-only"], source="task"
         )
         te = TimeEntriesRepository(db_session).create(
-            note_id=note.id, duration_hours=1.0, entry_date=_SENTINEL
+            note_id=note.id, duration_hours=1.0, entry_date=_SENTINEL, entry_time=time(9, 0)
         )
         results = TimeEntriesRepository(db_session).get_by_note_id(note.id)
         assert len(results) == 1
@@ -92,7 +93,7 @@ class TestNotesDeleteGuard:
             content="Note to guard", tags=["internal-only"], source="task"
         )
         te = TimeEntriesRepository(db_session).create(
-            note_id=note.id, duration_hours=2.0, entry_date=_SENTINEL
+            note_id=note.id, duration_hours=2.0, entry_date=_SENTINEL, entry_time=time(9, 0)
         )
         linked = TimeEntriesRepository(db_session).get_by_note_id(note.id)
         # Guard fires: linked entries exist, deletion should be aborted at application layer
@@ -143,7 +144,7 @@ class TestClientProjectConsistencyGuard:
             TimeEntriesRepository(db_session).create(
                 note_id=note.id,
                 duration_hours=1.0,
-                entry_date=_SENTINEL,
+                entry_date=_SENTINEL, entry_time=time(9, 0),
                 client_id=client1.id,
                 project_id=project.id,
             )

@@ -7,7 +7,7 @@ TimeEntriesRepository.find_by_description_like(), and both the ID-path and
 name-path resolution logic.
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, time
 
 import pytest
 
@@ -122,7 +122,7 @@ class TestTimeEntriesFindByDescriptionLike:
         return TimeEntriesRepository(db_session).create(
             note_id=note.id,
             duration_hours=1.0,
-            entry_date=date(2099, 1, day),
+            entry_date=date(2099, 1, day), entry_time=time(9, 0),
         )
 
     def test_substring_match(self, db_session):

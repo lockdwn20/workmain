@@ -19,10 +19,11 @@ from workmain.database.repositories.time_entries_repo import TimeEntriesReposito
 
 
 def _make_te(db_session, content: str, **kwargs):
-    """Create a stub Note + TimeEntry pair for testing.
+    """
+    Create a stub Note + TimeEntry pair for testing.
 
     All kwargs are forwarded to TimeEntriesRepository.create() (note_id is
-    injected automatically).  Minimum required kwarg: duration_hours, entry_date.
+    injected automatically).  Minimum required kwarg: duration_hours, entry_date, entry_time.
     """
     note = NotesRepository(db_session).create(
         content=content,
@@ -124,7 +125,7 @@ class TestTimeEntryCRUD:
         repo = TimeEntriesRepository(db_session)
         entry = _make_te(db_session, "Before update",
             duration_hours=1.0,
-            entry_date=_TEST_DATE,
+            entry_date=_TEST_DATE, entry_time=time(9, 0),
         )
         notes_repo.update(note_id=entry.note_id, content="After update")
         repo.update(entry.id, duration_hours=3.0)
@@ -136,14 +137,14 @@ class TestTimeEntryCRUD:
         repo = TimeEntriesRepository(db_session)
         entry = _make_te(db_session, "To be deleted",
             duration_hours=1.0,
-            entry_date=_TEST_DATE,
+            entry_date=_TEST_DATE, entry_time=time(9, 0),
         )
         assert repo.delete(entry.id) is True
         assert repo.get_by_id(entry.id) is None
 
     def test_total_hours_by_date(self, db_session):
-        _make_te(db_session, "Entry A", duration_hours=2.0, entry_date=_TEST_DATE)
-        _make_te(db_session, "Entry B", duration_hours=3.0, entry_date=_TEST_DATE)
+        _make_te(db_session, "Entry A", duration_hours=2.0, entry_date=_TEST_DATE, entry_time=time(9, 0))
+        _make_te(db_session, "Entry B", duration_hours=3.0, entry_date=_TEST_DATE, entry_time=time(9, 0))
         total = TimeEntriesRepository(db_session).get_total_hours_by_date(_TEST_DATE)
         assert float(total) == 5.0
 
@@ -157,13 +158,13 @@ class TestTimeAggregations:
 
     def test_category_breakdown(self, db_session):
         _make_te(db_session, "Development work", duration_hours=3.0,
-                 entry_date=_TEST_DATE, category="development")
+                 entry_date=_TEST_DATE, entry_time=time(9, 0), category="development")
         _make_te(db_session, "Team meeting",     duration_hours=1.5,
-                 entry_date=_TEST_DATE, category="meeting")
+                 entry_date=_TEST_DATE, entry_time=time(9, 0), category="meeting")
         _make_te(db_session, "Code review",      duration_hours=1.0,
-                 entry_date=_TEST_DATE, category="review")
+                 entry_date=_TEST_DATE, entry_time=time(9, 0), category="review")
         _make_te(db_session, "More development", duration_hours=2.0,
-                 entry_date=_TEST_DATE, category="development")
+                 entry_date=_TEST_DATE, entry_time=time(9, 0), category="development")
 
         repo = TimeEntriesRepository(db_session)
         results = repo.get_category_breakdown_by_date(_TEST_DATE)
@@ -187,7 +188,7 @@ class TestWeekRetrieval:
         for i in range(5):
             entry = _make_te(db_session, f"Work day {i + 1}",
                 duration_hours=8.0,
-                entry_date=monday + timedelta(days=i),
+                entry_date=monday + timedelta(days=i), entry_time=time(9, 0),
                 category="development",
             )
             created_ids.append(entry.id)
@@ -202,7 +203,7 @@ class TestWeekRetrieval:
         for i in range(5):
             _make_te(db_session, f"Day {i + 1}",
                 duration_hours=8.0,
-                entry_date=monday + timedelta(days=i),
+                entry_date=monday + timedelta(days=i), entry_time=time(9, 0),
                 category="development",
             )
 
@@ -231,7 +232,7 @@ class TestDisplayProperties:
     def test_is_synced_before_sync(self, db_session):
         entry = _make_te(db_session, "Sync test",
             duration_hours=1.0,
-            entry_date=_TEST_DATE,
+            entry_date=_TEST_DATE, entry_time=time(9, 0),
         )
         assert entry.is_synced() is False
 
@@ -239,7 +240,7 @@ class TestDisplayProperties:
         repo = TimeEntriesRepository(db_session)
         entry = _make_te(db_session, "Sync test",
             duration_hours=1.0,
-            entry_date=_TEST_DATE,
+            entry_date=_TEST_DATE, entry_time=time(9, 0),
         )
         synced = repo.mark_as_synced(entry.id, "clockify-test-123")
         assert synced.is_synced() is True

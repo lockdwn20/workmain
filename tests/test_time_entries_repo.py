@@ -34,7 +34,7 @@ class TestTimeEntriesRepoCreate:
         entry = repo.create(
             note_id=note.id,
             duration_hours=1.5,
-            entry_date=date(2099, 4, 27),
+            entry_date=date(2099, 4, 27), entry_time=time(9, 0),
             created_at=override_dt,
         )
 
@@ -52,7 +52,7 @@ class TestTimeEntriesRepoGetMostRecentSince:
         repo.create(
             note_id=note.id,
             duration_hours=1.0,
-            entry_date=date(2099, 1, 1),
+            entry_date=date(2099, 1, 1), entry_time=time(9, 0),
             created_at=datetime(2099, 1, 1, 12, 0, 0),
         )
 
@@ -68,7 +68,7 @@ class TestTimeEntriesRepoGetMostRecentSince:
         repo.create(
             note_id=note.id,
             duration_hours=1.0,
-            entry_date=date(2099, 1, 1),
+            entry_date=date(2099, 1, 1), entry_time=time(9, 0),
             created_at=datetime(2099, 1, 1, 12, 0, 0),
         )
 
@@ -83,7 +83,7 @@ class TestTimeEntriesRepoGetMostRecentSince:
         repo.create(
             note_id=note.id,
             duration_hours=1.0,
-            entry_date=date(2099, 1, 1),
+            entry_date=date(2099, 1, 1), entry_time=time(9, 0),
             created_at=datetime(2099, 1, 1, 10, 59, 59),
         )
 
@@ -98,13 +98,13 @@ class TestTimeEntriesRepoGetMostRecentSince:
         earlier = repo.create(
             note_id=note.id,
             duration_hours=1.0,
-            entry_date=date(2099, 1, 1),
+            entry_date=date(2099, 1, 1), entry_time=time(9, 0),
             created_at=datetime(2099, 1, 1, 11, 30, 0),
         )
         later = repo.create(
             note_id=note.id,
             duration_hours=1.0,
-            entry_date=date(2099, 1, 1),
+            entry_date=date(2099, 1, 1), entry_time=time(9, 0),
             created_at=datetime(2099, 1, 1, 11, 45, 0),
         )
 
@@ -152,7 +152,7 @@ class TestTimeEntriesRepoLoading:
             repo.create(
                 note_id=note.id,
                 duration_hours=1.0,
-                entry_date=day,
+                entry_date=day, entry_time=time(9, 0),
                 project_id=project.id,
                 meeting_id=meeting_id,
             )
@@ -256,7 +256,7 @@ class TestTimeEntriesRepoSyncState:
         entry = TimeEntriesRepository(db_session).create(
             note_id=note.id,
             duration_hours=1.0,
-            entry_date=date(2099, 6, 11),
+            entry_date=date(2099, 6, 11), entry_time=time(9, 0),
         )
         entry.clockify_id = clockify_id
         entry.synced_at = synced_at
@@ -319,7 +319,7 @@ class TestTimeEntriesRepoUpdate:
         note = _make_note(db_session)
         repo = TimeEntriesRepository(db_session)
         entry = repo.create(
-            note_id=note.id, duration_hours=1.0, entry_date=date(2099, 3, 2),
+            note_id=note.id, duration_hours=1.0, entry_date=date(2099, 3, 2), entry_time=time(9, 0),
         )
 
         result = repo.update(entry.id, duration_hours=2.0)
