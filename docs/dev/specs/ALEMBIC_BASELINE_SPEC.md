@@ -1,6 +1,6 @@
 # Alembic With a Baseline Taken From Live — Spec
 
-**Status:** Approved
+**Status:** Draft
 **Author:** Spanner (Role 1)
 **Date:** 20261110
 **Branch:** `feature/issue-266-alembic-baseline` (from `dev`)
@@ -41,6 +41,7 @@
 | 20261110 | Caliper | Caliper criterion 3, spec defect, non-blocking: AC5.3's fixed path `versions/9999_style_probe.py` and the four-digit IDs' sort order both rely on Alembic's default `file_template`, which DR2 does not state; an ini with another template breaks both | Accepted. DR2 states `file_template = %%(rev)s_%%(slug)s` |
 | 20261110 | Caliper | Caliper criterion 3, spec defect, non-blocking: once DR6 removes `create`'s default, `_make_te`'s docstring in `tests/test_time_tracking.py` (lines 22–25), "Minimum required kwarg: duration_hours, entry_date", is false, and the spec does not say whether Step 1 corrects it | Accepted. DR6 names it: Step 1 adds `entry_time` to that line |
 | 20261110 | Caliper | Caliper, pass at 5c20487, changes since d50d351: 21 items checked, 0 blocking, 2 non-blocking | n/a |
+| 20261110 | Anvil | Departure at Step 2: DR2's `target_metadata = workmain.database.connection.Base.metadata` holds no tables. `workmain/database/models.py:35` declares its own `Base = declarative_base()`; with the models imported, `models.Base.metadata` has 13 tables, `connection.Base.metadata` 0, and `models.Base is connection.Base` is `False`. DR2 asserted the claim without a §2 row | DR2 amended to `workmain.database.models.Base.metadata`, with a §2 row. That is the only valid option. Moving the models onto `connection.Base` takes the base away from `workmain/database/models.py`, which `docs/ARCHITECTURE.md` section 2 Data makes the owner of every ORM model, and changes two modules' contracts. Leaving `target_metadata` as `None` drops what DR2 is for, #66's `alembic check`. The unused `connection.Base` (`workmain/database/connection.py:24`, imported nowhere) is an existing defect, proposed to join #108, which removes dead code from that module. Awaiting Ray's re-approval |
 
 ---
 
@@ -78,6 +79,7 @@
 | `tests/test_time_entries_refactor.py::TestNoteIdEnforcement::test_time_entry_create_requires_note_id` constructs a `TimeEntry` with `note_id=None` and no `entry_time`, and asserts `pytest.raises(Exception)` at flush | `tests/test_time_entries_refactor.py:29–34`. With `entry_time` NOT NULL the flush also fails for `entry_time`, so the test would pass whatever `note_id` does |
 | `alembic==1.13.1` is pinned and installed; nothing imports it | `requirements.txt`; `pip show alembic`; `grep -rn alembic workmain tests` no hits |
 | Alembic finds `alembic.ini` in the working directory by default, and `%(here)s` in the ini is the ini's directory | `alembic/config.py:531`, `:201` |
+| The models' declarative base | `workmain/database/models.py:35` `Base = declarative_base()`, which every model subclasses: 13 tables in its metadata. `workmain/database/connection.py:24` declares a second `Base` that holds no tables and that nothing under `workmain/`, `tests/`, `automation/` or `scripts/` imports (`grep -rn -E -e 'connection import .*\bBase\b' -e 'connection\.Base' workmain tests automation scripts` no hits) |
 | The connection URL's one home | `workmain/database/connection.py` `DATABASE_URL`, built from `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` after `load_dotenv()`, which does not override variables already set |
 | What a live schema dump holds besides the schema | `pg_dump --schema-only` of live 20261110: `\restrict`/`\unrestrict` (2 lines), `SET` and `SELECT pg_catalog.set_config` (12), `ALTER ... OWNER TO workmain_user` (27), `GRANT ALL ON SCHEMA public TO workmain_user` (1), and 138 comment lines ending `Owner: workmain_user`. `--no-owner --no-privileges` writes none of the `OWNER TO` or `GRANT` statements and prints `Owner: -` in the comments. No `%` character, and no `:name` sequence outside `::` casts |
 | The cleaned dump builds as a non-superuser that owns an empty database; with three CHECKs in `IN` form the rebuild is identical to live | `../design/DESIGN_ALEMBIC_BASELINE.md` F16 |
@@ -89,7 +91,7 @@
 ## 3. Design rules
 
 - **DR1 — Alembic is the only path for a schema change from Step 4 on.** After live is stamped, nothing in this branch changes live's schema except through a revision. Step 2's statements are the direction's one exception, run before the baseline exists.
-- **DR2 — One configuration.** `alembic.ini` at the repository root sets `script_location = %(here)s/workmain/database/migrations` and `file_template = %%(rev)s_%%(slug)s`, and holds no database URL. `env.py` sets the URL from `workmain.database.connection.DATABASE_URL`, and `target_metadata` to `workmain.database.connection.Base.metadata` with `workmain.database.models` imported. A bare `alembic <command>` from the repository root reaches the database `DATABASE_URL` names: each `DB_*` variable already set in the environment wins over `.env`, because `load_dotenv()` does not override it.
+- **DR2 — One configuration.** `alembic.ini` at the repository root sets `script_location = %(here)s/workmain/database/migrations` and `file_template = %%(rev)s_%%(slug)s`, and holds no database URL. `env.py` sets the URL from `workmain.database.connection.DATABASE_URL`, and `target_metadata` to `workmain.database.models.Base.metadata`. A bare `alembic <command>` from the repository root reaches the database `DATABASE_URL` names: each `DB_*` variable already set in the environment wins over `.env`, because `load_dotenv()` does not override it.
 - **DR3 — The baseline names no role.** `0001_baseline.sql` holds no `OWNER TO`, `GRANT` or `REVOKE`, and does not contain `workmain_user`. Whatever role runs `alembic upgrade` owns what it creates.
 - **DR4 — The baseline revision.** `versions/0001_baseline.py` has `revision = "0001"` and `down_revision = None`. `upgrade()` reads `0001_baseline.sql` from its own directory and executes its whole text through the migration connection without SQLAlchemy bind-parameter processing (`exec_driver_sql`). `downgrade()` raises `NotImplementedError`, whose message says that undoing the baseline drops every table.
 - **DR5 — The baseline's SQL** is live's `pg_dump --schema-only --no-owner --no-privileges` taken after Step 2, with exactly these changes:
