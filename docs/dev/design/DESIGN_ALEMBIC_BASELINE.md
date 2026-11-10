@@ -163,5 +163,5 @@ A `workmain` command that runs Alembic in-process would remove the ini entirely.
 
 ## 6. Disposition
 
-- Promoted to:
+- Promoted to: `../specs/ALEMBIC_BASELINE_SPEC.md`
 - Superseded by:
