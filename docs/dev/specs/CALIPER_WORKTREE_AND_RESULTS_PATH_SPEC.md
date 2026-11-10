@@ -21,6 +21,7 @@
 | 20261110 | Ray | Non-blocking: § Post-implementation review check I6 runs `automation/architecture_check.py` and `automation/style_check.py` "on `<branch>`", but both read the working tree, so uncommitted work can produce findings that aren't on the branch. Verified: both set `ROOT = Path(__file__).resolve().parent.parent`, and `style_check.py`'s module docstring says "Uncommitted and untracked files count as changed". | Accepted. I6 runs its commands in a temporary detached worktree of `<branch>`, created and removed as read 1's is (step 1). § 1 Out of scope is corrected. |
 | 20261110 | Spanner | Boundary check on that change: in a detached worktree, `style_check.py` `main` gets `HEAD` from `git rev-parse --abbrev-ref HEAD`, and `base_branch` then returns `main`, which is wrong for a `feature/*` branch. I6 therefore passes `--base <parent>`, with `<parent>` as read 4 names it. `architecture_check.py` reads no branch or base: its only argument is `--check-issues`. | n/a |
 | 20261110 | Ray | No exceptions in `.claude/skills/session-start/SKILL.md`. The § `/session-start` sentences that make the run read-only are replaced with: "The session-open run assembles the state a role needs before it acts, from the sources that role's reference names, in the order named. It creates no branch or commit and edits no tracked file. Anything else it does is stated in that role's reference." This replaces the Caliper exception, and it also covers `.claude/skills/session-start/references/spanner.md` § Emits' label edit (`gh issue edit <N> --add-label`), which the old sentence "makes no GitHub change" contradicted. | Step 1 carries it. |
+| 20261110 | Ray | Only `/closeout` reads `docs/archive/`, because it moves the set there and has to find it again on re-entry. `caliper.md` post-implementation read 2 and `docs/standards/1-workflow.md` §1.1's Implementation row name only `docs/dev/results/`. `spanner.md` read 4 searches only `docs/dev/`: its `docs/archive/design/` and `docs/archive/specs/` globs are dropped, and its results wording names `docs/dev/results/`. Closeout P4, P5 and the `closeout_acs` docstrings keep both roots. | DR4 and step 2 carry it. |
 | 20261110 | Spanner | The frontmatter `description` of `.claude/skills/session-start/SKILL.md` ends "Read-only.", another statement of the rule Ray replaced. Under `docs/standards/1-workflow.md` §1.2 a revision changes every statement of what it changes, so step 1 deletes those two words. | n/a |
 
 ---
@@ -31,7 +32,7 @@
 
 - `.claude/skills/session-start/references/caliper.md`: read 1, the pass-row sentence and the `Not reviewed:` paragraph of § Emits, post-implementation read 2, and post-implementation check I6.
 - `.claude/skills/session-start/SKILL.md`: the § `/session-start` paragraph stating what the run does, and the frontmatter `description`'s "Read-only.".
-- `.claude/skills/session-start/references/spanner.md`: read 4's results directory.
+- `.claude/skills/session-start/references/spanner.md`: read 4's search paths and its results directory.
 - `docs/standards/1-workflow.md` §1.1: the Implementation row of "What shows each stage done".
 - `.claude/skills/closeout/SKILL.md`: P5's wording.
 - `automation/closeout_acs.py` `derive_results_path` and `automation/closeout_acs_test.py` `test_ac2_3_results_root_follows_the_spec_root`: docstrings only.
@@ -49,7 +50,7 @@ Census of where results live, by `grep -rn 'beside' CLAUDE.md docs/standards .cl
 - **DR1 — A spec review reads one commit, and it is `HEAD`.** Read 1 creates the worktree from `HEAD`. Every later read and command uses it. The pass row's `<commit>` is that worktree's `HEAD`.
 - **DR2 — The worktree is created at a fresh path from `mktemp -d`.** Two Caliper sessions can run at the same time, so a fixed sibling path like `../workmain-caliper` could collide. `git worktree add` accepts an existing empty directory.
 - **DR3 — The worktree is removed with `--force` before § Emits.** Caliper writes nothing, so whatever is in the worktree came from running a read's command (for example `__pycache__/` from `automation/architecture_check.py`). Nothing in it is worth keeping, so `--force` makes sure the removal succeeds. The emitted text comes from the reads, so the worktree isn't needed after read 7.
-- **DR4 — The results directory is named one way everywhere:** "the `results/` directory of the spec's own root (`docs/dev/` or `docs/archive/`)". Closeout's P4 already searches those two roots, and `docs/standards/1-workflow.md` §1.5 makes `docs/archive/<type>/` mirror `docs/dev/<type>/`.
+- **DR4 — Only `/closeout` reads `docs/archive/`.** It moves the artifact set there, and on re-entry it has to find the set again, so closeout P4, P5 and the `automation/closeout_acs.py` docstrings keep both roots. Every other statement names `docs/dev/results/`: `docs/standards/1-workflow.md` §1.1's Implementation row, `caliper.md` post-implementation read 2, and `spanner.md` read 4, which also searches only `docs/dev/` for design studies and specs.
 - **DR5 — The post-implementation review's commands run on `<branch>`, not on the working tree.** Check I6 runs in a temporary detached worktree of `<branch>`, created as DR2 states and removed as DR3 states. `style_check.py` is given its base explicitly, because in a detached worktree it can't read the branch name.
 
 ## 4. Steps
@@ -118,7 +119,7 @@ with:
 
 with:
 
-> A results artifact in the `results/` directory of the spec's own root (`docs/dev/` or `docs/archive/`) names it in its `**Spec:**` field.
+> A results artifact in `docs/dev/results/` names it in its `**Spec:**` field.
 
 `.claude/skills/session-start/references/caliper.md` § Post-implementation review, read 2. Replace:
 
@@ -126,15 +127,23 @@ with:
 
 with:
 
-> where `<results dir>` is the `results/` directory of the spec's own root (`docs/dev/` or `docs/archive/`).
+> where `<results dir>` is `docs/dev/results/`.
 
 `.claude/skills/session-start/references/spanner.md` read 4. Replace:
+
+> docs/dev/design/*.md docs/dev/specs/*.md docs/archive/design/*.md docs/archive/specs/*.md`
+
+with:
+
+> docs/dev/design/*.md docs/dev/specs/*.md`
+
+and replace:
 
 > over the `results/` directory beside it,
 
 with:
 
-> over the `results/` directory of its own root (`docs/dev/` or `docs/archive/`),
+> over `docs/dev/results/`,
 
 `.claude/skills/closeout/SKILL.md` P5. Replace:
 
