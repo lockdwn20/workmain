@@ -1,6 +1,6 @@
 # Test Database Built by Alembic — Spec
 
-**Status:** Approved
+**Status:** Draft
 **Author:** Spanner (Role 1)
 **Date:** 20261110
 **Branch:** `feature/issue-257-test-database` (from `dev`)
@@ -36,6 +36,7 @@
 | 20261110 | Caliper | 2, Spec defect, non-blocking: the §2 row says "Everything the build creates belongs to `workmain_user`, so `DROP OWNED BY CURRENT_USER` empties the schema". On live, `uuid-ossp` and `pg_trgm` have `extowner` `workmain_user`, but their member functions have `proowner` `postgres` (`pg_depend` `deptype='e'`). That is PostgreSQL's rule for trusted extensions. The conclusion still holds: dropping the extension drops its members, and the row's scratch-cluster measurement shows the dump is identical. The stated reason is wrong, though. | Accepted. §2's row states the owners as measured on live and why the conclusion holds. |
 | 20261110 | Caliper | Pass at dde5e75, changes since 51f5bd7: 36 items checked, 0 blocking, 4 non-blocking. | n/a |
 | 20261110 | Caliper | Pass at 2355156, changes since dde5e75: 17 items checked, 0 blocking, 0 non-blocking. | n/a |
+| 20261110 | Anvil | Pre-implementation check. (1) AC5.2's second search also hits this spec (Decision Log, step 3) and the design study's F17, which §2's census does not list; once the rules are renumbered their old numbers name other rules, and the spec does not say whether they are repointed. (2) §2's "No `workmain_test` exists" no longer holds: Ray created it, meeting step 2's precondition. (3) Step 3's locator "**Every test runs inside one database transaction**" is not the bullet's bold text verbatim. | (1) Spec defect, fixed: those hits record the numbers before this change and stay as written (`docs/standards/1-workflow.md` §1.5); §2 and AC5.2 say so. (2) No change: §2 states the claim as verified at `24d1330`, where it held. (3) Spec defect, fixed: step 3 quotes the bullet's bold text in full. |
 
 ---
 
@@ -77,7 +78,7 @@ Verified 20261110 on `feature/issue-257-test-database` at `24d1330`, rebased on 
 | `slack set channel` reads the active client from `system_state` `active_client_id`. `ClientRepository.set_active` writes that key and `is_active`; `clear_active` removes both. | `workmain/cli/commands/slack.py:315` `SystemStateRepository(session).get_int('active_client_id')`; `client_repository.py:149` `set_active`, `:177` `clear_active`. |
 | `tests/test_slack_channel_config.py` reads, sets and restores the real client by name, through the two helpers and the restoring fixture at lines 25–48, used by four tests, and one test writes a channel literal containing the name; `test_slack_set_channel_no_active_client` clears and restores the live active client. The name equals `WORKMAIN_DEFAULT_CLIENT` in `.env`. | `tests/test_slack_channel_config.py:25–48`, `:153–188`, `:248–270`; `grep -ci "$WORKMAIN_DEFAULT_CLIENT"` → 26. |
 | The statements in `docs/standards/6-testing.md` that assume live data. | `:30` "A test whose result depends on which rows happen to exist in the live database is wrong."; `:34` "Committed rows are visible"; `:35` "A row lock lasts the whole test"; `:59` rule 2 "Sentinel dates"; `:71` "seeds rows on sentinel dates (rule 2)"; `:72` "seeds one row on one sentinel value", "Related tables that are empty in live data are seeded in the test", "A method with no filter that a sentinel can narrow", "The second count includes the first row and any live rows, and with the loading in place it doesn't depend on them." |
-| Live citations of a §6.2 rule number, found by `grep -nE '\brules? [0-9]+' docs/standards/6-testing.md`, `grep -rnE '6\.2[^|]{0,40}\brules? [0-9]+' .claude docs/standards docs/dev CLAUDE.md automation .github`, and the second pattern over `gh issue list --state open` bodies. | `docs/standards/6-testing.md:34` (rule 2), `:63` (rules 1, 7), `:71` (rule 2); `.claude/skills/session-start/references/anvil.md:43` (rule 10); `docs/dev/results/_TEMPLATE_RESULTS.md:63` (rule 10); #256 body (rule 9); #257 body (rule 2, the issue being closed). |
+| Live citations of a §6.2 rule number, found by `grep -nE '\brules? [0-9]+' docs/standards/6-testing.md`, `grep -rnE '6\.2[^|]{0,40}\brules? [0-9]+' .claude docs/standards docs/dev CLAUDE.md automation .github`, and the second pattern over `gh issue list --state open` bodies. | `docs/standards/6-testing.md:34` (rule 2), `:63` (rules 1, 7), `:71` (rule 2); `.claude/skills/session-start/references/anvil.md:43` (rule 10); `docs/dev/results/_TEMPLATE_RESULTS.md:63` (rule 10); #256 body (rule 9); #257 body (rule 2, the issue being closed). Historical, not repointed (`docs/standards/1-workflow.md` §1.5): this spec's Decision Log, §2 and step 3, and `docs/dev/design/DESIGN_TEST_DATABASE.md` F17, which state the rule numbers before this change. |
 | The suite before this work. | `CHANGELOG.md` [1.57.0]: `1630 passed, 0 failed, 0 skipped`. |
 
 No signature, required input or invariant of anything under `workmain/` changes, so there is no call-site census.
@@ -141,7 +142,7 @@ Runs against live, as the suite does before step 2, and leaves it green there.
 
 `docs/standards/6-testing.md`, §6.1:
 
-- Before the bullet that begins "**Every test runs inside one database transaction**", insert:
+- Before the bullet that begins "**Every test runs inside one database transaction that is rolled back when it ends.**", insert:
 
   > - **The suite runs on its own database, `workmain_test`, and builds it from empty at the start of every run.** Before the first test, `tests/conftest.py` drops every object the application's user owns in it and builds the schema again with `alembic upgrade head` (§4.5), run as a child process. The rest of the connection comes from `.env`. A run against any other database is refused: `conftest.py` sets `DB_NAME` to `workmain_test` when it is unset, and stops the run, before any test, when it names another database. `workmain_test` is created once, by the server's administrator, owned by the application's user.
 
@@ -190,7 +191,7 @@ The issue body's first and fourth criteria, and its line "#66's migration-integr
 | AC4.1 | The build empties the schema and upgrades it to Alembic's head revision | `tests/test_database_isolation.py::TestTestDatabaseBuild::test_the_build_empties_the_schema_and_upgrades_to_head` passes |
 | AC4.2 | A run builds the test database from empty before its first test | `tests/test_database_isolation.py::TestTestDatabaseBuild::test_a_run_builds_the_database_before_its_first_test` passes |
 | AC5.1 | The testing standards no longer describe live data in tests, and say where the test database comes from | `grep -nE 'sentinel\|Committed rows are visible\|row lock' docs/standards/6-testing.md` returns nothing, and a stated reading by Ray of §6.1, for whether a test author knows from it alone which database the suite uses, how it is built, and that nothing a test writes survives it |
-| AC5.2 | Every live citation of a §6.2 rule names the rule it meant | `grep -nE '\brules? [0-9]+' docs/standards/6-testing.md`; `grep -rnE '6\.2[^|]{0,40}\brules? [0-9]+' .claude docs/standards docs/dev CLAUDE.md automation .github`; and the second pattern over the open issues' bodies. Each hit is listed in the results artifact with the rule its number now names |
+| AC5.2 | Every live citation of a §6.2 rule names the rule it meant | `grep -nE '\brules? [0-9]+' docs/standards/6-testing.md`; `grep -rnE '6\.2[^|]{0,40}\brules? [0-9]+' .claude docs/standards docs/dev CLAUDE.md automation .github`; and the second pattern over the open issues' bodies. Each hit is listed in the results artifact with the rule its number now names. A hit in this spec or `docs/dev/design/DESIGN_TEST_DATABASE.md` states the numbers before this change; it is listed as historical and left as written (`docs/standards/1-workflow.md` §1.5) |
 | AC6.1 | The full suite passes | `pytest` reporting `1635 passed, 0 failed, 0 skipped` |
 | AC6.2 | Nothing in `tests/test_slack_channel_config.py` names the real client, in any case | With `.env` loaded, `grep -ci "$WORKMAIN_DEFAULT_CLIENT" tests/test_slack_channel_config.py` printing 0 |
 
