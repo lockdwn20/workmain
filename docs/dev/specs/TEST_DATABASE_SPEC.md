@@ -1,6 +1,6 @@
 # Test Database Built by Alembic — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261110
 **Branch:** `feature/issue-257-test-database` (from `dev`)
@@ -35,6 +35,7 @@
 | 20261110 | Caliper | 3, Spec defect, non-blocking: step 2's AC4.1 test bullet says the test "must not touch the database before the call". The same bullet has the test first create and commit `rebuild_probe` on its own engine. The rule is meant for the fixture's connection, which must run no statement before the drop, but the text does not say so. Read literally, the two instructions conflict. | Accepted. Step 2 says which connection must run no statement before the call, and that the test's own engine is not it. |
 | 20261110 | Caliper | 2, Spec defect, non-blocking: the §2 row says "Everything the build creates belongs to `workmain_user`, so `DROP OWNED BY CURRENT_USER` empties the schema". On live, `uuid-ossp` and `pg_trgm` have `extowner` `workmain_user`, but their member functions have `proowner` `postgres` (`pg_depend` `deptype='e'`). That is PostgreSQL's rule for trusted extensions. The conclusion still holds: dropping the extension drops its members, and the row's scratch-cluster measurement shows the dump is identical. The stated reason is wrong, though. | Accepted. §2's row states the owners as measured on live and why the conclusion holds. |
 | 20261110 | Caliper | Pass at dde5e75, changes since 51f5bd7: 36 items checked, 0 blocking, 4 non-blocking. | n/a |
+| 20261110 | Caliper | Pass at 2355156, changes since dde5e75: 17 items checked, 0 blocking, 0 non-blocking. | n/a |
 
 ---
 
