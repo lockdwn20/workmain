@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Complete. The comment above `_NAME_A` and `_NAME_B` in `tests/test_client_repository.py` no longer names a real client or describes production data. The channel and workspace literals in `tests/test_slack.py` are now `"#test-client-channel"` and `"test-workspace"`. No tracked file under `tests/` names the real client, and `tests/test_slack.py` does not name the real Slack workspace. AC2.1's reading of the comment is Ray's and is still to be done.
+Complete. The comment above `_NAME_A` and `_NAME_B` in `tests/test_client_repository.py` no longer names a real client or describes production data. The channel and workspace literals in `tests/test_slack.py` are now `"#test-client-channel"` and `"test-workspace"`. No tracked file under `tests/` names the real client, and `tests/test_slack.py` does not name the real Slack workspace.
 
 ## 2. What shipped, by step
 
@@ -26,7 +26,7 @@ Complete. The comment above `_NAME_A` and `_NAME_B` in `tests/test_client_reposi
 | --- | --- | --- |
 | AC1.1 | Met | With `.env` loaded, `git grep -ci "$WORKMAIN_DEFAULT_CLIENT" -- tests/` prints nothing (exit 1). Before step 1 it printed `tests/test_client_repository.py:1` and `tests/test_slack.py:3`. |
 | AC1.2 | Met | `git diff main -- tests/test_slack.py` shows `"#test-client-channel"` and `"test-workspace"` on the write lines `:127–128` and the assert lines `:137–138`. `pytest tests/test_slack.py::TestSlackReportsIntegration::test_04_upsert_updates_existing_row`: 1 passed, 0 failed, 0 skipped. |
-| AC2.1 | Not met | `grep -ni -e production -e live tests/test_client_repository.py` returns nothing (exit 1). Awaiting Ray: his reading of the comment at `tests/test_client_repository.py:23–24`, for whether it states what the names must differ from. |
+| AC2.1 | Met | Ray, 20261112: comment at `tests/test_client_repository.py:23–24`, states what the names must differ from. `grep -ni -e production -e live tests/test_client_repository.py` returns nothing (exit 1). |
 | AC3.1 | Met | Bare `pytest` at `b51e31d`: 1635 passed, 0 failed, 0 skipped. |
 | AC4.1 | Met | `git grep -ci "$(jq -r .workspace_name ~/.workmain/integrations/slack/config.json)" -- tests/test_slack.py` prints nothing (exit 1). Before step 2 it printed `tests/test_slack.py:3`. |
 
