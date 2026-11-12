@@ -62,15 +62,25 @@ Only one form survives F7, so it is not an open question. The rule states it:
 - **In a test or fixture:** an invented value that does not resemble the real one. A test never reads the real value from `.env`, `~/.workmain/` or the live database.
 - **In any other text** (a document, a comment, a commit message): the place the value is held, which is the `.env` key, the `~/.workmain/` file and key, or the table and column. Never the value.
 
+### Enforcement
+
+Ray, 20261112: the problem exists only because the application is in live use while it is developed. Whatever is put in place serves that period and is removed after it. The real values the rule covers are listed in a `.env` key that `.env.example` does not declare, so it is local to development and outside the application's configuration contract. A check in `automation/` reads that key, and can run as part of `automation/style_check.py`, which close-out already runs (`.claude/skills/closeout/SKILL.md` P7).
+
+`automation/style_check.py` checks only the lines a branch changed against its base, and already skips `docs/archive/`, so F5's values do not trip it. Working branches are never pushed (`docs/standards/2-git.md` §2.3), so a hit at close-out is fixed on the branch before anything is published, including the branch's own commit messages; rewording a local branch is not a force-push of `main` or `dev`.
+
+The check is tooling, so it is an issue of its own. #274 states the rule and names the key; the second issue builds the check.
+
 ## 5. Open questions
 
 | Q | Question | Answer |
 | --- | --- | --- |
-| Q1 | The current rule forbids writing only the default client's name (F1). F2 shows real channels, Slack user IDs, recipient addresses and Drive folder IDs held beside the names #274 lists. Should the rule list what it forbids (A), or state a class with that list as examples (B)? §4 sets out both. Recommendation: B. | |
-| Q2 | The operator's own name, `USER_FULL_NAME` in `.env`, is written as `__author__` at `workmain/__version__.py:7` and as the style's display name at `templates/style/writing_style.json:2` (F4). Under Option B it identifies a person in the operator's workspace. Should the rule exclude the operator's own name used as authorship or attribution (A), or cover it, which makes those two lines a finding for a separate issue (B)? Recommendation: A. It is attribution the operator wrote on purpose, not data the application processes. | |
-| Q3 | The issue's rule reaches tracked files. The repository is public, and five commit messages already name the client (F6). Issues and pull requests are public too, and are written by the same sessions. Should the rule reach only tracked files (A), or every text published from this repository: tracked files, commit messages, and issue and pull request text (B)? Recommendation: B. The exposure is the same, and F6 shows a commit message is where it has already happened. | |
+| Q1 | The current rule forbids writing only the default client's name (F1). F2 shows real channels, Slack user IDs, recipient addresses and Drive folder IDs held beside the names #274 lists. Should the rule list what it forbids (A), or state a class with that list as examples (B)? §4 sets out both. Recommendation: B. | Ray, 20261112: B. The `.env` list (§4 Enforcement) is what the check reads; the class says what belongs in it. |
+| Q2 | The operator's own name, `USER_FULL_NAME` in `.env`, is written as `__author__` at `workmain/__version__.py:7` and as the style's display name at `templates/style/writing_style.json:2` (F4). Under Option B it identifies a person in the operator's workspace. Should the rule exclude the operator's own name used as authorship or attribution (A), or cover it, which makes those two lines a finding for a separate issue (B)? Recommendation: A. It is attribution the operator wrote on purpose, not data the application processes. | Ray, 20261112: A. His name stays where it is. |
+| Q3 | The issue's rule reaches tracked files. The repository is public, and five commit messages already name the client (F6). Issues and pull requests are public too, and are written by the same sessions. Should the rule reach only tracked files (A), or every text published from this repository: tracked files, commit messages, and issue and pull request text (B)? Recommendation: B. The exposure is the same, and F6 shows a commit message is where it has already happened. | Ray, 20261112: B. The check (§4 Enforcement) covers tracked files and the branch's commit messages; issue and pull request text is covered by the rule alone. |
+| Q4 | Per §4 Enforcement, the rule exists only while the application is in live use during development, and is removed after. Should the rule state that reason, so the condition for removing it is readable where the rule is? | Ray, 20261112: settled on the rule's wording, in the spec. |
+| Q5 | What is the `.env` key that lists the real values called? | Ray, 20261112: `DEV_REAL_VALUES`. No `WORKMAIN_` prefix, because the application never reads it. |
 
 ## 6. Disposition
 
-- Promoted to:
+- Promoted to: issue #275 (the check, §4 Enforcement)
 - Superseded by:
