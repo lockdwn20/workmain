@@ -1,6 +1,6 @@
 # Test Database Built by Alembic — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Anvil (Role 3)
 **Date:** 20261112
 **Spec:** `../specs/TEST_DATABASE_SPEC.md`
@@ -107,5 +107,5 @@ Before #256's body was edited, it was saved to a file and checked to be non-empt
 
 | Item | Description | Why deferred |
 | --- | --- | --- |
-| Proposed issue for Ray | The comment at `tests/test_client_repository.py:23` names the real client, and describes collisions with live clients that can no longer happen. Fix: reword the comment. AC: `grep -ci "$WORKMAIN_DEFAULT_CLIENT" tests/test_client_repository.py` prints 0 | Out of scope (spec §1, §7). Ray decides whether it becomes an issue |
+| #271 | The comment at `tests/test_client_repository.py:23` names the real client and describes collisions with live clients that can no longer happen; `tests/test_slack.py` names it in three channel literals | Out of scope (spec §1, §7). Opened by Ray's decision, 20261112 |
 | #257's body | Restate its first and fourth criteria, and replace the line "#66's migration-integrity half is delivered here" with a pointer to #266 and #66 | Close-out's (spec §5) |

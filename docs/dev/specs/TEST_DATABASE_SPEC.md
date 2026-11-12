@@ -1,6 +1,6 @@
 # Test Database Built by Alembic — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261110
 **Branch:** `feature/issue-257-test-database` (from `dev`)
