@@ -1,6 +1,6 @@
 # Real client name in the test suite — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261112
 **Branch:** `hotfix/issue-271-real-client-name-in-tests` (from `main`)
@@ -27,6 +27,7 @@ This spec does not quote the real client name or the real Slack workspace name. 
 | 20261112 | Caliper | Spec defect, non-blocking. DR1 covers all test text, but `tests/test_slack_channel_config.py:186` stays out of scope (#214), so DR1 is false when the work is delivered. DR1 also says "a real client", but only `WORKMAIN_DEFAULT_CLIENT` is searched. | Accepted. DR1 is narrowed to the files §1 puts in scope, and to the two values the checks read. |
 | 20261112 | Caliper | Spec defect, non-blocking. The §2 row cites `tests/test_client_repository.py:40–51`, but the two tests run `:39–57`. The design study's F3 has the same range. | Accepted. Both now cite `:39–57`. |
 | 20261112 | Caliper | Pass at dd35338, full: 19 items checked, 0 blocking, 5 non-blocking. | n/a |
+| 20261112 | Caliper | Pass at 21e5ba7, changes since dd35338: 12 items checked, 0 blocking, 0 non-blocking. | n/a |
 
 ---
 
