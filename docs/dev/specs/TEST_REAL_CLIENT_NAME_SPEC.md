@@ -1,6 +1,6 @@
 # Real client name in the test suite — Spec
 
-**Status:** Approved
+**Status:** Draft
 **Author:** Spanner (Role 1)
 **Date:** 20261112
 **Branch:** `hotfix/issue-271-real-client-name-in-tests` (from `main`)
@@ -28,6 +28,8 @@ This spec does not quote the real client name or the real Slack workspace name. 
 | 20261112 | Caliper | Spec defect, non-blocking. The §2 row cites `tests/test_client_repository.py:40–51`, but the two tests run `:39–57`. The design study's F3 has the same range. | Accepted. Both now cite `:39–57`. |
 | 20261112 | Caliper | Pass at dd35338, full: 19 items checked, 0 blocking, 5 non-blocking. | n/a |
 | 20261112 | Caliper | Pass at 21e5ba7, changes since dd35338: 12 items checked, 0 blocking, 0 non-blocking. | n/a |
+| 20261112 | Anvil | The §2 precedent row says #257 set `#test-client-channel`. The value was added by `b4d2013`, and #257 never touched it. | Accepted. The row cites `b4d2013`. The design study's F5 is corrected to match. Step 2 is unchanged. |
+| 20261112 | Anvil | §1 Out of scope cites `docs/standards/1-workflow.md` §1.5 for the archive being "never edited". §1.5 does not say that. | Accepted. The entry now states its actual reason: #271 covers only `tests/`. The design study's §2 is corrected to match. |
 
 ---
 
@@ -43,7 +45,7 @@ This spec does not quote the real client name or the real Slack workspace name. 
 - **Comments in 18 other test files that describe guarding against production data:** #273.
 - **Widening `CLAUDE.md` § Client Reference:** #274.
 - **`tests/test_slack_channel_config.py`.** Its real workspace name is asserted against the live Slack config file, so removing it means changing what the test reads, not only a literal: #214.
-- **`docs/archive/`.** It names the client in 8 files and the workspace in 2, and is never edited (`docs/standards/1-workflow.md` §1.5).
+- **`docs/archive/`.** It names the client in 8 files and the workspace in 2. #271 covers only `tests/`.
 - **Whether `_NAME_A` and `_NAME_B` keep their values.** Nothing about them is wrong; only the comment is.
 
 ## 2. Verified current state
@@ -59,7 +61,7 @@ Verified at `b8551c4`, 20261112. The design study's §3 holds the full census. T
 | In `test_18_draft_label_not_in_reports_ts`, `:372` and `:373` pass the same two literals to `Report(...)`. No assertion reads them. | `tests/test_slack.py:362–388` |
 | The workspace literal at `:128`, `:138` and `:373` equals `workspace_name` in the live Slack config. | `grep -c "$(jq -r .workspace_name ~/.workmain/integrations/slack/config.json)" tests/test_slack.py` → 3 |
 | No application code reads the form of a channel or workspace value, so any string works as test data. | `grep -rn 'csirt\|"#int-' workmain/` → only the help-text example at `workmain/cli/commands/slack.py:304`; `Report.slack_channel` and `Report.slack_workspace_name` are `Text` (`workmain/database/models.py:386–387`) |
-| Precedent for the replacement channel value. | `tests/test_slack_channel_config.py:63`, `:71`: `#test-client-channel`, set by #257 |
+| Precedent for the replacement channel value. | `tests/test_slack_channel_config.py:63`, `:71`: `#test-client-channel`, a neutral channel value in that file since `b4d2013` (`git log -S'#test-client-channel'`) |
 
 No signature, required input or invariant changes, so there is no call-sites row.
 
