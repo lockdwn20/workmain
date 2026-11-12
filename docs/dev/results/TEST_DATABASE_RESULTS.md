@@ -32,7 +32,7 @@ Complete. A bare `pytest` now runs on `workmain_test`. Before the first test it 
 | AC3.3 | Met | `tests/test_database_isolation.py::TestTestDatabaseGuard::test_a_url_naming_another_database_is_refused` PASSED |
 | AC4.1 | Met | `tests/test_database_isolation.py::TestTestDatabaseBuild::test_the_build_empties_the_schema_and_upgrades_to_head` PASSED |
 | AC4.2 | Met | `tests/test_database_isolation.py::TestTestDatabaseBuild::test_a_run_builds_the_database_before_its_first_test` PASSED |
-| AC5.1 | Met | Ray, 20261112: reviewed `docs/standards/6-testing.md` and found no issues. The search half is done: `grep -nE 'sentinel\|Committed rows are visible\|row lock' docs/standards/6-testing.md` printed nothing (exit 1) |
+| AC5.1 | Met | Ray, 20261112: reviewed `docs/standards/6-testing.md`, read §6.1, and a test author knows from it alone which database the suite uses, how it is built, and that nothing a test writes survives it. The search half is done: `grep -nE 'sentinel\|Committed rows are visible\|row lock' docs/standards/6-testing.md` printed nothing (exit 1) |
 | AC5.2 | Met | §5 AC5.2: every hit is listed there with the rule its number now names, or as historical |
 | AC6.1 | Met | `pytest`: 1635 passed, 0 failed, 0 skipped |
 | AC6.2 | Met | With `.env` loaded, `grep -ci "$WORKMAIN_DEFAULT_CLIENT" tests/test_slack_channel_config.py` printed `0` |
@@ -41,8 +41,7 @@ Complete. A bare `pytest` now runs on `workmain_test`. Before the first test it 
 
 | # | Departure or ambiguity | Step stopped at | Resolution | Resolved by |
 | --- | --- | --- | --- | --- |
-
-None.
+| 1 | Step 2 said the AC4.1 test "takes no `db_session` and calls nothing through `get_db()`". The delivered AC4.1 and AC4.2 tests each build their own engine with `create_engine(get_db().url, poolclass=NullPool)`. Reading `.url` runs no statement on the fixture's connection, so the drop still does not wait on it, but the code departed from the step's literal text without a stop. The post-implementation review found it (spec Decision Log, 20261112, I2) | none | Keep. Step 2 is amended: the test runs no statement through `get_db()` or `db_session` before the call, and reading `get_db().url` to build its own engine runs none. No code change | Ray, 20261112 |
 
 **Decisions below the contract.**
 
