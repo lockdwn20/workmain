@@ -71,11 +71,11 @@ The recommendations below are each Q's; §5 asks them.
 
 | Q | Question | Answer |
 | --- | --- | --- |
-| Q1 | When there is no value to check against (`.env` absent from the main working tree, the key absent, or the list empty), should the style check fail (A) or pass with a notice (B)? Recommendation: A, per §4 No values to read. Under A, `.env` is read from the main working tree, so Caliper's detached-worktree run (F4) reads it too. | |
-| Q2 | What is the format of `DEV_REAL_VALUES`? Recommendation: the form `.env` already holds (F5): one line, values separated by commas, whitespace around each value ignored, empty entries ignored, quoting as `.env` allows it, read with `dotenv.dotenv_values` (F8). A value cannot contain a comma. The alternative, a JSON array, allows any character but is harder to edit by hand and would mean rewriting the existing line. | |
-| Q3 | How is a value matched? Recommendation: Option C of §4 Matching: case-insensitive, and bounded only by letters and digits, so a value joined into a snake_case word is still found (F6). | |
-| Q4 | Does the real-value check read paths `SKIPPED` excludes from the style checks? Recommendation: B of §4 Which changed text: yes, every changed line in every changed path, because `CHANGELOG.md` and `docs/archive/` are published (F2). | |
-| Q5 | The branch name reaches `main` and `dev` in the merge commit's subject (F9), and the issue does not name it. Should the check also refuse a branch name that holds a listed value (A), or leave it to the rule alone (B)? Recommendation: A. It is the same exposure as a commit message, the check already reads the branch name in `main`, and the fix (`git branch -m`) is local because working branches are never pushed (`docs/standards/2-git.md` §2.3). It adds a criterion the issue lacks, so it is your call on scope. | |
+| Q1 | When there is no value to check against (`.env` absent from the main working tree, the key absent, or the list empty), should the style check fail (A) or pass with a notice (B)? Recommendation: A, per §4 No values to read. Under A, `.env` is read from the main working tree, so Caliper's detached-worktree run (F4) reads it too. | Ray, 20261112: B, pass with a notice. |
+| Q2 | What is the format of `DEV_REAL_VALUES`? Recommendation: the form `.env` already holds (F5): one line, values separated by commas, whitespace around each value ignored, empty entries ignored, quoting as `.env` allows it, read with `dotenv.dotenv_values` (F8). A value cannot contain a comma. The alternative, a JSON array, allows any character but is harder to edit by hand and would mean rewriting the existing line. | Ray, 20261112: comma-separated, as `.env` holds it (F5). No value contains a comma. |
+| Q3 | How is a value matched? Recommendation: Option C of §4 Matching: case-insensitive, and bounded only by letters and digits, so a value joined into a snake_case word is still found (F6). | Ray, 20261112: Option C, the only option once a `\w` boundary is shown to miss a real occurrence. |
+| Q4 | Does the real-value check read paths `SKIPPED` excludes from the style checks? Recommendation: B of §4 Which changed text: yes, every changed line in every changed path, because `CHANGELOG.md` and `docs/archive/` are published (F2). | Ray, 20261112: A, `SKIPPED` applies. Once #276's one-time removal has run, a value in a skipped path means the check missed it before it got there. |
+| Q5 | The branch name reaches `main` and `dev` in the merge commit's subject (F9), and the issue does not name it. Should the check also refuse a branch name that holds a listed value (A), or leave it to the rule alone (B)? Recommendation: A. It is the same exposure as a commit message, the check already reads the branch name in `main`, and the fix (`git branch -m`) is local because working branches are never pushed (`docs/standards/2-git.md` §2.3). It adds a criterion the issue lacks, so it is your call on scope. | Ray, 20261112: B. The branch slug is taken from the issue title, and the rule governs issue text. |
 
 **Settled by rule, not asked:**
 
@@ -84,4 +84,4 @@ The recommendations below are each Q's; §5 asks them.
 
 ## 6. Disposition
 
-- Promoted to: <filled at spec time>
+- Promoted to: `../specs/REAL_VALUE_CHECK_SPEC.md`
