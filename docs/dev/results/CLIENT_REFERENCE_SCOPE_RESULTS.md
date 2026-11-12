@@ -1,6 +1,6 @@
 # What § Client Reference forbids — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261112
 **Spec:** `../specs/CLIENT_REFERENCE_SCOPE_SPEC.md`
@@ -39,7 +39,9 @@ Complete. `CLAUDE.md` § Client Reference now forbids every real value in everyt
 
 ## 5. Verification
 
-- **Test suite:** not run. No file under `tests/`, `automation/`, `workmain/`, `config/` or `templates/` changed; close-out runs the suites.
+- **Test suite:** 1635 passed, 0 failed, 0 skipped (baseline: 1635 passed, 0 failed, 0 skipped, from `CHANGELOG.md` [1.58.1]), run at close-out preflight. `pytest automation/` not run: the branch changed no path under `automation/`.
+- **Live verification:** n/a — the change is to `CLAUDE.md` only, which the application never reads.
+- **Daemon restart:** n/a — `chore/*` carries no restart (`docs/standards/2-git.md` §2.6).
 - **Step 1 text:** `CLAUDE.md:160–165` matches the spec's replacement block verbatim, by `diff`.
 - **Checks:** `python3 automation/style_check.py` exit 0, 0 violations; `python3 automation/architecture_check.py` exit 0.
 

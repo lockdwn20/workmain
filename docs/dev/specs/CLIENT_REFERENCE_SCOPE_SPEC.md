@@ -1,6 +1,6 @@
 # What § Client Reference forbids — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261112
 **Branch:** `chore/issue-274-client-reference-scope` (from `main`)
