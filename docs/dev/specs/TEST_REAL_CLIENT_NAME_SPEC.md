@@ -32,6 +32,7 @@ This spec does not quote the real client name or the real Slack workspace name. 
 | 20261112 | Anvil | §1 Out of scope cites `docs/standards/1-workflow.md` §1.5 for the archive being "never edited". §1.5 does not say that. | Accepted. The entry now states its actual reason: #271 covers only `tests/`. The design study's §2 is corrected to match. |
 | 20261112 | Caliper | Pass at b258cdd, changes since 21e5ba7: 13 items checked, 0 blocking, 0 non-blocking. | n/a |
 | 20261112 | Ray | `docs/archive/` keeps its occurrences of the real client and workspace names. No issue is opened for them, and #274 is not widened to cover them. | — |
+| 20261112 | Caliper (post-implementation) | No findings. | n/a |
 
 ---
 
