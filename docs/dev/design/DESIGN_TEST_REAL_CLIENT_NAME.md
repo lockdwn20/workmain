@@ -83,10 +83,12 @@ Q1 and Q2 decide whether the hotfix also takes in F6 and F7.
 
 | Q | Question | Answer |
 | --- | --- | --- |
-| Q1 | The real Slack workspace name is used as test data at `tests/test_slack.py:128`, `:138` and `:373`, and asserted at `tests/test_slack_channel_config.py:186` (F6). `CLAUDE.md` § Client Reference does not cover it. Should #271 leave it out, with a proposed issue drafted (A), or fix the three `tests/test_slack.py` lines here (B)? | |
-| Q2 | 18 test files besides `tests/test_client_repository.py` carry comments about isolating tests from production data, which `workmain_test` has made stale (F7). Should #271 leave them out, with a proposed issue drafted (A), or reword them here (B)? | |
+| Q1 | The real Slack workspace name is used as test data at `tests/test_slack.py:128`, `:138` and `:373`, and asserted at `tests/test_slack_channel_config.py:186` (F6). `CLAUDE.md` § Client Reference does not cover it. Should #271 leave it out, with a proposed issue drafted (A), or fix the three `tests/test_slack.py` lines here (B)? | Ray, 20261112: B. The literal is in the same file and the same tests as the channel literals, it is incidental to the issue, and fixing it matches the issue's intent. It is not assigned a client id, but it represents internal-only data. It also shows a hole in `CLAUDE.md` § Client Reference: the rule covers only the default client named in `.env`, not every client that may be set, and not the internal-only data. Q3 and Q4 follow from this answer. |
+| Q2 | 18 test files besides `tests/test_client_repository.py` carry comments about isolating tests from production data, which `workmain_test` has made stale (F7). Should #271 leave them out, with a proposed issue drafted (A), or reword them here (B)? | Ray, 20261112: A. Opened as #273. |
+| Q3 | `CLAUDE.md` § Client Reference is the rule's only statement (`CLAUDE.md:158–160`, found by `grep -rn "Client Reference\|WORKMAIN_DEFAULT_CLIENT"` over `CLAUDE.md`, `docs/standards/`, `.claude/`, `.github/` and `docs/dev/`). It forbids writing the default client's real name and nothing more, which is the hole Q1's answer names. Should #271 widen the rule (A), or should it go to a proposed issue of its own on a `chore/*` branch (B)? || Ray, 20261112: B. Opened as #274. |
+| Q4 | `tests/test_slack_channel_config.py:186` asserts the real workspace name, because `TestSlackSetWorkspace` runs `slack set workspace` against the live `~/.workmain/integrations/slack/config.json` (F6). Replacing the literal is not enough: the test also has to stop reading the live file. Open issue #214 already converts the two `set workspace` tests in that file. Should this go into #214's context and criteria (A), or into #271 (B)? || Ray, 20261112: A. Added to #214's context and criteria, 20261112. |
 
 ## 6. Disposition
 
-- Promoted to:
+- Promoted to: #273 (F7), #274 (Q3), #214 (Q4)
 - Superseded by:
