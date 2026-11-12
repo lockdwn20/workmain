@@ -1,6 +1,6 @@
 # Real client name in the test suite — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Anvil (Role 3)
 **Date:** 20261112
 **Spec:** `../specs/TEST_REAL_CLIENT_NAME_SPEC.md`
@@ -49,7 +49,7 @@ Complete. The comment above `_NAME_A` and `_NAME_B` in `tests/test_client_reposi
 - **Test suite:** 1635 passed, 0 failed, 0 skipped (baseline: 1635 passed, 0 failed, 0 skipped).
 - **Defect shown before the fix:** the defect is text in tests, and no test shows it. The searches in AC1.1 and AC4.1 stand in for it: before the work, AC1.1's search printed 1 line in `tests/test_client_repository.py` and 3 in `tests/test_slack.py`, and AC4.1's printed 3. After it, both print nothing.
 - **Live verification:** none. The change touches only `tests/`.
-- **Daemon restart:** at close-out.
+- **Daemon restart:** at close-out, after the merge to `dev`; the closing comment on #271 records `ActiveEnterTimestamp`.
 
 ## 6. Follow-ups
 

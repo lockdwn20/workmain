@@ -1,6 +1,6 @@
 # Real client name in the test suite — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261112
 **Branch:** `hotfix/issue-271-real-client-name-in-tests` (from `main`)
