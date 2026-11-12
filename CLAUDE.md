@@ -157,7 +157,12 @@ No file outside `notes_service.py` calls `TaskStatusRepository.ensure_active` or
 
 ### Client Reference
 
-During development, reference the default client via `WORKMAIN_DEFAULT_CLIENT` in `.env` — never the actual client name.
+WorkmAIn is developed while in live use, and the repository is public. Until development no longer runs against live data, nothing published from this repository — a tracked file, a commit message, or issue or pull request text — contains a real value: a client's name, or an identifier of the operator's Slack workspace, its channels or users, a report recipient or a Drive location, as held in `.env`, `~/.workmain/` or the database. The operator's own name as authorship is not one.
+
+- **Tests and fixtures:** an invented value unlike the real one. A test never reads a real value from `.env`, `~/.workmain/` or the live database.
+- **Any other text:** where the value is held — the `.env` key (such as `WORKMAIN_DEFAULT_CLIENT`), the `~/.workmain/` file and key, or the table and column — never the value.
+
+`DEV_REAL_VALUES` in `.env` lists the real values. Ray adds each new one; a session that meets a real value not listed tells Ray and writes it nowhere. Only development tooling reads the key, and `.env.example` does not declare it.
 
 ### Known Column Naming Asymmetry
 
