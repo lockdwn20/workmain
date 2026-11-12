@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Complete, pending Ray's reading for AC1.1. `CLAUDE.md` § Client Reference now forbids every real value in everything published from the repository, states how tests and other text reference one, and names `DEV_REAL_VALUES`.
+Complete. `CLAUDE.md` § Client Reference now forbids every real value in everything published from the repository, states how tests and other text reference one, and names `DEV_REAL_VALUES`.
 
 ## 2. What shipped, by step
 
@@ -23,7 +23,7 @@ Complete, pending Ray's reading for AC1.1. `CLAUDE.md` § Client Reference now f
 
 | AC | Status | Evidence |
 | --- | --- | --- |
-| AC1.1 | **Not met** | Awaiting Ray |
+| AC1.1 | Met | Ray, 20261112: read `CLAUDE.md` § Client Reference for which real values it forbids, where it reaches, how each is referenced, and its stated reason; correct |
 | AC1.2 | Met | `grep -rn DEV_REAL_VALUES CLAUDE.md docs/standards .claude .github workmain config templates .env.example` → `CLAUDE.md:165` only, in § Client Reference |
 | AC2.1 | Met | `grep -rn 'Client Reference' CLAUDE.md docs/standards .claude .github` → `CLAUDE.md:158:### Client Reference` only |
 
