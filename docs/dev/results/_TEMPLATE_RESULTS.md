@@ -60,7 +60,7 @@ Anything not met is listed here and carried to an issue, cited by its number —
 ## 5. Verification
 
 - **Test suite:** <passed> passed, <failed> failed, <skipped> skipped (baseline: <passed> passed, <failed> failed, <skipped> skipped) — form per `docs/standards/6-testing.md` §6.
-- **Defect shown before the fix** (defect fixes only, `docs/standards/6-testing.md` §6.2 rule 10): each test that shows the defect, with its run before the fix (failed) and after (passed).
+- **Defect shown before the fix** (defect fixes only, `docs/standards/6-testing.md` §6.2 rule 9): each test that shows the defect, with its run before the fix (failed) and after (passed).
 - **Live verification:** what was exercised against the running system, and when.
 - **Daemon restart** (`feature/*` and `hotfix/*`, per `docs/standards/2-git.md` §2.6): confirm `ActiveEnterTimestamp` postdates the `dev` merge commit.
   - A merge is not a deployment.

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.58.0] - 2026-11-12
+
+The test suite ran on the live database: every run spent real IDs, saw live rows and could wait on a row lock the CLI held. A bare `pytest` now runs on its own database, `workmain_test`, which it empties and builds with `alembic upgrade head` before the first test, and a run whose `DB_NAME` names any other database stops before any test (#257).
+
+### Changed
+
+- `tests/conftest.py` sets `DB_NAME` to `workmain_test` when it is unset and refuses any other name, checks the resolved connection, and rebuilds the test database once per run in a child process
+- The Slack channel tests seed their own active client instead of reading and restoring the real one
+- `docs/standards/6-testing.md` §6.1 states where the test database comes from, and §6.1 and §6.2 drop the rules that existed only because tests saw live data: sentinel dates, visible committed rows and held row locks. §6.2's rules after the old rule 2 are renumbered, and every live citation of them is repointed
+
+Suite: 1635 passed, 0 failed, 0 skipped (baseline 1630 passed, 0 failed, 0 skipped).
+
 ## [1.57.0] - 2026-11-10
 
 Alembic now applies and records every schema change. Live had drifted from the numbered SQL migrations, which no runner applied and nothing on the database recorded; a build of them from empty failed. The first revision is a baseline taken from live's schema, and live is stamped at it (#266).
