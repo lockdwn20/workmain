@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Complete. A bare `pytest` now runs on `workmain_test`. Before the first test it drops everything the application's user owns there and builds the schema with `alembic upgrade head` in a child process. A run whose `DB_NAME` names another database stops before any test. The Slack channel tests seed their own active client and no longer touch the real one. `docs/standards/6-testing.md` §6.1 and §6.2 now describe the test database and no longer carry the live-data rules, and every live citation of a renumbered §6.2 rule is repointed. Every criterion is met except AC5.1, which waits on Ray's reading.
+Complete. A bare `pytest` now runs on `workmain_test`. Before the first test it drops everything the application's user owns there and builds the schema with `alembic upgrade head` in a child process. A run whose `DB_NAME` names another database stops before any test. The Slack channel tests seed their own active client and no longer touch the real one. `docs/standards/6-testing.md` §6.1 and §6.2 now describe the test database and no longer carry the live-data rules, and every live citation of a renumbered §6.2 rule is repointed. Every criterion is met.
 
 ## 2. What shipped, by step
 
@@ -32,7 +32,7 @@ Complete. A bare `pytest` now runs on `workmain_test`. Before the first test it 
 | AC3.3 | Met | `tests/test_database_isolation.py::TestTestDatabaseGuard::test_a_url_naming_another_database_is_refused` PASSED |
 | AC4.1 | Met | `tests/test_database_isolation.py::TestTestDatabaseBuild::test_the_build_empties_the_schema_and_upgrades_to_head` PASSED |
 | AC4.2 | Met | `tests/test_database_isolation.py::TestTestDatabaseBuild::test_a_run_builds_the_database_before_its_first_test` PASSED |
-| AC5.1 | **Not met** | Awaiting Ray. The search half is done: `grep -nE 'sentinel\|Committed rows are visible\|row lock' docs/standards/6-testing.md` printed nothing (exit 1) |
+| AC5.1 | Met | Ray, 20261112: reviewed `docs/standards/6-testing.md` and found no issues. The search half is done: `grep -nE 'sentinel\|Committed rows are visible\|row lock' docs/standards/6-testing.md` printed nothing (exit 1) |
 | AC5.2 | Met | §5 AC5.2: every hit is listed there with the rule its number now names, or as historical |
 | AC6.1 | Met | `pytest`: 1635 passed, 0 failed, 0 skipped |
 | AC6.2 | Met | With `.env` loaded, `grep -ci "$WORKMAIN_DEFAULT_CLIENT" tests/test_slack_channel_config.py` printed `0` |
