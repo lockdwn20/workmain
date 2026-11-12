@@ -1,51 +1,41 @@
 """
-Tests for Phase 11.5 Slack channel configuration: slack set channel writing
-clients.slack_channel for the active client; slack set workspace being
-informational with no writes; slack channel set being retired (command not
-found); post-weekly channel resolution preferring clients.slack_channel with
-a config fallback; and slack status displaying clients.slack_channel as the
-primary channel value.
+Tests for Slack channel configuration.
+
+slack set channel writes clients.slack_channel for the active client; slack
+set workspace is informational with no writes; slack channel set is retired
+(command not found); post-weekly channel resolution prefers
+clients.slack_channel with a config fallback; and slack status displays
+clients.slack_channel as the primary channel value.
 
 Repository tests use db_session fixture for transaction isolation.
-CLI tests use CliRunner and manage their own DB state with save/restore fixtures.
+CLI tests use CliRunner and seed their own active client.
 """
 
 import pytest
 from click.testing import CliRunner
 from dotenv import load_dotenv
+from sqlalchemy.orm import Session
 
 load_dotenv()
 
 from workmain.cli.commands.slack import slack, slack_set, slack_set_channel
+from workmain.database.models import Client
 
 # ---------------------------------------------------------------------------
 # Helpers for CliRunner tests
 # ---------------------------------------------------------------------------
 
-def _get_gmf_channel(session):
-    """Return current GMF slack_channel value from DB."""
-    from workmain.database.repositories.client_repository import ClientRepository
-    session.expire_all()
-    gmf = ClientRepository(session).get_by_name("GMF")
-    return gmf.slack_channel if gmf else None
-
-
-def _set_gmf_channel(session, value):
-    """Set GMF slack_channel to value (None clears it)."""
-    from workmain.database.repositories.client_repository import ClientRepository
-    repo = ClientRepository(session)
-    gmf = repo.get_by_name("GMF")
-    if gmf:
-        repo.update(gmf.id, slack_channel=value)
-    session.commit()
-
-
 @pytest.fixture
-def _restore_gmf_channel(db_session):
-    """Save and restore GMF's slack_channel around a CLI test."""
-    original = _get_gmf_channel(db_session)
-    yield
-    _set_gmf_channel(db_session, original)
+def _active_client(db_session: Session) -> Client:
+    """A client of the test's own, with no Slack channel, made the active client."""
+    from workmain.database.repositories.client_repository import ClientRepository
+
+    client = Client(name="Slack Channel Test Client", slack_channel=None)
+    db_session.add(client)
+    db_session.commit()
+    ClientRepository(db_session).set_active(client.id)
+    db_session.commit()
+    return client
 
 
 def _invoke(*args):
@@ -150,43 +140,36 @@ class TestResolveSlackChannel:
 class TestSlackSetChannel:
     """slack set channel writes clients.slack_channel for the active client."""
 
-    def test_slack_set_channel_active_client(self, db_session, _restore_gmf_channel):
-        """Sets slack_channel for GMF (the active client)."""
+    def test_slack_set_channel_active_client(self, db_session: Session, _active_client: Client) -> None:
+        """Sets slack_channel for the active client."""
         result = _invoke('set', 'channel', '#test-set-channel')
         assert result.exit_code == 0
         assert '#test-set-channel' in result.output
-        assert 'GMF' in result.output
+        assert 'Slack Channel Test Client' in result.output
 
         # Verify DB
-        assert _get_gmf_channel(db_session) == '#test-set-channel'
+        db_session.expire_all()
+        assert _active_client.slack_channel == '#test-set-channel'
 
-    def test_slack_set_channel_normalizes_hash(self, db_session, _restore_gmf_channel):
+    def test_slack_set_channel_normalizes_hash(self, db_session: Session, _active_client: Client) -> None:
         """Channel without # prefix gets # added."""
-        result = _invoke('set', 'channel', 'int-gmf-test')
+        result = _invoke('set', 'channel', 'int-test-channel')
         assert result.exit_code == 0
-        assert '#int-gmf-test' in result.output
+        assert '#int-test-channel' in result.output
 
-        assert _get_gmf_channel(db_session) == '#int-gmf-test'
+        db_session.expire_all()
+        assert _active_client.slack_channel == '#int-test-channel'
 
     def test_slack_set_channel_no_active_client(self, db_session):
         """Error shown when no active client is set."""
         from workmain.database.repositories.client_repository import ClientRepository
 
-        repo = ClientRepository(db_session)
-        active_before = repo.get_active()
-        active_before_id = active_before.id if active_before else None
-        if active_before_id:
-            repo.clear_active()
+        ClientRepository(db_session).clear_active()
         db_session.commit()
 
-        try:
-            result = _invoke('set', 'channel', '#no-client-test')
-            assert result.exit_code == 0
-            assert 'No active client' in result.output or 'no active client' in result.output.lower()
-        finally:
-            if active_before_id:
-                ClientRepository(db_session).set_active(active_before_id)
-                db_session.commit()
+        result = _invoke('set', 'channel', '#no-client-test')
+        assert result.exit_code == 0
+        assert 'No active client' in result.output or 'no active client' in result.output.lower()
 
 
 # ---------------------------------------------------------------------------
@@ -249,20 +232,22 @@ class TestSlackChannelSetRetired:
 class TestSlackStatusDisplay:
     """slack status displays clients.slack_channel as the primary channel value."""
 
-    def test_slack_status_shows_client_channel(self, db_session, _restore_gmf_channel):
-        """slack status output contains the GMF client's slack_channel."""
+    def test_slack_status_shows_client_channel(self, db_session: Session, _active_client: Client) -> None:
+        """slack status output contains the active client's slack_channel."""
         # Set a known channel value
-        _set_gmf_channel(db_session, '#status-test-channel')
+        _active_client.slack_channel = '#status-test-channel'
+        db_session.commit()
 
         result = _invoke('status')
         assert result.exit_code == 0
         assert '#status-test-channel' in result.output
 
-    def test_slack_status_fallback_when_no_client_channel(self, db_session, _restore_gmf_channel):
+    def test_slack_status_fallback_when_no_client_channel(self, db_session: Session, _active_client: Client) -> None:
         """No client channel set -> falls back to config.json or shows not configured."""
         from unittest.mock import patch
 
-        _set_gmf_channel(db_session, None)
+        db_session.expire_all()
+        assert _active_client.slack_channel is None
 
         with patch('workmain.cli.commands.slack.get_default_channel',
                    return_value='#config-fallback-status'):
