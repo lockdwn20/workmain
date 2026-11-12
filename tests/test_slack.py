@@ -124,8 +124,8 @@ class TestSlackReportsIntegration:
         ).first()
         assert existing is not None
         existing.slack_message_ts = "test-ts-004"
-        existing.slack_channel = "#int-gmf-csirt"
-        existing.slack_workspace_name = "slower-midwest"
+        existing.slack_channel = "#test-client-channel"
+        existing.slack_workspace_name = "test-workspace"
         db_session.commit()
 
         # Verify
@@ -134,8 +134,8 @@ class TestSlackReportsIntegration:
             Report.report_date == test_date,
         ).first()
         assert updated.slack_message_ts == "test-ts-004"
-        assert updated.slack_channel == "#int-gmf-csirt"
-        assert updated.slack_workspace_name == "slower-midwest"
+        assert updated.slack_channel == "#test-client-channel"
+        assert updated.slack_workspace_name == "test-workspace"
         assert _weekly_posted(db_session, test_date) is True
 
         # Cleanup
@@ -369,8 +369,8 @@ class TestDraftLabel:
             report_date=test_date,
             content="# Weekly Report\n\nRaw markdown stored in DB — slack label is prepended at post time only.",
             slack_message_ts=ts_value,
-            slack_channel="#int-gmf-csirt",
-            slack_workspace_name="slower-midwest",
+            slack_channel="#test-client-channel",
+            slack_workspace_name="test-workspace",
         )
         db_session.add(row)
         db_session.commit()
