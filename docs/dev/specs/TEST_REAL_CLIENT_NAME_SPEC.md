@@ -21,6 +21,12 @@ This spec does not quote the real client name or the real Slack workspace name. 
 | 20261112 | Ray | The stale production-data comments in 18 other test files stay out of scope (design study Q2). | #273 |
 | 20261112 | Ray | Widening `CLAUDE.md` § Client Reference goes to its own `chore/*` issue (design study Q3). | #274 |
 | 20261112 | Ray | The real workspace name asserted at `tests/test_slack_channel_config.py:186` goes to #214 (design study Q4). | #214's context and criteria, edited 20261112 |
+| 20261112 | Caliper | Spec defect, non-blocking. AC1.1's `grep -rci` reads the working tree, and its result depends on which `grep` runs it. Under GNU `grep`, the stale, gitignored `tests/__pycache__/test_slack.cpython-312.pyc` still matches after a correct change. Under ugrep, binary files are skipped, so the §5 preamble's "every file under `tests/`" does not hold. | Accepted. AC1.1 is now `git grep -ci … -- tests/` printing nothing, so it checks tracked files whichever `grep` is installed, and the §5 preamble says "every tracked file". |
+| 20261112 | Caliper | Spec defect, non-blocking. AC2.1's raw check `grep -niE 'production\|live'` matches a literal pipe under `-E`, so it returns nothing on the unchanged file. | Accepted. The check is now `grep -ni -e production -e live`, which contains no pipe and so is the same text in the raw file and in the rendered table. |
+| 20261112 | Caliper | Spec defect, non-blocking. AC4.1's check is case-sensitive, but DR1 says "in any case". | Accepted. AC4.1 is now `git grep -ci`, and its criterion says "in any case". |
+| 20261112 | Caliper | Spec defect, non-blocking. DR1 covers all test text, but `tests/test_slack_channel_config.py:186` stays out of scope (#214), so DR1 is false when the work is delivered. DR1 also says "a real client", but only `WORKMAIN_DEFAULT_CLIENT` is searched. | Accepted. DR1 is narrowed to the files §1 puts in scope, and to the two values the checks read. |
+| 20261112 | Caliper | Spec defect, non-blocking. The §2 row cites `tests/test_client_repository.py:40–51`, but the two tests run `:39–57`. The design study's F3 has the same range. | Accepted. Both now cite `:39–57`. |
+| 20261112 | Caliper | Pass at dd35338, full: 19 items checked, 0 blocking, 5 non-blocking. | n/a |
 
 ---
 
@@ -47,7 +53,7 @@ Verified at `b8551c4`, 20261112. The design study's §3 holds the full census. T
 | --- | --- |
 | The client name appears in `tests/` on exactly four lines, and in no non-Python file. | `grep -rni "$WORKMAIN_DEFAULT_CLIENT" tests/` → `tests/test_client_repository.py:23`, `tests/test_slack.py:127`, `:137`, `:372` |
 | `tests/test_client_repository.py:23` reads `# Unique names avoid collisions with production clients (<client>, etc.)` and sits above `_NAME_A = "_TestClient_G8_A"` and `_NAME_B = "_TestClient_G8_B"` (`:24–25`). | `tests/test_client_repository.py:23–25` |
-| What the names still have to avoid: the reserved name `internal`, and each other. `test_create_reserved_name` and `test_create_duplicate_name` depend on these. No client is seeded in the test database, and every test is rolled back. | `tests/test_client_repository.py:40–51`; `workmain/database/migrations/versions/0001_baseline.sql` has no `INSERT` or `COPY` into `clients`; `docs/standards/6-testing.md` §6.1 |
+| What the names still have to avoid: the reserved name `internal`, and each other. `test_create_reserved_name` and `test_create_duplicate_name` depend on these. No client is seeded in the test database, and every test is rolled back. | `tests/test_client_repository.py:39–57`; `workmain/database/migrations/versions/0001_baseline.sql` has no `INSERT` or `COPY` into `clients`; `docs/standards/6-testing.md` §6.1 |
 | In `test_04_upsert_updates_existing_row`, `:127` writes `existing.slack_channel = "#int-<client>-csirt"` and `:128` writes `existing.slack_workspace_name = "<workspace>"`. `:137` and `:138` assert the same two values come back. | `tests/test_slack.py:108–143` |
 | In `test_18_draft_label_not_in_reports_ts`, `:372` and `:373` pass the same two literals to `Report(...)`. No assertion reads them. | `tests/test_slack.py:362–388` |
 | The workspace literal at `:128`, `:138` and `:373` equals `workspace_name` in the live Slack config. | `grep -c "$(jq -r .workspace_name ~/.workmain/integrations/slack/config.json)" tests/test_slack.py` → 3 |
@@ -58,7 +64,7 @@ No signature, required input or invariant changes, so there is no call-sites row
 
 ## 3. Design rules
 
-- **DR1 — No test text names a real client or the real Slack workspace.** This covers code, comments and docstrings, in any case.
+- **DR1 — No line of the files §1 puts in scope names the real client or the real Slack workspace, in any case.** That means code, comments and docstrings alike. The real client is the value of `WORKMAIN_DEFAULT_CLIENT` in `.env`, and the real workspace is `workspace_name` in `~/.workmain/integrations/slack/config.json`.
 - **DR2 — A test that wrote a value and asserted it still writes and asserts the same value.** It may be a different string, but the value written and the value asserted stay the same.
 - **DR3 — A comment states what the code it describes needs today.** It does not describe a hazard that `docs/standards/6-testing.md` §6.1 rules out.
 
@@ -91,15 +97,15 @@ None.
 
 ## 5. Acceptance criteria
 
-The issue's first AC uses `--include=*.py`. AC1.1 searches every file under `tests/`, so a fixture or data file is counted too. AC4.1 comes from Ray's Q1 ruling, and the issue body needs it added at close-out.
+The issue's first AC uses `--include=*.py`. AC1.1 searches every tracked file under `tests/`, so a fixture or data file is counted too. AC4.1 comes from Ray's Q1 ruling, and the issue body needs it added at close-out.
 
 | AC | Criterion | How it is checked |
 | --- | --- | --- |
-| AC1.1 | No file under `tests/` names the real client, in any case | With `.env` loaded, `grep -rci "$WORKMAIN_DEFAULT_CLIENT" tests/` printing 0 for every file |
+| AC1.1 | No tracked file under `tests/` names the real client, in any case | With `.env` loaded, `git grep -ci "$WORKMAIN_DEFAULT_CLIENT" -- tests/` printing nothing |
 | AC1.2 | `test_04_upsert_updates_existing_row` asserts the same channel and workspace values it writes | `git diff main -- tests/test_slack.py` shows each new literal on both the write lines and the assert lines of that test, and `pytest tests/test_slack.py::TestSlackReportsIntegration::test_04_upsert_updates_existing_row` passes |
-| AC2.1 | No comment in `tests/test_client_repository.py` describes collisions with production or live clients, and the comment above `_NAME_A` and `_NAME_B` states what the names avoid | `grep -niE 'production\|live' tests/test_client_repository.py` returning no comment line, and a stated reading by Ray of `tests/test_client_repository.py`'s comment above `_NAME_A`, read for whether it states what the names must differ from |
+| AC2.1 | No comment in `tests/test_client_repository.py` describes collisions with production or live clients, and the comment above `_NAME_A` and `_NAME_B` states what the names avoid | `grep -ni -e production -e live tests/test_client_repository.py` returning no comment line, and a stated reading by Ray of `tests/test_client_repository.py`'s comment above `_NAME_A`, read for whether it states what the names must differ from |
 | AC3.1 | The full suite passes | A bare `pytest` reporting 0 failed |
-| AC4.1 | `tests/test_slack.py` does not name the real Slack workspace | `grep -c "$(jq -r .workspace_name ~/.workmain/integrations/slack/config.json)" tests/test_slack.py` printing 0 |
+| AC4.1 | `tests/test_slack.py` does not name the real Slack workspace, in any case | `git grep -ci "$(jq -r .workspace_name ~/.workmain/integrations/slack/config.json)" -- tests/test_slack.py` printing nothing |
 
 ## 6. Test plan
 
