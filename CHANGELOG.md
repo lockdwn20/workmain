@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.58.1] - 2026-11-12
+
+Two test files named the real client, against `CLAUDE.md` § Client Reference, and one of them also used the real Slack workspace name as test data. Both now use neutral values. One comment described collisions with production clients, which the test database (#257) rules out; it now states what the test client names actually have to avoid (#271).
+
+### Changed
+
+- `tests/test_client_repository.py`: the comment above the test client names states that they differ from each other and from the reserved name `internal`, and no longer names a client or mentions production data
+- `tests/test_slack.py`: the report tests' Slack channel and workspace values are `#test-client-channel` and `test-workspace`
+
+Suite: 1635 passed, 0 failed, 0 skipped (baseline 1635 passed, 0 failed, 0 skipped).
+
 ## [1.58.0] - 2026-11-12
 
 The test suite ran on the live database: every run spent real IDs, saw live rows and could wait on a row lock the CLI held. A bare `pytest` now runs on its own database, `workmain_test`, which it empties and builds with `alembic upgrade head` before the first test, and a run whose `DB_NAME` names any other database stops before any test (#257).
