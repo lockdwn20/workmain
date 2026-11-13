@@ -10,14 +10,14 @@
 
 ## 1. Summary
 
-Partial until Ray deletes one edit-history version. The values in the nine files under `docs/archive/` have been replaced by placeholders that name where each is held, and the one archived line Ray ruled on has been reworded. On this branch, the only tracked file that still holds a value is `tests/test_slack_channel_config.py:186`, which #214 removes. PR #11's body no longer holds a value. Its edit history still shows the version from when it was created, which holds value 4, and Ray deletes that by hand (AC3.2). The five commit messages that hold a value are kept by Ray's decision.
+Complete. The values in the nine files under `docs/archive/` have been replaced by placeholders that name where each is held, and the one archived line Ray ruled on has been reworded. On this branch, the only tracked file that still holds a value is `tests/test_slack_channel_config.py:186`, which #214 removes. PR #11's body no longer holds a value. Its edit history still shows the version from when it was created, which holds value 4. GitHub offers no deletion for it, and Ray keeps it (AC3.2). The five commit messages that hold a value are kept by Ray's decision.
 
 ## 2. What shipped, by step
 
 | Step | Delivered | Files changed | Tests |
 | --- | --- | --- | --- |
 | 1 | Each value on the 24 lines in the spec's Step 1 table replaced per DR1, and the line at `docs/archive/specs/OLLAMA_PROVIDER_ALIGNMENT_SPEC.md:225` reworded (`9a9f247`) | `docs/archive/design/DESIGN_TIME_ENTRIES_REFACTOR_20260608_v1.2md`, `docs/archive/handoffs/PHASE11_GATE0_ASSESSMENT_20260512.md`, `docs/archive/handoffs/SESSION_HANDOFF_PHASE11_5_COMPLETE_20260522.md`, `docs/archive/handoffs/SESSION_HANDOFF_PHASE11_COMPLETE_20260512.md`, `docs/archive/handoffs/SESSION_HANDOFF_PHASE8_COMPLETE.md`, `docs/archive/specs/OLLAMA_PROVIDER_ALIGNMENT_SPEC.md`, `docs/archive/specs/PHASE11_5_DISTRIBUTION_SPEC_v1_4.md`, `docs/archive/specs/PHASE13_DB_SCHEMA_REFACTOR_SPRINT_SPEC_v1_2.md`, `docs/archive/specs/PHASE6_DISCOVERY_RESULTS.md` | — |
-| 2 | PR #11's body edited per DR1, and the edit-history version holding a value listed for Ray (§5). No commit, as the spec states | none | — |
+| 2 | PR #11's body edited per DR1, and the edit-history version holding a value listed for Ray (§5), who keeps it. No commit, as the spec states | none | — |
 | 3 | This artifact | `docs/dev/results/PUBLISHED_REAL_VALUES_RESULTS.md` | — |
 
 ## 3. Acceptance criteria
@@ -28,7 +28,7 @@ Partial until Ray deletes one edit-history version. The values in the nine files
 | AC1.2 | Met | `git diff --numstat main -- docs/archive/` at `9a9f247`: 24 added, 24 removed. The hunks of `git diff --unified=0 main -- docs/archive/` fall on exactly the 24 lines the table lists, with 77–78, 143–144 and 439–440 each in one two-line hunk. Each line was checked against its "Now" quote before it was written and against its "After" cell after. C1 reported no hit under `docs/archive/` |
 | AC2.1 | Met | C2 at `main` `959c52c` and `dev` `6da190f` read 2088 commits and reported exactly `3334ab9`, `e7c1255`, `0ee9ebf`, `1789b0b` and `98198cb`, each holding value 4 |
 | AC3.1 | Met | C3, run 20261113 after Step 2, reported no current-version hit and no collection cut off |
-| AC3.2 | Not met | Awaiting Ray. C3 reports one edit-history version holding value 4, listed in §5 |
+| AC3.2 | Met | Ray, 20261113: read the edit history of PR #11's body in GitHub's web UI and GitHub's documentation. The one remaining hit C3 reports, the 2026-05-22T13:05:50Z version, is the original and only earlier version, and no deletion is offered for it. Kept as an accepted consequence (spec Decision Log, Ray, 20261113) |
 
 ## 4. Deviations and decisions
 
@@ -48,7 +48,7 @@ Partial until Ray deletes one edit-history version. The values in the nine files
 
 - **Test suite:** `tests/`: 1635 passed, 0 failed, 0 skipped (baseline: 1635 passed, 0 failed, 0 skipped). `automation/`: 113 passed, 0 failed, 0 skipped (baseline: 113 passed, 0 failed, 0 skipped).
 - **Checks:** `python3 automation/style_check.py` PASS, which covers this branch's commit messages. `python3 automation/architecture_check.py` PASS.
-- **Edit-history version for Ray to delete** (AC3.2): PR #11, the body version with `editedAt` 2026-05-22T13:05:50Z, which is the body as the pull request was created. It holds value 4. AC3.2 is met once C3 reports no edit-history hit.
+- **Edit-history version listed for Ray** (AC3.2): PR #11, the body version with `editedAt` 2026-05-22T13:05:50Z, which is the body as the pull request was created. It holds value 4. GitHub offers no deletion for it, and Ray keeps it (spec Decision Log, Ray, 20261113).
 - **Live verification:** n/a. No application code changed.
 - **Daemon restart:** n/a. `chore/*` changes no application code (`docs/standards/2-git.md` §2.6).
 

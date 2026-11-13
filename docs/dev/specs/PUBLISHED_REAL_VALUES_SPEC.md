@@ -27,6 +27,7 @@
 | 20261113 | Spanner | Value 1 at `docs/archive/specs/PHASE6_DISCOVERY_RESULTS.md:179` takes value 2's placeholder. Value 1 is part of value 2 (design study F3), and the only place it is held is `workspace_name` in `~/.workmain/integrations/slack/config.json`, where value 2 is held | DR1 |
 | 20261113 | Spanner | The census checks are written into §5 as commands, not added as a tracked script. The issue asks for the census to be run, not kept, and a script under `automation/` would be a mechanism the issue does not name | C1, C2, C3 |
 | 20261113 | Spanner | Step 2 changes no tracked file, so it ends with no commit. What it did is recorded in the results artifact, which Step 3 commits | Step 2 |
+| 20261113 | Ray | The version of PR #11's body with `editedAt` 2026-05-22T13:05:50Z holds value 4 and is kept. It is the body as the pull request was created and the only earlier version, and GitHub's web UI offers no deletion for it. What it contains is an accepted consequence | AC3.2 is met with this version as its one remaining hit |
 
 ---
 
