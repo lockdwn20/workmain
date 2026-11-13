@@ -32,6 +32,9 @@
 | 20261112 | Caliper | 4, Standards gap, non-blocking: no standard says how a direct-path spec that adds new code at contract level, which cannot quote replacement text, is implemented | Proposed for Ray: joins #245, which asks whether a direct-path spec should state what each passage must say instead of quoting it |
 | 20261112 | Caliper | Pass at f678abd, full: 29 items checked, 1 blocking, 7 non-blocking | n/a |
 | 20261113 | Ray | Supersedes the 20261112 Q1 row: with no value to check against, the style check fails (design study Q1). B was chosen to avoid the worktree problem (design study F4), but DR1 reads `.env` from the main working tree regardless, so B saved nothing and left a lost or emptied key passing every branch. With DR1's read every caller (Anvil, P7, Caliper's I6) finds the same `.env`, so A needs no special case | DR6 |
+| 20261113 | Caliper | 7, Spec defect, non-blocking: AC1.5 checks only DR6's missing-file case, so an implementation that fails only when `.env` does not exist passes it and still lets a lost or emptied key pass every branch | Accepted: AC1.5's test is parametrized over DR6's three cases (no `.env`, no key, an empty value), each asserting exit 1 and the message |
+| 20261113 | Caliper | 3, Spec defect, non-blocking: §6's "a test needing other values rewrites that `.env`" and "no test works around it on its own" conflict for AC1.4's tests, which call `real_values` with a path of their own | Accepted: §6 states that a test running `main` uses the fixture's `.env`, rewriting or removing it, and that a test of `real_values` alone writes its file under `tmp_path` and passes that path |
+| 20261113 | Caliper | Pass at a0a99b5, changes since f678abd: 32 items checked, 0 blocking, 2 non-blocking | n/a |
 
 ---
 
@@ -108,7 +111,7 @@ Each test named below is in `automation/style_check_test.py`.
 | AC1.2 | A listed value is found in any letter case and when joined into a word by `_` or `-`, and not when it is part of a longer run of letters and digits | `test_a_value_is_matched_in_any_case_and_joined_by_underscore_or_hyphen`, which asserts a hit for each of `_` and `-`, and `test_a_value_inside_a_longer_word_is_not_matched` pass |
 | AC1.3 | A listed value on a line the branch did not change is not reported, so the values already published (#276) do not fail every branch | `test_a_listed_value_on_an_untouched_line_is_not_reported` passes |
 | AC1.4 | `DEV_REAL_VALUES` is split on commas, with surrounding whitespace and empty entries dropped, and a missing file yields no values | `test_values_are_split_on_commas_with_whitespace_and_empty_entries_dropped` and `test_a_missing_env_file_lists_no_values` pass |
-| AC1.5 | With no values the check fails with DR6's message, whatever the other checks find | `test_without_listed_values_the_check_fails_with_a_message` passes, removing the fixture's `.env`, running `main` on a branch with no other violation, and asserting exit 1 and the message in the output |
+| AC1.5 | With no values the check fails with DR6's message, whatever the other checks find | `test_without_listed_values_the_check_fails_with_a_message` passes for each of DR6's three cases, parametrized: the fixture's `.env` removed, the key removed from it, and the key set to an empty value; each runs `main` on a branch with no other violation and asserts exit 1 and the message in the output |
 | AC1.6 | Run in a linked worktree, as Caliper's I6 runs it, the check reads `.env` from the main working tree | `test_values_are_read_from_the_main_working_tree_in_a_linked_worktree` passes, running `main` with `--base` from a linked worktree whose own folder has no `.env`, and asserting a hit and no DR6 message |
 | AC1.7 | On this repository the check reads the live `DEV_REAL_VALUES` | `python3 automation/style_check.py` run on this branch prints no `real-value check not run` line |
 | AC2.1 | A branch whose own commit message holds a listed value fails the style check, and the output names the commit without the value | `test_a_listed_value_in_a_branch_commit_message_fails_without_printing_it` passes, with the value in the body of a branch commit that is not the newest and a newest commit that holds none, asserting exit 1, that commit's short hash in the output, and the value absent from it in any case |
@@ -120,8 +123,8 @@ The command line is the only entry path to the check (§2 callers). AC1.1, AC1.5
 ## 6. Test plan
 
 - **Baseline before this work:** `tests/`: 1635 passed, 0 failed, 0 skipped (`CHANGELOG.md` 1.58.1). `automation/`: 101 passed, 0 failed, 0 skipped (§2).
-- **Expected after:** `tests/` unchanged. `automation/`: 111 passed, 0 failed, 0 skipped, with ruff installed: step 1 adds eight tests and step 2 two, each named in §5.
-- The tests build their repository with the existing `repo` fixture, which by default also writes an ignored `.env` holding one invented value, so every test that runs `main` has values, including `test_main_exits_1_on_a_violation_and_0_without`, whose exit 0 DR6 would otherwise turn into 1. A test needing other values rewrites that `.env`; AC1.5's test removes it. No test works around it on its own.
+- **Expected after:** `tests/` unchanged. `automation/`: 113 passed, 0 failed, 0 skipped, with ruff installed: step 1 adds eight test functions, AC1.5's parametrized over three cases, so ten collected tests, and step 2 adds two, each named in §5.
+- The tests build their repository with the existing `repo` fixture, which by default also writes an ignored `.env` holding one invented value, so every test that runs `main` has values, including `test_main_exits_1_on_a_violation_and_0_without`, whose exit 0 DR6 would otherwise turn into 1. A test that runs `main` and needs other values rewrites that `.env`, or removes it as AC1.5's test does; none writes a `.env` anywhere else. A test of `real_values` alone, as AC1.4's are, writes its file under `tmp_path` and passes that path.
 
 ## 7. Risks and rollback
 
