@@ -111,17 +111,12 @@ class TestReportHistory(unittest.TestCase):
 
     def test_history_empty(self):
         """No rows matching filter → 'No reports found.' message."""
-        # Use a type that won't match any existing production rows with an
-        # absurd date filter by invoking on an empty result via bogus type check
-        # (we can't guarantee the DB is empty, so we use a date far in the future)
-        # Instead: seed a daily row then filter for weekly_client on a day with no data
-        r = self._seed('daily_internal', date(2099, 12, 31), 'future daily')
+        self._seed('daily_internal', date(2099, 12, 31), 'future daily')
 
         result = self.runner.invoke(reports, ['history', '--type', 'weekly_client',
                                               '--limit', '1'])
-        # May or may not be empty depending on other rows; only check if output contains
-        # "No reports found." when truly empty — soft assertion
         self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn('No reports found.', result.output)
 
     def test_history_invalid_type(self):
         """--type bogus exits non-zero with error message."""
