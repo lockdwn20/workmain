@@ -10,7 +10,7 @@ import importlib.util
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Callable, Dict
+from typing import Callable, Dict, Optional
 
 import pytest
 
@@ -36,7 +36,12 @@ known-first-party = ["workmain"]
 convention = "google"
 """
 
+# An invented real value, unlike any real one; the fixture's .env lists it.
+VALUE = "Qzx"
+ENV = f"DEV_REAL_VALUES={VALUE}\n"
+
 BASE = {
+    ".gitignore": ".env\n",
     "pyproject.toml": PYPROJECT,
     "workmain/__init__.py": '"""\nThe application.\n"""\n',
     "workmain/old.py": (
@@ -70,8 +75,9 @@ def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Build:
         monkeypatch: pytest's patcher, used to point the module at the folder.
 
     Returns:
-        A function that commits BASE on main, cuts `branch` from it, writes its
-        `changes` into the working tree uncommitted, and returns the root.
+        A function that commits BASE on main, writes an ignored `.env` listing
+        VALUE, cuts `branch` from main, writes its `changes` into the working
+        tree uncommitted, and returns the root.
     """
 
     def build(changes: Dict[str, str], branch: str = "chore/test") -> Path:
@@ -79,6 +85,7 @@ def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Build:
             path = tmp_path / rel
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(text)
+        (tmp_path / ".env").write_text(ENV)
         _git(tmp_path, "init", "-q", "-b", "main")
         _git(tmp_path, "add", "-A")
         _git(tmp_path, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "base")
@@ -247,3 +254,103 @@ def test_main_exits_1_on_a_violation_and_0_without(repo: Build) -> None:
     assert sc.main([]) == 1
     (root / "docs" / "guide.md").write_text(BASE["docs/guide.md"] + "\nNew, on one line.\n")
     assert sc.main([]) == 0
+
+
+# ---------------------------------------------------------------- real values
+
+def _commit(root: Path, message: str) -> None:
+    """Commit everything in the test repository with `message`."""
+    _git(root, "add", "-A")
+    _git(root, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", message)
+
+
+def test_values_are_split_on_commas_with_whitespace_and_empty_entries_dropped(tmp_path: Path) -> None:
+    env = tmp_path / ".env"
+    env.write_text('DEV_REAL_VALUES=" Qzx , ,quillbrook-hollow,"\n')
+    assert sc.real_values(env) == ["Qzx", "quillbrook-hollow"]
+
+
+def test_a_missing_env_file_lists_no_values(tmp_path: Path) -> None:
+    assert sc.real_values(tmp_path / ".env") == []
+
+
+def test_a_value_is_matched_in_any_case_and_joined_by_underscore_or_hyphen() -> None:
+    text = "a qzx here\nfoo_QZX_bar\nint-Qzx-team\n"
+    # Letters that Unicode case folding maps to ASCII still bound a value: ı, İ, ſ and the Kelvin sign.
+    text += "\u0131qzx\n\u0130qzx\nqzx\u017f\nqzx\u212a\n"
+    assert [line for _, line, _, _ in sc.real_value_violations("x.md", text, [VALUE])] == [1, 2, 3, 4, 5, 6, 7]
+
+
+def test_a_value_inside_a_longer_word_is_not_matched() -> None:
+    assert sc.real_value_violations("x.md", "aqzxb\nqzx9 and 9qzx\n", [VALUE]) == []
+
+
+def test_a_listed_value_on_a_changed_line_fails_without_printing_it(
+        repo: Build, capsys: pytest.CaptureFixture) -> None:
+    repo({"docs/guide.md": BASE["docs/guide.md"] + "\nWritten for qzx today.\n"})
+    assert sc.main([]) == 1
+    out = capsys.readouterr().out
+    assert "docs/guide.md:6 — holds value 1 of DEV_REAL_VALUES" in out
+    assert VALUE.lower() not in out.lower()
+
+
+def test_a_listed_value_on_an_untouched_line_is_not_reported(repo: Build) -> None:
+    repo({"docs/notes.md": f"{VALUE} was here.\n\nA new line.\n"})
+    assert sc.check({"docs/notes.md": {3}}, [VALUE]) == []
+    assert [line for _, line, _, _ in sc.check({"docs/notes.md": {1}}, [VALUE])] == [1]
+
+
+@pytest.mark.parametrize("env", [None, "OTHER_KEY=1\n", "DEV_REAL_VALUES=\n"],
+                         ids=["no-env-file", "no-key", "empty-value"])
+def test_without_listed_values_the_check_fails_with_a_message(
+        repo: Build, capsys: pytest.CaptureFixture, env: Optional[str]) -> None:
+    root = repo({"docs/guide.md": BASE["docs/guide.md"] + "\nNew, on one line.\n"})
+    if env is None:
+        (root / ".env").unlink()
+    else:
+        (root / ".env").write_text(env)
+    assert sc.main([]) == 1
+    out = capsys.readouterr().out
+    assert "0 violation(s)" in out
+    assert "real-value check not run: DEV_REAL_VALUES is not set in .env in the main working tree" in out
+
+
+def test_values_are_read_from_the_main_working_tree_in_a_linked_worktree(
+        repo: Build, capsys: pytest.CaptureFixture, monkeypatch: pytest.MonkeyPatch,
+        tmp_path_factory: pytest.TempPathFactory) -> None:
+    root = repo({"docs/guide.md": BASE["docs/guide.md"] + "\nWritten for qzx today.\n"})
+    _commit(root, "add a line")
+    worktree = tmp_path_factory.mktemp("worktree")
+    _git(root, "worktree", "add", "-q", "--detach", str(worktree), "chore/test")
+    assert not (worktree / ".env").exists()
+    monkeypatch.setattr(sc, "ROOT", worktree)
+    assert sc.main(["--base", "main"]) == 1
+    out = capsys.readouterr().out
+    assert "docs/guide.md:6 — holds value 1 of DEV_REAL_VALUES" in out
+    assert "real-value check not run" not in out
+
+
+def test_a_listed_value_in_a_branch_commit_message_fails_without_printing_it(
+        repo: Build, capsys: pytest.CaptureFixture) -> None:
+    root = repo({"docs/first.md": "First.\n"})
+    _commit(root, "Add the first note\n\nWritten for qzx, in the body.")
+    flagged = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=root, check=True,
+                             capture_output=True, text=True).stdout.strip()
+    (root / "docs" / "second.md").write_text("Second.\n")
+    _commit(root, "Add the second note")
+    assert sc.main([]) == 1
+    out = capsys.readouterr().out
+    assert f"commit {flagged} — holds value 1 of DEV_REAL_VALUES" in out
+    assert out.count("commit ") == 1
+    assert VALUE.lower() not in out.lower()
+
+
+def test_a_value_in_a_commit_before_the_branch_is_not_reported(
+        repo: Build, capsys: pytest.CaptureFixture) -> None:
+    root = repo({})
+    _git(root, "checkout", "-q", "main")
+    _git(root, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "--allow-empty",
+         "-m", f"Base work for {VALUE}")
+    _git(root, "checkout", "-q", "-b", "chore/later")
+    assert sc.main([]) == 0
+    assert "commit " not in capsys.readouterr().out
