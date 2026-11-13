@@ -44,6 +44,7 @@
 | 20261113 | Caliper | Pass at 94d0e72, changes since 7648543: 12 items checked, 0 blocking, 3 non-blocking. | n/a |
 | 20261113 | Caliper | 2, Spec defect, non-blocking: the Not-taken resolutions of the 7648543-pass summary-only row and the 94d0e72-pass D200 row say the style check "passes every form it can take". It does not: `"""Summary.` with the closing quotes on their own line fails D213. The ruling stands, since AC1.6's check rejects that form. Only the stated reason is wrong. Narrow both to the two forms that pass. | Accepted. Both resolutions now name the two forms that pass: a one-line docstring, and a summary on the line after the opening quotes. |
 | 20261113 | Caliper | Pass at bd95939, changes since 94d0e72: 13 items checked, 0 blocking, 1 non-blocking. | n/a |
+| 20261113 | Caliper (post-implementation) | No findings. | n/a |
 
 ---
 
