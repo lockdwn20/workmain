@@ -243,7 +243,7 @@ directly. The generator computes the weekly date range from `report_date` intern
         └── config.json                     (created on first auth, chmod 600)
                                             {
                                               "workspace_name": "...",
-                                              "default_channel": "#int-gmf-csirt"
+                                              "default_channel": "#{clients.slack_channel}"
                                             }
 ```
 
@@ -280,7 +280,7 @@ workmain slack auth             # ✓ Already authenticated — <workspace>
 workmain slack status           # auth state + recent posts table
 
 # Channel
-workmain slack channel set int-gmf-csirt   # current default channel
+workmain slack channel set {clients.slack_channel}   # current default channel
 
 # Dry-run (no staged file → would-generate message)
 workmain slack post-weekly --dry-run

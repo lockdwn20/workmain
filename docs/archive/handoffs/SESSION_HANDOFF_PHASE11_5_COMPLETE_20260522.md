@@ -22,7 +22,7 @@ Two deliverables:
    channel for each client. `workmain slack set channel` writes it. `slack post` resolves
    `clients.slack_channel` first, falls back to `config.json default_channel`, errors if
    neither is set. `slack channel set` (the old config-file-backed command) is retired.
-   `config.json default_channel` was migrated to `GMF.slack_channel`; the config file now
+   `config.json default_channel` was migrated to `{WORKMAIN_DEFAULT_CLIENT}.slack_channel`; the config file now
    holds only `workspace_name`.
 
 2. **Per-client email recipient scoping** — `report_recipients.client_id` FK activated
@@ -140,8 +140,8 @@ END $$;
 ```
 
 ### config.json migration
-`config.json` previously held `default_channel: "#int-gmf-csirt"`. This value was
-written to `GMF.slack_channel` and removed from the config file. The file now contains
+`config.json` previously held `default_channel: "#{clients.slack_channel}"`. This value was
+written to `{WORKMAIN_DEFAULT_CLIENT}.slack_channel` and removed from the config file. The file now contains
 only `workspace_name`. The `get_default_channel()` helper still reads from config.json
 and serves as the fallback in `_resolve_slack_channel()` for backward compatibility
 during any transition period.

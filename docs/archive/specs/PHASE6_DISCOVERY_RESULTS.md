@@ -176,7 +176,7 @@ Script run against `/tmp/sample.ics`.
   DTSTAMP: vDDDTypes(2026-03-04 19:45:05+00:00, Parameters({}))
   DTSTART: vDDDTypes(2026-03-12 16:30:00-04:00, Parameters({'TZID': 'Eastern Standard Time'}))
   SEQUENCE: 0
-  SUMMARY: vText(b'Copy: Splunk Follow Up: GMF and Slower ')
+  SUMMARY: vText(b'Copy: Splunk Follow Up: {WORKMAIN_DEFAULT_CLIENT} and {workspace_name in ~/.workmain/integrations/slack/config.json} ')
   TRANSP: vText(b'OPAQUE')
   UID: vText(b'AAAAAD2ybyshQsREoRb0X9v1LusHAJDFDPTAQVZHrRcyOf6AV2IAAESTZDEAAJDFDPTAQVZHrRcyOf6AV2IAAESTfB8AAA==')
   X-MICROSOFT-CDO-BUSYSTATUS: vText(b'BUSY')

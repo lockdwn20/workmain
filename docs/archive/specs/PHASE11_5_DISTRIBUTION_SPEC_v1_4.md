@@ -131,7 +131,7 @@ Do not begin Gate 0 until all five documents are read.
   is notified in output)
 
 **`email assign` scoping:**
-- Active client = GMF → recipient gets `client_id = GMF.id`
+- Active client = {WORKMAIN_DEFAULT_CLIENT} → recipient gets `client_id = {WORKMAIN_DEFAULT_CLIENT}.id`
 - Active client = none (internal) → recipient gets `client_id = NULL` (global)
 - No flag, no prompt — ambient context, same as `note add`
 
@@ -221,7 +221,7 @@ correctly.
 cat ~/.workmain/integrations/slack/config.json
 ```
 Record full contents. Confirm `default_channel` value matches what was
-recorded at Phase 11 Gate 0 (`"#int-gmf-csirt"`). Confirm active client
+recorded at Phase 11 Gate 0 (`"#{clients.slack_channel}"`). Confirm active client
 name for the migration step.
 
 **7. Confirm active client:**
@@ -290,7 +290,7 @@ ALTER TABLE clients
     ADD COLUMN IF NOT EXISTS slack_channel TEXT;
 
 COMMENT ON COLUMN clients.slack_channel IS
-    'Slack channel for this client (e.g. #int-gmf-csirt). '
+    'Slack channel for this client (e.g. #{clients.slack_channel}). '
     'NULL = use config.json default_channel as fallback. '
     'Set via: workmain slack set channel <channel>.';
 ```
@@ -436,8 +436,8 @@ Version bump `slack.py` either way.
 workmain slack set channel <channel>
 ```
 
-- Positional: `channel` — Slack channel name (e.g. `#int-gmf-csirt` or
-  `int-gmf-csirt` — normalize by adding `#` if absent)
+- Positional: `channel` — Slack channel name (e.g. `#{clients.slack_channel}` or
+  `{clients.slack_channel}` — normalize by adding `#` if absent)
 - Reads `active_client_id` from `system_state`
 - If no active client: error —
   `"No active client set. Run 'workmain clients set active <name>' first."`
@@ -459,7 +459,7 @@ workmain slack set workspace
 ```
 Workspace configuration is managed via the Slack config file.
 
-Current workspace: slower-midwest
+Current workspace: {workspace_name in ~/.workmain/integrations/slack/config.json}
 Config file: ~/.workmain/integrations/slack/config.json
 
 To change the workspace, edit the "workspace_name" field in that file.
@@ -483,7 +483,7 @@ can write it, perform the one-time data migration:
 
 ```json
 {
-    "workspace_name": "slower-midwest"
+    "workspace_name": "{workspace_name in ~/.workmain/integrations/slack/config.json}"
 }
 ```
 
@@ -555,7 +555,7 @@ order as `_resolve_slack_channel()`).
 **`slack status`** — primary display update:
 - Replace the current `default_channel` read from `config.json` with the
   active client's `slack_channel`
-- Display format: `"Channel: #int-gmf-csirt (Client: GMF)"`
+- Display format: `"Channel: #{clients.slack_channel} (Client: {WORKMAIN_DEFAULT_CLIENT})"`
 - If no active client or no channel set on client: show fallback value or
   `"(not configured)"`
 
@@ -594,7 +594,7 @@ silently for display purposes.
 [ ] config.json migration complete — default_channel migrated to active
     client's slack_channel; config.json now contains only workspace_name
 [ ] SELECT slack_channel FROM clients WHERE is_active = TRUE — shows
-    "#int-gmf-csirt" (migrated value confirmed)
+    "#{clients.slack_channel}" (migrated value confirmed)
 [ ] post-weekly channel resolution reads clients.slack_channel first;
     _resolve_slack_channel() called within a restructured session block
     (per Open Question 6 confirmation at Gate 0)
