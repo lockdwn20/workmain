@@ -11,9 +11,10 @@ brought up to the rules as it is touched rather than all at once. Uncommitted
 and untracked files count as changed. CHANGELOG.md is history and is never
 checked.
 
-Every changed line, in a file of any type, is also checked for the real
-values listed in DEV_REAL_VALUES, read from .env in the main working tree, so
-a linked worktree reads the same file. The report names where a value is,
+Every changed line, in a file of any type, and every commit message since the
+branch left its base are also checked for the real values listed in
+DEV_REAL_VALUES, read from .env in the main working tree, so a linked
+worktree reads the same file. The report names where a value is,
 never the value. With no values listed the check cannot run, and fails.
 Requires git, ruff and python-dotenv.
 
@@ -120,6 +121,11 @@ def real_values(env: Path) -> List[str]:
     return [entry.strip() for entry in raw.split(",") if entry.strip()]
 
 
+def _value_patterns(values: Sequence[str]) -> List[re.Pattern]:
+    """Compile each value to match in any case, bounded only by ASCII letters and digits."""
+    return [re.compile(rf"(?<![A-Za-z0-9]){re.escape(value)}(?![A-Za-z0-9])", re.IGNORECASE) for value in values]
+
+
 def real_value_violations(path: str, text: str, values: Sequence[str]) -> List[Violation]:
     """
     Find the lines of a file that hold a listed real value.
@@ -138,11 +144,35 @@ def real_value_violations(path: str, text: str, values: Sequence[str]) -> List[V
     Returns:
         One (path, line, line, message) entry per line and value matched.
     """
-    patterns = [re.compile(rf"(?<![A-Za-z0-9]){re.escape(value)}(?![A-Za-z0-9])", re.IGNORECASE)
-                for value in values]
+    patterns = _value_patterns(values)
     return [(path, number, number, f"holds value {position} of {REAL_VALUES_KEY}")
             for number, line in enumerate(text.split("\n"), 1)
             for position, pattern in enumerate(patterns, 1) if pattern.search(line)]
+
+
+def commit_violations(base: str, values: Sequence[str]) -> List[Tuple[str, int]]:
+    """
+    Find the branch's own commit messages that hold a listed real value.
+
+    Every commit since the branch left `base` is read, merge commits
+    included, subject and body; a commit reachable from `base` is not.
+
+    Args:
+        base: The base branch, or any commit.
+        values: The listed real values, in list order.
+
+    Returns:
+        One (short hash, position) entry per commit and value matched.
+    """
+    fork = _git("merge-base", "HEAD", base).strip()
+    found = []
+    for entry in _git("log", "--format=%h%x00%B%x1e", f"{fork}..HEAD").split("\x1e"):
+        if "\x00" not in entry:
+            continue
+        short, message = entry.strip("\n").split("\x00", 1)
+        found += [(short, position) for position, pattern in enumerate(_value_patterns(values), 1)
+                  if pattern.search(message)]
+    return found
 
 
 # ---------------------------------------------------------------- the checks
@@ -287,13 +317,17 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     changes = changed_lines(base)
     values = real_values(_main_worktree() / ".env")
     violations = check(changes, values)
+    commits = commit_violations(base, values) if values else []
 
-    print(f"{branch} against {base}: {len(changes)} changed file(s), {len(violations)} violation(s)")
+    print(f"{branch} against {base}: {len(changes)} changed file(s), "
+          f"{len(violations) + len(commits)} violation(s)")
     for path, line, _, message in violations:
         print(f"  {path}:{line} — {message}")
+    for short, position in commits:
+        print(f"  commit {short} — holds value {position} of {REAL_VALUES_KEY}")
     if not values:
         print(f"  real-value check not run: {REAL_VALUES_KEY} is not set in .env in the main working tree")
-    failed = bool(violations) or not values
+    failed = bool(violations) or bool(commits) or not values
     print("\nFAIL" if failed else "\nPASS")
     return 1 if failed else 0
 

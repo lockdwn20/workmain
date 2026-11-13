@@ -326,3 +326,29 @@ def test_values_are_read_from_the_main_working_tree_in_a_linked_worktree(
     out = capsys.readouterr().out
     assert "docs/guide.md:6 — holds value 1 of DEV_REAL_VALUES" in out
     assert "real-value check not run" not in out
+
+
+def test_a_listed_value_in_a_branch_commit_message_fails_without_printing_it(
+        repo: Build, capsys: pytest.CaptureFixture) -> None:
+    root = repo({"docs/first.md": "First.\n"})
+    _commit(root, "Add the first note\n\nWritten for qzx, in the body.")
+    flagged = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=root, check=True,
+                             capture_output=True, text=True).stdout.strip()
+    (root / "docs" / "second.md").write_text("Second.\n")
+    _commit(root, "Add the second note")
+    assert sc.main([]) == 1
+    out = capsys.readouterr().out
+    assert f"commit {flagged} — holds value 1 of DEV_REAL_VALUES" in out
+    assert out.count("commit ") == 1
+    assert VALUE.lower() not in out.lower()
+
+
+def test_a_value_in_a_commit_before_the_branch_is_not_reported(
+        repo: Build, capsys: pytest.CaptureFixture) -> None:
+    root = repo({})
+    _git(root, "checkout", "-q", "main")
+    _git(root, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "--allow-empty",
+         "-m", f"Base work for {VALUE}")
+    _git(root, "checkout", "-q", "-b", "chore/later")
+    assert sc.main([]) == 0
+    assert "commit " not in capsys.readouterr().out
