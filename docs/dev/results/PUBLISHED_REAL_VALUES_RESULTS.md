@@ -1,6 +1,6 @@
 # Published Real Values — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261113
 **Spec:** `../specs/PUBLISHED_REAL_VALUES_SPEC.md`

@@ -1,6 +1,6 @@
 # Published Real Values — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261113
 **Branch:** `chore/issue-276-published-real-values` (from `main`, merges to `main` and `dev`)
