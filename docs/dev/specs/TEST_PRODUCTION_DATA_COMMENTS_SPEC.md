@@ -1,0 +1,164 @@
+# Test Comments That Claim Production-Data Isolation — Spec
+
+**Status:** Draft
+**Author:** Spanner (Role 1)
+**Date:** 20261113
+**Branch:** `hotfix/issue-273-stale-production-comments` (from `main`)
+**Target release:** v1.58.2
+**Originating item:** Issue #273
+**Design study:** `../design/DESIGN_TEST_PRODUCTION_DATA_COMMENTS.md`
+
+---
+
+## Decision Log
+
+| Date | Source | Decision or finding | Resolution |
+| --- | --- | --- | --- |
+| 20261113 | Ray | Design study Q1: comments only, or comments plus removing the guards that do no work. | Comments plus removal, except in `tests/test_eod_workflow.py`. There the four `get_filtered` stubs stay unchanged, and their comments are reworded to a reason that holds whatever order the real query returns. Whether the stubs still do any work was carried to #254's body under "Carried from #273". DR3, Steps 2 and 3. |
+| 20261113 | Ray | Design study Q2: whether #273 corrects the wrong weekday names in `tests/test_notification_engine.py`. | Corrected in #273. Step 1, AC3.1. |
+| 20261113 | Ray | Branch type. | `hotfix/*`, confirmed at session open. The change is to `tests/` only, so no application file counts toward the `docs/standards/2-git.md` §2.2 limit. |
+
+---
+
+## 1. Scope
+
+**In scope:** these files under `tests/` (§2 quotes each line that changes):
+
+- `test_notes_list.py`, `test_reports_corrections.py`, `test_system_state_repository.py`, `test_orchestration.py`, `test_email_recipients_client.py`, `test_tasks_service.py`, `test_notification_engine.py`, `test_notes_show.py`, `test_time_entries_refactor.py`, `test_time_tracking.py`, `test_report_history.py`, `test_task_lifecycle.py`, `test_schedule_commands.py`, `test_eod_workflow.py`, `test_meetings_repository.py`, `test_ai_costs.py`, `test_schedule_service.py`, `test_gdrive.py`
+
+That is the issue's 18 files. The 19th file the issue names, `tests/test_client_repository.py`, is #271's (issue body).
+
+The changes:
+
+- Every comment or docstring that says a value or a piece of code keeps a test clear of production, live or pre-existing database data.
+- The four weekday names in `tests/test_notification_engine.py`.
+- The `state.delete(...)` calls in the two fallback tests of `tests/test_schedule_service.py`.
+- The assertion of `tests/test_report_history.py::TestReportHistory::test_history_empty`.
+
+**Out of scope:**
+
+- **Sentinel values:** the 2099 dates, unique keys, unused IDs and marker terms. Each is a fixed value its test needs, so replacing it gains nothing (design study F3).
+- **The `get_filtered` stubs in `tests/test_eod_workflow.py`.** They stay, with no test code change. Whether they still do any work is #254's (Decision Log, Ray, Q1).
+- **The delete-by-ID `tearDown` pattern, its `_seeded_ids` tracking and the unused bootstrap in `tests/test_report_history.py` `setUp`.** #208, #209, #212, #214 and #216 own these (design study F7). The census line `tests/test_reports_corrections.py:6` ("Seeded rows are deleted by ID in tearDown") is true and stays.
+- **Lines that say "real DB" to mean the actual database rather than a mock.** These make no isolation claim: `tests/test_action_executor.py:5`, `tests/test_slack.py:4`, `tests/test_slack.py:59`, `tests/test_gdrive.py:253`.
+- Any file under `workmain/`.
+
+## 2. Verified current state
+
+Read at `1291325` (`origin/main`), 20261113.
+
+| Claim | Evidence (file:line, symbol) |
+| --- | --- |
+| Every test starts from empty tables and is rolled back, including `unittest.TestCase` classes. | Design study F1: `tests/conftest.py` `build_test_database` and `_isolated_database`; `docs/standards/6-testing.md` §6.1; the baseline migration inserts no rows; `pytest --setup-show` on a test in each of `TestReportHistory` and `TestReportsCorrections` shows `_isolated_database` wrapping it. |
+| `reports history --type weekly_client --limit 1` with only a `daily_internal` row seeded prints "No reports found." and exits 0. With a `weekly_client` row also seeded, the message is absent. | A scratch probe run on `workmain_test` against `workmain/cli/commands/reports.py:326`, 20261113. Output: `'\nNo reports found.\nGenerate your first report with: workmain reports save daily_internal\n\n'`. |
+| 2099-01-15 is a Thursday and 2099-01-14 a Wednesday. 2099-01-03, 01-04 and 01-05 are Saturday, Sunday and Monday. | `date.fromisoformat(...).strftime('%A')`, 20261113 |
+| `SystemStateRepository` is still used in `tests/test_schedule_service.py` after Step 2, so its import stays. | `tests/test_schedule_service.py:31` import; used at `:92`, `:102`, `:110`, `:133` and on, outside the two edited tests |
+| Suite baseline: 1635 passed, 0 failed, 0 skipped. | `CHANGELOG.md` `[1.58.1]`, and a bare `pytest` at `1291325`, 20261113 |
+
+**The census.** These are the lines Steps 1–3 change, quoted as they stand. "Disposition" is the DR1 code.
+
+| Site | Current text | Disposition |
+| --- | --- | --- |
+| `test_notes_list.py:12-13` | "All test data uses sentinel dates (2099-xx-xx) to avoid collisions with production data visible to the CLI's own sessions." | D |
+| `test_reports_corrections.py:8-12` | "Each test isolates its own rows from real production data with either a unique correction_note marker term (matched via the search filter) or a sentinel far-future report_date (matched via the date filter) — never by exact result count against an unfiltered query, since production corrected reports exist and are not test data this file controls." | D |
+| `test_reports_corrections.py:125-129` (`test_default_limit_applied` docstring) | "All 25 seeded rows share updated_at == self.now, which is more recent than any pre-existing real corrected report (a real row's updated_at is necessarily in the past relative to this test run), so the top-20 cut is guaranteed to be filled entirely by these rows regardless of how much real production data also falls in the window." | R: all 25 seeded rows fall inside the default window, so the default cap of 20 is what limits the output. |
+| `test_system_state_repository.py:10` | "# Use a key prefix that avoids collisions with production keys" | D |
+| `test_orchestration.py:24` | "# Sentinel date: far future ensures no real DB/production data matches" | D |
+| `test_email_recipients_client.py:8-9` | "Sentinel client IDs and dates used to avoid colliding with production data." | D |
+| `test_email_recipients_client.py:22` | "# Sentinel report type — far-future unique value to avoid prod collisions" | D |
+| `test_tasks_service.py:5-6` | "Each test seeds its own sentinel date in 2099 so rows cannot collide with production data." | D |
+| `test_notification_engine.py:6` | "Uses sentinel dates (2099-01-xx) to prevent production data skewing results." | R: `SENTINEL_PREV_BIZ` is the business day before `SENTINEL_DATE`, which the carry-forward check needs. |
+| `test_notification_engine.py:11-12` | "SENTINEL_DATE = 2099-01-15 (Wednesday)" / "SENTINEL_PREV_BIZ = 2099-01-14 (Tuesday — previous business day)" | W: Thursday, Wednesday |
+| `test_notification_engine.py:32-33` | "# Wednesday" / "# Tuesday" | W: Thursday, Wednesday |
+| `test_notes_show.py:10-11` | "CLI tests use ID 999999 (guaranteed non-existent in sentinel space) or keywords unique enough to never match production data." | R: the ID and the keywords match no row the test seeded. |
+| `test_time_entries_refactor.py:8` | "Sentinel date 2099-06-01 prevents overlap with production data." | D |
+| `test_time_tracking.py:5-6` | "Uses db_session fixture from conftest.py for full transaction isolation — no data persists to the production database after any test." | R: each test's writes are rolled back when it ends. |
+| `test_time_tracking.py:8-9` | "All tests that create entries use _TEST_DATE or _TEST_WEEK_MONDAY (far-future sentinel dates) so category/total assertions are unaffected by production data." | D |
+| `test_time_tracking.py:35-36` | "# Sentinel dates far in the future — guarantee zero overlap with production data" / "# so category/total assertions can use exact values." | D |
+| `test_report_history.py:70-71` (`test_history_desc_order` docstring) | "Uses far-future daily_internal dates to ensure these rows rank first in the result set above any existing production rows." | D |
+| `test_report_history.py:118-121`, `:126-127` (`test_history_empty`) | "# Use a type that won't match any existing production rows with an / # absurd date filter by invoking on an empty result via bogus type check / # (we can't guarantee the DB is empty, so we use a date far in the future) / # Instead: seed a daily row then filter for weekly_client on a day with no data" and "# May or may not be empty depending on other rows; only check if output contains / # "No reports found." when truly empty — soft assertion" | Step 3 |
+| `test_task_lifecycle.py:11` | "Sentinel dates (2099-xx-xx) prevent collisions with production data." | D |
+| `test_schedule_commands.py:7` | "Uses sentinel dates (2099-06-xx) to prevent production data skewing results." | D |
+| `test_eod_workflow.py:57` | "# Sentinel date: far future ensures no real DB records match" | D |
+| `test_eod_workflow.py:317-321` (`test_self_match_excluded_llm_mode` docstring) | "get_filtered() is scoped to exactly the one sentinel task here — without this, real production active carry-forward tasks (whose get_filtered() query has no date scoping) would also enter the loop and could call parse_task_match() legitimately, making the assert_not_called() below unreliable." | S |
+| `test_eod_workflow.py:475-477` (`test_no_cancellation_runs_every_task_to_completion` docstring) | "get_filtered() scoped to exactly the 5 sentinel tasks — real production active tasks (unscoped by date) would otherwise inflate the count this test asserts on." | S |
+| `test_eod_workflow.py:510-512` (`test_pairing_count_matches_incremental_scope` docstring) | "get_filtered() scoped to exactly the 5 sentinel tasks — real production active tasks (get_filtered() has no date scoping) would otherwise inflate the pair count this test asserts on." | S |
+| `test_eod_workflow.py:559-561` (`test_merge_survivor_is_more_recent_note` docstring) | "get_filtered() scoped to exactly the 2 sentinel tasks — a blanket score=0.9 mock would otherwise "merge" real production active tasks pulled in by get_filtered()'s unscoped query." | S |
+| `test_meetings_repository.py:8` | "Uses a sentinel date to prevent production data skewing results." | D |
+| `test_ai_costs.py:19` | "# Sentinel timestamps — far future avoids picking up real production rows." | D |
+| `test_schedule_service.py:8-9` | "Uses sentinel dates with known weekdays to prevent production data/calendar drift from skewing results:" | R: the dates have known weekdays, so results do not depend on the day the suite runs. |
+| `test_schedule_service.py:79-81`, `:83-85` (`TestWorkingHours.test_falls_back_to_default_window_when_unconfigured`) | "Production system_state already has working_hours_start/end seeded (Gate 1) — deleted here within the test's own transaction so the fallback path is actually exercised; rollback restores it after." and `state = SystemStateRepository(db_session)`, `state.delete('working_hours_start')`, `state.delete('working_hours_end')` | Step 2 |
+| `test_schedule_service.py:123-128` (`TestT4Interval.test_falls_back_to_default_when_unconfigured`) | "Production system_state already has t4_interval_min/max seeded (Gate 1) — deleted here within the test's own transaction so the fallback path is actually exercised; rollback restores it after." and `state = SystemStateRepository(db_session)`, `state.delete('t4_interval_min')`, `state.delete('t4_interval_max')` | Step 2 |
+| `test_gdrive.py:97` | "# Use a sentinel far-future date guaranteed to never exist in production DB" | D |
+| `test_gdrive.py:106` | "# Use a date guaranteed to have no real uploads in the DB" | D |
+
+The census was found by the issue's search together with the wider searches in design study F2. AC1.1's check is that union, narrowed to the forms those searches found.
+
+## 3. Design rules
+
+- **DR1 — Each census site gets its disposition, and nothing else.**
+  - **D:** the production, live or pre-existing-data reason is removed. Text left in its place gives the value no reason, or describes it without a reason ("Tests use fixed dates in 2099" is acceptable). A comment left with nothing to say is deleted.
+  - **R:** the reason is replaced by the one the census row states.
+  - **W:** the weekday names are corrected to the ones the row gives.
+  - **S:** the stub's reason is replaced by this one: the stub fixes which tasks the step sees, so the assertion depends only on the tasks the test seeded. Each docstring keeps the rest of its text, including which assertion depends on that.
+  - Wording within a disposition is Anvil's.
+- **DR2 — No sentinel value changes.** Dates, keys, IDs, marker terms and report types keep their values. A value with no reason left is still the value the test uses.
+- **DR3 — No test code changes outside Steps 2 and 3.** In `tests/test_eod_workflow.py` only docstrings and comments change. In the other files of Step 1, only comments and docstrings change.
+- **DR4 — No new claim about isolation.** A reworded comment states no new property of the test database. Where a reason needs one, it cites `docs/standards/6-testing.md` §6.1 rather than restating it.
+
+Anything these rules do not decide is a departure (`.claude/skills/session-start/SKILL.md` § Role 3).
+
+## 4. Steps
+
+| Step | Deliverable | Files |
+| --- | --- | --- |
+| 1 | Every census site with disposition D, R, W or S carries it (DR1). Comments and docstrings only (DR3). | `tests/test_notes_list.py`, `tests/test_reports_corrections.py`, `tests/test_system_state_repository.py`, `tests/test_orchestration.py`, `tests/test_email_recipients_client.py`, `tests/test_tasks_service.py`, `tests/test_notification_engine.py`, `tests/test_notes_show.py`, `tests/test_time_entries_refactor.py`, `tests/test_time_tracking.py`, `tests/test_report_history.py` (`:70-71` only), `tests/test_task_lifecycle.py`, `tests/test_schedule_commands.py`, `tests/test_eod_workflow.py`, `tests/test_meetings_repository.py`, `tests/test_ai_costs.py`, `tests/test_schedule_service.py` (`:8-9` only), `tests/test_gdrive.py` |
+| 2 | The two `tests/test_schedule_service.py` fallback tests set and delete nothing (see below). | `tests/test_schedule_service.py` |
+| 3 | `tests/test_report_history.py::TestReportHistory::test_history_empty` asserts the empty-result message (see below). | `tests/test_report_history.py` |
+| 4 | Results artifact `docs/dev/results/TEST_PRODUCTION_DATA_COMMENTS_RESULTS.md`, with a table pairing each census site with its disposition and the line that now carries it, and the AC evidence. | `docs/dev/results/TEST_PRODUCTION_DATA_COMMENTS_RESULTS.md` |
+
+**Step 2.** In `TestWorkingHours.test_falls_back_to_default_window_when_unconfigured` and `TestT4Interval.test_falls_back_to_default_when_unconfigured`:
+
+- Remove the `state = SystemStateRepository(db_session)` line and both `state.delete(...)` calls.
+- Remove the docstring text about production `system_state` seeding.
+- The test's first remaining line is `service = ScheduleService(db_session)`, and its assertions are unchanged. Each test now reaches the fallback because no `system_state` key is set (§2, row 1).
+- The first test's docstring summary "No system_state keys set → default 09:00-18:00 window." stays.
+- The second test's docstring states that no `system_state` key is set and the default bounds are returned.
+
+**Step 3.** In `test_history_empty`:
+
+- Remove the six comment lines quoted in §2.
+- The seeded `daily_internal` row on 2099-12-31 and the `--type weekly_client --limit 1` invocation stay unchanged.
+- The `exit_code` assertion stays.
+- Add `self.assertIn('No reports found.', result.output)`.
+- The unused binding `r = ` on the seed call may be dropped. Anvil's choice is recorded in results §4.
+
+### Authorization points
+
+None. No step runs a migration, touches a GitHub object, merges, force-pushes or changes a service's run state (`docs/standards/1-workflow.md` §1.4).
+
+## 5. Acceptance criteria
+
+The issue's AC1 check, `grep -rniE 'production (data|db|database|rows|keys|clients|system_state|active|corrected)|prod collisions|real production' tests/ --include=*.py`, cannot see three census lines: `test_eod_workflow.py:57`, `test_reports_corrections.py:126` and `test_gdrive.py:106` (design study F2). AC1.1 widens it. The issue body's AC1 "Checked by" line needs the same edit, made at close-out (`docs/standards/1-workflow.md` §1.2). AC3 is added by Ray's Q2 ruling, and the issue body gains it at close-out.
+
+| AC | Criterion | How it is checked |
+| --- | --- | --- |
+| AC1.1 | No comment or docstring in `tests/` says a test is kept clear of, or could collide with, production, live or pre-existing database data. | `grep -rniE 'production\|\bprod\b\|real (db\|database\|data\|rows?\|records?\|uploads)\|pre-?existing real\|existing production' tests/ --include=*.py` returns exactly 4 lines. Their text is the four out-of-scope "real DB" lines §1 names: `test_action_executor.py` "(real DB, rolled back)", `test_slack.py` "(real DB, reports table)" and "# TestSlackReportsIntegration — real DB", and `test_gdrive.py` "# No real DB writes". Each says the test uses the actual database rather than a mock, and none claims isolation. Matched by text, since line numbers in `test_gdrive.py` may shift. |
+| AC1.2 | Each census site carries the disposition §2 assigns it, with no isolation claim left in its reworded text. | A stated reading by Ray of the results artifact's site table against `git diff origin/main -- tests/`, read for each site's disposition. |
+| AC1.3 | No sentinel value changed, and outside Steps 2 and 3 no test code changed. | `git diff origin/main -- tests/` shows changes only to comment lines and docstrings, plus the Step 2 and Step 3 lines. Anvil confirms it with `git diff -w --word-diff` read hunk by hunk, recorded in results, and Ray reads it as part of AC1.2. |
+| AC1.4 | The two `test_schedule_service.py` fallback tests reach the fallback with no `system_state` key set, and remove nothing to get there. | `grep -n "state.delete" tests/test_schedule_service.py` returns no hits. `pytest tests/test_schedule_service.py::TestWorkingHours::test_falls_back_to_default_window_when_unconfigured tests/test_schedule_service.py::TestT4Interval::test_falls_back_to_default_when_unconfigured` passes. |
+| AC1.5 | `test_history_empty` fails when the command lists a report, so it tests the empty result its docstring names. | `pytest tests/test_report_history.py::TestReportHistory::test_history_empty` passes. With the seeded `report_type` temporarily changed to `weekly_client`, the same test fails on the `assertIn`. The temporary change is reverted and never committed, and results records both runs. |
+| AC2.1 | The full suite passes, with no test added or removed. | A bare `pytest` reports 1635 passed, 0 failed, 0 skipped. |
+| AC3.1 | `tests/test_notification_engine.py` names the right weekday for each of its two dates. | `grep -nE 'Monday\|Tuesday\|Wednesday\|Thursday\|Friday\|Saturday\|Sunday' tests/test_notification_engine.py` returns lines naming 2099-01-15 as Thursday and 2099-01-14 as Wednesday only, checked against `date(2099,1,15).strftime('%A')` and `date(2099,1,14).strftime('%A')`. |
+
+## 6. Test plan
+
+- **Baseline before this work:** 1635 passed, 0 failed, 0 skipped (`CHANGELOG.md` `[1.58.1]`; a bare `pytest` at `1291325`).
+- **Expected after:** 1635 passed, 0 failed, 0 skipped. No test is added or removed; Steps 2 and 3 change two tests' bodies and one test's assertions.
+- A bare `pytest` after each step's commit.
+
+## 7. Risks and rollback
+
+- **Step 2: a fallback test fails** if a `system_state` key is set by something the test reaches before it runs. §2 row 1 rules out a key from outside the test. The AC1.4 run catches one from inside. Rollback: revert the step's commit.
+- **Step 3: the new assertion fails** if the empty-result text changes. §2 row 2 records the text at `1291325`. Rollback: revert the step's commit.
+- **Step 1 changes no executable line.** A slip that does change one is caught by AC1.3 and AC2.1, and the step reverts as a unit.
