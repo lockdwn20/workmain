@@ -1,6 +1,6 @@
 # Notification Config and PostgreSQL Version Text — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261113
 **Branch:** `chore/issue-268-false-statements` (from `main`, merges to `main` and `dev`)
@@ -19,6 +19,7 @@
 | 20261113 | Spanner | The docstring keeps its true claim, that there is no `notification_config` table, and drops only the false parenthetical. Neither live nor the test database has the table: no file under `workmain/database/migrations/` names it, and Alembic builds the test database | Step 1 |
 | 20261113 | Spanner | `CLAUDE.md` names only the major version and adds no pointer to `SHOW server_version`. The issue names that command as the source of the exact version, but does not ask for `CLAUDE.md` to state it | Step 2 |
 | 20261113 | Spanner | The census covers the whole tree except `docs/archive/` and `scripts/baseline/`. `docs/archive/` is a record that is never updated (`docs/standards/1-workflow.md` §1.5). `scripts/baseline/` is restricted until #188 ships (`CLAUDE.md` § Common Pitfalls). This issue's own spec and results artifact are excluded too, because they quote the false text. The census finds only the two sites the issue names | AC1.1, AC2.1 |
+| 20261113 | Ray | Approved. #268 runs the direct path without Role 2 review: no Caliper pass on the spec and no post-implementation review (`docs/standards/1-workflow.md` §1.2) | **Status:** |
 
 ---
 
