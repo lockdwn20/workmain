@@ -1,6 +1,6 @@
 # Test Comments That Claim Production-Data Isolation — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261113
 **Branch:** `hotfix/issue-273-stale-production-comments` (from `main`)

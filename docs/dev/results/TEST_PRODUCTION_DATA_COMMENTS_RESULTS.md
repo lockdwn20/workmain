@@ -1,6 +1,6 @@
 # Test Comments That Claim Production-Data Isolation — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Anvil (Role 3)
 **Date:** 20261113
 **Spec:** `../specs/TEST_PRODUCTION_DATA_COMMENTS_SPEC.md`

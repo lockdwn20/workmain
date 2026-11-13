@@ -1,6 +1,6 @@
 # Test Comments That Claim Production-Data Isolation — Design Study
 
-**Status:** Active
+**Status:** Shipped
 **Kind:** Design study
 **Author:** Spanner (Role 1)
 **Date:** 20261113
