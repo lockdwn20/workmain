@@ -72,7 +72,7 @@ Read at `1291325` (`origin/main`), 20261113.
 | `test_notification_engine.py:32-33` | "# Wednesday" / "# Tuesday" | W: Thursday, Wednesday |
 | `test_notes_show.py:10-11` | "CLI tests use ID 999999 (guaranteed non-existent in sentinel space) or keywords unique enough to never match production data." | R: the ID and the keywords match no row the test seeded. |
 | `test_time_entries_refactor.py:8` | "Sentinel date 2099-06-01 prevents overlap with production data." | D |
-| `test_time_tracking.py:5-6` | "Uses db_session fixture from conftest.py for full transaction isolation — no data persists to the production database after any test." | R: each test's writes are rolled back when it ends. |
+| `test_time_tracking.py:5-6` | "Uses db_session fixture from conftest.py for full transaction isolation — no data persists to the production database after any test." | R: cites `docs/standards/6-testing.md` §6.1 for the test's database isolation, and restates none of it (DR4). |
 | `test_time_tracking.py:8-9` | "All tests that create entries use _TEST_DATE or _TEST_WEEK_MONDAY (far-future sentinel dates) so category/total assertions are unaffected by production data." | D |
 | `test_time_tracking.py:35-36` | "# Sentinel dates far in the future — guarantee zero overlap with production data" / "# so category/total assertions can use exact values." | D |
 | `test_report_history.py:70-71` (`test_history_desc_order` docstring) | "Uses far-future daily_internal dates to ensure these rows rank first in the result set above any existing production rows." | D |
@@ -100,7 +100,7 @@ The census was found by the issue's search together with the wider searches in d
   - **D:** the production, live or pre-existing-data reason is removed. Text left in its place gives the value no reason, or describes it without a reason ("Tests use fixed dates in 2099" is acceptable). A comment left with nothing to say is deleted.
   - **R:** the reason is replaced by the one the census row states.
   - **W:** the weekday names are corrected to the ones the row gives.
-  - **S:** the stub's reason is replaced by this one: the stub fixes which tasks the step sees, so the assertion depends only on the tasks the test seeded. Each docstring keeps the rest of its text, including which assertion depends on that.
+  - **S:** the stub's reason is replaced by this one: the stub fixes the tasks the step receives and their order, so the test does not depend on `get_filtered`'s own filtering or ordering. Each docstring keeps the rest of its text, including which assertion depends on that.
   - Wording within a disposition is Anvil's.
 - **DR2 — No sentinel value changes.** Dates, keys, IDs, marker terms and report types keep their values. A value with no reason left is still the value the test uses.
 - **DR3 — No test code changes outside Steps 2 and 3.** In `tests/test_eod_workflow.py` only docstrings and comments change. In the other files of Step 1, only comments and docstrings change.
