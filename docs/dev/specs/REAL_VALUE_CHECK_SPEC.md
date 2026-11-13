@@ -38,6 +38,7 @@
 | 20261113 | Caliper (post-implementation) | I2: the DR2 match departs from the contract, and results §4 does not list it. `_value_patterns` compiles `(?<![A-Za-z0-9])…(?![A-Za-z0-9])` with `re.IGNORECASE`, under which `[A-Za-z]` also matches `İ`, `ı`, `ſ` and `K` (U+212A), so a value next to one of them is not reported, where DR2 bounds a value only by ASCII letters and digits | Ray, 20261113: Revert. The code is fixed to meet DR2 as written: `_value_patterns` adds `re.ASCII` to `re.IGNORECASE`. Values are only ever ASCII letters, digits, `-` and `_`, so ASCII-only case folding loses nothing. AC1.2's existing test gains one line per affected letter, so §6 stays at 113; results §4 records it |
 | 20261113 | Caliper (post-implementation) | I2: two decisions below the contract are missing from results §4's Decisions table: the module constant `REAL_VALUES_KEY` in `automation/style_check.py`, and the test helper `_commit(root, message)` in `automation/style_check_test.py` | Ray, 20261113: Keep. Both are added to results §4 as decisions; no spec change |
 | 20261113 | Caliper (post-implementation) | Pass at 571916b, post-implementation against `main` (merge-base c597795): 28 items checked, 2 findings | n/a |
+| 20261113 | Caliper (post-implementation) | No findings. | n/a |
 
 ---
 
