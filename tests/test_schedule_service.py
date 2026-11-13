@@ -1,12 +1,12 @@
 """
-Unit coverage for workmain/services/schedule_service.py — single authority
-for working-day/working-hours determination (Operations_Config_Correction_
-Sprint Gate 1), extended in Gate 5 §5.6 with the two EOD progress-interval
-getters.
+Unit coverage for workmain/services/schedule_service.py.
+
+ScheduleService is the single authority for working-day/working-hours
+determination, and holds the two EOD progress-interval getters.
 
 Uses db_session fixture for full transaction isolation.
-Uses sentinel dates with known weekdays to prevent production data/calendar
-drift from skewing results:
+Uses sentinel dates with known weekdays, so results do not depend on the day
+the suite runs:
   SENTINEL_MONDAY   = 2099-01-05 (Monday)
   SENTINEL_SATURDAY = 2099-01-03 (Saturday)
   SENTINEL_SUNDAY   = 2099-01-04 (Sunday)

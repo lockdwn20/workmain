@@ -1,11 +1,11 @@
 """
-Unit coverage for MeetingsRepository.get_active_for_date() (Operations_
-Config_Correction_Sprint Gate 2 §2.1) — confirms cancelled meetings are
-excluded from the inspect/notify surface while get_by_date()/get_today()
-remain intentionally unfiltered (OQ2).
+Unit coverage for MeetingsRepository.get_active_for_date().
+
+Confirms cancelled meetings are excluded from the inspect/notify surface
+while get_by_date()/get_today() remain intentionally unfiltered.
 
 Uses db_session fixture for full transaction isolation.
-Uses a sentinel date to prevent production data skewing results.
+Uses a fixed date.
 """
 
 from datetime import date, datetime, timedelta

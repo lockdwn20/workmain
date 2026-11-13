@@ -21,7 +21,6 @@ import pytest
 
 from workmain.database.models import Meeting
 
-# Sentinel date: far future ensures no real DB/production data matches
 SENTINEL_DATE = date(2099, 1, 1)
 
 

@@ -1,12 +1,13 @@
 """
-Pytest suite for TimeEntriesRepository: CRUD, parsing, aggregations,
-week retrieval, and display properties.
+Pytest suite for TimeEntriesRepository.
 
-Uses db_session fixture from conftest.py for full transaction isolation —
-no data persists to the production database after any test.
+Covers CRUD, parsing, aggregations, week retrieval, and display properties.
 
-All tests that create entries use _TEST_DATE or _TEST_WEEK_MONDAY (far-future
-sentinel dates) so category/total assertions are unaffected by production data.
+Uses db_session fixture from conftest.py (database isolation:
+docs/standards/6-testing.md §6.1).
+
+All tests that create entries use _TEST_DATE or _TEST_WEEK_MONDAY (fixed
+dates in 2099).
 """
 
 from datetime import date, time, timedelta
@@ -32,8 +33,6 @@ def _make_te(db_session, content: str, **kwargs):
     )
     return TimeEntriesRepository(db_session).create(note_id=note.id, **kwargs)
 
-# Sentinel dates far in the future — guarantee zero overlap with production data
-# so category/total assertions can use exact values.
 _TEST_DATE = date(2099, 1, 1)
 
 

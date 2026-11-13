@@ -65,11 +65,7 @@ class TestReportHistory(unittest.TestCase):
         return r
 
     def test_history_desc_order(self):
-        """Seeded rows are returned newest-date first.
-
-        Uses far-future daily_internal dates to ensure these rows rank first
-        in the result set above any existing production rows.
-        """
+        """Seeded rows are returned newest-date first."""
         self._seed('daily_internal', date(2099, 11, 1), 'Nov 1 content')
         self._seed('daily_internal', date(2099, 11, 3), 'Nov 3 content')
         self._seed('daily_internal', date(2099, 11, 2), 'Nov 2 content')

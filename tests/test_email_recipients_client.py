@@ -1,12 +1,12 @@
 """
-Tests for Phase 11.5 email recipient client dimension: assign_recipient()
-client_id scoping, unassign_recipient() client_id filtering, list_for_client()
-global + client-scoped merge, and email_service.build_draft() client-aware
-resolution and deduplication.
+Tests for the email recipient client dimension.
+
+Covers assign_recipient() client_id scoping, unassign_recipient() client_id
+filtering, list_for_client() global + client-scoped merge, and
+email_service.build_draft() client-aware resolution and deduplication.
 
 All DB tests use db_session fixture from conftest.py for full transaction
-isolation. Sentinel client IDs and dates used to avoid colliding with
-production data.
+isolation. Tests use fixed client IDs and dates.
 """
 
 from unittest.mock import patch
@@ -19,7 +19,6 @@ from workmain.database.repositories.email_repository import EmailRepository
 from workmain.database.repositories.system_state_repository import SystemStateRepository
 from workmain.services import email_service
 
-# Sentinel report type — far-future unique value to avoid prod collisions
 _TMPL = "weekly_client_2099_test"
 
 

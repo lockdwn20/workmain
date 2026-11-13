@@ -1,6 +1,5 @@
 """
-Tests for PC-2 — task_status repository, eager creation hooks,
-and tasks CLI command group.
+Tests for the task_status repository, eager creation hooks and tasks commands.
 
 Covers TaskStatusRepository's create_active, ensure_active, set_completed,
 set_dismissed, set_dismissed_by_tag_removal, get_by_note_id, get_filtered and
@@ -8,7 +7,7 @@ count_filtered, and the tasks command group: each command's arguments, the
 service call it makes, and the view and result it hands the renderer.
 
 Uses db_session fixture from conftest.py for full transaction isolation.
-Sentinel dates (2099-xx-xx) prevent collisions with production data.
+Tests use fixed dates in 2099 (2099-xx-xx).
 """
 
 from datetime import date, datetime

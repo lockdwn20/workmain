@@ -1,11 +1,13 @@
 """
-Verifies behaviors introduced in Phase 13 DB Schema Sprint: note_id FK
-enforcement (NOT NULL, ON DELETE RESTRICT), get_by_note_id() return values,
-the notes delete pre-check guard data source, and the client/project
-consistency guard in both NotesRepository and TimeEntriesRepository.
+Verifies the time entry note_id link and the client/project consistency guard.
+
+Covers note_id FK enforcement (NOT NULL, ON DELETE RESTRICT), get_by_note_id()
+return values, the notes delete pre-check guard data source, and the
+client/project consistency guard in both NotesRepository and
+TimeEntriesRepository.
 
 All DB tests use the db_session fixture (transaction rolled back after each test).
-Sentinel date 2099-06-01 prevents overlap with production data.
+Tests use the fixed date 2099-06-01.
 """
 
 from datetime import date, time

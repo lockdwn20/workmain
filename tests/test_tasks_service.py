@@ -1,9 +1,11 @@
 """
-Tests for workmain.services.tasks_service: list, find, get, complete and
-dismiss, plus the statement-count guarantee of the tasks list path.
+Tests for workmain.services.tasks_service.
+
+Covers list, find, get, complete and dismiss, plus the statement-count
+guarantee of the tasks list path.
 
 Uses db_session for full transaction isolation. Each test seeds its own
-sentinel date in 2099 so rows cannot collide with production data.
+rows on a fixed date in 2099.
 """
 
 import uuid

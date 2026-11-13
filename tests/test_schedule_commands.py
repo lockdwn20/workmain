@@ -1,10 +1,11 @@
 """
 Tests for ScheduleExceptionRepository (CRUD) and the exception date check.
+
 Resolver helper tests (_resolve_holiday, _resolve_timeoff) exercise the
 name-matching logic from schedule.py against a live db_session.
 
 Uses db_session fixture for full transaction isolation.
-Uses sentinel dates (2099-06-xx) to prevent production data skewing results.
+Uses fixed dates (2099-06-xx).
 
 Sentinel dates used:
   SENTINEL_A = 2099-06-01
