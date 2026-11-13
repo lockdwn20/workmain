@@ -22,6 +22,9 @@
 | 20261113 | Caliper | 3, Spec defect, non-blocking: AC1.2 and AC1.3 diff against the moving ref `origin/main` with a two-dot diff, and AC1.3's `git diff -w --word-diff` names no base. Use `git diff origin/main...HEAD -- tests/`. | Accepted. Both criteria use the merge-base diff, and AC1.3's word diff names the same base. |
 | 20261113 | Caliper | 7, Spec defect, non-blocking: AC2.1's criterion is "no test added or removed", but its check is a fixed count, which `docs/standards/1-workflow.md` §1.5 rules out and a moving base can make wrong either way. Check instead that the `pytest --collect-only -q` count on the branch equals the count at the merge base, and that a bare `pytest` reports 0 failed and 0 skipped. | Accepted. AC2.1 and §6 "Expected after" are changed to that check. §2's baseline row stays as a dated record. |
 | 20261113 | Caliper | Pass at 9666644, full: 52 items checked, 0 blocking, 4 non-blocking. | n/a |
+| 20261113 | Caliper | 8, Spec defect, non-blocking: the revision added `test_eod_workflow.py:993-995` with disposition D and widened AC1.1 to "or another test's rows", but §1's first change bullet and DR1's D still name only production, live or pre-existing data. Read literally, D removes nothing at `:993-995`. Extend both to cover another test's rows. | Accepted. §1's bullet and DR1's D now cover another test's rows. |
+| 20261113 | Caliper | 3, Spec defect, non-blocking: AC2.1 says each count is recorded in the `docs/standards/6-testing.md` §6 form, which only the bare `pytest` run produces. State that the §6 form applies to that run, and that each `--collect-only` count is recorded with its commit. | Accepted. AC2.1 says so. |
+| 20261113 | Caliper | Pass at be3d302, changes since 9666644: 16 items checked, 0 blocking, 2 non-blocking. | n/a |
 
 ---
 
@@ -35,7 +38,7 @@ That is the issue's 18 files. The 19th file the issue names, `tests/test_client_
 
 The changes:
 
-- Every comment or docstring that says a value or a piece of code keeps a test clear of production, live or pre-existing database data.
+- Every comment or docstring that says a value or a piece of code keeps a test clear of production, live or pre-existing database data, or of another test's rows.
 - The four weekday names in `tests/test_notification_engine.py`.
 - The `state.delete(...)` calls in the two fallback tests of `tests/test_schedule_service.py`.
 - The assertion of `tests/test_report_history.py::TestReportHistory::test_history_empty`.
@@ -103,7 +106,7 @@ The census was found by the issue's search together with the wider searches in d
 ## 3. Design rules
 
 - **DR1 — Each census site gets its disposition, and nothing else.**
-  - **D:** the production, live or pre-existing-data reason is removed. Text left in its place gives the value no reason, or describes it without a reason ("Tests use fixed dates in 2099" is acceptable). A comment left with nothing to say is deleted.
+  - **D:** the reason is removed: production, live or pre-existing data, or another test's rows. Text left in its place gives the value no reason, or describes it without a reason ("Tests use fixed dates in 2099" is acceptable). A comment left with nothing to say is deleted.
   - **R:** the reason is replaced by the one the census row states.
   - **W:** the weekday names are corrected to the ones the row gives.
   - **S:** the stub's reason is replaced by this one: the stub fixes the tasks the step receives and their order, so the test does not depend on `get_filtered`'s own filtering or ordering. Each docstring keeps the rest of its text, including which assertion depends on that.
@@ -154,7 +157,7 @@ The issue's AC1 check, `grep -rniE 'production (data|db|database|rows|keys|clien
 | AC1.3 | No sentinel value changed, and outside Steps 2 and 3 no test code changed. | `git diff origin/main...HEAD -- tests/` shows changes only to comment lines and docstrings, plus the Step 2 and Step 3 lines. Anvil confirms it with `git diff -w --word-diff origin/main...HEAD -- tests/` read hunk by hunk, recorded in results, and Ray reads it as part of AC1.2. |
 | AC1.4 | The two `test_schedule_service.py` fallback tests reach the fallback with no `system_state` key set, and remove nothing to get there. | `grep -n "state.delete" tests/test_schedule_service.py` returns no hits. `pytest tests/test_schedule_service.py::TestWorkingHours::test_falls_back_to_default_window_when_unconfigured tests/test_schedule_service.py::TestT4Interval::test_falls_back_to_default_when_unconfigured` passes. |
 | AC1.5 | `test_history_empty` fails when the command lists a report, so it tests the empty result its docstring names. | `pytest tests/test_report_history.py::TestReportHistory::test_history_empty` passes. With the seeded `report_type` temporarily changed to `weekly_client`, the same test fails on the `assertIn`. The temporary change is reverted and never committed, and results records both runs. |
-| AC2.1 | The full suite passes, with no test added or removed. | The `pytest --collect-only -q` count on the branch equals the count at `git merge-base origin/main HEAD`, and a bare `pytest` reports that count passed, 0 failed, 0 skipped. Each count is recorded in the `docs/standards/6-testing.md` §6 form. |
+| AC2.1 | The full suite passes, with no test added or removed. | The `pytest --collect-only -q` count on the branch equals the count at `git merge-base origin/main HEAD`, and a bare `pytest` reports that count passed, 0 failed, 0 skipped. The bare `pytest` result is recorded in the `docs/standards/6-testing.md` §6 form. Each collect count is recorded with the commit it was taken at. |
 | AC3.1 | `tests/test_notification_engine.py` names the right weekday for each of its two dates. | `grep -nE 'Monday\|Tuesday\|Wednesday\|Thursday\|Friday\|Saturday\|Sunday' tests/test_notification_engine.py` returns lines naming 2099-01-15 as Thursday and 2099-01-14 as Wednesday only, checked against `date(2099,1,15).strftime('%A')` and `date(2099,1,14).strftime('%A')`. |
 
 ## 6. Test plan
