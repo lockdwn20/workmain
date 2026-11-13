@@ -1,6 +1,6 @@
 # Real-Value Check in the Style Check — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261112
 **Branch:** `chore/issue-275-real-value-check` (from `main`, merges to `main` and `dev`)

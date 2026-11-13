@@ -1,6 +1,6 @@
 # Real-Value Check in the Style Check — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261113
 **Spec:** `../specs/REAL_VALUE_CHECK_SPEC.md`
