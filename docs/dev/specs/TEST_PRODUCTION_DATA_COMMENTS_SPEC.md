@@ -17,6 +17,11 @@
 | 20261113 | Ray | Design study Q1: comments only, or comments plus removing the guards that do no work. | Comments plus removal, except in `tests/test_eod_workflow.py`. There the four `get_filtered` stubs stay unchanged, and their comments are reworded to a reason that holds whatever order the real query returns. Whether the stubs still do any work was carried to #254's body under "Carried from #273". DR3, Steps 2 and 3. |
 | 20261113 | Ray | Design study Q2: whether #273 corrects the wrong weekday names in `tests/test_notification_engine.py`. | Corrected in #273. Step 1, AC3.1. |
 | 20261113 | Ray | Branch type. | `hotfix/*`, confirmed at session open. The change is to `tests/` only, so no application file counts toward the `docs/standards/2-git.md` §2.2 limit. |
+| 20261113 | Caliper | 3, Spec defect, non-blocking: the census leaves out `tests/test_eod_workflow.py:993-995`, "# Distinct from the module's SENTINEL_DATE to avoid any collision with / # other report-seeding test files (test_reports_commands.py, / # test_report_correction.py, etc.) that also key off date(2099, 1, 1)." The per-test rollback means no other test file's rows can reach this one. Both searches miss the line. Add it to the census with a disposition, or list it under §1 Out of scope. | Accepted. Added to the census with disposition D. `tests/test_reports_commands.py`, which the comment names, does not exist. AC1.1 now covers this form: its criterion adds another test's rows, and its search adds `collid\|collision`. Every hit of those terms in `tests/` is a census site. |
+| 20261113 | Caliper | 7, Spec defect, non-blocking: AC1.1's criterion covers live data, but its grep has no `live` term. Add `\blive (db\|database\|data\|rows?)\b`. It matches nothing in `tests/` at `9666644`, so the expected count stays 4. | Accepted. The term is added to AC1.1's search. Verified: no hit in `tests/`. |
+| 20261113 | Caliper | 3, Spec defect, non-blocking: AC1.2 and AC1.3 diff against the moving ref `origin/main` with a two-dot diff, and AC1.3's `git diff -w --word-diff` names no base. Use `git diff origin/main...HEAD -- tests/`. | Accepted. Both criteria use the merge-base diff, and AC1.3's word diff names the same base. |
+| 20261113 | Caliper | 7, Spec defect, non-blocking: AC2.1's criterion is "no test added or removed", but its check is a fixed count, which `docs/standards/1-workflow.md` §1.5 rules out and a moving base can make wrong either way. Check instead that the `pytest --collect-only -q` count on the branch equals the count at the merge base, and that a bare `pytest` reports 0 failed and 0 skipped. | Accepted. AC2.1 and §6 "Expected after" are changed to that check. §2's baseline row stays as a dated record. |
+| 20261113 | Caliper | Pass at 9666644, full: 52 items checked, 0 blocking, 4 non-blocking. | n/a |
 
 ---
 
@@ -84,6 +89,7 @@ Read at `1291325` (`origin/main`), 20261113.
 | `test_eod_workflow.py:475-477` (`test_no_cancellation_runs_every_task_to_completion` docstring) | "get_filtered() scoped to exactly the 5 sentinel tasks — real production active tasks (unscoped by date) would otherwise inflate the count this test asserts on." | S |
 | `test_eod_workflow.py:510-512` (`test_pairing_count_matches_incremental_scope` docstring) | "get_filtered() scoped to exactly the 5 sentinel tasks — real production active tasks (get_filtered() has no date scoping) would otherwise inflate the pair count this test asserts on." | S |
 | `test_eod_workflow.py:559-561` (`test_merge_survivor_is_more_recent_note` docstring) | "get_filtered() scoped to exactly the 2 sentinel tasks — a blanket score=0.9 mock would otherwise "merge" real production active tasks pulled in by get_filtered()'s unscoped query." | S |
+| `test_eod_workflow.py:993-995` | "# Distinct from the module's SENTINEL_DATE to avoid any collision with / # other report-seeding test files (test_reports_commands.py, / # test_report_correction.py, etc.) that also key off date(2099, 1, 1)." | D |
 | `test_meetings_repository.py:8` | "Uses a sentinel date to prevent production data skewing results." | D |
 | `test_ai_costs.py:19` | "# Sentinel timestamps — far future avoids picking up real production rows." | D |
 | `test_schedule_service.py:8-9` | "Uses sentinel dates with known weekdays to prevent production data/calendar drift from skewing results:" | R: the dates have known weekdays, so results do not depend on the day the suite runs. |
@@ -92,7 +98,7 @@ Read at `1291325` (`origin/main`), 20261113.
 | `test_gdrive.py:97` | "# Use a sentinel far-future date guaranteed to never exist in production DB" | D |
 | `test_gdrive.py:106` | "# Use a date guaranteed to have no real uploads in the DB" | D |
 
-The census was found by the issue's search together with the wider searches in design study F2. AC1.1's check is that union, narrowed to the forms those searches found.
+The census was found by the issue's search together with the wider searches in design study F2. The Caliper pass at `9666644` added `test_eod_workflow.py:993-995` (Decision Log). AC1.1's check is that union, narrowed to the forms those searches found, plus `collid\|collision` for that row and a `live` term.
 
 ## 3. Design rules
 
@@ -143,18 +149,18 @@ The issue's AC1 check, `grep -rniE 'production (data|db|database|rows|keys|clien
 
 | AC | Criterion | How it is checked |
 | --- | --- | --- |
-| AC1.1 | No comment or docstring in `tests/` says a test is kept clear of, or could collide with, production, live or pre-existing database data. | `grep -rniE 'production\|\bprod\b\|real (db\|database\|data\|rows?\|records?\|uploads)\|pre-?existing real\|existing production' tests/ --include=*.py` returns exactly 4 lines. Their text is the four out-of-scope "real DB" lines §1 names: `test_action_executor.py` "(real DB, rolled back)", `test_slack.py` "(real DB, reports table)" and "# TestSlackReportsIntegration — real DB", and `test_gdrive.py` "# No real DB writes". Each says the test uses the actual database rather than a mock, and none claims isolation. Matched by text, since line numbers in `test_gdrive.py` may shift. |
-| AC1.2 | Each census site carries the disposition §2 assigns it, with no isolation claim left in its reworded text. | A stated reading by Ray of the results artifact's site table against `git diff origin/main -- tests/`, read for each site's disposition. |
-| AC1.3 | No sentinel value changed, and outside Steps 2 and 3 no test code changed. | `git diff origin/main -- tests/` shows changes only to comment lines and docstrings, plus the Step 2 and Step 3 lines. Anvil confirms it with `git diff -w --word-diff` read hunk by hunk, recorded in results, and Ray reads it as part of AC1.2. |
+| AC1.1 | No comment or docstring in `tests/` says a test is kept clear of, or could collide with, production, live or pre-existing database data, or another test's rows. | `grep -rniE 'production\|\bprod\b\|real (db\|database\|data\|rows?\|records?\|uploads)\|pre-?existing real\|existing production\|\blive (db\|database\|data\|rows?)\b\|collid\|collision' tests/ --include=*.py` returns exactly 4 lines. Their text is the four out-of-scope "real DB" lines §1 names: `test_action_executor.py` "(real DB, rolled back)", `test_slack.py` "(real DB, reports table)" and "# TestSlackReportsIntegration — real DB", and `test_gdrive.py` "# No real DB writes". Each says the test uses the actual database rather than a mock, and none claims isolation. Matched by text, since line numbers in `test_gdrive.py` may shift. |
+| AC1.2 | Each census site carries the disposition §2 assigns it, with no isolation claim left in its reworded text. | A stated reading by Ray of the results artifact's site table against `git diff origin/main...HEAD -- tests/`, read for each site's disposition. |
+| AC1.3 | No sentinel value changed, and outside Steps 2 and 3 no test code changed. | `git diff origin/main...HEAD -- tests/` shows changes only to comment lines and docstrings, plus the Step 2 and Step 3 lines. Anvil confirms it with `git diff -w --word-diff origin/main...HEAD -- tests/` read hunk by hunk, recorded in results, and Ray reads it as part of AC1.2. |
 | AC1.4 | The two `test_schedule_service.py` fallback tests reach the fallback with no `system_state` key set, and remove nothing to get there. | `grep -n "state.delete" tests/test_schedule_service.py` returns no hits. `pytest tests/test_schedule_service.py::TestWorkingHours::test_falls_back_to_default_window_when_unconfigured tests/test_schedule_service.py::TestT4Interval::test_falls_back_to_default_when_unconfigured` passes. |
 | AC1.5 | `test_history_empty` fails when the command lists a report, so it tests the empty result its docstring names. | `pytest tests/test_report_history.py::TestReportHistory::test_history_empty` passes. With the seeded `report_type` temporarily changed to `weekly_client`, the same test fails on the `assertIn`. The temporary change is reverted and never committed, and results records both runs. |
-| AC2.1 | The full suite passes, with no test added or removed. | A bare `pytest` reports 1635 passed, 0 failed, 0 skipped. |
+| AC2.1 | The full suite passes, with no test added or removed. | The `pytest --collect-only -q` count on the branch equals the count at `git merge-base origin/main HEAD`, and a bare `pytest` reports that count passed, 0 failed, 0 skipped. Each count is recorded in the `docs/standards/6-testing.md` §6 form. |
 | AC3.1 | `tests/test_notification_engine.py` names the right weekday for each of its two dates. | `grep -nE 'Monday\|Tuesday\|Wednesday\|Thursday\|Friday\|Saturday\|Sunday' tests/test_notification_engine.py` returns lines naming 2099-01-15 as Thursday and 2099-01-14 as Wednesday only, checked against `date(2099,1,15).strftime('%A')` and `date(2099,1,14).strftime('%A')`. |
 
 ## 6. Test plan
 
 - **Baseline before this work:** 1635 passed, 0 failed, 0 skipped (`CHANGELOG.md` `[1.58.1]`; a bare `pytest` at `1291325`).
-- **Expected after:** 1635 passed, 0 failed, 0 skipped. No test is added or removed; Steps 2 and 3 change two tests' bodies and one test's assertions.
+- **Expected after:** `<N>` passed, 0 failed, 0 skipped, where `<N>` is the `pytest --collect-only -q` count at the merge base (AC2.1). No test is added or removed; Steps 2 and 3 change two tests' bodies and one test's assertions.
 - A bare `pytest` after each step's commit.
 
 ## 7. Risks and rollback
