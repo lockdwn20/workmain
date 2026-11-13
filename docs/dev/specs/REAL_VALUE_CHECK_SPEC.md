@@ -35,6 +35,9 @@
 | 20261113 | Caliper | 7, Spec defect, non-blocking: AC1.5 checks only DR6's missing-file case, so an implementation that fails only when `.env` does not exist passes it and still lets a lost or emptied key pass every branch | Accepted: AC1.5's test is parametrized over DR6's three cases (no `.env`, no key, an empty value), each asserting exit 1 and the message |
 | 20261113 | Caliper | 3, Spec defect, non-blocking: §6's "a test needing other values rewrites that `.env`" and "no test works around it on its own" conflict for AC1.4's tests, which call `real_values` with a path of their own | Accepted: §6 states that a test running `main` uses the fixture's `.env`, rewriting or removing it, and that a test of `real_values` alone writes its file under `tmp_path` and passes that path |
 | 20261113 | Caliper | Pass at a0a99b5, changes since f678abd: 32 items checked, 0 blocking, 2 non-blocking | n/a |
+| 20261113 | Caliper (post-implementation) | I2: the DR2 match departs from the contract, and results §4 does not list it. `_value_patterns` compiles `(?<![A-Za-z0-9])…(?![A-Za-z0-9])` with `re.IGNORECASE`, under which `[A-Za-z]` also matches `İ`, `ı`, `ſ` and `K` (U+212A), so a value next to one of them is not reported, where DR2 bounds a value only by ASCII letters and digits | Awaiting Ray |
+| 20261113 | Caliper (post-implementation) | I2: two decisions below the contract are missing from results §4's Decisions table: the module constant `REAL_VALUES_KEY` in `automation/style_check.py`, and the test helper `_commit(root, message)` in `automation/style_check_test.py` | Awaiting Ray |
+| 20261113 | Caliper (post-implementation) | Pass at 571916b, post-implementation against `main` (merge-base c597795): 28 items checked, 2 findings | n/a |
 
 ---
 
