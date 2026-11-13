@@ -1,6 +1,6 @@
 # Test Comments That Claim Production-Data Isolation — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261113
 **Branch:** `hotfix/issue-273-stale-production-comments` (from `main`)
@@ -29,6 +29,7 @@
 | 20261113 | Caliper | Pass at af08f31, changes since be3d302: 9 items checked, 0 blocking, 1 non-blocking. | n/a |
 | 20261113 | Caliper | 8, Spec defect, non-blocking: §5's preamble says the issue's search misses "four census sites", but `test_reports_corrections.py:126` is a line inside the site `:125-129`, which the issue's search finds through `:129`. Counted by site it misses three. State three sites, or keep the line-level framing and say how `:126` relates to its site. | Accepted. The preamble says three sites, and notes that `:125-129` is found only through `:129`. This supersedes the third-pass row's "from three to four". |
 | 20261113 | Caliper | Pass at 142694f, changes since af08f31: 6 items checked, 0 blocking, 1 non-blocking. | n/a |
+| 20261113 | Caliper | Pass at 78c7eae, changes since 142694f: 10 items checked, 0 blocking, 0 non-blocking. | n/a |
 
 ---
 
