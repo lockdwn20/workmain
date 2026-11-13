@@ -556,7 +556,7 @@ HAVING COUNT(*) > 1;
 
 Expected: 3 rows (confirmed in RFI):
 - `"Closed out tasks and sent daily report"` — 2026-03-31 — 2 matches
-- `"GMF Internal: Scheduled Wednesday scope meeting..."` — 2026-03-09 — 4 matches
+- `"{WORKMAIN_DEFAULT_CLIENT} Internal: Scheduled Wednesday scope meeting..."` — 2026-03-09 — 4 matches
 - `"Worked out of Arlington. Met with Lam and Zach..."` — 2026-03-02 — 2 matches
 
 For each ambiguous row, run:

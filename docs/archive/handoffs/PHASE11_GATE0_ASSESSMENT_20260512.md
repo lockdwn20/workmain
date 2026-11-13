@@ -74,8 +74,8 @@
 
 ```json
 {
-    "workspace_name": "slower-midwest",
-    "default_channel": "#int-gmf-csirt"
+    "workspace_name": "{workspace_name in ~/.workmain/integrations/slack/config.json}",
+    "default_channel": "#{clients.slack_channel}"
 }
 ```
 

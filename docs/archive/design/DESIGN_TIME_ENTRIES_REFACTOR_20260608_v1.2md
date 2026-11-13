@@ -384,7 +384,7 @@ LIMIT 1`. These must be reviewed manually before the backfill runs:
 | 2026-03-31 | "Closed out tasks and sent daily report" |
 | 2026-03-02 | "Worked out of Las Colinas..." |
 | 2026-03-02 | "Worked out of Arlington..." |
-| 2026-03-09 | "GMF Internal: Scheduled Wednesday..." |
+| 2026-03-09 | "{WORKMAIN_DEFAULT_CLIENT} Internal: Scheduled Wednesday..." |
 
 **Required pre-migration step:** Run the following diagnostic to surface
 which time entry maps to which note for these pairs:
