@@ -1,6 +1,6 @@
 # Notification Config and PostgreSQL Version Text — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261113
 **Branch:** `chore/issue-268-false-statements` (from `main`, merges to `main` and `dev`)
@@ -23,6 +23,7 @@
 | 20261113 | Spanner | `/closeout` preflight P7 failed. `automation/style_check.py` checks the changed lines, and Step 1 changed a line inside the module docstring, which lacks the blank line after its summary (`tests/test_notifications_commands.py:1 — D205`). DR1 allowed no other line to change | Ray's ruling below |
 | 20261113 | Ray | Step 1 brings the module docstring up to `docs/standards/3-code.md` §3.1 | DR1, Step 1, AC1.3. **Status:** back to `Draft` |
 | 20261113 | Spanner | The rewritten docstring drops two more claims that were false, verified against the file: no test exercises `notifications test`, and no test mocks delivery. The process citation in `test_status_corrupt_inspection_file`'s docstring is outside the module docstring, and open issue #264 covers it | Step 1 |
+| 20261113 | Ray | Approved the amended spec | **Status:** |
 
 ---
 
