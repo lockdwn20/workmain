@@ -27,6 +27,8 @@
 | 20261113 | Caliper | Pass at be3d302, changes since 9666644: 16 items checked, 0 blocking, 2 non-blocking. | n/a |
 | 20261113 | Caliper | 8, Spec defect, non-blocking: §5's preamble says only the issue's AC1 "Checked by" line is edited at close-out. AC1.1's search also counts pre-existing data and another test's rows, which the issue's AC1 criterion does not name, so the issue's criterion would not state the property its check measures. Say that the issue's AC1 criterion text needs the same widening. | Accepted. The preamble says both lines of the issue's AC1 are edited at close-out, and its count of the census sites the issue's search misses is corrected from three to four. |
 | 20261113 | Caliper | Pass at af08f31, changes since be3d302: 9 items checked, 0 blocking, 1 non-blocking. | n/a |
+| 20261113 | Caliper | 8, Spec defect, non-blocking: §5's preamble says the issue's search misses "four census sites", but `test_reports_corrections.py:126` is a line inside the site `:125-129`, which the issue's search finds through `:129`. Counted by site it misses three. State three sites, or keep the line-level framing and say how `:126` relates to its site. | Accepted. The preamble says three sites, and notes that `:125-129` is found only through `:129`. This supersedes the third-pass row's "from three to four". |
+| 20261113 | Caliper | Pass at 142694f, changes since af08f31: 6 items checked, 0 blocking, 1 non-blocking. | n/a |
 
 ---
 
@@ -150,7 +152,7 @@ None. No step runs a migration, touches a GitHub object, merges, force-pushes or
 
 ## 5. Acceptance criteria
 
-The issue's AC1 check, `grep -rniE 'production (data|db|database|rows|keys|clients|system_state|active|corrected)|prod collisions|real production' tests/ --include=*.py`, cannot see four census sites: `test_eod_workflow.py:57`, `test_reports_corrections.py:126` and `test_gdrive.py:106` (design study F2), and `test_eod_workflow.py:993-995` (Decision Log, Caliper). AC1.1 widens it. The issue body's AC1 needs the same edit at close-out, to both lines: its criterion text, which names only production or live database data, gains pre-existing data and another test's rows as AC1.1's criterion states them, and its "Checked by" line takes AC1.1's search (`docs/standards/1-workflow.md` §1.2). AC3 is added by Ray's Q2 ruling, and the issue body gains it at close-out.
+The issue's AC1 check, `grep -rniE 'production (data|db|database|rows|keys|clients|system_state|active|corrected)|prod collisions|real production' tests/ --include=*.py`, cannot see three census sites: `test_eod_workflow.py:57` and `test_gdrive.py:106` (design study F2), and `test_eod_workflow.py:993-995` (Decision Log, Caliper). It finds the site `test_reports_corrections.py:125-129` only through `:129`, not through the claim at `:126`. AC1.1 widens it. The issue body's AC1 needs the same edit at close-out, to both lines: its criterion text, which names only production or live database data, gains pre-existing data and another test's rows as AC1.1's criterion states them, and its "Checked by" line takes AC1.1's search (`docs/standards/1-workflow.md` §1.2). AC3 is added by Ray's Q2 ruling, and the issue body gains it at close-out.
 
 | AC | Criterion | How it is checked |
 | --- | --- | --- |
