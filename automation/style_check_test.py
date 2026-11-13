@@ -276,7 +276,9 @@ def test_a_missing_env_file_lists_no_values(tmp_path: Path) -> None:
 
 def test_a_value_is_matched_in_any_case_and_joined_by_underscore_or_hyphen() -> None:
     text = "a qzx here\nfoo_QZX_bar\nint-Qzx-team\n"
-    assert [line for _, line, _, _ in sc.real_value_violations("x.md", text, [VALUE])] == [1, 2, 3]
+    # Letters that Unicode case folding maps to ASCII still bound a value: ı, İ, ſ and the Kelvin sign.
+    text += "\u0131qzx\n\u0130qzx\nqzx\u017f\nqzx\u212a\n"
+    assert [line for _, line, _, _ in sc.real_value_violations("x.md", text, [VALUE])] == [1, 2, 3, 4, 5, 6, 7]
 
 
 def test_a_value_inside_a_longer_word_is_not_matched() -> None:

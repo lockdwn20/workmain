@@ -122,8 +122,13 @@ def real_values(env: Path) -> List[str]:
 
 
 def _value_patterns(values: Sequence[str]) -> List[re.Pattern]:
-    """Compile each value to match in any case, bounded only by ASCII letters and digits."""
-    return [re.compile(rf"(?<![A-Za-z0-9]){re.escape(value)}(?![A-Za-z0-9])", re.IGNORECASE) for value in values]
+    """
+    Compile each value to match in any case, bounded only by ASCII letters and digits.
+
+    re.ASCII keeps case folding to ASCII, so no non-ASCII letter counts as a bound.
+    """
+    return [re.compile(rf"(?<![A-Za-z0-9]){re.escape(value)}(?![A-Za-z0-9])", re.IGNORECASE | re.ASCII)
+            for value in values]
 
 
 def real_value_violations(path: str, text: str, values: Sequence[str]) -> List[Violation]:
