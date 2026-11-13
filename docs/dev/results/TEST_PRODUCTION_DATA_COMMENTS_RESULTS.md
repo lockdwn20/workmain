@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Complete. Every census site in the 18 files carries its disposition, every docstring that holds one meets D205/D213 with no process citation on a changed line, the two `tests/test_schedule_service.py` fallback tests no longer delete keys the test database never holds, and `test_history_empty` asserts the empty-result message. No test was added or removed, and no executable line changed outside Steps 2 and 3. AC1.2 and AC1.3 name Ray and await his reading.
+Complete. Every census site in the 18 files carries its disposition, every docstring that holds one meets D205/D213 with no process citation on a changed line, the two `tests/test_schedule_service.py` fallback tests no longer delete keys the test database never holds, and `test_history_empty` asserts the empty-result message. No test was added or removed, and no executable line changed outside Steps 2 and 3.
 
 ## 2. What shipped, by step
 
@@ -26,8 +26,8 @@ Complete. Every census site in the 18 files carries its disposition, every docst
 | AC | Status | Evidence |
 | --- | --- | --- |
 | AC1.1 | Met | The AC1.1 search at `b8aab49` returns exactly 4 lines: `tests/test_action_executor.py:5` "(real DB, rolled back)", `tests/test_slack.py:4` "(real DB, reports table)", `tests/test_slack.py:59` "# TestSlackReportsIntegration — real DB", `tests/test_gdrive.py:251` "# No real DB writes". |
-| AC1.2 | **Not met** | Awaiting Ray. Site table and reshaped-docstring table in §5. |
-| AC1.3 | **Not met** | Awaiting Ray. Anvil's confirmation: `git diff -w --word-diff origin/main...HEAD -- tests/` read hunk by hunk (33 hunks); every change is a comment or docstring line, or a Step 2 or Step 3 line. Cross-check in §5. |
+| AC1.2 | Met | Ray, 20261113: Confirmed each census site carries the disposition §2 assigns it, with no isolation claim left in its reworded text. Site table and reshaped-docstring table in §5. |
+| AC1.3 | Met | Ray, 20261113: Confirmed no sentinel value changed, and outside Steps 2 and 3 no test code changed. Anvil's confirmation: `git diff -w --word-diff origin/main...HEAD -- tests/` read hunk by hunk (33 hunks); every change is a comment or docstring line, or a Step 2 or Step 3 line. Cross-check in §5. |
 | AC1.4 | Met | `grep -n "state.delete" tests/test_schedule_service.py` exits 1, no hits. The two named nodes: 2 passed, 0 failed, 0 skipped. |
 | AC1.5 | Met | `test_history_empty` as committed: 1 passed. With the seed's `report_type` temporarily `weekly_client`: 1 failed, `AssertionError: 'No reports found.' not found in` the rendered "Report History (last 1) — weekly_client" table, at `tests/test_report_history.py:119`. Change reverted (`grep` for the temporary seed: 0), never committed; rerun: 1 passed. |
 | AC1.6 | Met | `python automation/style_check.py` at `b8aab49` plus this artifact: `PASS`, 0 violations, exit 0. |
