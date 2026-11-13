@@ -5,7 +5,7 @@ mocked delivery and filesystem — no actual notification dispatch occurs.
 
 Uses db_session fixture for full transaction isolation.
 Repository now reads/writes system_state KV rows (keys: notify_method,
-notify_enabled) — no notification_config table (dropped in migration 010).
+notify_enabled) — no notification_config table.
 """
 
 import json
