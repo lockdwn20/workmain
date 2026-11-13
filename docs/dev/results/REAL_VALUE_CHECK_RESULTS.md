@@ -39,8 +39,7 @@ Complete. `automation/style_check.py` reads `DEV_REAL_VALUES` from `.env` in the
 
 | # | Departure or ambiguity | Step stopped at | Resolution | Resolved by |
 | --- | --- | --- | --- | --- |
-
-None.
+| 1 | `_value_patterns` compiled DR2's boundary under `re.IGNORECASE` alone, so `[A-Za-z]` also matched `ı`, `İ`, `ſ` and `K` (U+212A), and a value next to one was not reported, where DR2 bounds a value only by ASCII letters and digits. Found by the post-implementation review (spec Decision Log, Caliper (post-implementation), I2) | none | Revert: `re.ASCII` added to the flags (`04274a3`). AC1.2's test gains one line per letter; it failed before the fix and passes after | Ray, 20261113 |
 
 **Decisions below the contract.**
 
@@ -53,10 +52,13 @@ None.
 | 5 | 1 | AC1.5's test also asserts `0 violation(s)`, so the exit 1 can come only from DR6 | Asserting the exit code and message alone | Shows the branch had no other violation, as AC1.5 states |
 | 6 | 2 | Value patterns are compiled by a private `_value_patterns`, shared by `real_value_violations` and `commit_violations` | Compiling in each | One statement of DR2's match |
 | 7 | 2 | The commit log is read with `%h%x00%B%x1e` and split on the separators | One `git log` call per commit | One call. git does not allow NUL in a commit message, and a record separator in one would only split it into two parts that are each still searched |
+| 8 | 1 | The key's name is the module constant `REAL_VALUES_KEY`, used by `real_values` and by every report message | Writing `"DEV_REAL_VALUES"` at each use | One statement of the name; public, as the module's other constants (`ROOT`, `PYTHON_DIRS`, `SKIPPED`) are |
+| 9 | 1 | The tests that commit on the branch use a helper, `_commit(root, message)`, in `automation/style_check_test.py` | Repeating `git add` and `git commit` with identity flags in each test | The AC1.6 and AC2.1 tests both commit, and the base commit in `repo` already uses the same identity flags |
 
 ## 5. Verification
 
 - **Test suite:** `tests/`: 1635 passed, 0 failed, 0 skipped (baseline: 1635 passed, 0 failed, 0 skipped). `automation/`: 113 passed, 0 failed, 0 skipped (baseline: 101 passed, 0 failed, 0 skipped).
+- **Defect shown before the fix** (§4 departure 1): `automation/style_check_test.py::test_a_value_is_matched_in_any_case_and_joined_by_underscore_or_hyphen`, extended with the four letters, failed with `automation/style_check.py` at `571916b` and passed at `04274a3`.
 - **Checks:** `python3 automation/style_check.py` exit 0, 0 violations, with the live values read (AC1.7); `python3 automation/architecture_check.py` PASS.
 - **Live verification:** the style check run on this branch against the live `.env` at `7e3f7e0` read its 7 values and checked the branch's changed lines and its commit messages.
 - **Daemon restart:** n/a. `chore/*` changes no application code (`docs/standards/2-git.md` §2.6).
