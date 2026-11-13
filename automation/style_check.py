@@ -9,7 +9,13 @@ process that produced them (§3.1). Markdown lines are checked for hard wrapping
 are checked, against the point where it left its base branch, so code is
 brought up to the rules as it is touched rather than all at once. Uncommitted
 and untracked files count as changed. CHANGELOG.md is history and is never
-checked. Requires git and ruff.
+checked.
+
+Every changed line, in a file of any type, is also checked for the real
+values listed in DEV_REAL_VALUES, read from .env in the main working tree, so
+a linked worktree reads the same file. The report names where a value is,
+never the value. With no values listed the check cannot run, and fails.
+Requires git, ruff and python-dotenv.
 
 Exit 0 when every changed line passes, 1 otherwise.
 """
@@ -23,7 +29,10 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Set, Tuple
 
+from dotenv import dotenv_values
+
 ROOT = Path(__file__).resolve().parent.parent
+REAL_VALUES_KEY = "DEV_REAL_VALUES"
 PYTHON_DIRS = ("workmain/", "tests/", "automation/", "scripts/")
 SKIPPED = ("CHANGELOG.md", "docs/archive/", "scripts-deprecated/", "staging/")
 
@@ -43,6 +52,11 @@ Violation = Tuple[str, int, int, str]
 def _git(*args: str) -> str:
     """Run git in the repository and return its output."""
     return subprocess.run(["git", *args], capture_output=True, text=True, cwd=ROOT, check=True).stdout
+
+
+def _main_worktree() -> Path:
+    """Return the root of the repository's main working tree, from any of its worktrees."""
+    return Path(_git("rev-parse", "--path-format=absolute", "--git-common-dir").strip()).parent
 
 
 def base_branch(branch: str) -> str:
@@ -86,6 +100,49 @@ def changed_lines(base: str) -> Dict[str, Optional[Set[int]]]:
     for line in _git("ls-files", "--others", "--exclude-standard").splitlines():
         out[line] = None
     return {path: lines for path, lines in out.items() if not path.startswith(SKIPPED)}
+
+
+# ---------------------------------------------------------------- real values
+
+def real_values(env: Path) -> List[str]:
+    """
+    List the real values a `.env` file names in DEV_REAL_VALUES.
+
+    Args:
+        env: The `.env` file to read.
+
+    Returns:
+        The comma-separated entries of DEV_REAL_VALUES, in order, each with the
+        whitespace around it dropped and empty entries left out. Empty when the
+        file, the key or its value is missing.
+    """
+    raw = dotenv_values(env).get(REAL_VALUES_KEY) or ""
+    return [entry.strip() for entry in raw.split(",") if entry.strip()]
+
+
+def real_value_violations(path: str, text: str, values: Sequence[str]) -> List[Violation]:
+    """
+    Find the lines of a file that hold a listed real value.
+
+    A value matches in any letter case wherever the character on each side of
+    it is absent or not an ASCII letter or digit, so it is found inside a
+    snake_case or hyphenated word but not inside a longer word. Lines are
+    numbered by newline alone, as git numbers them. The message names the
+    value's position in the list, never the value.
+
+    Args:
+        path: The file's repository-relative path, for the report.
+        text: The file's contents.
+        values: The listed real values, in list order.
+
+    Returns:
+        One (path, line, line, message) entry per line and value matched.
+    """
+    patterns = [re.compile(rf"(?<![A-Za-z0-9]){re.escape(value)}(?![A-Za-z0-9])", re.IGNORECASE)
+                for value in values]
+    return [(path, number, number, f"holds value {position} of {REAL_VALUES_KEY}")
+            for number, line in enumerate(text.split("\n"), 1)
+            for position, pattern in enumerate(patterns, 1) if pattern.search(line)]
 
 
 # ---------------------------------------------------------------- the checks
@@ -180,12 +237,14 @@ def markdown_violations(path: str, text: str) -> List[Violation]:
     return out
 
 
-def check(changes: Dict[str, Optional[Set[int]]]) -> List[Violation]:
+def check(changes: Dict[str, Optional[Set[int]]], values: Sequence[str] = ()) -> List[Violation]:
     """
     Check every changed line.
 
     Args:
         changes: Changed lines by path, as `changed_lines` returns them.
+        values: The listed real values to look for in every changed file;
+            none are looked for when empty.
 
     Returns:
         Every violation whose span includes a changed line, sorted by path and line.
@@ -197,6 +256,11 @@ def check(changes: Dict[str, Optional[Set[int]]]) -> List[Violation]:
     for path in changes:
         if path.endswith(".md") and (ROOT / path).exists():
             found += markdown_violations(path, (ROOT / path).read_text(encoding="utf-8"))
+    if values:
+        for path in changes:
+            if (ROOT / path).is_file():
+                text = (ROOT / path).read_bytes().decode("utf-8", errors="replace")
+                found += real_value_violations(path, text, values)
     return sorted(v for v in found
                   if changes.get(v[0]) is None or any(n in changes[v[0]] for n in range(v[1], v[2] + 1)))
 
@@ -211,7 +275,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         argv: Command-line arguments; the process's own when None.
 
     Returns:
-        0 when every changed line passes, 1 otherwise.
+        0 when every changed line passes, 1 otherwise, and 1 when no real
+        values are listed.
     """
     parser = argparse.ArgumentParser(description="Check the lines this branch changed against the style rules.")
     parser.add_argument("--base", help="the branch to compare against; by default dev for feature/*, main otherwise")
@@ -220,13 +285,17 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     branch = _git("rev-parse", "--abbrev-ref", "HEAD").strip()
     base = args.base or base_branch(branch)
     changes = changed_lines(base)
-    violations = check(changes)
+    values = real_values(_main_worktree() / ".env")
+    violations = check(changes, values)
 
     print(f"{branch} against {base}: {len(changes)} changed file(s), {len(violations)} violation(s)")
     for path, line, _, message in violations:
         print(f"  {path}:{line} — {message}")
-    print("\nFAIL" if violations else "\nPASS")
-    return 1 if violations else 0
+    if not values:
+        print(f"  real-value check not run: {REAL_VALUES_KEY} is not set in .env in the main working tree")
+    failed = bool(violations) or not values
+    print("\nFAIL" if failed else "\nPASS")
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
