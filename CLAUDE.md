@@ -71,7 +71,7 @@ What milestones, labels, and parent/child structure mean: `docs/standards/1-work
 
 ## Tech Stack
 
-- **Python 3.12** on WSL Ubuntu 24.04 · **PostgreSQL 16.11** (workmain / workmain_user)
+- **Python 3.12** on WSL Ubuntu 24.04 · **PostgreSQL 16** (workmain / workmain_user)
 - **SQLAlchemy ORM** with repository pattern · **Click** CLI · **Rich** formatting
 - **APScheduler** - daemon scheduling · **slack-sdk** - Socket Mode + Block Kit
 - **AI:**
