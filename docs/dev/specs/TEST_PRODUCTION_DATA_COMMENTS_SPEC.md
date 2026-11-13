@@ -1,6 +1,6 @@
 # Test Comments That Claim Production-Data Isolation — Spec
 
-**Status:** Approved
+**Status:** Draft
 **Author:** Spanner (Role 1)
 **Date:** 20261113
 **Branch:** `hotfix/issue-273-stale-production-comments` (from `main`)
@@ -30,6 +30,7 @@
 | 20261113 | Caliper | 8, Spec defect, non-blocking: §5's preamble says the issue's search misses "four census sites", but `test_reports_corrections.py:126` is a line inside the site `:125-129`, which the issue's search finds through `:129`. Counted by site it misses three. State three sites, or keep the line-level framing and say how `:126` relates to its site. | Accepted. The preamble says three sites, and notes that `:125-129` is found only through `:129`. This supersedes the third-pass row's "from three to four". |
 | 20261113 | Caliper | Pass at 142694f, changes since af08f31: 6 items checked, 0 blocking, 1 non-blocking. | n/a |
 | 20261113 | Caliper | Pass at 78c7eae, changes since 142694f: 10 items checked, 0 blocking, 0 non-blocking. | n/a |
+| 20261113 | Anvil | Departure at Step 1: `python automation/style_check.py` reports 21 violations, all D205 or D213, in docstrings that hold census sites: 13 module docstrings and `tests/test_eod_workflow.py:312`, `:470`, `:509`, `:559` and `tests/test_reports_corrections.py:121`. The docstrings already had those shapes. The check flags them because the branch changes a line inside each. Fixing them changes text outside the census sites, which DR1's "nothing else" rules out. | Ray, 20261113: fix them in #273. DR1 brings each docstring that holds a census site to the docstring rules the style check applies, Step 1's deliverable says so, and AC1.6 checks it. The other two options were ruled out by standing rules. Accepting the violations conflicts with the Anvil rule that a style violation is fixed before the commit, and with the style check's design of bringing code up to the rules as it is touched. Dropping the sites would leave the issue's AC1 unmet. |
 
 ---
 
@@ -115,6 +116,7 @@ The census was found by the issue's search together with the wider searches in d
   - **R:** the reason is replaced by the one the census row states.
   - **W:** the weekday names are corrected to the ones the row gives.
   - **S:** the stub's reason is replaced by this one: the stub fixes the tasks the step receives and their order, so the test does not depend on `get_filtered`'s own filtering or ordering. Each docstring keeps the rest of its text, including which assertion depends on that.
+  - **A docstring that holds a census site is also brought to the docstring rules `automation/style_check.py` checks:** the summary alone on the line after the opening quotes, then a blank line (D213, D205; `docs/standards/3-code.md` §3.1, §3.5). A summary that runs over more than one line is shortened to one line with the same meaning. The rest of that docstring changes only as needed to move the summary and add the blank line. This holds for every step.
   - Wording within a disposition is Anvil's.
 - **DR2 — No sentinel value changes.** Dates, keys, IDs, marker terms and report types keep their values. A value with no reason left is still the value the test uses.
 - **DR3 — No test code changes outside Steps 2 and 3.** In `tests/test_eod_workflow.py` only docstrings and comments change. In the other files of Step 1, only comments and docstrings change.
@@ -126,7 +128,7 @@ Anything these rules do not decide is a departure (`.claude/skills/session-start
 
 | Step | Deliverable | Files |
 | --- | --- | --- |
-| 1 | Every census site with disposition D, R, W or S carries it (DR1). Comments and docstrings only (DR3). | `tests/test_notes_list.py`, `tests/test_reports_corrections.py`, `tests/test_system_state_repository.py`, `tests/test_orchestration.py`, `tests/test_email_recipients_client.py`, `tests/test_tasks_service.py`, `tests/test_notification_engine.py`, `tests/test_notes_show.py`, `tests/test_time_entries_refactor.py`, `tests/test_time_tracking.py`, `tests/test_report_history.py` (`:70-71` only), `tests/test_task_lifecycle.py`, `tests/test_schedule_commands.py`, `tests/test_eod_workflow.py`, `tests/test_meetings_repository.py`, `tests/test_ai_costs.py`, `tests/test_schedule_service.py` (`:8-9` only), `tests/test_gdrive.py` |
+| 1 | Every census site with disposition D, R, W or S carries it, and each docstring that holds one meets the style check's docstring rules (DR1). Comments and docstrings only (DR3). | `tests/test_notes_list.py`, `tests/test_reports_corrections.py`, `tests/test_system_state_repository.py`, `tests/test_orchestration.py`, `tests/test_email_recipients_client.py`, `tests/test_tasks_service.py`, `tests/test_notification_engine.py`, `tests/test_notes_show.py`, `tests/test_time_entries_refactor.py`, `tests/test_time_tracking.py`, `tests/test_report_history.py` (`:70-71` only), `tests/test_task_lifecycle.py`, `tests/test_schedule_commands.py`, `tests/test_eod_workflow.py`, `tests/test_meetings_repository.py`, `tests/test_ai_costs.py`, `tests/test_schedule_service.py` (`:8-9` only), `tests/test_gdrive.py` |
 | 2 | The two `tests/test_schedule_service.py` fallback tests set and delete nothing (see below). | `tests/test_schedule_service.py` |
 | 3 | `tests/test_report_history.py::TestReportHistory::test_history_empty` asserts the empty-result message (see below). | `tests/test_report_history.py` |
 | 4 | Results artifact `docs/dev/results/TEST_PRODUCTION_DATA_COMMENTS_RESULTS.md`, with a table pairing each census site with its disposition and the line that now carries it, and the AC evidence. | `docs/dev/results/TEST_PRODUCTION_DATA_COMMENTS_RESULTS.md` |
@@ -162,6 +164,7 @@ The issue's AC1 check, `grep -rniE 'production (data|db|database|rows|keys|clien
 | AC1.3 | No sentinel value changed, and outside Steps 2 and 3 no test code changed. | `git diff origin/main...HEAD -- tests/` shows changes only to comment lines and docstrings, plus the Step 2 and Step 3 lines. Anvil confirms it with `git diff -w --word-diff origin/main...HEAD -- tests/` read hunk by hunk, recorded in results, and Ray reads it as part of AC1.2. |
 | AC1.4 | The two `test_schedule_service.py` fallback tests reach the fallback with no `system_state` key set, and remove nothing to get there. | `grep -n "state.delete" tests/test_schedule_service.py` returns no hits. `pytest tests/test_schedule_service.py::TestWorkingHours::test_falls_back_to_default_window_when_unconfigured tests/test_schedule_service.py::TestT4Interval::test_falls_back_to_default_when_unconfigured` passes. |
 | AC1.5 | `test_history_empty` fails when the command lists a report, so it tests the empty result its docstring names. | `pytest tests/test_report_history.py::TestReportHistory::test_history_empty` passes. With the seeded `report_type` temporarily changed to `weekly_client`, the same test fails on the `assertIn`. The temporary change is reverted and never committed, and results records both runs. |
+| AC1.6 | Every docstring the branch changed meets the docstring rules `docs/standards/3-code.md` §3.1 and §3.5 state. | `python automation/style_check.py` exits 0. |
 | AC2.1 | The full suite passes, with no test added or removed. | The `pytest --collect-only -q` count on the branch equals the count at `git merge-base origin/main HEAD`, and a bare `pytest` reports that count passed, 0 failed, 0 skipped. The bare `pytest` result is recorded in the `docs/standards/6-testing.md` §6 form. Each collect count is recorded with the commit it was taken at. |
 | AC3.1 | `tests/test_notification_engine.py` names the right weekday for each of its two dates. | `grep -nE 'Monday\|Tuesday\|Wednesday\|Thursday\|Friday\|Saturday\|Sunday' tests/test_notification_engine.py` returns lines naming 2099-01-15 as Thursday and 2099-01-14 as Wednesday only, checked against `date(2099,1,15).strftime('%A')` and `date(2099,1,14).strftime('%A')`. |
 
