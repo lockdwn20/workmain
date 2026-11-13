@@ -1,6 +1,6 @@
 # Published Real Values — Spec
 
-**Status:** Draft
+**Status:** Approved
 **Author:** Spanner (Role 1)
 **Date:** 20261113
 **Branch:** `chore/issue-276-published-real-values` (from `main`, merges to `main` and `dev`)
@@ -22,6 +22,7 @@
 | 20261113 | Ray | The `WorkmAIn Queue` project is private, so it publishes nothing and is out of scope | §1 |
 | 20261113 | Ray | AC1's check reruns the census over the whole tree with #275's matcher (`real_values` and `_value_patterns` in `automation/style_check.py`), not `git grep`. `SKIPPED` in `automation/style_check.py` holds `docs/archive/`, so #275's own check does not read this branch's archive edits | C1 |
 | 20261113 | Ray | The PR #11 step checks that the new body file is non-empty and holds the rest of the current body before `gh pr edit --body-file` | Step 2 |
+| 20261113 | Ray | Approved. #276 runs the direct path without Role 2 review: no Caliper pass on the spec and no post-implementation review (`docs/standards/1-workflow.md` §1.2) | **Status:** |
 | 20261113 | Spanner | A value is replaced by a placeholder in braces that names where the value is held, as `CLAUDE.md` § Client Reference requires. Braces are used because `<…>` outside a code span is read by GitHub's Markdown as an HTML tag and is not shown, and many of the lines are prose or table cells | DR1 |
 | 20261113 | Spanner | Value 1 at `docs/archive/specs/PHASE6_DISCOVERY_RESULTS.md:179` takes value 2's placeholder. Value 1 is part of value 2 (design study F3), and the only place it is held is `workspace_name` in `~/.workmain/integrations/slack/config.json`, where value 2 is held | DR1 |
 | 20261113 | Spanner | The census checks are written into §5 as commands, not added as a tracked script. The issue asks for the census to be run, not kept, and a script under `automation/` would be a mechanism the issue does not name | C1, C2, C3 |
