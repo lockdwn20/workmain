@@ -1,6 +1,6 @@
 # Notification Config and PostgreSQL Version Text — Implementation Results
 
-**Status:** Active
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261113
 **Spec:** `../specs/NOTIFICATION_CONFIG_AND_POSTGRES_VERSION_TEXT_SPEC.md`

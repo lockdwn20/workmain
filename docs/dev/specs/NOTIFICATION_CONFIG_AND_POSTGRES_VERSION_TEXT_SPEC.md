@@ -1,6 +1,6 @@
 # Notification Config and PostgreSQL Version Text — Spec
 
-**Status:** Approved
+**Status:** Shipped
 **Author:** Spanner (Role 1)
 **Date:** 20261113
 **Branch:** `chore/issue-268-false-statements` (from `main`, merges to `main` and `dev`)
