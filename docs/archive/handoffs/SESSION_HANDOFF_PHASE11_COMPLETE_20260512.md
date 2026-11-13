@@ -33,7 +33,7 @@ Gate 0 was a pre-session spec assessment (recorded in
 | 0 | Spec review, environment assessment, Gate 0 doc | (pre-session, no code commit) |
 | 1 | DB migrations: 010_system_state, 011_clients, 012_client_attribution | 46c5595 |
 | 2 | SQLAlchemy models (SystemState, Client, client_id FKs); SystemStateRepository; NotificationConfigRepository rewrite (v2.0 → wraps SystemStateRepository) | e0f643e |
-| 3 | ClientRepository with atomic set_active(); migrate_client_attribution.py script; GMF seeded as active client | 98198cb |
+| 3 | ClientRepository with atomic set_active(); migrate_client_attribution.py script; {WORKMAIN_DEFAULT_CLIENT} seeded as active client | 98198cb |
 | 4 | `workmain clients` CLI group — add, list, show, delete, set active, status | 364bc28 |
 | 5 | Write-path attribution — all data-creation commands stamp active_client_id | ae455f5 |
 | 6 | Report generation client filtering — get_for_date_client() on repos; get_client_filter() in reports.py; prompt_builder client filter attrs | 138c91b |
@@ -53,7 +53,7 @@ Gate 0 was a pre-session spec assessment (recorded in
 | `workmain/database/repositories/system_state_repository.py` | v1.0 | 2 | get/set/delete, get_bool/set_bool, get_int typed helpers |
 | `workmain/database/repositories/client_repository.py` | v1.0 | 3 | CRUD + atomic set_active() + clear_active() |
 | `workmain/cli/commands/clients.py` | v1.0 | 4 | clients add/list/show/delete/set active/status |
-| `scripts/migrate_client_attribution.py` | v1.0 | 3 | One-time script: backfills existing rows to GMF client_id |
+| `scripts/migrate_client_attribution.py` | v1.0 | 3 | One-time script: backfills existing rows to {WORKMAIN_DEFAULT_CLIENT} client_id |
 | `tests/test_system_state_repository.py` | v1.0 | 8 | 11 tests — get/set/delete, typed helpers |
 | `tests/test_client_repository.py` | v1.0 | 8 | 15 tests — CRUD + active context atomicity |
 | `tests/test_clients_commands.py` | v1.0 | 8 | 17 tests — CLI group via CliRunner (production DB, autouse cleanup) |
@@ -119,7 +119,7 @@ they are stored as instance attributes (`self._filter_client`, `self._client_id`
 `db_session` rollback fixture provides no isolation here. Solved with:
 1. Unique prefixed client names (`_CLITest_G8_Alpha`, `_CLITest_G8_Beta`)
 2. Autouse `_cli_cleanup` fixture: `_purge_test_clients()` before and after each test
-3. `_restore_gmf_active()` after each test to restore production state
+3. `_restore_{WORKMAIN_DEFAULT_CLIENT}_active()` after each test to restore production state
 
 ### clients set active — name-only (V23)
 `clients set active` accepts client name only (not ID), intentionally deviating from
@@ -179,7 +179,7 @@ Backlog items still open that may intersect Phase 12: Items 4, 28 (config placeh
 ```
 feat(phase11): Gate 1 — system_state, clients, client_attribution migrations
 feat(phase11): Gate 2 — models, system_state_repository, notification_repository rewrite
-feat(phase11): Gate 3 — client_repository, data attribution script, GMF seeded
+feat(phase11): Gate 3 — client_repository, data attribution script, {WORKMAIN_DEFAULT_CLIENT} seeded
 feat(phase11): Gate 4 — workmain clients command group
 feat(phase11): Gate 5 — stamp active_client_id on all data-creation write paths
 feat(phase11): Gate 6 — report generation client filtering

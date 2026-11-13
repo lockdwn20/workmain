@@ -222,5 +222,5 @@ EOF
 - **IaC warm-up is required.** workmain no longer pre-loads the model (DR7), and `keep_alive` does not load one. After an Ollama or LXC restart the first request loads the model from disk — measured at ~112 s from a warm disk and ~243 s after a reboot — which exceeds the 30 s timeout, so that request fails. The IaC side warms the model after a restart and checks it regularly; the window before that completes is accepted.
 - **The EOD config-fault path is CLI-only in practice** (DR6). A fault the daemon would hit fails its start instead.
 - **Restart loop on a config fault.** With `Restart=on-failure`, a broken provider policy makes the daemon restart every 30 s until fixed, each attempt logged with the `ConfigurationError`. That is the intended visibility (Q4); today the same fault surfaces only at the first Slack DM.
-- **Slower EOD when Ollama is unreachable.** Each probe now waits the configured 30 s instead of 15 s.
+- **Longer EOD wait when Ollama is unreachable.** Each probe now waits the configured 30 s instead of 15 s.
 - **Rollback.** Each step is one commit and reverts cleanly in reverse order. Reverting Step 2 restores the two deleted files from git.
