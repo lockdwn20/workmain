@@ -1,11 +1,11 @@
 """
-Tests for NotificationConfigRepository and the notifications CLI command group.
-CLI-level tests (notifications test, notifications status) use CliRunner with
-mocked delivery and filesystem — no actual notification dispatch occurs.
+Tests for NotificationConfigRepository and the notifications command group.
 
-Uses db_session fixture for full transaction isolation.
-Repository now reads/writes system_state KV rows (keys: notify_method,
-notify_enabled) — no notification_config table (dropped in migration 010).
+The repository keeps the notification method and the enabled flag in
+system_state rows, notify_method and notify_enabled; there is no
+notification_config table. The repository tests run in db_session. The
+notifications status tests point WORKMAIN_STATE_DIR at tmp_path, so the
+command reads the inspection file each test writes, never the daemon's own.
 """
 
 import json
