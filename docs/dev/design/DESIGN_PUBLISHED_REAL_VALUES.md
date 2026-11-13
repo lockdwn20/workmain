@@ -77,5 +77,5 @@ A rewrite of messages alone is not offered. It costs 1,758 new SHAs and every ta
 
 ## 6. Disposition
 
-- Promoted to:
+- Promoted to: `../specs/PUBLISHED_REAL_VALUES_SPEC.md`
 - Superseded by:
