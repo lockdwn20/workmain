@@ -1,12 +1,12 @@
 """
-Unit coverage for workmain/services/schedule_service.py — single authority
-for working-day/working-hours determination (Operations_Config_Correction_
-Sprint Gate 1), extended in Gate 5 §5.6 with the two EOD progress-interval
-getters.
+Unit coverage for workmain/services/schedule_service.py.
+
+ScheduleService is the single authority for working-day/working-hours
+determination, and holds the two EOD progress-interval getters.
 
 Uses db_session fixture for full transaction isolation.
-Uses sentinel dates with known weekdays to prevent production data/calendar
-drift from skewing results:
+Uses sentinel dates with known weekdays, so results do not depend on the day
+the suite runs:
   SENTINEL_MONDAY   = 2099-01-05 (Monday)
   SENTINEL_SATURDAY = 2099-01-03 (Saturday)
   SENTINEL_SUNDAY   = 2099-01-04 (Sunday)
@@ -74,15 +74,7 @@ class TestIsWorkingDay:
 
 class TestWorkingHours:
     def test_falls_back_to_default_window_when_unconfigured(self, db_session):
-        """No system_state keys set → default 09:00-18:00 window.
-
-        Production system_state already has working_hours_start/end seeded
-        (Gate 1) — deleted here within the test's own transaction so the
-        fallback path is actually exercised; rollback restores it after.
-        """
-        state = SystemStateRepository(db_session)
-        state.delete('working_hours_start')
-        state.delete('working_hours_end')
+        """No system_state keys set → default 09:00-18:00 window."""
         service = ScheduleService(db_session)
         assert service.is_working_hours(datetime(2099, 1, 5, 12, 0)) is True
         assert service.is_working_hours(datetime(2099, 1, 5, 8, 59)) is False
@@ -120,12 +112,7 @@ class TestWorkingHours:
 
 class TestT4Interval:
     def test_falls_back_to_default_when_unconfigured(self, db_session):
-        """Production system_state already has t4_interval_min/max seeded
-        (Gate 1) — deleted here within the test's own transaction so the
-        fallback path is actually exercised; rollback restores it after."""
-        state = SystemStateRepository(db_session)
-        state.delete('t4_interval_min')
-        state.delete('t4_interval_max')
+        """No system_state keys set → default (30, 120) bounds returned."""
         service = ScheduleService(db_session)
         assert service.get_t4_interval() == (30, 120)
 

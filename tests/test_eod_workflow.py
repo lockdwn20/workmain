@@ -54,7 +54,6 @@ MONDAY    = 0
 THURSDAY  = 3
 FRIDAY    = 4
 
-# Sentinel date: far future ensures no real DB records match
 SENTINEL_DATE = date(2099, 1, 1)
 
 
@@ -310,15 +309,16 @@ class TestTaskMatchSelfExclusion:
         assert result.data is None
 
     def test_self_match_excluded_llm_mode(self, tmp_path, db_session, monkeypatch):
-        """Same scenario, but with Ollama reported available — the
-        candidate-list filter runs upstream of both paths, so IntentParser
+        """
+        Same scenario, but with Ollama reported available.
+
+        The candidate-list filter runs upstream of both paths, so IntentParser
         is never even asked to score the task against its own note.
 
         get_filtered() is scoped to exactly the one sentinel task here —
-        without this, real production active carry-forward tasks (whose
-        get_filtered() query has no date scoping) would also enter the
-        loop and could call parse_task_match() legitimately, making the
-        assert_not_called() below unreliable."""
+        this fixes the tasks the step receives and their order, so the
+        test does not depend on get_filtered()'s own filtering or
+        ordering. The assert_not_called() below relies on that."""
         monkeypatch.setenv('WORKMAIN_STATE_DIR', str(tmp_path))
         _write_cf_state_file(SENTINEL_DATE)
         _, ts = _cf_note_with_task(db_session, "Write the integration spec", SENTINEL_DATE)
@@ -469,12 +469,15 @@ class TestTaskMatchCancellationAndNoTimeBudget:
         assert 'cancelled' in (result.message or '').lower()
 
     def test_no_cancellation_runs_every_task_to_completion(self, tmp_path, db_session, monkeypatch):
-        """With cancel_event never set, a multi-task loop completes fully —
-        no per-task/per-step time budget exists to cut it short.
+        """
+        With cancel_event never set, a multi-task loop completes fully.
 
-        get_filtered() scoped to exactly the 5 sentinel tasks — real
-        production active tasks (unscoped by date) would otherwise inflate
-        the count this test asserts on."""
+        No per-task/per-step time budget exists to cut it short.
+
+        get_filtered() scoped to exactly the 5 sentinel tasks — this fixes
+        the tasks the step receives and their order, so the count this test
+        asserts on does not depend on get_filtered()'s own filtering or
+        ordering."""
         monkeypatch.setenv('WORKMAIN_STATE_DIR', str(tmp_path))
         _write_cf_state_file(SENTINEL_DATE)
         sentinel_tasks = [
@@ -507,9 +510,13 @@ class TestNoteDedupPairingScope:
     full all-pairs across the entire active pool."""
 
     def test_pairing_count_matches_incremental_scope(self, tmp_path, db_session, monkeypatch):
-        """get_filtered() scoped to exactly the 5 sentinel tasks — real
-        production active tasks (get_filtered() has no date scoping) would
-        otherwise inflate the pair count this test asserts on."""
+        """
+        get_filtered() scoped to exactly the 5 sentinel tasks.
+
+        This fixes the tasks the step receives and their order, so the pair
+        count this test asserts on does not depend on get_filtered()'s own
+        filtering or ordering.
+        """
         monkeypatch.setenv('WORKMAIN_STATE_DIR', str(tmp_path))
         prev_day = date(2098, 12, 31)
         # 2 "today" active tasks, 3 "existing" (prior-day) active tasks.
@@ -556,9 +563,13 @@ class TestNoteDedupMergeDirection:
     note's forwarding_note_id points to it (interactive [m]erge path)."""
 
     def test_merge_survivor_is_more_recent_note(self, tmp_path, db_session, monkeypatch):
-        """get_filtered() scoped to exactly the 2 sentinel tasks — a
-        blanket score=0.9 mock would otherwise "merge" real production
-        active tasks pulled in by get_filtered()'s unscoped query."""
+        """
+        get_filtered() scoped to exactly the 2 sentinel tasks.
+
+        This fixes the tasks the step receives and their order, so the merge
+        this test asserts on under a blanket score=0.9 mock does not depend on
+        get_filtered()'s own filtering or ordering.
+        """
         monkeypatch.setenv('WORKMAIN_STATE_DIR', str(tmp_path))
         note_old, ts_old = _cf_note_with_task(db_session, "Older duplicate note", SENTINEL_DATE)
         note_old.created_at = datetime(2099, 1, 1, 9, 0, 0)
@@ -990,9 +1001,7 @@ class TestHandleReplyMidFlightGuard:
         assert session._cancel_event.is_set()
 
 
-# Distinct from the module's SENTINEL_DATE to avoid any collision with
-# other report-seeding test files (test_reports_commands.py,
-# test_report_correction.py, etc.) that also key off date(2099, 1, 1).
+# Distinct from the module's SENTINEL_DATE.
 GATE1_SENTINEL_DATE = date(2098, 11, 3)
 
 

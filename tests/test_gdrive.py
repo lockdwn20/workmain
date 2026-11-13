@@ -94,7 +94,6 @@ class TestGDriveRepository:
     def test_03_already_uploaded_false(self, db_session):
         """already_uploaded() returns False when no matching record exists."""
         repo = GDriveRepository(db_session)
-        # Use a sentinel far-future date guaranteed to never exist in production DB
         assert repo.already_uploaded("Daily_Notes_20991231.md", date(2099, 12, 31), "notes") is False
 
     # -----------------------------------------------------------------------
@@ -103,7 +102,6 @@ class TestGDriveRepository:
 
     def test_04_get_uploads_for_date(self, db_session):
         """get_uploads_for_date() returns all records for the target date."""
-        # Use a date guaranteed to have no real uploads in the DB
         target = date(2026, 1, 1)
         other  = date(2025, 12, 31)
 

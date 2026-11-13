@@ -1,15 +1,15 @@
 """
-Tests for the rules-based inspection engine (InspectionEngine) and the
-acknowledgment store (AcknowledgmentStore).
+Tests for the rules-based InspectionEngine and the AcknowledgmentStore.
 
 Uses db_session fixture for full transaction isolation.
-Uses sentinel dates (2099-01-xx) to prevent production data skewing results.
+Uses fixed dates (2099-01-xx). SENTINEL_PREV_BIZ is the business day before
+SENTINEL_DATE, which the carry-forward check needs.
 AcknowledgmentStore tests use monkeypatch to isolate file I/O from
 the real ~/.workmain/daemon/ directory.
 
 Sentinel dates used:
-  SENTINEL_DATE     = 2099-01-15 (Wednesday)
-  SENTINEL_PREV_BIZ = 2099-01-14 (Tuesday — previous business day)
+  SENTINEL_DATE     = 2099-01-15 (Thursday)
+  SENTINEL_PREV_BIZ = 2099-01-14 (Wednesday — previous business day)
 
 Note: this file is the actual home of InspectionEngine test coverage —
 the Operations_Config_Correction_Sprint Gate 7 spec refers to it as
@@ -29,8 +29,8 @@ from workmain.database.repositories.meetings_repo import MeetingsRepository
 from workmain.database.repositories.notes_repo import NotesRepository
 from workmain.database.repositories.time_entries_repo import TimeEntriesRepository
 
-SENTINEL_DATE = date(2099, 1, 15)       # Wednesday
-SENTINEL_PREV_BIZ = date(2099, 1, 14)  # Tuesday
+SENTINEL_DATE = date(2099, 1, 15)       # Thursday
+SENTINEL_PREV_BIZ = date(2099, 1, 14)  # Wednesday
 
 
 # ---------------------------------------------------------------------------

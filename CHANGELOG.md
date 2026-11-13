@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.58.2] - 2026-11-13
+
+Comments in 18 test files said a sentinel date, key or ID kept the test clear of production data or of other tests' rows. The test database (#257), rebuilt empty each run with every test rolled back, rules that out. Each comment now gives the value's real reason, or none. Three guards that did no work were removed or made into real checks (#273).
+
+### Changed
+
+- 18 files under `tests/`: isolation claims removed or replaced with the value's real reason. Docstrings that held one now pass the style check's docstring rules, without the process citations their rewritten lines held.
+- `tests/test_notification_engine.py`: 2099-01-15 and 2099-01-14 are named Thursday and Wednesday. They had been named Wednesday and Tuesday.
+- `tests/test_schedule_service.py`: the two fallback tests no longer delete `system_state` keys the test database never holds.
+- `tests/test_report_history.py`: `test_history_empty` asserts "No reports found." instead of only the exit code.
+- `tests/test_eod_workflow.py`: the four `get_filtered` stubs are unchanged. Their comments now say the stub fixes the tasks the step receives and their order. Whether the stubs are still needed is carried to #254.
+
+Suite: 1635 passed, 0 failed, 0 skipped (baseline 1635 passed, 0 failed, 0 skipped).
+
 ## [1.58.1] - 2026-11-12
 
 Two test files named the real client, against `CLAUDE.md` § Client Reference, and one of them also used the real Slack workspace name as test data. Both now use neutral values. One comment described collisions with production clients, which the test database (#257) rules out; it now states what the test client names actually have to avoid (#271).

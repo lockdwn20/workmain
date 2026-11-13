@@ -1,14 +1,12 @@
 """
-Tests for 'workmain notes show' — single record detail command — and the
-underlying _resolve_note() resolution logic in notes.py.
+Tests for the 'workmain notes show' detail command and notes.py _resolve_note().
 
 Covers the CLI's 'notes show <id>' and 'notes show <keyword>' not-found error
 paths, and the repository's get_by_id() for valid and invalid IDs and
 find_by_content_like() substring match (backs the name-path).
 
 Uses db_session fixture from conftest.py for full transaction isolation.
-CLI tests use ID 999999 (guaranteed non-existent in sentinel space) or
-keywords unique enough to never match production data.
+CLI tests use ID 999999 or keywords that match no row the test seeded.
 """
 
 from datetime import datetime

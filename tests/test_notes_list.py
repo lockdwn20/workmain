@@ -1,6 +1,5 @@
 """
-Tests for 'workmain notes list' — the unified filter command — and the
-underlying get_filtered() method in notes_repo.py.
+Tests for the 'workmain notes list' filter command and notes_repo.py get_filtered().
 
 Covers get_filtered()'s exact date filter, date range (start/end, boundary
 inclusion), meeting_ids filter, FTS search keyword, include_tags OR logic,
@@ -9,8 +8,7 @@ limit cap and ordering, and combined AND filters; and the CLI's error paths
 today search-flag acceptance.
 
 Uses db_session fixture from conftest.py for full transaction isolation.
-All test data uses sentinel dates (2099-xx-xx) to avoid collisions with
-production data visible to the CLI's own sessions.
+All test data uses fixed dates in 2099 (2099-xx-xx).
 """
 
 from datetime import date, datetime
