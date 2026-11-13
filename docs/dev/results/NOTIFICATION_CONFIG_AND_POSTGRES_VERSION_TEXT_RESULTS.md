@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Complete except AC1.3, which awaits Ray's reading. The module docstring of `tests/test_notifications_commands.py` is a `docs/standards/3-code.md` §3.1 module header and no longer says a migration dropped `notification_config`. `CLAUDE.md` § Tech Stack names PostgreSQL's major version only.
+Complete. The module docstring of `tests/test_notifications_commands.py` is a `docs/standards/3-code.md` §3.1 module header and no longer says a migration dropped `notification_config`. `CLAUDE.md` § Tech Stack names PostgreSQL's major version only.
 
 ## 2. What shipped, by step
 
@@ -24,9 +24,9 @@ Complete except AC1.3, which awaits Ray's reading. The module docstring of `test
 
 | AC | Status | Evidence |
 | --- | --- | --- |
-| AC1.1 | Met | The spec's `git grep` over the tree, excluding `docs/archive/`, `scripts/baseline/` and this issue's artifact set, printed nothing (exit 1). `git grep -n -i 'notification_config' -- tests` printed only `tests/test_notifications_commands.py:6:notification_config table. The repository tests run in db_session. The`, a line of the module docstring The issue's own check, `grep -rn -i -E '…' tests`, printed nothing |
+| AC1.1 | Met | The spec's `git grep` over the tree, excluding `docs/archive/`, `scripts/baseline/` and this issue's artifact set, printed nothing (exit 1). `git grep -n -i 'notification_config' -- tests` printed only `tests/test_notifications_commands.py:6:notification_config table. The repository tests run in db_session. The`, a line of the module docstring. The issue's own check, `grep -rn -i -E '…' tests`, printed nothing |
 | AC1.2 | Met | DR2 comparison: `EQUAL` (§5). `pytest`: 1635 passed, 0 failed, 0 skipped |
-| AC1.3 | **Not met** | Awaiting Ray. `ruff check --output-format concise tests/test_notifications_commands.py` reported nothing on lines 1–9, and `python3 automation/style_check.py` printed `4 changed file(s), 0 violation(s)` and `PASS` |
+| AC1.3 | Met | Ray, 20261113: The module docstring of `tests/test_notifications_commands.py` is a `docs/standards/3-code.md` §3.1 module header: a one-line summary, a blank line, then a paragraph on what the tests cover, and every claim in it is true of the file and confirmed with `ruff check --output-format concise tests/test_notifications_commands.py` reported nothing on lines 1–9, and `python3 automation/style_check.py` printed `4 changed file(s), 0 violation(s)` and `PASS` |
 | AC2.1 | Met | The spec's `git grep -n -i -E 'postgres(ql)? ?[0-9]+\.[0-9]' …` printed nothing (exit 1). `grep -n 'PostgreSQL 16' CLAUDE.md` printed `74:- **Python 3.12** on WSL Ubuntu 24.04 · **PostgreSQL 16** (workmain / workmain_user)`. The issue's own check, `grep -n -E 'PostgreSQL [0-9]+\.[0-9]' CLAUDE.md`, printed nothing |
 
 ## 4. Deviations and decisions
