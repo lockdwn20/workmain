@@ -16,7 +16,7 @@ from workmain.database.models import AiCost
 from workmain.database.repositories.ai_costs_repo import AiCostRepository
 from workmain.utils.date_utils import resolve_date_window
 
-# Sentinel timestamps — far future avoids picking up real production rows.
+# Fixed timestamps in 2099.
 _S_DATE = date(2099, 1, 1)
 _S_DT = datetime(2099, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
 _S_DT2 = datetime(2099, 1, 1, 13, 0, 0, tzinfo=timezone.utc)

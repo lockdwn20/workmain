@@ -1,15 +1,14 @@
 """
-Tests for 'workmain reports corrections' — default 7-day window (by
-updated_at), its search, limit, type and all-time filters, sort order, and
-display format (Hotfix Item #56 Gate 2).
+Tests for 'workmain reports corrections'.
+
+Covers the default 7-day window (by updated_at), its search, limit, type and
+all-time filters, sort order, and display format.
 
 Uses unittest.TestCase, mirroring test_report_history.py's pattern for this file. Seeded rows are deleted by ID in tearDown.
 
-Each test isolates its own rows from real production data with either a
-unique correction_note marker term (matched via the search filter) or a
-sentinel far-future report_date (matched via the date filter) — never by
-exact result count against an unfiltered query, since production corrected
-reports exist and are not test data this file controls.
+Each test matches its own rows with either a unique correction_note marker
+term (via the search filter) or a far-future report_date (via the date
+filter).
 """
 
 import unittest
@@ -120,13 +119,11 @@ class TestReportsCorrections(unittest.TestCase):
         self.assertIn('GATE2DATELIFT marker', result.output)
 
     def test_default_limit_applied(self):
-        """No --limit: default cap of 20 applies even within the default window.
+        """
+        No --limit: default cap of 20 applies even within the default window.
 
-        All 25 seeded rows share updated_at == self.now, which is more recent
-        than any pre-existing real corrected report (a real row's updated_at
-        is necessarily in the past relative to this test run), so the top-20
-        cut is guaranteed to be filled entirely by these rows regardless of
-        how much real production data also falls in the window.
+        All 25 seeded rows fall inside the default window, so the default
+        cap of 20 is what limits the output.
         """
         term = 'GATE2DEFAULTLIMITTERM'
         for i in range(25):
