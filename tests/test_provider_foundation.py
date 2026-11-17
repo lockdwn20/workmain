@@ -48,122 +48,6 @@ from workmain.cli.commands.providers import providers
 # Registry tests
 # ---------------------------------------------------------------------------
 
-def test_every_provider_type_has_its_class():
-    """Each ProviderType value is a registry key whose class declares that type."""
-    for p in ProviderType:
-        assert PROVIDER_REGISTRY[p.value].provider_type is p
-
-
-def test_registry_values_are_classes():
-    """Each PROVIDER_REGISTRY value is a class (not an instance)."""
-    for name, cls in PROVIDER_REGISTRY.items():
-        assert isinstance(cls, type), f"PROVIDER_REGISTRY['{name}'] is not a class"
-
-
-def test_registry_values_are_base_provider_subclasses():
-    """Each PROVIDER_REGISTRY class is a subclass of BaseProvider."""
-    for name, cls in PROVIDER_REGISTRY.items():
-        assert issubclass(cls, BaseProvider), (
-            f"PROVIDER_REGISTRY['{name}'] is not a subclass of BaseProvider"
-        )
-
-
-# ---------------------------------------------------------------------------
-# base_provider.py addition tests
-# ---------------------------------------------------------------------------
-
-def test_provider_unavailable_error_is_subclass_of_provider_error():
-    """ProviderUnavailableError is a subclass of ProviderError."""
-    assert issubclass(ProviderUnavailableError, ProviderError)
-
-
-def test_provider_type_ollama_value():
-    """ProviderType.OLLAMA value is 'ollama'."""
-    assert ProviderType.OLLAMA.value == 'ollama'
-
-
-def test_base_provider_test_connection_returns_false_on_exception():
-    """BaseProvider.test_connection() returns False when check_availability() raises."""
-
-    class FailingProvider(BaseProvider):
-        def generate(self, request): raise NotImplementedError
-        def estimate_cost(self, p, c): return 0.0
-        def validate_config(self): return True
-        def count_tokens(self, t): return 0
-        def check_availability(self):
-            raise RuntimeError("connectivity error")
-
-    p = FailingProvider({})
-    assert p.test_connection() is False
-
-
-def test_base_provider_test_connection_returns_true_when_available():
-    """BaseProvider.test_connection() returns True when check_availability() returns AVAILABLE."""
-
-    class ReadyProvider(BaseProvider):
-        def generate(self, request): raise NotImplementedError
-        def estimate_cost(self, p, c): return 0.0
-        def validate_config(self): return True
-        def count_tokens(self, t): return 0
-        def check_availability(self): return ProviderStatus.AVAILABLE
-
-    p = ReadyProvider({})
-    assert p.test_connection() is True
-
-
-# ---------------------------------------------------------------------------
-# OllamaProvider tests
-# ---------------------------------------------------------------------------
-
-def test_ollama_provider_instantiates_without_type_error():
-    """OllamaProvider instantiates without TypeError — ABC contract satisfied."""
-    p = OllamaProvider({'model': 'mistral-7b', 'host': 'localhost', 'port': 11434})
-    assert p is not None
-
-
-def test_ollama_provider_generate_raises_unavailable():
-    """OllamaProvider.generate() raises ProviderUnavailableError when host unreachable."""
-    from workmain.ai.base_provider import GenerationRequest
-    # localhost:11434 not running → check_availability() returns UNAVAILABLE → raises
-    p = OllamaProvider({'model': 'mistral-7b', 'host': 'localhost', 'port': 11434})
-    request = GenerationRequest(prompt="test", max_tokens=64)
-    try:
-        p.generate(request)
-        assert False, "Expected ProviderUnavailableError"
-    except ProviderUnavailableError:
-        pass
-
-
-def test_ollama_provider_test_connection_returns_false():
-    """OllamaProvider.test_connection() returns False when host unreachable."""
-    # localhost:11434 not running → check_availability() returns UNAVAILABLE → False
-    p = OllamaProvider({'model': 'mistral-7b', 'host': 'localhost', 'port': 11434})
-    assert p.test_connection() is False
-
-
-def test_ollama_provider_estimate_cost_returns_zero():
-    """OllamaProvider.estimate_cost(100, 50) returns 0.0 (local — no API cost)."""
-    p = OllamaProvider({'model': 'mistral-7b', 'host': 'localhost', 'port': 11434})
-    assert p.estimate_cost(100, 50) == 0.0
-
-
-def test_ollama_provider_validate_config_true_when_host_and_port_set():
-    """OllamaProvider.validate_config() returns True when host and port configured."""
-    p = OllamaProvider({'model': 'mistral-7b', 'host': 'localhost', 'port': 11434})
-    assert p.validate_config() is True
-
-
-def test_ollama_provider_check_availability_returns_unavailable():
-    """OllamaProvider.check_availability() returns UNAVAILABLE when host unreachable."""
-    # localhost:11434 not running → URLError → returns ProviderStatus.UNAVAILABLE
-    p = OllamaProvider({'model': 'mistral-7b', 'host': 'localhost', 'port': 11434})
-    assert p.check_availability() == ProviderStatus.UNAVAILABLE
-
-
-# ---------------------------------------------------------------------------
-# Config-driven model tests
-# ---------------------------------------------------------------------------
-
 _CLAUDE_ENV = {'ANTHROPIC_API_KEY': 'sk-ant-test1234567890123456789012345678901234567'}
 _GEMINI_ENV = {'GOOGLE_API_KEY': 'A' * 39}
 _VALID_CLAUDE_POLICY = {'thinking': {'type': 'disabled'}, 'sampling': {}}
@@ -172,52 +56,6 @@ _VALID_GEMINI_POLICY = {
     'automatic_function_calling': {'disable': True},
 }
 
-
-@patch.dict(os.environ, _CLAUDE_ENV)
-def test_claude_provider_reads_model_from_config():
-    """ClaudeProvider({'model': 'test-model'}) has provider.model == 'test-model'."""
-    config = {
-        'model': 'test-model',
-        'api_key_env': 'ANTHROPIC_API_KEY',
-    }
-    with patch('anthropic.Anthropic'):
-        p = ClaudeProvider(config, dict(_VALID_CLAUDE_POLICY))
-    assert p.model == 'test-model'
-
-
-@patch.dict(os.environ, _CLAUDE_ENV)
-def test_claude_provider_requires_model_in_config():
-    """ClaudeProvider with no model raises ConfigurationError — no hardcoded default (DR5)."""
-    config = {'api_key_env': 'ANTHROPIC_API_KEY'}
-    with patch('anthropic.Anthropic'):
-        with pytest.raises(ConfigurationError, match="model name is required"):
-            ClaudeProvider(config, dict(_VALID_CLAUDE_POLICY))
-
-
-@patch.dict(os.environ, _GEMINI_ENV)
-def test_gemini_provider_reads_model_from_config():
-    """GeminiProvider({'model': 'test-model'}) has provider.model == 'test-model'."""
-    config = {
-        'model': 'test-model',
-        'api_key_env': 'GOOGLE_API_KEY',
-    }
-    with patch('google.genai.Client'):
-        p = GeminiProvider(config, dict(_VALID_GEMINI_POLICY))
-    assert p.model == 'test-model'
-
-
-@patch.dict(os.environ, _GEMINI_ENV)
-def test_gemini_provider_requires_model_in_config():
-    """GeminiProvider with no model raises ConfigurationError — no hardcoded default (DR5)."""
-    config = {'api_key_env': 'GOOGLE_API_KEY'}
-    with patch('google.genai.Client'):
-        with pytest.raises(ConfigurationError, match="model name is required"):
-            GeminiProvider(config, dict(_VALID_GEMINI_POLICY))
-
-
-# ---------------------------------------------------------------------------
-# Construction contract — Issue #130
-# ---------------------------------------------------------------------------
 
 class TestProviderPolicyContract:
     """A provider refuses construction when its policy lacks a required key."""
@@ -340,86 +178,6 @@ def _manager_from_dict(settings_dict):
         os.unlink(path)
 
 
-def test_unknown_providers_key_refuses_construction():
-    """A providers key that is not a ProviderType value refuses load, even disabled."""
-    settings = _make_temp_settings()
-    settings['providers']['nonesuch'] = {'enabled': False, 'model': 'x'}
-    with pytest.raises(ConfigurationError) as exc:
-        _manager_from_dict(settings)
-    assert 'providers.nonesuch' in str(exc.value)
-
-
-def test_providers_key_without_class_refuses_construction():
-    """A ProviderType key with no registered class refuses load."""
-    with patch.dict('workmain.ai.provider_manager.PROVIDER_REGISTRY'):
-        del PROVIDER_REGISTRY['ollama']
-        with pytest.raises(ConfigurationError) as exc:
-            _manager_from_dict(_make_temp_settings())
-    assert 'providers.ollama' in str(exc.value)
-
-
-def test_disabled_provider_not_in_providers_but_in_disabled():
-    """Disabled provider not in _providers, present in _disabled."""
-    settings = _make_temp_settings()
-    manager = _manager_from_dict(settings)
-    assert 'claude' not in manager._providers
-    assert 'claude' in manager._disabled
-
-
-def test_get_provider_disabled_raises_unavailable():
-    """get_provider('ollama') when disabled → ProviderUnavailableError with config hint."""
-    settings = _make_temp_settings(ollama_enabled=False)
-    manager = _manager_from_dict(settings)
-    try:
-        manager.get_provider('ollama')
-        assert False, "Expected ProviderUnavailableError"
-    except ProviderUnavailableError as e:
-        assert 'ollama' in str(e)
-        assert 'enabled' in str(e).lower() or 'disabled' in str(e).lower()
-
-
-def test_get_provider_unknown_raises_unavailable():
-    """get_provider('unknown') → ProviderUnavailableError with registry hint."""
-    settings = _make_temp_settings()
-    manager = _manager_from_dict(settings)
-    try:
-        manager.get_provider('unknown_provider')
-        assert False, "Expected ProviderUnavailableError"
-    except ProviderUnavailableError as e:
-        assert 'unknown_provider' in str(e)
-
-
-def test_get_all_provider_configs_includes_disabled():
-    """get_all_provider_configs() returns all three including ollama (disabled)."""
-    settings = _make_temp_settings()
-    manager = _manager_from_dict(settings)
-    configs = manager.get_all_provider_configs()
-    assert 'claude' in configs
-    assert 'gemini' in configs
-    assert 'ollama' in configs
-
-
-def test_get_configured_provider_names_includes_disabled():
-    """get_configured_provider_names() returns every providers key, in config order."""
-    settings = _make_temp_settings()
-    del settings['providers']['gemini']
-    settings['providers'] = {
-        'ollama': settings['providers']['ollama'],
-        'claude': settings['providers']['claude'],
-    }
-    settings['report_types']['daily_internal']['primary_provider'] = 'claude'
-    settings['report_types']['daily_internal']['fallback_provider'] = None
-    manager = _manager_from_dict(settings)
-    assert manager.get_configured_provider_names() == ['ollama', 'claude']
-
-
-def test_is_disabled_true_when_enabled_false():
-    """is_disabled('ollama') returns True when enabled: false."""
-    settings = _make_temp_settings(ollama_enabled=False)
-    manager = _manager_from_dict(settings)
-    assert manager.is_disabled('ollama') is True
-
-
 def _failed_construction_manager(enabled):
     """Real manager with claude enabled/disabled and its API key unset."""
     settings = _make_temp_settings()
@@ -428,16 +186,6 @@ def _failed_construction_manager(enabled):
     with patch.dict(os.environ):
         os.environ.pop('WORKMAIN_TEST_UNSET_API_KEY', None)
         return _manager_from_dict(settings)
-
-
-def test_is_disabled_false_when_enabled_but_failed_api_key():
-    """An enabled provider that failed to construct is not disabled; get_provider reports why."""
-    manager = _failed_construction_manager(True)
-    assert manager.is_disabled('claude') is False
-    assert 'claude' in manager._disabled_reasons
-    with pytest.raises(ProviderUnavailableError) as exc_info:
-        manager.get_provider('claude')
-    assert 'Claude API key required' in str(exc_info.value)
 
 
 class TestFailedConstruction:
@@ -473,69 +221,6 @@ class TestFailedConstruction:
         row = next(l for l in result.stdout.splitlines() if 'Claude' in l)
         assert 'disabled' in row
 
-
-def test_ollama_provider_enabled_and_active():
-    """With enabled: true, OllamaProvider is instantiated in _providers."""
-    settings = _make_temp_settings(ollama_enabled=True)
-    manager = _manager_from_dict(settings)
-    assert 'ollama' in manager._providers
-    assert manager.is_disabled('ollama') is False
-
-
-# ---------------------------------------------------------------------------
-# Dynamic CLI validation tests (providers test + providers costs)
-# ---------------------------------------------------------------------------
-
-def test_providers_test_known_provider_no_bad_parameter():
-    """providers test claude → BadParameter not raised (validation passes)."""
-    runner = CliRunner()
-    # claude is in registry — should pass validation and reach the actual test logic
-    # We mock the manager to avoid real API calls
-    mock_manager = MagicMock()
-    mock_manager.get_configured_provider_names.return_value = ['claude', 'gemini', 'ollama']
-    mock_manager.is_disabled.return_value = True  # short-circuit to disabled message
-
-    with patch('workmain.cli.commands.providers.get_provider_manager', return_value=mock_manager), \
-            patch('workmain.utils.ai_arguments.get_provider_manager', return_value=mock_manager):
-        result = runner.invoke(providers, ['test', 'claude'])
-
-    # BadParameter would produce exit code 2; disabled message is exit code 0
-    assert result.exit_code == 0
-    assert 'disabled' in result.output.lower() or 'error' not in result.output.lower()
-
-
-def test_providers_test_unknown_provider_bad_parameter():
-    """providers test unknown_provider → BadParameter with valid list in message."""
-    runner = CliRunner()
-    mock_manager = MagicMock()
-    mock_manager.get_configured_provider_names.return_value = ['claude', 'gemini', 'ollama']
-
-    with patch('workmain.cli.commands.providers.get_provider_manager', return_value=mock_manager), \
-            patch('workmain.utils.ai_arguments.get_provider_manager', return_value=mock_manager):
-        result = runner.invoke(providers, ['test', 'unknown_provider'])
-
-    assert result.exit_code != 0
-    assert 'unknown_provider' in result.output
-    assert 'claude' in result.output
-
-
-def test_providers_costs_unknown_provider_bad_parameter():
-    """providers costs --provider unknown → BadParameter."""
-    runner = CliRunner()
-    mock_manager = MagicMock()
-    mock_manager.get_configured_provider_names.return_value = ['claude', 'gemini', 'ollama']
-
-    with patch('workmain.cli.commands.providers.get_provider_manager', return_value=mock_manager), \
-            patch('workmain.utils.ai_arguments.get_provider_manager', return_value=mock_manager):
-        result = runner.invoke(providers, ['costs', '--provider', 'unknown'])
-
-    assert result.exit_code != 0
-    assert 'unknown' in result.output
-
-
-# ---------------------------------------------------------------------------
-# providers set default tests
-# ---------------------------------------------------------------------------
 
 def _write_settings(path: Path, data: dict):
     with open(path, 'w') as f:
@@ -583,196 +268,6 @@ def _make_full_settings():
     }
 
 
-def test_set_default_preserves_other_fields(tmp_path):
-    """Read-modify-write preserves all fields not being changed."""
-    runner = CliRunner()
-    settings_path = tmp_path / 'ai_settings.json'
-    settings = _make_full_settings()
-    _write_settings(settings_path, settings)
-
-    with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
-        result = runner.invoke(
-            providers,
-            ['set', 'default', 'daily_internal', 'claude', '--force']
-        )
-
-    assert result.exit_code == 0
-
-    with open(settings_path) as f:
-        updated = json.load(f)
-
-    # Targeted field updated
-    assert updated['report_types']['daily_internal']['primary_provider'] == 'claude'
-    # Other report types preserved
-    assert updated['report_types']['weekly_client']['primary_provider'] == 'gemini'
-    # Provider sections preserved
-    assert 'claude' in updated['providers']
-    assert 'ollama' in updated['providers']
-
-
-def test_set_default_updates_last_updated(tmp_path):
-    """last_updated field updated to today's date."""
-    from datetime import date
-    runner = CliRunner()
-    settings_path = tmp_path / 'ai_settings.json'
-    settings = _make_full_settings()
-    _write_settings(settings_path, settings)
-
-    with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
-        result = runner.invoke(
-            providers,
-            ['set', 'default', 'daily_internal', 'claude', '--force']
-        )
-
-    assert result.exit_code == 0
-
-    with open(settings_path) as f:
-        updated = json.load(f)
-
-    expected_date = date.today().strftime('%Y%m%d')
-    assert updated['last_updated'] == expected_date
-
-
-def test_set_default_unknown_report_type_bad_parameter(tmp_path):
-    """Unknown report_type → BadParameter."""
-    runner = CliRunner()
-    settings_path = tmp_path / 'ai_settings.json'
-    _write_settings(settings_path, _make_full_settings())
-
-    with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
-        result = runner.invoke(
-            providers,
-            ['set', 'default', 'bad_report_type', 'claude', '--force']
-        )
-
-    assert result.exit_code != 0
-    assert 'bad_report_type' in result.output
-
-
-def test_set_default_unknown_provider_bad_parameter(tmp_path):
-    """Unknown provider → BadParameter."""
-    runner = CliRunner()
-    settings_path = tmp_path / 'ai_settings.json'
-    _write_settings(settings_path, _make_full_settings())
-
-    with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
-        result = runner.invoke(
-            providers,
-            ['set', 'default', 'daily_internal', 'bad_provider', '--force']
-        )
-
-    assert result.exit_code != 0
-    assert 'bad_provider' in result.output
-
-
-def test_set_default_force_skips_confirmation(tmp_path):
-    """--force skips confirmation prompt."""
-    runner = CliRunner()
-    settings_path = tmp_path / 'ai_settings.json'
-    _write_settings(settings_path, _make_full_settings())
-
-    with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
-        result = runner.invoke(
-            providers,
-            ['set', 'default', 'daily_internal', 'claude', '--force']
-        )
-
-    assert result.exit_code == 0
-    # No "Proceed?" prompt in output
-    assert 'Proceed?' not in result.output
-
-
-def test_set_default_output_includes_next_invocation_message(tmp_path):
-    """'Changes take effect on next CLI invocation.' in output."""
-    runner = CliRunner()
-    settings_path = tmp_path / 'ai_settings.json'
-    _write_settings(settings_path, _make_full_settings())
-
-    with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
-        result = runner.invoke(
-            providers,
-            ['set', 'default', 'daily_internal', 'claude', '--force']
-        )
-
-    assert result.exit_code == 0
-    assert 'next CLI invocation' in result.output
-
-
-# ---------------------------------------------------------------------------
-# Display accuracy test
-# ---------------------------------------------------------------------------
-
-def test_status_message_matches_active_provider():
-    """get_report_config returns the active provider; display matches it."""
-    settings = _make_temp_settings()
-    manager = _manager_from_dict(settings)
-    rc = manager.get_report_config('daily_internal')
-    assert rc is not None
-    assert rc.primary_provider == ProviderType.GEMINI
-    # The display string (used in "Sending to...") is derived from primary_provider.value
-    display = rc.primary_provider.value.capitalize()
-    assert display == 'Gemini'
-
-
-# ---------------------------------------------------------------------------
-# get_max_tokens() and the caps validation of DR3 — Issue #127 Step 1, §6 (a)
-# ---------------------------------------------------------------------------
-
-def test_get_max_tokens_returns_report_types_value():
-    """get_max_tokens() returns a report_types entry's configured cap."""
-    settings = _make_temp_settings()
-    manager = _manager_from_dict(settings)
-    assert manager.get_max_tokens('daily_internal') == 16000
-
-
-def test_get_max_tokens_returns_application_functions_value():
-    """get_max_tokens() returns an application_functions entry's configured cap."""
-    settings = _make_temp_settings()
-    settings['application_functions'] = {'daemon_narration': {'instructions': 'system_prompt', 'primary_provider': 'claude', 'max_tokens': 2000}}
-    manager = _manager_from_dict(settings)
-    assert manager.get_max_tokens('daemon_narration') == 2000
-
-
-def test_get_max_tokens_unknown_call_type_raises_naming_it():
-    """get_max_tokens('no_such_call') raises ConfigurationError naming the key."""
-    settings = _make_temp_settings()
-    manager = _manager_from_dict(settings)
-    with pytest.raises(ConfigurationError, match="no_such_call"):
-        manager.get_max_tokens('no_such_call')
-
-
-def test_report_types_entry_missing_max_tokens_raises_naming_it():
-    """A report_types entry without max_tokens refuses construction, naming it."""
-    settings = _make_temp_settings()
-    del settings['report_types']['daily_internal']['max_tokens']
-    with pytest.raises(ConfigurationError, match="report_types.daily_internal.max_tokens"):
-        _manager_from_dict(settings)
-
-
-def test_application_functions_entry_non_positive_int_raises_naming_it():
-    """An application_functions entry whose max_tokens is not a positive integer refuses
-    construction, naming it."""
-    settings = _make_temp_settings()
-    settings['application_functions'] = {'daemon_narration': {'instructions': 'system_prompt', 'primary_provider': 'claude', 'max_tokens': 0}}
-    with pytest.raises(
-        ConfigurationError, match="application_functions.daemon_narration.max_tokens"
-    ):
-        _manager_from_dict(settings)
-
-
-def test_call_type_in_both_blocks_raises_naming_it():
-    """A name declared in both report_types and application_functions refuses
-    construction, naming the overlapping name."""
-    settings = _make_temp_settings()
-    settings['application_functions'] = {'daily_internal': {'instructions': 'system_prompt', 'primary_provider': 'claude', 'max_tokens': 100}}
-    with pytest.raises(ConfigurationError, match="daily_internal"):
-        _manager_from_dict(settings)
-
-
-# ---------------------------------------------------------------------------
-# Routing has one source — Issue #150
-# ---------------------------------------------------------------------------
-
 def _routing_manager(settings=None):
     """Manager from temp settings with MagicMock providers that are reachable.
 
@@ -791,148 +286,6 @@ def _request():
     return GenerationRequest(prompt="p", max_tokens=100)
 
 
-def test_generate_unconfigured_report_type_raises_and_calls_no_provider():
-    """generate with a report type that has no entry raises, naming it, and calls no provider."""
-    manager = _routing_manager()
-    with pytest.raises(ConfigurationError, match="report_types.no_such_report"):
-        manager.generate(_request(), report_type='no_such_report')
-    manager._providers['claude'].generate.assert_not_called()
-    manager._providers['gemini'].generate.assert_not_called()
-
-
-def test_generate_without_report_type_or_override_raises():
-    """generate with no report_type and no override raises ConfigurationError."""
-    manager = _routing_manager()
-    with pytest.raises(ConfigurationError, match="report_type"):
-        manager.generate(_request())
-
-
-def test_primary_provider_absent_or_null_refuses_construction():
-    """An entry without a primary_provider, absent or null, refuses construction, naming the key."""
-    settings = _make_temp_settings()
-    del settings['report_types']['daily_internal']['primary_provider']
-    with pytest.raises(ConfigurationError, match="report_types.daily_internal.primary_provider"):
-        _manager_from_dict(settings)
-    settings['report_types']['daily_internal']['primary_provider'] = None
-    with pytest.raises(ConfigurationError, match="report_types.daily_internal.primary_provider"):
-        _manager_from_dict(settings)
-
-
-def test_unknown_primary_provider_refuses_construction():
-    """A primary_provider that is not a ProviderType value refuses construction, naming key and value."""
-    settings = _make_temp_settings()
-    settings['report_types']['daily_internal']['primary_provider'] = 'nonesuch'
-    with pytest.raises(ConfigurationError, match="report_types.daily_internal.primary_provider.*nonesuch"):
-        _manager_from_dict(settings)
-
-
-def test_unknown_fallback_provider_refuses_construction():
-    """A fallback_provider that is not a ProviderType value refuses construction, naming the key."""
-    settings = _make_temp_settings()
-    settings['report_types']['daily_internal']['fallback_provider'] = 'nonesuch'
-    with pytest.raises(ConfigurationError, match="report_types.daily_internal.fallback_provider"):
-        _manager_from_dict(settings)
-
-
-def test_fallback_provider_absent_or_null_means_no_fallback():
-    """An absent or null fallback_provider yields no fallback; a primary failure then raises."""
-    for mutate in (
-        lambda cfg: cfg.pop('fallback_provider'),
-        lambda cfg: cfg.__setitem__('fallback_provider', None),
-    ):
-        settings = _make_temp_settings()
-        mutate(settings['report_types']['daily_internal'])
-        manager = _routing_manager(settings)
-        assert manager.get_report_config('daily_internal').fallback_provider is None
-        manager._providers['gemini'].generate.side_effect = ProviderError("boom")
-        with pytest.raises(ProviderError, match="no fallback"):
-            manager.generate(_request(), report_type='daily_internal')
-
-
-def test_get_provider_for_report_unconfigured_raises():
-    """get_provider_for_report for a type without an entry raises ConfigurationError."""
-    manager = _manager_from_dict(_make_temp_settings())
-    with pytest.raises(ConfigurationError, match="report_types.no_such_report"):
-        manager.get_provider_for_report('no_such_report')
-
-
-def test_estimate_cost_with_override_prices_at_override():
-    """estimate_cost with provider_override prices at that provider, not the routed one."""
-    manager = _routing_manager()
-    manager._providers['claude'].estimate_cost.return_value = 1.5
-    manager._providers['gemini'].estimate_cost.return_value = 0.5
-    assert manager.estimate_cost('daily_internal', 10, 20) == 0.5
-    assert manager.estimate_cost(
-        'daily_internal', 10, 20, provider_override=ProviderType.CLAUDE
-    ) == 1.5
-    manager._providers['claude'].estimate_cost.assert_called_once_with(10, 20)
-
-
-def test_get_report_type_names_matches_config_keys():
-    """get_report_type_names returns the report_types keys in config order."""
-    settings = _make_temp_settings()
-    settings['report_types']['zz_second'] = dict(settings['report_types']['daily_internal'])
-    manager = _manager_from_dict(settings)
-    assert manager.get_report_type_names() == list(settings['report_types'].keys())
-
-
-def test_provider_disabled_by_construction_failure_reports_reason():
-    """A provider that failed to construct reports the failure, not 'enabled: true'."""
-    settings = _make_temp_settings()
-    settings['providers']['claude'] = {
-        "enabled": True, "model": "claude-test", "api_key_env": "ANTHROPIC_API_KEY",
-        "accepts": ["system_prompt"],
-    }
-    env = {k: v for k, v in os.environ.items() if k != 'ANTHROPIC_API_KEY'}
-    with patch.dict(os.environ, env, clear=True):
-        manager = _manager_from_dict(settings)
-    with pytest.raises(ProviderUnavailableError) as exc_info:
-        manager.get_provider('claude')
-    assert 'enabled: true' not in str(exc_info.value)
-    assert 'ANTHROPIC_API_KEY' in str(exc_info.value)
-
-
-def test_providers_list_prints_every_configured_report_type():
-    """providers list prints each report type the manager holds, with its primary."""
-    settings = _make_temp_settings()
-    settings['report_types']['zz_sentinel_report'] = dict(
-        settings['report_types']['daily_internal']
-    )
-    manager = _manager_from_dict(settings)
-
-    with patch('workmain.cli.commands.providers.get_provider_manager', return_value=manager):
-        result = CliRunner().invoke(providers, ['list'])
-
-    assert result.exit_code == 0, result.output
-    assert 'zz_sentinel_report' in result.output
-    assert 'daily_internal' in result.output
-
-
-def test_set_default_repairs_entry_the_manager_would_refuse(tmp_path):
-    """set default writes without constructing a ProviderManager, so it can repair a bad entry."""
-    settings_path = tmp_path / 'ai_settings.json'
-    settings = _make_full_settings()
-    settings['report_types']['daily_internal']['primary_provider'] = 'nonesuch'
-    _write_settings(settings_path, settings)
-
-    with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path), \
-            patch('workmain.cli.commands.providers.get_provider_manager',
-                  side_effect=AssertionError("set default must not construct a manager")), \
-            patch('workmain.utils.ai_arguments.get_provider_manager',
-                  side_effect=AssertionError("set default must pass valid=, not read the manager")):
-        result = CliRunner().invoke(
-            providers, ['set', 'default', 'daily_internal', 'claude', '--force']
-        )
-
-    assert result.exit_code == 0, result.output
-    with open(settings_path) as f:
-        assert json.load(f)['report_types']['daily_internal']['primary_provider'] == 'claude'
-
-
-# ---------------------------------------------------------------------------
-# Provider eligibility — Issue #163 Step 1
-# ---------------------------------------------------------------------------
-
 def _settings_with_intent_route():
     settings = _make_temp_settings()
     settings['application_functions'] = {
@@ -944,89 +297,6 @@ def _settings_with_intent_route():
     }
     return settings
 
-
-@pytest.mark.parametrize('key, value, extra_match', [
-    ('report_types.daily_internal.primary_provider', 'ollama', None),
-    ('report_types.daily_internal.fallback_provider', 'ollama', None),
-    ('application_functions.intent_parse.primary_provider', 'claude', None),
-    ('report_types.daily_internal.primary_provider', 'gemini', 'providers.gemini'),
-])
-def test_ineligible_route_refuses_construction(key, value, extra_match):
-    """A route to a provider that cannot serve the call, or has no entry, does not load."""
-    settings = _settings_with_intent_route()
-    block, name, field = key.split('.')
-    if extra_match:
-        del settings['providers']['gemini']
-        settings['report_types']['daily_internal']['fallback_provider'] = 'claude'
-    settings[block][name][field] = value
-    with pytest.raises(ConfigurationError, match=key.replace('.', r'\.')) as exc:
-        _manager_from_dict(settings)
-    if extra_match:
-        assert extra_match in str(exc.value)
-
-
-@pytest.mark.parametrize('bad', ['absent', [], ['nonesuch'], 'system_prompt'])
-def test_accepts_invalid_refuses_construction(bad):
-    """A provider without a valid accepts list does not load."""
-    settings = _make_temp_settings()
-    if bad == 'absent':
-        del settings['providers']['claude']['accepts']
-    else:
-        settings['providers']['claude']['accepts'] = bad
-    with pytest.raises(ConfigurationError, match=r'providers\.claude\.accepts'):
-        _manager_from_dict(settings)
-
-
-@pytest.mark.parametrize('bad', ['absent', 'nonesuch', ['system_prompt']])
-@pytest.mark.parametrize('block, name', [
-    ('report_types', 'daily_internal'),
-    ('application_functions', 'intent_parse'),
-])
-def test_instructions_invalid_refuses_construction(block, name, bad):
-    """A call type without a valid instructions value does not load."""
-    settings = _settings_with_intent_route()
-    if bad == 'absent':
-        del settings[block][name]['instructions']
-    else:
-        settings[block][name]['instructions'] = bad
-    with pytest.raises(ConfigurationError, match=f'{block}\\.{name}\\.instructions'):
-        _manager_from_dict(settings)
-
-
-def test_shipped_config_loads():
-    """The shipped config meets the schema it ships with."""
-    config = Path(__file__).parent.parent / 'config' / 'ai_settings.json'
-    manager = ProviderManager(config_path=str(config))
-    assert set(manager.get_all_provider_configs()) == set(json.loads(config.read_text())['providers'])
-
-
-def test_generate_ineligible_override_raises():
-    """An override that cannot serve the call type raises before any provider is called."""
-    manager = _routing_manager()
-    manager._providers['ollama'] = MagicMock()
-    manager._disabled.discard('ollama')
-    with pytest.raises(ConfigurationError, match='cannot serve'):
-        manager.generate(
-            _request(), report_type='daily_internal', provider_override=ProviderType.OLLAMA
-        )
-    for name in ('claude', 'gemini', 'ollama'):
-        manager._providers[name].generate.assert_not_called()
-
-
-def test_eligible_provider_names_follows_accepts():
-    """eligible_provider_names returns the accepting providers, in config order."""
-    settings = _settings_with_intent_route()
-    assert eligible_provider_names(settings, 'intent_parse') == ['ollama']
-    settings['providers']['claude']['accepts'].append('modelfile')
-    assert eligible_provider_names(settings, 'intent_parse') == ['claude', 'ollama']
-    assert _manager_from_dict(settings).get_eligible_provider_names('intent_parse') == [
-        'claude', 'ollama'
-    ]
-
-
-# ---------------------------------------------------------------------------
-# Finish status and the refusal (issue #148)
-# ---------------------------------------------------------------------------
 
 def _finish_response(finish, reason, content="text"):
     return GenerationResponse(
@@ -1242,24 +512,6 @@ def _invoke_providers_test(finish, reason, content):
         return CliRunner(mix_stderr=False).invoke(providers, ['test', 'gemini'])
 
 
-def test_providers_test_fails_on_cut_off_reply():
-    """AC4.1."""
-    result = _invoke_providers_test(FinishStatus.CUT_OFF, "MAX_TOKENS", "partial")
-    assert result.exit_code == 3
-    assert "API test successful" not in result.output
-    assert "providers test" in result.stderr
-    assert "512" in result.stderr
-    assert "GOOGLE_API_KEY" not in result.stderr
-
-
-def test_providers_test_fails_on_empty_reply():
-    """AC4.2."""
-    result = _invoke_providers_test(FinishStatus.COMPLETE, "STOP", "")
-    assert result.exit_code == 3
-    assert "API test successful" not in result.output
-    assert "was empty" in result.stderr
-
-
 def _invoke_providers_test_with(provider):
     """Run 'providers test gemini' against the given provider mock."""
     manager = MagicMock()
@@ -1271,37 +523,6 @@ def _invoke_providers_test_with(provider):
             patch('workmain.utils.ai_arguments.get_provider_manager', return_value=manager):
         return CliRunner(mix_stderr=False).invoke(providers, ['test', 'gemini'])
 
-
-def test_providers_test_exits_3_when_provider_unavailable():
-    """T1: an unavailable status is an integration error, and no request is made."""
-    provider = MagicMock()
-    provider.check_availability.return_value = ProviderStatus.UNAVAILABLE
-    result = _invoke_providers_test_with(provider)
-    assert result.exit_code == 3
-    assert "Provider status: unavailable" in result.stderr
-    provider.generate.assert_not_called()
-
-
-def test_providers_test_exits_3_on_other_provider_failure():
-    """T2: any other failure of the test request is an integration error."""
-    provider = MagicMock()
-    provider.check_availability.return_value = ProviderStatus.AVAILABLE
-    provider.generate.side_effect = GenerationError("boom")
-    result = _invoke_providers_test_with(provider)
-    assert result.exit_code == 3
-    assert "Test failed" in result.stderr
-    assert "boom" in result.stderr
-
-
-def test_providers_test_succeeds_on_complete_reply():
-    result = _invoke_providers_test(FinishStatus.COMPLETE, "STOP", "API connection successful")
-    assert result.exit_code == 0
-    assert "API test successful" in result.output
-
-
-# ---------------------------------------------------------------------------
-# stubbed_manager refuses unstubbed providers (issue #236)
-# ---------------------------------------------------------------------------
 
 class TestStubbedManager:
     """AC1.3 — stubbed_manager makes every unstubbed provider unreachable."""
@@ -1580,3 +801,877 @@ class TestProvidersTestRecording:
         assert result.exit_code == 3
         assert query.count() == before + 1
         assert query.order_by(AiCost.id.desc()).first().refused is True
+
+class TestProviderRegistry:
+    """Provider Registry tests."""
+
+    def test_every_provider_type_has_its_class(self):
+        """Each ProviderType value is a registry key whose class declares that type."""
+        for p in ProviderType:
+            assert PROVIDER_REGISTRY[p.value].provider_type is p
+
+
+
+    def test_registry_values_are_classes(self):
+        """Each PROVIDER_REGISTRY value is a class (not an instance)."""
+        for name, cls in PROVIDER_REGISTRY.items():
+            assert isinstance(cls, type), f"PROVIDER_REGISTRY['{name}'] is not a class"
+
+
+
+    def test_registry_values_are_base_provider_subclasses(self):
+        """Each PROVIDER_REGISTRY class is a subclass of BaseProvider."""
+        for name, cls in PROVIDER_REGISTRY.items():
+            assert issubclass(cls, BaseProvider), (
+                f"PROVIDER_REGISTRY['{name}'] is not a subclass of BaseProvider"
+            )
+
+
+    # ---------------------------------------------------------------------------
+    # base_provider.py addition tests
+    # ---------------------------------------------------------------------------
+
+
+
+class TestBaseProvider:
+    """Base Provider tests."""
+
+    def test_provider_unavailable_error_is_subclass_of_provider_error(self):
+        """ProviderUnavailableError is a subclass of ProviderError."""
+        assert issubclass(ProviderUnavailableError, ProviderError)
+
+
+
+    def test_provider_type_ollama_value(self):
+        """ProviderType.OLLAMA value is 'ollama'."""
+        assert ProviderType.OLLAMA.value == 'ollama'
+
+
+
+    def test_base_provider_test_connection_returns_false_on_exception(self):
+        """BaseProvider.test_connection() returns False when check_availability() raises."""
+
+        class FailingProvider(BaseProvider):
+            def generate(self, request): raise NotImplementedError
+            def estimate_cost(self, p, c): return 0.0
+            def validate_config(self): return True
+            def count_tokens(self, t): return 0
+            def check_availability(self):
+                raise RuntimeError("connectivity error")
+
+        p = FailingProvider({})
+        assert p.test_connection() is False
+
+
+
+    def test_base_provider_test_connection_returns_true_when_available(self):
+        """BaseProvider.test_connection() returns True when check_availability() returns AVAILABLE."""
+
+        class ReadyProvider(BaseProvider):
+            def generate(self, request): raise NotImplementedError
+            def estimate_cost(self, p, c): return 0.0
+            def validate_config(self): return True
+            def count_tokens(self, t): return 0
+            def check_availability(self): return ProviderStatus.AVAILABLE
+
+        p = ReadyProvider({})
+        assert p.test_connection() is True
+
+
+    # ---------------------------------------------------------------------------
+    # OllamaProvider tests
+    # ---------------------------------------------------------------------------
+
+
+
+class TestOllamaProvider:
+    """Ollama Provider tests."""
+
+    def test_ollama_provider_instantiates_without_type_error(self):
+        """OllamaProvider instantiates without TypeError — ABC contract satisfied."""
+        p = OllamaProvider({'model': 'mistral-7b', 'host': 'localhost', 'port': 11434})
+        assert p is not None
+
+
+
+    def test_ollama_provider_generate_raises_unavailable(self):
+        """OllamaProvider.generate() raises ProviderUnavailableError when host unreachable."""
+        from workmain.ai.base_provider import GenerationRequest
+        # localhost:11434 not running → check_availability() returns UNAVAILABLE → raises
+        p = OllamaProvider({'model': 'mistral-7b', 'host': 'localhost', 'port': 11434})
+        request = GenerationRequest(prompt="test", max_tokens=64)
+        try:
+            p.generate(request)
+            assert False, "Expected ProviderUnavailableError"
+        except ProviderUnavailableError:
+            pass
+
+
+
+    def test_ollama_provider_test_connection_returns_false(self):
+        """OllamaProvider.test_connection() returns False when host unreachable."""
+        # localhost:11434 not running → check_availability() returns UNAVAILABLE → False
+        p = OllamaProvider({'model': 'mistral-7b', 'host': 'localhost', 'port': 11434})
+        assert p.test_connection() is False
+
+
+
+    def test_ollama_provider_estimate_cost_returns_zero(self):
+        """OllamaProvider.estimate_cost(100, 50) returns 0.0 (local — no API cost)."""
+        p = OllamaProvider({'model': 'mistral-7b', 'host': 'localhost', 'port': 11434})
+        assert p.estimate_cost(100, 50) == 0.0
+
+
+
+    def test_ollama_provider_validate_config_true_when_host_and_port_set(self):
+        """OllamaProvider.validate_config() returns True when host and port configured."""
+        p = OllamaProvider({'model': 'mistral-7b', 'host': 'localhost', 'port': 11434})
+        assert p.validate_config() is True
+
+
+
+    def test_ollama_provider_check_availability_returns_unavailable(self):
+        """OllamaProvider.check_availability() returns UNAVAILABLE when host unreachable."""
+        # localhost:11434 not running → URLError → returns ProviderStatus.UNAVAILABLE
+        p = OllamaProvider({'model': 'mistral-7b', 'host': 'localhost', 'port': 11434})
+        assert p.check_availability() == ProviderStatus.UNAVAILABLE
+
+
+    # ---------------------------------------------------------------------------
+    # Config-driven model tests
+    # ---------------------------------------------------------------------------
+
+
+    def test_ollama_provider_enabled_and_active(self):
+        """With enabled: true, OllamaProvider is instantiated in _providers."""
+        settings = _make_temp_settings(ollama_enabled=True)
+        manager = _manager_from_dict(settings)
+        assert 'ollama' in manager._providers
+        assert manager.is_disabled('ollama') is False
+
+
+    # ---------------------------------------------------------------------------
+    # Dynamic CLI validation tests (providers test + providers costs)
+    # ---------------------------------------------------------------------------
+
+
+
+class TestProviderConfiguration:
+    """Provider Configuration tests."""
+
+    @patch.dict(os.environ, _CLAUDE_ENV)
+    def test_claude_provider_reads_model_from_config(self):
+        """ClaudeProvider({'model': 'test-model'}) has provider.model == 'test-model'."""
+        config = {
+            'model': 'test-model',
+            'api_key_env': 'ANTHROPIC_API_KEY',
+        }
+        with patch('anthropic.Anthropic'):
+            p = ClaudeProvider(config, dict(_VALID_CLAUDE_POLICY))
+        assert p.model == 'test-model'
+
+
+
+    @patch.dict(os.environ, _CLAUDE_ENV)
+    def test_claude_provider_requires_model_in_config(self):
+        """ClaudeProvider with no model raises ConfigurationError — no hardcoded default (DR5)."""
+        config = {'api_key_env': 'ANTHROPIC_API_KEY'}
+        with patch('anthropic.Anthropic'):
+            with pytest.raises(ConfigurationError, match="model name is required"):
+                ClaudeProvider(config, dict(_VALID_CLAUDE_POLICY))
+
+
+
+    @patch.dict(os.environ, _GEMINI_ENV)
+    def test_gemini_provider_reads_model_from_config(self):
+        """GeminiProvider({'model': 'test-model'}) has provider.model == 'test-model'."""
+        config = {
+            'model': 'test-model',
+            'api_key_env': 'GOOGLE_API_KEY',
+        }
+        with patch('google.genai.Client'):
+            p = GeminiProvider(config, dict(_VALID_GEMINI_POLICY))
+        assert p.model == 'test-model'
+
+
+
+    @patch.dict(os.environ, _GEMINI_ENV)
+    def test_gemini_provider_requires_model_in_config(self):
+        """GeminiProvider with no model raises ConfigurationError — no hardcoded default (DR5)."""
+        config = {'api_key_env': 'GOOGLE_API_KEY'}
+        with patch('google.genai.Client'):
+            with pytest.raises(ConfigurationError, match="model name is required"):
+                GeminiProvider(config, dict(_VALID_GEMINI_POLICY))
+
+
+    # ---------------------------------------------------------------------------
+    # Construction contract — Issue #130
+    # ---------------------------------------------------------------------------
+
+
+
+class TestProviderManager:
+    """Provider Manager tests."""
+
+    def test_unknown_providers_key_refuses_construction(self):
+        """A providers key that is not a ProviderType value refuses load, even disabled."""
+        settings = _make_temp_settings()
+        settings['providers']['nonesuch'] = {'enabled': False, 'model': 'x'}
+        with pytest.raises(ConfigurationError) as exc:
+            _manager_from_dict(settings)
+        assert 'providers.nonesuch' in str(exc.value)
+
+
+
+    def test_disabled_provider_not_in_providers_but_in_disabled(self):
+        """Disabled provider not in _providers, present in _disabled."""
+        settings = _make_temp_settings()
+        manager = _manager_from_dict(settings)
+        assert 'claude' not in manager._providers
+        assert 'claude' in manager._disabled
+
+
+
+    def test_get_provider_disabled_raises_unavailable(self):
+        """get_provider('ollama') when disabled → ProviderUnavailableError with config hint."""
+        settings = _make_temp_settings(ollama_enabled=False)
+        manager = _manager_from_dict(settings)
+        try:
+            manager.get_provider('ollama')
+            assert False, "Expected ProviderUnavailableError"
+        except ProviderUnavailableError as e:
+            assert 'ollama' in str(e)
+            assert 'enabled' in str(e).lower() or 'disabled' in str(e).lower()
+
+
+
+    def test_get_provider_unknown_raises_unavailable(self):
+        """get_provider('unknown') → ProviderUnavailableError with registry hint."""
+        settings = _make_temp_settings()
+        manager = _manager_from_dict(settings)
+        try:
+            manager.get_provider('unknown_provider')
+            assert False, "Expected ProviderUnavailableError"
+        except ProviderUnavailableError as e:
+            assert 'unknown_provider' in str(e)
+
+
+
+    def test_get_all_provider_configs_includes_disabled(self):
+        """get_all_provider_configs() returns all three including ollama (disabled)."""
+        settings = _make_temp_settings()
+        manager = _manager_from_dict(settings)
+        configs = manager.get_all_provider_configs()
+        assert 'claude' in configs
+        assert 'gemini' in configs
+        assert 'ollama' in configs
+
+
+
+    def test_get_configured_provider_names_includes_disabled(self):
+        """get_configured_provider_names() returns every providers key, in config order."""
+        settings = _make_temp_settings()
+        del settings['providers']['gemini']
+        settings['providers'] = {
+            'ollama': settings['providers']['ollama'],
+            'claude': settings['providers']['claude'],
+        }
+        settings['report_types']['daily_internal']['primary_provider'] = 'claude'
+        settings['report_types']['daily_internal']['fallback_provider'] = None
+        manager = _manager_from_dict(settings)
+        assert manager.get_configured_provider_names() == ['ollama', 'claude']
+
+
+
+    def test_is_disabled_true_when_enabled_false(self):
+        """is_disabled('ollama') returns True when enabled: false."""
+        settings = _make_temp_settings(ollama_enabled=False)
+        manager = _manager_from_dict(settings)
+        assert manager.is_disabled('ollama') is True
+
+
+
+    def test_is_disabled_false_when_enabled_but_failed_api_key(self):
+        """An enabled provider that failed to construct is not disabled; get_provider reports why."""
+        manager = _failed_construction_manager(True)
+        assert manager.is_disabled('claude') is False
+        assert 'claude' in manager._disabled_reasons
+        with pytest.raises(ProviderUnavailableError) as exc_info:
+            manager.get_provider('claude')
+        assert 'Claude API key required' in str(exc_info.value)
+
+
+
+    def test_get_provider_for_report_unconfigured_raises(self):
+        """get_provider_for_report for a type without an entry raises ConfigurationError."""
+        manager = _manager_from_dict(_make_temp_settings())
+        with pytest.raises(ConfigurationError, match="report_types.no_such_report"):
+            manager.get_provider_for_report('no_such_report')
+
+
+
+    def test_provider_disabled_by_construction_failure_reports_reason(self):
+        """A provider that failed to construct reports the failure, not 'enabled: true'."""
+        settings = _make_temp_settings()
+        settings['providers']['claude'] = {
+            "enabled": True, "model": "claude-test", "api_key_env": "ANTHROPIC_API_KEY",
+            "accepts": ["system_prompt"],
+        }
+        env = {k: v for k, v in os.environ.items() if k != 'ANTHROPIC_API_KEY'}
+        with patch.dict(os.environ, env, clear=True):
+            manager = _manager_from_dict(settings)
+        with pytest.raises(ProviderUnavailableError) as exc_info:
+            manager.get_provider('claude')
+        assert 'enabled: true' not in str(exc_info.value)
+        assert 'ANTHROPIC_API_KEY' in str(exc_info.value)
+
+
+
+    def test_shipped_config_loads(self):
+        """The shipped config meets the schema it ships with."""
+        config = Path(__file__).parent.parent / 'config' / 'ai_settings.json'
+        manager = ProviderManager(config_path=str(config))
+        assert set(manager.get_all_provider_configs()) == set(json.loads(config.read_text())['providers'])
+
+
+
+
+class TestProviderCli:
+    """Provider Cli tests."""
+
+    def test_providers_key_without_class_refuses_construction(self):
+        """A ProviderType key with no registered class refuses load."""
+        with patch.dict('workmain.ai.provider_manager.PROVIDER_REGISTRY'):
+            del PROVIDER_REGISTRY['ollama']
+            with pytest.raises(ConfigurationError) as exc:
+                _manager_from_dict(_make_temp_settings())
+        assert 'providers.ollama' in str(exc.value)
+
+
+
+    def test_providers_test_known_provider_no_bad_parameter(self):
+        """providers test claude → BadParameter not raised (validation passes)."""
+        runner = CliRunner()
+        # claude is in registry — should pass validation and reach the actual test logic
+        # We mock the manager to avoid real API calls
+        mock_manager = MagicMock()
+        mock_manager.get_configured_provider_names.return_value = ['claude', 'gemini', 'ollama']
+        mock_manager.is_disabled.return_value = True  # short-circuit to disabled message
+
+        with patch('workmain.cli.commands.providers.get_provider_manager', return_value=mock_manager), \
+                patch('workmain.utils.ai_arguments.get_provider_manager', return_value=mock_manager):
+            result = runner.invoke(providers, ['test', 'claude'])
+
+        # BadParameter would produce exit code 2; disabled message is exit code 0
+        assert result.exit_code == 0
+        assert 'disabled' in result.output.lower() or 'error' not in result.output.lower()
+
+
+
+    def test_providers_test_unknown_provider_bad_parameter(self):
+        """providers test unknown_provider → BadParameter with valid list in message."""
+        runner = CliRunner()
+        mock_manager = MagicMock()
+        mock_manager.get_configured_provider_names.return_value = ['claude', 'gemini', 'ollama']
+
+        with patch('workmain.cli.commands.providers.get_provider_manager', return_value=mock_manager), \
+                patch('workmain.utils.ai_arguments.get_provider_manager', return_value=mock_manager):
+            result = runner.invoke(providers, ['test', 'unknown_provider'])
+
+        assert result.exit_code != 0
+        assert 'unknown_provider' in result.output
+        assert 'claude' in result.output
+
+
+
+    def test_providers_costs_unknown_provider_bad_parameter(self):
+        """providers costs --provider unknown → BadParameter."""
+        runner = CliRunner()
+        mock_manager = MagicMock()
+        mock_manager.get_configured_provider_names.return_value = ['claude', 'gemini', 'ollama']
+
+        with patch('workmain.cli.commands.providers.get_provider_manager', return_value=mock_manager), \
+                patch('workmain.utils.ai_arguments.get_provider_manager', return_value=mock_manager):
+            result = runner.invoke(providers, ['costs', '--provider', 'unknown'])
+
+        assert result.exit_code != 0
+        assert 'unknown' in result.output
+
+
+    # ---------------------------------------------------------------------------
+    # providers set default tests
+    # ---------------------------------------------------------------------------
+
+
+    def test_set_default_preserves_other_fields(self, tmp_path):
+        """Read-modify-write preserves all fields not being changed."""
+        runner = CliRunner()
+        settings_path = tmp_path / 'ai_settings.json'
+        settings = _make_full_settings()
+        _write_settings(settings_path, settings)
+
+        with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
+            result = runner.invoke(
+                providers,
+                ['set', 'default', 'daily_internal', 'claude', '--force']
+            )
+
+        assert result.exit_code == 0
+
+        with open(settings_path) as f:
+            updated = json.load(f)
+
+        # Targeted field updated
+        assert updated['report_types']['daily_internal']['primary_provider'] == 'claude'
+        # Other report types preserved
+        assert updated['report_types']['weekly_client']['primary_provider'] == 'gemini'
+        # Provider sections preserved
+        assert 'claude' in updated['providers']
+        assert 'ollama' in updated['providers']
+
+
+
+    def test_set_default_updates_last_updated(self, tmp_path):
+        """last_updated field updated to today's date."""
+        from datetime import date
+        runner = CliRunner()
+        settings_path = tmp_path / 'ai_settings.json'
+        settings = _make_full_settings()
+        _write_settings(settings_path, settings)
+
+        with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
+            result = runner.invoke(
+                providers,
+                ['set', 'default', 'daily_internal', 'claude', '--force']
+            )
+
+        assert result.exit_code == 0
+
+        with open(settings_path) as f:
+            updated = json.load(f)
+
+        expected_date = date.today().strftime('%Y%m%d')
+        assert updated['last_updated'] == expected_date
+
+
+
+    def test_set_default_unknown_report_type_bad_parameter(self, tmp_path):
+        """Unknown report_type → BadParameter."""
+        runner = CliRunner()
+        settings_path = tmp_path / 'ai_settings.json'
+        _write_settings(settings_path, _make_full_settings())
+
+        with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
+            result = runner.invoke(
+                providers,
+                ['set', 'default', 'bad_report_type', 'claude', '--force']
+            )
+
+        assert result.exit_code != 0
+        assert 'bad_report_type' in result.output
+
+
+
+    def test_set_default_unknown_provider_bad_parameter(self, tmp_path):
+        """Unknown provider → BadParameter."""
+        runner = CliRunner()
+        settings_path = tmp_path / 'ai_settings.json'
+        _write_settings(settings_path, _make_full_settings())
+
+        with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
+            result = runner.invoke(
+                providers,
+                ['set', 'default', 'daily_internal', 'bad_provider', '--force']
+            )
+
+        assert result.exit_code != 0
+        assert 'bad_provider' in result.output
+
+
+
+    def test_set_default_force_skips_confirmation(self, tmp_path):
+        """--force skips confirmation prompt."""
+        runner = CliRunner()
+        settings_path = tmp_path / 'ai_settings.json'
+        _write_settings(settings_path, _make_full_settings())
+
+        with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
+            result = runner.invoke(
+                providers,
+                ['set', 'default', 'daily_internal', 'claude', '--force']
+            )
+
+        assert result.exit_code == 0
+        # No "Proceed?" prompt in output
+        assert 'Proceed?' not in result.output
+
+
+
+    def test_set_default_output_includes_next_invocation_message(self, tmp_path):
+        """'Changes take effect on next CLI invocation.' in output."""
+        runner = CliRunner()
+        settings_path = tmp_path / 'ai_settings.json'
+        _write_settings(settings_path, _make_full_settings())
+
+        with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path):
+            result = runner.invoke(
+                providers,
+                ['set', 'default', 'daily_internal', 'claude', '--force']
+            )
+
+        assert result.exit_code == 0
+        assert 'next CLI invocation' in result.output
+
+
+    # ---------------------------------------------------------------------------
+    # Display accuracy test
+    # ---------------------------------------------------------------------------
+
+
+    def test_status_message_matches_active_provider(self):
+        """get_report_config returns the active provider; display matches it."""
+        settings = _make_temp_settings()
+        manager = _manager_from_dict(settings)
+        rc = manager.get_report_config('daily_internal')
+        assert rc is not None
+        assert rc.primary_provider == ProviderType.GEMINI
+        # The display string (used in "Sending to...") is derived from primary_provider.value
+        display = rc.primary_provider.value.capitalize()
+        assert display == 'Gemini'
+
+
+    # ---------------------------------------------------------------------------
+    # get_max_tokens() and the caps validation of DR3 — Issue #127 Step 1, §6 (a)
+    # ---------------------------------------------------------------------------
+
+
+    def test_providers_list_prints_every_configured_report_type(self):
+        """providers list prints each report type the manager holds, with its primary."""
+        settings = _make_temp_settings()
+        settings['report_types']['zz_sentinel_report'] = dict(
+            settings['report_types']['daily_internal']
+        )
+        manager = _manager_from_dict(settings)
+
+        with patch('workmain.cli.commands.providers.get_provider_manager', return_value=manager):
+            result = CliRunner().invoke(providers, ['list'])
+
+        assert result.exit_code == 0, result.output
+        assert 'zz_sentinel_report' in result.output
+        assert 'daily_internal' in result.output
+
+
+
+    def test_set_default_repairs_entry_the_manager_would_refuse(self, tmp_path):
+        """set default writes without constructing a ProviderManager, so it can repair a bad entry."""
+        settings_path = tmp_path / 'ai_settings.json'
+        settings = _make_full_settings()
+        settings['report_types']['daily_internal']['primary_provider'] = 'nonesuch'
+        _write_settings(settings_path, settings)
+
+        with patch('workmain.cli.commands.providers._SETTINGS_PATH', settings_path), \
+                patch('workmain.cli.commands.providers.get_provider_manager',
+                      side_effect=AssertionError("set default must not construct a manager")), \
+                patch('workmain.utils.ai_arguments.get_provider_manager',
+                      side_effect=AssertionError("set default must pass valid=, not read the manager")):
+            result = CliRunner().invoke(
+                providers, ['set', 'default', 'daily_internal', 'claude', '--force']
+            )
+
+        assert result.exit_code == 0, result.output
+        with open(settings_path) as f:
+            assert json.load(f)['report_types']['daily_internal']['primary_provider'] == 'claude'
+
+
+    # ---------------------------------------------------------------------------
+    # Provider eligibility — Issue #163 Step 1
+    # ---------------------------------------------------------------------------
+
+
+    def test_providers_test_fails_on_cut_off_reply(self):
+        """AC4.1."""
+        result = _invoke_providers_test(FinishStatus.CUT_OFF, "MAX_TOKENS", "partial")
+        assert result.exit_code == 3
+        assert "API test successful" not in result.output
+        assert "providers test" in result.stderr
+        assert "512" in result.stderr
+        assert "GOOGLE_API_KEY" not in result.stderr
+
+
+
+    def test_providers_test_fails_on_empty_reply(self):
+        """AC4.2."""
+        result = _invoke_providers_test(FinishStatus.COMPLETE, "STOP", "")
+        assert result.exit_code == 3
+        assert "API test successful" not in result.output
+        assert "was empty" in result.stderr
+
+
+
+    def test_providers_test_exits_3_when_provider_unavailable(self):
+        """T1: an unavailable status is an integration error, and no request is made."""
+        provider = MagicMock()
+        provider.check_availability.return_value = ProviderStatus.UNAVAILABLE
+        result = _invoke_providers_test_with(provider)
+        assert result.exit_code == 3
+        assert "Provider status: unavailable" in result.stderr
+        provider.generate.assert_not_called()
+
+
+
+    def test_providers_test_exits_3_on_other_provider_failure(self):
+        """T2: any other failure of the test request is an integration error."""
+        provider = MagicMock()
+        provider.check_availability.return_value = ProviderStatus.AVAILABLE
+        provider.generate.side_effect = GenerationError("boom")
+        result = _invoke_providers_test_with(provider)
+        assert result.exit_code == 3
+        assert "Test failed" in result.stderr
+        assert "boom" in result.stderr
+
+
+
+    def test_providers_test_succeeds_on_complete_reply(self):
+        result = _invoke_providers_test(FinishStatus.COMPLETE, "STOP", "API connection successful")
+        assert result.exit_code == 0
+        assert "API test successful" in result.output
+
+
+    # ---------------------------------------------------------------------------
+    # stubbed_manager refuses unstubbed providers (issue #236)
+    # ---------------------------------------------------------------------------
+
+
+
+class TestProviderRouting:
+    """Provider Routing tests."""
+
+    def test_get_max_tokens_returns_report_types_value(self):
+        """get_max_tokens() returns a report_types entry's configured cap."""
+        settings = _make_temp_settings()
+        manager = _manager_from_dict(settings)
+        assert manager.get_max_tokens('daily_internal') == 16000
+
+
+
+    def test_get_max_tokens_returns_application_functions_value(self):
+        """get_max_tokens() returns an application_functions entry's configured cap."""
+        settings = _make_temp_settings()
+        settings['application_functions'] = {'daemon_narration': {'instructions': 'system_prompt', 'primary_provider': 'claude', 'max_tokens': 2000}}
+        manager = _manager_from_dict(settings)
+        assert manager.get_max_tokens('daemon_narration') == 2000
+
+
+
+    def test_get_max_tokens_unknown_call_type_raises_naming_it(self):
+        """get_max_tokens('no_such_call') raises ConfigurationError naming the key."""
+        settings = _make_temp_settings()
+        manager = _manager_from_dict(settings)
+        with pytest.raises(ConfigurationError, match="no_such_call"):
+            manager.get_max_tokens('no_such_call')
+
+
+
+    def test_report_types_entry_missing_max_tokens_raises_naming_it(self):
+        """A report_types entry without max_tokens refuses construction, naming it."""
+        settings = _make_temp_settings()
+        del settings['report_types']['daily_internal']['max_tokens']
+        with pytest.raises(ConfigurationError, match="report_types.daily_internal.max_tokens"):
+            _manager_from_dict(settings)
+
+
+
+    def test_application_functions_entry_non_positive_int_raises_naming_it(self):
+        """An application_functions entry whose max_tokens is not a positive integer refuses
+        construction, naming it."""
+        settings = _make_temp_settings()
+        settings['application_functions'] = {'daemon_narration': {'instructions': 'system_prompt', 'primary_provider': 'claude', 'max_tokens': 0}}
+        with pytest.raises(
+            ConfigurationError, match="application_functions.daemon_narration.max_tokens"
+        ):
+            _manager_from_dict(settings)
+
+
+
+    def test_call_type_in_both_blocks_raises_naming_it(self):
+        """A name declared in both report_types and application_functions refuses
+        construction, naming the overlapping name."""
+        settings = _make_temp_settings()
+        settings['application_functions'] = {'daily_internal': {'instructions': 'system_prompt', 'primary_provider': 'claude', 'max_tokens': 100}}
+        with pytest.raises(ConfigurationError, match="daily_internal"):
+            _manager_from_dict(settings)
+
+
+    # ---------------------------------------------------------------------------
+    # Routing has one source — Issue #150
+    # ---------------------------------------------------------------------------
+
+
+    def test_generate_unconfigured_report_type_raises_and_calls_no_provider(self):
+        """generate with a report type that has no entry raises, naming it, and calls no provider."""
+        manager = _routing_manager()
+        with pytest.raises(ConfigurationError, match="report_types.no_such_report"):
+            manager.generate(_request(), report_type='no_such_report')
+        manager._providers['claude'].generate.assert_not_called()
+        manager._providers['gemini'].generate.assert_not_called()
+
+
+
+    def test_generate_without_report_type_or_override_raises(self):
+        """generate with no report_type and no override raises ConfigurationError."""
+        manager = _routing_manager()
+        with pytest.raises(ConfigurationError, match="report_type"):
+            manager.generate(_request())
+
+
+
+    def test_primary_provider_absent_or_null_refuses_construction(self):
+        """An entry without a primary_provider, absent or null, refuses construction, naming the key."""
+        settings = _make_temp_settings()
+        del settings['report_types']['daily_internal']['primary_provider']
+        with pytest.raises(ConfigurationError, match="report_types.daily_internal.primary_provider"):
+            _manager_from_dict(settings)
+        settings['report_types']['daily_internal']['primary_provider'] = None
+        with pytest.raises(ConfigurationError, match="report_types.daily_internal.primary_provider"):
+            _manager_from_dict(settings)
+
+
+
+    def test_unknown_primary_provider_refuses_construction(self):
+        """A primary_provider that is not a ProviderType value refuses construction, naming key and value."""
+        settings = _make_temp_settings()
+        settings['report_types']['daily_internal']['primary_provider'] = 'nonesuch'
+        with pytest.raises(ConfigurationError, match="report_types.daily_internal.primary_provider.*nonesuch"):
+            _manager_from_dict(settings)
+
+
+
+    def test_unknown_fallback_provider_refuses_construction(self):
+        """A fallback_provider that is not a ProviderType value refuses construction, naming the key."""
+        settings = _make_temp_settings()
+        settings['report_types']['daily_internal']['fallback_provider'] = 'nonesuch'
+        with pytest.raises(ConfigurationError, match="report_types.daily_internal.fallback_provider"):
+            _manager_from_dict(settings)
+
+
+
+    def test_fallback_provider_absent_or_null_means_no_fallback(self):
+        """An absent or null fallback_provider yields no fallback; a primary failure then raises."""
+        for mutate in (
+            lambda cfg: cfg.pop('fallback_provider'),
+            lambda cfg: cfg.__setitem__('fallback_provider', None),
+        ):
+            settings = _make_temp_settings()
+            mutate(settings['report_types']['daily_internal'])
+            manager = _routing_manager(settings)
+            assert manager.get_report_config('daily_internal').fallback_provider is None
+            manager._providers['gemini'].generate.side_effect = ProviderError("boom")
+            with pytest.raises(ProviderError, match="no fallback"):
+                manager.generate(_request(), report_type='daily_internal')
+
+
+
+    def test_estimate_cost_with_override_prices_at_override(self):
+        """estimate_cost with provider_override prices at that provider, not the routed one."""
+        manager = _routing_manager()
+        manager._providers['claude'].estimate_cost.return_value = 1.5
+        manager._providers['gemini'].estimate_cost.return_value = 0.5
+        assert manager.estimate_cost('daily_internal', 10, 20) == 0.5
+        assert manager.estimate_cost(
+            'daily_internal', 10, 20, provider_override=ProviderType.CLAUDE
+        ) == 1.5
+        manager._providers['claude'].estimate_cost.assert_called_once_with(10, 20)
+
+
+
+    def test_get_report_type_names_matches_config_keys(self):
+        """get_report_type_names returns the report_types keys in config order."""
+        settings = _make_temp_settings()
+        settings['report_types']['zz_second'] = dict(settings['report_types']['daily_internal'])
+        manager = _manager_from_dict(settings)
+        assert manager.get_report_type_names() == list(settings['report_types'].keys())
+
+
+
+    @pytest.mark.parametrize('key, value, extra_match', [
+        ('report_types.daily_internal.primary_provider', 'ollama', None),
+        ('report_types.daily_internal.fallback_provider', 'ollama', None),
+        ('application_functions.intent_parse.primary_provider', 'claude', None),
+        ('report_types.daily_internal.primary_provider', 'gemini', 'providers.gemini'),
+    ])
+    def test_ineligible_route_refuses_construction(self, key, value, extra_match):
+        """A route to a provider that cannot serve the call, or has no entry, does not load."""
+        settings = _settings_with_intent_route()
+        block, name, field = key.split('.')
+        if extra_match:
+            del settings['providers']['gemini']
+            settings['report_types']['daily_internal']['fallback_provider'] = 'claude'
+        settings[block][name][field] = value
+        with pytest.raises(ConfigurationError, match=key.replace('.', r'\.')) as exc:
+            _manager_from_dict(settings)
+        if extra_match:
+            assert extra_match in str(exc.value)
+
+
+
+    @pytest.mark.parametrize('bad', ['absent', [], ['nonesuch'], 'system_prompt'])
+    def test_accepts_invalid_refuses_construction(self, bad):
+        """A provider without a valid accepts list does not load."""
+        settings = _make_temp_settings()
+        if bad == 'absent':
+            del settings['providers']['claude']['accepts']
+        else:
+            settings['providers']['claude']['accepts'] = bad
+        with pytest.raises(ConfigurationError, match=r'providers\.claude\.accepts'):
+            _manager_from_dict(settings)
+
+
+
+    @pytest.mark.parametrize('bad', ['absent', 'nonesuch', ['system_prompt']])
+    @pytest.mark.parametrize('block, name', [
+        ('report_types', 'daily_internal'),
+        ('application_functions', 'intent_parse'),
+    ])
+    def test_instructions_invalid_refuses_construction(self, block, name, bad):
+        """A call type without a valid instructions value does not load."""
+        settings = _settings_with_intent_route()
+        if bad == 'absent':
+            del settings[block][name]['instructions']
+        else:
+            settings[block][name]['instructions'] = bad
+        with pytest.raises(ConfigurationError, match=f'{block}\\.{name}\\.instructions'):
+            _manager_from_dict(settings)
+
+
+
+    def test_generate_ineligible_override_raises(self):
+        """An override that cannot serve the call type raises before any provider is called."""
+        manager = _routing_manager()
+        manager._providers['ollama'] = MagicMock()
+        manager._disabled.discard('ollama')
+        with pytest.raises(ConfigurationError, match='cannot serve'):
+            manager.generate(
+                _request(), report_type='daily_internal', provider_override=ProviderType.OLLAMA
+            )
+        for name in ('claude', 'gemini', 'ollama'):
+            manager._providers[name].generate.assert_not_called()
+
+
+
+    def test_eligible_provider_names_follows_accepts(self):
+        """eligible_provider_names returns the accepting providers, in config order."""
+        settings = _settings_with_intent_route()
+        assert eligible_provider_names(settings, 'intent_parse') == ['ollama']
+        settings['providers']['claude']['accepts'].append('modelfile')
+        assert eligible_provider_names(settings, 'intent_parse') == ['claude', 'ollama']
+        assert _manager_from_dict(settings).get_eligible_provider_names('intent_parse') == [
+            'claude', 'ollama'
+        ]
+
+
+    # ---------------------------------------------------------------------------
+    # Finish status and the refusal (issue #148)
+    # ---------------------------------------------------------------------------
+
+
+

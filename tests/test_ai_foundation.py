@@ -108,203 +108,213 @@ class MockProvider(BaseProvider):
             return ProviderStatus.ERROR
         return ProviderStatus.AVAILABLE
 
+class TestAIFoundation:
+    """AIFoundation tests."""
 
-def test_base_provider():
-    """Test base provider abstraction."""
-    print("Testing base provider abstraction...")
+    def test_base_provider(self):
+        """Test base provider abstraction."""
+        print("Testing base provider abstraction...")
 
-    config = {
-        'provider_type': ProviderType.CLAUDE,
-        'model': 'test-model',
-        'cost_per_1k_prompt': 0.003,
-        'cost_per_1k_completion': 0.015,
-    }
+        config = {
+            'provider_type': ProviderType.CLAUDE,
+            'model': 'test-model',
+            'cost_per_1k_prompt': 0.003,
+            'cost_per_1k_completion': 0.015,
+        }
 
-    provider = MockProvider(config)
+        provider = MockProvider(config)
 
-    request = GenerationRequest(
-        prompt="Test prompt with multiple words",
-        max_tokens=100
-    )
+        request = GenerationRequest(
+            prompt="Test prompt with multiple words",
+            max_tokens=100
+        )
 
-    response = provider.generate(request)
-    assert response.provider == ProviderType.CLAUDE
-    assert response.cost > 0
-    assert provider.call_count == 1
+        response = provider.generate(request)
+        assert response.provider == ProviderType.CLAUDE
+        assert response.cost > 0
+        assert provider.call_count == 1
 
-    print("✓ Base provider abstraction working")
-
-
-def test_provider_manager():
-    """Test provider manager with fallback."""
-    print("\nTesting provider manager...")
-
-    manager = _manager_with_route("daily_internal")
-
-    claude = MockProvider({
-        'provider_type': ProviderType.CLAUDE,
-        'model': 'claude-sonnet-4',
-        'cost_per_1k_prompt': 0.003,
-        'cost_per_1k_completion': 0.015,
-    })
-    gemini = MockProvider({
-        'provider_type': ProviderType.GEMINI,
-        'model': 'gemini-2.0-flash',
-        'cost_per_1k_prompt': 0.0,
-        'cost_per_1k_completion': 0.0,
-    })
-
-    # Inject mocks directly (register_provider() removed in v1.2 provider_manager)
-    manager._providers['claude'] = claude
-    manager._providers['gemini'] = gemini
-
-    request = GenerationRequest(prompt="Test prompt", max_tokens=20)
-    response, fallback_used = manager.generate(request, report_type="daily_internal")
-
-    assert response.provider == ProviderType.CLAUDE
-    assert not fallback_used
-    assert claude.call_count == 1
-    assert gemini.call_count == 0
-
-    print("✓ Provider manager normal operation working")
-
-    print("  Testing automatic fallback...")
-    claude.should_fail = True
-
-    response, fallback_used = manager.generate(request, report_type="daily_internal")
-
-    assert response.provider == ProviderType.GEMINI
-    assert fallback_used
-    assert gemini.call_count == 1
-
-    assert fallback_used.primary == ProviderType.CLAUDE
-    assert fallback_used.fallback == ProviderType.GEMINI
-    assert "claude" in fallback_used.message.lower()
-    assert "gemini" in fallback_used.message.lower()
-
-    print("✓ Automatic fallback working")
+        print("✓ Base provider abstraction working")
 
 
-def test_fallback_modes():
-    """Test manual vs automatic fallback modes."""
-    print("\nTesting fallback modes...")
 
-    manager = _manager_with_route("test_report", fallback_mode="manual")
+    def test_provider_manager(self):
+        """Test provider manager with fallback."""
+        print("\nTesting provider manager...")
 
-    claude = MockProvider({
-        'provider_type': ProviderType.CLAUDE,
-        'model': 'test',
-        'cost_per_1k_prompt': 0.003,
-        'cost_per_1k_completion': 0.015,
-    }, should_fail=True)
+        manager = _manager_with_route("daily_internal")
 
-    gemini = MockProvider({
-        'provider_type': ProviderType.GEMINI,
-        'model': 'test',
-    })
+        claude = MockProvider({
+            'provider_type': ProviderType.CLAUDE,
+            'model': 'claude-sonnet-4',
+            'cost_per_1k_prompt': 0.003,
+            'cost_per_1k_completion': 0.015,
+        })
+        gemini = MockProvider({
+            'provider_type': ProviderType.GEMINI,
+            'model': 'gemini-2.0-flash',
+            'cost_per_1k_prompt': 0.0,
+            'cost_per_1k_completion': 0.0,
+        })
 
-    manager._providers['claude'] = claude
-    manager._providers['gemini'] = gemini
+        # Inject mocks directly (register_provider() removed in v1.2 provider_manager)
+        manager._providers['claude'] = claude
+        manager._providers['gemini'] = gemini
 
-    # Test MANUAL mode (should raise error, not fallback)
-    request = GenerationRequest(prompt="Test", max_tokens=50)
+        request = GenerationRequest(prompt="Test prompt", max_tokens=20)
+        response, fallback_used = manager.generate(request, report_type="daily_internal")
 
-    try:
-        manager.generate(request, report_type="test_report")
-        assert False, "Should have raised ProviderError"
-    except ProviderError as e:
-        assert "manual mode" in str(e).lower()
-        print("✓ Manual fallback mode working (raises error as expected)")
+        assert response.provider == ProviderType.CLAUDE
+        assert not fallback_used
+        assert claude.call_count == 1
+        assert gemini.call_count == 0
 
-    # Test AUTO mode (should fallback)
-    manager = _manager_with_route("test_report", fallback_mode="auto")
-    manager._providers['claude'] = claude
-    manager._providers['gemini'] = gemini
+        print("✓ Provider manager normal operation working")
 
-    response, fallback_used = manager.generate(request, report_type="test_report")
-    assert fallback_used
-    assert response.provider == ProviderType.GEMINI
+        print("  Testing automatic fallback...")
+        claude.should_fail = True
 
-    print("✓ Auto fallback mode working")
+        response, fallback_used = manager.generate(request, report_type="daily_internal")
 
+        assert response.provider == ProviderType.GEMINI
+        assert fallback_used
+        assert gemini.call_count == 1
 
-def test_cost_estimation():
-    """Test cost estimation."""
-    print("\nTesting cost estimation...")
+        assert fallback_used.primary == ProviderType.CLAUDE
+        assert fallback_used.fallback == ProviderType.GEMINI
+        assert "claude" in fallback_used.message.lower()
+        assert "gemini" in fallback_used.message.lower()
 
-    manager = _manager_with_route("daily_internal", fallback=False)
-
-    provider = MockProvider({
-        'provider_type': ProviderType.CLAUDE,
-        'model': 'test',
-        'cost_per_1k_prompt': 0.003,
-        'cost_per_1k_completion': 0.015,
-    })
-
-    manager._providers['claude'] = provider
-
-    cost = manager.estimate_cost(
-        report_type="daily_internal",
-        prompt_tokens=1000,
-        completion_tokens=500
-    )
-
-    expected = (1000 / 1000 * 0.003) + (500 / 1000 * 0.015)
-    assert abs(cost - expected) < 0.0001
-
-    print(f"✓ Cost estimation working (1000 prompt + 500 completion = ${cost:.4f})")
+        print("✓ Automatic fallback working")
 
 
-def test_provider_status(offline_provider_env):
-    """Test provider status checking via get_provider().check_availability()."""
-    print("\nTesting provider status...")
 
-    manager = ProviderManager()
+    def test_fallback_modes(self):
+        """Test manual vs automatic fallback modes."""
+        print("\nTesting fallback modes...")
 
-    good_provider = MockProvider({'model': 'test'})
-    bad_provider = MockProvider({'model': 'test'}, should_fail=True)
+        manager = _manager_with_route("test_report", fallback_mode="manual")
 
-    manager._providers['claude'] = good_provider
-    manager._providers['gemini'] = bad_provider
+        claude = MockProvider({
+            'provider_type': ProviderType.CLAUDE,
+            'model': 'test',
+            'cost_per_1k_prompt': 0.003,
+            'cost_per_1k_completion': 0.015,
+        }, should_fail=True)
 
-    claude_status = manager.get_provider('claude').check_availability()
-    gemini_status = manager.get_provider('gemini').check_availability()
+        gemini = MockProvider({
+            'provider_type': ProviderType.GEMINI,
+            'model': 'test',
+        })
 
-    assert claude_status == ProviderStatus.AVAILABLE
-    assert gemini_status == ProviderStatus.ERROR
+        manager._providers['claude'] = claude
+        manager._providers['gemini'] = gemini
 
-    print("✓ Provider status checking working")
+        # Test MANUAL mode (should raise error, not fallback)
+        request = GenerationRequest(prompt="Test", max_tokens=50)
+
+        try:
+            manager.generate(request, report_type="test_report")
+            assert False, "Should have raised ProviderError"
+        except ProviderError as e:
+            assert "manual mode" in str(e).lower()
+            print("✓ Manual fallback mode working (raises error as expected)")
+
+        # Test AUTO mode (should fallback)
+        manager = _manager_with_route("test_report", fallback_mode="auto")
+        manager._providers['claude'] = claude
+        manager._providers['gemini'] = gemini
+
+        response, fallback_used = manager.generate(request, report_type="test_report")
+        assert fallback_used
+        assert response.provider == ProviderType.GEMINI
+
+        print("✓ Auto fallback mode working")
 
 
-def test_config_structure():
-    """Test configuration file structure."""
-    print("\nTesting configuration structure...")
 
-    import os
-    config_path = 'config/ai_settings.json'
+    def test_cost_estimation(self):
+        """Test cost estimation."""
+        print("\nTesting cost estimation...")
 
-    if not os.path.exists(config_path):
-        config_path = '../config/ai_settings.json'
+        manager = _manager_with_route("daily_internal", fallback=False)
 
-    with open(config_path, 'r') as f:
-        config = json.load(f)
+        provider = MockProvider({
+            'provider_type': ProviderType.CLAUDE,
+            'model': 'test',
+            'cost_per_1k_prompt': 0.003,
+            'cost_per_1k_completion': 0.015,
+        })
 
-    assert 'providers' in config
-    assert 'report_types' in config
-    assert 'fallback_settings' in config
-    assert 'cost_tracking' in config
+        manager._providers['claude'] = provider
 
-    # Verify all three providers present
-    assert 'claude' in config['providers']
-    assert 'gemini' in config['providers']
-    assert 'ollama' in config['providers']
+        cost = manager.estimate_cost(
+            report_type="daily_internal",
+            prompt_tokens=1000,
+            completion_tokens=500
+        )
 
-    # Verify cost_structure in all provider sections
-    assert 'cost_structure' in config['providers']['claude']
-    assert 'cost_structure' in config['providers']['gemini']
-    assert 'cost_structure' in config['providers']['ollama']
+        expected = (1000 / 1000 * 0.003) + (500 / 1000 * 0.015)
+        assert abs(cost - expected) < 0.0001
 
-    # Ollama enabled state depends on deployment — just confirm key present
-    assert 'enabled' in config['providers']['ollama']
+        print(f"✓ Cost estimation working (1000 prompt + 500 completion = ${cost:.4f})")
 
-    print("✓ Configuration structure valid")
+
+
+    def test_provider_status(self, offline_provider_env):
+        """Test provider status checking via get_provider().check_availability()."""
+        print("\nTesting provider status...")
+
+        manager = ProviderManager()
+
+        good_provider = MockProvider({'model': 'test'})
+        bad_provider = MockProvider({'model': 'test'}, should_fail=True)
+
+        manager._providers['claude'] = good_provider
+        manager._providers['gemini'] = bad_provider
+
+        claude_status = manager.get_provider('claude').check_availability()
+        gemini_status = manager.get_provider('gemini').check_availability()
+
+        assert claude_status == ProviderStatus.AVAILABLE
+        assert gemini_status == ProviderStatus.ERROR
+
+        print("✓ Provider status checking working")
+
+
+
+    def test_config_structure(self):
+        """Test configuration file structure."""
+        print("\nTesting configuration structure...")
+
+        import os
+        config_path = 'config/ai_settings.json'
+
+        if not os.path.exists(config_path):
+            config_path = '../config/ai_settings.json'
+
+        with open(config_path, 'r') as f:
+            config = json.load(f)
+
+        assert 'providers' in config
+        assert 'report_types' in config
+        assert 'fallback_settings' in config
+        assert 'cost_tracking' in config
+
+        # Verify all three providers present
+        assert 'claude' in config['providers']
+        assert 'gemini' in config['providers']
+        assert 'ollama' in config['providers']
+
+        # Verify cost_structure in all provider sections
+        assert 'cost_structure' in config['providers']['claude']
+        assert 'cost_structure' in config['providers']['gemini']
+        assert 'cost_structure' in config['providers']['ollama']
+
+        # Ollama enabled state depends on deployment — just confirm key present
+        assert 'enabled' in config['providers']['ollama']
+
+        print("✓ Configuration structure valid")
+
+
+
