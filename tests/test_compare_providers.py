@@ -193,32 +193,38 @@ class TestCompareProviders:
             "weekly_client", "note_condensation",
         }
 
+class TestCompareProvidersOutput:
+    """Compare Providers Output tests."""
 
-def test_render_prints_the_responses_own_thinking_count():
-    """AC2.6: the response's count, or 'not reported' when it has none."""
-    runs = [
-        compare_providers.Run(
-            call_type="daily_internal", label="l", provider="gemini",
-            response=_response(ProviderType.GEMINI, thinking_tokens=196),
-        ),
-        compare_providers.Run(
-            call_type="daily_internal", label="l", provider="claude",
-            response=_response(ProviderType.CLAUDE, thinking_tokens=None),
-        ),
-    ]
-    text = compare_providers.render(runs, _DATE, "gemini", "claude")
-    lines = [ln for ln in text.splitlines() if ln.startswith("- Thinking tokens:")]
-    assert lines == ["- Thinking tokens: 196", "- Thinking tokens: not reported"]
+    def test_render_prints_the_responses_own_thinking_count(self):
+        """AC2.6: the response's count, or 'not reported' when it has none."""
+        runs = [
+            compare_providers.Run(
+                call_type="daily_internal", label="l", provider="gemini",
+                response=_response(ProviderType.GEMINI, thinking_tokens=196),
+            ),
+            compare_providers.Run(
+                call_type="daily_internal", label="l", provider="claude",
+                response=_response(ProviderType.CLAUDE, thinking_tokens=None),
+            ),
+        ]
+        text = compare_providers.render(runs, _DATE, "gemini", "claude")
+        lines = [ln for ln in text.splitlines() if ln.startswith("- Thinking tokens:")]
+        assert lines == ["- Thinking tokens: 196", "- Thinking tokens: not reported"]
 
 
-def test_script_has_no_finish_definition_of_its_own():
-    """AC6.5: the run's reason is the response's own finish_reason."""
-    source = _SCRIPT.read_text()
-    assert "SUCCESS_REASONS" not in source
-    assert "FinishReason.STOP" not in source
-    run = compare_providers.Run(
-        call_type="x", label="l", provider="claude",
-        response=_response(ProviderType.CLAUDE),
-    )
-    assert run.reason == "end_turn"
-    assert run.passed
+
+    def test_script_has_no_finish_definition_of_its_own(self):
+        """AC6.5: the run's reason is the response's own finish_reason."""
+        source = _SCRIPT.read_text()
+        assert "SUCCESS_REASONS" not in source
+        assert "FinishReason.STOP" not in source
+        run = compare_providers.Run(
+            call_type="x", label="l", provider="claude",
+            response=_response(ProviderType.CLAUDE),
+        )
+        assert run.reason == "end_turn"
+        assert run.passed
+
+
+

@@ -28,119 +28,127 @@ def _needs(*keys: str):
         bool(missing), reason=f"{', '.join(missing)} not set"
     )
 
+class TestLiveProviders:
+    """Live Providers tests."""
 
-@_needs("ANTHROPIC_API_KEY")
-def test_claude_generation():
-    """Test Claude text generation."""
-    client = ProviderManager().get_provider('claude')
+    @_needs("ANTHROPIC_API_KEY")
+    def test_claude_generation(self):
+        """Test Claude text generation."""
+        client = ProviderManager().get_provider('claude')
 
-    request = GenerationRequest(
-        prompt="Say 'Hello from Claude!' and nothing else.",
-        max_tokens=20,
-    )
-
-    response = client.generate(request)
-
-    assert response.provider == ProviderType.CLAUDE
-    assert response.content
-    assert "claude" in response.content.lower() or "hello" in response.content.lower()
-    assert response.tokens_used > 0
-    assert response.prompt_tokens > 0
-    assert response.completion_tokens > 0
-    assert response.cost > 0
-
-
-@_needs("GOOGLE_API_KEY")
-def test_gemini_generation():
-    """Test Gemini text generation."""
-    client = ProviderManager().get_provider('gemini')
-
-    # 512, sized from the measured 73-136 thinking + 2-3 answer tokens at
-    # thinking_level high (DR5) — 100 lets the model spend it all on thinking
-    # and return empty text with finish_reason MAX_TOKENS (Issue #127).
-    request = GenerationRequest(
-        prompt="Say 'Hello from Gemini!' and nothing else.",
-        max_tokens=512,
-    )
-
-    response = client.generate(request)
-
-    assert response.provider == ProviderType.GEMINI
-    assert response.content
-    assert "gemini" in response.content.lower() or "hello" in response.content.lower()
-    assert response.tokens_used > 0
-    assert response.prompt_tokens > 0
-    assert response.completion_tokens > 0
-    # Thinking is counted and priced at the completion rate (#149).
-    assert isinstance(response.thinking_tokens, int)
-    assert response.completion_tokens == response.tokens_used - response.prompt_tokens
-    expected = (
-        response.prompt_tokens * client.config["cost_per_1k_prompt_tokens"] / 1000
-        + response.completion_tokens * client.config["cost_per_1k_completion_tokens"] / 1000
-    )
-    assert response.cost == pytest.approx(expected)
-
-
-@pytest.mark.parametrize("name", [
-    pytest.param("claude", marks=_needs("ANTHROPIC_API_KEY"), id="claude"),
-    pytest.param("gemini", marks=_needs("GOOGLE_API_KEY"), id="gemini"),
-])
-def test_provider_available(name):
-    """Test that the provider reports itself available."""
-    status = ProviderManager().get_provider(name).check_availability()
-    assert status == ProviderStatus.AVAILABLE
-
-
-@_needs("ANTHROPIC_API_KEY", "GOOGLE_API_KEY")
-def test_integrated_generation():
-    """Test integrated generation with provider manager."""
-    # ProviderManager auto-instantiates providers from registry + ai_settings.json
-    with open('config/ai_settings.json', 'r') as f:
-        settings = json.load(f)
-    settings['report_types'] = {
-        name: {
-            'instructions': 'system_prompt',
-            'primary_provider': primary,
-            'fallback_provider': fallback,
-            'fallback_mode': 'auto',
-            'max_tokens': 20,
-        }
-        for name, primary, fallback in (
-            ('test_daily', 'claude', 'gemini'),
-            ('test_weekly', 'gemini', 'claude'),
+        request = GenerationRequest(
+            prompt="Say 'Hello from Claude!' and nothing else.",
+            max_tokens=20,
         )
-    }
-    settings['application_functions'] = {}
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-        json.dump(settings, f)
-        path = f.name
-    try:
-        manager = ProviderManager(config_path=path)
-    finally:
-        os.unlink(path)
 
-    # Test daily report (should use Claude, falls back to Gemini on failure —
-    # 512 so a fallback isn't truncated by thinking_level high either)
-    request = GenerationRequest(
-        prompt="Say 'Daily report test' and nothing else.",
-        max_tokens=512,
-    )
+        response = client.generate(request)
 
-    response, fallback_used = manager.generate(request, report_type="test_daily")
-    assert response.provider == ProviderType.CLAUDE
-    assert not fallback_used
+        assert response.provider == ProviderType.CLAUDE
+        assert response.content
+        assert "claude" in response.content.lower() or "hello" in response.content.lower()
+        assert response.tokens_used > 0
+        assert response.prompt_tokens > 0
+        assert response.completion_tokens > 0
+        assert response.cost > 0
 
-    # Test weekly report (should use Gemini). 512, sized from the measured
-    # 73-136 thinking + 2-3 answer tokens at thinking_level high (DR5) — 20
-    # lets the model spend it all on thinking and return empty text with
-    # finish_reason MAX_TOKENS (Issue #127).
-    request = GenerationRequest(
-        prompt="Say 'Weekly report test' and nothing else.",
-        max_tokens=512,
-    )
 
-    response, fallback_used = manager.generate(request, report_type="test_weekly")
-    assert response.provider == ProviderType.GEMINI
-    assert not fallback_used
+
+    @_needs("GOOGLE_API_KEY")
+    def test_gemini_generation(self):
+        """Test Gemini text generation."""
+        client = ProviderManager().get_provider('gemini')
+
+        # 512, sized from the measured 73-136 thinking + 2-3 answer tokens at
+        # thinking_level high (DR5) — 100 lets the model spend it all on thinking
+        # and return empty text with finish_reason MAX_TOKENS (Issue #127).
+        request = GenerationRequest(
+            prompt="Say 'Hello from Gemini!' and nothing else.",
+            max_tokens=512,
+        )
+
+        response = client.generate(request)
+
+        assert response.provider == ProviderType.GEMINI
+        assert response.content
+        assert "gemini" in response.content.lower() or "hello" in response.content.lower()
+        assert response.tokens_used > 0
+        assert response.prompt_tokens > 0
+        assert response.completion_tokens > 0
+        # Thinking is counted and priced at the completion rate (#149).
+        assert isinstance(response.thinking_tokens, int)
+        assert response.completion_tokens == response.tokens_used - response.prompt_tokens
+        expected = (
+            response.prompt_tokens * client.config["cost_per_1k_prompt_tokens"] / 1000
+            + response.completion_tokens * client.config["cost_per_1k_completion_tokens"] / 1000
+        )
+        assert response.cost == pytest.approx(expected)
+
+
+
+    @pytest.mark.parametrize("name", [
+        pytest.param("claude", marks=_needs("ANTHROPIC_API_KEY"), id="claude"),
+        pytest.param("gemini", marks=_needs("GOOGLE_API_KEY"), id="gemini"),
+    ])
+    def test_provider_available(self, name):
+        """Test that the provider reports itself available."""
+        status = ProviderManager().get_provider(name).check_availability()
+        assert status == ProviderStatus.AVAILABLE
+
+
+
+    @_needs("ANTHROPIC_API_KEY", "GOOGLE_API_KEY")
+    def test_integrated_generation(self):
+        """Test integrated generation with provider manager."""
+        # ProviderManager auto-instantiates providers from registry + ai_settings.json
+        with open('config/ai_settings.json', 'r') as f:
+            settings = json.load(f)
+        settings['report_types'] = {
+            name: {
+                'instructions': 'system_prompt',
+                'primary_provider': primary,
+                'fallback_provider': fallback,
+                'fallback_mode': 'auto',
+                'max_tokens': 20,
+            }
+            for name, primary, fallback in (
+                ('test_daily', 'claude', 'gemini'),
+                ('test_weekly', 'gemini', 'claude'),
+            )
+        }
+        settings['application_functions'] = {}
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(settings, f)
+            path = f.name
+        try:
+            manager = ProviderManager(config_path=path)
+        finally:
+            os.unlink(path)
+
+        # Test daily report (should use Claude, falls back to Gemini on failure —
+        # 512 so a fallback isn't truncated by thinking_level high either)
+        request = GenerationRequest(
+            prompt="Say 'Daily report test' and nothing else.",
+            max_tokens=512,
+        )
+
+        response, fallback_used = manager.generate(request, report_type="test_daily")
+        assert response.provider == ProviderType.CLAUDE
+        assert not fallback_used
+
+        # Test weekly report (should use Gemini). 512, sized from the measured
+        # 73-136 thinking + 2-3 answer tokens at thinking_level high (DR5) — 20
+        # lets the model spend it all on thinking and return empty text with
+        # finish_reason MAX_TOKENS (Issue #127).
+        request = GenerationRequest(
+            prompt="Say 'Weekly report test' and nothing else.",
+            max_tokens=512,
+        )
+
+        response, fallback_used = manager.generate(request, report_type="test_weekly")
+        assert response.provider == ProviderType.GEMINI
+        assert not fallback_used
+
+
+
 
 
